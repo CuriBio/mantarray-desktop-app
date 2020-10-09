@@ -1,0 +1,117 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: "AWS::Serverless-2016-10-31"
+
+# Adapted from: https://github.com/aws-samples/aws-codebuild-samples/blob/master/cloudformation/continuous-integration-pull-request-checks.yml
+
+# Note (Eli 5/3/30): you must connect your AWS account to your github account using OAuth manually before this will work (one-time). To do so, just attempt to create a CodeBuild project through the console--you don't need to finish creating it, just get to the point where you've created the OAuth connection.
+
+# to create: aws cloudformation deploy --stack-name=codebuild-CHANGE-THIS-TO-NAME-OF-PACKAGE-publish-to-pypi --parameter-overrides GithubRepoName=CHANGE-THIS-TO-NAME-OF-PACKAGE --template-file=codebuild-formation.yaml --capabilities CAPABILITY_NAMED_IAM
+
+Description: Use CodeBuild to publish Github repos to PyPi using company PyPi credentials
+
+Parameters:
+  GithubRepoName:
+    Description: A Github repository that contains the application code.
+    Type: String
+
+
+Resources:
+  CodeBuildPolicy:
+    Description: Setting IAM policy for service role for CodeBuild
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Effect: Allow
+            Resource: "*"
+          - Action:
+              - ssm:GetParameters
+            Effect: Allow
+            Resource:
+              - Fn::Join:
+                  - "/"
+                  - - "arn:aws:ssm:*:*:parameter/CodeBuild"
+                    - "general"
+                    - "*"
+          - Action:
+              - kms:Decrypt
+            Effect: Allow
+            Resource: "arn:aws:kms:*:*:alias/aws/ssm"
+
+      PolicyName:
+        Fn::Join:
+          - "-"
+          - - Ref: "AWS::StackName"
+            - CodeBuildPolicy
+      Roles:
+        - Ref: "CodeBuildRole"
+    Type: AWS::IAM::Policy
+
+  CodeBuildProject:
+    DependsOn:
+      - CodeBuildPolicy
+    Properties:
+      Artifacts:
+        Type: NO_ARTIFACTS
+      BadgeEnabled: true
+      Description:
+        Fn::Join:
+          - ""
+          - - "CodeBuild Project for "
+            - Ref: "AWS::StackName"
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:4.0-20.09.14
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+          - Name: PUBLISH_TO_PYPI
+            Type: PLAINTEXT
+            Value: "0"
+          - Name: PYTEST_RANDOMLY_SEED
+            Type: PLAINTEXT
+            Value: ""
+
+      Name:
+        Fn::Join:
+          - "-"
+          - - Ref: GithubRepoName
+            - "publish-to-pypi"
+      ServiceRole:
+        Ref: "CodeBuildRole"
+      Source:
+        Auth:
+          Type: "OAUTH"
+        GitCloneDepth: 1
+
+        ReportBuildStatus: True
+        Location:
+          Fn::Join:
+            - ""
+            - - "https://github.com/CuriBio/"
+              - Ref: GithubRepoName
+              - "/"
+        Type: GITHUB
+
+      QueuedTimeoutInMinutes: 10
+      TimeoutInMinutes: 30
+    Type: AWS::CodeBuild::Project
+
+  CodeBuildRole:
+    Description: Creating service role in IAM for AWS CodeBuild
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+      Path: /
+      RoleName:
+        Fn::Join:
+          - "-"
+          - - Ref: "AWS::StackName"
+            - CodeBuild
+    Type: AWS::IAM::Role

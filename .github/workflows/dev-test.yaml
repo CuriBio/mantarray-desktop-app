@@ -1,0 +1,115 @@
+# Based on https://github.com/prettier/prettier/blob/master/.github/workflows/dev-test.yml
+name: Dev
+
+on:
+  workflow_dispatch:
+    inputs:
+      randomlyseed:
+        description: 'Pytest Randomly Seed'
+        required: false
+        default: ''
+  schedule:
+    - cron: '0 5 * * *'
+  push:
+    branches:
+      - master
+      - development
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - "ubuntu-18.04"
+          - "windows-2019"
+        python-version:
+            - 3.7
+            - 3.8
+        include:
+          # only enable coverage on the fastest job
+          - os: "ubuntu-18.04"
+            python-version: "3.7"
+            ENABLE_CODE_COVERAGE: true
+            IS_FASTEST_JOB: true
+          - os: "ubuntu-18.04"
+            IS_LINUX: true
+          - os: "windows-2019"
+            IS_WINDOWS: true
+    env:
+      ENABLE_CODE_COVERAGE: ${{ matrix.ENABLE_CODE_COVERAGE }}
+    name: Python ${{ matrix.python-version }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Display Python version
+        run: |
+          python -c "import sys; print(sys.version)"
+          python -m venv venv
+
+      - name: Activate virtual environment (Linux/MacOS)
+        if: matrix.IS_LINUX == true
+        run: . venv/bin/activate
+      - name: Activate virtual environment (Windows)
+        if: matrix.IS_WINDOWS == true
+        run: venv\Scripts\Activate.ps1
+
+      - name: Display Pip Version and confirm environment empty
+        run: |
+          pip -V
+          pip freeze
+      - name: Install Dev Dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Install Main Package
+        run: pip install -e .
+      - name: Log full installed packages
+        run: pip freeze
+
+      - name: Run pre-commit hooks
+        if: matrix.IS_FASTEST_JOB == true
+        # only enable pre-commit on the fastest job
+        run: |
+          pre-commit install
+          pre-commit run -a
+
+      - name: Run Tests with randomly generated seed
+        if: github.event.inputs.randomlyseed == ''
+        run: pytest -xsvv --cov-report=xml --full-ci --include-slow-tests
+
+      - name: Run Tests with supplied pytest-randomly seed
+        if: github.event.inputs.randomlyseed != ''
+        run: pytest -xsvv --cov-report=xml --randomly-seed=${{ github.event.inputs.randomlyseed }} --full-ci --include-slow-tests
+
+      - name: Confirm Sphinx Docs build correctly
+        # only check Sphinx docs build on the fastest job
+        if: matrix.IS_FASTEST_JOB == true
+        run: |
+          pip install -r docs/requirements.txt
+          SPHINXOPTS="-W" make --directory=docs html # the -W flag treats warnings as errors to cause build failures
+
+      - name: Upload coverage to Codecov
+        # only upload coverage from fastest job
+        if: matrix.IS_FASTEST_JOB == true
+        uses: codecov/codecov-action@v1
+        timeout-minutes: 1   # Tanner (8/11/20): once fundmental issue with codecov timeout is fixed, remove this line and the next
+        continue-on-error: true
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          env_vars: OS,PYTHON
+          name: codecov-umbrella
+          fail_ci_if_error: true
+
+      - name: Run prerelease to check packaging compatibilty
+        if: matrix.IS_FASTEST_JOB == true
+        run: python3 prerelease.py --no-input

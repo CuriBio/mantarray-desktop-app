@@ -1,0 +1,56 @@
+version: 0.2 # this is the version for the buildspec parser, not the file version
+
+env:
+  git-credential-helper: yes
+
+  parameter-store:
+    TWINE_USERNAME: /CodeBuild/general/pypi_username
+    TWINE_PASSWORD: /CodeBuild/general/pypi_password
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.7
+    commands:
+      - python --version
+      - echo "Git Branch information:"
+      - git branch -av
+      - SHA_OF_REMOTE_MASTER=$(git branch -av | grep remotes/origin/master | grep -oP "master\s+\K\w+")
+      # In CodeBuild, sometimes a direct SHA is grabbed rather than a branch, so the 'name' of the branch is listed as: (no branch)
+      #   So can't use traditional grep to just check that the name of the current branch is 'master', have to explicitly check the SHAs
+      - SHA_OF_LOCAL_COMMIT=$(git branch -av | grep "*" | grep -oP " \s+\K\w+")
+      - git checkout master
+      - echo "Creating virtual environment for Python"
+      - python -m venv venv
+      - echo "Entering virtual environment"
+      - . venv/bin/activate
+      - echo "Upgrading pip"
+      - pip install pip==20.2.2 --upgrade
+      - echo "Installing development/testing packages"
+      - pip install -r requirements-dev.txt --upgrade
+      - pip install -r docs/requirements.txt --upgrade
+      - echo "Installing main package"
+      - pip install -e . --upgrade
+      - echo "Listing all installed packages"
+      - pip freeze
+      - pre-commit install
+
+  pre_build:
+    commands:
+      - echo "Running pre-commit hooks on all the files"
+      - pre-commit run -a
+      - prerelease --no-input
+      - echo "Building Sphinx documentation"
+      - SPHINXOPTS="-W" make --directory=docs html # the -W flag treats warnings as errors to cause build failures
+
+  build:
+    commands:
+      - echo "Build started on $(date)"
+      - echo "Running test suite"
+      - 'if [ "$PYTEST_RANDOMLY_SEED" = "" ] ; then pytest -xsvv --full-ci --include-slow-tests; else pytest -xsvv --randomly-seed=$PYTEST_RANDOMLY_SEED --full-ci --include-slow-tests; fi'
+      # Only run the following command if the PUBLISH_TO_PYPI environmental variable is set (i.e. =1) https://stackoverflow.com/questions/39619956/short-way-to-run-command-if-variable-is-set  (extra outer parentheses needed to make YAML parser happy)
+      # Grab the version from the setup.py file using a grep "look-behind" https://stackoverflow.com/questions/30776265/how-to-grep-for-value-in-a-key-value-store-from-plain-text
+      # If this is attempted on any branch other than master, it should fail because the role only has permission to push to the master branch
+      # Colon (or maybe semi-colon) is causing issue with CodeBuild YAML parser, so needed to wrap whole command in single quote
+      - 'if [ "$PUBLISH_TO_PYPI" = "1" ] ; then if [ "$SHA_OF_LOCAL_COMMIT" = "$SHA_OF_REMOTE_MASTER" ]; then echo "Current branch matches SHA of remote master ($SHA_OF_REMOTE_MASTER) so publishing is allowed"; else echo "Current branch is not master. SHA of current commit is $SHA_OF_LOCAL_COMMIT but SHA of remote master is $SHA_OF_REMOTE_MASTER" && exit 1; fi && echo "Publishing to PyPI" && python3 setup.py bdist_wheel && python3 setup.py sdist && git tag "$(grep -Po "(?<=    version=\")[0-9.]+" setup.py)" && echo "Tag applied, attempting to push" && git push --tags && twine upload dist/* ; fi'
+      - echo "Build completed on $(date)"

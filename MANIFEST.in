@@ -1,0 +1,16 @@
+recursive-include change_this_to_name_of_package **
+include LICENSE
+include *rst
+include *py
+global-exclude *.txt
+global-exclude src/pylintrc
+global-exclude .flake8
+global-exclude mypy.ini
+global-exclude docs/**
+global-exclude pytest.ini
+global-exclude tests/**
+global-exclude *.yaml
+global-exclude tests/pylintrc
+global-exclude *.pyc
+global-exclude prerelease.py
+global-exclude conftest.py
