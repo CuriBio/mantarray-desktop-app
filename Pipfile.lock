@@ -1,7 +1,7 @@
 {
   "_meta": {
     "hash": {
-      "sha256": "ab86563dd2fe8d23ec910fe4f2eac01d3e19e82ae8661d9d9931f39a886a48cc"
+      "sha256": "5e7b9acace88fecb2185ca738f3aeb999b89fc2434866607e2dfcf7f4364d94b"
     },
     "pipfile-spec": 6,
     "requires": {},
@@ -131,10 +131,6 @@
       ],
       "index": "pypi",
       "version": "==0.2"
-    },
-    "mantarray-desktop-app": {
-      "editable": true,
-      "path": "."
     },
     "mantarray-file-manager": {
       "hashes": [
@@ -539,6 +535,7 @@
     },
     "iniconfig": {
       "hashes": [
+        "sha256:011e24c64b7f47f6ebd835bb12a743f2fbe9a26d4cecaa7f53bc4f35ee9da8b3",
         "sha256:bc3af051d7d14b2ee5ef9969666def0cd1a000e121eaea580d4a313df4b37f32"
       ],
       "version": "==1.1.1"
