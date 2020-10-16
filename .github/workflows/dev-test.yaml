@@ -87,6 +87,7 @@ jobs:
           pipenv
           pipenv run pip freeze
           pipenv install --dev --deploy
+          pipenv install -e .
 
       - name: Log full installed packages
         run: pipenv run pip freeze
