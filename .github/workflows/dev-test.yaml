@@ -82,8 +82,10 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pipenv install --deploy
+          pipenv --three
           pipenv shell
+          pip freeze
+          pipenv install --deploy
 
       - name: Log full installed packages
         run: pip freeze
