@@ -1,0 +1,36 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: "AWS::Serverless-2016-10-31"
+
+# to create: aws cloudformation deploy --stack-name=ssm-parameters-general-codebuild --template-file=ssm_parameters_formation.yaml
+# Note, as of 7/7/20 SecureString generation is not yet supported, so these were created manually
+
+Description: Set up SSM parameters to be used during CodeBuild and other operations
+
+Resources:
+  VcnUsername:
+    Type: AWS::SSM::Parameter
+    Properties:
+      DataType: "text"
+      Description: "The username for our CodeNotary account"
+      Name: "/CodeBuild/general/vcn_username"
+      Tier: "Standard"
+      Type: "SecureString"
+      Value: "default"
+  VcnPassword:
+    Type: AWS::SSM::Parameter
+    Properties:
+      DataType: "text"
+      Description: "The password for our CodeNotary account"
+      Name: "/CodeBuild/general/vcn_password"
+      Tier: "Standard"
+      Type: "SecureString"
+      Value: "default"
+  VcnNotarizationPassword:
+    Type: AWS::SSM::Parameter
+    Properties:
+      DataType: "text"
+      Description: "The notarization password for our CodeNotary account"
+      Name: "/CodeBuild/general/vcn_notarization_password"
+      Tier: "Standard"
+      Type: "SecureString"
+      Value: "default"

@@ -25,6 +25,7 @@ repos:
     -   id: trailing-whitespace
     -   id: pretty-format-json
         args: [--autofix, --no-sort-keys]
+        exclude: sample_waveform_data/|.babelrc
 
         # debatable whether this is necessary in Python3 or not
         # https://stackoverflow.com/questions/14083111/should-i-use-encoding-declaration-in-python-3
@@ -34,6 +35,10 @@ repos:
     rev: 19.10b0  # pick a git hash / tag to point to
     hooks:
     -   id: black
+    -   id: black
+        name: blacken pyinstaller spec
+        files: "pyinstaller.spec"
+        types: [file]
 
 -   repo: https://github.com/myint/docformatter
     # black seems to be working on formatting docstrings, but use this for now
@@ -65,7 +70,17 @@ repos:
     rev: v3.2.0  # Use the ref you want to point at
     hooks:
     -   id: check-added-large-files
-        args: ['--maxkb=123']
+        name: forbid large files in most places
+        args: ["--maxkb=123"]
+        exclude: '(src/xem_scripts/)|(electron-build-resources)|(package-lock.json)'
+    -   id: check-added-large-files
+        name: forbid very large files inside src/xem_scripts
+        args: ['--maxkb=450']
+        files: 'src/xem_scripts'
+    -   id: check-added-large-files
+        name: forbid very large files inside electron-build-resources
+        args: ['--maxkb=130']
+        files: 'electron-build-resources'
     -   id: check-json
     -   id: check-yaml
     -   id: check-xml
@@ -78,7 +93,7 @@ repos:
     rev: v0.782  # pick a git hash / tag to point to
     hooks:
     -   id: mypy
-        exclude: prerelease.py
+        additional_dependencies: [nptyping==1.3.0]
 
 -   repo: https://github.com/Lucas-C/pre-commit-hooks-markup
     rev: v1.0.0
@@ -96,7 +111,6 @@ repos:
     rev: 3.8.3  # pick a git hash / tag to point to
     hooks:
     -   id: flake8
-        exclude: prerelease.py
 
 -   repo: https://github.com/PyCQA/pydocstyle
     # black seems to be working on formatting docstrings, but use this for now
@@ -111,10 +125,9 @@ repos:
             # ignore D413 about final blank line because docformatter gets rid of it
             # ignore D213 because mutually exclusive with D212 https://stackoverflow.com/questions/45990301/pep257-d212-and-d213-conflicts
         - --ignore=D100,D101,D102,D103,D104,D105,D106,D107,D203,D407,D408,D409,D406,D413,D213
-        exclude: prerelease.py
 
 -   repo: https://github.com/NanoSurface-Biomedical/pre-commit-pylint
-    rev: "5a76725fa664ca733db485598da5c8460cf3347f" # pick a git hash / tag to point to
+    rev: "d805cc60bb5290c2f1ca869d5f1d5e2be720f3fa" # pick a git hash / tag to point to
     hooks:
     -   id: pylint-pass-with-displayed-warnings
         name: pylint-src
@@ -123,7 +136,7 @@ repos:
         - src
         - --rcfile=src/pylintrc
         - --ignore-patterns=.*~.*
-        files: ('src/.*\.py$')|(prerelease.py)
+        files: 'src/.*\.py$'
         exclude: '.*\~.*'
         verbose: true
     -   id: pylint-pass-with-displayed-warnings
@@ -134,7 +147,7 @@ repos:
         - --rcfile=tests/pylintrc
         - --ignore-patterns=.*~.*
         files: 'tests/.*\.py$'
-        exclude: ('.*\~.*')|(prerelease.py)
+        exclude: '.*\~.*'
         verbose: true
     -   id: python-check-no-print-statments
-        exclude: prerelease.py
+    -   id: vuejs-check-no-console-log-statments

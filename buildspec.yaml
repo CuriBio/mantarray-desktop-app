@@ -4,53 +4,131 @@ env:
   git-credential-helper: yes
 
   parameter-store:
-    TWINE_USERNAME: /CodeBuild/general/pypi_username
-    TWINE_PASSWORD: /CodeBuild/general/pypi_password
+    VCN_USER: /CodeBuild/general/vcn_username
+    VCN_PASSWORD: /CodeBuild/general/vcn_password
+    VCN_NOTARIZATION_PASSWORD: /CodeBuild/general/vcn_notarization_password
 
 phases:
   install:
     runtime-versions:
+      nodejs: 12
       python: 3.7
     commands:
+      # Eli (3/25/20): currently the windows images in CodeBuild do not support active selection of runtimes...so doing this workaround
+      # attempt to switch to Node v12
       - python --version
-      - echo "Git Branch information:"
-      - git branch -av
-      - SHA_OF_REMOTE_MASTER=$(git branch -av | grep remotes/origin/master | grep -oP "master\s+\K\w+")
-      # In CodeBuild, sometimes a direct SHA is grabbed rather than a branch, so the 'name' of the branch is listed as: (no branch)
-      #   So can't use traditional grep to just check that the name of the current branch is 'master', have to explicitly check the SHAs
-      - SHA_OF_LOCAL_COMMIT=$(git branch -av | grep "*" | grep -oP " \s+\K\w+")
-      - git checkout master
+      - node --version
+      - npm --version
+      - nvm ls
+      - nvm use 12.14.0
+      - node --version
+      - nvm ls
+      - if ([int]$(Get-Variable SAVE_ARTIFACTS -valueOnly)) { echo 'Artifacts will be saved to S3 after Build' } else { echo 'Artifacts will not be saved to S3 after Build.' }
+      - echo "Getting VCN executable from S3 to digitally sign the compiled EXE"
+      - aws s3 cp s3://build-resources-x92toe/generic/windows/vcn-v0.8.3-windows-amd64.exe vcn.exe
+      - .\vcn --version
+      - .\vcn login
+      # - echo "Install UPX to assist pyinstaller..as of 3/27/20 the Amazon image does not have it by default"
+      # - choco install -y upx --version 3.95 # Eli (11/7/19): there is not a particular reason I'm aware of to use this specific version of UPX, but pinning it is just good practice.
+      # https://stackoverflow.com/questions/55885154/selenium-chromedriver-test-fails-in-windows-docker-container-with-http-request-t
+      - echo "Enabling WebSockets so that headless chrome will work" # (maybe...not confirmed if this is actually required or not 3/27/20 Eli)
+      - Add-WindowsFeature Web-WebSockets
+      - echo "Install chrome driver because apparently (3/26/20) it is not already in the image...?"
+      - choco install -y googlechrome --ignore-checksums # Eli (3/30/20): Google does not let you specify a version---it always installs the most recent. So ignore-checksums needs to be passed otherwise there can be sporadic failures if chocolaty does not update itself
+      - choco install -y chromedriver --ignore-checksums # Eli (6/15/20): Since chrome cannot specify a version, just let chromedriver always match it with most recent
+      - chromeDriver -v
+      - (Get-Item "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe").VersionInfo
+
       - echo "Creating virtual environment for Python"
       - python -m venv venv
       - echo "Entering virtual environment"
-      - . venv/bin/activate
+      - venv\Scripts\Activate.ps1 # powershell command, creates an in-memory function 'deactivate' that is available
       - echo "Upgrading pip"
-      - pip install pip==20.2.2 --upgrade
-      - echo "Installing development/testing packages"
-      - pip install -r requirements-dev.txt --upgrade
-      - pip install -r docs/requirements.txt --upgrade
-      - echo "Installing main package"
-      - pip install -e . --upgrade
-      - echo "Listing all installed packages"
+      - pip install pip==20.2.2 --upgrade --cache-dir .windows_codebuild_cache/pip
+      - echo "Installing developent/testing packages"
+      - pip install -r requirements-dev.txt --upgrade --cache-dir .windows_codebuild_cache/pip
+      - echo "Installing main dependencies"
+      - pip install -r requirements.txt --upgrade --cache-dir .windows_codebuild_cache/pip
+      - echo "Installing main package in editable mode for testing"
+      - pip install -e . --cache-dir .windows_codebuild_cache/pip
+      - echo "Installing PyInstaller"
+      - pip install pyinstaller==4.0 --cache-dir .windows_codebuild_cache/pip # Eli (11/7/19): there is not a particular reason I'm aware of to use this specific version of pyinstaller, but pinning it is just good practice.
+
+      # - echo "Installing certifi to help with SSL certificate issues (especially with prettier pre-commit hook)" # https://github.com/pre-commit/pre-commit/issues/1017
+      # - python -m certifi
+      # - pip config list -v
+      # - echo "Setting PIP certificates list to the package from certifi" # https://stackoverflow.com/questions/39356413/how-to-add-a-custom-ca-root-certificate-to-the-ca-store-used-by-pip-in-windows
+      # - pip config set global.cert C:\Python37\lib\site-packages\certifi\cacert.pem
+      # - pip config set user.cert C:\Python37\lib\site-packages\certifi\cacert.pem
+      # - pip config set site.cert C:\Python37\lib\site-packages\certifi\cacert.pem
+
+      - echo "Listing all installed Python packages"
       - pip freeze
-      - pre-commit install
+      - echo "Installing npm packages. Prepare script also installs pre-commit hooks"
+      - npm ci --cache .windows_codebuild_cache/npm
+      - echo "Downloading firmware files"
+      - python run_s3_download.py
 
   pre_build:
     commands:
       - echo "Running pre-commit hooks on all the files"
-      - pre-commit run -a
-      - prerelease --no-input
-      - echo "Building Sphinx documentation"
-      - SPHINXOPTS="-W" make --directory=docs html # the -W flag treats warnings as errors to cause build failures
+      #- $env:SKIP = 'git-dirty,python-safety-dependencies-check'; $env:PRE_COMMIT_HOME = '.windows_codebuild_cache/pre-commit'; pre-commit run -a
+      - $env:SKIP = 'git-dirty,python-safety-dependencies-check'; pre-commit run -a # Eli (5/27/20) - disabling prettier for now as have been unable to resolve SSL Certifice failures on attempting to run it in the Windows container
 
   build:
     commands:
+      - echo "Running python test suite"
+      - if ([int]$(Get-Variable PYTEST_RANDOMLY_SEED -valueOnly) -eq 0) { pytest -xsvv --full-ci --include-slow-tests } else { pytest -xsvv --full-ci --include-slow-tests --randomly-seed=$(Get-Variable PYTEST_RANDOMLY_SEED -valueOnly)}
+      - echo "Building Sphinx documentation"
+      - make --directory=docs html
+      - echo "Running Jest unit test suite"
+      - npm run test:unit -- --ci
+      # replace the timestamp inside the file before compiling. Make sure to do this replacement after the test suite, because the test suite confirms that the variable is available to replace. Note (Eli 3/2/20) - a variety of things were tried in Feb 2020 to get the artifact name and the build timestamp in the source to exactly match (setting environmental variables etc), but nothing seemed to work.
+      - ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHTIMESTAMPDURINGBUILD',"$(Get-Date -Format 'yyMMddHHmmss')--$CODEBUILD_BUILD_NUMBER") | Set-Content -Path src\mantarray_desktop_app\constants.py
       - echo "Build started on $(date)"
-      - echo "Running test suite"
-      - 'if [ "$PYTEST_RANDOMLY_SEED" = "" ] ; then pytest -xsvv --full-ci --include-slow-tests; else pytest -xsvv --randomly-seed=$PYTEST_RANDOMLY_SEED --full-ci --include-slow-tests; fi'
-      # Only run the following command if the PUBLISH_TO_PYPI environmental variable is set (i.e. =1) https://stackoverflow.com/questions/39619956/short-way-to-run-command-if-variable-is-set  (extra outer parentheses needed to make YAML parser happy)
-      # Grab the version from the setup.py file using a grep "look-behind" https://stackoverflow.com/questions/30776265/how-to-grep-for-value-in-a-key-value-store-from-plain-text
-      # If this is attempted on any branch other than master, it should fail because the role only has permission to push to the master branch
-      # Colon (or maybe semi-colon) is causing issue with CodeBuild YAML parser, so needed to wrap whole command in single quote
-      - 'if [ "$PUBLISH_TO_PYPI" = "1" ] ; then if [ "$SHA_OF_LOCAL_COMMIT" = "$SHA_OF_REMOTE_MASTER" ]; then echo "Current branch matches SHA of remote master ($SHA_OF_REMOTE_MASTER) so publishing is allowed"; else echo "Current branch is not master. SHA of current commit is $SHA_OF_LOCAL_COMMIT but SHA of remote master is $SHA_OF_REMOTE_MASTER" && exit 1; fi && echo "Publishing to PyPI" && python3 setup.py bdist_wheel && python3 setup.py sdist && git tag "$(grep -Po "(?<=    version=\")[0-9.]+" setup.py)" && echo "Tag applied, attempting to push" && git push --tags && twine upload dist/* ; fi'
+      - echo "Building python exe"
+      - pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=dist-python --workpath=build-python
+      - echo "Digitally Signing the EXE bundled by pyinstaller before it gets packaged into the built Electron app"
+      - .\vcn notarize "dist-python/mantarray-flask/mantarray-flask.exe" --silent --public
+      - .\vcn authenticate "dist-python/mantarray-flask/mantarray-flask.exe"
+
+      - echo "Deleting leftover pyinstaller files before packaging into electron"
+      - echo "Building full electron app"
+      - npm run build
       - echo "Build completed on $(date)"
+      - echo "Confirming that built Python exe opens without error and can access bundled files"
+      - if ([int]$(Get-Variable PYTEST_RANDOMLY_SEED -valueOnly) -eq 0) { pytest tests/test_exe.py -xsvv --only-exe --no-cov } else { pytest tests/test_exe.py -xsvv --only-exe --no-cov --randomly-seed=$(Get-Variable PYTEST_RANDOMLY_SEED -valueOnly)}
+      - echo "Running E2E tests on the Electron app"
+      # - npm run test:e2e-no-prebuild -- --detectOpenHandles --runInBand --forceExit # Eli (6/15/20): this is a hack---it's unclear why Jest is hanging and what is actually causing the open handles...possibly not shutting down the Flask server...?
+      - echo "Digitally Signing the installation and win_unpacked EXE files"
+      - .\vcn notarize "dist/MantarrayController-Setup-0.3.8.exe" --silent --public
+      - .\vcn notarize "dist/win-unpacked/Mantarray Controller.exe" --silent --public
+      - .\vcn authenticate "dist/MantarrayController-Setup-0.3.8.exe"
+      - .\vcn authenticate "dist/win-unpacked/Mantarray Controller.exe"
+      # The `dist` directory itself still needs to be there so that CodeBuild won't raise an error saying it doesn't exist---it just needs to be empty
+      # ...nope, apparently there needs to be SOMETHING in the directory, or it will give a ClientError. not sure how to completely skip uploading to S3, but at least these file sizes will be small
+      - if ([int]$(Get-Variable SAVE_ARTIFACTS -valueOnly)) { echo 'Saving Artifacts to S3' } else { echo 'Deleting artifacts so they will not be saved to S3.'; Remove-Item -Recurse -Force dist/*; echo 'tmp'>dist/Mantarray.exe }
+
+artifacts:
+  files:
+    - "**/*"
+  name: mantarray-desktop-app-$(Get-Date -Format 'yyMMddHHmmss')--$CODEBUILD_BUILD_NUMBER
+  base-directory: dist
+  secondary-artifacts:
+    TestArtifacts:
+      files:
+        - "**/*-actual.png"
+        - "**/*-diff.png"
+        - "**/*-base.png"
+      name: mantarray-desktop-app-$(Get-Date -Format 'yyMMddHHmmss')--$CODEBUILD_BUILD_NUMBER--test-artifacts
+      base-directory: tests
+    InstallerArtifacts:
+      files:
+        - "Mantarray*.exe"
+      name: mantarray-desktop-app-$(Get-Date -Format 'yyMMddHHmmss')--$CODEBUILD_BUILD_NUMBER--installer
+      base-directory: dist
+
+# If there are weird issues during install, you can try: aws codebuild invalidate-project-cache --project-name mantarray_desktop_app
+cache:
+  paths:
+    - ".windows_codebuild_cache/**/*"

@@ -12,7 +12,7 @@ on:
     - cron: '0 5 * * *'
   push:
     branches:
-      - master
+      - main
       - development
   pull_request:
 
@@ -56,22 +56,14 @@ jobs:
           python -c "import sys; print(sys.version)"
           python -m venv venv
 
-      - name: Activate virtual environment (Linux/MacOS)
-        if: matrix.IS_LINUX == true
-        run: . venv/bin/activate
-      - name: Activate virtual environment (Windows)
-        if: matrix.IS_WINDOWS == true
-        run: venv\Scripts\Activate.ps1
-
-      - name: Display Pip Version and confirm environment empty
+      - name: Display Pip Version, Install pipenv and confirm environment empty # no known reason for this specific version of pipenv, just pinning it for good practice
         run: |
           pip -V
+          pip install pipenv==2020.8.13
           pip freeze
-      - name: Install Dev Dependencies
-        run: pip install -r requirements-dev.txt
+      - name: Install Dependencies
+        run: pipenv install --deploy
 
-      - name: Install Main Package
-        run: pip install -e .
       - name: Log full installed packages
         run: pip freeze
 
@@ -109,7 +101,3 @@ jobs:
           env_vars: OS,PYTHON
           name: codecov-umbrella
           fail_ci_if_error: true
-
-      - name: Run prerelease to check packaging compatibilty
-        if: matrix.IS_FASTEST_JOB == true
-        run: python3 prerelease.py --no-input

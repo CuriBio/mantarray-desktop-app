@@ -20,9 +20,9 @@ from typing import List
 
 # -- Project information -----------------------------------------------------
 
-project = "CHANGE_THIS_TO_NAME_OF_PACKAGE"
-copyright = "2020, Curi Bio"  # pylint: disable=redefined-builtin
-author = "Curi Bio"
+project = "labware_domain_models"
+copyright = "2019, NanoSurface Biomedical"  # pylint: disable=redefined-builtin
+author = "NanoSurface Biomedical"
 
 # The full version, including alpha/beta/rc tags
 release = "0.1"

@@ -1,0 +1,13 @@
+[2020-03-31 23:50:10,694 UTC] mantarray_desktop_app.main-{main.py:555} INFO - Program started
+[2020-03-31 23:50:11,017 UTC] mantarray_desktop_app.main-{main.py:557} INFO - Build timestamp/version: 200331223755--247
+[2020-03-31 23:50:11,029 UTC] mantarray_desktop_app.main-{main.py:565} INFO - Spawning subprocesses
+[2020-03-31 23:50:11,041 UTC] mantarray_desktop_app.main-{main.py:582} INFO - Starting process monitor thread
+[2020-03-31 23:50:11,042 UTC] mantarray_desktop_app.main-{main.py:584} INFO - Starting server thread
+[2020-03-31 23:50:12,339 UTC] mantarray_desktop_app.process_monitor-{process_monitor.py:54} INFO - Communication from the OpalKelly Controller: {'communication_type': 'log', 'message': 'OpalKelly Communication Process initiated at 2020-03-31 23:50:12.337851'}
+[2020-03-31 23:50:12,361 UTC] mantarray_desktop_app.process_monitor-{process_monitor.py:54} INFO - Communication from the OpalKelly Controller: {'communication_type': 'board_connection_status_change', 'board_index': 0, 'is_connected': True, 'timestamp': '2020-03-31 23:50:12.358811', 'device_id': 'feb', 'serial_number': '1917000Q7O'}
+[2020-03-31 23:50:13,065 UTC] werkzeug-{_internal.py:113} INFO -  * Running on http://127.0.0.1:4567/ (Press CTRL+C to quit)
+[2020-03-31 23:50:16,775 UTC] mantarray_desktop_app.main-{main.py:108} INFO - Response to HTTP Request in next log entry: {'communication_type': 'debug_console', 'command': 'initialize_board', 'bit_file_name': 'C:\\Users\\jason\\Documents\\Vivado\\hardware_mantarray_core\\mantarray_core.runs\\impl_2\\main.bit'}
+[2020-03-31 23:50:16,775 UTC] werkzeug-{_internal.py:113} INFO - 127.0.0.1 - - [31/Mar/2020 16:50:16] " [37mGET /insert_xem_command_into_queue/initialize_board?bit_file_name=C:\Users\jason\Documents\Vivado\hardware_mantarray_core\mantarray_core.runs\impl_2\main.bit HTTP/1.1 [0m" 200 -
+[2020-03-31 23:50:17,005 UTC] mantarray_desktop_app.process_monitor-{process_monitor.py:54} INFO - Communication from the OpalKelly Controller: {'communication_type': 'debug_console', 'command': 'initialize_board', 'bit_file_name': 'C:\\Users\\jason\\Documents\\Vivado\\hardware_mantarray_core\\mantarray_core.runs\\impl_2\\main.bit', 'response': None}
+[2020-03-31 23:50:17,067 UTC] mantarray_desktop_app.main-{main.py:108} INFO - Response to HTTP Request in next log entry: None
+[2020-03-31 23:50:17,068 UTC] werkzeug-{_internal.py:113} INFO - 127.0.0.1 - - [31/Mar/2020 16:50:17] " [33mGET /insert_xem_command_into_queue/development/begin_hardware_script?script_type=test_no_end_hardware&version=0 HTTP/1.1 [0m" 404 -

@@ -2,20 +2,157 @@ AWSTemplateFormatVersion: 2010-09-09
 Transform: "AWS::Serverless-2016-10-31"
 
 # Adapted from: https://github.com/aws-samples/aws-codebuild-samples/blob/master/cloudformation/continuous-integration-pull-request-checks.yml
+# to create: aws cloudformation deploy --stack-name=codebuild-mantarray-desktop-app --parameter-overrides CodeCommitRepoName=mantarray_desktop_app ArtifactsBucketName=build-artifacts-x92toe --template-file=codebuild_formation.yaml --capabilities CAPABILITY_NAMED_IAM
 
-# Note (Eli 5/3/30): you must connect your AWS account to your github account using OAuth manually before this will work (one-time). To do so, just attempt to create a CodeBuild project through the console--you don't need to finish creating it, just get to the point where you've created the OAuth connection.
-
-# to create: aws cloudformation deploy --stack-name=codebuild-CHANGE-THIS-TO-NAME-OF-PACKAGE-publish-to-pypi --parameter-overrides GithubRepoName=CHANGE-THIS-TO-NAME-OF-PACKAGE --template-file=codebuild-formation.yaml --capabilities CAPABILITY_NAMED_IAM
-
-Description: Use CodeBuild to publish Github repos to PyPi using company PyPi credentials
+Description: Perform continuous integration pull request checks on a CodeCommit repository with CodeBuild
 
 Parameters:
-  GithubRepoName:
-    Description: A Github repository that contains the application code.
+  CodeCommitRepoName:
+    Description: A CodeCommit repository that contains the application code. Must be in same region as this stack.
     Type: String
+    # Default: aws-codebuild-samples
 
+  ArtifactsBucketName:
+    Description: An S3 bucket to place build artifacts. Must be in same region as this stack.
+    Type: String
+    # Default: aws-codebuild-samples
+
+  BuildResourcesBucketName:
+    Description: An S3 bucket that contains generally helpful large files---not in the git repo itself. Must be in same region as this stack.
+    Type: String
+    Default: build-resources-x92toe
 
 Resources:
+  NightlyDevBuildEvent:
+    Properties:
+      Description: Rule for Amazon CloudWatch Events to trigger a build on the development branch every night
+      ScheduleExpression: "cron(0 8 * * ? *)"
+      Name:
+        Fn::Join:
+          - "-"
+          - - Ref: "AWS::StackName"
+            - NightlyDevBuild
+      State: ENABLED
+      Targets:
+        - Arn:
+            Fn::GetAtt: ["CodeBuildProject", "Arn"]
+          Id: NightlyDevBuild
+          RoleArn:
+            Fn::GetAtt: ["EventRole", "Arn"]
+          Input: '{"sourceVersion": "development"}'
+    Type: AWS::Events::Rule
+
+  NightlyMasterBuildEvent:
+    Properties:
+      Description: Rule for Amazon CloudWatch Events to trigger a build on the master branch every night
+      ScheduleExpression: "cron(0 7 * * ? *)"
+      Name:
+        Fn::Join:
+          - "-"
+          - - Ref: "AWS::StackName"
+            - NightlyMasterBuild
+      State: ENABLED
+      Targets:
+        - Arn:
+            Fn::GetAtt: ["CodeBuildProject", "Arn"]
+          Id: NightlyMasterBuild
+          RoleArn:
+            Fn::GetAtt: ["EventRole", "Arn"]
+          Input: '{"sourceVersion": "master"}'
+    Type: AWS::Events::Rule
+
+  PullRequestBuildEvent:
+    Properties:
+      Description: Rule for Amazon CloudWatch Events to detect pull request changes in the source repository and trigger builds
+      EventPattern:
+        detail:
+          event:
+            - pullRequestCreated
+            - pullRequestSourceBranchUpdated
+        detail-type:
+          - CodeCommit Pull Request State Change
+        resources:
+          - Fn::Join:
+              - ":"
+              - - "arn:aws:codecommit"
+                - Ref: "AWS::Region"
+                - Ref: "AWS::AccountId"
+                - Ref: "CodeCommitRepoName"
+        source:
+          - aws.codecommit
+      Name:
+        Fn::Join:
+          - "-"
+          - - Ref: "AWS::StackName"
+            - PullRequestBuildEvent
+      State: ENABLED
+      Targets:
+        - Arn:
+            Fn::GetAtt: ["CodeBuildProject", "Arn"]
+          Id: Build
+          RoleArn:
+            Fn::GetAtt: ["EventRole", "Arn"]
+          InputTransformer:
+            InputPathsMap:
+              pullRequestId: "$.detail.pullRequestId"
+              sourceCommit: "$.detail.sourceCommit"
+              destinationCommit: "$.detail.destinationCommit"
+            InputTemplate: >-
+              {
+
+                "sourceVersion": <sourceCommit>,
+                "environmentVariablesOverride": [
+                  {
+                    "name": "CODECOMMIT_PULL_REQUEST_ID",
+                    "value": <pullRequestId>,
+                    "type": "PLAINTEXT"
+                  },
+                  {
+                    "name": "CODECOMMIT_PULL_REQUEST_SRC_COMMIT",
+                    "value": <sourceCommit>,
+                    "type": "PLAINTEXT"
+                  },
+                  {
+                    "name": "CODECOMMIT_PULL_REQUEST_DST_COMMIT",
+                    "value": <destinationCommit>,
+                    "type": "PLAINTEXT"
+                  }
+                ]
+              }
+
+    Type: AWS::Events::Rule
+
+  EventRole:
+    Description: IAM role to allow Amazon CloudWatch Events to trigger AWS CodeBuild build
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - events.amazonaws.com
+            Sid: 1
+      Policies:
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - codebuild:StartBuild
+                Effect: Allow
+                Resource:
+                  Fn::GetAtt: ["CodeBuildProject", "Arn"]
+          PolicyName:
+            Fn::Join:
+              - "-"
+              - - Ref: "AWS::StackName"
+                - CloudWatchEventPolicy
+      RoleName:
+        Fn::Join:
+          - "-"
+          - - Ref: "AWS::StackName"
+            - CloudWatchEventRule
+    Type: AWS::IAM::Role
+
   CodeBuildPolicy:
     Description: Setting IAM policy for service role for CodeBuild
     Properties:
@@ -34,13 +171,92 @@ Resources:
               - Fn::Join:
                   - "/"
                   - - "arn:aws:ssm:*:*:parameter/CodeBuild"
+                    - Ref: "CodeCommitRepoName"
+                    - "testing*"
+              - Fn::Join:
+                  - "/"
+                  - - "arn:aws:ssm:*:*:parameter/CodeBuild"
+                    - Ref: "CodeCommitRepoName"
+                    - "staging*"
+              - Fn::Join:
+                  - "/"
+                  - - "arn:aws:ssm:*:*:parameter/CodeBuild"
                     - "general"
                     - "*"
           - Action:
               - kms:Decrypt
             Effect: Allow
             Resource: "arn:aws:kms:*:*:alias/aws/ssm"
-
+          - Action:
+              - codecommit:GitPull
+            Effect: Allow
+            Resource: "*"
+          - Action:
+              - s3:PutObject
+              - s3:GetBucketAcl
+              - s3:GetBucketLocation
+            Effect: Allow
+            Resource:
+              - Fn::Join:
+                  - ":"
+                  - - "arn"
+                    - "aws"
+                    - "s3"
+                    - ""
+                    - ""
+                    - Ref: "ArtifactsBucketName"
+              - Fn::Join:
+                  - ":"
+                  - - "arn"
+                    - "aws"
+                    - "s3"
+                    - ""
+                    - ""
+                    - Fn::Join:
+                        - "/"
+                        - - Ref: "ArtifactsBucketName"
+                          - "*"
+              - Fn::Join:
+                  - ":"
+                  - - "arn"
+                    - "aws"
+                    - "s3"
+                    - ""
+                    - ""
+                    - Fn::Join:
+                        - "/"
+                        - - Ref: "BuildResourcesBucketName"
+                          - "generic"
+                          - "windows"
+                          - "codebuild_cache"
+                          - "*"
+          - Action:
+              - s3:GetObject
+              - s3:GetBucketAcl
+              - s3:GetBucketLocation
+              - s3:ListObjects
+              - s3:ListBucket
+            Effect: Allow
+            Resource:
+              - Fn::Join:
+                  - ":"
+                  - - "arn"
+                    - "aws"
+                    - "s3"
+                    - ""
+                    - ""
+                    - Ref: "BuildResourcesBucketName"
+              - Fn::Join:
+                  - ":"
+                  - - "arn"
+                    - "aws"
+                    - "s3"
+                    - ""
+                    - ""
+                    - Fn::Join:
+                        - "/"
+                        - - Ref: "BuildResourcesBucketName"
+                          - "*"
       PolicyName:
         Fn::Join:
           - "-"
@@ -55,7 +271,24 @@ Resources:
       - CodeBuildPolicy
     Properties:
       Artifacts:
-        Type: NO_ARTIFACTS
+        Location:
+          Ref: "ArtifactsBucketName"
+        Packaging: ZIP
+        OverrideArtifactName: true # This is equivalent to checking the "Enable Semantic Versioning" box in the console
+        Type: S3
+      SecondaryArtifacts:
+        - ArtifactIdentifier: "TestArtifacts"
+          Location:
+            Ref: "ArtifactsBucketName"
+          Packaging: ZIP
+          OverrideArtifactName: true # This is equivalent to checking the "Enable Semantic Versioning" box in the console
+          Type: S3
+        - ArtifactIdentifier: "InstallerArtifacts"
+          Location:
+            Ref: "ArtifactsBucketName"
+          Packaging: NONE
+          OverrideArtifactName: true # This is equivalent to checking the "Enable Semantic Versioning" box in the console
+          Type: S3
       BadgeEnabled: true
       Description:
         Fn::Join:
@@ -63,11 +296,11 @@ Resources:
           - - "CodeBuild Project for "
             - Ref: "AWS::StackName"
       Environment:
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:4.0-20.09.14
-        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_MEDIUM
+        Image: aws/codebuild/windows-base:2.0-20.05.05
+        Type: WINDOWS_CONTAINER
         EnvironmentVariables:
-          - Name: PUBLISH_TO_PYPI
+          - Name: SAVE_ARTIFACTS
             Type: PLAINTEXT
             Value: "0"
           - Name: PYTEST_RANDOMLY_SEED
@@ -75,28 +308,32 @@ Resources:
             Value: ""
 
       Name:
-        Fn::Join:
-          - "-"
-          - - Ref: GithubRepoName
-            - "publish-to-pypi"
+        Ref: "CodeCommitRepoName"
       ServiceRole:
         Ref: "CodeBuildRole"
       Source:
-        Auth:
-          Type: "OAUTH"
-        GitCloneDepth: 1
-
-        ReportBuildStatus: True
+        Type: CODECOMMIT
         Location:
           Fn::Join:
             - ""
-            - - "https://github.com/CuriBio/"
-              - Ref: GithubRepoName
-              - "/"
-        Type: GITHUB
-
+            - - "https://git-codecommit."
+              - Ref: "AWS::Region"
+              - ".amazonaws.com/v1/repos/"
+              - Ref: "CodeCommitRepoName"
+        GitCloneDepth: 1 # only get the most recent commit
+        GitSubmodulesConfig:
+          FetchSubmodules: false
       QueuedTimeoutInMinutes: 10
-      TimeoutInMinutes: 30
+      TimeoutInMinutes: 45
+      Cache:
+        Location:
+          Fn::Join:
+            - "/"
+            - - Ref: "BuildResourcesBucketName"
+              - "generic"
+              - "windows"
+              - "codebuild_cache"
+        Type: "S3"
     Type: AWS::CodeBuild::Project
 
   CodeBuildRole:
