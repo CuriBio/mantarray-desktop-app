@@ -62,7 +62,9 @@ jobs:
           pip install pipenv==2020.8.13
           pip freeze
       - name: Install Dependencies
-        run: pipenv install --deploy
+        run: |
+          pipenv install --deploy
+          pipenv shell
 
       - name: Log full installed packages
         run: pip freeze
