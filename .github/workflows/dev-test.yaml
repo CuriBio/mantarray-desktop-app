@@ -81,6 +81,8 @@ jobs:
         run: pip install pipenv==2020.8.13
 
       - name: Install Dependencies
+        env:
+          CI: "" # Eli (10/16/20): fixing weird error: termios.error: (25, 'Inappropriate ioctl for device') https://stackoverflow.com/questions/54986407/pipenv-gets-blocked-while-running-with-docker-in-gitlab
         run: |
           pipenv --three
           pipenv shell
