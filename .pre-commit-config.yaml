@@ -25,8 +25,7 @@ repos:
     -   id: trailing-whitespace
     -   id: pretty-format-json
         args: [--autofix, --no-sort-keys]
-        exclude: sample_waveform_data/|.babelrc
-
+        exclude: sample_waveform_data/|.babelrc|Pipfile.lock
         # debatable whether this is necessary in Python3 or not
         # https://stackoverflow.com/questions/14083111/should-i-use-encoding-declaration-in-python-3
     -   id: fix-encoding-pragma
