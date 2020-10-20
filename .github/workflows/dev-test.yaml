@@ -81,6 +81,8 @@ jobs:
         run: pip install pipenv==2020.8.13
 
       - name: Install Dependencies
+        env:
+          PIPENV_VENV_IN_PROJECT: 1
         run: |
           pipenv
           pipenv run pip freeze
