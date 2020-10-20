@@ -1,7 +1,7 @@
 {
   "_meta": {
     "hash": {
-      "sha256": "286986575fdff7b2882459f3e9f57b67a6e38e718110b032023e486f63bf280c"
+      "sha256": "e305a4a145c3a5634b4b8b790ed4610b6aa66960e5c8996ed6685ea2767049b3"
     },
     "pipfile-spec": 6,
     "requires": {},
@@ -294,9 +294,12 @@
       "version": "==1.0.1"
     },
     "xem-wrapper": {
-      "editable": true,
-      "git": "https://github.com/CuriBio/xem-wrapper.git",
-      "ref": "747977bd0cde602150de1c07b6af85b591930da3"
+      "hashes": [
+        "sha256:a21c8d8473a3987c9a23de759568e2a99e7d0a60aebb9f165b9de4d0f1d73f0b",
+        "sha256:ea83c376cd2e0c9104237fdf88dec9ab2584976deb99616753a9df86b7015d0b"
+      ],
+      "index": "pypi",
+      "version": "==0.2.0"
     },
     "zipp": {
       "hashes": [
@@ -329,6 +332,14 @@
       ],
       "markers": "python_version >= '3.5'",
       "version": "==2.4.2"
+    },
+    "atomicwrites": {
+      "hashes": [
+        "sha256:6d1784dea7c0c8d4a5172b6c620f40b6e4cbfdf96d783691f2e1302a7b88e197",
+        "sha256:ae70396ad1a434f9c7046fd2dd196fc04b12f9e91ffb859164193be8b6168a7a"
+      ],
+      "index": "pypi",
+      "version": "==1.4.0"
     },
     "attrs": {
       "hashes": [

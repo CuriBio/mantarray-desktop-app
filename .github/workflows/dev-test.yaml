@@ -99,6 +99,12 @@ jobs:
           pipenv run pre-commit install
           pipenv run pre-commit run -a
 
+      - name: Move OpalKelly .so file to needed location (Linux)
+        if: matrix.IS_LINUX == true
+        run: |
+          sudo cp .venv/lib/python{{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/local/lib
+          sudo cp .venv/lib/python{{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/lib
+
       - name: Run Tests with randomly generated seed
         if: github.event.inputs.randomlyseed == ''
         run: pipenv run pytest -xsvv --cov-report=xml --full-ci --include-slow-tests

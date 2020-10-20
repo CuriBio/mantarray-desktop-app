@@ -17,6 +17,7 @@ pytest-timeout = "==1.4.2"
 pytest-profiling = "==1.7.0"
 freezegun = "==1.0.0"
 cython = "==0.29.21"
+atomicwrites = "==1.4.0"
 
 [packages]
 flask = "==1.1.2"
@@ -30,4 +31,4 @@ labware-domain-models = "==0.2"
 mantarray-waveform-analysis = "==0.5.1"
 immutable-data-validation = "==0.2.1"
 mantarray-file-manager = "==0.2.1"
-xem-wrapper = {editable = true, git = "https://github.com/CuriBio/xem-wrapper.git", ref = "import-error-for-pipenv"}
+xem-wrapper = "==0.2.0"
