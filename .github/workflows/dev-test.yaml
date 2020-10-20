@@ -112,20 +112,21 @@ jobs:
           PIPENV_VENV_IN_PROJECT: 1
           PIPENV_CACHE_DIR: ./pipenv_cache
         run: |
-          pipenv
-          pipenv run pip freeze
+          pipenv --three
+          pipenv shell
+          pip freeze
           pipenv install --dev --deploy
           pipenv install -e .
 
       - name: Log full installed packages
-        run: pipenv run pip freeze
+        run: pip freeze
 
       - name: Run pre-commit hooks
         if: matrix.IS_FASTEST_JOB == true
-        # only enable pre-commit on the fastest job
+        # only enable pre-commit on the fastest job. When pipenv runs an install, even using --deploy, it makes tweaks...somehow...to the Pipfile
         run: |
-          pipenv run pre-commit install
-          pipenv run pre-commit run -a
+          pre-commit install
+          SKIP=git-dirty pre-commit run -a
 
       - name: Move OpalKelly .so file to needed location (Linux)
         if: matrix.IS_LINUX == true # Eli (10/20/20): not sure if copying to both locations is needed...but it's working and haven't checked which is required...should theoretically only be one needed
@@ -139,11 +140,11 @@ jobs:
 
       - name: Run Tests with randomly generated seed
         if: github.event.inputs.randomlyseed == ''
-        run: pipenv run pytest -xsvv --cov-report=xml --include-slow-tests # --full-ci
+        run: pytest -xsvv --cov-report=xml --include-slow-tests # --full-ci
 
       - name: Run Tests with supplied pytest-randomly seed
         if: github.event.inputs.randomlyseed != ''
-        run: pipenv run pytest -xsvv --cov-report=xml --randomly-seed=${{ github.event.inputs.randomlyseed }} --include-slow-tests # --full-ci
+        run: pytest -xsvv --cov-report=xml --randomly-seed=${{ github.event.inputs.randomlyseed }} --include-slow-tests # --full-ci
 
       - name: Confirm Sphinx Docs build correctly
         # only check Sphinx docs build on the fastest job
