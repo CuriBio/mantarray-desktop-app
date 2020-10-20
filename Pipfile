@@ -19,6 +19,7 @@ freezegun = "==1.0.0"
 cython = "==0.29.21"
 atomicwrites = "==1.4.0"
 pyinstaller = "==4.0.0"
+mantarray_desktop_app = {editable = true, path = "."}
 
 [packages]
 flask = "==1.1.2"
