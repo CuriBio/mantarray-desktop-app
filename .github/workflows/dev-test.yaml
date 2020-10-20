@@ -43,6 +43,7 @@ jobs:
             IS_WINDOWS: true
     env:
       ENABLE_CODE_COVERAGE: ${{ matrix.ENABLE_CODE_COVERAGE }}
+      JOB_PYTHON_VERSION: ${{ matrix.python-version }}
     name: Python ${{ matrix.python-version }} with Node ${{ matrix.node-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     steps:
@@ -102,8 +103,8 @@ jobs:
       - name: Move OpalKelly .so file to needed location (Linux)
         if: matrix.IS_LINUX == true
         run: |
-          sudo cp .venv/lib/python{{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/local/lib
-          sudo cp .venv/lib/python{{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/lib
+          sudo cp .venv/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/local/lib
+          sudo cp .venv/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/lib
 
       - name: Run Tests with randomly generated seed
         if: github.event.inputs.randomlyseed == ''
