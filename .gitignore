@@ -1,6 +1,10 @@
 # dependencies
 node_modules
+
+# CI caches
 .npm_cache/
+.precommit_cache/
+.pipenv_cache/
 
 # logs
 npm-debug.log
@@ -36,7 +40,6 @@ prof/
 # Python
 *.py[cod]
 __pycache__/
-.pipenv_cache/
 
 # Cython
 *.cpp

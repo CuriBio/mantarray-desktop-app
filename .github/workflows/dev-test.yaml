@@ -70,8 +70,6 @@ jobs:
           key: ${{ matrix.os }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ matrix.os }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-
-            ${{ matrix.os }}-${{ matrix.node-version }}-build-
-            ${{ matrix.os }}-${{ matrix.node-version }}-
 
       - name: Cache Python modules
         uses: actions/cache@v2
@@ -82,8 +80,16 @@ jobs:
           key: ${{ matrix.os }}-${{ matrix.python-version }}-build-${{ env.cache-name }}-${{ hashFiles('**/Pipfile.lock') }}
           restore-keys: |
             ${{ matrix.os }}-${{ matrix.python-version }}-build-${{ env.cache-name }}-
-            ${{ matrix.os }}-${{ matrix.python-version }}-build-
-            ${{ matrix.os }}-${{ matrix.python-version }}-
+
+      - name: Cache Pre-commit hooks
+        uses: actions/cache@v2
+        env:
+          cache-name: cache-pre-commit-hooks
+        with:
+          path: ./.precommit_cache
+          key: ${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-${{ hashFiles('**/.pre-commit-config.yaml') }}
+          restore-keys: |
+            ${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-
 
       - name: Display Chrome version (Windows)
         if: runner.os == 'Windows'
@@ -130,6 +136,9 @@ jobs:
 
       - name: Run pre-commit hooks
         if: matrix.IS_FASTEST_JOB == true
+        env:
+          PRE_COMMIT_HOME: ./.precommit_cache
+
         # only enable pre-commit on the fastest job. When pipenv runs an install, even using --deploy, it makes tweaks...somehow...to the Pipfile
         run: |
           pipenv run pre-commit install
@@ -176,6 +185,12 @@ jobs:
       - name: Insert the Build Number into the code (Windows)
         if: runner.os == 'Windows'
         run: ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHTIMESTAMPDURINGBUILD',"$(Get-Date -Format 'yyMMddHHmmss')--1") | Set-Content -Path src\mantarray_desktop_app\constants.py
+
+      - name: Install Pyinstaller (Windows) # Eli (10/21/20): when installed with pipenv during development on Linux, not all the right dependencies are included. Maybe there's a better way to get it into the pipfile, but unsure right now
+        if: runner.os == 'Windows'
+        run: |
+          pipenv run pip install pyinstaller==4.0.0
+          pip freeze
 
       - name: Compile the Python Executable (Windows)
         if: runner.os == 'Windows'
