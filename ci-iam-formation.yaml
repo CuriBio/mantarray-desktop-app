@@ -10,9 +10,9 @@ Parameters:
     Type: String
     Description: The stage for deployment
     AllowedValues:
-    - test
-    - modl
-    - prod
+      - test
+      - modl
+      - prod
     ConstraintDescription: Must be a valid stage name (test, modl, or prod).
     Default: test
 
@@ -71,4 +71,3 @@ Outputs:
     Value:
       Fn::GetAtt: TheUserAccessKey.SecretAccessKey
     Description: The secret key for access
-

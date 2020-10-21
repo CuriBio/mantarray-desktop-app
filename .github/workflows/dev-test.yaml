@@ -5,11 +5,11 @@ on:
   workflow_dispatch:
     inputs:
       randomlyseed:
-        description: 'Pytest Randomly Seed'
+        description: "Pytest Randomly Seed"
         required: false
-        default: ''
+        default: ""
   schedule:
-    - cron: '0 5 * * *'
+    - cron: "0 5 * * *"
   push:
     branches:
       - main
@@ -101,14 +101,12 @@ jobs:
       #   run: |
       #     python -c "import sys; print(sys.version)"
       #     python -m venv venv
-
       # - name: Activate virtual environment (Linux/MacOS)
       #   if: runner.os == 'Linux'
       #   run: . venv/bin/activate
       # - name: Activate virtual environment (Windows)
       #   if: runner.os == 'Windows'
       #   run: venv\Scripts\Activate.ps1
-
       - name: Install Python Dependencies
         env:
           PIPENV_VENV_IN_PROJECT: 1
@@ -156,27 +154,24 @@ jobs:
         run: pipenv run python run_s3_download.py
         # run: python run_s3_download.py
 
-
       # - name: Run Python Tests with randomly generated seed
       #   if: github.event.inputs.randomlyseed == ''
       #   run: pipenv run pytest -xsvv --cov-report=xml --include-slow-tests # --full-ci
       #   # run: pytest -xsvv --cov-report=xml --include-slow-tests # --full-ci
 
-      - name: Run Python Tests with supplied pytest-randomly seed
-        if: github.event.inputs.randomlyseed != ''
-        run: pipenv run pytest -xsvv --cov-report=xml --randomly-seed=${{ github.event.inputs.randomlyseed }} --include-slow-tests # --full-ci
-        # run: pytest -xsvv --cov-report=xml --randomly-seed=${{ github.event.inputs.randomlyseed }} --include-slow-tests # --full-ci
+      # - name: Run Python Tests with supplied pytest-randomly seed
+      #   if: github.event.inputs.randomlyseed != ''
+      #   run: pipenv run pytest -xsvv --cov-report=xml --randomly-seed=${{ github.event.inputs.randomlyseed }} --include-slow-tests # --full-ci
+      #   # run: pytest -xsvv --cov-report=xml --randomly-seed=${{ github.event.inputs.randomlyseed }} --include-slow-tests # --full-ci
 
       # - name: Confirm Sphinx Docs build correctly
       #   # only check Sphinx docs build on the fastest job
       #   if: matrix.IS_FASTEST_JOB == true
       #   run: pipenv run SPHINXOPTS="-W" make --directory=docs html # the -W flag treats warnings as errors to cause build failures
 
-      - name: Run Jest Tests
-        # run: pipenv run npm run test:unit -- --ci
-        run: npm run test:unit -- --ci
-
-
+      # - name: Run Jest Tests
+      #   # run: pipenv run npm run test:unit -- --ci
+      #   run: npm run test:unit -- --ci
 
       - name: Insert the Build Number into the code (Windows)
         if: runner.os == 'Windows'
@@ -187,14 +182,11 @@ jobs:
         run: pipenv run pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=dist-python --workpath=build-python
         # run: pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=dist-python --workpath=build-python
 
-
-
-
       - name: Upload coverage to Codecov
         # only upload coverage from fastest job
         if: matrix.IS_FASTEST_JOB == true
         uses: codecov/codecov-action@v1
-        timeout-minutes: 1   # Tanner (8/11/20): once fundmental issue with codecov timeout is fixed, remove this line and the next
+        timeout-minutes: 1 # Tanner (8/11/20): once fundmental issue with codecov timeout is fixed, remove this line and the next
         continue-on-error: true
         with:
           file: ./coverage.xml
@@ -202,4 +194,3 @@ jobs:
           env_vars: OS,PYTHON
           name: codecov-umbrella
           fail_ci_if_error: true
-
