@@ -206,6 +206,10 @@ jobs:
         if: runner.os == 'Windows' && github.event.inputs.randomlyseed != ''
         run: pipenv run pytest tests/test_exe.py -xsvv --only-exe --no-cov --randomly-seed=${{ github.event.inputs.randomlyseed }}
 
+      - name: Build Full Electron App
+        run: pipenv run npm run build
+        # run: npm run test:unit -- --ci
+
       - name: Upload coverage to Codecov
         # only upload coverage from fastest job
         if: matrix.IS_FASTEST_JOB == true
