@@ -68,7 +68,7 @@ jobs:
           cache-name: cache-node-modules
         with:
           # npm cache files are stored in `~/.npm` on Linux/macOS
-          path: ~/.npm
+          path: ./.npm_cache
           key: ${{ matrix.os }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ matrix.os }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-
@@ -80,7 +80,7 @@ jobs:
         env:
           cache-name: cache-python-modules
         with:
-          path: ./pipenv_cache
+          path: ./.pipenv_cache
           key: ${{ matrix.os }}-${{ matrix.python-version }}-build-${{ env.cache-name }}-${{ hashFiles('**/Pipfile.lock') }}
           restore-keys: |
             ${{ matrix.os }}-${{ matrix.python-version }}-build-${{ env.cache-name }}-
@@ -114,7 +114,7 @@ jobs:
       - name: Install Dependencies
         env:
           PIPENV_VENV_IN_PROJECT: 1
-          PIPENV_CACHE_DIR: ./pipenv_cache
+          PIPENV_CACHE_DIR: ./.pipenv_cache
         run: |
           pipenv --three
           pipenv run pip freeze
@@ -170,6 +170,18 @@ jobs:
       #   if: matrix.IS_FASTEST_JOB == true
       #   run: pipenv run SPHINXOPTS="-W" make --directory=docs html # the -W flag treats warnings as errors to cause build failures
 
+
+      - name: Insert the Build Number into the code (Windows)
+        if: runner.os == 'Windows'
+        run: ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHTIMESTAMPDURINGBUILD',"$(Get-Date -Format 'yyMMddHHmmss')--1") | Set-Content -Path src\mantarray_desktop_app\constants.py
+
+      - name: Compile the Python Executable (Windows)
+        if: runner.os == 'Windows'
+        run: pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=dist-python --workpath=build-python
+
+
+
+
       - name: Upload coverage to Codecov
         # only upload coverage from fastest job
         if: matrix.IS_FASTEST_JOB == true
@@ -182,3 +194,4 @@ jobs:
           env_vars: OS,PYTHON
           name: codecov-umbrella
           fail_ci_if_error: true
+
