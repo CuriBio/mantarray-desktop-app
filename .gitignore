@@ -35,6 +35,7 @@ prof/
 # Python
 *.py[cod]
 __pycache__/
+pipenv_cache/
 
 # Cython
 *.cpp
