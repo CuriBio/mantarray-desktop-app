@@ -173,8 +173,8 @@ jobs:
       #   run: pipenv run SPHINXOPTS="-W" make --directory=docs html # the -W flag treats warnings as errors to cause build failures
 
       - name: Run Jest Tests
-        run: pipenv run npm run test:unit -- --ci
-        # run: npm run test:unit -- --ci
+        # run: pipenv run npm run test:unit -- --ci
+        run: npm run test:unit -- --ci
 
 
 
