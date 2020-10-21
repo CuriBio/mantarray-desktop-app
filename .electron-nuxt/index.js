@@ -32,12 +32,12 @@ const launcher = new ElectronLauncher({
 
 let builder_config_path;
 
-builder_config_path = path.join(__dirname, "..", "builder.config.js");
 builder_config_path = path.join(__dirname, "..", "electron-builder.yaml");
 
 const builder = new ElectronBuilder({
   cliOptions: {
     config: builder_config_path,
+    publish: "never", // Eli (10/21/20): temporarily disable all publishing during transition to GitHub
   },
 });
 
