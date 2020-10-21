@@ -85,6 +85,7 @@ jobs:
         uses: actions/cache@v2
         env:
           cache-name: cache-pre-commit-hooks
+        if: matrix.IS_FASTEST_JOB == true
         with:
           path: ./.precommit_cache
           key: ${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-${{ hashFiles('**/.pre-commit-config.yaml') }}
@@ -190,12 +191,22 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           pipenv run pip install pyinstaller==4.0.0
-          pip freeze
+          pipenv run pip freeze
 
       - name: Compile the Python Executable (Windows)
         if: runner.os == 'Windows'
         run: pipenv run pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=dist-python --workpath=build-python
         # run: pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=dist-python --workpath=build-python
+
+      - name: Run Python Tests on Executable with randomly generated seed (Windows)
+        if: runner.os == 'Windows' && github.event.inputs.randomlyseed == ''
+        run: pipenv run pytest tests/test_exe.py -xsvv --only-exe --no-cov
+        # run: pytest -xsvv --cov-report=xml --include-slow-tests # --full-ci
+
+      - name: Run Python Tests on Executable with supplied pytest-randomly seed (Windows)
+        if: runner.os == 'Windows' && github.event.inputs.randomlyseed != ''
+        run: pipenv run pytest tests/test_exe.py -xsvv --only-exe --no-cov --randomly-seed=${{ github.event.inputs.randomlyseed }}
+        # run: pytest -xsvv --cov-report=xml --randomly-seed=${{ github.event.inputs.randomlyseed }} --include-slow-tests # --full-ci
 
       - name: Upload coverage to Codecov
         # only upload coverage from fastest job
