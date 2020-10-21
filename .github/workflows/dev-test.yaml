@@ -152,7 +152,7 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_USER_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_USER_SECRET_KEY }}
-        run: python run_s3_download.py
+        run: pipenv run python run_s3_download.py
 
 
       # - name: Run Tests with randomly generated seed
