@@ -37,10 +37,7 @@ jobs:
             node-version: "12"
             ENABLE_CODE_COVERAGE: true
             IS_FASTEST_JOB: true
-          - os: "ubuntu-18.04"
-            IS_LINUX: true
-          - os: "windows-2019"
-            IS_WINDOWS: true
+
     env:
       ENABLE_CODE_COVERAGE: ${{ matrix.ENABLE_CODE_COVERAGE }}
       JOB_PYTHON_VERSION: ${{ matrix.python-version }}
@@ -70,7 +67,7 @@ jobs:
 
       - name: Cache node modules (Linux/Mac) # https://docs.github.com/en/free-pro-team@latest/actions/guides/caching-dependencies-to-speed-up-workflows
         uses: actions/cache@v2
-        if: matrix.IS_LINUX == true
+        if: runner.os == 'Linux'
         env:
           cache-name: cache-node-modules
         with:
@@ -95,11 +92,11 @@ jobs:
             ${{ matrix.os }}-${{ matrix.python-version }}-
 
       - name: Display Chrome version (Windows)
-        if: matrix.IS_WINDOWS == true
+        if: runner.os == 'Windows'
         run: (Get-Item (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe').'(Default)').VersionInfo
 
       - name: Display Chrome version (Linux)
-        if: matrix.IS_LINUX == true
+        if: runner.os == 'Linux'
         run: |
           google-chrome --version
           chromedriver --version
@@ -111,49 +108,49 @@ jobs:
           python -c "import sys; print(sys.version)"
           python -m venv venv
 
-      - name: Activate virtual environment (Linux/MacOS)
-        if: matrix.IS_LINUX == true
-        run: . venv/bin/activate
-      - name: Activate virtual environment (Windows)
-        if: matrix.IS_WINDOWS == true
-        run: venv\Scripts\Activate.ps1
+      # - name: Activate virtual environment (Linux/MacOS)
+      #   if: runner.os == 'Linux'
+      #   run: . venv/bin/activate
+      # - name: Activate virtual environment (Windows)
+      #   if: runner.os == 'Windows'
+      #   run: venv\Scripts\Activate.ps1
 
       - name: Install Dependencies
         env:
           PIPENV_VENV_IN_PROJECT: 1
           PIPENV_CACHE_DIR: ./pipenv_cache
-        # run: |
-        #   pipenv --three
-        #   pipenv run pip freeze
-        #   pipenv install --dev --deploy
-        #   pipenv run pip install -e .
         run: |
-          pip install -r requirements-dev.txt
-          pip install -r requirements.txt
-          pip install -e .
+          pipenv --three
+          pipenv run pip freeze
+          pipenv install --dev --deploy
+          pipenv run pip install -e .
+        # run: |
+        #   pip install -r requirements-dev.txt
+        #   pip install -r requirements.txt
+        #   pip install -e .
 
       - name: Log full installed packages
-        # run: pipenv run pip freeze
-        run: pip freeze
+        run: pipenv run pip freeze
+        # run: pip freeze
 
       - name: Run pre-commit hooks
         if: matrix.IS_FASTEST_JOB == true
         # only enable pre-commit on the fastest job. When pipenv runs an install, even using --deploy, it makes tweaks...somehow...to the Pipfile
-        # run: |
-        #   pipenv run pre-commit install
-        #   pipenv run pre-commit run -a
         run: |
-          pre-commit install
-          pre-commit run -a
+          pipenv run pre-commit install
+          pipenv run pre-commit run -a
+        # run: |
+        #   pre-commit install
+        #   pre-commit run -a
 
       - name: Move OpalKelly .so file to needed location (Linux)
-        if: matrix.IS_LINUX == true # Eli (10/20/20): not sure if copying to both locations is needed...but it's working and haven't checked which is required...should theoretically only be one needed
-        # run: |
-        #   sudo cp .venv/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/local/lib
-        #   sudo cp .venv/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/lib
+        if: runner.os == 'Linux' # Eli (10/20/20): not sure if copying to both locations is needed...but it's working and haven't checked which is required...should theoretically only be one needed
         run: |
-          sudo cp venv/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/local/lib
-          sudo cp venv/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/lib
+          sudo cp .venv/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/local/lib
+          sudo cp .venv/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/lib
+        # run: |
+        #   sudo cp venv/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/local/lib
+        #   sudo cp venv/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/lib
 
       # - name: Download the firmware files from AWS S3
       #   run: python run_s3_download.py
@@ -161,13 +158,13 @@ jobs:
 
       - name: Run Tests with randomly generated seed
         if: github.event.inputs.randomlyseed == ''
-        # run: pipenv run pytest -xsvv --cov-report=xml --include-slow-tests # --full-ci
-        run: pytest -xsvv --cov-report=xml --include-slow-tests # --full-ci
+        run: pipenv run pytest -xsvv --cov-report=xml --include-slow-tests # --full-ci
+        # run: pytest -xsvv --cov-report=xml --include-slow-tests # --full-ci
 
       - name: Run Tests with supplied pytest-randomly seed
         if: github.event.inputs.randomlyseed != ''
-        # run: pipenv run pytest -xsvv --cov-report=xml --randomly-seed=${{ github.event.inputs.randomlyseed }} --include-slow-tests # --full-ci
-        run: pytest -xsvv --cov-report=xml --randomly-seed=${{ github.event.inputs.randomlyseed }} --include-slow-tests # --full-ci
+        run: pipenv run pytest -xsvv --cov-report=xml --randomly-seed=${{ github.event.inputs.randomlyseed }} --include-slow-tests # --full-ci
+        # run: pytest -xsvv --cov-report=xml --randomly-seed=${{ github.event.inputs.randomlyseed }} --include-slow-tests # --full-ci
 
       # - name: Confirm Sphinx Docs build correctly
       #   # only check Sphinx docs build on the fastest job
