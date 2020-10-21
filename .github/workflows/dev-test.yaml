@@ -179,13 +179,15 @@ jobs:
       #   if: matrix.IS_FASTEST_JOB == true
       #   run: pipenv run SPHINXOPTS="-W" make --directory=docs html # the -W flag treats warnings as errors to cause build failures
 
-      # - name: Run Jest Tests
-      #   # run: pipenv run npm run test:unit -- --ci
-      #   run: npm run test:unit -- --ci
+      - name: Run Jest Tests
+        # run: pipenv run npm run test:unit -- --ci
+        run: npm run test:unit -- --ci
 
       - name: Insert the Build Number into the code (Windows)
         if: runner.os == 'Windows'
-        run: ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHTIMESTAMPDURINGBUILD',"$(Get-Date -Format 'yyMMddHHmmss')--$GITHUB_RUN_NUMBER") | Set-Content -Path src\mantarray_desktop_app\constants.py
+        run: |
+          echo $GITHUB_RUN_NUMBER
+          ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHTIMESTAMPDURINGBUILD',"$(Get-Date -Format 'yyMMddHHmmss')--$GITHUB_RUN_NUMBER") | Set-Content -Path src\mantarray_desktop_app\constants.py
 
       - name: Install Pyinstaller (Windows) # Eli (10/21/20): when installed with pipenv during development on Linux, not all the right dependencies are included. Maybe there's a better way to get it into the pipfile, but unsure right now
         if: runner.os == 'Windows'
