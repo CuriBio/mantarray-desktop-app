@@ -106,6 +106,17 @@ jobs:
 
       - name: Install pipenv # no known reason for this specific version of pipenv, just pinning it for good practice
         run: pip install pipenv==2020.8.13
+      - name: Display Python version
+        run: |
+          python -c "import sys; print(sys.version)"
+          python -m venv venv
+
+      - name: Activate virtual environment (Linux/MacOS)
+        if: matrix.IS_LINUX == true
+        run: . venv/bin/activate
+      - name: Activate virtual environment (Windows)
+        if: matrix.IS_WINDOWS == true
+        run: venv\Scripts\Activate.ps1
 
       - name: Install Dependencies
         env:
@@ -137,9 +148,12 @@ jobs:
 
       - name: Move OpalKelly .so file to needed location (Linux)
         if: matrix.IS_LINUX == true # Eli (10/20/20): not sure if copying to both locations is needed...but it's working and haven't checked which is required...should theoretically only be one needed
+        # run: |
+        #   sudo cp .venv/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/local/lib
+        #   sudo cp .venv/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/lib
         run: |
-          sudo cp .venv/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/local/lib
-          sudo cp .venv/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/lib
+          sudo cp venv/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/local/lib
+          sudo cp venv/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/lib
 
       # - name: Download the firmware files from AWS S3
       #   run: python run_s3_download.py
