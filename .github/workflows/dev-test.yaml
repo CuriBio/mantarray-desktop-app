@@ -35,12 +35,8 @@ jobs:
           - os: "ubuntu-18.04"
             python-version: "3.7"
             node-version: "12"
-            ENABLE_CODE_COVERAGE: true
             IS_FASTEST_JOB: true
 
-    env:
-      ENABLE_CODE_COVERAGE: ${{ matrix.ENABLE_CODE_COVERAGE }}
-      JOB_PYTHON_VERSION: ${{ matrix.python-version }}
     name: Python ${{ matrix.python-version }} with Node ${{ matrix.node-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     steps:
@@ -152,8 +148,11 @@ jobs:
         #   sudo cp venv/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/local/lib
         #   sudo cp venv/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/lib
 
-      # - name: Download the firmware files from AWS S3
-      #   run: python run_s3_download.py
+      - name: Download the firmware files from AWS S3
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_USER_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_USER_SECRET_KEY }}
+        run: python run_s3_download.py
 
 
       - name: Run Tests with randomly generated seed
