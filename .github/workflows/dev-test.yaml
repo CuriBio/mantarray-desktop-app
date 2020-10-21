@@ -61,13 +61,11 @@ jobs:
           node --version
           npm --version
 
-      - name: Cache node modules (Linux/Mac) # https://docs.github.com/en/free-pro-team@latest/actions/guides/caching-dependencies-to-speed-up-workflows
+      - name: Cache node modules # https://docs.github.com/en/free-pro-team@latest/actions/guides/caching-dependencies-to-speed-up-workflows
         uses: actions/cache@v2
-        if: runner.os == 'Linux'
         env:
           cache-name: cache-node-modules
         with:
-          # npm cache files are stored in `~/.npm` on Linux/macOS
           path: ./.npm_cache
           key: ${{ matrix.os }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
@@ -111,7 +109,7 @@ jobs:
       #   if: runner.os == 'Windows'
       #   run: venv\Scripts\Activate.ps1
 
-      - name: Install Dependencies
+      - name: Install Python Dependencies
         env:
           PIPENV_VENV_IN_PROJECT: 1
           PIPENV_CACHE_DIR: ./.pipenv_cache
@@ -125,9 +123,12 @@ jobs:
         #   pip install -r requirements.txt
         #   pip install -e .
 
-      - name: Log full installed packages
+      - name: Log full installed Python packages
         run: pipenv run pip freeze
         # run: pip freeze
+
+      - name: Install NPM Dependencies
+        run: npm ci --cache .npm_cache/
 
       - name: Run pre-commit hooks
         if: matrix.IS_FASTEST_JOB == true
@@ -155,12 +156,12 @@ jobs:
         run: pipenv run python run_s3_download.py
 
 
-      # - name: Run Tests with randomly generated seed
+      # - name: Run Python Tests with randomly generated seed
       #   if: github.event.inputs.randomlyseed == ''
       #   run: pipenv run pytest -xsvv --cov-report=xml --include-slow-tests # --full-ci
       #   # run: pytest -xsvv --cov-report=xml --include-slow-tests # --full-ci
 
-      - name: Run Tests with supplied pytest-randomly seed
+      - name: Run Python Tests with supplied pytest-randomly seed
         if: github.event.inputs.randomlyseed != ''
         run: pipenv run pytest -xsvv --cov-report=xml --randomly-seed=${{ github.event.inputs.randomlyseed }} --include-slow-tests # --full-ci
         # run: pytest -xsvv --cov-report=xml --randomly-seed=${{ github.event.inputs.randomlyseed }} --include-slow-tests # --full-ci
@@ -170,6 +171,10 @@ jobs:
       #   if: matrix.IS_FASTEST_JOB == true
       #   run: pipenv run SPHINXOPTS="-W" make --directory=docs html # the -W flag treats warnings as errors to cause build failures
 
+      - name: Run Jest Tests
+        run: pipenv run npm run test:unit -- --ci
+
+
 
       - name: Insert the Build Number into the code (Windows)
         if: runner.os == 'Windows'
@@ -177,7 +182,7 @@ jobs:
 
       - name: Compile the Python Executable (Windows)
         if: runner.os == 'Windows'
-        run: pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=dist-python --workpath=build-python
+        run: pipenv run pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=dist-python --workpath=build-python
 
 
 
