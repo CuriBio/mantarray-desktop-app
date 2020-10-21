@@ -23,13 +23,13 @@ jobs:
       matrix:
         os:
           - "ubuntu-18.04"
-          - "windows-2019"
+          #- "windows-2019"
         python-version:
           - 3.7
-          - 3.8
+          #- 3.8
         node-version:
           - 12
-          - 14
+          #- 14
         include:
           # only enable coverage on the fastest job
           - os: "ubuntu-18.04"
@@ -103,10 +103,10 @@ jobs:
 
       - name: Install pipenv # no known reason for this specific version of pipenv, just pinning it for good practice
         run: pip install pipenv==2020.8.13
-      - name: Display Python version
-        run: |
-          python -c "import sys; print(sys.version)"
-          python -m venv venv
+      # - name: Display Python version
+      #   run: |
+      #     python -c "import sys; print(sys.version)"
+      #     python -m venv venv
 
       # - name: Activate virtual environment (Linux/MacOS)
       #   if: runner.os == 'Linux'
