@@ -118,28 +118,27 @@ jobs:
           pipenv run pip freeze
           pipenv install --dev --deploy
           pipenv run pip install -e .
-          pipenv shell
         # run: |
         #   pip install -r requirements-dev.txt
         #   pip install -r requirements.txt
         #   pip install -e .
 
       - name: Log full installed Python packages
-        # run: pipenv run pip freeze
-        run: pip freeze
+        run: pipenv run pip freeze
+        # run: pip freeze
 
       - name: Install NPM Dependencies
-        run: npm ci --cache .npm_cache/
+        run: pipenv run npm ci --cache .npm_cache/
 
       - name: Run pre-commit hooks
         if: matrix.IS_FASTEST_JOB == true
         # only enable pre-commit on the fastest job. When pipenv runs an install, even using --deploy, it makes tweaks...somehow...to the Pipfile
-        # run: |
-        #   pipenv run pre-commit install
-        #   pipenv run pre-commit run -a
         run: |
-          pre-commit install
-          pre-commit run -a
+          pipenv run pre-commit install
+          pipenv run pre-commit run -a
+        # run: |
+        #   pre-commit install
+        #   pre-commit run -a
 
       - name: Move OpalKelly .so file to needed location (Linux)
         if: runner.os == 'Linux' # Eli (10/20/20): not sure if copying to both locations is needed...but it's working and haven't checked which is required...should theoretically only be one needed
@@ -154,8 +153,8 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_USER_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_USER_SECRET_KEY }}
-        # run: pipenv run python run_s3_download.py
-        run: python run_s3_download.py
+        run: pipenv run python run_s3_download.py
+        # run: python run_s3_download.py
 
 
       # - name: Run Python Tests with randomly generated seed
@@ -165,8 +164,8 @@ jobs:
 
       - name: Run Python Tests with supplied pytest-randomly seed
         if: github.event.inputs.randomlyseed != ''
-        # run: pipenv run pytest -xsvv --cov-report=xml --randomly-seed=${{ github.event.inputs.randomlyseed }} --include-slow-tests # --full-ci
-        run: pytest -xsvv --cov-report=xml --randomly-seed=${{ github.event.inputs.randomlyseed }} --include-slow-tests # --full-ci
+        run: pipenv run pytest -xsvv --cov-report=xml --randomly-seed=${{ github.event.inputs.randomlyseed }} --include-slow-tests # --full-ci
+        # run: pytest -xsvv --cov-report=xml --randomly-seed=${{ github.event.inputs.randomlyseed }} --include-slow-tests # --full-ci
 
       # - name: Confirm Sphinx Docs build correctly
       #   # only check Sphinx docs build on the fastest job
@@ -174,8 +173,8 @@ jobs:
       #   run: pipenv run SPHINXOPTS="-W" make --directory=docs html # the -W flag treats warnings as errors to cause build failures
 
       - name: Run Jest Tests
-        # run: pipenv run npm run test:unit -- --ci
-        run: npm run test:unit -- --ci
+        run: pipenv run npm run test:unit -- --ci
+        # run: npm run test:unit -- --ci
 
 
 
@@ -185,8 +184,8 @@ jobs:
 
       - name: Compile the Python Executable (Windows)
         if: runner.os == 'Windows'
-        # run: pipenv run pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=dist-python --workpath=build-python
-        run: pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=dist-python --workpath=build-python
+        run: pipenv run pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=dist-python --workpath=build-python
+        # run: pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=dist-python --workpath=build-python
 
 
 
