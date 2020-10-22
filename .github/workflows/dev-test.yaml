@@ -36,6 +36,10 @@ jobs:
             python-version: "3.7"
             node-version: "12"
             IS_FASTEST_JOB: true
+          - os: "windows-2019"
+            python-version: "3.7"
+            node-version: "12"
+            IS_DEPLOYMENT_CONFIG: true
 
     name: Python ${{ matrix.python-version }} with Node ${{ matrix.node-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -101,6 +105,27 @@ jobs:
         run: |
           google-chrome --version
           chromedriver --version
+
+      - name: Read package.json # from https://github.com/hypergraph-xyz/desktop/blob/main/.github/workflows/ci.yml
+        if: matrix.IS_DEPLOYMENT_CONFIG == true
+        id: read_package
+        uses: juliangruber/read-file-action@v1
+        with:
+          path: package.json
+      - name: Get App Version
+        if: matrix.IS_DEPLOYMENT_CONFIG == true
+        id: read_app_version
+        uses: gr2m/get-json-paths-action@v1.0.2
+        with:
+          json: ${{ steps.read_package.outputs.content }}
+          version: "version"
+      - name: Get App Name
+        if: matrix.IS_DEPLOYMENT_CONFIG == true
+        id: productName
+        uses: gr2m/get-json-paths-action@v1.0.2
+        with:
+          json: ${{ steps.read_package.outputs.content }}
+          productName: "productName"
 
       - name: Install pipenv # no known reason for this specific version of pipenv, just pinning it for good practice
         run: pip install pipenv==2020.8.13
@@ -231,7 +256,8 @@ jobs:
         # if: runner.os == 'Linux'
         # env:
         #   DISPLAY: ":99.0"
-        run: pipenv run npm run test:e2e-no-prebuild
+        with:
+          run: pipenv run npm run test:e2e-no-prebuild
 
       - name: Archive visual regression
         if: ${{ failure() }}
