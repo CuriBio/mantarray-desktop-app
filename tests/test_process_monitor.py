@@ -24,6 +24,7 @@ import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import is_queue_eventually_empty
 from stdlib_utils import is_queue_eventually_not_empty
+from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty
 from xem_wrapper import FrontPanelSimulator
 
 from .fixtures import fixture_test_process_manager
@@ -188,8 +189,9 @@ def test_MantarrayProcessesMonitor__logs_errors_from_DataAnalyzer(
     expected_error = ValueError("something wrong when analyzing data")
     expected_stack_trace = "my stack trace from analyzing some data"
     expected_message = f"Error raised by subprocess {test_process_manager.get_data_analyzer_process()}\n{expected_stack_trace}\n{expected_error}"
-    data_analyzer_error_queue.put((expected_error, expected_stack_trace))
-    assert is_queue_eventually_not_empty(data_analyzer_error_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        (expected_error, expected_stack_trace), data_analyzer_error_queue
+    )
     invoke_process_run_and_check_errors(monitor_thread)
     assert is_queue_eventually_empty(data_analyzer_error_queue) is True
     mocked_logger.assert_any_call(expected_message)
@@ -216,21 +218,25 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
     mocked_da_join = mocker.patch.object(da_process, "join", autospec=True)
 
     ok_comm_error_queue = test_process_manager.get_data_analyzer_error_queue()
-    ok_comm_error_queue.put(("error", "stack_trace"))
-    assert is_queue_eventually_not_empty(ok_comm_error_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        ("error", "stack_trace"), ok_comm_error_queue
+    )
     ok_comm_to_main = test_process_manager.get_communication_to_ok_comm_queue(0)
-    ok_comm_to_main.put(expected_ok_comm_item)
-    assert is_queue_eventually_not_empty(ok_comm_to_main) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        expected_ok_comm_item, ok_comm_to_main
+    )
     file_writer_to_main = (
         test_process_manager.get_communication_queue_from_main_to_file_writer()
     )
-    file_writer_to_main.put(expected_file_writer_item)
-    assert is_queue_eventually_not_empty(file_writer_to_main) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        expected_file_writer_item, file_writer_to_main
+    )
     data_analyzer_to_main = (
         test_process_manager.get_communication_queue_from_main_to_data_analyzer()
     )
-    data_analyzer_to_main.put(expected_da_item)
-    assert is_queue_eventually_not_empty(data_analyzer_to_main) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        expected_da_item, data_analyzer_to_main
+    )
 
     invoke_process_run_and_check_errors(monitor_thread)
 
