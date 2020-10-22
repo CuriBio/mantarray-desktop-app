@@ -227,6 +227,10 @@ jobs:
           fail_ci_if_error: true
 
       - name: Run E2E Tests
+        uses: GabrielBB/xvfb-action@v1.0 # from https://github.com/hypergraph-xyz/desktop/blob/main/.github/workflows/ci.yml
+        # if: runner.os == 'Linux'
+        # env:
+        #   DISPLAY: ":99.0"
         run: pipenv run npm run test:e2e-no-prebuild
 
       - name: Archive visual regression
