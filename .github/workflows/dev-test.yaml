@@ -164,15 +164,15 @@ jobs:
         run: pipenv run python run_s3_download.py
         # run: python run_s3_download.py
 
-      # - name: Run Python Tests with randomly generated seed
-      #   if: github.event.inputs.randomlyseed == ''
-      #   run: pipenv run pytest -xsvv --cov-report=xml --include-slow-tests # --full-ci
-      #   # run: pytest -xsvv --cov-report=xml --include-slow-tests # --full-ci
+      - name: Run Python Tests with randomly generated seed
+        if: github.event.inputs.randomlyseed == ''
+        run: pipenv run pytest -xsvv --cov-report=xml # --include-slow-tests # --full-ci
+        # run: pytest -xsvv --cov-report=xml --include-slow-tests # --full-ci
 
-      # - name: Run Python Tests with supplied pytest-randomly seed
-      #   if: github.event.inputs.randomlyseed != ''
-      #   run: pipenv run pytest -xsvv --cov-report=xml --randomly-seed=${{ github.event.inputs.randomlyseed }} --include-slow-tests # --full-ci
-      #   # run: pytest -xsvv --cov-report=xml --randomly-seed=${{ github.event.inputs.randomlyseed }} --include-slow-tests # --full-ci
+      - name: Run Python Tests with supplied pytest-randomly seed
+        if: github.event.inputs.randomlyseed != ''
+        run: pipenv run pytest -xsvv --cov-report=xml --randomly-seed=${{ github.event.inputs.randomlyseed }} --include-slow-tests # --full-ci
+        # run: pytest -xsvv --cov-report=xml --randomly-seed=${{ github.event.inputs.randomlyseed }} --include-slow-tests # --full-ci
 
       # - name: Confirm Sphinx Docs build correctly
       #   # only check Sphinx docs build on the fastest job
@@ -212,7 +212,6 @@ jobs:
 
       - name: Build Full Electron App
         run: pipenv run npm run build
-        # run: npm run test:unit -- --ci
 
       - name: Upload coverage to Codecov
         # only upload coverage from fastest job
