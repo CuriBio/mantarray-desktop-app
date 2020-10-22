@@ -164,15 +164,15 @@ jobs:
         run: pipenv run python run_s3_download.py
         # run: python run_s3_download.py
 
-      - name: Run Python Tests with randomly generated seed
-        if: github.event.inputs.randomlyseed == ''
-        run: pipenv run pytest -xsvv --cov-report=xml # --include-slow-tests # --full-ci
-        # run: pytest -xsvv --cov-report=xml --include-slow-tests # --full-ci
+      # - name: Run Python Tests with randomly generated seed
+      #   if: github.event.inputs.randomlyseed == ''
+      #   run: pipenv run pytest -xsvv --cov-report=xml # --include-slow-tests # --full-ci
+      #   # run: pytest -xsvv --cov-report=xml --include-slow-tests # --full-ci
 
-      - name: Run Python Tests with supplied pytest-randomly seed
-        if: github.event.inputs.randomlyseed != ''
-        run: pipenv run pytest -xsvv --cov-report=xml --randomly-seed=${{ github.event.inputs.randomlyseed }} --include-slow-tests # --full-ci
-        # run: pytest -xsvv --cov-report=xml --randomly-seed=${{ github.event.inputs.randomlyseed }} --include-slow-tests # --full-ci
+      # - name: Run Python Tests with supplied pytest-randomly seed
+      #   if: github.event.inputs.randomlyseed != ''
+      #   run: pipenv run pytest -xsvv --cov-report=xml --randomly-seed=${{ github.event.inputs.randomlyseed }} --include-slow-tests # --full-ci
+      #   # run: pytest -xsvv --cov-report=xml --randomly-seed=${{ github.event.inputs.randomlyseed }} --include-slow-tests # --full-ci
 
       # - name: Confirm Sphinx Docs build correctly
       #   # only check Sphinx docs build on the fastest job
@@ -226,12 +226,15 @@ jobs:
           name: codecov-umbrella
           fail_ci_if_error: true
 
-      # - name: Archive visual regression
-      #   if: ${{ failure() }}
-      #   uses: actions/upload-artifact@v2
-      #   with:
-      #     name: visual-regression-screenshots--${{ matrix.os }}--${{ matrix.node }}
-      #     path: "tests/e2e/screenshots/**/*"
+      - name: Run E2E Tests
+        run: pipenv run npm test:e2e-no-prebuild
+
+      - name: Archive visual regression
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: visual-regression-screenshots--${{ matrix.os }}--${{ matrix.node-version }}--${{ matrix.python-version }}
+          path: "tests/e2e/screenshots/**/*"
 
       - name: Archive Installer File
         if: runner.os == 'Windows'

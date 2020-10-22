@@ -250,24 +250,24 @@ describe("window opening", () => {
     }
   }, 20000);
 
-  test("Then it should initialize nuxt", async () => {
-    const app = sandbox.the_app;
-    const win = app.browserWindow;
-    const client = app;
+  // test("Then it should initialize nuxt", async () => {
+  //   const app = sandbox.the_app;
+  //   const win = app.browserWindow;
+  //   const client = app;
 
-    await app.client.nuxt.ready();
-  }, 20000);
-  test("Then it should start the Python Flask server", async () => {
-    const app = sandbox.the_app;
-    const expected_value = "talkback";
-    await app.client.nuxt.ready();
-    await wait_for_flask_to_init();
-    const echo_response = await axios.get(
-      `http://localhost:${flask_port}/echo?input=${expected_value}`
-    );
+  //   await app.client.nuxt.ready();
+  // }, 20000);
+  // test("Then it should start the Python Flask server", async () => {
+  //   const app = sandbox.the_app;
+  //   const expected_value = "talkback";
+  //   await app.client.nuxt.ready();
+  //   await wait_for_flask_to_init();
+  //   const echo_response = await axios.get(
+  //     `http://localhost:${flask_port}/echo?input=${expected_value}`
+  //   );
 
-    expect(echo_response.data.my_json_key).toEqual(expected_value);
-  }, 20000);
+  //   expect(echo_response.data.my_json_key).toEqual(expected_value);
+  // }, 20000);
 
   test("Then it shows an initial window of the correct dimensions and position", async () => {
     const app = sandbox.the_app;
