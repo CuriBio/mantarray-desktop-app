@@ -9,7 +9,7 @@ from mantarray_desktop_app import MantarrayProcessesManager
 from mantarray_desktop_app import OkCommunicationProcess
 import pytest
 from stdlib_utils import get_current_file_abs_directory
-from stdlib_utils import is_queue_eventually_not_empty
+from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty
 from stdlib_utils import resource_path
 
 
@@ -174,14 +174,17 @@ def test_MantarrayProcessesManager__hard_stop_and_join_processes__hard_stops_pro
 
     manager.spawn_processes()
     ok_comm_to_main = manager.get_communication_queue_from_ok_comm_to_main(0)
-    ok_comm_to_main.put(expected_ok_comm_item)
-    assert is_queue_eventually_not_empty(ok_comm_to_main) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        expected_ok_comm_item, ok_comm_to_main
+    )
     file_writer_to_main = manager.get_communication_queue_from_file_writer_to_main()
-    file_writer_to_main.put(expected_file_writer_item)
-    assert is_queue_eventually_not_empty(file_writer_to_main) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        expected_file_writer_item, file_writer_to_main
+    )
     data_analyzer_to_main = manager.get_communication_queue_from_data_analyzer_to_main()
-    data_analyzer_to_main.put(expected_da_item)
-    assert is_queue_eventually_not_empty(data_analyzer_to_main) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        expected_da_item, data_analyzer_to_main
+    )
 
     actual = manager.hard_stop_and_join_processes()
     spied_ok_comm_start.assert_called_once()
