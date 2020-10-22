@@ -167,6 +167,7 @@ def test_FileWriterProcess__process_next_data_packet__does_not_write_tissue_data
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [4]
     from_main_queue.put(this_command)
+    assert is_queue_eventually_not_empty(from_main_queue) is True
     num_data_points = 5
     data = np.zeros((2, num_data_points), dtype=np.int32)
 
@@ -181,6 +182,7 @@ def test_FileWriterProcess__process_next_data_packet__does_not_write_tissue_data
     this_data_packet["data"] = data
 
     board_queues[0][0].put(this_data_packet)
+    assert is_queue_eventually_not_empty(board_queues[0][0]) is True
     invoke_process_run_and_check_errors(file_writer_process)
 
     actual_file = open_the_generic_h5_file(file_dir)
@@ -456,6 +458,7 @@ def test_FileWriterProcess__process_next_data_packet__adds_a_data_packet_before_
     start_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     start_command["active_well_indices"] = [4]
     from_main_queue.put(start_command)
+    assert is_queue_eventually_not_empty(from_main_queue) is True
 
     num_data_points = 10
     data = np.zeros((2, num_data_points), dtype=np.int32)
@@ -472,7 +475,7 @@ def test_FileWriterProcess__process_next_data_packet__adds_a_data_packet_before_
     this_data_packet["data"] = data
 
     board_queues[0][0].put(this_data_packet)
-
+    assert is_queue_eventually_not_empty(board_queues[0][0]) is True
     invoke_process_run_and_check_errors(file_writer_process)
 
     actual_file = open_the_generic_h5_file(file_dir)
@@ -486,7 +489,7 @@ def test_FileWriterProcess__process_next_data_packet__adds_a_data_packet_before_
     stop_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
 
     from_main_queue.put(stop_command)
-
+    assert is_queue_eventually_not_empty(from_main_queue) is True
     data_before_stop = np.zeros((2, num_data_points), dtype=np.int32)
     for this_index in range(num_data_points):
         data_before_stop[0, this_index] = (
