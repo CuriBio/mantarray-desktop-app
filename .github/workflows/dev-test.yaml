@@ -108,7 +108,7 @@ jobs:
 
       - name: Read package.json # from https://github.com/hypergraph-xyz/desktop/blob/main/.github/workflows/ci.yml
         if: matrix.IS_DEPLOYMENT_CONFIG == true
-        id: read_package
+        id: package
         uses: juliangruber/read-file-action@v1
         with:
           path: package.json
@@ -117,14 +117,14 @@ jobs:
         id: read_app_version
         uses: gr2m/get-json-paths-action@v1.0.2
         with:
-          json: ${{ steps.read_package.outputs.content }}
+          json: ${{ steps.package.outputs.content }}
           version: "version"
       - name: Get App Name
         if: matrix.IS_DEPLOYMENT_CONFIG == true
         id: productName
         uses: gr2m/get-json-paths-action@v1.0.2
         with:
-          json: ${{ steps.read_package.outputs.content }}
+          json: ${{ steps.package.outputs.content }}
           productName: "productName"
 
       - name: Install pipenv # no known reason for this specific version of pipenv, just pinning it for good practice
@@ -189,10 +189,10 @@ jobs:
         run: pipenv run python run_s3_download.py
         # run: python run_s3_download.py
 
-      # - name: Run Python Tests with randomly generated seed
-      #   if: github.event.inputs.randomlyseed == ''
-      #   run: pipenv run pytest -xsvv --cov-report=xml # --include-slow-tests # --full-ci
-      #   # run: pytest -xsvv --cov-report=xml --include-slow-tests # --full-ci
+      - name: Run Python Tests with randomly generated seed
+        if: github.event.inputs.randomlyseed == ''
+        run: pipenv run pytest -xsvv --cov-report=xml # --include-slow-tests # --full-ci
+        # run: pytest -xsvv --cov-report=xml --include-slow-tests # --full-ci
 
       # - name: Run Python Tests with supplied pytest-randomly seed
       #   if: github.event.inputs.randomlyseed != ''
@@ -251,13 +251,13 @@ jobs:
           name: codecov-umbrella
           fail_ci_if_error: true
 
-      - name: Run E2E Tests
-        uses: GabrielBB/xvfb-action@v1.0 # from https://github.com/hypergraph-xyz/desktop/blob/main/.github/workflows/ci.yml
-        # if: runner.os == 'Linux'
-        # env:
-        #   DISPLAY: ":99.0"
-        with:
-          run: pipenv run npm run test:e2e-no-prebuild
+      # - name: Run E2E Tests
+      #   uses: GabrielBB/xvfb-action@v1.0 # from https://github.com/hypergraph-xyz/desktop/blob/main/.github/workflows/ci.yml
+      #   # if: runner.os == 'Linux'
+      #   # env:
+      #   #   DISPLAY: ":99.0"
+      #   with:
+      #     run: pipenv run npm run test:e2e-no-prebuild
 
       - name: Archive visual regression
         if: ${{ failure() }}
