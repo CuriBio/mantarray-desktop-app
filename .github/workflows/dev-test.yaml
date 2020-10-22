@@ -91,7 +91,7 @@ jobs:
           cache-name: cache-pre-commit-hooks
         if: matrix.IS_FASTEST_JOB == true
         with:
-          path: ./.precommit_cache
+          path: ~/.precommit_cache # Eli (10/22/20): Having the pre-commit cache inside the repo creates problems with Pytest detecting test files inside the cache
           key: ${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-${{ hashFiles('**/.pre-commit-config.yaml') }}
           restore-keys: |
             ${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-
@@ -162,7 +162,7 @@ jobs:
       - name: Run pre-commit hooks
         if: matrix.IS_FASTEST_JOB == true
         env:
-          PRE_COMMIT_HOME: ./.precommit_cache
+          PRE_COMMIT_HOME: ~/.precommit_cache
 
         # only enable pre-commit on the fastest job. When pipenv runs an install, even using --deploy, it makes tweaks...somehow...to the Pipfile
         run: |
