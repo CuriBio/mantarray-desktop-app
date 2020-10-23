@@ -24,6 +24,7 @@ from .fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
 from .fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from .fixtures_file_writer import GENERIC_TISSUE_DATA_PACKET
 from .fixtures_file_writer import open_the_generic_h5_file
+from .fixtures_file_writer import open_the_generic_h5_file_as_WellFile
 from .parsed_channel_data_packets import SIMPLE_CONSTRUCT_DATA_FROM_WELL_0
 
 
@@ -302,9 +303,9 @@ def test_FileWriterProcess__process_next_data_packet__writes_reference_data_to_a
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
-    actual_file_4 = open_the_generic_h5_file(file_dir)
+    actual_file_4 = open_the_generic_h5_file_as_WellFile(file_dir)
 
-    actual_file_0 = open_the_generic_h5_file(file_dir, well_name="A1")
+    actual_file_0 = open_the_generic_h5_file_as_WellFile(file_dir, well_name="A1")
 
     expected_timestamp = this_command["metadata_to_copy_onto_main_file_attributes"][
         UTC_BEGINNING_DATA_ACQUISTION_UUID
@@ -312,18 +313,18 @@ def test_FileWriterProcess__process_next_data_packet__writes_reference_data_to_a
         seconds=(this_command["timepoint_to_begin_recording_at"] + DATA_FRAME_PERIOD)
         / CENTIMILLISECONDS_PER_SECOND
     )
-    assert actual_file_0.attrs[
+    assert actual_file_0.get_h5_attribute(
         str(UTC_FIRST_REF_DATA_POINT_UUID)
-    ] == expected_timestamp.strftime("%Y-%m-%d %H:%M:%S.%f")
-    assert actual_file_4.attrs[
+    ) == expected_timestamp.strftime("%Y-%m-%d %H:%M:%S.%f")
+    assert actual_file_4.get_h5_attribute(
         str(UTC_FIRST_REF_DATA_POINT_UUID)
-    ] == expected_timestamp.strftime("%Y-%m-%d %H:%M:%S.%f")
-    actual_reference_data_0 = get_reference_dataset_from_file(actual_file_0)
+    ) == expected_timestamp.strftime("%Y-%m-%d %H:%M:%S.%f")
+    actual_reference_data_0 = actual_file_0.get_raw_reference_reading()[1, :]
     assert actual_reference_data_0.shape == (40,)
     assert actual_reference_data_0[0] == 90
     assert actual_reference_data_0[2] == 96
 
-    actual_reference_data_4 = get_reference_dataset_from_file(actual_file_4)
+    actual_reference_data_4 = actual_file_4.get_raw_reference_reading()[1, :]
     assert actual_reference_data_4.shape == (40,)
     assert actual_reference_data_4[0] == 90
     assert actual_reference_data_0[39] == 207

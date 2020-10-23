@@ -34,6 +34,7 @@ from mantarray_desktop_app import UTC_BEGINNING_RECORDING_UUID
 from mantarray_desktop_app import XEM_SERIAL_NUMBER_UUID
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
 from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
+from mantarray_file_manager import WellFile
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
 import pytest
@@ -121,6 +122,24 @@ def open_the_generic_h5_file(
             f"{barcode}__{timestamp_str}__{well_name}.h5",
         ),
         "r",
+    )
+    return actual_file
+
+
+def open_the_generic_h5_file_as_WellFile(
+    file_dir: str, well_name: str = "A2"
+) -> WellFile:
+    timestamp_str = "2020_02_09_190935"
+    barcode = GENERIC_START_RECORDING_COMMAND[
+        "metadata_to_copy_onto_main_file_attributes"
+    ][PLATE_BARCODE_UUID]
+
+    actual_file = WellFile(
+        os.path.join(
+            file_dir,
+            f"{barcode}__{timestamp_str}",
+            f"{barcode}__{timestamp_str}__{well_name}.h5",
+        ),
     )
     return actual_file
 

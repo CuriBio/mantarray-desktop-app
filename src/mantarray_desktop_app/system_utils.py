@@ -36,6 +36,7 @@ def wait_for_subprocesses_to_start() -> None:
     while not is_status_route_ready:
         response = requests.get(f"{get_api_endpoint()}system_status")
         is_status_route_ready = response.status_code == 200
+        time.sleep(0.25)  # Don't just relentlessly ping the Flask server
 
     is_started = False
     start = time.perf_counter()
@@ -46,6 +47,7 @@ def wait_for_subprocesses_to_start() -> None:
             SYSTEM_STATUS_UUIDS[SERVER_INITIALIZING_STATE]
         )
         elapsed_time = time.perf_counter() - start
+        time.sleep(0.25)  # Don't just relentlessly ping the Flask server
 
     if not is_started:
         raise SystemStartUpError()
