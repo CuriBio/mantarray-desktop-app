@@ -127,7 +127,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             self._dump_data_into_queue(outgoing_data)
 
     def _process_next_command_from_main(self) -> None:
-        if self._comm_from_main_queue.empty():
+        if self._comm_from_main_queue.qsize() == 0:
             return
 
         communication = self._comm_from_main_queue.get()
@@ -154,7 +154,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             raise UnrecognizedCommTypeFromMainToDataAnalyzerError(communication_type)
 
     def _load_memory_into_buffer(self) -> None:
-        if self._board_queues[0][0].empty():
+        if self._board_queues[0][0].qsize() == 0:
             return
 
         data_dict = self._board_queues[0][0].get_nowait()

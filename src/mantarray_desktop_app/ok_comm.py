@@ -644,7 +644,7 @@ class OkCommunicationProcess(InfiniteProcess):
             raise UnrecognizedCommTypeFromMainToOKCommError(
                 this_communication["communication_type"]
             )
-        if not input_queue.empty():
+        if input_queue.qsize() > 0:
             self._process_can_be_soft_stopped = False
 
     def _handle_debug_console_comm(self, this_communication: Dict[str, Any]) -> None:
