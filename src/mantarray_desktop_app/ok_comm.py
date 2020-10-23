@@ -626,7 +626,7 @@ class OkCommunicationProcess(InfiniteProcess):
         Will just return if no communications in queue.
         """
         input_queue = self._board_queues[0][0]
-        if input_queue.qsize() == 0:
+        if input_queue.empty():
             return
 
         this_communication = input_queue.get()
@@ -644,7 +644,7 @@ class OkCommunicationProcess(InfiniteProcess):
             raise UnrecognizedCommTypeFromMainToOKCommError(
                 this_communication["communication_type"]
             )
-        if input_queue.qsize() > 0:
+        if not input_queue.empty():
             self._process_can_be_soft_stopped = False
 
     def _handle_debug_console_comm(self, this_communication: Dict[str, Any]) -> None:

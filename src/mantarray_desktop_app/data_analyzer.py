@@ -154,7 +154,8 @@ class DataAnalyzerProcess(InfiniteProcess):
             raise UnrecognizedCommTypeFromMainToDataAnalyzerError(communication_type)
 
     def _load_memory_into_buffer(self) -> None:
-        if self._board_queues[0][0].qsize() == 0:
+        if self._board_queues[0][0].empty():
+            # if self._board_queues[0][0].qsize() == 0:
             return
 
         data_dict = self._board_queues[0][0].get_nowait()

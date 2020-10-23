@@ -814,7 +814,7 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_when_recording(
             "data": np.zeros((2, num_points)),
         }
         board_queues[0][0].put(ref_packet)
-
+    assert is_queue_eventually_of_size(board_queues[0][0], 30) is True
     expected_recording_durations = list(range(30))
     perf_counter_vals = [
         0 if i % 2 == 0 else expected_recording_durations[i // 2] for i in range(60)

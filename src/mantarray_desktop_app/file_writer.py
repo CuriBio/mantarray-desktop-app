@@ -458,7 +458,7 @@ class FileWriterProcess(InfiniteProcess):
 
     def _process_next_command_from_main(self) -> None:
         input_queue = self._from_main_queue
-        if input_queue.qsize() == 0:
+        if input_queue.empty():
             return
         communication = input_queue.get()
 
@@ -515,7 +515,7 @@ class FileWriterProcess(InfiniteProcess):
             )
         else:
             raise UnrecognizedCommandFromMainToFileWriterError(command)
-        if input_queue.qsize() > 0:
+        if not input_queue.empty():
             self._process_can_be_soft_stopped = False
 
     def _process_data_packet_for_open_file(self, data_packet: Dict[str, Any]) -> None:
@@ -598,7 +598,9 @@ class FileWriterProcess(InfiniteProcess):
         If multiple boards are implemented, a kwarg board_idx:int=0 can be added.
         """
         input_queue = self._board_queues[0][0]
-        if input_queue.qsize() == 0:
+        # if input_queue.qsize() == 0:
+        # if is_queue_eventually_empty(input_queue):
+        if input_queue.empty():
             return
         data_packet = input_queue.get_nowait()
 
@@ -630,7 +632,7 @@ class FileWriterProcess(InfiniteProcess):
         recording_dur = time.perf_counter() - start
         self._recording_durations.append(recording_dur)
 
-        if input_queue.qsize() > 0:
+        if not input_queue.empty():
             self._process_can_be_soft_stopped = False
 
     def _handle_recording_of_packet(self, data_packet: Dict[str, Any]) -> None:
