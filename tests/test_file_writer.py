@@ -65,6 +65,7 @@ from stdlib_utils import InfiniteProcess
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import is_queue_eventually_empty
 from stdlib_utils import is_queue_eventually_not_empty
+from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty
 from stdlib_utils import safe_get
 from stdlib_utils import validate_file_head_crc32
 
@@ -120,8 +121,9 @@ def test_FileWriterProcess_soft_stop_not_allowed_if_incoming_data_still_in_queue
     (file_writer_process, board_queues, _, _, _, _,) = four_board_file_writer_process
     # The first communication will be processed, but if there is a second one in the queue then the soft stop should be disabled
     board_queues[0][0].put(SIMPLE_CONSTRUCT_DATA_FROM_WELL_0)
-    board_queues[0][0].put(SIMPLE_CONSTRUCT_DATA_FROM_WELL_0)
-    assert is_queue_eventually_not_empty(board_queues[0][0]) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        SIMPLE_CONSTRUCT_DATA_FROM_WELL_0, board_queues[0][0]
+    )
     file_writer_process.soft_stop()
     invoke_process_run_and_check_errors(file_writer_process)
     assert file_writer_process.is_stopped() is False
@@ -134,8 +136,9 @@ def test_FileWriterProcess__raises_error_if_not_a_dict_is_passed_through_the_que
         "builtins.print", autospec=True
     )  # don't print all the error messages to console
     (file_writer_process, board_queues, _, _, _, _,) = four_board_file_writer_process
-    board_queues[0][0].put("a string is not a dictionary")
-    assert is_queue_eventually_not_empty(board_queues[0][0]) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        "a string is not a dictionary", board_queues[0][0]
+    )
     with pytest.raises(
         InvalidDataTypeFromOkCommError, match="a string is not a dictionary"
     ):
@@ -157,8 +160,9 @@ def test_FileWriterProcess__raises_error_if_unrecognized_command_from_main(
         error_queue,
         _,
     ) = four_board_file_writer_process
-    from_main_queue.put({"command": "do the hokey pokey"})
-    assert is_queue_eventually_not_empty(from_main_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "do the hokey pokey"}, from_main_queue
+    )
     file_writer_process.run(num_iterations=1)
     assert is_queue_eventually_not_empty(error_queue) is True
     raised_error, _ = error_queue.get_nowait()
@@ -177,8 +181,9 @@ def test_FileWriterProcess_soft_stop_not_allowed_if_command_from_main_still_in_q
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [1]
     from_main_queue.put(this_command)
-    from_main_queue.put(this_command)
-    assert is_queue_eventually_not_empty(from_main_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        this_command, from_main_queue
+    )
     file_writer_process.soft_stop()
     invoke_process_run_and_check_errors(file_writer_process)
     assert file_writer_process.is_stopped() is False
@@ -190,8 +195,9 @@ def test_FileWriterProcess__close_all_files(four_board_file_writer_process, mock
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [3, 18]
 
-    from_main_queue.put(this_command)
-    assert is_queue_eventually_not_empty(from_main_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        this_command, from_main_queue
+    )
     invoke_process_run_and_check_errors(file_writer_process)
     open_files = file_writer_process._open_files  # pylint: disable=protected-access
     spied_file_3 = mocker.spy(open_files[0][3], "close")
@@ -220,8 +226,9 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         "metadata_to_copy_onto_main_file_attributes"
     ][PLATE_BARCODE_UUID]
 
-    from_main_queue.put(GENERIC_START_RECORDING_COMMAND)
-    assert is_queue_eventually_not_empty(from_main_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        GENERIC_START_RECORDING_COMMAND, from_main_queue
+    )
     invoke_process_run_and_check_errors(file_writer_process)
 
     actual_set_of_files = set(
@@ -366,8 +373,9 @@ def test_FileWriterProcess__only_creates_file_indices_specified__when_receiving_
     ][PLATE_BARCODE_UUID]
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [3, 18]
-    from_main_queue.put(this_command)
-    assert is_queue_eventually_not_empty(from_main_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        this_command, from_main_queue
+    )
     invoke_process_run_and_check_errors(file_writer_process)
     actual_set_of_files = set(
         os.listdir(os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}"))
@@ -404,8 +412,9 @@ def test_FileWriterProcess__start_recording__sets_stop_recording_timestamp_to_no
 
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [1, 5]
-    from_main_queue.put(this_command)
-    assert is_queue_eventually_not_empty(from_main_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        this_command, from_main_queue
+    )
     file_writer_process.get_stop_recording_timestamps()[0] = 2999283
 
     (
@@ -449,25 +458,28 @@ def test_FileWriterProcess__stop_recording__sets_stop_recording_timestamp_to_tim
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     this_command["timepoint_to_begin_recording_at"] = 0
     this_command["active_well_indices"] = [expected_well_idx]
-    from_main_queue.put(this_command)
-    assert is_queue_eventually_not_empty(from_main_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        this_command, from_main_queue
+    )
     invoke_process_run_and_check_errors(file_writer_process)
 
-    data_packet = {
-        "is_reference_sensor": False,
+    a_data_packet = {
         "well_index": expected_well_idx,
-        "data": np.array([[0], [0]], dtype=np.int32),
+        "is_reference_sensor": False,
+        "data": np.array([[0], [1]], dtype=np.int32),
     }
-    board_queues[0][0].put(data_packet)
-    assert is_queue_eventually_not_empty(board_queues[0][0]) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        a_data_packet, board_queues[0][0]
+    )
     invoke_process_run_and_check_errors(file_writer_process)
 
     stop_timestamps = file_writer_process.get_stop_recording_timestamps()
 
     assert stop_timestamps[0] is None
 
-    from_main_queue.put(GENERIC_STOP_RECORDING_COMMAND)
-    assert is_queue_eventually_not_empty(from_main_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        GENERIC_STOP_RECORDING_COMMAND, from_main_queue
+    )
     invoke_process_run_and_check_errors(file_writer_process)
 
     assert stop_timestamps[0] == 302412 * 125
@@ -502,9 +514,11 @@ def test_FileWriterProcess__closes_the_files_and_adds_crc32_checksum_and_sends_c
 
     start_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     start_command["active_well_indices"] = [4, 5]
-    from_main_queue.put(start_command)
-
     num_data_points = 10
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        start_command, from_main_queue
+    )
+
     data = np.zeros((2, num_data_points), dtype=np.int32)
 
     for this_idx in range(num_data_points):
@@ -516,8 +530,10 @@ def test_FileWriterProcess__closes_the_files_and_adds_crc32_checksum_and_sends_c
 
     this_data_packet = copy.deepcopy(GENERIC_REFERENCE_SENSOR_DATA_PACKET)
     this_data_packet["data"] = data
-
-    board_queues[0][0].put(this_data_packet)
+    queue_to_file_writer_from_board_0 = board_queues[0][0]
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        this_data_packet, queue_to_file_writer_from_board_0
+    )
 
     # tissue data
     data = np.zeros((2, num_data_points), dtype=np.int32)
@@ -536,7 +552,9 @@ def test_FileWriterProcess__closes_the_files_and_adds_crc32_checksum_and_sends_c
     board_queues[0][0].put(this_data_packet)
     data_packet_for_5 = copy.deepcopy(this_data_packet)
     data_packet_for_5["well_index"] = 5
-    board_queues[0][0].put(data_packet_for_5)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        data_packet_for_5, board_queues[0][0]
+    )
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=3)
 
@@ -547,15 +565,15 @@ def test_FileWriterProcess__closes_the_files_and_adds_crc32_checksum_and_sends_c
     assert actual_data[4] == 8
     assert actual_data[8] == 16
 
-    actual_tissue_data = get_tissue_dataset_from_file(actual_file)
-    assert actual_tissue_data.shape == (10,)
-    assert actual_tissue_data[3] == 6
-    assert actual_tissue_data[9] == 18
+    actual_data = get_tissue_dataset_from_file(actual_file)
+    assert actual_data.shape == (10,)
+    assert actual_data[3] == 6
+    assert actual_data[9] == 18
 
     stop_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
-
-    from_main_queue.put(stop_command)
-    assert is_queue_eventually_not_empty(from_main_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        stop_command, from_main_queue
+    )
 
     # reference data
     reference_data_packet_after_stop = copy.deepcopy(
@@ -584,8 +602,9 @@ def test_FileWriterProcess__closes_the_files_and_adds_crc32_checksum_and_sends_c
     board_queues[0][0].put(tissue_data_packet_after_stop)
     data_packet_for_5 = copy.deepcopy(tissue_data_packet_after_stop)
     data_packet_for_5["well_index"] = 5
-    board_queues[0][0].put(data_packet_for_5)
-    assert is_queue_eventually_not_empty(board_queues[0][0]) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        data_packet_for_5, board_queues[0][0]
+    )
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=3)
 
@@ -627,12 +646,15 @@ def test_FileWriterProcess__drain_all_queues__drains_all_queues_except_error_que
             item = expected[i][j]
             queue.put(item)
     assert is_queue_eventually_not_empty(board_queues[3][1]) is True
-    from_main_queue.put(expected_from_main)
-    assert is_queue_eventually_not_empty(from_main_queue) is True
-    to_main_queue.put(expected_to_main)
-    assert is_queue_eventually_not_empty(to_main_queue) is True
-    error_queue.put(expected_error)
-    assert is_queue_eventually_not_empty(error_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        expected_from_main, from_main_queue
+    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        expected_to_main, to_main_queue
+    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        expected_error, error_queue
+    )
 
     actual = file_writer_process._drain_all_queues()  # pylint:disable=protected-access
 
