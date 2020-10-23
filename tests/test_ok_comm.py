@@ -38,6 +38,7 @@ from stdlib_utils import InfiniteProcess
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import is_queue_eventually_empty
 from stdlib_utils import is_queue_eventually_not_empty
+from stdlib_utils import is_queue_eventually_of_size
 from xem_wrapper import build_header_magic_number_bytes
 from xem_wrapper import DATA_FRAME_SIZE_WORDS
 from xem_wrapper import FrontPanel
@@ -653,7 +654,8 @@ def test_OkCommunicationProcess_soft_stop_not_allowed_if_communication_from_main
     # The first communication will be processed, but if there is a second one in the queue then the soft stop should be disabled
     board_queues[0][0].put(dummy_communication)
     board_queues[0][0].put(dummy_communication)
-    assert is_queue_eventually_not_empty(board_queues[0][0]) is True
+    assert is_queue_eventually_of_size(board_queues[0][0], 2) is True
+    # assert is_queue_eventually_not_empty(board_queues[0][0]) is True
     simulator = FrontPanelSimulator({})
     ok_process.set_board_connection(0, simulator)
     ok_process.soft_stop()

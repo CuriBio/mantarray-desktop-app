@@ -458,7 +458,7 @@ class FileWriterProcess(InfiniteProcess):
 
     def _process_next_command_from_main(self) -> None:
         input_queue = self._from_main_queue
-        if input_queue.empty():
+        if input_queue.qsize() == 0:
             return
         communication = input_queue.get()
 

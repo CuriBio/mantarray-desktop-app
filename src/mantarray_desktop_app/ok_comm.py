@@ -626,7 +626,7 @@ class OkCommunicationProcess(InfiniteProcess):
         Will just return if no communications in queue.
         """
         input_queue = self._board_queues[0][0]
-        if input_queue.empty():
+        if input_queue.qsize() == 0:
             return
 
         this_communication = input_queue.get()

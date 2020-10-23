@@ -39,6 +39,8 @@ from stdlib_utils import InfiniteProcess
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import is_queue_eventually_empty
 from stdlib_utils import is_queue_eventually_not_empty
+from stdlib_utils import is_queue_eventually_of_size
+from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 from .fixtures_data_analyzer import fixture_four_board_analyzer_process
 
@@ -135,8 +137,9 @@ def test_DataAnalyzerProcess_commands_for_each_run_iteration__checks_for_calibra
     }
 
     p, _, comm_from_main_queue, _, _ = four_board_analyzer_process
-    comm_from_main_queue.put(calibration_comm)
-    assert is_queue_eventually_not_empty(comm_from_main_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        calibration_comm, comm_from_main_queue
+    )
     invoke_process_run_and_check_errors(p)
 
     actual = p.get_calibration_settings()
@@ -175,8 +178,9 @@ def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_wh
         "well_index": test_well_index,
         "data": test_construct_data,
     }
-    incoming_data.put(test_construct_dict)
-    assert is_queue_eventually_not_empty(incoming_data) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_construct_dict, incoming_data
+    )
 
     invoke_process_run_and_check_errors(p)
 
@@ -206,8 +210,9 @@ def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_wh
         "well_index": test_well_index,
         "data": test_construct_data,
     }
-    incoming_data.put(test_construct_dict)
-    assert is_queue_eventually_not_empty(incoming_data) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_construct_dict, incoming_data
+    )
     data_buffer = p._data_buffer  # pylint:disable=protected-access
 
     expected_construct_data = [[0, 0], [0, 0]]
@@ -243,8 +248,9 @@ def test_DataAnalyzerProcess__correctly_pairs_ascending_order_ref_sensor_data_in
         "reference_for_wells": REF_INDEX_TO_24_WELL_INDEX[0],
         "data": test_ref_data,
     }
-    incoming_data.put(test_ref_dict)
-    assert is_queue_eventually_not_empty(incoming_data) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_ref_dict, incoming_data
+    )
 
     invoke_process_run_and_check_errors(p)
 
@@ -278,8 +284,9 @@ def test_DataAnalyzerProcess__correctly_pairs_descending_order_ref_sensor_data_i
         "reference_for_wells": REF_INDEX_TO_24_WELL_INDEX[5],
         "data": test_ref_data,
     }
-    incoming_data.put(test_ref_dict)
-    assert is_queue_eventually_not_empty(incoming_data) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_ref_dict, incoming_data
+    )
 
     invoke_process_run_and_check_errors(p)
 
@@ -548,8 +555,9 @@ def test_DataAnalyzerProcess__raises_error_with_unrecognized_acquisition_manager
         "communication_type": "acquisition_manager",
         "command": expected_command,
     }
-    comm_from_main_queue.put(start_command)
-    assert is_queue_eventually_not_empty(comm_from_main_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        start_command, comm_from_main_queue
+    )
 
     with pytest.raises(
         UnrecognizedAcquisitionManagerCommandError, match=expected_command
@@ -566,8 +574,9 @@ def test_DataAnalyzerProcess__processes_start_managed_acquisition_command(
         "communication_type": "acquisition_manager",
         "command": "start_managed_acquisition",
     }
-    comm_from_main_queue.put(start_command)
-    assert is_queue_eventually_not_empty(comm_from_main_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        start_command, comm_from_main_queue
+    )
 
     invoke_process_run_and_check_errors(p)
     assert p._is_managed_acquisition_running is True  # pylint:disable=protected-access
@@ -587,8 +596,9 @@ def test_DataAnalyzerProcess__processes_stop_managed_acquisition_command(
         "communication_type": "acquisition_manager",
         "command": "stop_managed_acquisition",
     }
-    comm_from_main_queue.put(stop_command)
-    assert is_queue_eventually_not_empty(comm_from_main_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        stop_command, comm_from_main_queue
+    )
 
     invoke_process_run_and_check_errors(p)
     assert p._is_managed_acquisition_running is False  # pylint:disable=protected-access
@@ -609,8 +619,9 @@ def test_DataAnalyzerProcess__raises_error_if_communication_type_is_invalid(
     invalid_command = {
         "communication_type": "fake_type",
     }
-    comm_from_main_queue.put(invalid_command)
-    assert is_queue_eventually_not_empty(comm_from_main_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        invalid_command, comm_from_main_queue
+    )
 
     with pytest.raises(
         UnrecognizedCommTypeFromMainToDataAnalyzerError, match="fake_type"
@@ -637,7 +648,7 @@ def test_DataAnalyzerProcess__does_not_load_data_to_buffer_if_managed_acquisitio
         "data": np.array([[125, 375], [2, 4]]),
     }
     incoming_data.put(test_ref_dict)
-    assert is_queue_eventually_not_empty(incoming_data) is True
+    assert is_queue_eventually_of_size(incoming_data, 2) is True
 
     invoke_process_run_and_check_errors(p, num_iterations=2)
 

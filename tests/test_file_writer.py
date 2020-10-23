@@ -65,6 +65,7 @@ from stdlib_utils import InfiniteProcess
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import is_queue_eventually_empty
 from stdlib_utils import is_queue_eventually_not_empty
+from stdlib_utils import is_queue_eventually_of_size
 from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty
 from stdlib_utils import safe_get
 from stdlib_utils import validate_file_head_crc32
@@ -124,6 +125,7 @@ def test_FileWriterProcess_soft_stop_not_allowed_if_incoming_data_still_in_queue
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         SIMPLE_CONSTRUCT_DATA_FROM_WELL_0, board_queues[0][0]
     )
+    assert is_queue_eventually_of_size(board_queues[0][0], 2) is True
     file_writer_process.soft_stop()
     invoke_process_run_and_check_errors(file_writer_process)
     assert file_writer_process.is_stopped() is False
@@ -181,9 +183,8 @@ def test_FileWriterProcess_soft_stop_not_allowed_if_command_from_main_still_in_q
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [1]
     from_main_queue.put(this_command)
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_command, from_main_queue
-    )
+    from_main_queue.put(this_command)
+    assert is_queue_eventually_of_size(from_main_queue, 2) is True
     file_writer_process.soft_stop()
     invoke_process_run_and_check_errors(file_writer_process)
     assert file_writer_process.is_stopped() is False
