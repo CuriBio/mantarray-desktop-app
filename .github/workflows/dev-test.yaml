@@ -188,9 +188,14 @@ jobs:
         run: pipenv run python run_s3_download.py
         # run: python run_s3_download.py
 
-      - name: Run Python Tests with randomly generated seed
-        if: github.event.inputs.randomlyseed == ''
+      - name: Run Python Tests with randomly generated seed (Windows)
+        if: github.event.inputs.randomlyseed == '' && os.runner == "Windows"
         run: pipenv run pytest -svv --cov-report=xml # --include-slow-tests # --full-ci
+        # run: pytest -xsvv --cov-report=xml --include-slow-tests # --full-ci
+
+      - name: Run Python Tests with randomly generated seed (Linux)
+        if: github.event.inputs.randomlyseed == '' && os.runner == "Linux"
+        run: pipenv run pytest -svv --cov-report=xml --include-slow-tests --full-ci
         # run: pytest -xsvv --cov-report=xml --include-slow-tests # --full-ci
 
       # - name: Run Python Tests with supplied pytest-randomly seed
