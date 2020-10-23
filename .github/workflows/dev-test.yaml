@@ -85,16 +85,16 @@ jobs:
           restore-keys: |
             ${{ matrix.os }}-${{ matrix.python-version }}-build-${{ env.cache-name }}-
 
-      - name: Cache Pre-commit hooks
-        uses: actions/cache@v2
-        env:
-          cache-name: cache-pre-commit-hooks
-        if: matrix.IS_FASTEST_JOB == true
-        with:
-          path: ~/.precommit_cache # Eli (10/22/20): Having the pre-commit cache inside the repo creates problems with Pytest detecting test files inside the cache
-          key: ${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-${{ hashFiles('**/.pre-commit-config.yaml') }}
-          restore-keys: |
-            ${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-
+      # - name: Cache Pre-commit hooks
+      #   uses: actions/cache@v2
+      #   env:
+      #     cache-name: cache-pre-commit-hooks
+      #   if: matrix.IS_FASTEST_JOB == true
+      #   with:
+      #     path: ~/.precommit_cache # Eli (10/22/20): Having the pre-commit cache inside the repo creates problems with Pytest detecting test files inside the cache
+      #     key: ${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-${{ hashFiles('**/.pre-commit-config.yaml') }}
+      #     restore-keys: |
+      #       ${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-
 
       - name: Display Chrome version (Windows)
         if: runner.os == 'Windows'
@@ -159,19 +159,17 @@ jobs:
 
       # - name: Install NPM Dependencies
       #   run: pipenv run npm ci --cache .npm_cache/
-      - name: Run pre-commit hooks
-        if: matrix.IS_FASTEST_JOB == true
-        env:
-          PRE_COMMIT_HOME: ~/.precommit_cache
-
-        # only enable pre-commit on the fastest job. When pipenv runs an install, even using --deploy, it makes tweaks...somehow...to the Pipfile
-        run: |
-          pipenv run pre-commit install
-          pipenv run pre-commit run -a
-        # run: |
-        #   pre-commit install
-        #   pre-commit run -a
-
+      # - name: Run pre-commit hooks
+      #   if: matrix.IS_FASTEST_JOB == true
+      #   env:
+      #     PRE_COMMIT_HOME: ~/.precommit_cache
+      #   # only enable pre-commit on the fastest job. When pipenv runs an install, even using --deploy, it makes tweaks...somehow...to the Pipfile
+      #   run: |
+      #     pipenv run pre-commit install
+      #     pipenv run pre-commit run -a
+      #   # run: |
+      #   #   pre-commit install
+      #   #   pre-commit run -a
       - name: Move OpalKelly .so file to needed location (Linux)
         if: runner.os == 'Linux' # Eli (10/20/20): not sure if copying to both locations is needed...but it's working and haven't checked which is required...should theoretically only be one needed
         run: |
