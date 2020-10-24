@@ -88,7 +88,7 @@ def test_MantarrayProcessesManager__join_processes__calls_join_on_all_processes(
     mocked_data_analyzer_join.assert_called_once()
 
 
-@pytest.mark.timeout(8)
+@pytest.mark.timeout(20)
 def test_MantarrayProcessesManager__spawn_processes__stop_and_join_processes__starts_and_stops_all_processes(
     mocker,
 ):
@@ -117,7 +117,7 @@ def test_MantarrayProcessesManager__spawn_processes__stop_and_join_processes__st
     spied_data_analyzer_join.assert_called_once()
 
 
-@pytest.mark.timeout(8)
+@pytest.mark.timeout(20)
 def test_MantarrayProcessesManager__soft_stop_and_join_processes__soft_stops_processes(
     mocker,
 ):
@@ -150,7 +150,7 @@ def test_MantarrayProcessesManager__soft_stop_and_join_processes__soft_stops_pro
     spied_data_analyzer_join.assert_called_once()
 
 
-@pytest.mark.timeout(12)
+@pytest.mark.timeout(25)
 def test_MantarrayProcessesManager__hard_stop_and_join_processes__hard_stops_processes_and_returns_queue_items(
     mocker,
 ):
