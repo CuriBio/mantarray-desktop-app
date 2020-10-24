@@ -64,6 +64,7 @@ from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from .constants import REFERENCE_VOLTAGE
 from .constants import REFERENCE_VOLTAGE_UUID
 from .constants import ROUND_ROBIN_PERIOD
+from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
 from .constants import SLEEP_FIRMWARE_VERSION_UUID
@@ -311,4 +312,5 @@ __all__ = [
     "UTC_FIRST_REF_DATA_POINT_UUID",
     "WELL_24_INDEX_TO_ADC_AND_CH_INDEX",
     "FirmwareFileNameDoesNotMatchWireOutVersionError",
+    "SECONDS_TO_WAIT_WHEN_POLLING_QUEUES",
 ]

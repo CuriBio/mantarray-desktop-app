@@ -56,6 +56,7 @@ from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import REFERENCE_VOLTAGE_UUID
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
+from mantarray_desktop_app import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import SLEEP_FIRMWARE_VERSION_UUID
@@ -322,3 +323,7 @@ def test_user_config():
 def test_shutdown_values():
     assert SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS == 1
     assert SUBPROCESS_POLL_DELAY_SECONDS == 0.025
+
+
+def test_parallelism_config():
+    assert SECONDS_TO_WAIT_WHEN_POLLING_QUEUES == 0.01

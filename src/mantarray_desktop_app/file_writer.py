@@ -8,6 +8,7 @@ import json
 import logging
 from multiprocessing import Queue
 import os
+import queue
 from statistics import stdev
 import time
 from typing import Any
@@ -40,6 +41,7 @@ from .constants import PLATE_BARCODE_UUID
 from .constants import REF_SAMPLING_PERIOD_UUID
 from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from .constants import ROUND_ROBIN_PERIOD
+from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import TISSUE_SAMPLING_PERIOD_UUID
 from .constants import TOTAL_WELL_COUNT_UUID
 from .constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
@@ -458,9 +460,10 @@ class FileWriterProcess(InfiniteProcess):
 
     def _process_next_command_from_main(self) -> None:
         input_queue = self._from_main_queue
-        if input_queue.empty():
+        try:
+            communication = input_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
+        except queue.Empty:
             return
-        communication = input_queue.get()
 
         to_main = self._to_main_queue
         logging_threshold = self.get_logging_level()
@@ -598,11 +601,16 @@ class FileWriterProcess(InfiniteProcess):
         If multiple boards are implemented, a kwarg board_idx:int=0 can be added.
         """
         input_queue = self._board_queues[0][0]
-        # if input_queue.qsize() == 0:
-        # if is_queue_eventually_empty(input_queue):
-        if input_queue.empty():
+        try:
+            data_packet = input_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
+        except queue.Empty:
             return
-        data_packet = input_queue.get_nowait()
+
+        # # if input_queue.qsize() == 0:
+        # # if is_queue_eventually_empty(input_queue):
+        # if input_queue.empty():
+        #     return
+        # data_packet = input_queue.get_nowait()
 
         to_main = self._to_main_queue
 

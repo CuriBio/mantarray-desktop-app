@@ -754,6 +754,8 @@ def test_FileWriterProcess__logs_performance_metrics_after_appropriate_number_of
     assert "start_timepoint_of_measurements" not in actual
 
 
+@pytest.mark.slow
+@pytest.mark.timeout(45)
 def test_FileWriterProcess__does_not_log_percent_use_metrics_in_first_logging_cycle(
     four_board_file_writer_process,
 ):
