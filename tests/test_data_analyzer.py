@@ -42,6 +42,7 @@ from stdlib_utils import is_queue_eventually_not_empty
 from stdlib_utils import is_queue_eventually_of_size
 from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
+from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .fixtures_data_analyzer import fixture_four_board_analyzer_process
 
 
@@ -114,7 +115,12 @@ def test_DataAnalyzerProcess_performance(four_board_analyzer_process):
     invoke_process_run_and_check_errors(p, num_iterations=8 * (24 + 6))
     dur = time.perf_counter_ns() - start
 
-    assert is_queue_eventually_not_empty(board_queues[0][1]) is True
+    assert (
+        is_queue_eventually_not_empty(
+            board_queues[0][1], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
     board_queues[0][1].get_nowait()  # Tanner (8/31/20): prevent BrokenPipeError
 
     # print(f"Duration (ns): {dur}")
@@ -138,7 +144,9 @@ def test_DataAnalyzerProcess_commands_for_each_run_iteration__checks_for_calibra
 
     p, _, comm_from_main_queue, _, _ = four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        calibration_comm, comm_from_main_queue
+        calibration_comm,
+        comm_from_main_queue,
+        timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
     )
     invoke_process_run_and_check_errors(p)
 
@@ -179,7 +187,7 @@ def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_wh
         "data": test_construct_data,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_construct_dict, incoming_data
+        test_construct_dict, incoming_data, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
 
     invoke_process_run_and_check_errors(p)
@@ -211,7 +219,7 @@ def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_wh
         "data": test_construct_data,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_construct_dict, incoming_data
+        test_construct_dict, incoming_data, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
     data_buffer = p._data_buffer  # pylint:disable=protected-access
 
@@ -249,7 +257,7 @@ def test_DataAnalyzerProcess__correctly_pairs_ascending_order_ref_sensor_data_in
         "data": test_ref_data,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_ref_dict, incoming_data
+        test_ref_dict, incoming_data, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
 
     invoke_process_run_and_check_errors(p)
@@ -285,7 +293,7 @@ def test_DataAnalyzerProcess__correctly_pairs_descending_order_ref_sensor_data_i
         "data": test_ref_data,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_ref_dict, incoming_data
+        test_ref_dict, incoming_data, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
 
     invoke_process_run_and_check_errors(p)
@@ -374,7 +382,12 @@ def test_DataAnalyzerProcess__dumps_all_data_when_buffer_is_full_and_clears_buff
     invoke_process_run_and_check_errors(p)
 
     actual_json = outgoing_data.get_nowait()
-    assert is_queue_eventually_empty(outgoing_data) is True
+    assert (
+        is_queue_eventually_empty(
+            outgoing_data, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
 
     actual = json.loads(actual_json)
     waveform_data_points = actual["waveform_data"]["basic_data"]["waveform_data_points"]
@@ -417,7 +430,12 @@ def test_DataAnalyzerProcess__dump_data_into_queue__sends_message_to_main_indica
         "latest_timepoint": dummy_well_data[0][-1],
     }
     p._dump_data_into_queue(dummy_data_dict)  # pylint:disable=protected-access
-    assert is_queue_eventually_not_empty(comm_to_main_queue) is True
+    assert (
+        is_queue_eventually_not_empty(
+            comm_to_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
 
     expected_time = datetime.datetime(2020, 6, 1, 13, 45, 30, 123456).strftime(
         "%Y-%m-%d %H:%M:%S.%f"
@@ -451,31 +469,83 @@ def test_DataAnalyzerProcess__drain_all_queues__drains_all_queues_except_error_q
     for i, board in enumerate(board_queues):
         for j, queue in enumerate(board):
             queue_item = expected[i][j]
-            queue.put(queue_item)
-    assert is_queue_eventually_not_empty(board_queues[3][1]) is True
+            put_object_into_queue_and_raise_error_if_eventually_still_empty(
+                queue_item, queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+            )
 
     from_main_queue.put(expected_from_main)
     to_main_queue.put(expected_to_main)
-    error_queue.put(expected_error)
-    assert is_queue_eventually_not_empty(from_main_queue) is True
-    assert is_queue_eventually_not_empty(to_main_queue) is True
-    assert is_queue_eventually_not_empty(error_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        expected_error, error_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    )
+    assert (
+        is_queue_eventually_not_empty(
+            from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
+    assert (
+        is_queue_eventually_not_empty(
+            to_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
 
     actual = (
         data_analyzer_process._drain_all_queues()  # pylint:disable=protected-access
     )
 
-    assert is_queue_eventually_not_empty(error_queue) is True
+    assert (
+        is_queue_eventually_not_empty(
+            error_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
     actual_error = error_queue.get_nowait()
     assert actual_error == expected_error
 
-    assert is_queue_eventually_empty(from_main_queue) is True
-    assert is_queue_eventually_empty(to_main_queue) is True
-    assert is_queue_eventually_empty(board_queues[3][0]) is True
-    assert is_queue_eventually_empty(board_queues[2][0]) is True
-    assert is_queue_eventually_empty(board_queues[1][0]) is True
-    assert is_queue_eventually_empty(board_queues[0][1]) is True
-    assert is_queue_eventually_empty(board_queues[0][0]) is True
+    assert (
+        is_queue_eventually_empty(
+            from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
+    assert (
+        is_queue_eventually_empty(
+            to_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
+    assert (
+        is_queue_eventually_empty(
+            board_queues[3][0], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
+    assert (
+        is_queue_eventually_empty(
+            board_queues[2][0], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
+    assert (
+        is_queue_eventually_empty(
+            board_queues[1][0], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
+    assert (
+        is_queue_eventually_empty(
+            board_queues[0][1], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
+    assert (
+        is_queue_eventually_empty(
+            board_queues[0][0], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
 
     assert actual["board_0"]["outgoing_data"] == [expected[0][1]]
     assert actual["board_3"]["file_writer_to_data_analyzer"] == [expected[3][0]]
@@ -556,7 +626,7 @@ def test_DataAnalyzerProcess__raises_error_with_unrecognized_acquisition_manager
         "command": expected_command,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        start_command, comm_from_main_queue
+        start_command, comm_from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
 
     with pytest.raises(
@@ -575,7 +645,7 @@ def test_DataAnalyzerProcess__processes_start_managed_acquisition_command(
         "command": "start_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        start_command, comm_from_main_queue
+        start_command, comm_from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
 
     invoke_process_run_and_check_errors(p)
@@ -597,7 +667,7 @@ def test_DataAnalyzerProcess__processes_stop_managed_acquisition_command(
         "command": "stop_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        stop_command, comm_from_main_queue
+        stop_command, comm_from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
 
     invoke_process_run_and_check_errors(p)
@@ -620,7 +690,9 @@ def test_DataAnalyzerProcess__raises_error_if_communication_type_is_invalid(
         "communication_type": "fake_type",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        invalid_command, comm_from_main_queue
+        invalid_command,
+        comm_from_main_queue,
+        timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
     )
 
     with pytest.raises(
@@ -648,7 +720,12 @@ def test_DataAnalyzerProcess__does_not_load_data_to_buffer_if_managed_acquisitio
         "data": np.array([[125, 375], [2, 4]]),
     }
     incoming_data.put(test_ref_dict)
-    assert is_queue_eventually_of_size(incoming_data, 2) is True
+    assert (
+        is_queue_eventually_of_size(
+            incoming_data, 2, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
 
     invoke_process_run_and_check_errors(p, num_iterations=2)
 
@@ -733,7 +810,12 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_dumping_data(
     invoke_process_run_and_check_errors(
         da_process, num_iterations=expected_num_iterations
     )
-    assert is_queue_eventually_not_empty(to_main_queue) is True
+    assert (
+        is_queue_eventually_not_empty(
+            to_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
 
     actual = to_main_queue.get_nowait()
     actual = actual["message"]
@@ -795,7 +877,12 @@ def test_DataAnalyzerProcess__does_not_metrics_in_first_logging_cycle(
     mocker.patch.object(da_process, "_is_buffer_full", return_value=True)
 
     invoke_process_run_and_check_errors(da_process)
-    assert is_queue_eventually_not_empty(to_main_queue) is True
+    assert (
+        is_queue_eventually_not_empty(
+            to_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
     actual = to_main_queue.get_nowait()
     actual = actual["message"]
     assert "percent_use_metrics" not in actual
