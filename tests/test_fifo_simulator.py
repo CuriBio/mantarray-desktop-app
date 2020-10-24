@@ -12,11 +12,14 @@ from mantarray_desktop_app import RunningFIFOSimulator
 import pytest
 from stdlib_utils import is_queue_eventually_empty
 from stdlib_utils import is_queue_eventually_not_empty
+from stdlib_utils import is_queue_eventually_of_size
 from xem_wrapper import FrontPanelBase
 from xem_wrapper import FrontPanelSimulator
 from xem_wrapper import OpalKellyBoardNotInitializedError
 from xem_wrapper import OpalKellyFileNotFoundError
 from xem_wrapper import PIPE_OUT_FIFO
+
+from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 
 
 def test_RunningFIFOSimulator__class_attributes():
@@ -169,9 +172,19 @@ def test_RunningFIFOSimulator__queue_from_read_producer_gets_populated_after_sta
         fifo_simulator._producer_data_queue  # pylint: disable=protected-access
     )
 
-    assert is_queue_eventually_empty(queue_from_read_producer) is True
+    assert (
+        is_queue_eventually_empty(
+            queue_from_read_producer, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
     fifo_simulator.start_acquisition()
-    assert is_queue_eventually_not_empty(queue_from_read_producer) is True
+    assert (
+        is_queue_eventually_not_empty(
+            queue_from_read_producer, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
 
     fifo_simulator.stop_acquisition()
 
@@ -221,7 +234,12 @@ def test_RunningFIFOSimulator__read_from_fifo__reads_all_data_from_input_data_qu
     queue_from_read_producer = (
         fifo_simulator._producer_data_queue  # pylint: disable=protected-access
     )
-    assert is_queue_eventually_empty(queue_from_read_producer) is True
+    assert (
+        is_queue_eventually_empty(
+            queue_from_read_producer, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
 
 
 @pytest.mark.parametrize(
@@ -346,14 +364,25 @@ def test_RunningFIFOSimulator__read_wire_out__returns_expected_values_from_popul
     expected_first_read = 1
     wire_out_queue = Queue()
     wire_out_queue.put(expected_first_read)
-    assert is_queue_eventually_not_empty(wire_out_queue) is True
+    # assert is_queue_eventually_not_empty(wire_out_queue,timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
+    assert (
+        is_queue_eventually_of_size(
+            wire_out_queue, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
     wire_outs = {0: wire_out_queue}
     fifo_simulator = RunningFIFOSimulator({"wire_outs": wire_outs})
     fifo_simulator.initialize_board()
 
     actual_1 = fifo_simulator.read_wire_out(0x00)
     assert actual_1 == expected_first_read
-    assert is_queue_eventually_empty(wire_out_queue) is True
+    assert (
+        is_queue_eventually_empty(
+            wire_out_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
     actual_2 = fifo_simulator.read_wire_out(0x00)
     assert actual_2 == FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
 
