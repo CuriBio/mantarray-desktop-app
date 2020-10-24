@@ -28,6 +28,7 @@ from scipy import signal
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import is_queue_eventually_empty
 from stdlib_utils import is_queue_eventually_not_empty
+from stdlib_utils import is_queue_eventually_of_size
 from stdlib_utils import parallelism_framework
 from xem_wrapper import build_header_magic_number_bytes
 from xem_wrapper import DATA_FRAME_SIZE_WORDS
@@ -37,6 +38,7 @@ from xem_wrapper import HEADER_MAGIC_NUMBER
 from xem_wrapper import OpalKellyIncorrectHeaderError
 from xem_wrapper import PIPE_OUT_FIFO
 
+from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .fixtures_ok_comm import fixture_four_board_comm_process
 
 __fixtures__ = [
@@ -61,7 +63,12 @@ def test_OkCommunicationProcess_run__processes_start_managed_acquisition_command
         "command": "start_managed_acquisition",
     }
     input_queue.put(copy.deepcopy(expected_returned_communication))
-    assert is_queue_eventually_not_empty(input_queue) is True
+    assert (
+        is_queue_eventually_of_size(
+            input_queue, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
     invoke_process_run_and_check_errors(ok_process)
 
     expected_returned_communication["timestamp"] = datetime.datetime.utcnow()
@@ -99,7 +106,12 @@ def test_OkCommunicationProcess_run__processes_stop_managed_acquisition_command(
         "command": "stop_managed_acquisition",
     }
     input_queue.put(copy.deepcopy(expected_returned_communication))
-    assert is_queue_eventually_not_empty(input_queue) is True
+    assert (
+        is_queue_eventually_of_size(
+            input_queue, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
     invoke_process_run_and_check_errors(ok_process)
 
     actual = ok_comm_to_main.get_nowait()
@@ -131,7 +143,12 @@ def test_OkCommunicationProcess_run__raises_error_if_acquisition_manager_command
         "command": "fake_command",
     }
     input_queue.put(copy.deepcopy(expected_returned_communication))
-    assert is_queue_eventually_not_empty(input_queue) is True
+    assert (
+        is_queue_eventually_of_size(
+            input_queue, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
     with pytest.raises(
         UnrecognizedAcquisitionManagerCommandError, match="fake_command"
     ):
@@ -197,7 +214,7 @@ def test_OkCommunicationProcess_commands_for_each_run_iteration__sends_fifo_read
     test_bytearray = produce_data(1, 0)
     fifo = Queue()
     fifo.put(test_bytearray)
-    assert is_queue_eventually_not_empty(fifo) is True
+    assert is_queue_eventually_of_size(fifo, 1) is True
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
     simulator = FrontPanelSimulator(queues)
     simulator.initialize_board()
@@ -242,7 +259,12 @@ def test_OkCommunicationProcess_commands_for_each_run_iteration__does_not_send_f
     test_bytearray[:8] = build_header_magic_number_bytes(HEADER_MAGIC_NUMBER)
     fifo = Queue()
     fifo.put(test_bytearray)
-    assert is_queue_eventually_not_empty(fifo) is True
+    assert (
+        is_queue_eventually_of_size(
+            fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
     simulator = FrontPanelSimulator(queues)
     simulator.initialize_board()
@@ -258,7 +280,12 @@ def test_OkCommunicationProcess_commands_for_each_run_iteration__does_not_send_f
     ] = time.perf_counter()
     invoke_process_run_and_check_errors(p)
 
-    assert is_queue_eventually_not_empty(board_queues[0][2]) is False
+    assert (
+        is_queue_eventually_not_empty(
+            board_queues[0][2], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is False
+    )
 
 
 def test_OkCommunicationProcess_managed_acquisition_reads_at_least_one_prepopulated_simulated_fifo_read(
@@ -275,7 +302,12 @@ def test_OkCommunicationProcess_managed_acquisition_reads_at_least_one_prepopula
     board_queues[0][0].put(start_communication)
     fifo = Queue()
     fifo.put(produce_data(2, 0))
-    assert is_queue_eventually_not_empty(fifo) is True
+    assert (
+        is_queue_eventually_of_size(
+            fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
 
     simulator = FrontPanelSimulator(queues)
@@ -318,7 +350,12 @@ def test_OkCommunicationProcess_managed_acquisition_handles_ignoring_first_data_
     board_queues[0][0].put(start_communication)
     fifo = Queue()
     fifo.put(produce_data(2, 0))
-    assert is_queue_eventually_not_empty(fifo) is True
+    assert (
+        is_queue_eventually_of_size(
+            fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
 
     simulator = FrontPanelSimulator(queues)
@@ -414,7 +451,12 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
     board_queues[0][0].put(start_communication)
-    assert is_queue_eventually_not_empty(board_queues[0][0]) is True
+    assert (
+        is_queue_eventually_of_size(
+            board_queues[0][0], 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
     fifo = Queue()
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
 
@@ -424,10 +466,20 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
     comm_to_main = board_queues[0][1]
 
     fifo.put(test_read)
-    assert is_queue_eventually_not_empty(fifo) is True
+    assert (
+        is_queue_eventually_of_size(
+            fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
     invoke_process_run_and_check_errors(ok_process)
     comm_to_main.get_nowait()  # pop out init message
-    assert is_queue_eventually_empty(comm_to_main) is True
+    assert (
+        is_queue_eventually_empty(
+            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
 
     ok_process._time_of_last_fifo_read[  # pylint: disable=protected-access
         0
@@ -437,13 +489,28 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
     ] = time.perf_counter()
     with pytest.raises(expected_error):
         invoke_process_run_and_check_errors(ok_process)
-    assert is_queue_eventually_not_empty(comm_to_main) is True
+    assert (
+        is_queue_eventually_not_empty(
+            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
 
     for _ in range(10):
         comm_to_main.get_nowait()  # pop expected log messages
-        assert is_queue_eventually_not_empty(comm_to_main) is True
+        assert (
+            is_queue_eventually_not_empty(
+                comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+            )
+            is True
+        )
 
-    assert is_queue_eventually_not_empty(comm_to_main) is True
+    assert (
+        is_queue_eventually_not_empty(
+            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
     fifo_read_msg = comm_to_main.get_nowait()
     first_managed_read_length = len(test_read) - (
         DATA_FRAME_SIZE_WORDS * DATA_FRAMES_PER_ROUND_ROBIN * 4
@@ -451,16 +518,31 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
     assert f"{first_managed_read_length} bytes" in fifo_read_msg["message"]
     assert r"b'\x01\x01\x01\x01" in fifo_read_msg["message"]
 
-    assert is_queue_eventually_not_empty(comm_to_main) is True
+    assert (
+        is_queue_eventually_not_empty(
+            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
     error_msg = comm_to_main.get_nowait()
     assert "OpalKellyIncorrectHeaderError" in error_msg["message"]
 
     if is_read_convertable:
-        assert is_queue_eventually_not_empty(comm_to_main) is True
+        assert (
+            is_queue_eventually_not_empty(
+                comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+            )
+            is True
+        )
         hex_words_msg = comm_to_main.get_nowait()
         assert "['0x1010101', '0x1010101'" in hex_words_msg["message"]
 
-    assert is_queue_eventually_empty(comm_to_main) is True
+    assert (
+        is_queue_eventually_empty(
+            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
 
 
 def test_OkCommunicationProcess_managed_acquisition_does_not_log_when_non_parsing_error_raised_after_first_managed_read(
@@ -480,7 +562,12 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_when_non_parsin
     board_queues[0][0].put(start_communication)
     fifo = Queue()
     fifo.put(produce_data(1, 0))
-    assert is_queue_eventually_not_empty(fifo) is True
+    assert (
+        is_queue_eventually_of_size(
+            fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
 
     simulator = FrontPanelSimulator(queues)
@@ -490,7 +577,12 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_when_non_parsin
 
     invoke_process_run_and_check_errors(ok_process)
     comm_to_main.get_nowait()  # pop out init message
-    assert is_queue_eventually_empty(comm_to_main) is True
+    assert (
+        is_queue_eventually_empty(
+            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
 
     ok_process._time_of_last_fifo_read[  # pylint: disable=protected-access
         0
@@ -503,10 +595,20 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_when_non_parsin
         invoke_process_run_and_check_errors(ok_process)
 
     for _ in range(6):
-        assert is_queue_eventually_not_empty(comm_to_main) is True
+        assert (
+            is_queue_eventually_not_empty(
+                comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+            )
+            is True
+        )
         comm_to_main.get_nowait()  # pop out expected log messages
 
-    assert is_queue_eventually_empty(comm_to_main) is True
+    assert (
+        is_queue_eventually_empty(
+            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
 
 
 def test_OkCommunicationProcess_raises_and_logs_error_if_first_managed_read_does_not_contain_at_least_one_round_robin(
@@ -526,7 +628,12 @@ def test_OkCommunicationProcess_raises_and_logs_error_if_first_managed_read_does
     board_queues[0][0].put(start_communication)
     fifo = Queue()
     fifo.put(test_bytearray)
-    assert is_queue_eventually_not_empty(fifo) is True
+    assert (
+        is_queue_eventually_of_size(
+            fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
 
     simulator = FrontPanelSimulator(queues)
@@ -536,7 +643,12 @@ def test_OkCommunicationProcess_raises_and_logs_error_if_first_managed_read_does
 
     invoke_process_run_and_check_errors(ok_process)
     comm_to_main.get_nowait()  # pop out init log message
-    assert is_queue_eventually_empty(comm_to_main) is True
+    assert (
+        is_queue_eventually_empty(
+            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
 
     ok_process._time_of_last_fifo_read[  # pylint: disable=protected-access
         0
@@ -546,21 +658,41 @@ def test_OkCommunicationProcess_raises_and_logs_error_if_first_managed_read_does
     ] = time.perf_counter()
     with pytest.raises(FirstManagedReadLessThanOneRoundRobinError):
         invoke_process_run_and_check_errors(ok_process)
-    assert is_queue_eventually_not_empty(comm_to_main) is True
+    assert (
+        is_queue_eventually_not_empty(
+            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
 
     for _ in range(4):
         comm_to_main.get_nowait()  # pop out expected log messages
-        assert is_queue_eventually_not_empty(comm_to_main) is True
+        assert (
+            is_queue_eventually_not_empty(
+                comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+            )
+            is True
+        )
 
     fifo_read_msg = comm_to_main.get_nowait()
     assert f"{len(test_bytearray)} bytes" in fifo_read_msg["message"]
     assert r"b''" in fifo_read_msg["message"]
 
-    assert is_queue_eventually_not_empty(comm_to_main) is True
+    assert (
+        is_queue_eventually_not_empty(
+            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
     error_msg = comm_to_main.get_nowait()
     assert "FirstManagedReadLessThanOneRoundRobinError" in error_msg["message"]
 
-    assert is_queue_eventually_empty(comm_to_main) is True
+    assert (
+        is_queue_eventually_empty(
+            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
 
 
 def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and_attempts_word_conversion_of_first_round_robin(
@@ -578,7 +710,12 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
     board_queues[0][0].put(start_communication)
     fifo = Queue()
     fifo.put(test_read)
-    assert is_queue_eventually_not_empty(fifo) is True
+    assert (
+        is_queue_eventually_of_size(
+            fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
 
     simulator = FrontPanelSimulator(queues)
@@ -589,7 +726,12 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
     invoke_process_run_and_check_errors(ok_process)
 
     comm_to_main.get_nowait()  # pop out init message
-    assert is_queue_eventually_empty(comm_to_main) is True
+    assert (
+        is_queue_eventually_empty(
+            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
 
     ok_process._time_of_last_fifo_read[  # pylint: disable=protected-access
         0
@@ -598,26 +740,51 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
         0
     ] = time.perf_counter()
     invoke_process_run_and_check_errors(ok_process)
-    assert is_queue_eventually_not_empty(comm_to_main) is True
+    assert (
+        is_queue_eventually_not_empty(
+            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
 
     for _ in range(6):
         comm_to_main.get_nowait()  # pop out expected log messages
-        assert is_queue_eventually_not_empty(comm_to_main) is True
+        assert (
+            is_queue_eventually_not_empty(
+                comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+            )
+            is True
+        )
 
     fifo_read_msg = comm_to_main.get_nowait()
     first_round_robin_len = DATA_FRAME_SIZE_WORDS * DATA_FRAMES_PER_ROUND_ROBIN * 4
     assert f"{first_round_robin_len} bytes" in fifo_read_msg["message"]
     assert r"b'\x01\x01\x01\x01" in fifo_read_msg["message"]
 
-    assert is_queue_eventually_not_empty(comm_to_main) is True
+    assert (
+        is_queue_eventually_not_empty(
+            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
     error_msg = comm_to_main.get_nowait()
     assert "OpalKellyIncorrectHeaderError" in error_msg["message"]
 
     for _ in range(2):
-        assert is_queue_eventually_not_empty(comm_to_main) is True
+        assert (
+            is_queue_eventually_not_empty(
+                comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+            )
+            is True
+        )
         comm_to_main.get_nowait()  # pop out expected log messages
 
-    assert is_queue_eventually_empty(comm_to_main) is True
+    assert (
+        is_queue_eventually_empty(
+            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
 
 
 def test_OkCommunicationProcess_managed_acquisition_does_not_log_when_non_parsing_error_raised_with_first_round_robin(
@@ -635,10 +802,20 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_when_non_parsin
     ok_process._data_frame_format = "fake_format"  # pylint:disable=protected-access
 
     board_queues[0][0].put(start_communication)
-    assert is_queue_eventually_not_empty(board_queues[0][0]) is True
+    assert (
+        is_queue_eventually_of_size(
+            board_queues[0][0], 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
     fifo = Queue()
     fifo.put(produce_data(1, 0))
-    assert is_queue_eventually_not_empty(fifo) is True
+    assert (
+        is_queue_eventually_of_size(
+            fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
 
     simulator = FrontPanelSimulator(queues)
@@ -648,7 +825,12 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_when_non_parsin
 
     invoke_process_run_and_check_errors(ok_process)
     comm_to_main.get_nowait()  # pop out init message
-    assert is_queue_eventually_empty(comm_to_main) is True
+    assert (
+        is_queue_eventually_empty(
+            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
 
     ok_process._time_of_last_fifo_read[  # pylint: disable=protected-access
         0
@@ -660,10 +842,20 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_when_non_parsin
         invoke_process_run_and_check_errors(ok_process)
 
     for _ in range(6):
-        assert is_queue_eventually_not_empty(comm_to_main) is True
+        assert (
+            is_queue_eventually_not_empty(
+                comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+            )
+            is True
+        )
         comm_to_main.get_nowait()  # pop out expected log messages
 
-    assert is_queue_eventually_empty(comm_to_main) is True
+    assert (
+        is_queue_eventually_empty(
+            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
 
 
 # pylint: disable=too-many-locals
@@ -734,7 +926,14 @@ def test_OkCommunicationProcess_managed_acquisition_logs_performance_metrics_aft
     fifo = Queue()
     for read in test_fifo_reads:
         fifo.put(read)
-    assert is_queue_eventually_not_empty(fifo) is True
+    assert (
+        is_queue_eventually_of_size(
+            fifo,
+            OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES,
+            timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
+        )
+        is True
+    )
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
     simulator = FrontPanelSimulator(queues)
     simulator.initialize_board()
@@ -745,15 +944,27 @@ def test_OkCommunicationProcess_managed_acquisition_logs_performance_metrics_aft
             "command": "start_managed_acquisition",
         }
     )
-    assert is_queue_eventually_not_empty(board_queues[0][0]) is True
+    assert (
+        is_queue_eventually_of_size(
+            board_queues[0][0], 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
 
     invoke_process_run_and_check_errors(
         ok_process, num_iterations=OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
     )
 
-    assert is_queue_eventually_not_empty(board_queues[0][1]) is True
+    assert (
+        is_queue_eventually_not_empty(
+            board_queues[0][1], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
     actual = board_queues[0][1].get_nowait()
-    while is_queue_eventually_not_empty(board_queues[0][1]):
+    while is_queue_eventually_not_empty(
+        board_queues[0][1], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    ):
         actual = board_queues[0][1].get_nowait()
     actual = actual["message"]
 
@@ -814,7 +1025,9 @@ def test_OkCommunicationProcess_managed_acquisition_logs_performance_metrics_aft
     )
 
     # Tanner (5/29/20): Closing a queue while it is not empty (especially when very full) causes BrokePipeErrors, so flushing it before the test ends prevents this
-    while is_queue_eventually_not_empty(board_queues[0][2]):
+    while is_queue_eventually_not_empty(
+        board_queues[0][2], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    ):
         board_queues[0][2].get_nowait()
 
 
@@ -838,7 +1051,14 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_percent_use_met
     fifo = Queue()
     for _ in range(OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES):
         fifo.put(produce_data(2, 0))
-    assert is_queue_eventually_not_empty(fifo) is True
+    assert (
+        is_queue_eventually_of_size(
+            fifo,
+            OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES,
+            timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
+        )
+        is True
+    )
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
     simulator = FrontPanelSimulator(queues)
     simulator.initialize_board()
@@ -849,19 +1069,33 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_percent_use_met
             "command": "start_managed_acquisition",
         }
     )
-    assert is_queue_eventually_not_empty(board_queues[0][0]) is True
+    assert (
+        is_queue_eventually_of_size(
+            board_queues[0][0], 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
 
     invoke_process_run_and_check_errors(
         ok_process, num_iterations=OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
     )
 
-    assert is_queue_eventually_not_empty(board_queues[0][1]) is True
+    assert (
+        is_queue_eventually_not_empty(
+            board_queues[0][1], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
     actual = board_queues[0][1].get_nowait()
-    while is_queue_eventually_not_empty(board_queues[0][1]):
+    while is_queue_eventually_not_empty(
+        board_queues[0][1], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    ):
         actual = board_queues[0][1].get_nowait()
     actual = actual["message"]
     assert "percent_use_metrics" not in actual
 
     # Tanner (5/29/20): Closing a queue while it is not empty (especially when very full) causes BrokePipeErrors, so flushing it before the test ends prevents this
-    while is_queue_eventually_not_empty(board_queues[0][2]):
+    while is_queue_eventually_not_empty(
+        board_queues[0][2], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    ):
         board_queues[0][2].get_nowait()
