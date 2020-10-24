@@ -9,6 +9,7 @@ import logging
 import math
 from multiprocessing import Queue
 import os
+import queue
 from statistics import stdev
 import struct
 import time
@@ -44,6 +45,7 @@ from .constants import CALIBRATION_NEEDED_STATE
 from .constants import DATA_FRAME_PERIOD
 from .constants import OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import REF_INDEX_TO_24_WELL_INDEX
+from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import TIMESTEP_CONVERSION_FACTOR
 from .constants import VALID_SCRIPTING_COMMANDS
 from .exceptions import FirmwareFileNameDoesNotMatchWireOutVersionError
@@ -626,10 +628,13 @@ class OkCommunicationProcess(InfiniteProcess):
         Will just return if no communications in queue.
         """
         input_queue = self._board_queues[0][0]
-        if input_queue.empty():
+        try:
+            this_communication = input_queue.get(
+                timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+            )
+        except queue.Empty:
             return
 
-        this_communication = input_queue.get()
         if this_communication["communication_type"] == "debug_console":
             self._handle_debug_console_comm(this_communication)
         elif this_communication["communication_type"] == "boot_up_instrument":
