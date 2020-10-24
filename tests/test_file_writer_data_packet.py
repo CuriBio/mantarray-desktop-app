@@ -36,22 +36,17 @@ __fixtures__ = [
 
 @pytest.mark.timeout(4)
 def test_FileWriterProcess__passes_data_packet_through_to_output_queue(
-    running_four_board_file_writer_process,
+    four_board_file_writer_process,
 ):
-
-    (
-        file_writer_process,
-        board_queues,
-        _,
-        _,
-        error_queue,
-        _,
-    ) = running_four_board_file_writer_process
+    (fw_process, board_queues, _, _, error_queue, _,) = four_board_file_writer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         SIMPLE_CONSTRUCT_DATA_FROM_WELL_0, board_queues[0][0]
     )
-    file_writer_process.soft_stop()
-    file_writer_process.join()
+
+    fw_process.start()  # start it after the queue has been populated so that the process will certainly see the object in the queue
+
+    fw_process.soft_stop()
+    fw_process.join()
     assert is_queue_eventually_empty(error_queue) is True
     out_data = board_queues[0][1].get_nowait()
     np.testing.assert_array_equal(
