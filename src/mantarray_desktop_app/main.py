@@ -68,6 +68,7 @@ from .constants import PLATE_BARCODE_UUID
 from .constants import RECORDING_STATE
 from .constants import REFERENCE_VOLTAGE
 from .constants import REFERENCE_VOLTAGE_UUID
+from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SLEEP_FIRMWARE_VERSION_UUID
 from .constants import SOFTWARE_RELEASE_VERSION_UUID
@@ -848,9 +849,10 @@ def get_available_data() -> Response:
     """
     manager = get_mantarray_process_manager()
     data_out_queue = manager.get_data_analyzer_data_out_queue()
-    if data_out_queue.empty():
+    try:
+        data = data_out_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
+    except queue.Empty:
         return Response(status=204)
-    data = data_out_queue.get_nowait()
 
     response = Response(data, mimetype="application/json")
 
