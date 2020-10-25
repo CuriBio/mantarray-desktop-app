@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from multiprocessing import Queue
 import queue
 import threading
 from typing import Any
@@ -21,6 +20,7 @@ from .constants import BUFFERING_STATE
 from .constants import CALIBRATED_STATE
 from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
+from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
 from .process_manager import MantarrayProcessesManager
@@ -51,8 +51,119 @@ class MantarrayProcessesMonitor(InfiniteThread):
         self._boot_up_after_processes_start = boot_up_after_processes_start
         self._data_dump_buffer_size = 0
 
+    def _check_and_handle_file_writer_to_main_queue(self) -> None:
+        process_manager = self._process_manager
+        file_writer_to_main = (
+            process_manager.get_communication_queue_from_file_writer_to_main()
+        )
+        try:
+            communication = file_writer_to_main.get(
+                timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+            )
+        except queue.Empty:
+            return
+
+        # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
+        msg = f"Communication from the File Writer: {communication}"
+        with self._lock:
+            logger.info(msg)
+
+    def _check_and_handle_data_analyzer_to_main_queue(self) -> None:
+        process_manager = self._process_manager
+
+        data_analyzer_to_main = (
+            process_manager.get_communication_queue_from_data_analyzer_to_main()
+        )
+        try:
+            communication = data_analyzer_to_main.get(
+                timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+            )
+        except queue.Empty:
+            return
+
+        # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
+        msg = f"Communication from the Data Analyzer: {communication}"
+        with self._lock:
+            logger.info(msg)
+
+        communication_type = communication["communication_type"]
+        if communication_type == "data_available":
+            if self._values_to_share_to_server["system_status"] == BUFFERING_STATE:
+                self._data_dump_buffer_size += 1
+                if self._data_dump_buffer_size == 2:
+                    self._values_to_share_to_server[
+                        "system_status"
+                    ] = LIVE_VIEW_ACTIVE_STATE
+
+    def _check_and_handle_ok_comm_to_main_queue(self) -> None:
+        process_manager = self._process_manager
+        ok_comm_to_main = process_manager.get_communication_queue_from_ok_comm_to_main(
+            0
+        )
+        try:
+            communication = ok_comm_to_main.get(
+                timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+            )
+        except queue.Empty:
+            return
+
+        # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
+        msg = f"Communication from the OpalKelly Controller: {communication}"
+        with self._lock:
+            logger.info(msg)
+        communication_type = communication["communication_type"]
+
+        if "command" in communication:
+            command = communication["command"]
+
+        if communication_type == "acquisition_manager":
+            if command == "start_managed_acquisition":
+                self._values_to_share_to_server[
+                    "utc_timestamps_of_beginning_of_data_acquisition"
+                ] = [communication["timestamp"]]
+            if command == "stop_managed_acquisition":
+                self._values_to_share_to_server["system_status"] = CALIBRATED_STATE
+                self._data_dump_buffer_size = 0
+        elif communication_type == "board_connection_status_change":
+            board_idx = communication["board_index"]
+            self._values_to_share_to_server["in_simulation_mode"] = not communication[
+                "is_connected"
+            ]
+            self._values_to_share_to_server["mantarray_serial_number"] = {
+                board_idx: communication["mantarray_serial_number"]
+            }
+            self._values_to_share_to_server["mantarray_nickname"] = {
+                board_idx: communication["mantarray_nickname"]
+            }
+            self._values_to_share_to_server["xem_serial_number"] = {
+                board_idx: communication["xem_serial_number"]
+            }
+        elif communication_type == "boot_up_instrument":
+            board_idx = communication["board_index"]
+            self._values_to_share_to_server["main_firmware_version"] = {
+                board_idx: communication["main_firmware_version"]
+            }
+            self._values_to_share_to_server["sleep_firmware_version"] = {
+                board_idx: communication["sleep_firmware_version"]
+            }
+        elif communication_type == "xem_scripts":
+            if "status_update" in communication:
+                self._values_to_share_to_server["system_status"] = communication[
+                    "status_update"
+                ]
+            if "adc_gain" in communication:
+                self._values_to_share_to_server["adc_gain"] = communication["adc_gain"]
+            description = communication.get("description", "")
+            if ADC_OFFSET_DESCRIPTION_TAG in description:
+                parsed_description = description.split("__")
+                adc_index = int(parsed_description[1][-1])
+                ch_index = int(parsed_description[2][-1])
+                offset_val = communication["wire_out_value"]
+                self._add_offset_to_shared_dict(adc_index, ch_index, offset_val)
+
     def _commands_for_each_run_iteration(self) -> None:
         """Execute additional commands inside the run loop."""
+        process_manager = self._process_manager
         if (
             self._values_to_share_to_server["system_status"]
             == SERVER_INITIALIZING_STATE
@@ -65,100 +176,13 @@ class MantarrayProcessesMonitor(InfiniteThread):
             self._values_to_share_to_server[
                 "system_status"
             ] = INSTRUMENT_INITIALIZING_STATE
-            self._process_manager.boot_up_instrument()
+            process_manager.boot_up_instrument()
 
-        process_manager = self._process_manager
-        ok_comm_to_main = process_manager.get_communication_queue_from_ok_comm_to_main(
-            0
-        )
-        if not ok_comm_to_main.empty():
-            communication = ok_comm_to_main.get_nowait()
-            # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
-            msg = f"Communication from the OpalKelly Controller: {communication}"
-            with self._lock:
-                logger.info(msg)
-            communication_type = communication["communication_type"]
+        self._check_and_handle_ok_comm_to_main_queue()
+        self._check_and_handle_file_writer_to_main_queue()
+        self._check_and_handle_data_analyzer_to_main_queue()
 
-            if "command" in communication:
-                command = communication["command"]
-
-            if communication_type == "acquisition_manager":
-                if command == "start_managed_acquisition":
-                    self._values_to_share_to_server[
-                        "utc_timestamps_of_beginning_of_data_acquisition"
-                    ] = [communication["timestamp"]]
-                if command == "stop_managed_acquisition":
-                    self._values_to_share_to_server["system_status"] = CALIBRATED_STATE
-                    self._data_dump_buffer_size = 0
-            elif communication_type == "board_connection_status_change":
-                board_idx = communication["board_index"]
-                self._values_to_share_to_server[
-                    "in_simulation_mode"
-                ] = not communication["is_connected"]
-                self._values_to_share_to_server["mantarray_serial_number"] = {
-                    board_idx: communication["mantarray_serial_number"]
-                }
-                self._values_to_share_to_server["mantarray_nickname"] = {
-                    board_idx: communication["mantarray_nickname"]
-                }
-                self._values_to_share_to_server["xem_serial_number"] = {
-                    board_idx: communication["xem_serial_number"]
-                }
-            elif communication_type == "boot_up_instrument":
-                board_idx = communication["board_index"]
-                self._values_to_share_to_server["main_firmware_version"] = {
-                    board_idx: communication["main_firmware_version"]
-                }
-                self._values_to_share_to_server["sleep_firmware_version"] = {
-                    board_idx: communication["sleep_firmware_version"]
-                }
-            elif communication_type == "xem_scripts":
-                if "status_update" in communication:
-                    self._values_to_share_to_server["system_status"] = communication[
-                        "status_update"
-                    ]
-                if "adc_gain" in communication:
-                    self._values_to_share_to_server["adc_gain"] = communication[
-                        "adc_gain"
-                    ]
-                description = communication.get("description", "")
-                if ADC_OFFSET_DESCRIPTION_TAG in description:
-                    parsed_description = description.split("__")
-                    adc_index = int(parsed_description[1][-1])
-                    ch_index = int(parsed_description[2][-1])
-                    offset_val = communication["wire_out_value"]
-                    self._add_offset_to_shared_dict(adc_index, ch_index, offset_val)
-
-        file_writer_to_main = (
-            process_manager.get_communication_queue_from_file_writer_to_main()
-        )
-        if not file_writer_to_main.empty():
-            communication = file_writer_to_main.get_nowait()
-            # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
-            msg = f"Communication from the File Writer: {communication}"
-            with self._lock:
-                logger.info(msg)
-
-        data_analyzer_to_main = (
-            process_manager.get_communication_queue_from_data_analyzer_to_main()
-        )
-        if not data_analyzer_to_main.empty():
-            communication = data_analyzer_to_main.get_nowait()
-            # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
-            msg = f"Communication from the Data Analyzer: {communication}"
-            with self._lock:
-                logger.info(msg)
-
-            communication_type = communication["communication_type"]
-            if communication_type == "data_available":
-                if self._values_to_share_to_server["system_status"] == BUFFERING_STATE:
-                    self._data_dump_buffer_size += 1
-                    if self._data_dump_buffer_size == 2:
-                        self._values_to_share_to_server[
-                            "system_status"
-                        ] = LIVE_VIEW_ACTIVE_STATE
-
-        for this_error_queue, this_process in (
+        for iter_error_queue, iter_process in (
             (
                 process_manager.get_ok_communication_error_queue(),
                 process_manager.get_ok_comm_process(),
@@ -172,8 +196,13 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 process_manager.get_data_analyzer_process(),
             ),
         ):
-            if this_error_queue.empty() is False:
-                self._handle_error_in_subprocess(this_process, this_error_queue)
+            try:
+                communication = iter_error_queue.get(
+                    timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+                )
+            except queue.Empty:
+                continue
+            self._handle_error_in_subprocess(iter_process, communication)
 
     def _check_subprocess_start_up_statuses(self) -> None:
         process_manager = self._process_manager
@@ -204,14 +233,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
         adc_offsets[well_index][offset_key] = offset_val
 
     def _handle_error_in_subprocess(
-        self,
-        process: InfiniteProcess,
-        error_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-            Tuple[Exception, str]
-        ],
+        self, process: InfiniteProcess, error_communication: Tuple[Exception, str]
     ) -> None:
-        # pylint: disable=no-self-use # will use self soon. and this needs to be spied on frequently, so don't want to change namespace
-        this_err, this_stack_trace = error_queue.get_nowait()
+        this_err, this_stack_trace = error_communication
         msg = f"Error raised by subprocess {process}\n{this_stack_trace}\n{this_err}"
         # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
         with self._lock:

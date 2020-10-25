@@ -606,12 +606,6 @@ class FileWriterProcess(InfiniteProcess):
         except queue.Empty:
             return
 
-        # # if input_queue.qsize() == 0:
-        # # if is_queue_eventually_empty(input_queue):
-        # if input_queue.empty():
-        #     return
-        # data_packet = input_queue.get_nowait()
-
         to_main = self._to_main_queue
 
         logging_threshold = self.get_logging_level()
