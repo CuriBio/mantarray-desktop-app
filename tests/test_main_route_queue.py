@@ -27,7 +27,6 @@ from mantarray_desktop_app import XEM_SERIAL_NUMBER_UUID
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
 from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
-from stdlib_utils import is_queue_eventually_not_empty
 from xem_wrapper import FrontPanelSimulator
 from xem_wrapper import PIPE_OUT_FIFO
 
@@ -37,6 +36,7 @@ from .fixtures import fixture_patched_start_recording_shared_dict
 from .fixtures import fixture_test_client
 from .fixtures import fixture_test_process_manager
 from .fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
+from .helpers import is_queue_eventually_not_empty
 
 
 __fixtures__ = [

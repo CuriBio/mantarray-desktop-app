@@ -9,8 +9,9 @@ from mantarray_desktop_app import MantarrayProcessesManager
 from mantarray_desktop_app import OkCommunicationProcess
 import pytest
 from stdlib_utils import get_current_file_abs_directory
-from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty
 from stdlib_utils import resource_path
+
+from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 
 def test_MantarrayProcessesManager__stop_processes__calls_stop_on_all_processes(

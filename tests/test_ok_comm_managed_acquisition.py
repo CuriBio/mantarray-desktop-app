@@ -26,9 +26,6 @@ import numpy as np
 import pytest
 from scipy import signal
 from stdlib_utils import invoke_process_run_and_check_errors
-from stdlib_utils import is_queue_eventually_empty
-from stdlib_utils import is_queue_eventually_not_empty
-from stdlib_utils import is_queue_eventually_of_size
 from stdlib_utils import parallelism_framework
 from xem_wrapper import build_header_magic_number_bytes
 from xem_wrapper import DATA_FRAME_SIZE_WORDS
@@ -40,6 +37,9 @@ from xem_wrapper import PIPE_OUT_FIFO
 
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .fixtures_ok_comm import fixture_four_board_comm_process
+from .helpers import is_queue_eventually_empty
+from .helpers import is_queue_eventually_not_empty
+from .helpers import is_queue_eventually_of_size
 
 __fixtures__ = [
     fixture_four_board_comm_process,

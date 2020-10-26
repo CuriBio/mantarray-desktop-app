@@ -26,8 +26,6 @@ from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import pytest
 import requests
 from stdlib_utils import confirm_port_in_use
-from stdlib_utils import is_queue_eventually_empty
-from stdlib_utils import is_queue_eventually_not_empty
 from xem_wrapper import DATA_FRAME_SIZE_WORDS
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 from xem_wrapper import FrontPanelSimulator
@@ -43,6 +41,8 @@ from .fixtures import fixture_patched_xem_scripts_folder
 from .fixtures import fixture_test_client
 from .fixtures import fixture_test_process_manager
 from .fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
+from .helpers import is_queue_eventually_empty
+from .helpers import is_queue_eventually_not_empty
 
 __fixtures__ = [
     fixture_fully_running_app_from_main_entrypoint,

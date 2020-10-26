@@ -7,7 +7,6 @@ from mantarray_desktop_app import execute_debug_console_command
 from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import UnrecognizedDebugConsoleCommandError
 import pytest
-from stdlib_utils import is_queue_eventually_not_empty
 from xem_wrapper import DATA_FRAME_SIZE_WORDS
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 from xem_wrapper import FrontPanelSimulator
@@ -15,6 +14,7 @@ from xem_wrapper import PIPE_OUT_FIFO
 
 from .fixtures import fixture_patched_firmware_folder
 from .fixtures_ok_comm import fixture_running_process_with_simulated_board
+from .helpers import is_queue_eventually_not_empty
 
 __fixtures__ = [
     fixture_running_process_with_simulated_board,

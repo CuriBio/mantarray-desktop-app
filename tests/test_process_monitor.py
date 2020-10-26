@@ -22,14 +22,14 @@ from mantarray_desktop_app.main import queue_command_to_ok_comm
 import numpy as np
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
-from stdlib_utils import is_queue_eventually_empty
-from stdlib_utils import is_queue_eventually_not_empty
-from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty
 from xem_wrapper import FrontPanelSimulator
 
 from .fixtures import fixture_test_process_manager
 from .fixtures_ok_comm import fixture_patch_connection_to_board
 from .fixtures_process_monitor import fixture_test_monitor
+from .helpers import is_queue_eventually_empty
+from .helpers import is_queue_eventually_not_empty
+from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 __fixtures__ = [
     fixture_test_process_manager,

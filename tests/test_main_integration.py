@@ -80,7 +80,6 @@ import pytest
 import requests
 from scipy import signal
 from stdlib_utils import confirm_port_available
-from stdlib_utils import is_queue_eventually_empty
 
 from .fixtures import fixture_fully_running_app_from_main_entrypoint
 from .fixtures import fixture_patched_firmware_folder
@@ -90,6 +89,7 @@ from .fixtures import fixture_test_client
 from .fixtures import fixture_test_process_manager
 from .fixtures import fixture_test_process_manager_without_created_processes
 from .fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
+from .helpers import is_queue_eventually_empty
 
 __fixtures__ = [
     fixture_fully_running_app_from_main_entrypoint,

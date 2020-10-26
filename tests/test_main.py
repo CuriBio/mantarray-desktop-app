@@ -49,8 +49,6 @@ import requests
 from stdlib_utils import confirm_port_available
 from stdlib_utils import confirm_port_in_use
 from stdlib_utils import invoke_process_run_and_check_errors
-from stdlib_utils import is_queue_eventually_empty
-from stdlib_utils import is_queue_eventually_not_empty
 from xem_wrapper import FrontPanelSimulator
 from xem_wrapper import PIPE_OUT_FIFO
 
@@ -62,6 +60,8 @@ from .fixtures import fixture_test_client
 from .fixtures import fixture_test_process_manager
 from .fixtures import fixture_test_process_manager_without_created_processes
 from .fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
+from .helpers import is_queue_eventually_empty
+from .helpers import is_queue_eventually_not_empty
 
 
 __fixtures__ = [

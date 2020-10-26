@@ -36,9 +36,6 @@ import pytest
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import invoke_process_run_and_check_errors
-from stdlib_utils import is_queue_eventually_empty
-from stdlib_utils import is_queue_eventually_not_empty
-from stdlib_utils import is_queue_eventually_of_size
 from xem_wrapper import build_header_magic_number_bytes
 from xem_wrapper import DATA_FRAME_SIZE_WORDS
 from xem_wrapper import FrontPanel
@@ -52,6 +49,9 @@ from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .fixtures_ok_comm import fixture_four_board_comm_process
 from .fixtures_ok_comm import fixture_patch_connection_to_board
 from .fixtures_ok_comm import fixture_running_process_with_simulated_board
+from .helpers import is_queue_eventually_empty
+from .helpers import is_queue_eventually_not_empty
+from .helpers import is_queue_eventually_of_size
 
 __fixtures__ = [
     fixture_four_board_comm_process,
