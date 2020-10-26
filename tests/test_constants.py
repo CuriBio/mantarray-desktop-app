@@ -326,4 +326,4 @@ def test_shutdown_values():
 
 
 def test_parallelism_config():
-    assert SECONDS_TO_WAIT_WHEN_POLLING_QUEUES == 0.01
+    assert SECONDS_TO_WAIT_WHEN_POLLING_QUEUES == 0.02

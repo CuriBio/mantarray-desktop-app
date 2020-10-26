@@ -210,4 +210,4 @@ PLATE_BARCODE_UUID = uuid.UUID("cf60afef-a9f0-4bc3-89e9-c665c6bb6941")
 SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS = 1
 SUBPROCESS_POLL_DELAY_SECONDS = 0.025
 
-SECONDS_TO_WAIT_WHEN_POLLING_QUEUES = 0.01  # Due to the unreliablity of the .empty() .qsize() methods in queues, switched to a .get(timeout=) approach for polling the queues in the subprocesses
+SECONDS_TO_WAIT_WHEN_POLLING_QUEUES = 0.02  # Due to the unreliablity of the .empty() .qsize() methods in queues, switched to a .get(timeout=) approach for polling the queues in the subprocesses.  Eli (10/26/20): 0.01 seconds was still causing sporadic failures in Linux CI in Github, so bumped to 0.02 seconds.
