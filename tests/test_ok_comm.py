@@ -430,11 +430,11 @@ def test_build_file_writer_objects__returns_correct_values__with_six_channel_for
                     )
                 else:
                     expected[key]["data"] = data
-
+    actual_queue = Queue()
     actual = build_file_writer_objects(
         test_bytearray,
         "six_channels_32_bit__single_sample_index",
-        Queue(),
+        actual_queue,
         logging.DEBUG,
     )
 
@@ -452,6 +452,10 @@ def test_build_file_writer_objects__returns_correct_values__with_six_channel_for
             assert actual[key]["well_index"] == expected[key]["well_index"]
 
         np.testing.assert_equal(actual[key]["data"], expected[key]["data"])
+
+    drain_queue(
+        actual_queue
+    )  # drain the queue during test cleanup to prevent broken pipe errors
 
 
 DATA_FROM_JASON = [

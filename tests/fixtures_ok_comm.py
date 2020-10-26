@@ -33,6 +33,8 @@ def fixture_four_board_comm_process():
     board_queues = tuple([(Queue(), Queue(), Queue(),) for _ in range(4)])
     p = OkCommunicationProcess(board_queues, error_queue)
     yield p, board_queues, error_queue
+    # clean up queues to avoid broken pipe errors
+    p.hard_stop()
 
 
 @pytest.fixture(scope="function", name="running_process_with_simulated_board")

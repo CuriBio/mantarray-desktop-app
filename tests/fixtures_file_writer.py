@@ -159,6 +159,8 @@ def fixture_four_board_file_writer_process():
         if not p.is_alive():
             # Eli (2/10/20): it is important in windows based systems to make sure to close the files before deleting them. be careful about this when running tests in a linux dev environment
             p.close_all_files()
+        # cleanup queues to avoid broken pipe errors
+        p.hard_stop()
 
 
 @pytest.fixture(scope="function", name="running_four_board_file_writer_process")

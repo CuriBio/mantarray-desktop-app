@@ -20,3 +20,6 @@ def fixture_test_monitor(test_process_manager):
         the_dict, test_process_manager, error_queue, the_lock
     )
     yield monitor, the_dict, error_queue, the_lock
+
+    # cleanup queues to avoid BrokenPipe errors
+    monitor.hard_stop()

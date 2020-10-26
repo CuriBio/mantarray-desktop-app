@@ -24,9 +24,13 @@ from __future__ import annotations
 from queue import Queue
 import struct
 import threading
+from typing import Any
+from typing import Dict
+from typing import List
 
 from scipy import signal
 from stdlib_utils import InfiniteThread
+from stdlib_utils import safe_get
 from xem_wrapper import build_header_magic_number_bytes
 from xem_wrapper import HEADER_MAGIC_NUMBER
 
@@ -100,6 +104,17 @@ def produce_data(num_cycles: int, starting_sample_index: int) -> bytearray:
     return data
 
 
+def _drain_queue(
+    data_out_queue: Queue[Any],  # pylint: disable=unsubscriptable-object
+) -> List[Any]:
+    queue_items = list()
+    item = safe_get(data_out_queue)
+    while item is not None:
+        queue_items.append(item)
+        item = safe_get(data_out_queue)
+    return queue_items
+
+
 class FIFOReadProducer(InfiniteThread):
     """Produce bytearrays of simulated Mantarray FIFO data.
 
@@ -130,3 +145,8 @@ class FIFOReadProducer(InfiniteThread):
         self._sample_index += (
             FIFO_READ_PRODUCER_CYCLES_PER_ITERATION * ROUND_ROBIN_PERIOD
         ) // TIMESTEP_CONVERSION_FACTOR
+
+    def _drain_all_queues(self) -> Dict[str, Any]:
+        queue_items: Dict[str, Any] = dict()
+        queue_items["data_out"] = _drain_queue(self._data_out_queue)
+        return queue_items
