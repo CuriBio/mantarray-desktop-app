@@ -42,7 +42,7 @@ from .constants import FIFO_READ_PRODUCER_SLEEP_DURATION
 from .constants import FIFO_READ_PRODUCER_WELL_AMPLITUDE
 from .constants import ROUND_ROBIN_PERIOD
 from .constants import TIMESTEP_CONVERSION_FACTOR
-from .system_utils import _drain_queue
+from .queue_utils import _drain_queue
 
 
 def produce_data(num_cycles: int, starting_sample_index: int) -> bytearray:

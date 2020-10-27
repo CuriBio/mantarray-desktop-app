@@ -24,7 +24,7 @@ from .exceptions import AttemptToInitializeFIFOReadsError
 from .fifo_read_producer import FIFOReadProducer
 from .fifo_read_producer import produce_data
 from .mantarray_front_panel import MantarrayFrontPanelMixIn
-from .system_utils import _drain_queue
+from .queue_utils import _drain_queue
 
 
 class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
