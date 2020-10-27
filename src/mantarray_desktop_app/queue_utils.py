@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """Utility functions for interacting with the fully running app."""
+from __future__ import annotations
+
 from queue import Queue
 from typing import Any
 from typing import List
