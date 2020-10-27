@@ -159,8 +159,8 @@ jobs:
         # run: pip freeze
 
       - name: Install NPM Dependencies
-        if: runner.os=='Linux' # temporarily only do it on Linux while troubleshooting Python tests on windows
         run: pipenv run npm ci --cache .npm_cache/
+
       - name: Run pre-commit hooks
         if: matrix.IS_FASTEST_JOB == true
         env:

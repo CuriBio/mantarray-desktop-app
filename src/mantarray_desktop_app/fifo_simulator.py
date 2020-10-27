@@ -24,6 +24,7 @@ from .exceptions import AttemptToInitializeFIFOReadsError
 from .fifo_read_producer import FIFOReadProducer
 from .fifo_read_producer import produce_data
 from .mantarray_front_panel import MantarrayFrontPanelMixIn
+from .system_utils import _drain_queue
 
 
 class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
@@ -55,6 +56,15 @@ class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
             Queue[bytearray]  # pylint: disable=unsubscriptable-object
         ] = None
         self._lock: Optional[threading.Lock] = None
+
+    def hard_stop(self) -> None:
+        # TODO (Eli 10/27/20): add a skeleton of this method to the parent FrontPanel class
+        if self._fifo_read_producer is not None:
+            self._fifo_read_producer.hard_stop()
+        if "wire_outs" in self._simulated_response_queues:
+            wire_outs = self._simulated_response_queues["wire_outs"]
+            for _, wire_out_queue in wire_outs.items():
+                _drain_queue(wire_out_queue)
 
     def initialize_board(
         self,

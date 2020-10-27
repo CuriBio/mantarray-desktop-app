@@ -45,7 +45,6 @@ from xem_wrapper import okCFrontPanel
 from xem_wrapper import OpalKellyIncorrectHeaderError
 
 from .fixtures import fixture_patched_firmware_folder
-from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .fixtures_ok_comm import fixture_four_board_comm_process
 from .fixtures_ok_comm import fixture_patch_connection_to_board
 from .fixtures_ok_comm import fixture_running_process_with_simulated_board
@@ -638,12 +637,7 @@ def test_OkCommunicationProcess_create_connections_to_all_available_boards__popu
     )
 
     ok_process.create_connections_to_all_available_boards()
-    assert (
-        is_queue_eventually_not_empty(
-            board_queues[0][1], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_not_empty(board_queues[0][1]) is True
     assert mocked_open_board.call_count == 1
     actual_connections = ok_process.get_board_connections_list()
     assert actual_connections[1:] == [None, None, None]
@@ -664,12 +658,7 @@ def test_OkCommunicationProcess_soft_stop_not_allowed_if_communication_from_main
     # The first communication will be processed, but if there is a second one in the queue then the soft stop should be disabled
     board_queues[0][0].put(dummy_communication)
     board_queues[0][0].put(dummy_communication)
-    assert (
-        is_queue_eventually_of_size(
-            board_queues[0][0], 2, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_of_size(board_queues[0][0], 2) is True
     simulator = FrontPanelSimulator({})
     ok_process.set_board_connection(0, simulator)
     ok_process.soft_stop()
@@ -694,12 +683,7 @@ def test_OkCommunicationProcess_run__raises_error_if_communication_type_is_inval
         "communication_type": "fake_comm_type",
     }
     input_queue.put(copy.deepcopy(expected_returned_communication))
-    assert (
-        is_queue_eventually_not_empty(
-            input_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_not_empty(input_queue) is True
     with pytest.raises(
         UnrecognizedCommTypeFromMainToOKCommError, match="fake_comm_type"
     ):
@@ -714,12 +698,7 @@ def test_OkCommunicationProcess_run_sends_initial_communication_to_main_during_s
 
     invoke_process_run_and_check_errors(ok_process, perform_setup_before_loop=True)
     comm_to_main = board_queues[0][1]
-    assert (
-        is_queue_eventually_not_empty(
-            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_not_empty(comm_to_main) is True
     actual_msg = comm_to_main.get_nowait()
     assert actual_msg["communication_type"] == "log"
     assert (
@@ -753,12 +732,7 @@ def test_OkCommunicationProcess__puts_message_into_queue_for_successful_board_co
     ok_comm_to_main = board_queues[0][1]
     ok_comm_to_main.get_nowait()  # pop out initial boot-up message
 
-    assert (
-        is_queue_eventually_not_empty(
-            ok_comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_not_empty(ok_comm_to_main) is True
     msg = ok_comm_to_main.get_nowait()
     assert msg["communication_type"] == "board_connection_status_change"
     assert msg["is_connected"] is True
@@ -784,12 +758,7 @@ def test_OkCommunicationProcess__puts_message_into_queue_for_unsuccessful_board_
     ok_comm_to_main = board_queues[0][1]
     ok_comm_to_main.get_nowait()  # pop out initial boot-up message
 
-    assert (
-        is_queue_eventually_not_empty(
-            ok_comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_not_empty(ok_comm_to_main) is True
     msg = ok_comm_to_main.get_nowait()
     assert msg["communication_type"] == "board_connection_status_change"
     assert msg["is_connected"] is False
@@ -816,61 +785,21 @@ def test_OkCommunicationProcess__drain_all_queues__drains_all_queues_except_erro
         for j, queue in enumerate(board):
             item = expected[i][j]
             queue.put(item)
-    assert (
-        is_queue_eventually_not_empty(
-            board_queues[3][2], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_not_empty(board_queues[3][2]) is True
     error_queue.put(expected_error)
-    assert (
-        is_queue_eventually_of_size(
-            error_queue, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_of_size(error_queue, 1) is True
 
     actual = ok_process._drain_all_queues()  # pylint:disable=protected-access
 
-    assert (
-        is_queue_eventually_not_empty(
-            error_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_not_empty(error_queue) is True
     actual_error = error_queue.get_nowait()
     assert actual_error == expected_error
 
-    assert (
-        is_queue_eventually_empty(
-            board_queues[0][0], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
-    assert (
-        is_queue_eventually_empty(
-            board_queues[0][2], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
-    assert (
-        is_queue_eventually_empty(
-            board_queues[1][0], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
-    assert (
-        is_queue_eventually_empty(
-            board_queues[2][0], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
-    assert (
-        is_queue_eventually_empty(
-            board_queues[3][0], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_empty(board_queues[0][0]) is True
+    assert is_queue_eventually_empty(board_queues[0][2]) is True
+    assert is_queue_eventually_empty(board_queues[1][0]) is True
+    assert is_queue_eventually_empty(board_queues[2][0]) is True
+    assert is_queue_eventually_empty(board_queues[3][0]) is True
 
     assert actual["board_0"]["main_to_ok_comm"] == [expected[0][0]]
     assert actual["board_0"]["ok_comm_to_main"] == [expected[0][1]]
@@ -910,12 +839,7 @@ def test_OkCommunicationProcess_run__raises_error_if_mantarray_naming_command_is
         "command": "fake_command",
     }
     input_queue.put(copy.deepcopy(expected_returned_communication))
-    assert (
-        is_queue_eventually_not_empty(
-            input_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_not_empty(input_queue) is True
     with pytest.raises(UnrecognizedMantarrayNamingCommandError, match="fake_command"):
         invoke_process_run_and_check_errors(ok_process)
 
@@ -937,12 +861,7 @@ def test_OkCommunicationProcess_run__correctly_sets_mantarray_serial_number(
         "mantarray_serial_number": expected_serial_number,
     }
     input_queue.put(copy.deepcopy(expected_returned_communication))
-    assert (
-        is_queue_eventually_not_empty(
-            input_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_not_empty(input_queue) is True
 
     invoke_process_run_and_check_errors(ok_process)
     actual = simulator.get_device_id()
@@ -1030,12 +949,7 @@ def test_OkCommunicationProcess_run__correctly_sets_mantarray_nickname_without_s
         "mantarray_nickname": expected_nickname,
     }
     input_queue.put(copy.deepcopy(expected_returned_communication))
-    assert (
-        is_queue_eventually_not_empty(
-            input_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_not_empty(input_queue) is True
 
     invoke_process_run_and_check_errors(ok_process)
     actual = simulator.get_device_id()
@@ -1060,12 +974,7 @@ def test_OkCommunicationProcess_run__correctly_sets_mantarray_nickname_with_vali
         "mantarray_nickname": expected_nickname,
     }
     input_queue.put(copy.deepcopy(expected_returned_communication))
-    assert (
-        is_queue_eventually_not_empty(
-            input_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_not_empty(input_queue) is True
 
     invoke_process_run_and_check_errors(ok_process)
     actual = simulator.get_device_id()
@@ -1099,12 +1008,7 @@ def test_OkCommunicationProcess_create_connections_to_all_available_boards__hand
     mocker.patch.object(RunningFIFOSimulator, "get_device_id", return_value=device_id)
 
     ok_process.create_connections_to_all_available_boards()
-    assert (
-        is_queue_eventually_not_empty(
-            comm_to_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_not_empty(comm_to_main_queue) is True
 
     actual = comm_to_main_queue.get_nowait()
     assert actual["mantarray_serial_number"] == expected_serial_number
@@ -1131,9 +1035,7 @@ def test_OkCommunicationProcess_teardown_after_loop__puts_teardown_log_message_i
 
     ok_process.soft_stop()
     ok_process.run(perform_setup_before_loop=False, num_iterations=1)
-    assert is_queue_eventually_not_empty(
-        comm_to_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-    )
+    assert is_queue_eventually_not_empty(comm_to_main_queue)
 
     actual = comm_to_main_queue.get_nowait()
     assert (
@@ -1208,12 +1110,7 @@ def test_OkCommunicationProcess_boot_up_instrument__with_real_board__raises_erro
         "allow_board_reinitialization": False,
     }
     board_queues[0][0].put(boot_up_comm)
-    assert (
-        is_queue_eventually_not_empty(
-            board_queues[0][0], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_not_empty(board_queues[0][0]) is True
 
     expected_error_msg = f"File name: {patched_firmware_folder}, Version from wire_out value: {expected_wire_out_version}"
     with pytest.raises(FirmwareFileNameDoesNotMatchWireOutVersionError) as exc_info:
@@ -1251,19 +1148,9 @@ def test_OkCommunicationProcess_boot_up_instrument__with_real_board__does_not_ra
         "allow_board_reinitialization": False,
     }
     board_queues[0][0].put(boot_up_comm)
-    assert (
-        is_queue_eventually_not_empty(
-            board_queues[0][0], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_not_empty(board_queues[0][0]) is True
     invoke_process_run_and_check_errors(ok_process)
 
-    assert (
-        is_queue_eventually_not_empty(
-            board_queues[0][1], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_not_empty(board_queues[0][1]) is True
     response_comm = board_queues[0][1].get_nowait()
     assert response_comm["main_firmware_version"] == expected_wire_out_version

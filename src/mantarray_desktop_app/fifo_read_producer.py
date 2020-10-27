@@ -26,11 +26,9 @@ import struct
 import threading
 from typing import Any
 from typing import Dict
-from typing import List
 
 from scipy import signal
 from stdlib_utils import InfiniteThread
-from stdlib_utils import safe_get
 from xem_wrapper import build_header_magic_number_bytes
 from xem_wrapper import HEADER_MAGIC_NUMBER
 
@@ -44,6 +42,7 @@ from .constants import FIFO_READ_PRODUCER_SLEEP_DURATION
 from .constants import FIFO_READ_PRODUCER_WELL_AMPLITUDE
 from .constants import ROUND_ROBIN_PERIOD
 from .constants import TIMESTEP_CONVERSION_FACTOR
+from .system_utils import _drain_queue
 
 
 def produce_data(num_cycles: int, starting_sample_index: int) -> bytearray:
@@ -102,17 +101,6 @@ def produce_data(num_cycles: int, starting_sample_index: int) -> bytearray:
                 data_byte = struct.pack("<L", int(data_value))
                 data.extend(data_byte[:3])
     return data
-
-
-def _drain_queue(
-    data_out_queue: Queue[Any],  # pylint: disable=unsubscriptable-object
-) -> List[Any]:
-    queue_items = list()
-    item = safe_get(data_out_queue)
-    while item is not None:
-        queue_items.append(item)
-        item = safe_get(data_out_queue)
-    return queue_items
 
 
 class FIFOReadProducer(InfiniteThread):
