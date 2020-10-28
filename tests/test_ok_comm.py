@@ -3,6 +3,7 @@ import copy
 import logging
 import math
 from multiprocessing import Queue
+from queue import Empty
 import struct
 import time
 
@@ -45,6 +46,7 @@ from xem_wrapper import okCFrontPanel
 from xem_wrapper import OpalKellyIncorrectHeaderError
 
 from .fixtures import fixture_patched_firmware_folder
+from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .fixtures_ok_comm import fixture_four_board_comm_process
 from .fixtures_ok_comm import fixture_patch_connection_to_board
 from .fixtures_ok_comm import fixture_running_process_with_simulated_board
@@ -606,6 +608,13 @@ def test_build_file_writer_objects__correctly_parses_a_real_data_cycle_from_jaso
 
         np.testing.assert_equal(actual[key]["data"], expected_dict[key]["data"])
 
+    # drain the queue to avoid broken pipe errors
+    while True:
+        try:
+            logging_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+        except Empty:
+            break
+
 
 def test_OkCommunicationProcess_super_is_called_during_init(mocker):
     error_queue = Queue()
@@ -772,6 +781,9 @@ def test_OkCommunicationProcess__puts_message_into_queue_for_unsuccessful_board_
 
     board_0 = p.get_board_connections_list()[0]
     assert isinstance(board_0, FrontPanelSimulator)
+
+    # cleanup process/queues to avoid broken pipe errors
+    p.hard_stop()
 
 
 def test_OkCommunicationProcess__hard_stop__hard_stops_the_RunningFIFOSimulator__for_board_0(

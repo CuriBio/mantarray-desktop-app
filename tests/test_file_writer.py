@@ -791,7 +791,7 @@ def test_FileWriterProcess__logs_performance_metrics_after_appropriate_number_of
 
 
 @pytest.mark.slow
-@pytest.mark.timeout(45)
+@pytest.mark.timeout(200)
 def test_FileWriterProcess__does_not_log_percent_use_metrics_in_first_logging_cycle(
     four_board_file_writer_process,
 ):
