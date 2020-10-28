@@ -29,7 +29,7 @@ from stdlib_utils import resource_path
 
 from .fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
 
-QUEUE_CHECK_TIMEOUT_SECONDS = 0.5  # for is_queue_eventually_of_size, is_queue_eventually_not_empty, is_queue_eventually_empty, put_object_into_queue_and_raise_error_if_eventually_still_empty, etc.
+QUEUE_CHECK_TIMEOUT_SECONDS = 1.1  # for is_queue_eventually_of_size, is_queue_eventually_not_empty, is_queue_eventually_empty, put_object_into_queue_and_raise_error_if_eventually_still_empty, etc. # Eli (10/28/20) issue encountered where even 0.5 seconds was insufficient, so raising to 1 second
 
 
 @pytest.fixture(scope="function", name="patched_shared_values_dict")

@@ -12,7 +12,7 @@ Changelog for Mantarray Desktop App
 0.3.8 (2020-10-12)
 ------------------
 
-- Adjusted data output passed to GUI to be in mV instead of V
+- Adjusted data output passed to GUI to be in mV instead of V to reduce number of decimal points in display
 - Adjusted zoom levels in GUI to match new lower posts
 
 
