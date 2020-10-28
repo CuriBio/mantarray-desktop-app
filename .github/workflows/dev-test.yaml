@@ -143,8 +143,9 @@ jobs:
       - name: Setup Pipenv
         env:
           PIPENV_VENV_IN_PROJECT: 1
+        # Eli (10/28/20): in the windows environments, just saying `pipenv --three` defaults to the highest installed version of Python on the image...not the actual one specified in the matrix. So need to specify
         run: |
-          pipenv --three
+          pipenv --python ${{ matrix.python-version }}
           pipenv run pip freeze
 
       - name: Install Python Dependencies
