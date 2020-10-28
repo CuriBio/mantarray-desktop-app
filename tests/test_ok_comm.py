@@ -34,7 +34,6 @@ from mantarray_desktop_app import UnrecognizedMantarrayNamingCommandError
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
 import pytest
-from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import invoke_process_run_and_check_errors
 from xem_wrapper import build_header_magic_number_bytes
@@ -454,9 +453,12 @@ def test_build_file_writer_objects__returns_correct_values__with_six_channel_for
 
         np.testing.assert_equal(actual[key]["data"], expected[key]["data"])
 
-    drain_queue(
-        actual_queue
-    )  # drain the queue during test cleanup to prevent broken pipe errors
+    # drain the queue to avoid broken pipe errors
+    while True:
+        try:
+            actual_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+        except Empty:
+            break
 
 
 DATA_FROM_JASON = [
@@ -1126,9 +1128,18 @@ def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_
     ok_process.join()
 
     # TODO Tanner (8/31/20): add drain queue to other tests where applicable
-    actual = drain_queue(comm_to_main_queue)
+    # drain the queue to avoid broken pipe errors
+    actual_last_queue_item = dict()
+    while True:
+        try:
+            actual_last_queue_item = comm_to_main_queue.get(
+                timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+            )
+        except Empty:
+            break
+
     assert (
-        actual[-1]["message"]
+        actual_last_queue_item["message"]
         == "Board acquisition still running. Stopping acquisition to complete teardown"
     )
 

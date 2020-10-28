@@ -140,16 +140,22 @@ jobs:
       # - name: Activate virtual environment (Windows)
       #   if: runner.os == 'Windows'
       #   run: venv\Scripts\Activate.ps1
-      - name: Install Python Dependencies
+      - name: Setup Pipenv
         env:
           PIPENV_VENV_IN_PROJECT: 1
-          PIPENV_CACHE_DIR: ./.pipenv_cache
-        # Eli (10/28/20): The --sequential flag was found to be necessary on windows due to issues where scipy wouldn't recognize that it had been installed
         run: |
           pipenv --three
           pipenv run pip freeze
-          pipenv install --dev --deploy --sequential
-          pipenv run pip install -e .
+
+      - name: Install Python Dependencies
+        env:
+          PIPENV_CACHE_DIR: ./.pipenv_cache
+        # Eli (10/28/20): The --sequential flag was found to be necessary on windows due to issues where scipy wouldn't recognize that it had been installed. Also, when this was part of a set of multiple run commands using the pipe, when it errored it didn't cause the whole step to fail, so separating it out into its own step
+        run: pipenv install --dev --deploy --sequential
+
+      - name: Install Local Package in editable mode for testing
+        run: pipenv run pip install -e .
+
         # run: |
         #   pip install -r requirements-dev.txt
         #   pip install -r requirements.txt
