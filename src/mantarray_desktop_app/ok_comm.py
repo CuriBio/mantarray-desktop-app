@@ -495,6 +495,14 @@ class OkCommunicationProcess(InfiniteProcess):
         self._data_parsing_durations: List[float] = list()
         self._durations_between_acquisition: List[float] = list()
 
+    def hard_stop(self, timeout: Optional[float] = None) -> Dict[str, Any]:
+        return_value: Dict[str, Any] = super().hard_stop(timeout=timeout)
+        board_connections = self.get_board_connections_list()
+        for iter_board in board_connections:
+            if iter_board is not None:
+                iter_board.hard_stop(timeout=timeout)
+        return return_value
+
     def determine_how_many_boards_are_connected(self) -> int:
         # pylint: disable=no-self-use # currently a place holder just being mocked
         return 1  # place holder for linting

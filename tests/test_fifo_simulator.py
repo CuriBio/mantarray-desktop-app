@@ -441,6 +441,22 @@ def test_RunningFIFOSimulator_hard_stop__hard_stops_the_read_producer_during_man
     assert spied_producer_hard_stop.call_count == 1
 
 
+def test_RunningFIFOSimulator_hard_stop__passes_timeout_kwarg_to_read_producer(
+    mocker, fifo_simulator
+):
+    fifo_simulator.initialize_board()
+    fifo_simulator.start_acquisition()
+
+    spied_producer_hard_stop = mocker.spy(
+        fifo_simulator._fifo_read_producer,  # pylint:disable=protected-access # Eli (10/27/20): it is important to confirm this is stopped, but it seems odd to provide public access to this
+        "hard_stop",
+    )
+    expected_timeout = 1.21
+    fifo_simulator.hard_stop(timeout=expected_timeout)
+
+    spied_producer_hard_stop.assert_called_once_with(timeout=expected_timeout)
+
+
 def test_RunningFIFOSimulator_hard_stop__drains_wire_out_queues(mocker):
 
     wire_out_queue = Queue()

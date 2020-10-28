@@ -774,7 +774,53 @@ def test_OkCommunicationProcess__puts_message_into_queue_for_unsuccessful_board_
     assert isinstance(board_0, FrontPanelSimulator)
 
 
-def test_OkCommunicationProcess__drain_all_queues__drains_all_queues_except_error_queue_and_returns__all_items(
+def test_OkCommunicationProcess__hard_stop__hard_stops_the_RunningFIFOSimulator__for_board_0(
+    four_board_comm_process, mocker
+):
+    ok_process, _, _ = four_board_comm_process
+    simulator = FrontPanelSimulator({})
+    # simulator.set_device_id('bob')
+    ok_process.set_board_connection(0, simulator)
+
+    spied_simulator_hard_stop = mocker.spy(simulator, "hard_stop")
+
+    ok_process.hard_stop()
+    assert spied_simulator_hard_stop.call_count == 1
+
+
+def test_OkCommunicationProcess__hard_stop__does_not_raise_error_if_board_connections_not_yet_made(
+    four_board_comm_process, mocker
+):
+    ok_process, _, _ = four_board_comm_process
+
+    # would raise error if attempting to hard stop a non-existent board connection
+    ok_process.hard_stop()
+
+
+def test_OkCommunicationProcess__hard_stop__passes_timeout_arg_to_super_hard_stop__and_front_panel_hard_stop__and_returns_value_from_super(
+    four_board_comm_process, mocker
+):
+    ok_process, _, _ = four_board_comm_process
+    simulator = FrontPanelSimulator({})
+    ok_process.set_board_connection(0, simulator)
+    expected_return = {"someinfo": ["list"]}
+    mocked_parent_hard_stop = mocker.patch.object(
+        InfiniteProcess, "hard_stop", autospec=True, return_value=expected_return
+    )
+    mocked_front_panel_hard_stop = mocker.patch.object(
+        simulator, "hard_stop", autospec=True
+    )
+
+    expected_timeout = 1.1
+    actual_return = ok_process.hard_stop(timeout=expected_timeout)
+    assert actual_return == expected_return
+    mocked_parent_hard_stop.assert_called_once_with(
+        ok_process, timeout=expected_timeout
+    )
+    mocked_front_panel_hard_stop.assert_called_once_with(timeout=expected_timeout)
+
+
+def test_OkCommunicationProcess__hard_stop__drains_all_queues_and_returns__all_items(
     four_board_comm_process,
 ):
     expected = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11]]
@@ -789,11 +835,8 @@ def test_OkCommunicationProcess__drain_all_queues__drains_all_queues_except_erro
     error_queue.put(expected_error)
     assert is_queue_eventually_of_size(error_queue, 1) is True
 
-    actual = ok_process._drain_all_queues()  # pylint:disable=protected-access
-
-    assert is_queue_eventually_not_empty(error_queue) is True
-    actual_error = error_queue.get_nowait()
-    assert actual_error == expected_error
+    actual = ok_process.hard_stop()
+    assert actual["fatal_error_reporter"] == [expected_error]
 
     assert is_queue_eventually_empty(board_queues[0][0]) is True
     assert is_queue_eventually_empty(board_queues[0][2]) is True
@@ -802,7 +845,7 @@ def test_OkCommunicationProcess__drain_all_queues__drains_all_queues_except_erro
     assert is_queue_eventually_empty(board_queues[3][0]) is True
 
     assert actual["board_0"]["main_to_ok_comm"] == [expected[0][0]]
-    assert actual["board_0"]["ok_comm_to_main"] == [expected[0][1]]
+    assert expected[0][1] in actual["board_0"]["ok_comm_to_main"]
     assert actual["board_0"]["ok_comm_to_file_writer"] == [expected[0][2]]
     assert actual["board_1"]["main_to_ok_comm"] == [expected[1][0]]
     assert actual["board_2"]["main_to_ok_comm"] == [expected[2][0]]
