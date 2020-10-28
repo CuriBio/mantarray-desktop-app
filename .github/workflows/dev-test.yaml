@@ -144,10 +144,11 @@ jobs:
         env:
           PIPENV_VENV_IN_PROJECT: 1
           PIPENV_CACHE_DIR: ./.pipenv_cache
+        # Eli (10/28/20): The --sequential flag was found to be necessary on windows due to issues where scipy wouldn't recognize that it had been installed
         run: |
           pipenv --three
           pipenv run pip freeze
-          pipenv install --dev --deploy
+          pipenv install --dev --deploy --sequential
           pipenv run pip install -e .
         # run: |
         #   pip install -r requirements-dev.txt
