@@ -240,7 +240,7 @@ def test_sensors_and_mappings():
 
 
 def test_CURRENT_HDF5_FILE_FORMAT_VERSION():
-    assert CURRENT_HDF5_FILE_FORMAT_VERSION == "0.3.1"
+    assert CURRENT_HDF5_FILE_FORMAT_VERSION == "0.3.3"
 
 
 def test_COMPILED_EXE_BUILD_TIMESTAMP():
