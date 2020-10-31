@@ -9,6 +9,7 @@ from . import main
 from . import ok_comm
 from . import process_manager
 from . import process_monitor
+from . import server
 from .constants import ADC_CH_TO_24_WELL_INDEX
 from .constants import ADC_CH_TO_IS_REF_SENSOR
 from .constants import ADC_GAIN
@@ -148,6 +149,8 @@ from .process_manager import MantarrayProcessesManager
 from .process_monitor import get_mantarray_processes_monitor
 from .process_monitor import MantarrayProcessesMonitor
 from .process_monitor import set_mantarray_processes_monitor
+from .server import get_shared_values_from_monitor_to_server
+from .server import ServerThread
 from .system_utils import system_state_eventually_equals
 from .system_utils import wait_for_subprocesses_to_start
 
@@ -313,4 +316,7 @@ __all__ = [
     "WELL_24_INDEX_TO_ADC_AND_CH_INDEX",
     "FirmwareFileNameDoesNotMatchWireOutVersionError",
     "SECONDS_TO_WAIT_WHEN_POLLING_QUEUES",
+    "ServerThread",
+    "server",
+    "get_shared_values_from_monitor_to_server",
 ]

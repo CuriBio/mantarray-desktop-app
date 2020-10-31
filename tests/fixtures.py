@@ -39,6 +39,13 @@ def fixture_patched_shared_values_dict(mocker):
     yield the_dict
 
 
+@pytest.fixture(scope="function", name="patch_print")
+def fixture_patch_print(mocker):
+    mocker.patch(
+        "builtins.print", autospec=True
+    )  # don't print all the error messages to console
+
+
 @pytest.fixture(scope="function", name="patched_start_recording_shared_dict")
 def fixture_patched_start_recording_shared_dict(mocker):
     the_dict = main.get_shared_values_between_server_and_monitor()
