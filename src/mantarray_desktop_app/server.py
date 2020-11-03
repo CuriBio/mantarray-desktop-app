@@ -16,13 +16,13 @@ Custom HTTP Error Codes:
 """
 from __future__ import annotations
 
+from copy import deepcopy
 import logging
 import os
 from queue import Queue
 import threading
 from typing import Any
 from typing import Dict
-from typing import List
 from typing import Optional
 from typing import Tuple
 
@@ -37,10 +37,10 @@ from stdlib_utils import InfiniteThread
 from stdlib_utils import is_port_in_use
 from stdlib_utils import print_exception
 from stdlib_utils import put_log_message_into_queue
-from stdlib_utils import safe_get
 
 from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .exceptions import LocalServerPortAlreadyInUseError
+from .queue_utils import _drain_queue
 
 logger = logging.getLogger(__name__)
 os.environ[
@@ -53,17 +53,6 @@ CORS(flask_app)
 _shared_values_from_monitor_to_server: Dict[  # pylint: disable=invalid-name # yes, this is intentionally a singleton, not a constant
     str, Any
 ] = dict()
-
-
-def _drain_queue(
-    ok_comm_queue: Queue[Any],  # pylint: disable=unsubscriptable-object
-) -> List[Any]:
-    queue_items = list()
-    item = safe_get(ok_comm_queue)
-    while item is not None:
-        queue_items.append(item)
-        item = safe_get(ok_comm_queue)
-    return queue_items
 
 
 def get_shared_values_from_monitor_to_server() -> Dict[  # pylint:disable=invalid-name # yeah, it's a little long, but descriptive
@@ -139,8 +128,11 @@ class ServerThread(InfiniteThread):
         values_from_process_monitor: Optional[Dict[str, Any]] = None,
         port: int = DEFAULT_SERVER_PORT_NUMBER,
         logging_level: int = logging.INFO,
+        lock: Optional[threading.Lock] = None,
     ) -> None:
-        super().__init__(fatal_error_reporter, lock=threading.Lock)
+        if lock is None:
+            lock = threading.Lock()
+        super().__init__(fatal_error_reporter, lock=lock)
         # super().__init__()
         self._to_main_queue = to_main_queue
         self._fatal_error_reporter = fatal_error_reporter
@@ -150,6 +142,16 @@ class ServerThread(InfiniteThread):
             values_from_process_monitor = dict()
         global _shared_values_from_monitor_to_server  # pylint:disable=global-statement # Eli (10/30/20): deliberately using a module-level singleton
         _shared_values_from_monitor_to_server = values_from_process_monitor
+        self._values_from_process_monitor = values_from_process_monitor
+
+    def get_values_from_process_monitor(self) -> Dict[str, Any]:
+        raise Exception("do not use this, use getcopy instead")
+        return self._values_from_process_monitor
+
+    def get_values_from_process_monitor_copy(self) -> Dict[str, Any]:
+        with self._lock:  # Eli (11/3/20): still unable to test if lock was acquired.
+            copied_values = deepcopy(self._values_from_process_monitor)
+        return copied_values
 
     def get_logging_level(self) -> int:
         return self._logging_level
@@ -163,10 +165,6 @@ class ServerThread(InfiniteThread):
         try:
             _, host, _ = get_server_address_components()
             self.check_port()
-            # flask_run_function=partial(flask_app.run,host=host, port=self._port)
-            # self._server_process=Process(target=flask_run_function)
-            # self._server_process.start()
-            # #flask_run_function()
             flask_app.run(host=host, port=self._port)
             # Note (Eli 1/14/20) it appears with the current method of using werkzeug.server.shutdown that nothing after this line will ever be executed. somehow the program exists before returning from app.run
         except Exception as e:  # pylint: disable=broad-except # The deliberate goal of this is to catch everything and put it into the error queue

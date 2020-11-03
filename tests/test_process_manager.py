@@ -7,6 +7,7 @@ from mantarray_desktop_app import FileWriterProcess
 from mantarray_desktop_app import get_mantarray_process_manager
 from mantarray_desktop_app import MantarrayProcessesManager
 from mantarray_desktop_app import OkCommunicationProcess
+from mantarray_desktop_app import ServerThread
 import pytest
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import resource_path
@@ -14,48 +15,60 @@ from stdlib_utils import resource_path
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 
-def test_MantarrayProcessesManager__stop_processes__calls_stop_on_all_processes(
-    mocker,
-):
+@pytest.fixture(scope="function", name="generic_manager")
+def fixture_generic_manager():
     manager = MantarrayProcessesManager()
-    manager.create_processes()
+    yield manager
+
+    # hard stop all processes to make sure to clean up queues
+    manager.hard_stop_processes()
+
+
+def test_MantarrayProcessesManager__stop_processes__calls_stop_on_all_processes(
+    mocker, generic_manager
+):
+    generic_manager.create_processes()
     mocked_ok_comm_stop = mocker.patch.object(OkCommunicationProcess, "stop")
     mocked_file_writer_stop = mocker.patch.object(FileWriterProcess, "stop")
     mocked_data_analyzer_stop = mocker.patch.object(DataAnalyzerProcess, "stop")
-    manager.stop_processes()
+    mocked_server_stop = mocker.patch.object(ServerThread, "stop")
+    generic_manager.stop_processes()
 
     mocked_ok_comm_stop.assert_called_once()
     mocked_file_writer_stop.assert_called_once()
     mocked_data_analyzer_stop.assert_called_once()
+    mocked_server_stop.assert_called_once()
 
 
 def test_MantarrayProcessesManager__soft_stop_processes__calls_soft_stop_on_all_processes(
-    mocker,
+    generic_manager, mocker,
 ):
-    manager = MantarrayProcessesManager()
-    manager.create_processes()
+    generic_manager.create_processes()
     mocked_ok_comm_soft_stop = mocker.patch.object(OkCommunicationProcess, "soft_stop")
     mocked_file_writer_soft_stop = mocker.patch.object(FileWriterProcess, "soft_stop")
     mocked_data_analyzer_soft_stop = mocker.patch.object(
         DataAnalyzerProcess, "soft_stop"
     )
-    manager.soft_stop_processes()
+    mocked_server_soft_stop = mocker.patch.object(ServerThread, "soft_stop")
+
+    generic_manager.soft_stop_processes()
 
     mocked_ok_comm_soft_stop.assert_called_once()
     # mocked_ok_comm_stop.assert_called_once() # Eli (1/15/20) not sure why this isn't being called, but if things get joined back together, then soft stop appears to be working fine
     mocked_file_writer_soft_stop.assert_called_once()
     mocked_data_analyzer_soft_stop.assert_called_once()
+    mocked_server_soft_stop.assert_called_once()
 
 
 def test_MantarrayProcessesManager__hard_stop_processes__calls_hard_stop_on_all_processes_and_returns_process_queue_items(
-    mocker,
+    mocker, generic_manager
 ):
     expected_ok_comm_items = {"ok_comm_queue": ["ok_item"]}
     expected_file_writer_items = {"file_writer_queue": ["fw_item"]}
     expected_da_items = {"data_analyzer_queue": ["da_item"]}
+    expected_server_items = {"to_main": ["server_item"]}
 
-    manager = MantarrayProcessesManager()
-    manager.create_processes()
+    generic_manager.create_processes()
     mocked_ok_comm_hard_stop = mocker.patch.object(
         OkCommunicationProcess, "hard_stop", return_value=expected_ok_comm_items
     )
@@ -65,35 +78,43 @@ def test_MantarrayProcessesManager__hard_stop_processes__calls_hard_stop_on_all_
     mocked_data_analyzer_hard_stop = mocker.patch.object(
         DataAnalyzerProcess, "hard_stop", return_value=expected_da_items
     )
-    actual = manager.hard_stop_processes()
+    mocked_server_hard_stop = mocker.patch.object(
+        ServerThread, "hard_stop", return_value=expected_server_items
+    )
+    actual = generic_manager.hard_stop_processes()
 
     mocked_ok_comm_hard_stop.assert_called_once()
     mocked_file_writer_hard_stop.assert_called_once()
     mocked_data_analyzer_hard_stop.assert_called_once()
+    mocked_server_hard_stop.assert_called_once()
 
     assert actual["ok_comm_items"] == expected_ok_comm_items
     assert actual["file_writer_items"] == expected_file_writer_items
     assert actual["data_analyzer_items"] == expected_da_items
+    assert actual["server_items"] == expected_server_items
 
 
-def test_MantarrayProcessesManager__join_processes__calls_join_on_all_processes(mocker):
-    manager = MantarrayProcessesManager()
-    manager.create_processes()
+def test_MantarrayProcessesManager__join_processes__calls_join_on_all_processes(
+    mocker, generic_manager
+):
+    generic_manager.create_processes()
     mocked_ok_comm_join = mocker.patch.object(OkCommunicationProcess, "join")
     mocked_file_writer_join = mocker.patch.object(FileWriterProcess, "join")
     mocked_data_analyzer_join = mocker.patch.object(DataAnalyzerProcess, "join")
-    manager.join_processes()
+    mocked_server_join = mocker.patch.object(ServerThread, "join")
+    generic_manager.join_processes()
 
     mocked_ok_comm_join.assert_called_once()
     mocked_file_writer_join.assert_called_once()
     mocked_data_analyzer_join.assert_called_once()
+    mocked_server_join.assert_called_once()
 
 
 @pytest.mark.timeout(20)
 def test_MantarrayProcessesManager__spawn_processes__stop_and_join_processes__starts_and_stops_all_processes(
-    mocker,
+    mocker, generic_manager
 ):
-    manager = MantarrayProcessesManager()
+
     spied_ok_comm_start = mocker.spy(OkCommunicationProcess, "start")
     spied_ok_comm_stop = mocker.spy(OkCommunicationProcess, "stop")
     spied_ok_comm_join = mocker.spy(OkCommunicationProcess, "join")
@@ -103,8 +124,12 @@ def test_MantarrayProcessesManager__spawn_processes__stop_and_join_processes__st
     spied_data_analyzer_start = mocker.spy(DataAnalyzerProcess, "start")
     spied_data_analyzer_stop = mocker.spy(DataAnalyzerProcess, "stop")
     spied_data_analyzer_join = mocker.spy(DataAnalyzerProcess, "join")
-    manager.spawn_processes()
-    manager.stop_and_join_processes()
+    spied_server_start = mocker.spy(ServerThread, "start")
+    spied_server_stop = mocker.spy(ServerThread, "stop")
+    spied_server_join = mocker.spy(ServerThread, "join")
+
+    generic_manager.spawn_processes()
+    generic_manager.stop_and_join_processes()
     spied_ok_comm_start.assert_called_once()
     spied_ok_comm_stop.assert_called_once()
     spied_ok_comm_join.assert_called_once()
@@ -116,6 +141,10 @@ def test_MantarrayProcessesManager__spawn_processes__stop_and_join_processes__st
     spied_data_analyzer_start.assert_called_once()
     spied_data_analyzer_stop.assert_called_once()
     spied_data_analyzer_join.assert_called_once()
+
+    spied_server_start.assert_called_once()
+    spied_server_stop.assert_called_once()
+    spied_server_join.assert_called_once()
 
 
 @pytest.mark.timeout(20)
@@ -135,6 +164,10 @@ def test_MantarrayProcessesManager__soft_stop_and_join_processes__soft_stops_pro
     spied_data_analyzer_soft_stop = mocker.spy(DataAnalyzerProcess, "soft_stop")
     spied_data_analyzer_join = mocker.spy(DataAnalyzerProcess, "join")
 
+    spied_server_start = mocker.spy(ServerThread, "start")
+    spied_server_soft_stop = mocker.spy(ServerThread, "soft_stop")
+    spied_server_join = mocker.spy(ServerThread, "join")
+
     manager.spawn_processes()
     manager.soft_stop_and_join_processes()
     spied_ok_comm_start.assert_called_once()
@@ -149,6 +182,10 @@ def test_MantarrayProcessesManager__soft_stop_and_join_processes__soft_stops_pro
     spied_data_analyzer_start.assert_called_once()
     spied_data_analyzer_soft_stop.assert_called_once()
     spied_data_analyzer_join.assert_called_once()
+
+    spied_server_start.assert_called_once()
+    spied_server_soft_stop.assert_called_once()
+    spied_server_join.assert_called_once()
 
 
 @pytest.mark.timeout(25)
@@ -218,6 +255,18 @@ def test_MantarrayProcessesManager__passes_file_directory_to_FileWriter():
     assert manager.get_file_writer_process().get_file_directory() == "blahdir"
 
 
+def test_MantarrayProcessesManager__passes_shared_values_dict_to_server():
+    expected_dict = {"some key": "some value"}
+    manager = MantarrayProcessesManager(values_to_share_to_server=expected_dict)
+    manager.create_processes()
+    assert (
+        manager.get_server_thread().get_values_from_process_monitor() == expected_dict
+    )
+
+    # clean up
+    manager.hard_stop_processes()
+
+
 def test_MantarrayProcessesManager__passes_logging_level_to_subprocesses():
     expected_level = logging.WARNING
     manager = MantarrayProcessesManager(logging_level=expected_level)
@@ -225,6 +274,7 @@ def test_MantarrayProcessesManager__passes_logging_level_to_subprocesses():
     assert manager.get_file_writer_process().get_logging_level() == expected_level
     assert manager.get_ok_comm_process().get_logging_level() == expected_level
     assert manager.get_data_analyzer_process().get_logging_level() == expected_level
+    assert manager.get_server_thread().get_logging_level() == expected_level
 
 
 def test_get_mantarray_process_manager__returns_process_monitor_with_correct_recordings_file_directory():

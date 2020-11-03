@@ -6,8 +6,10 @@ import copy
 import logging
 from multiprocessing import Queue
 import os
+import queue
 from typing import Any
 from typing import Dict
+from typing import Iterable
 from typing import Tuple
 
 from stdlib_utils import get_current_file_abs_directory
@@ -17,13 +19,17 @@ from .data_analyzer import DataAnalyzerProcess
 from .file_writer import FileWriterProcess
 from .firmware_manager import get_latest_firmware
 from .ok_comm import OkCommunicationProcess
+from .server import ServerThread
 
 
 class MantarrayProcessesManager:  # pylint: disable=too-many-instance-attributes, too-many-public-methods
     """Controls access to all the subprocesses."""
 
     def __init__(
-        self, file_directory: str = "", logging_level: int = logging.INFO
+        self,
+        file_directory: str = "",
+        logging_level: int = logging.INFO,
+        values_to_share_to_server: Dict[str, Any] = None,
     ) -> None:
         # pylint-disable: duplicate-code # needed for the type definition of the board_queues
         self._ok_communication_error_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
@@ -46,6 +52,15 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-instance-attributes
         ]
         self._logging_level: int
         self.set_logging_level(logging_level)
+        self._values_to_share_to_server = values_to_share_to_server
+        self._server_thread: ServerThread
+        self._from_server_to_main_queue: queue.Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+            Dict[str, Any]
+        ]
+        self._server_error_queue: queue.Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+            Tuple[Exception, str]
+        ]
+
         self._file_writer_process: FileWriterProcess
         self._from_main_to_file_writer_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
             Dict[str, Any]
@@ -90,6 +105,10 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-instance-attributes
             Tuple[Exception, str]
         ]
 
+        self._all_processes = Tuple[
+            ServerThread, OkCommunicationProcess, FileWriterProcess, DataAnalyzerProcess
+        ]  # server takes longest to start, so have that first
+
     def set_logging_level(self, logging_level: int) -> None:
         self._logging_level = logging_level
 
@@ -128,6 +147,16 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-instance-attributes
 
     def get_file_writer_process(self) -> FileWriterProcess:
         return self._file_writer_process
+
+    def get_server_thread(self) -> ServerThread:
+        return self._server_thread
+
+    def get_communication_queue_from_server_to_main(
+        self,
+    ) -> queue.Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+        Dict[str, Any]
+    ]:
+        return self._from_server_to_main_queue
 
     def get_communication_queue_from_file_writer_to_main(
         self,
@@ -212,9 +241,19 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-instance-attributes
             [(self._file_writer_board_queues[0][1], Queue(),)] * 1
         )
 
+        self._from_server_to_main_queue = queue.Queue()
+        self._server_error_queue = queue.Queue()
+
     def create_processes(self) -> None:
         """Create/init the processes."""
         self._create_queues()
+
+        self._server_thread = ServerThread(
+            self._from_server_to_main_queue,
+            self._server_error_queue,
+            logging_level=self._logging_level,
+            values_from_process_monitor=self._values_to_share_to_server,
+        )
 
         self._ok_communication_process = OkCommunicationProcess(
             self._ok_comm_board_queues,
@@ -239,10 +278,18 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-instance-attributes
             logging_level=self._logging_level,
         )
 
+        self._all_processes = (
+            self._server_thread,
+            self._ok_communication_process,
+            self._file_writer_process,
+            self._data_analyzer_process,
+        )
+
     def start_processes(self) -> None:
-        self._ok_communication_process.start()
-        self._file_writer_process.start()
-        self._data_analyzer_process.start()
+        if not isinstance(self._all_processes, Iterable):
+            raise NotImplementedError("Processes must be created first.")
+        for iter_process in self._all_processes:
+            iter_process.start()
 
     def spawn_processes(self) -> None:
         """Create and start processes, no extra args."""
@@ -281,30 +328,35 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-instance-attributes
         return response_dict
 
     def stop_processes(self) -> None:
-        self._ok_communication_process.stop()
-        self._file_writer_process.stop()
-        self._data_analyzer_process.stop()
+        if not isinstance(self._all_processes, Iterable):
+            raise NotImplementedError("Processes must be created first.")
+        for iter_process in self._all_processes:
+            iter_process.stop()
 
     def soft_stop_processes(self) -> None:
-        self._ok_communication_process.soft_stop()
-        self._file_writer_process.soft_stop()
-        self._data_analyzer_process.soft_stop()
+        if not isinstance(self._all_processes, Iterable):
+            raise NotImplementedError("Processes must be created first.")
+        for iter_process in self._all_processes:
+            iter_process.soft_stop()
 
     def hard_stop_processes(self) -> Dict[str, Any]:
         ok_comm_items = self._ok_communication_process.hard_stop()
         file_writer_items = self._file_writer_process.hard_stop()
         data_analyzer_items = self._data_analyzer_process.hard_stop()
+        server_items = self._server_thread.hard_stop()
         process_items = {
             "ok_comm_items": ok_comm_items,
             "file_writer_items": file_writer_items,
             "data_analyzer_items": data_analyzer_items,
+            "server_items": server_items,
         }
         return process_items
 
     def join_processes(self) -> None:
-        self._ok_communication_process.join()
-        self._file_writer_process.join()
-        self._data_analyzer_process.join()
+        if not isinstance(self._all_processes, Iterable):
+            raise NotImplementedError("Processes must be created first.")
+        for iter_process in self._all_processes:
+            iter_process.join()
 
     def soft_stop_and_join_processes(self) -> None:
         self.soft_stop_processes()

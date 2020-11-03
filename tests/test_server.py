@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from queue import Empty
 from queue import Queue
+import threading
 from threading import Thread
 
 from flask import Flask
@@ -202,3 +203,35 @@ def test_ServerThread__hard_stop__shuts_down_flask_and_drains_to_main_queue(
     assert is_queue_eventually_empty(to_main_queue)
 
     assert actual_dict_of_queue_items["to_main"][0] == expected_message
+
+
+def test_ServerThread__get_values_from_process_monitor_copy__acquires_lock_and_returns_a_copy(
+    mocker,
+):
+    error_queue = Queue()
+    to_main_queue = Queue()
+    initial_dict = {"some key here": "some other value"}
+    lock = threading.Lock()
+    # Eli (11/3/20): still unable to test if lock was acquired.
+    #   https://stackoverflow.com/questions/60187817/mocking-python-thread-locking  (no responses to question as of 11/3/20)
+    #   https://stackoverflow.com/questions/11836436/how-to-mock-a-readonly-property-with-mock/11843806
+    #   https://stackoverflow.com/questions/28850070/python-mocking-a-context-manager
+    # mocked_lock_aquire=mocker.patch.object(lock,'acquire',new_callable=mocker.PropertyMock)
+
+    # spied_lock_release=mocker.spy(lock,'release')
+    st = ServerThread(
+        to_main_queue, error_queue, values_from_process_monitor=initial_dict, lock=lock
+    )
+
+    actual_dict = st.get_values_from_process_monitor_copy()
+
+    assert actual_dict == initial_dict  # assert same values in it
+    assert id(actual_dict) != id(
+        initial_dict
+    )  # assert they are not actually the same object in memory (it should be a copy)
+
+    # confirm lock was acquired
+    # assert mocked_lock_aquire.call_count==1
+
+    # drain queues to avoid broken pipe errors
+    _clean_up_server_thread(st, to_main_queue, error_queue)
