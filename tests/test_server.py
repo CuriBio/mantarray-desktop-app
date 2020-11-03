@@ -11,9 +11,16 @@ from mantarray_desktop_app import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from mantarray_desktop_app import server
 from mantarray_desktop_app import ServerThread
 import pytest
+from stdlib_utils import confirm_port_available
+from stdlib_utils import confirm_port_in_use
 
+from .fixtures import fixture_patch_print
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from .helpers import is_queue_eventually_empty
 from .helpers import is_queue_eventually_of_size
+from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
+
+__fixtures__ = [fixture_patch_print]
 
 
 def _clean_up_server_thread(st, to_main_queue, error_queue) -> None:
@@ -35,6 +42,22 @@ def fixture_server_thread():
     _clean_up_server_thread(st, to_main_queue, error_queue)
 
 
+@pytest.fixture(scope="function", name="running_server_thread")
+def fixture_running_server_thread(server_thread):
+    st, _, _ = server_thread
+    confirm_port_available(
+        DEFAULT_SERVER_PORT_NUMBER
+    )  # confirm port is not already active prior to starting test
+    st.start()
+    confirm_port_in_use(
+        DEFAULT_SERVER_PORT_NUMBER, timeout=3
+    )  # wait for server to boot up
+    yield server_thread
+
+    # clean up
+    # st.hard_stop()
+
+
 def test_ServerThread__init__calls_super(mocker):
     error_queue = Queue()
     to_main_queue = Queue()
@@ -53,8 +76,8 @@ def test_ServerThread__init__sets_the_module_values_from_process_monitor_to_new_
     assert id(value_after_server_start) != id(
         value_at_start_of_test
     )  # dictionary is/equality checks return true for empty dicts, so need to check the memory address using `id`
-    
-    _clean_up_server_thread(st,to_main_queue,error_queue)
+
+    _clean_up_server_thread(st, to_main_queue, error_queue)
 
 
 @pytest.mark.timeout(5)
@@ -117,3 +140,65 @@ def test_ServerThread_start__puts_error_into_queue_if_flask_run_raises_error(
     e, msg = error_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
     assert isinstance(e, DummyException)
     assert expected_error_msg in msg
+
+
+@pytest.mark.timeout(15)
+@pytest.mark.slow
+def test_ServerThread__stop__shuts_down_flask_and_sends_message_to_main_queue(
+    running_server_thread,
+):
+    st, to_main_queue, _ = running_server_thread
+    st.stop()
+    confirm_port_available(
+        DEFAULT_SERVER_PORT_NUMBER, timeout=5
+    )  # wait for server to shut down
+
+    assert is_queue_eventually_of_size(to_main_queue, 1)
+    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert actual.get("communication_type") == "log"
+    assert "server" in actual.get("message").lower()
+
+
+def test_ServerThread__soft_stop__shuts_down_flask_and_sends_message_to_main_queue(
+    running_server_thread,
+):
+    st, to_main_queue, _ = running_server_thread
+    st.soft_stop()
+    confirm_port_available(
+        DEFAULT_SERVER_PORT_NUMBER, timeout=5
+    )  # wait for server to shut down
+
+    assert is_queue_eventually_of_size(to_main_queue, 1)
+    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert actual.get("communication_type") == "log"
+    assert "server" in actual.get("message").lower()
+
+
+def test_ServerThread__stop__does_not_raise_error_if_server_already_stopped_and_sends_message_to_main_queue(
+    server_thread,
+):
+    st, to_main_queue, _ = server_thread
+    st.stop()
+
+    assert is_queue_eventually_of_size(to_main_queue, 1)
+    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert actual.get("communication_type") == "log"
+    assert "not running" in actual.get("message").lower()
+
+
+def test_ServerThread__hard_stop__shuts_down_flask_and_drains_to_main_queue(
+    running_server_thread,
+):
+    st, to_main_queue, _ = running_server_thread
+    expected_message = "It tolls for thee"
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        expected_message, to_main_queue
+    )
+    actual_dict_of_queue_items = st.hard_stop()
+    confirm_port_available(
+        DEFAULT_SERVER_PORT_NUMBER, timeout=5
+    )  # wait for server to shut down
+
+    assert is_queue_eventually_empty(to_main_queue)
+
+    assert actual_dict_of_queue_items["to_main"][0] == expected_message

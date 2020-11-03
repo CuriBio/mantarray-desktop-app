@@ -224,6 +224,7 @@ def test_MantarrayProcessesManager__passes_logging_level_to_subprocesses():
     manager.create_processes()
     assert manager.get_file_writer_process().get_logging_level() == expected_level
     assert manager.get_ok_comm_process().get_logging_level() == expected_level
+    assert manager.get_data_analyzer_process().get_logging_level() == expected_level
 
 
 def test_get_mantarray_process_manager__returns_process_monitor_with_correct_recordings_file_directory():

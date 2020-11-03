@@ -236,6 +236,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-instance-attributes
             self._from_main_to_data_analyzer_queue,
             self._from_data_analyzer_to_main_queue,
             self._data_analyzer_error_queue,
+            logging_level=self._logging_level,
         )
 
     def start_processes(self) -> None:
