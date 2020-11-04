@@ -221,6 +221,27 @@ def queue_initialize_board() -> Response:
     return response
 
 
+@flask_app.route("/insert_xem_command_into_queue/activate_trigger_in", methods=["GET"])
+def queue_activate_trigger_in() -> Response:
+    """Queue up a command to activate a given trigger-in bit on the XEM.
+
+    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/activate_trigger_in?ep_addr=0x08&bit=0x00000001"
+    """
+    ep_addr = int(request.args["ep_addr"], 0)
+    bit = int(request.args["bit"], 0)
+    comm_dict = {
+        "communication_type": "debug_console",
+        "command": "activate_trigger_in",
+        "ep_addr": ep_addr,
+        "bit": bit,
+        "suppress_error": True,
+    }
+
+    response = queue_command_to_ok_comm(comm_dict)
+
+    return response
+
+
 @flask_app.route("/insert_xem_command_into_queue/get_status", methods=["GET"])
 def queue_get_status() -> Response:
     """Queue up a command to get instance attributes of FrontPanelBase object.

@@ -265,3 +265,42 @@ def test_send_single_initialize_board_command_with_reinitialization__gets_proces
     assert (
         get_status_communication["response"]["bit_file_name"] == expected_bit_file_name
     )
+
+
+@pytest.mark.slow
+def test_send_single_activate_trigger_in_command__gets_processed(
+    test_process_manager, test_client
+):
+    expected_ep_addr = 10
+    expected_bit = 0x00000001
+
+    simulator = FrontPanelSimulator({})
+    simulator.initialize_board()
+
+    ok_process = test_process_manager.get_ok_comm_process()
+    ok_process.set_board_connection(0, simulator)
+
+    test_process_manager.start_processes()
+
+    response = test_client.get(
+        f"/insert_xem_command_into_queue/activate_trigger_in?ep_addr={expected_ep_addr}&bit={expected_bit}"
+    )
+    assert response.status_code == 200
+
+    test_process_manager.soft_stop_and_join_processes()
+    comm_queue = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
+        0
+    )
+    assert is_queue_eventually_empty(comm_queue) is True
+
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+        0
+    )
+    comm_from_ok_queue.get_nowait()  # pull out the initial boot-up message
+
+    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
+
+    communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["command"] == "activate_trigger_in"
+    assert communication["ep_addr"] == expected_ep_addr
+    assert communication["bit"] == expected_bit

@@ -114,3 +114,57 @@ def test_send_single_get_status_command__populates_queue(
     response_json = response.get_json()
     assert response_json["command"] == "get_status"
     assert response_json["suppress_error"] is True
+
+
+def test_send_single_activate_trigger_in_command__populates_queue(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
+    test_server, _, _ = test_server_info
+    expected_ep_addr = 10
+    expected_bit = 0x00000001
+    response = test_client.get(
+        f"/insert_xem_command_into_queue/activate_trigger_in?ep_addr={expected_ep_addr}&bit={expected_bit}"
+    )
+    assert response.status_code == 200
+
+    comm_queue = test_server.queue_container().get_communication_to_ok_comm_queue(0)
+    assert is_queue_eventually_not_empty(comm_queue) is True
+    communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["communication_type"] == "debug_console"
+    assert communication["command"] == "activate_trigger_in"
+    assert communication["ep_addr"] == expected_ep_addr
+    assert communication["bit"] == expected_bit
+    assert communication["suppress_error"] is True
+    response_json = response.get_json()
+    assert response_json["command"] == "activate_trigger_in"
+    assert response_json["ep_addr"] == expected_ep_addr
+    assert response_json["bit"] == expected_bit
+    assert response_json["suppress_error"] is True
+
+
+def test_send_single_activate_trigger_in_command__using_hex_notation__populates_queue(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
+    test_server, _, _ = test_server_info
+    expected_ep_addr = "0x02"
+    expected_bit = "0x00000001"
+    response = test_client.get(
+        f"/insert_xem_command_into_queue/activate_trigger_in?ep_addr={expected_ep_addr}&bit={expected_bit}"
+    )
+    assert response.status_code == 200
+
+    comm_queue = test_server.queue_container().get_communication_to_ok_comm_queue(0)
+    assert is_queue_eventually_not_empty(comm_queue) is True
+    communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["communication_type"] == "debug_console"
+    assert communication["command"] == "activate_trigger_in"
+    assert communication["ep_addr"] == 2
+    assert communication["bit"] == 1
+    assert communication["suppress_error"] is True
+    response_json = response.get_json()
+    assert response_json["command"] == "activate_trigger_in"
+    assert response_json["ep_addr"] == 2
+    assert response_json["bit"] == 1
+    assert response_json["suppress_error"] is True
