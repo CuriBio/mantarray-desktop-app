@@ -865,26 +865,6 @@ def test_send_single_set_mantarray_serial_number_command__populates_queue(
     assert response_json["mantarray_serial_number"] == expected_serial_number
 
 
-def test_send_single_set_mantarray_nickname_command__populates_queue(
-    test_process_manager, test_client, patched_shared_values_dict
-):
-    patched_shared_values_dict["mantarray_nickname"] = dict()
-    expected_nickname = "Surnom Français"
-
-    response = test_client.get(f"/set_mantarray_nickname?nickname={expected_nickname}")
-    assert response.status_code == 200
-
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-    assert is_queue_eventually_not_empty(comm_queue) is True
-    communication = comm_queue.get_nowait()
-    assert communication["communication_type"] == "mantarray_naming"
-    assert communication["command"] == "set_mantarray_nickname"
-    assert communication["mantarray_nickname"] == expected_nickname
-    response_json = response.get_json()
-    assert response_json["command"] == "set_mantarray_nickname"
-    assert response_json["mantarray_nickname"] == expected_nickname
-
-
 def test_single_update_settings_command_with_recording_dir__populates_file_writer_queue(
     test_process_manager, test_client, patched_shared_values_dict
 ):

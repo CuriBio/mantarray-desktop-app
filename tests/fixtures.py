@@ -10,7 +10,6 @@ from typing import Optional
 
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
-from mantarray_desktop_app import flask_app
 from mantarray_desktop_app import get_api_endpoint
 from mantarray_desktop_app import get_server_port_number
 from mantarray_desktop_app import main
@@ -126,23 +125,6 @@ def fixture_fully_running_app_from_main_entrypoint(mocker, patched_shared_values
     confirm_port_available(get_server_port_number())
     # clean up singletons
     set_mantarray_processes_monitor(None)
-
-
-@pytest.fixture(scope="function", name="test_client")
-def fixture_test_client():
-    """Create a test client to call Flask routes.
-
-    Modeled on https://www.patricksoftwareblog.com/testing-a-flask-application-using-pytest/
-    """
-    testing_client = flask_app.test_client()
-
-    # Establish an application context before running the tests.
-    ctx = flask_app.app_context()
-    ctx.push()
-
-    yield testing_client  # this is where the testing happens!
-
-    ctx.pop()
 
 
 @pytest.fixture(scope="function", name="test_process_manager")

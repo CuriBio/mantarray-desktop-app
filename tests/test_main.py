@@ -707,23 +707,6 @@ def test_set_mantarray_serial_number__returns_error_code_and_message_if_serial_n
     assert response.status.endswith(expected_error_message) is True
 
 
-@pytest.mark.parametrize(
-    "test_nickname,test_decsription",
-    [
-        ("123456789012345678901234", "raises error with no unicode characters"),
-        ("1234567890123456789012à", "raises error with unicode character"),
-    ],
-)
-def test_set_mantarray_serial_number__returns_error_code_and_message_if_serial_number_is_too_many_bytes(
-    test_nickname, test_decsription, test_client, patched_shared_values_dict
-):
-    patched_shared_values_dict["mantarray_nickname"] = dict()
-
-    response = test_client.get(f"/set_mantarray_nickname?nickname={test_nickname}")
-    assert response.status_code == 400
-    assert response.status.endswith("Nickname exceeds 23 bytes") is True
-
-
 def test_start_managed_acquisition__returns_error_code_and_message_if_mantarray_serial_number_is_empty(
     test_client, patched_shared_values_dict
 ):

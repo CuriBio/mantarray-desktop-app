@@ -6,14 +6,16 @@ from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
 import pytest
 
-from .fixtures import fixture_generic_queue_container
-from .fixtures_server import fixture_client_and_server_thread_and_shared_values
-from .fixtures_server import fixture_server_thread
+from ..fixtures import fixture_generic_queue_container
+from ..fixtures_server import fixture_client_and_server_thread_and_shared_values
+from ..fixtures_server import fixture_server_thread
+from ..fixtures_server import fixture_test_client
 
 __fixtures__ = [
     fixture_client_and_server_thread_and_shared_values,
     fixture_server_thread,
     fixture_generic_queue_container,
+    fixture_test_client,
 ]
 
 
@@ -91,3 +93,22 @@ def test_system_status__returns_correct_serial_number_and_nickname_with_empty_st
         assert response_json["mantarray_nickname"] == expected_nickname
     else:
         assert response_json["mantarray_nickname"] == ""
+
+
+@pytest.mark.parametrize(
+    ",".join(("test_nickname", "test_decsription")),
+    [
+        ("123456789012345678901234", "raises error with no unicode characters"),
+        ("1234567890123456789012à", "raises error with unicode character"),
+    ],
+)
+def test_set_mantarray_serial_number__returns_error_code_and_message_if_serial_number_is_too_many_bytes(
+    test_nickname, test_decsription, client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+
+    shared_values_dict["mantarray_nickname"] = dict()
+
+    response = test_client.get(f"/set_mantarray_nickname?nickname={test_nickname}")
+    assert response.status_code == 400
+    assert response.status.endswith("Nickname exceeds 23 bytes") is True

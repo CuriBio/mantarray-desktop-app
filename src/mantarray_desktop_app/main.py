@@ -765,21 +765,6 @@ def queue_comm_delay() -> Response:
     return response
 
 
-def queue_command_to_ok_comm(comm_dict: Dict[str, Any]) -> Response:
-    """Queue command to send to XEM and return response.
-
-    This is used by the test suite, so is not designated as private in
-    order to make pylint happier.
-    """
-    manager = get_mantarray_process_manager()
-    to_ok_comm_queue = manager.get_communication_to_ok_comm_queue(0)
-    to_ok_comm_queue.put(comm_dict)
-
-    response = Response(json.dumps(comm_dict), mimetype="application/json")
-
-    return response
-
-
 @flask_app.route("/development/begin_hardware_script", methods=["GET"])
 def dev_begin_hardware_script() -> Response:
     """Designate the beginning of a hardware script in flask log.
@@ -856,34 +841,6 @@ def set_mantarray_serial_number() -> Response:
         "communication_type": "mantarray_naming",
         "command": "set_mantarray_serial_number",
         "mantarray_serial_number": serial_number,
-    }
-
-    response = queue_command_to_ok_comm(comm_dict)
-
-    return response
-
-
-@flask_app.route("/set_mantarray_nickname", methods=["GET"])
-def set_mantarray_nickname() -> Response:
-    """Set the 'nickname' of the Mantarray device.
-
-    This route will not overwrite an existing Mantarray Serial Number.
-
-    Can be invoked by curl 'http://localhost:4567/set_mantarray_nickname?nickname=My Mantarray'
-    """
-    nickname = request.args["nickname"]
-    if len(nickname.encode("utf-8")) > 23:
-        response = Response(status="400 Nickname exceeds 23 bytes")
-        return response
-
-    board_idx = 0
-    shared_values_dict = get_shared_values_between_server_and_monitor()
-    shared_values_dict["mantarray_nickname"][board_idx] = nickname
-
-    comm_dict = {
-        "communication_type": "mantarray_naming",
-        "command": "set_mantarray_nickname",
-        "mantarray_nickname": nickname,
     }
 
     response = queue_command_to_ok_comm(comm_dict)

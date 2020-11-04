@@ -1044,35 +1044,6 @@ def test_send_single_boot_up_command__populates_ok_comm_error_queue_if_bit_file_
 
 
 @pytest.mark.slow
-def test_send_single_set_mantarray_nickname_command__gets_processed_and_stores_nickname_in_shared_values_dict(
-    test_process_manager, test_client, patched_shared_values_dict
-):
-    patched_shared_values_dict["mantarray_nickname"] = dict()
-    expected_nickname = "Surnom Français"
-
-    test_process_manager.start_processes()
-    response = test_client.get(f"/set_mantarray_nickname?nickname={expected_nickname}")
-    assert response.status_code == 200
-    assert patched_shared_values_dict["mantarray_nickname"][0] == expected_nickname
-
-    test_process_manager.soft_stop_and_join_processes()
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-    assert is_queue_eventually_empty(comm_queue) is True
-
-    comm_from_ok_queue = test_process_manager.get_communication_queue_from_ok_comm_to_main(
-        0
-    )
-    comm_from_ok_queue.get_nowait()  # pull out the initial boot-up message
-    comm_from_ok_queue.get_nowait()  # pull ok_comm connect to board message
-
-    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
-    communication = comm_from_ok_queue.get_nowait()
-    assert communication["communication_type"] == "mantarray_naming"
-    assert communication["command"] == "set_mantarray_nickname"
-    assert communication["mantarray_nickname"] == expected_nickname
-
-
-@pytest.mark.slow
 def test_send_single_set_mantarray_serial_number_command__gets_processed_and_stores_serial_number_in_shared_values_dict(
     test_process_manager, test_client, patched_shared_values_dict
 ):

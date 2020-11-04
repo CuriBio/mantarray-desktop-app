@@ -14,15 +14,15 @@ from mantarray_desktop_app import ServerThread
 import pytest
 from stdlib_utils import confirm_port_available
 
-from .fixtures import fixture_generic_queue_container
-from .fixtures import fixture_patch_print
-from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
-from .fixtures_server import _clean_up_server_thread
-from .fixtures_server import fixture_running_server_thread
-from .fixtures_server import fixture_server_thread
-from .helpers import is_queue_eventually_empty
-from .helpers import is_queue_eventually_of_size
-from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
+from ..fixtures import fixture_generic_queue_container
+from ..fixtures import fixture_patch_print
+from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from ..fixtures_server import _clean_up_server_thread
+from ..fixtures_server import fixture_running_server_thread
+from ..fixtures_server import fixture_server_thread
+from ..helpers import is_queue_eventually_empty
+from ..helpers import is_queue_eventually_of_size
+from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 __fixtures__ = [
     fixture_patch_print,

@@ -38,11 +38,13 @@ def fixture_server_thread(generic_queue_container):
     _clean_up_server_thread(st, to_main_queue, error_queue)
 
 
-@pytest.fixture(scope="function", name="client_and_server_thread_and_shared_values")
-def fixture_client_and_server_thread_and_shared_values(server_thread):
+@pytest.fixture(scope="function", name="test_client")
+def fixture_test_client():
     """Create a test client to call Flask routes.
 
     Modeled on https://www.patricksoftwareblog.com/testing-a-flask-application-using-pytest/
+
+    Note, the routes require a ServerThread to be created using another fixture or within the test itself before the test Client will be fully functional.
     """
 
     testing_client = flask_app.test_client()
@@ -50,11 +52,17 @@ def fixture_client_and_server_thread_and_shared_values(server_thread):
     # Establish an application context before running the tests.
     ctx = flask_app.app_context()
     ctx.push()
-    st, _, _ = server_thread
-    shared_values_dict = st._values_from_process_monitor
-    yield testing_client, server_thread, shared_values_dict  # this is where the testing happens!
+    yield testing_client
 
     ctx.pop()
+
+
+@pytest.fixture(scope="function", name="client_and_server_thread_and_shared_values")
+def fixture_client_and_server_thread_and_shared_values(server_thread, test_client):
+
+    st, _, _ = server_thread
+    shared_values_dict = st._values_from_process_monitor
+    yield test_client, server_thread, shared_values_dict
 
 
 @pytest.fixture(scope="function", name="running_server_thread")

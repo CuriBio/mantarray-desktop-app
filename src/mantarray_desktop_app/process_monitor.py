@@ -9,6 +9,7 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 from typing import Tuple
+from typing import Union
 
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import InfiniteThread
@@ -24,6 +25,7 @@ from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
 from .process_manager import MantarrayProcessesManager
+from .server import ServerThread
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +56,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
     def _check_and_handle_file_writer_to_main_queue(self) -> None:
         process_manager = self._process_manager
         file_writer_to_main = (
-            process_manager.get_communication_queue_from_file_writer_to_main()
+            process_manager.queue_container().get_communication_queue_from_file_writer_to_main()
         )
         try:
             communication = file_writer_to_main.get(
@@ -72,7 +74,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         process_manager = self._process_manager
 
         data_analyzer_to_main = (
-            process_manager.get_communication_queue_from_data_analyzer_to_main()
+            process_manager.queue_container().get_communication_queue_from_data_analyzer_to_main()
         )
         try:
             communication = data_analyzer_to_main.get(
@@ -97,7 +99,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
     def _check_and_handle_ok_comm_to_main_queue(self) -> None:
         process_manager = self._process_manager
-        ok_comm_to_main = process_manager.get_communication_queue_from_ok_comm_to_main(
+        ok_comm_to_main = process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
             0
         )
         try:
@@ -184,16 +186,20 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         for iter_error_queue, iter_process in (
             (
-                process_manager.get_ok_communication_error_queue(),
+                process_manager.queue_container().get_ok_communication_error_queue(),
                 process_manager.get_ok_comm_process(),
             ),
             (
-                process_manager.get_file_writer_error_queue(),
+                process_manager.queue_container().get_file_writer_error_queue(),
                 process_manager.get_file_writer_process(),
             ),
             (
-                process_manager.get_data_analyzer_error_queue(),
+                process_manager.queue_container().get_data_analyzer_error_queue(),
                 process_manager.get_data_analyzer_process(),
+            ),
+            (
+                process_manager.queue_container().get_server_error_queue(),
+                process_manager.get_server_thread(),
             ),
         ):
             try:
@@ -233,7 +239,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
         adc_offsets[well_index][offset_key] = offset_val
 
     def _handle_error_in_subprocess(
-        self, process: InfiniteProcess, error_communication: Tuple[Exception, str]
+        self,
+        process: Union[InfiniteProcess, ServerThread],
+        error_communication: Tuple[Exception, str],
     ) -> None:
         this_err, this_stack_trace = error_communication
         msg = f"Error raised by subprocess {process}\n{this_stack_trace}\n{this_err}"
