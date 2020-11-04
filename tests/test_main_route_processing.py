@@ -7,7 +7,6 @@ import tempfile
 
 from freezegun import freeze_time
 from mantarray_desktop_app import BUFFERING_STATE
-from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import get_api_endpoint
 from mantarray_desktop_app import get_mantarray_process_manager
@@ -348,129 +347,6 @@ def test_send_single_stop_acquisition_command__gets_processed(
     assert stop_acquisition_communication["command"] == "stop_acquisition"
     get_status_communication = comm_from_ok_queue.get_nowait()
     assert get_status_communication["response"]["is_spi_running"] is False
-
-
-# Keep this "gets_processed" test in main test suite
-def test_send_single_initialize_board_command_with_bit_file__gets_processed(
-    test_process_manager, test_client, patched_firmware_folder
-):
-    board_idx = 0
-    expected_bit_file_name = patched_firmware_folder
-
-    simulator = FrontPanelSimulator({})
-
-    ok_process = test_process_manager.get_ok_comm_process()
-    ok_process.set_board_connection(board_idx, simulator)
-
-    test_process_manager.start_processes()
-
-    response = test_client.get(
-        f"/insert_xem_command_into_queue/initialize_board?bit_file_name={expected_bit_file_name}"
-    )
-    assert response.status_code == 200
-    response = test_client.get("/insert_xem_command_into_queue/get_status")
-    assert response.status_code == 200
-
-    test_process_manager.soft_stop_and_join_processes()
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(board_idx)
-    assert is_queue_eventually_empty(comm_queue) is True
-
-    comm_from_ok_queue = test_process_manager.get_communication_queue_from_ok_comm_to_main(
-        board_idx
-    )
-    comm_from_ok_queue.get_nowait()  # pull out the initial boot-up message
-
-    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
-    initialize_board_communication = comm_from_ok_queue.get_nowait()
-    assert initialize_board_communication["command"] == "initialize_board"
-    assert initialize_board_communication["bit_file_name"] == expected_bit_file_name
-    assert initialize_board_communication["allow_board_reinitialization"] is False
-    get_status_communication = comm_from_ok_queue.get_nowait()
-    assert (
-        get_status_communication["response"]["bit_file_name"] == expected_bit_file_name
-    )
-
-
-@pytest.mark.slow
-def test_send_single_initialize_board_command_without_bit_file__gets_processed(
-    test_process_manager, test_client
-):
-    board_idx = 0
-
-    simulator = FrontPanelSimulator({})
-
-    ok_process = test_process_manager.get_ok_comm_process()
-    ok_process.set_board_connection(board_idx, simulator)
-
-    test_process_manager.start_processes()
-
-    response = test_client.get("/insert_xem_command_into_queue/initialize_board")
-    assert response.status_code == 200
-
-    response = test_client.get("/insert_xem_command_into_queue/get_status")
-    assert response.status_code == 200
-
-    test_process_manager.soft_stop_and_join_processes()
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(board_idx)
-    assert is_queue_eventually_empty(comm_queue) is True
-
-    comm_from_ok_queue = test_process_manager.get_communication_queue_from_ok_comm_to_main(
-        board_idx
-    )
-    comm_from_ok_queue.get_nowait()  # pull out the initial boot-up message
-
-    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
-    initialize_board_communication = comm_from_ok_queue.get_nowait()
-    assert initialize_board_communication["command"] == "initialize_board"
-    assert initialize_board_communication["bit_file_name"] is None
-    assert initialize_board_communication["allow_board_reinitialization"] is False
-    get_status_communication = comm_from_ok_queue.get_nowait()
-    assert get_status_communication["response"]["bit_file_name"] is None
-
-
-@pytest.mark.slow
-def test_send_single_initialize_board_command_with_reinitialization__gets_processed(
-    test_process_manager, test_client, patched_firmware_folder
-):
-    board_idx = 0
-
-    expected_bit_file_name = patched_firmware_folder
-    expected_reinitialization = True
-
-    simulator = FrontPanelSimulator({})
-    simulator.initialize_board()
-
-    ok_process = test_process_manager.get_ok_comm_process()
-    ok_process.set_board_connection(board_idx, simulator)
-
-    test_process_manager.start_processes()
-
-    response = test_client.get(
-        f"/insert_xem_command_into_queue/initialize_board?bit_file_name={expected_bit_file_name}&allow_board_reinitialization={expected_reinitialization}"
-    )
-    assert response.status_code == 200
-
-    response = test_client.get("/insert_xem_command_into_queue/get_status")
-    assert response.status_code == 200
-
-    test_process_manager.soft_stop_and_join_processes()
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(board_idx)
-    assert is_queue_eventually_empty(comm_queue) is True
-
-    comm_from_ok_queue = test_process_manager.get_communication_queue_from_ok_comm_to_main(
-        board_idx
-    )
-    comm_from_ok_queue.get_nowait()  # pull out the initial boot-up message
-
-    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
-    initialize_board_communication = comm_from_ok_queue.get_nowait()
-    assert initialize_board_communication["command"] == "initialize_board"
-    assert initialize_board_communication["bit_file_name"] == expected_bit_file_name
-    assert initialize_board_communication["allow_board_reinitialization"] is True
-    get_status_communication = comm_from_ok_queue.get_nowait()
-    assert (
-        get_status_communication["response"]["bit_file_name"] == expected_bit_file_name
-    )
 
 
 @pytest.mark.slow
@@ -922,51 +798,6 @@ def test_send_single_comm_delay_command__gets_processed(
     assert (
         communication["response"] == f"Delayed for {expected_num_millis} milliseconds"
     )
-
-
-@pytest.mark.slow
-def test_send_single_start_calibration_command__gets_processed_and_sets_system_status_to_calibrating(
-    patched_shared_values_dict,
-    patched_short_calibration_script,
-    test_process_manager,
-    test_client,
-    mocker,
-):
-    expected_script_type = "start_calibration"
-
-    test_process_manager.start_processes()
-    response = test_client.get("/insert_xem_command_into_queue/initialize_board")
-    assert response.status_code == 200
-    response = test_client.get("/start_calibration")
-    assert response.status_code == 200
-
-    assert patched_shared_values_dict["system_status"] == CALIBRATING_STATE
-
-    test_process_manager.soft_stop_and_join_processes()
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-    assert is_queue_eventually_empty(comm_queue) is True
-
-    comm_from_ok_queue = test_process_manager.get_communication_queue_from_ok_comm_to_main(
-        0
-    )
-    comm_from_ok_queue.get_nowait()  # pull out the initial boot-up message
-    comm_from_ok_queue.get_nowait()  # pull ok_comm connect to board message
-    comm_from_ok_queue.get_nowait()  # pull initialize board response message
-
-    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
-
-    script_communication = comm_from_ok_queue.get_nowait()
-    assert script_communication["communication_type"] == "xem_scripts"
-    assert script_communication["script_type"] == expected_script_type
-    assert f"Running {expected_script_type} script" in script_communication["response"]
-
-    done_message = comm_from_ok_queue.get_nowait()
-    teardown_message = comm_from_ok_queue.get_nowait()
-    while is_queue_eventually_not_empty(comm_from_ok_queue):
-        done_message = teardown_message
-        teardown_message = comm_from_ok_queue.get_nowait()
-    assert done_message["communication_type"] == "xem_scripts"
-    assert done_message["response"] == f"'{expected_script_type}' script complete."
 
 
 @pytest.mark.slow

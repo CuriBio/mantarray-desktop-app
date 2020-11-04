@@ -13,7 +13,8 @@ __fixtures__ = [fixture_test_process_manager]
 
 @pytest.fixture(scope="function", name="test_monitor")
 def fixture_test_monitor(test_process_manager):
-    the_dict = {"system_status": SERVER_INITIALIZING_STATE}
+    the_dict = test_process_manager.get_values_to_share_to_server()
+    the_dict["system_status"] = SERVER_INITIALIZING_STATE
     error_queue = error_queue = queue.Queue()
     the_lock = threading.Lock()
     monitor = MantarrayProcessesMonitor(

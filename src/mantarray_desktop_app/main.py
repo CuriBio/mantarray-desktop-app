@@ -52,7 +52,6 @@ from stdlib_utils import is_port_in_use
 
 from .constants import ADC_GAIN_SETTING_UUID
 from .constants import BUFFERING_STATE
-from .constants import CALIBRATING_STATE
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CURI_BIO_ACCOUNT_UUID
 from .constants import CURI_BIO_USER_ACCOUNT_ID
@@ -416,27 +415,6 @@ def stop_recording() -> Response:
     return response
 
 
-@flask_app.route("/start_calibration", methods=["GET"])
-def start_calibration() -> Response:
-    """Start the calibration procedure on the Mantarray.
-
-    Can be invoked by:
-
-    `curl http://localhost:4567/start_calibration`
-    """
-    shared_values_dict = get_shared_values_between_server_and_monitor()
-    shared_values_dict["system_status"] = CALIBRATING_STATE
-
-    comm_dict = {
-        "communication_type": "xem_scripts",
-        "script_type": "start_calibration",
-    }
-
-    response = queue_command_to_ok_comm(comm_dict)
-
-    return response
-
-
 @flask_app.route("/start_managed_acquisition", methods=["GET"])
 def start_managed_acquisition() -> Response:
     """Begin "managed" data acquisition on the XEM.
@@ -482,34 +460,6 @@ def stop_managed_acquisition() -> Response:
     to_file_writer_queue.put(comm_dict)
 
     response = queue_command_to_ok_comm(comm_dict)
-    return response
-
-
-# Single "debug console" commands to send to XEM
-@flask_app.route("/insert_xem_command_into_queue/initialize_board", methods=["GET"])
-def queue_initialize_board() -> Response:
-    """Queue up a command to initialize the XEM.
-
-    Specified bit files should be in same directory as mantarray-flask.exe
-
-    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/initialize_board?bit_file_name=main.bit&allow_board_reinitialization=False
-    """
-    bit_file_name = request.args.get("bit_file_name", None)
-    allow_board_reinitialization = request.args.get(
-        "allow_board_reinitialization", False
-    )
-    if isinstance(allow_board_reinitialization, str):
-        allow_board_reinitialization = allow_board_reinitialization == "True"
-    comm_dict = {
-        "communication_type": "debug_console",
-        "command": "initialize_board",
-        "bit_file_name": bit_file_name,
-        "allow_board_reinitialization": allow_board_reinitialization,
-        "suppress_error": True,
-    }
-
-    response = queue_command_to_ok_comm(comm_dict)
-
     return response
 
 
@@ -696,25 +646,6 @@ def queue_get_num_words_fifo() -> Response:
     comm_dict = {
         "communication_type": "debug_console",
         "command": "get_num_words_fifo",
-        "suppress_error": True,
-    }
-
-    response = queue_command_to_ok_comm(comm_dict)
-
-    return response
-
-
-@flask_app.route("/insert_xem_command_into_queue/get_status", methods=["GET"])
-def queue_get_status() -> Response:
-    """Queue up a command to get instance attributes of FrontPanelBase object.
-
-    Does not interact with a XEM. This route shouldn't be used if an attribute of a XEM is needed.
-
-    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/get_status
-    """
-    comm_dict = {
-        "communication_type": "debug_console",
-        "command": "get_status",
         "suppress_error": True,
     }
 

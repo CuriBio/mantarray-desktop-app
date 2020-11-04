@@ -63,6 +63,10 @@ def get_the_server_thread() -> "ServerThread":
     return _the_server_thread
 
 
+def get_server_to_main_queue() -> Queue:
+    return get_the_server_thread().get_queue_to_main()
+
+
 def get_server_port_number() -> int:
     return get_the_server_thread().get_port_number()
 
@@ -95,6 +99,20 @@ def queue_command_to_ok_comm(comm_dict: Dict[str, Any]) -> Response:
         get_the_server_thread().queue_container().get_communication_to_ok_comm_queue(0)
     )
     to_ok_comm_queue.put(comm_dict)
+
+    response = Response(json.dumps(comm_dict), mimetype="application/json")
+
+    return response
+
+
+def queue_command_to_main(comm_dict: Dict[str, Any]) -> Response:
+    """Queue command to send to the main thread and return response.
+
+    This is used by the test suite, so is not designated as private in
+    order to make pylint happier.
+    """
+    to_main_queue = get_server_to_main_queue()
+    to_main_queue.put(comm_dict)
 
     response = Response(json.dumps(comm_dict), mimetype="application/json")
 
@@ -150,6 +168,71 @@ def set_mantarray_nickname() -> Response:
         "communication_type": "mantarray_naming",
         "command": "set_mantarray_nickname",
         "mantarray_nickname": nickname,
+    }
+    response = queue_command_to_main(comm_dict)
+
+    return response
+
+
+@flask_app.route("/start_calibration", methods=["GET"])
+def start_calibration() -> Response:
+    """Start the calibration procedure on the Mantarray.
+
+    Can be invoked by:
+
+    `curl http://localhost:4567/start_calibration`
+    """
+
+    comm_dict = {
+        "communication_type": "xem_scripts",
+        "script_type": "start_calibration",
+    }
+
+    response = queue_command_to_main(comm_dict)
+
+    return response
+
+
+# Single "debug console" commands to send to XEM
+@flask_app.route("/insert_xem_command_into_queue/initialize_board", methods=["GET"])
+def queue_initialize_board() -> Response:
+    """Queue up a command to initialize the XEM.
+
+    Specified bit files should be in same directory as mantarray-flask.exe
+
+    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/initialize_board?bit_file_name=main.bit&allow_board_reinitialization=False
+    """
+    bit_file_name = request.args.get("bit_file_name", None)
+    allow_board_reinitialization = request.args.get(
+        "allow_board_reinitialization", False
+    )
+    if isinstance(allow_board_reinitialization, str):
+        allow_board_reinitialization = allow_board_reinitialization == "True"
+    comm_dict = {
+        "communication_type": "debug_console",
+        "command": "initialize_board",
+        "bit_file_name": bit_file_name,
+        "allow_board_reinitialization": allow_board_reinitialization,
+        "suppress_error": True,
+    }
+
+    response = queue_command_to_ok_comm(comm_dict)
+
+    return response
+
+
+@flask_app.route("/insert_xem_command_into_queue/get_status", methods=["GET"])
+def queue_get_status() -> Response:
+    """Queue up a command to get instance attributes of FrontPanelBase object.
+
+    Does not interact with a XEM. This route shouldn't be used if an attribute of a XEM is needed.
+
+    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/get_status
+    """
+    comm_dict = {
+        "communication_type": "debug_console",
+        "command": "get_status",
+        "suppress_error": True,
     }
 
     response = queue_command_to_ok_comm(comm_dict)
@@ -224,6 +307,9 @@ class ServerThread(InfiniteThread):
 
     def get_port_number(self) -> int:
         return self._port
+
+    def get_queue_to_main(self) -> Queue:
+        return self._to_main_queue
 
     def queue_container(self) -> MantarrayQueueContainer:
         return self._queue_container

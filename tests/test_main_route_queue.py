@@ -445,55 +445,6 @@ def test_send_single_stop_acquisition_command__populates_queue(
     assert response_json["suppress_error"] is True
 
 
-def test_send_single_initialize_board_command_with_bit_file__populates_queue(
-    test_process_manager, test_client
-):
-    board_idx = 0
-    expected_bit_file_name = "main.bit"
-    response = test_client.get(
-        f"/insert_xem_command_into_queue/initialize_board?bit_file_name={expected_bit_file_name}"
-    )
-    assert response.status_code == 200
-
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(board_idx)
-
-    assert is_queue_eventually_not_empty(comm_queue) is True
-    communication = comm_queue.get_nowait()
-    assert communication["communication_type"] == "debug_console"
-    assert communication["command"] == "initialize_board"
-    assert communication["bit_file_name"] == expected_bit_file_name
-    assert communication["allow_board_reinitialization"] is False
-    assert communication["suppress_error"] is True
-    response_json = response.get_json()
-    assert response_json["command"] == "initialize_board"
-    assert response_json["bit_file_name"] == expected_bit_file_name
-    assert response_json["allow_board_reinitialization"] is False
-    assert response_json["suppress_error"] is True
-
-
-def test_send_single_initialize_board_command_without_bit_file__populates_queue(
-    test_process_manager, test_client
-):
-    board_idx = 0
-    response = test_client.get("/insert_xem_command_into_queue/initialize_board")
-    assert response.status_code == 200
-
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(board_idx)
-
-    assert is_queue_eventually_not_empty(comm_queue) is True
-    communication = comm_queue.get_nowait()
-    assert communication["communication_type"] == "debug_console"
-    assert communication["command"] == "initialize_board"
-    assert communication["bit_file_name"] is None
-    assert communication["allow_board_reinitialization"] is False
-    assert communication["suppress_error"] is True
-    response_json = response.get_json()
-    assert response_json["command"] == "initialize_board"
-    assert response_json["bit_file_name"] is None
-    assert response_json["allow_board_reinitialization"] is False
-    assert response_json["suppress_error"] is True
-
-
 def test_send_single_get_serial_number_command__populates_queue(
     test_process_manager, test_client
 ):
@@ -602,23 +553,6 @@ def test_send_single_set_wire_in_command__using_hex_notation__populates_queue(
     assert response_json["ep_addr"] == 5
     assert response_json["value"] == 160
     assert response_json["mask"] == 17
-    assert response_json["suppress_error"] is True
-
-
-def test_send_single_get_status_command__populates_queue(
-    test_process_manager, test_client
-):
-    response = test_client.get("/insert_xem_command_into_queue/get_status")
-    assert response.status_code == 200
-
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-    assert is_queue_eventually_not_empty(comm_queue) is True
-    communication = comm_queue.get_nowait()
-    assert communication["communication_type"] == "debug_console"
-    assert communication["command"] == "get_status"
-    assert communication["suppress_error"] is True
-    response_json = response.get_json()
-    assert response_json["command"] == "get_status"
     assert response_json["suppress_error"] is True
 
 
@@ -788,13 +722,6 @@ def test_send_single_comm_delay_command__populates_queue(
     assert response_json["command"] == "comm_delay"
     assert response_json["num_milliseconds"] == expected_num_millis
     assert response_json["suppress_error"] is True
-
-
-def test_send_single_start_calibration_command__returns_200(
-    test_process_manager, test_client
-):
-    response = test_client.get("/start_calibration")
-    assert response.status_code == 200
 
 
 def test_send_single_boot_up_command__populates_queue_with_both_commands(

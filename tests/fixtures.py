@@ -29,6 +29,7 @@ from stdlib_utils import resource_path
 
 from .fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
 
+PATH_TO_CURRENT_FILE = get_current_file_abs_directory()
 QUEUE_CHECK_TIMEOUT_SECONDS = 1.1  # for is_queue_eventually_of_size, is_queue_eventually_not_empty, is_queue_eventually_empty, put_object_into_queue_and_raise_error_if_eventually_still_empty, etc. # Eli (10/28/20) issue encountered where even 0.5 seconds was insufficient, so raising to 1 second
 
 
@@ -162,7 +163,7 @@ def fixture_test_process_manager_without_created_processes(mocker):
 @pytest.fixture(scope="function", name="patched_test_xem_scripts_folder")
 def fixture_patched_test_xem_scripts_folder():
     relative_path = "src"
-    absolute_path = os.path.dirname(get_current_file_abs_directory())
+    absolute_path = os.path.dirname(PATH_TO_CURRENT_FILE)
     src_path = os.path.join(absolute_path, relative_path)
 
     real_path = os.path.join(src_path, "xem_scripts")
@@ -187,7 +188,7 @@ def fixture_patched_test_xem_scripts_folder():
 @pytest.fixture(scope="function", name="patched_xem_scripts_folder")
 def fixture_patched_xem_scripts_folder():
     relative_path = "src"
-    absolute_path = os.path.dirname(get_current_file_abs_directory())
+    absolute_path = os.path.dirname(PATH_TO_CURRENT_FILE)
     src_path = os.path.join(absolute_path, relative_path)
 
     real_path = os.path.join(src_path, "xem_scripts")
@@ -217,7 +218,7 @@ def fixture_patched_xem_scripts_folder():
 def fixture_patched_short_calibration_script():
     # Tanner (6/29/20): This fixture should only be used in tests that don't rely on the actual read_wire_outs providing the ADC offset values
     relative_path = "src"
-    absolute_path = os.path.dirname(get_current_file_abs_directory())
+    absolute_path = os.path.dirname(PATH_TO_CURRENT_FILE)
     src_path = os.path.join(absolute_path, relative_path)
 
     real_path = os.path.join(src_path, "xem_scripts")
@@ -243,7 +244,7 @@ def fixture_patched_short_calibration_script():
 def fixture_patched_firmware_folder(mocker):
     patched_firmware = "test_2_3_4.bit"
     patched_firmware_path = resource_path(
-        os.path.join("test_firmware", patched_firmware)
+        os.path.join(PATH_TO_CURRENT_FILE, "test_firmware", patched_firmware)
     )
     mocker.patch.object(
         process_manager,

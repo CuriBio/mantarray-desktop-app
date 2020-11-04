@@ -24,12 +24,12 @@ import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 from xem_wrapper import FrontPanelSimulator
 
-from .fixtures import fixture_test_process_manager
-from .fixtures_ok_comm import fixture_patch_connection_to_board
-from .fixtures_process_monitor import fixture_test_monitor
-from .helpers import is_queue_eventually_empty
-from .helpers import is_queue_eventually_not_empty
-from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
+from ..fixtures import fixture_test_process_manager
+from ..fixtures_ok_comm import fixture_patch_connection_to_board
+from ..fixtures_process_monitor import fixture_test_monitor
+from ..helpers import is_queue_eventually_empty
+from ..helpers import is_queue_eventually_not_empty
+from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 __fixtures__ = [
     fixture_test_process_manager,
@@ -107,6 +107,33 @@ def test_MantarrayProcessesMonitor__logs_messages_from_file_writer(
     assert is_queue_eventually_empty(file_writer_to_main) is True
     mocked_logger.assert_called_once_with(
         f"Communication from the File Writer: {expected_comm}"
+    )
+
+
+def test_MantarrayProcessesMonitor__logs_messages_from_server(
+    mocker, test_process_manager, test_monitor
+):
+    monitor_thread, _, _, _ = test_monitor
+
+    mocked_logger = mocker.patch.object(process_monitor.logger, "info", autospec=True)
+
+    test_process_manager.create_processes()
+
+    to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+    expected_comm = {
+        "communication_type": "mantarray_naming",
+        "command": "set_mantarray_nickname",
+        "mantarray_nickname": "The Nautilus",
+    }
+
+    to_main_queue.put(expected_comm)
+    assert is_queue_eventually_not_empty(to_main_queue) is True
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert is_queue_eventually_empty(to_main_queue) is True
+    mocked_logger.assert_called_once_with(
+        f"Communication from the Server: {expected_comm}"
     )
 
 

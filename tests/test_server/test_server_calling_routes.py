@@ -96,14 +96,14 @@ def test_system_status__returns_correct_serial_number_and_nickname_with_empty_st
 
 
 @pytest.mark.parametrize(
-    ",".join(("test_nickname", "test_decsription")),
+    ",".join(("test_nickname", "test_description")),
     [
         ("123456789012345678901234", "raises error with no unicode characters"),
         ("1234567890123456789012à", "raises error with unicode character"),
     ],
 )
 def test_set_mantarray_serial_number__returns_error_code_and_message_if_serial_number_is_too_many_bytes(
-    test_nickname, test_decsription, client_and_server_thread_and_shared_values,
+    test_nickname, test_description, client_and_server_thread_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
 
@@ -112,3 +112,11 @@ def test_set_mantarray_serial_number__returns_error_code_and_message_if_serial_n
     response = test_client.get(f"/set_mantarray_nickname?nickname={test_nickname}")
     assert response.status_code == 400
     assert response.status.endswith("Nickname exceeds 23 bytes") is True
+
+
+def test_send_single_start_calibration_command__returns_200(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    response = test_client.get("/start_calibration")
+    assert response.status_code == 200

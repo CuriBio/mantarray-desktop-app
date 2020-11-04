@@ -19,6 +19,7 @@ from .constants import ADC_CH_TO_IS_REF_SENSOR
 from .constants import ADC_OFFSET_DESCRIPTION_TAG
 from .constants import BUFFERING_STATE
 from .constants import CALIBRATED_STATE
+from .constants import CALIBRATING_STATE
 from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
@@ -69,6 +70,44 @@ class MantarrayProcessesMonitor(InfiniteThread):
         msg = f"Communication from the File Writer: {communication}"
         with self._lock:
             logger.info(msg)
+
+    def _check_and_handle_server_to_main_queue(self) -> None:
+        process_manager = self._process_manager
+        to_main_queue = (
+            process_manager.queue_container().get_communication_queue_from_server_to_main()
+        )
+        try:
+            communication = to_main_queue.get(
+                timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+            )
+        except queue.Empty:
+            return
+
+        # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
+        msg = f"Communication from the Server: {communication}"
+        with self._lock:
+            logger.info(msg)
+
+        communication_type = communication["communication_type"]
+        shared_values_dict = self._values_to_share_to_server
+        if communication_type == "mantarray_naming":
+            if "mantarray_nickname" not in shared_values_dict:
+                shared_values_dict["mantarray_nickname"]: Dict[int, str] = dict()
+            shared_values_dict["mantarray_nickname"][0] = communication[
+                "mantarray_nickname"
+            ]
+            self._put_communication_into_ok_comm_queue(communication)
+        elif communication_type == "xem_scripts":
+            script_type = communication["script_type"]
+            if script_type == "start_calibration":
+                shared_values_dict["system_status"] = CALIBRATING_STATE
+            self._put_communication_into_ok_comm_queue(communication)
+
+    def _put_communication_into_ok_comm_queue(self, communication) -> None:
+        main_to_ok_comm_queue = self._process_manager.queue_container().get_communication_to_ok_comm_queue(
+            0
+        )
+        main_to_ok_comm_queue.put(communication)
 
     def _check_and_handle_data_analyzer_to_main_queue(self) -> None:
         process_manager = self._process_manager
@@ -183,6 +222,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         self._check_and_handle_ok_comm_to_main_queue()
         self._check_and_handle_file_writer_to_main_queue()
         self._check_and_handle_data_analyzer_to_main_queue()
+        self._check_and_handle_server_to_main_queue()
 
         for iter_error_queue, iter_process in (
             (
