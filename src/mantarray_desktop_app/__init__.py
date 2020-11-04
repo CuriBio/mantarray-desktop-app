@@ -148,6 +148,7 @@ from .process_manager import MantarrayProcessesManager
 from .process_monitor import get_mantarray_processes_monitor
 from .process_monitor import MantarrayProcessesMonitor
 from .process_monitor import set_mantarray_processes_monitor
+from .queue_container import MantarrayQueueContainer
 from .server import flask_app
 from .server import get_the_server_thread
 from .server import ServerThread
@@ -319,4 +320,5 @@ __all__ = [
     "ServerThread",
     "server",
     "get_the_server_thread",
+    "MantarrayQueueContainer",
 ]

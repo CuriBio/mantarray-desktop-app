@@ -14,6 +14,7 @@ from mantarray_desktop_app import ServerThread
 import pytest
 from stdlib_utils import confirm_port_available
 
+from .fixtures import fixture_generic_queue_container
 from .fixtures import fixture_patch_print
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .fixtures_server import _clean_up_server_thread
@@ -27,26 +28,29 @@ __fixtures__ = [
     fixture_patch_print,
     fixture_server_thread,
     fixture_running_server_thread,
+    fixture_generic_queue_container,
 ]
 
 
-def test_ServerThread__init__calls_super(mocker):
+def test_ServerThread__init__calls_super(mocker, generic_queue_container):
     error_queue = Queue()
     to_main_queue = Queue()
     mocked_super_init = mocker.spy(Thread, "__init__")
-    ServerThread(to_main_queue, error_queue)
+    ServerThread(to_main_queue, error_queue, generic_queue_container)
     assert mocked_super_init.call_count == 1
 
 
-def test_ServerThread__init__sets_the_module_singleton_of_the_thread_to_new_instance():
+def test_ServerThread__init__sets_the_module_singleton_of_the_thread_to_new_instance(
+    generic_queue_container,
+):
     error_queue = Queue()
     to_main_queue = Queue()
-    st = ServerThread(to_main_queue, error_queue)
+    st = ServerThread(to_main_queue, error_queue, generic_queue_container)
     value_after_first_server_init = get_the_server_thread()
 
     error_queue_2 = Queue()
     to_main_queue_2 = Queue()
-    st_2 = ServerThread(to_main_queue_2, error_queue_2)
+    st_2 = ServerThread(to_main_queue_2, error_queue_2, generic_queue_container)
     value_after_second_server_init = get_the_server_thread()
 
     assert value_after_second_server_init != value_after_first_server_init
@@ -71,11 +75,15 @@ def test_ServerThread__check_port__raises_error_if_port_in_use(server_thread, mo
 
 
 @pytest.mark.timeout(5)
-def test_ServerThread__check_port__calls_with_port_number_passed_in_as_kwarg(mocker):
+def test_ServerThread__check_port__calls_with_port_number_passed_in_as_kwarg(
+    mocker, generic_queue_container
+):
     error_queue = Queue()
     to_main_queue = Queue()
     expected_port = 7654
-    st = ServerThread(to_main_queue, error_queue, port=expected_port)
+    st = ServerThread(
+        to_main_queue, error_queue, generic_queue_container, port=expected_port
+    )
     spied_is_port_in_use = mocker.spy(server, "is_port_in_use")
 
     st.check_port()
@@ -181,7 +189,7 @@ def test_ServerThread__hard_stop__shuts_down_flask_and_drains_to_main_queue(
 
 
 def test_ServerThread__get_values_from_process_monitor__acquires_lock_and_returns_an_immutable_copy(
-    mocker,
+    mocker, generic_queue_container
 ):
     error_queue = Queue()
     to_main_queue = Queue()
@@ -195,7 +203,11 @@ def test_ServerThread__get_values_from_process_monitor__acquires_lock_and_return
 
     # spied_lock_release=mocker.spy(lock,'release')
     st = ServerThread(
-        to_main_queue, error_queue, values_from_process_monitor=initial_dict, lock=lock
+        to_main_queue,
+        error_queue,
+        generic_queue_container,
+        values_from_process_monitor=initial_dict,
+        lock=lock,
     )
 
     actual_dict = st.get_values_from_process_monitor()

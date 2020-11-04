@@ -6,12 +6,14 @@ from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
 import pytest
 
+from .fixtures import fixture_generic_queue_container
 from .fixtures_server import fixture_client_and_server_thread_and_shared_values
 from .fixtures_server import fixture_server_thread
 
 __fixtures__ = [
     fixture_client_and_server_thread_and_shared_values,
     fixture_server_thread,
+    fixture_generic_queue_container,
 ]
 
 

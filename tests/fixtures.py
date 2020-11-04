@@ -15,6 +15,7 @@ from mantarray_desktop_app import get_api_endpoint
 from mantarray_desktop_app import get_server_port_number
 from mantarray_desktop_app import main
 from mantarray_desktop_app import MantarrayProcessesManager
+from mantarray_desktop_app import MantarrayQueueContainer
 from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import set_mantarray_processes_monitor
@@ -37,6 +38,15 @@ def fixture_patched_shared_values_dict(mocker):
     the_dict = main.get_shared_values_between_server_and_monitor()
     mocker.patch.dict(the_dict)
     yield the_dict
+
+
+@pytest.fixture(scope="function", name="generic_queue_container")
+def fixture_generic_queue_container():
+    qc = MantarrayQueueContainer()
+    yield qc
+
+    # drain all the queues to avoid broken pipe errors
+    # ...maybe this is a bad idea and the things using it should take more responsibility...if the timeout is 1.1 seconds per queue this could get long quickly
 
 
 @pytest.fixture(scope="function", name="patch_print")

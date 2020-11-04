@@ -43,6 +43,7 @@ from stdlib_utils import put_log_message_into_queue
 from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import SYSTEM_STATUS_UUIDS
 from .exceptions import LocalServerPortAlreadyInUseError
+from .queue_container import MantarrayQueueContainer
 from .queue_utils import _drain_queue
 
 logger = logging.getLogger(__name__)
@@ -157,6 +158,7 @@ class ServerThread(InfiniteThread):
         fatal_error_reporter: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
             Tuple[Exception, str]
         ],
+        processes_queue_container: MantarrayQueueContainer,  # TODO (Eli 11/4/20): This should eventually be removed as it tightly couples the independent processes together. Ideally all messages should go from server to main and then be routed where they need to by the ProcessMonitor
         values_from_process_monitor: Optional[Dict[str, Any]] = None,
         port: int = DEFAULT_SERVER_PORT_NUMBER,
         logging_level: int = logging.INFO,
@@ -164,10 +166,10 @@ class ServerThread(InfiniteThread):
     ) -> None:
         if lock is None:
             lock = threading.Lock()
+
         super().__init__(fatal_error_reporter, lock=lock)
-        # super().__init__()
+        self._queue_container = processes_queue_container
         self._to_main_queue = to_main_queue
-        self._fatal_error_reporter = fatal_error_reporter
         self._port = port
         self._logging_level = logging_level
         if values_from_process_monitor is None:

@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from queue import Empty
-from queue import Queue
 
 from mantarray_desktop_app import DEFAULT_SERVER_PORT_NUMBER
 from mantarray_desktop_app import flask_app
@@ -9,10 +8,11 @@ import pytest
 from stdlib_utils import confirm_port_available
 from stdlib_utils import confirm_port_in_use
 
+from .fixtures import fixture_generic_queue_container
 from .fixtures import fixture_patch_print
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 
-__fixtures__ = [fixture_patch_print]
+__fixtures__ = [fixture_patch_print, fixture_generic_queue_container]
 
 
 def _clean_up_server_thread(st, to_main_queue, error_queue) -> None:
@@ -25,10 +25,14 @@ def _clean_up_server_thread(st, to_main_queue, error_queue) -> None:
 
 
 @pytest.fixture(scope="function", name="server_thread")
-def fixture_server_thread():
-    error_queue = Queue()
-    to_main_queue = Queue()
-    st = ServerThread(to_main_queue, error_queue)
+def fixture_server_thread(generic_queue_container):
+    error_queue = generic_queue_container.get_server_error_queue()
+    to_main_queue = (
+        generic_queue_container.get_communication_queue_from_server_to_main()
+    )
+
+    st = ServerThread(to_main_queue, error_queue, generic_queue_container)
+
     yield st, to_main_queue, error_queue
     # drain queues to avoid broken pipe errors
     _clean_up_server_thread(st, to_main_queue, error_queue)

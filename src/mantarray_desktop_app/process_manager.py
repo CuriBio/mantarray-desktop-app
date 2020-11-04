@@ -19,7 +19,7 @@ from .data_analyzer import DataAnalyzerProcess
 from .file_writer import FileWriterProcess
 from .firmware_manager import get_latest_firmware
 from .ok_comm import OkCommunicationProcess
-from .queue_container import MantarrayQueueGetter
+from .queue_container import MantarrayQueueContainer
 from .server import ServerThread
 
 
@@ -36,7 +36,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-instance-attributes
         self._ok_communication_error_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
             Tuple[Exception, str]
         ]
-        self._queue_getter: MantarrayQueueGetter
+        self._queue_container: MantarrayQueueContainer
 
         self._ok_communication_process: OkCommunicationProcess
         self._ok_comm_board_queues: Tuple[  # pylint-disable: duplicate-code
@@ -115,8 +115,8 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-instance-attributes
     def set_logging_level(self, logging_level: int) -> None:
         self._logging_level = logging_level
 
-    def queue_container(self) -> MantarrayQueueGetter:
-        return self._queue_getter
+    def queue_container(self) -> MantarrayQueueContainer:
+        return self._queue_container
 
     def get_file_directory(self) -> str:
         return self._file_directory
@@ -252,37 +252,37 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-instance-attributes
 
     def create_processes(self) -> None:
         """Create/init the processes."""
-        queue_getter = MantarrayQueueGetter()
-        self._queue_getter = queue_getter
+        queue_container = MantarrayQueueContainer()
+        self._queue_container = queue_container
         # self._create_queues()
 
         self._server_thread = ServerThread(
-            queue_getter.get_communication_queue_from_server_to_main(),
-            queue_getter.get_server_error_queue(),
+            queue_container.get_communication_queue_from_server_to_main(),
+            queue_container.get_server_error_queue(),
             logging_level=self._logging_level,
             values_from_process_monitor=self._values_to_share_to_server,
         )
 
         self._ok_communication_process = OkCommunicationProcess(
-            queue_getter.get_ok_comm_board_queues(),
-            queue_getter.get_ok_communication_error_queue(),
+            queue_container.get_ok_comm_board_queues(),
+            queue_container.get_ok_communication_error_queue(),
             logging_level=self._logging_level,
         )
 
         self._file_writer_process = FileWriterProcess(
-            queue_getter.get_file_writer_board_queues(),
-            queue_getter.get_communication_queue_from_main_to_file_writer(),
-            queue_getter.get_communication_queue_from_file_writer_to_main(),
-            queue_getter.get_file_writer_error_queue(),
+            queue_container.get_file_writer_board_queues(),
+            queue_container.get_communication_queue_from_main_to_file_writer(),
+            queue_container.get_communication_queue_from_file_writer_to_main(),
+            queue_container.get_file_writer_error_queue(),
             file_directory=self._file_directory,
             logging_level=self._logging_level,
         )
 
         self._data_analyzer_process = DataAnalyzerProcess(
-            queue_getter.get_data_analyzer_board_queues(),
-            queue_getter.get_communication_queue_from_main_to_data_analyzer(),
-            queue_getter.get_communication_queue_from_data_analyzer_to_main(),
-            queue_getter.get_data_analyzer_error_queue(),
+            queue_container.get_data_analyzer_board_queues(),
+            queue_container.get_communication_queue_from_main_to_data_analyzer(),
+            queue_container.get_communication_queue_from_data_analyzer_to_main(),
+            queue_container.get_data_analyzer_error_queue(),
             logging_level=self._logging_level,
         )
 

@@ -9,7 +9,7 @@ from typing import Dict
 from typing import Tuple
 
 
-class MantarrayQueueGetter:
+class MantarrayQueueContainer:
     """Getter for all the queues."""
 
     def __init__(self,) -> None:
