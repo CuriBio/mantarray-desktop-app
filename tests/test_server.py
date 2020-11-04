@@ -180,7 +180,7 @@ def test_ServerThread__hard_stop__shuts_down_flask_and_drains_to_main_queue(
     assert actual_dict_of_queue_items["to_main"][0] == expected_message
 
 
-def test_ServerThread__get_values_from_process_monitor_copy__acquires_lock_and_returns_an_immutable_copy(
+def test_ServerThread__get_values_from_process_monitor__acquires_lock_and_returns_an_immutable_copy(
     mocker,
 ):
     error_queue = Queue()
@@ -198,7 +198,7 @@ def test_ServerThread__get_values_from_process_monitor_copy__acquires_lock_and_r
         to_main_queue, error_queue, values_from_process_monitor=initial_dict, lock=lock
     )
 
-    actual_dict = st.get_values_from_process_monitor_copy()
+    actual_dict = st.get_values_from_process_monitor()
     assert isinstance(actual_dict, immutabledict)
     assert actual_dict == initial_dict  # assert same values in it
     assert id(actual_dict) != id(

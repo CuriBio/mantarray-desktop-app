@@ -195,7 +195,7 @@ def test_MantarrayProcessesManager__hard_stop_and_join_processes__hard_stops_pro
     expected_ok_comm_item = "ok_comm_item"
     expected_file_writer_item = "file_writer_item"
     expected_da_item = "data_analyzer_item"
-
+    expected_server_items = {"to_main": ["server_item"]}
     manager = MantarrayProcessesManager()
 
     spied_ok_comm_start = mocker.spy(OkCommunicationProcess, "start")
@@ -210,18 +210,35 @@ def test_MantarrayProcessesManager__hard_stop_and_join_processes__hard_stops_pro
     spied_data_analyzer_hard_stop = mocker.spy(DataAnalyzerProcess, "hard_stop")
     spied_data_analyzer_join = mocker.spy(DataAnalyzerProcess, "join")
 
+    spied_server_start = mocker.spy(ServerThread, "start")
+    spied_server_hard_stop = mocker.spy(ServerThread, "hard_stop")
+    spied_server_join = mocker.spy(ServerThread, "join")
+
     manager.spawn_processes()
-    ok_comm_to_main = manager.get_communication_queue_from_ok_comm_to_main(0)
+    ok_comm_to_main = manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+        0
+    )
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         expected_ok_comm_item, ok_comm_to_main
     )
-    file_writer_to_main = manager.get_communication_queue_from_file_writer_to_main()
+    file_writer_to_main = (
+        manager.queue_container().get_communication_queue_from_file_writer_to_main()
+    )
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         expected_file_writer_item, file_writer_to_main
     )
-    data_analyzer_to_main = manager.get_communication_queue_from_data_analyzer_to_main()
+    data_analyzer_to_main = (
+        manager.queue_container().get_communication_queue_from_data_analyzer_to_main()
+    )
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         expected_da_item, data_analyzer_to_main
+    )
+
+    server_to_main = (
+        manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        expected_server_items, server_to_main
     )
 
     actual = manager.hard_stop_and_join_processes()
@@ -237,6 +254,10 @@ def test_MantarrayProcessesManager__hard_stop_and_join_processes__hard_stops_pro
     spied_data_analyzer_hard_stop.assert_called_once()
     spied_data_analyzer_join.assert_called_once()
 
+    spied_server_start.assert_called_once()
+    spied_server_hard_stop.assert_called_once()
+    spied_server_join.assert_called_once()
+
     assert (
         expected_ok_comm_item in actual["ok_comm_items"]["board_0"]["ok_comm_to_main"]
     )
@@ -247,6 +268,8 @@ def test_MantarrayProcessesManager__hard_stop_and_join_processes__hard_stops_pro
     assert (
         expected_da_item in actual["data_analyzer_items"]["from_data_analyzer_to_main"]
     )
+
+    assert expected_server_items in actual["server_items"]["to_main"]
 
 
 def test_MantarrayProcessesManager__passes_file_directory_to_FileWriter():

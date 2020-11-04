@@ -80,8 +80,8 @@ def get_api_endpoint() -> str:
     return f"{protocol}://{host}:{port}/"
 
 
-def _get_values_from_process_monitor_copy() -> Dict[str, Any]:
-    return get_the_server_thread().get_values_from_process_monitor_copy()
+def _get_values_from_process_monitor() -> Dict[str, Any]:
+    return get_the_server_thread().get_values_from_process_monitor()
 
 
 @flask_app.route("/system_status", methods=["GET"])
@@ -94,7 +94,7 @@ def system_status() -> Response:
 
     Can be invoked by: curl http://localhost:4567/system_status
     """
-    shared_values_dict = _get_values_from_process_monitor_copy()
+    shared_values_dict = _get_values_from_process_monitor()
 
     status = shared_values_dict["system_status"]
     status_dict = {
@@ -179,7 +179,13 @@ class ServerThread(InfiniteThread):
     def get_port_number(self) -> int:
         return self._port
 
-    def get_values_from_process_monitor_copy(self) -> Dict[str, Any]:
+    def get_values_from_process_monitor(self) -> Dict[str, Any]:
+        """Get an immutable copy of the values.
+
+        In order to maintain thread safety, make a copy while a Lock is
+        acquired, only attempt to read from the copy, and don't attempt
+        to mutate it.
+        """
         with self._lock:  # Eli (11/3/20): still unable to test if lock was acquired.
             copied_values = deepcopy(self._values_from_process_monitor)
         immutable_version: Dict[str, Any] = immutabledict(copied_values)

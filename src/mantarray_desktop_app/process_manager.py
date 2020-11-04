@@ -19,6 +19,7 @@ from .data_analyzer import DataAnalyzerProcess
 from .file_writer import FileWriterProcess
 from .firmware_manager import get_latest_firmware
 from .ok_comm import OkCommunicationProcess
+from .queue_container import MantarrayQueueGetter
 from .server import ServerThread
 
 
@@ -35,6 +36,8 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-instance-attributes
         self._ok_communication_error_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
             Tuple[Exception, str]
         ]
+        self._queue_getter: MantarrayQueueGetter
+
         self._ok_communication_process: OkCommunicationProcess
         self._ok_comm_board_queues: Tuple[  # pylint-disable: duplicate-code
             Tuple[
@@ -112,6 +115,9 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-instance-attributes
     def set_logging_level(self, logging_level: int) -> None:
         self._logging_level = logging_level
 
+    def queue_container(self) -> MantarrayQueueGetter:
+        return self._queue_getter
+
     def get_file_directory(self) -> str:
         return self._file_directory
 
@@ -121,26 +127,26 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-instance-attributes
     def get_logging_level(self) -> int:
         return self._logging_level
 
-    def get_communication_queue_from_main_to_file_writer(
-        self,
-    ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Dict[str, Any]
-    ]:
-        return self._from_main_to_file_writer_queue
+    # def get_communication_queue_from_main_to_file_writer(
+    #     self,
+    # ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+    #     Dict[str, Any]
+    # ]:
+    #     return self._from_main_to_file_writer_queue
 
-    def get_communication_to_ok_comm_queue(
-        self, board_idx: int
-    ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Dict[str, Any]
-    ]:
-        return self._ok_comm_board_queues[board_idx][0]
+    # def get_communication_to_ok_comm_queue(
+    #     self, board_idx: int
+    # ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+    #     Dict[str, Any]
+    # ]:
+    #     return self._ok_comm_board_queues[board_idx][0]
 
-    def get_communication_queue_from_ok_comm_to_main(
-        self, board_idx: int
-    ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Dict[str, Any]
-    ]:
-        return self._ok_comm_board_queues[board_idx][1]
+    # def get_communication_queue_from_ok_comm_to_main(
+    #     self, board_idx: int
+    # ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+    #     Dict[str, Any]
+    # ]:
+    #     return self._ok_comm_board_queues[board_idx][1]
 
     def get_ok_comm_process(self) -> OkCommunicationProcess:
         return self._ok_communication_process
@@ -151,130 +157,132 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-instance-attributes
     def get_server_thread(self) -> ServerThread:
         return self._server_thread
 
-    def get_communication_queue_from_server_to_main(
-        self,
-    ) -> queue.Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Dict[str, Any]
-    ]:
-        return self._from_server_to_main_queue
+    # def get_communication_queue_from_server_to_main(
+    #     self,
+    # ) -> queue.Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+    #     Dict[str, Any]
+    # ]:
+    #     return self._from_server_to_main_queue
 
-    def get_communication_queue_from_file_writer_to_main(
-        self,
-    ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Dict[str, Any]
-    ]:
-        return self._from_file_writer_to_main_queue
+    # def get_communication_queue_from_file_writer_to_main(
+    #     self,
+    # ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+    #     Dict[str, Any]
+    # ]:
+    #     return self._from_file_writer_to_main_queue
 
-    def get_file_writer_error_queue(
-        self,
-    ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Tuple[Exception, str]
-    ]:
-        return self._file_writer_error_queue
+    # def get_file_writer_error_queue(
+    #     self,
+    # ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+    #     Tuple[Exception, str]
+    # ]:
+    #     return self._file_writer_error_queue
 
-    def get_ok_communication_error_queue(
-        self,
-    ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Tuple[Exception, str]
-    ]:
-        return self._ok_communication_error_queue
+    # def get_ok_communication_error_queue(
+    #     self,
+    # ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+    #     Tuple[Exception, str]
+    # ]:
+    #     return self._ok_communication_error_queue
 
     def get_data_analyzer_process(self) -> DataAnalyzerProcess:
         return self._data_analyzer_process
 
-    def get_communication_queue_from_data_analyzer_to_main(
-        self,
-    ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Dict[str, Any]
-    ]:
-        return self._from_data_analyzer_to_main_queue
+    # def get_communication_queue_from_data_analyzer_to_main(
+    #     self,
+    # ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+    #     Dict[str, Any]
+    # ]:
+    #     return self._from_data_analyzer_to_main_queue
 
-    def get_communication_queue_from_main_to_data_analyzer(
-        self,
-    ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Dict[str, Any]
-    ]:
-        return self._from_main_to_data_analyzer_queue
+    # def get_communication_queue_from_main_to_data_analyzer(
+    #     self,
+    # ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+    #     Dict[str, Any]
+    # ]:
+    #     return self._from_main_to_data_analyzer_queue
 
-    def get_data_analyzer_data_out_queue(
-        self,
-    ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Dict[str, Any]
-    ]:
-        return self._data_analyzer_board_queues[0][1]
+    # def get_data_analyzer_data_out_queue(
+    #     self,
+    # ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+    #     Dict[str, Any]
+    # ]:
+    #     return self._data_analyzer_board_queues[0][1]
 
-    def get_data_analyzer_error_queue(
-        self,
-    ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Tuple[Exception, str]
-    ]:
-        return self._data_analyzer_error_queue
+    # def get_data_analyzer_error_queue(
+    #     self,
+    # ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+    #     Tuple[Exception, str]
+    # ]:
+    #     return self._data_analyzer_error_queue
 
-    def _create_queues(self) -> None:
-        """Create all the queues and assign to the instance variables."""
-        self._ok_communication_error_queue = Queue()
-        ok_board_queues: Tuple[  # pylint-disable: duplicate-code
-            Tuple[
-                Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-                    Dict[str, Any]
-                ],
-                Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-                    Dict[str, Any]
-                ],
-                Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-                    Any
-                ],
-            ],  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-            ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-        ] = tuple([(Queue(), Queue(), Queue(),)] * 1)
-        self._ok_comm_board_queues = ok_board_queues
+    # def _create_queues(self) -> None:
+    #     """Create all the queues and assign to the instance variables."""
+    #     self._ok_communication_error_queue = Queue()
+    #     ok_board_queues: Tuple[  # pylint-disable: duplicate-code
+    #         Tuple[
+    #             Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+    #                 Dict[str, Any]
+    #             ],
+    #             Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+    #                 Dict[str, Any]
+    #             ],
+    #             Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+    #                 Any
+    #             ],
+    #         ],  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
+    #         ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
+    #     ] = tuple([(Queue(), Queue(), Queue(),)] * 1)
+    #     self._ok_comm_board_queues = ok_board_queues
 
-        self._from_file_writer_to_main_queue = Queue()
-        self._file_writer_error_queue = Queue()
-        self._from_main_to_file_writer_queue = Queue()
-        self._file_writer_board_queues = tuple([(ok_board_queues[0][2], Queue(),)] * 1)
+    #     self._from_file_writer_to_main_queue = Queue()
+    #     self._file_writer_error_queue = Queue()
+    #     self._from_main_to_file_writer_queue = Queue()
+    #     self._file_writer_board_queues = tuple([(ok_board_queues[0][2], Queue(),)] * 1)
 
-        self._from_data_analyzer_to_main_queue = Queue()
-        self._data_analyzer_error_queue = Queue()
-        self._from_main_to_data_analyzer_queue = Queue()
-        self._data_analyzer_board_queues = tuple(
-            [(self._file_writer_board_queues[0][1], Queue(),)] * 1
-        )
+    #     self._from_data_analyzer_to_main_queue = Queue()
+    #     self._data_analyzer_error_queue = Queue()
+    #     self._from_main_to_data_analyzer_queue = Queue()
+    #     self._data_analyzer_board_queues = tuple(
+    #         [(self._file_writer_board_queues[0][1], Queue(),)] * 1
+    #     )
 
-        self._from_server_to_main_queue = queue.Queue()
-        self._server_error_queue = queue.Queue()
+    #     self._from_server_to_main_queue = queue.Queue()
+    #     self._server_error_queue = queue.Queue()
 
     def create_processes(self) -> None:
         """Create/init the processes."""
-        self._create_queues()
+        queue_getter = MantarrayQueueGetter()
+        self._queue_getter = queue_getter
+        # self._create_queues()
 
         self._server_thread = ServerThread(
-            self._from_server_to_main_queue,
-            self._server_error_queue,
+            queue_getter.get_communication_queue_from_server_to_main(),
+            queue_getter.get_server_error_queue(),
             logging_level=self._logging_level,
             values_from_process_monitor=self._values_to_share_to_server,
         )
 
         self._ok_communication_process = OkCommunicationProcess(
-            self._ok_comm_board_queues,
-            self._ok_communication_error_queue,
+            queue_getter.get_ok_comm_board_queues(),
+            queue_getter.get_ok_communication_error_queue(),
             logging_level=self._logging_level,
         )
 
         self._file_writer_process = FileWriterProcess(
-            self._file_writer_board_queues,
-            self._from_main_to_file_writer_queue,
-            self._from_file_writer_to_main_queue,
-            self._file_writer_error_queue,
+            queue_getter.get_file_writer_board_queues(),
+            queue_getter.get_communication_queue_from_main_to_file_writer(),
+            queue_getter.get_communication_queue_from_file_writer_to_main(),
+            queue_getter.get_file_writer_error_queue(),
             file_directory=self._file_directory,
             logging_level=self._logging_level,
         )
 
         self._data_analyzer_process = DataAnalyzerProcess(
-            self._data_analyzer_board_queues,
-            self._from_main_to_data_analyzer_queue,
-            self._from_data_analyzer_to_main_queue,
-            self._data_analyzer_error_queue,
+            queue_getter.get_data_analyzer_board_queues(),
+            queue_getter.get_communication_queue_from_main_to_data_analyzer(),
+            queue_getter.get_communication_queue_from_data_analyzer_to_main(),
+            queue_getter.get_data_analyzer_error_queue(),
             logging_level=self._logging_level,
         )
 
@@ -374,10 +382,13 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-instance-attributes
         self._file_writer_process.join()
         data_analyzer_items = self._data_analyzer_process.hard_stop()
         self._data_analyzer_process.join()
+        server_items = self._server_thread.hard_stop()
+        self._server_thread.join()
         process_items = {
             "ok_comm_items": ok_comm_items,
             "file_writer_items": file_writer_items,
             "data_analyzer_items": data_analyzer_items,
+            "server_items": server_items,
         }
         return process_items
 
