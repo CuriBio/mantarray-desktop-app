@@ -127,7 +127,6 @@ from .firmware_manager import get_latest_firmware
 from .firmware_manager import get_latest_firmware_name
 from .firmware_manager import get_latest_firmware_version
 from .firmware_manager import sort_firmware_files
-from .main import flask_app
 from .main import get_api_endpoint
 from .main import get_server_port_number
 from .main import get_shared_values_between_server_and_monitor
@@ -149,7 +148,8 @@ from .process_manager import MantarrayProcessesManager
 from .process_monitor import get_mantarray_processes_monitor
 from .process_monitor import MantarrayProcessesMonitor
 from .process_monitor import set_mantarray_processes_monitor
-from .server import get_shared_values_from_monitor_to_server
+from .server import flask_app
+from .server import get_the_server_thread
 from .server import ServerThread
 from .system_utils import system_state_eventually_equals
 from .system_utils import wait_for_subprocesses_to_start
@@ -318,5 +318,5 @@ __all__ = [
     "SECONDS_TO_WAIT_WHEN_POLLING_QUEUES",
     "ServerThread",
     "server",
-    "get_shared_values_from_monitor_to_server",
+    "get_the_server_thread",
 ]

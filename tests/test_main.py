@@ -13,8 +13,6 @@ import time
 from unittest.mock import ANY
 
 from freezegun import freeze_time
-from mantarray_desktop_app import BUFFERING_STATE
-from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
@@ -41,7 +39,6 @@ from mantarray_desktop_app import start_server
 from mantarray_desktop_app import SUBPROCESS_POLL_DELAY_SECONDS
 from mantarray_desktop_app import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from mantarray_desktop_app import system_state_eventually_equals
-from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
 from mantarray_desktop_app import wait_for_subprocesses_to_start
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import pytest
@@ -456,46 +453,6 @@ def test_send_single_get_available_data_command__returns_correct_error_code_when
 ):
     response = test_client.get("/get_available_data")
     assert response.status_code == 204
-
-
-@pytest.mark.parametrize(
-    """expected_status,expected_in_simulation,test_description""",
-    [
-        (BUFFERING_STATE, False, "correctly returns buffering and False"),
-        (CALIBRATION_NEEDED_STATE, True, "correctly returns buffering and True"),
-        (CALIBRATING_STATE, False, "correctly returns calibrating and False"),
-    ],
-)
-def test_system_status__returns_correct_state_and_simulation_values(
-    test_client,
-    patched_shared_values_dict,
-    expected_status,
-    expected_in_simulation,
-    test_description,
-):
-    patched_shared_values_dict["system_status"] = expected_status
-    patched_shared_values_dict["in_simulation_mode"] = expected_in_simulation
-
-    response = test_client.get("/system_status")
-    assert response.status_code == 200
-
-    response_json = response.get_json()
-    assert response_json["ui_status_code"] == str(SYSTEM_STATUS_UUIDS[expected_status])
-    assert response_json["in_simulation_mode"] == expected_in_simulation
-
-
-def test_system_status__returns_in_simulator_mode_False_as_default_value(
-    test_client, patched_shared_values_dict
-):
-    expected_status = CALIBRATION_NEEDED_STATE
-    patched_shared_values_dict["system_status"] = expected_status
-
-    response = test_client.get("/system_status")
-    assert response.status_code == 200
-
-    response_json = response.get_json()
-    assert response_json["ui_status_code"] == str(SYSTEM_STATUS_UUIDS[expected_status])
-    assert response_json["in_simulation_mode"] is False
 
 
 @pytest.mark.parametrize(

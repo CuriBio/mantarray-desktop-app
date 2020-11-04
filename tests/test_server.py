@@ -1,62 +1,33 @@
 # -*- coding: utf-8 -*-
-from queue import Empty
 from queue import Queue
 import threading
 from threading import Thread
 
 from flask import Flask
+from immutabledict import immutabledict
 from mantarray_desktop_app import DEFAULT_SERVER_PORT_NUMBER
-from mantarray_desktop_app import get_shared_values_from_monitor_to_server
+from mantarray_desktop_app import get_the_server_thread
 from mantarray_desktop_app import LocalServerPortAlreadyInUseError
 from mantarray_desktop_app import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from mantarray_desktop_app import server
 from mantarray_desktop_app import ServerThread
 import pytest
 from stdlib_utils import confirm_port_available
-from stdlib_utils import confirm_port_in_use
 
 from .fixtures import fixture_patch_print
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from .fixtures_server import _clean_up_server_thread
+from .fixtures_server import fixture_running_server_thread
+from .fixtures_server import fixture_server_thread
 from .helpers import is_queue_eventually_empty
 from .helpers import is_queue_eventually_of_size
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
-__fixtures__ = [fixture_patch_print]
-
-
-def _clean_up_server_thread(st, to_main_queue, error_queue) -> None:
-    for iter_queue in (error_queue, to_main_queue):
-        while True:
-            try:
-                iter_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-            except Empty:
-                break
-
-
-@pytest.fixture(scope="function", name="server_thread")
-def fixture_server_thread():
-    error_queue = Queue()
-    to_main_queue = Queue()
-    st = ServerThread(to_main_queue, error_queue)
-    yield st, to_main_queue, error_queue
-    # drain queues to avoid broken pipe errors
-    _clean_up_server_thread(st, to_main_queue, error_queue)
-
-
-@pytest.fixture(scope="function", name="running_server_thread")
-def fixture_running_server_thread(server_thread):
-    st, _, _ = server_thread
-    confirm_port_available(
-        DEFAULT_SERVER_PORT_NUMBER
-    )  # confirm port is not already active prior to starting test
-    st.start()
-    confirm_port_in_use(
-        DEFAULT_SERVER_PORT_NUMBER, timeout=3
-    )  # wait for server to boot up
-    yield server_thread
-
-    # clean up
-    # st.hard_stop()
+__fixtures__ = [
+    fixture_patch_print,
+    fixture_server_thread,
+    fixture_running_server_thread,
+]
 
 
 def test_ServerThread__init__calls_super(mocker):
@@ -67,18 +38,22 @@ def test_ServerThread__init__calls_super(mocker):
     assert mocked_super_init.call_count == 1
 
 
-def test_ServerThread__init__sets_the_module_values_from_process_monitor_to_new_dict():
-    value_at_start_of_test = get_shared_values_from_monitor_to_server()
+def test_ServerThread__init__sets_the_module_singleton_of_the_thread_to_new_instance():
     error_queue = Queue()
     to_main_queue = Queue()
     st = ServerThread(to_main_queue, error_queue)
-    value_after_server_start = get_shared_values_from_monitor_to_server()
-    assert value_after_server_start == dict()
-    assert id(value_after_server_start) != id(
-        value_at_start_of_test
-    )  # dictionary is/equality checks return true for empty dicts, so need to check the memory address using `id`
+    value_after_first_server_init = get_the_server_thread()
 
+    error_queue_2 = Queue()
+    to_main_queue_2 = Queue()
+    st_2 = ServerThread(to_main_queue_2, error_queue_2)
+    value_after_second_server_init = get_the_server_thread()
+
+    assert value_after_second_server_init != value_after_first_server_init
+
+    # clean up
     _clean_up_server_thread(st, to_main_queue, error_queue)
+    _clean_up_server_thread(st_2, to_main_queue_2, error_queue_2)
 
 
 @pytest.mark.timeout(5)
@@ -205,7 +180,7 @@ def test_ServerThread__hard_stop__shuts_down_flask_and_drains_to_main_queue(
     assert actual_dict_of_queue_items["to_main"][0] == expected_message
 
 
-def test_ServerThread__get_values_from_process_monitor_copy__acquires_lock_and_returns_a_copy(
+def test_ServerThread__get_values_from_process_monitor_copy__acquires_lock_and_returns_an_immutable_copy(
     mocker,
 ):
     error_queue = Queue()
@@ -224,7 +199,7 @@ def test_ServerThread__get_values_from_process_monitor_copy__acquires_lock_and_r
     )
 
     actual_dict = st.get_values_from_process_monitor_copy()
-
+    assert isinstance(actual_dict, immutabledict)
     assert actual_dict == initial_dict  # assert same values in it
     assert id(actual_dict) != id(
         initial_dict

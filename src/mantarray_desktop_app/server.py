@@ -17,6 +17,7 @@ Custom HTTP Error Codes:
 from __future__ import annotations
 
 from copy import deepcopy
+import json
 import logging
 import os
 from queue import Queue
@@ -30,6 +31,7 @@ from flask import Flask
 from flask import request
 from flask import Response
 from flask_cors import CORS
+from immutabledict import immutabledict
 import requests
 from requests.exceptions import ConnectionError
 from stdlib_utils import get_formatted_stack_trace
@@ -39,6 +41,7 @@ from stdlib_utils import print_exception
 from stdlib_utils import put_log_message_into_queue
 
 from .constants import DEFAULT_SERVER_PORT_NUMBER
+from .constants import SYSTEM_STATUS_UUIDS
 from .exceptions import LocalServerPortAlreadyInUseError
 from .queue_utils import _drain_queue
 
@@ -50,20 +53,17 @@ flask_app = Flask(  # pylint: disable=invalid-name # yes, this is intentionally 
     __name__
 )
 CORS(flask_app)
-_shared_values_from_monitor_to_server: Dict[  # pylint: disable=invalid-name # yes, this is intentionally a singleton, not a constant
-    str, Any
-] = dict()
+
+_the_server_thread: "ServerThread"  # pylint: disable=invalid-name # Eli (11/3/20) yes, this is intentionally a singleton, not a constant. This is the current best guess at how to allow Flask routes to access some info they need
 
 
-def get_shared_values_from_monitor_to_server() -> Dict[  # pylint:disable=invalid-name # yeah, it's a little long, but descriptive
-    str, Any
-]:
-    return _shared_values_from_monitor_to_server
+def get_the_server_thread() -> "ServerThread":
+    """Return the singleton instance."""
+    return _the_server_thread
 
 
 def get_server_port_number() -> int:
-    shared_values_dict = get_shared_values_from_monitor_to_server()
-    return shared_values_dict.get("server_port_number", DEFAULT_SERVER_PORT_NUMBER)
+    return get_the_server_thread().get_port_number()
 
 
 def get_server_address_components() -> Tuple[str, str, int]:
@@ -78,6 +78,38 @@ def get_server_address_components() -> Tuple[str, str, int]:
 def get_api_endpoint() -> str:
     protocol, host, port = get_server_address_components()
     return f"{protocol}://{host}:{port}/"
+
+
+def _get_values_from_process_monitor_copy() -> Dict[str, Any]:
+    return get_the_server_thread().get_values_from_process_monitor_copy()
+
+
+@flask_app.route("/system_status", methods=["GET"])
+def system_status() -> Response:
+    """Get the system status and other information.
+
+    in_simulation_mode is only accurate if ui_status_code is '009301eb-625c-4dc4-9e92-1a4d0762465f'
+
+    mantarray_serial_number and mantarray_nickname are only accurate if ui_status_code is '8e24ef4d-2353-4e9d-aa32-4346126e73e3'
+
+    Can be invoked by: curl http://localhost:4567/system_status
+    """
+    shared_values_dict = _get_values_from_process_monitor_copy()
+
+    status = shared_values_dict["system_status"]
+    status_dict = {
+        "ui_status_code": str(SYSTEM_STATUS_UUIDS[status]),
+        # Tanner (7/1/20): this route may be called before process_monitor adds the following values to shared_values_dict, so default values are needed
+        "in_simulation_mode": shared_values_dict.get("in_simulation_mode", False),
+        "mantarray_serial_number": shared_values_dict.get(
+            "mantarray_serial_number", ""
+        ),
+        "mantarray_nickname": shared_values_dict.get("mantarray_nickname", ""),
+    }
+
+    response = Response(json.dumps(status_dict), mimetype="application/json")
+
+    return response
 
 
 @flask_app.route("/stop_server", methods=["GET"])
@@ -140,18 +172,18 @@ class ServerThread(InfiniteThread):
         self._logging_level = logging_level
         if values_from_process_monitor is None:
             values_from_process_monitor = dict()
-        global _shared_values_from_monitor_to_server  # pylint:disable=global-statement # Eli (10/30/20): deliberately using a module-level singleton
-        _shared_values_from_monitor_to_server = values_from_process_monitor
+        global _the_server_thread  # pylint:disable=global-statement # Eli (10/30/20): deliberately using a module-level singleton
+        _the_server_thread = self
         self._values_from_process_monitor = values_from_process_monitor
 
-    def get_values_from_process_monitor(self) -> Dict[str, Any]:
-        raise Exception("do not use this, use getcopy instead")
-        return self._values_from_process_monitor
+    def get_port_number(self) -> int:
+        return self._port
 
     def get_values_from_process_monitor_copy(self) -> Dict[str, Any]:
         with self._lock:  # Eli (11/3/20): still unable to test if lock was acquired.
             copied_values = deepcopy(self._values_from_process_monitor)
-        return copied_values
+        immutable_version: Dict[str, Any] = immutabledict(copied_values)
+        return immutable_version
 
     def get_logging_level(self) -> int:
         return self._logging_level

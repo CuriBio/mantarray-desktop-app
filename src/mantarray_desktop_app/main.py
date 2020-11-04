@@ -76,7 +76,6 @@ from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import START_RECORDING_TIME_INDEX_UUID
 from .constants import SUBPROCESS_POLL_DELAY_SECONDS
 from .constants import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
-from .constants import SYSTEM_STATUS_UUIDS
 from .constants import USER_ACCOUNT_ID_UUID
 from .constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from .constants import UTC_BEGINNING_RECORDING_UUID
@@ -241,34 +240,6 @@ def boot_up() -> Response:
     manager = get_mantarray_process_manager()
     response_dict = manager.boot_up_instrument()
     response = Response(json.dumps(response_dict), mimetype="application/json")
-
-    return response
-
-
-@flask_app.route("/system_status", methods=["GET"])
-def system_status() -> Response:
-    """Get the system status and other information.
-
-    in_simulation_mode is only accurate if ui_status_code is '009301eb-625c-4dc4-9e92-1a4d0762465f'
-
-    mantarray_serial_number and mantarray_nickname are only accurate if ui_status_code is '8e24ef4d-2353-4e9d-aa32-4346126e73e3'
-
-    Can be invoked by: curl http://localhost:4567/system_status
-    """
-    shared_values_dict = get_shared_values_between_server_and_monitor()
-
-    status = shared_values_dict["system_status"]
-    status_dict = {
-        "ui_status_code": str(SYSTEM_STATUS_UUIDS[status]),
-        # Tanner (7/1/20): this route may be called before process_monitor adds the following values to shared_values_dict, so default values are needed
-        "in_simulation_mode": shared_values_dict.get("in_simulation_mode", False),
-        "mantarray_serial_number": shared_values_dict.get(
-            "mantarray_serial_number", ""
-        ),
-        "mantarray_nickname": shared_values_dict.get("mantarray_nickname", ""),
-    }
-
-    response = Response(json.dumps(status_dict), mimetype="application/json")
 
     return response
 
