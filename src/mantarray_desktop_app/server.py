@@ -355,6 +355,76 @@ def queue_start_acquisition() -> Response:
     return response
 
 
+@flask_app.route("/insert_xem_command_into_queue/get_serial_number", methods=["GET"])
+def queue_get_serial_number() -> Response:
+    """Queue up a command to stop running data acquisition on the XEM.
+
+    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/get_serial_number
+    """
+    comm_dict = {
+        "communication_type": "debug_console",
+        "command": "get_serial_number",
+        "suppress_error": True,
+    }
+
+    response = queue_command_to_ok_comm(comm_dict)
+
+    return response
+
+
+@flask_app.route("/insert_xem_command_into_queue/get_device_id", methods=["GET"])
+def queue_get_device_id() -> Response:
+    """Queue up a command to get the device ID from the XEM.
+
+    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/get_device_id
+    """
+    comm_dict = {
+        "communication_type": "debug_console",
+        "command": "get_device_id",
+        "suppress_error": True,
+    }
+
+    response = queue_command_to_ok_comm(comm_dict)
+
+    return response
+
+
+@flask_app.route("/insert_xem_command_into_queue/is_spi_running", methods=["GET"])
+def queue_is_spi_running() -> Response:
+    """Queue up a command to get SPI running status on the XEM.
+
+    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/is_spi_running
+    """
+    comm_dict = {
+        "communication_type": "debug_console",
+        "command": "is_spi_running",
+        "suppress_error": True,
+    }
+
+    response = queue_command_to_ok_comm(comm_dict)
+
+    return response
+
+
+@flask_app.route("/insert_xem_command_into_queue/read_from_fifo", methods=["GET"])
+def queue_read_from_fifo() -> Response:
+    """Queue up a command to read data from the XEM.
+
+    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/read_from_fifo?num_words_to_log=72
+    """
+    num_words_to_log = int(request.args["num_words_to_log"], 0)
+    comm_dict = {
+        "communication_type": "debug_console",
+        "command": "read_from_fifo",
+        "num_words_to_log": num_words_to_log,
+        "suppress_error": True,
+    }
+
+    response = queue_command_to_ok_comm(comm_dict)
+
+    return response
+
+
 @flask_app.route("/insert_xem_command_into_queue/get_status", methods=["GET"])
 def queue_get_status() -> Response:
     """Queue up a command to get instance attributes of FrontPanelBase object.

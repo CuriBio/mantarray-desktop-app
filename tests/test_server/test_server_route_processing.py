@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 from multiprocessing import Queue
+import struct
 
 from mantarray_desktop_app import CALIBRATING_STATE
+from mantarray_desktop_app import produce_data
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 from xem_wrapper import DATA_FRAME_SIZE_WORDS
@@ -506,3 +508,208 @@ def test_send_single_start_acquisition_command__gets_processed(
         timeout=QUEUE_CHECK_TIMEOUT_SECONDS
     )
     assert get_status_communication["response"]["is_spi_running"] is True
+
+
+@pytest.mark.slow
+def test_send_single_get_serial_number_command__gets_processed(
+    test_process_manager, test_client
+):
+    simulator = FrontPanelSimulator({})
+
+    ok_process = test_process_manager.get_ok_comm_process()
+    ok_process.set_board_connection(0, simulator)
+
+    test_process_manager.start_processes()
+
+    response = test_client.get("/insert_xem_command_into_queue/get_serial_number")
+    assert response.status_code == 200
+
+    test_process_manager.soft_stop_and_join_processes()
+    comm_queue = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
+        0
+    )
+    assert is_queue_eventually_empty(comm_queue) is True
+
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+        0
+    )
+    comm_from_ok_queue.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # pull out the initial boot-up message
+
+    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
+    communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["command"] == "get_serial_number"
+    assert communication["response"] == "1917000Q70"
+
+
+@pytest.mark.slow
+def test_send_single_get_device_id_command__gets_processed(
+    test_process_manager, test_client
+):
+    simulator = FrontPanelSimulator({})
+    expected_id = "Mantarray XEM"
+    simulator.set_device_id(expected_id)
+
+    ok_process = test_process_manager.get_ok_comm_process()
+    ok_process.set_board_connection(0, simulator)
+
+    test_process_manager.start_processes()
+
+    response = test_client.get("/insert_xem_command_into_queue/get_device_id")
+    assert response.status_code == 200
+
+    test_process_manager.soft_stop_and_join_processes()
+    comm_queue = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
+        0
+    )
+    assert is_queue_eventually_empty(comm_queue) is True
+
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+        0
+    )
+    comm_from_ok_queue.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # pull out the initial boot-up message
+
+    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
+    communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["command"] == "get_device_id"
+    assert communication["response"] == expected_id
+
+
+@pytest.mark.slow
+def test_send_single_is_spi_running_command__gets_processed(
+    test_process_manager, test_client
+):
+    simulator = FrontPanelSimulator({})
+    simulator.initialize_board()
+    ok_process = test_process_manager.get_ok_comm_process()
+    ok_process.set_board_connection(0, simulator)
+
+    test_process_manager.start_processes()
+
+    response = test_client.get("/insert_xem_command_into_queue/is_spi_running")
+    assert response.status_code == 200
+
+    test_process_manager.soft_stop_and_join_processes()
+    comm_queue = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
+        0
+    )
+
+    assert is_queue_eventually_empty(comm_queue) is True
+
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+        0
+    )
+    comm_from_ok_queue.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # pull out the initial boot-up message
+    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
+
+    communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["command"] == "is_spi_running"
+    assert communication["response"] is False
+
+
+@pytest.mark.parametrize(
+    ",".join(("test_num_words_to_log", "test_description")),
+    [
+        (1, "logs 1 word"),
+        (72, "logs 72 words"),
+        (73, "logs 72 words given 73 num words to log"),
+    ],
+)
+def test_read_from_fifo_command__is_received_by_ok_comm__with_correct_num_words_to_log(
+    test_num_words_to_log, test_description, test_process_manager, test_client
+):
+    test_bytearray = produce_data(1, 0)
+    fifo = Queue()
+    fifo.put(test_bytearray)
+    queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
+    simulator = FrontPanelSimulator(queues)
+    simulator.initialize_board()
+    simulator.start_acquisition()
+    ok_process = test_process_manager.get_ok_comm_process()
+    ok_process.set_board_connection(0, simulator)
+    comm_queue = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
+        0
+    )
+
+    response = test_client.get(
+        f"/insert_xem_command_into_queue/read_from_fifo?num_words_to_log={test_num_words_to_log}"
+    )
+    assert response.status_code == 200
+    response_json = response.get_json()
+    assert response_json["command"] == "read_from_fifo"
+    assert is_queue_eventually_not_empty(comm_queue) is True
+
+    invoke_process_run_and_check_errors(ok_process)
+
+    assert is_queue_eventually_empty(comm_queue) is True
+
+    ok_comm_to_main = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+        0
+    )
+    assert is_queue_eventually_not_empty(ok_comm_to_main) is True
+
+    communication = ok_comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["command"] == "read_from_fifo"
+    assert communication["num_words_to_log"] == test_num_words_to_log
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize(
+    ",".join(("test_num_words_to_log", "test_num_cycles_to_read", "test_description")),
+    [
+        (1, 1, "logs 1 word with one cycle read"),
+        (72, 1, "logs 72 words with one cycle read"),
+        (73, 1, "logs 72 words given 73 num words to log and one cycle read"),
+        (144, 2, "logs 144 words given 144 num words to log and two cycles read"),
+    ],
+)
+def test_send_single_read_from_fifo_command__gets_processed_with_correct_num_words(
+    test_num_words_to_log,
+    test_num_cycles_to_read,
+    test_description,
+    test_process_manager,
+    test_client,
+):
+    test_bytearray = produce_data(1, 0)
+    fifo = Queue()
+    fifo.put(test_bytearray)
+    queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
+    simulator = FrontPanelSimulator(queues)
+    simulator.initialize_board()
+    simulator.start_acquisition()
+    ok_process = test_process_manager.get_ok_comm_process()
+    ok_process.set_board_connection(0, simulator)
+
+    test_process_manager.start_processes()
+
+    response = test_client.get(
+        f"/insert_xem_command_into_queue/read_from_fifo?num_words_to_log={test_num_words_to_log}"
+    )
+    assert response.status_code == 200
+
+    test_process_manager.soft_stop_and_join_processes()
+    comm_queue = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
+        0
+    )
+    assert is_queue_eventually_empty(comm_queue) is True
+
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+        0
+    )
+    comm_from_ok_queue.get_nowait()  # pull out the initial boot-up message
+
+    total_num_words = len(test_bytearray) // 4
+    test_words = struct.unpack(f"<{total_num_words}L", test_bytearray)
+    expected_formatted_response = list()
+    num_words_to_log = min(total_num_words, test_num_words_to_log)
+    for i in range(num_words_to_log):
+        expected_formatted_response.append(hex(test_words[i]))
+    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
+    communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["command"] == "read_from_fifo"
+    assert communication["response"] == expected_formatted_response

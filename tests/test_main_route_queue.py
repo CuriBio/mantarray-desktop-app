@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import datetime
-from multiprocessing import Queue
 import tempfile
 
 from freezegun import freeze_time
@@ -14,7 +13,6 @@ from mantarray_desktop_app import MANTARRAY_NICKNAME_UUID
 from mantarray_desktop_app import MANTARRAY_SERIAL_NUMBER_UUID
 from mantarray_desktop_app import PLATE_BARCODE_UUID
 from mantarray_desktop_app import process_manager
-from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import REFERENCE_VOLTAGE_UUID
 from mantarray_desktop_app import SLEEP_FIRMWARE_VERSION_UUID
@@ -27,8 +25,6 @@ from mantarray_desktop_app import XEM_SERIAL_NUMBER_UUID
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
 from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
-from xem_wrapper import FrontPanelSimulator
-from xem_wrapper import PIPE_OUT_FIFO
 
 from .fixtures import fixture_fully_running_app_from_main_entrypoint
 from .fixtures import fixture_patched_shared_values_dict
@@ -334,114 +330,6 @@ def test_send_single_read_wire_out_command_with_description__populates_queue(
     assert response_json["command"] == "read_wire_out"
     assert response_json["ep_addr"] == expected_ep_addr
     assert response_json["description"] == expected_description
-    assert response_json["suppress_error"] is True
-
-
-def test_send_single_read_from_fifo_command__populates_queue(
-    test_process_manager, test_client, mocker
-):
-    test_bytearray = produce_data(1, 0)
-    fifo = Queue()
-    fifo.put(test_bytearray)
-    queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
-    simulator = FrontPanelSimulator(queues)
-    simulator.initialize_board()
-    simulator.start_acquisition()
-    ok_process = test_process_manager.get_ok_comm_process()
-    ok_process.set_board_connection(0, simulator)
-
-    response = test_client.get(
-        "/insert_xem_command_into_queue/read_from_fifo?num_words_to_log=72"
-    )
-    assert response.status_code == 200
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-    assert is_queue_eventually_not_empty(comm_queue) is True
-    communication = comm_queue.get_nowait()
-    assert communication["communication_type"] == "debug_console"
-    assert communication["command"] == "read_from_fifo"
-    assert communication["suppress_error"] is True
-    response_json = response.get_json()
-    assert response_json["command"] == "read_from_fifo"
-    assert response_json["suppress_error"] is True
-
-
-def test_send_single_read_from_fifo_command_with_hex_notation__populates_queue(
-    test_process_manager, test_client, mocker
-):
-    test_bytearray = produce_data(1, 0)
-    fifo = Queue()
-    fifo.put(test_bytearray)
-    queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
-    simulator = FrontPanelSimulator(queues)
-    simulator.initialize_board()
-    simulator.start_acquisition()
-    ok_process = test_process_manager.get_ok_comm_process()
-    ok_process.set_board_connection(0, simulator)
-
-    response = test_client.get(
-        "/insert_xem_command_into_queue/read_from_fifo?num_words_to_log=0x48"
-    )
-    assert response.status_code == 200
-
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-    assert is_queue_eventually_not_empty(comm_queue) is True
-    communication = comm_queue.get_nowait()
-    assert communication["communication_type"] == "debug_console"
-    assert communication["command"] == "read_from_fifo"
-    assert communication["suppress_error"] is True
-    response_json = response.get_json()
-    assert response_json["command"] == "read_from_fifo"
-    assert response_json["suppress_error"] is True
-
-
-def test_send_single_is_spi_running_command__populates_queue(
-    test_process_manager, test_client
-):
-    response = test_client.get("/insert_xem_command_into_queue/is_spi_running")
-    assert response.status_code == 200
-
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-    assert is_queue_eventually_not_empty(comm_queue) is True
-    communication = comm_queue.get_nowait()
-    assert communication["communication_type"] == "debug_console"
-    assert communication["command"] == "is_spi_running"
-    assert communication["suppress_error"] is True
-    response_json = response.get_json()
-    assert response_json["command"] == "is_spi_running"
-    assert response_json["suppress_error"] is True
-
-
-def test_send_single_get_serial_number_command__populates_queue(
-    test_process_manager, test_client
-):
-    response = test_client.get("/insert_xem_command_into_queue/get_serial_number")
-    assert response.status_code == 200
-
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-    assert is_queue_eventually_not_empty(comm_queue) is True
-    communication = comm_queue.get_nowait()
-    assert communication["communication_type"] == "debug_console"
-    assert communication["command"] == "get_serial_number"
-    assert communication["suppress_error"] is True
-    response_json = response.get_json()
-    assert response_json["command"] == "get_serial_number"
-    assert response_json["suppress_error"] is True
-
-
-def test_send_single_get_device_id_command__populates_queue(
-    test_process_manager, test_client
-):
-    response = test_client.get("/insert_xem_command_into_queue/get_device_id")
-    assert response.status_code == 200
-
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-    assert is_queue_eventually_not_empty(comm_queue) is True
-    communication = comm_queue.get_nowait()
-    assert communication["communication_type"] == "debug_console"
-    assert communication["command"] == "get_device_id"
-    assert communication["suppress_error"] is True
-    response_json = response.get_json()
-    assert response_json["command"] == "get_device_id"
     assert response_json["suppress_error"] is True
 
 

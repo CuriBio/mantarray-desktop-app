@@ -2,7 +2,6 @@
 import datetime
 from multiprocessing import Queue
 import os
-import struct
 import tempfile
 
 from freezegun import freeze_time
@@ -15,7 +14,6 @@ from mantarray_desktop_app import get_server_port_number
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import PLATE_BARCODE_UUID
 from mantarray_desktop_app import process_manager
-from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import system_state_eventually_equals
@@ -26,7 +24,6 @@ import pytest
 import requests
 from stdlib_utils import confirm_port_in_use
 from xem_wrapper import FrontPanelSimulator
-from xem_wrapper import PIPE_OUT_FIFO
 
 from .fixtures import fixture_fully_running_app_from_main_entrypoint
 from .fixtures import fixture_patched_firmware_folder
@@ -194,151 +191,6 @@ def test_send_single_read_wire_out_command__gets_processed(
     assert communication["ep_addr"] == expected_ep_addr
     assert communication["response"] == expected_wire_out_response
     assert communication["hex_converted_response"] == hex(expected_wire_out_response)
-
-
-@pytest.mark.slow
-@pytest.mark.parametrize(
-    """test_num_words_to_log,test_num_cycles_to_read,test_description""",
-    [
-        (1, 1, "logs 1 word with one cycle read"),
-        (72, 1, "logs 72 words with one cycle read"),
-        (73, 1, "logs 72 words given 73 num words to log and one cycle read"),
-        (144, 2, "logs 144 words given 144 num words to log and two cycles read"),
-    ],
-)
-def test_send_single_read_from_fifo_command__gets_processed_with_correct_num_words(
-    test_num_words_to_log,
-    test_num_cycles_to_read,
-    test_description,
-    test_process_manager,
-    test_client,
-):
-    test_bytearray = produce_data(1, 0)
-    fifo = Queue()
-    fifo.put(test_bytearray)
-    queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
-    simulator = FrontPanelSimulator(queues)
-    simulator.initialize_board()
-    simulator.start_acquisition()
-    ok_process = test_process_manager.get_ok_comm_process()
-    ok_process.set_board_connection(0, simulator)
-
-    test_process_manager.start_processes()
-
-    response = test_client.get(
-        f"/insert_xem_command_into_queue/read_from_fifo?num_words_to_log={test_num_words_to_log}"
-    )
-    assert response.status_code == 200
-
-    test_process_manager.soft_stop_and_join_processes()
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-    assert is_queue_eventually_empty(comm_queue) is True
-
-    comm_from_ok_queue = test_process_manager.get_communication_queue_from_ok_comm_to_main(
-        0
-    )
-    comm_from_ok_queue.get_nowait()  # pull out the initial boot-up message
-
-    total_num_words = len(test_bytearray) // 4
-    test_words = struct.unpack(f"<{total_num_words}L", test_bytearray)
-    expected_formatted_response = list()
-    num_words_to_log = min(total_num_words, test_num_words_to_log)
-    for i in range(num_words_to_log):
-        expected_formatted_response.append(hex(test_words[i]))
-    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
-    communication = comm_from_ok_queue.get_nowait()
-    assert communication["command"] == "read_from_fifo"
-    assert communication["response"] == expected_formatted_response
-
-
-@pytest.mark.slow
-def test_send_single_is_spi_running_command__gets_processed(
-    test_process_manager, test_client
-):
-    simulator = FrontPanelSimulator({})
-    simulator.initialize_board()
-    ok_process = test_process_manager.get_ok_comm_process()
-    ok_process.set_board_connection(0, simulator)
-
-    test_process_manager.start_processes()
-
-    response = test_client.get("/insert_xem_command_into_queue/is_spi_running")
-    assert response.status_code == 200
-
-    test_process_manager.soft_stop_and_join_processes()
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-
-    assert is_queue_eventually_empty(comm_queue) is True
-
-    comm_from_ok_queue = test_process_manager.get_communication_queue_from_ok_comm_to_main(
-        0
-    )
-    comm_from_ok_queue.get_nowait()  # pull out the initial boot-up message
-    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
-
-    communication = comm_from_ok_queue.get_nowait()
-    assert communication["command"] == "is_spi_running"
-    assert communication["response"] is False
-
-
-@pytest.mark.slow
-def test_send_single_get_serial_number_command__gets_processed(
-    test_process_manager, test_client
-):
-    simulator = FrontPanelSimulator({})
-
-    ok_process = test_process_manager.get_ok_comm_process()
-    ok_process.set_board_connection(0, simulator)
-
-    test_process_manager.start_processes()
-
-    response = test_client.get("/insert_xem_command_into_queue/get_serial_number")
-    assert response.status_code == 200
-
-    test_process_manager.soft_stop_and_join_processes()
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-    assert is_queue_eventually_empty(comm_queue) is True
-
-    comm_from_ok_queue = test_process_manager.get_communication_queue_from_ok_comm_to_main(
-        0
-    )
-    comm_from_ok_queue.get_nowait()  # pull out the initial boot-up message
-
-    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
-    communication = comm_from_ok_queue.get_nowait()
-    assert communication["command"] == "get_serial_number"
-    assert communication["response"] == "1917000Q70"
-
-
-@pytest.mark.slow
-def test_send_single_get_device_id_command__gets_processed(
-    test_process_manager, test_client
-):
-    simulator = FrontPanelSimulator({})
-    expected_id = "Mantarray XEM"
-    simulator.set_device_id(expected_id)
-
-    ok_process = test_process_manager.get_ok_comm_process()
-    ok_process.set_board_connection(0, simulator)
-
-    test_process_manager.start_processes()
-
-    response = test_client.get("/insert_xem_command_into_queue/get_device_id")
-    assert response.status_code == 200
-
-    test_process_manager.soft_stop_and_join_processes()
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-    assert is_queue_eventually_empty(comm_queue) is True
-
-    comm_from_ok_queue = test_process_manager.get_communication_queue_from_ok_comm_to_main(
-        0
-    )
-    comm_from_ok_queue.get_nowait()  # pull out the initial boot-up message
-
-    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
-    communication = comm_from_ok_queue.get_nowait()
-    assert communication["command"] == "get_device_id"
-    assert communication["response"] == expected_id
 
 
 @pytest.mark.slow

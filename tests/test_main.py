@@ -4,7 +4,6 @@ import datetime
 import json
 import logging
 import multiprocessing
-from multiprocessing import Queue
 import platform
 import sys
 import tempfile
@@ -32,7 +31,6 @@ from mantarray_desktop_app import MantarrayProcessesMonitor
 from mantarray_desktop_app import MultiprocessingNotSetToSpawnError
 from mantarray_desktop_app import prepare_to_shutdown
 from mantarray_desktop_app import process_monitor
-from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import RecordingFolderDoesNotExistError
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import start_server
@@ -46,8 +44,6 @@ import requests
 from stdlib_utils import confirm_port_available
 from stdlib_utils import confirm_port_in_use
 from stdlib_utils import invoke_process_run_and_check_errors
-from xem_wrapper import FrontPanelSimulator
-from xem_wrapper import PIPE_OUT_FIFO
 
 from .fixtures import fixture_fully_running_app_from_main_entrypoint
 from .fixtures import fixture_patched_shared_values_dict
@@ -369,50 +365,6 @@ def test_stop_recording_command__sets_system_status_to_live_view_active(
     assert response.status_code == 200
 
     assert patched_shared_values_dict["system_status"] == LIVE_VIEW_ACTIVE_STATE
-
-
-@pytest.mark.parametrize(
-    """test_num_words_to_log,test_description""",
-    [
-        (1, "logs 1 word"),
-        (72, "logs 72 words"),
-        (73, "logs 72 words given 73 num words to log"),
-    ],
-)
-def test_read_from_fifo_command__is_received_by_ok_comm__with_correct_num_words_to_log(
-    test_num_words_to_log, test_description, test_process_manager, test_client
-):
-    test_bytearray = produce_data(1, 0)
-    fifo = Queue()
-    fifo.put(test_bytearray)
-    queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
-    simulator = FrontPanelSimulator(queues)
-    simulator.initialize_board()
-    simulator.start_acquisition()
-    ok_process = test_process_manager.get_ok_comm_process()
-    ok_process.set_board_connection(0, simulator)
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-
-    response = test_client.get(
-        f"/insert_xem_command_into_queue/read_from_fifo?num_words_to_log={test_num_words_to_log}"
-    )
-    assert response.status_code == 200
-    response_json = response.get_json()
-    assert response_json["command"] == "read_from_fifo"
-    assert is_queue_eventually_not_empty(comm_queue) is True
-
-    invoke_process_run_and_check_errors(ok_process)
-
-    assert is_queue_eventually_empty(comm_queue) is True
-
-    ok_comm_to_main = test_process_manager.get_communication_queue_from_ok_comm_to_main(
-        0
-    )
-    assert is_queue_eventually_not_empty(ok_comm_to_main) is True
-
-    communication = ok_comm_to_main.get_nowait()
-    assert communication["command"] == "read_from_fifo"
-    assert communication["num_words_to_log"] == test_num_words_to_log
 
 
 def test_send_single_get_available_data_command__gets_item_from_data_out_queue_when_data_is_available(
