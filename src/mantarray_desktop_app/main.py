@@ -67,7 +67,6 @@ from .constants import PLATE_BARCODE_UUID
 from .constants import RECORDING_STATE
 from .constants import REFERENCE_VOLTAGE
 from .constants import REFERENCE_VOLTAGE_UUID
-from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SLEEP_FIRMWARE_VERSION_UUID
 from .constants import SOFTWARE_RELEASE_VERSION_UUID
@@ -437,24 +436,6 @@ def start_managed_acquisition() -> Response:
     to_da_queue.put(START_MANAGED_ACQUISITION_COMMUNICATION)
 
     response = queue_command_to_ok_comm(START_MANAGED_ACQUISITION_COMMUNICATION)
-
-    return response
-
-
-@flask_app.route("/get_available_data", methods=["GET"])
-def get_available_data() -> Response:
-    """Get available data if any from Data Analyzer.
-
-    Can be invoked by curl http://localhost:4567/get_available_data
-    """
-    manager = get_mantarray_process_manager()
-    data_out_queue = manager.get_data_analyzer_data_out_queue()
-    try:
-        data = data_out_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
-    except queue.Empty:
-        return Response(status=204)
-
-    response = Response(data, mimetype="application/json")
 
     return response
 

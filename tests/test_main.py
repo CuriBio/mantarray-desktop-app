@@ -367,63 +367,6 @@ def test_stop_recording_command__sets_system_status_to_live_view_active(
     assert patched_shared_values_dict["system_status"] == LIVE_VIEW_ACTIVE_STATE
 
 
-def test_send_single_get_available_data_command__gets_item_from_data_out_queue_when_data_is_available(
-    test_process_manager, test_client
-):
-    expected_response = {
-        "waveform_data": {
-            "basic_data": [100, 200, 300],
-            "data_metrics": "dummy_metrics",
-        }
-    }
-
-    data_out_queue = test_process_manager.get_data_analyzer_data_out_queue()
-    data_out_queue.put(json.dumps(expected_response))
-    assert is_queue_eventually_not_empty(data_out_queue) is True
-
-    response = test_client.get("/get_available_data")
-    assert response.status_code == 200
-
-    actual = response.get_json()
-    assert actual == expected_response
-
-
-def test_send_single_get_available_data_command__returns_correct_error_code_when_no_data_available(
-    test_process_manager, test_client
-):
-    response = test_client.get("/get_available_data")
-    assert response.status_code == 204
-
-
-def test_main__handles_logging_after_request_when_get_available_data_is_called(
-    test_process_manager, test_client, mocker
-):
-    spied_logger = mocker.spy(main.logger, "info")
-
-    test_process_manager.create_processes()
-    data_out_queue = test_process_manager.get_data_analyzer_data_out_queue()
-
-    test_data = json.dumps(
-        {
-            "waveform_data": {
-                "basic_data": [100, 200, 300],
-                "data_metrics": "dummy_metrics",
-            }
-        }
-    )
-    data_out_queue.put(test_data)
-    assert is_queue_eventually_not_empty(data_out_queue) is True
-
-    response = test_client.get("/get_available_data")
-    assert response.status_code == 200
-    assert "basic_data" not in spied_logger.call_args[0][0]
-    assert "waveform_data" in spied_logger.call_args[0][0]
-    assert "data_metrics" in spied_logger.call_args[0][0]
-
-    response = test_client.get("/get_available_data")
-    assert response.status_code == 204
-
-
 @pytest.mark.slow
 def test_main__calls_boot_up_function_upon_launch(
     patched_xem_scripts_folder,

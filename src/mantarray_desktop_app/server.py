@@ -19,7 +19,9 @@ from __future__ import annotations
 from copy import deepcopy
 import json
 import logging
+import multiprocessing
 import os
+from queue import Empty
 from queue import Queue
 import threading
 from typing import Any
@@ -41,6 +43,7 @@ from stdlib_utils import print_exception
 from stdlib_utils import put_log_message_into_queue
 
 from .constants import DEFAULT_SERVER_PORT_NUMBER
+from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SYSTEM_STATUS_UUIDS
 from .exceptions import LocalServerPortAlreadyInUseError
 from .queue_container import MantarrayQueueContainer
@@ -143,6 +146,24 @@ def system_status() -> Response:
     }
 
     response = Response(json.dumps(status_dict), mimetype="application/json")
+
+    return response
+
+
+@flask_app.route("/get_available_data", methods=["GET"])
+def get_available_data() -> Response:
+    """Get available data if any from Data Analyzer.
+
+    Can be invoked by curl http://localhost:4567/get_available_data
+    """
+    server_thread = get_the_server_thread()
+    data_out_queue = server_thread.get_data_analyzer_data_out_queue()
+    try:
+        data = data_out_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
+    except Empty:
+        return Response(status=204)
+
+    response = Response(data, mimetype="application/json")
 
     return response
 
@@ -654,8 +675,19 @@ class ServerThread(InfiniteThread):
     def soft_stop(self) -> None:
         self._shutdown_server()
 
+    def get_data_analyzer_data_out_queue(
+        self,
+    ) -> multiprocessing.Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+        Dict[str, Any]
+    ]:
+        # TODO (Eli 11/5/20): Even after the QueueContainer is removed, this queue should be made available to the server thread through the init as it needs this to pass data to the Frontend app
+        return self._queue_container.get_data_analyzer_data_out_queue()
+
     def _drain_all_queues(self) -> Dict[str, Any]:
         queue_items = dict()
 
         queue_items["to_main"] = _drain_queue(self._to_main_queue)
+        queue_items["from_data_analyzer"] = _drain_queue(
+            self.get_data_analyzer_data_out_queue()
+        )
         return queue_items

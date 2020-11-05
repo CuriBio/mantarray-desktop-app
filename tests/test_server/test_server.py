@@ -170,22 +170,31 @@ def test_ServerThread__stop__does_not_raise_error_if_server_already_stopped_and_
     assert "not running" in actual.get("message").lower()
 
 
-def test_ServerThread__hard_stop__shuts_down_flask_and_drains_to_main_queue(
+def test_ServerThread__hard_stop__shuts_down_flask_and_drains_to_main_queue_and_data_queue_from_data_analyzer(
     running_server_thread,
 ):
     st, to_main_queue, _ = running_server_thread
+    from_da_queue = st.get_data_analyzer_data_out_queue()
     expected_message = "It tolls for thee"
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         expected_message, to_main_queue
     )
+
+    expected_da_object = {"somedata": 173}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        expected_da_object, from_da_queue
+    )
+
     actual_dict_of_queue_items = st.hard_stop()
     confirm_port_available(
         DEFAULT_SERVER_PORT_NUMBER, timeout=5
     )  # wait for server to shut down
 
     assert is_queue_eventually_empty(to_main_queue)
+    assert is_queue_eventually_empty(from_da_queue)
 
     assert actual_dict_of_queue_items["to_main"][0] == expected_message
+    assert actual_dict_of_queue_items["from_data_analyzer"][0] == expected_da_object
 
 
 def test_ServerThread__get_values_from_process_monitor__acquires_lock_and_returns_an_immutable_copy(
