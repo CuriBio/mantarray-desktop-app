@@ -25,8 +25,6 @@ from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import pytest
 import requests
 from stdlib_utils import confirm_port_in_use
-from xem_wrapper import DATA_FRAME_SIZE_WORDS
-from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 from xem_wrapper import FrontPanelSimulator
 from xem_wrapper import PIPE_OUT_FIFO
 
@@ -514,42 +512,6 @@ def test_send_single_get_status_command__gets_processed(
 
 
 @pytest.mark.slow
-def test_send_single_get_num_words_fifo_command__gets_processed(
-    test_process_manager, test_client
-):
-    expected_num_words = DATA_FRAME_SIZE_WORDS * DATA_FRAMES_PER_ROUND_ROBIN
-    test_bytearray = bytearray(expected_num_words * 4)
-    fifo = Queue()
-    fifo.put(test_bytearray)
-    queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
-    simulator = FrontPanelSimulator(queues)
-    simulator.initialize_board()
-
-    ok_process = test_process_manager.get_ok_comm_process()
-    ok_process.set_board_connection(0, simulator)
-
-    test_process_manager.start_processes()
-
-    response = test_client.get("/insert_xem_command_into_queue/get_num_words_fifo")
-    assert response.status_code == 200
-
-    test_process_manager.soft_stop_and_join_processes()
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-    assert is_queue_eventually_empty(comm_queue) is True
-
-    comm_from_ok_queue = test_process_manager.get_communication_queue_from_ok_comm_to_main(
-        0
-    )
-    comm_from_ok_queue.get_nowait()  # pull out the initial boot-up message
-
-    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
-    communication = comm_from_ok_queue.get_nowait()
-    assert communication["command"] == "get_num_words_fifo"
-    assert communication["response"] == expected_num_words
-    assert communication["hex_converted_response"] == hex(expected_num_words)
-
-
-@pytest.mark.slow
 def test_send_single_start_managed_acquisition_command__sets_system_status_to_buffering__and_clears_data_analyzer_outgoing_queue(
     test_process_manager, test_client, patched_shared_values_dict
 ):
@@ -729,38 +691,6 @@ def test_send_xem_scripts_command__gets_processed_in_fully_running_app(
     expected_gain_value = 16
     assert patched_shared_values_dict["adc_gain"] == expected_gain_value
     assert is_queue_eventually_empty(monitor_error_queue) is True
-
-
-@pytest.mark.slow
-def test_send_single_comm_delay_command__gets_processed(
-    test_process_manager, test_client
-):
-    expected_num_millis = 100
-
-    test_process_manager.start_processes()
-
-    response = test_client.get(
-        f"/insert_xem_command_into_queue/comm_delay?num_milliseconds={expected_num_millis}"
-    )
-    assert response.status_code == 200
-    test_process_manager.soft_stop_and_join_processes()
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-    assert is_queue_eventually_empty(comm_queue) is True
-
-    comm_from_ok_queue = test_process_manager.get_communication_queue_from_ok_comm_to_main(
-        0
-    )
-    comm_from_ok_queue.get_nowait()  # pull out the initial boot-up message
-    comm_from_ok_queue.get_nowait()  # pull out the board connection message
-
-    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
-
-    communication = comm_from_ok_queue.get_nowait()
-    assert communication["command"] == "comm_delay"
-    assert communication["num_milliseconds"] == expected_num_millis
-    assert (
-        communication["response"] == f"Delayed for {expected_num_millis} milliseconds"
-    )
 
 
 @pytest.mark.slow

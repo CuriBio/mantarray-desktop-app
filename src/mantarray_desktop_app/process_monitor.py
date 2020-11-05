@@ -205,25 +205,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
     def _commands_for_each_run_iteration(self) -> None:
         """Execute additional commands inside the run loop."""
         process_manager = self._process_manager
-        if (
-            self._values_to_share_to_server["system_status"]
-            == SERVER_INITIALIZING_STATE
-        ):
-            self._check_subprocess_start_up_statuses()
-        elif (
-            self._values_to_share_to_server["system_status"] == SERVER_READY_STATE
-            and self._boot_up_after_processes_start
-        ):
-            self._values_to_share_to_server[
-                "system_status"
-            ] = INSTRUMENT_INITIALIZING_STATE
-            process_manager.boot_up_instrument()
 
-        self._check_and_handle_ok_comm_to_main_queue()
-        self._check_and_handle_file_writer_to_main_queue()
-        self._check_and_handle_data_analyzer_to_main_queue()
-        self._check_and_handle_server_to_main_queue()
-
+        # any potential errors should be handled first
         for iter_error_queue, iter_process in (
             (
                 process_manager.queue_container().get_ok_communication_error_queue(),
@@ -249,6 +232,24 @@ class MantarrayProcessesMonitor(InfiniteThread):
             except queue.Empty:
                 continue
             self._handle_error_in_subprocess(iter_process, communication)
+        if (
+            self._values_to_share_to_server["system_status"]
+            == SERVER_INITIALIZING_STATE
+        ):
+            self._check_subprocess_start_up_statuses()
+        elif (
+            self._values_to_share_to_server["system_status"] == SERVER_READY_STATE
+            and self._boot_up_after_processes_start
+        ):
+            self._values_to_share_to_server[
+                "system_status"
+            ] = INSTRUMENT_INITIALIZING_STATE
+            process_manager.boot_up_instrument()
+
+        self._check_and_handle_ok_comm_to_main_queue()
+        self._check_and_handle_file_writer_to_main_queue()
+        self._check_and_handle_data_analyzer_to_main_queue()
+        self._check_and_handle_server_to_main_queue()
 
     def _check_subprocess_start_up_statuses(self) -> None:
         process_manager = self._process_manager

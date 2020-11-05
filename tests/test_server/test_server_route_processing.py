@@ -1,8 +1,13 @@
 # -*- coding: utf-8 -*-
+from multiprocessing import Queue
+
 from mantarray_desktop_app import CALIBRATING_STATE
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
+from xem_wrapper import DATA_FRAME_SIZE_WORDS
+from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 from xem_wrapper import FrontPanelSimulator
+from xem_wrapper import PIPE_OUT_FIFO
 
 from ..fixtures import fixture_generic_queue_container
 from ..fixtures import fixture_patched_firmware_folder
@@ -304,3 +309,81 @@ def test_send_single_activate_trigger_in_command__gets_processed(
     assert communication["command"] == "activate_trigger_in"
     assert communication["ep_addr"] == expected_ep_addr
     assert communication["bit"] == expected_bit
+
+
+@pytest.mark.slow
+def test_send_single_comm_delay_command__gets_processed(
+    test_process_manager, test_client
+):
+    expected_num_millis = 100
+
+    test_process_manager.start_processes()
+
+    response = test_client.get(
+        f"/insert_xem_command_into_queue/comm_delay?num_milliseconds={expected_num_millis}"
+    )
+    assert response.status_code == 200
+    test_process_manager.soft_stop_and_join_processes()
+    comm_queue = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
+        0
+    )
+    assert is_queue_eventually_empty(comm_queue) is True
+
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+        0
+    )
+    comm_from_ok_queue.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # pull out the initial boot-up message
+    comm_from_ok_queue.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # pull out the board connection message
+
+    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
+
+    communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["command"] == "comm_delay"
+    assert communication["num_milliseconds"] == expected_num_millis
+    assert (
+        communication["response"] == f"Delayed for {expected_num_millis} milliseconds"
+    )
+
+
+@pytest.mark.slow
+def test_send_single_get_num_words_fifo_command__gets_processed(
+    test_process_manager, test_client
+):
+    expected_num_words = DATA_FRAME_SIZE_WORDS * DATA_FRAMES_PER_ROUND_ROBIN
+    test_bytearray = bytearray(expected_num_words * 4)
+    fifo = Queue()
+    fifo.put(test_bytearray)
+    queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
+    simulator = FrontPanelSimulator(queues)
+    simulator.initialize_board()
+
+    ok_process = test_process_manager.get_ok_comm_process()
+    ok_process.set_board_connection(0, simulator)
+
+    test_process_manager.start_processes()
+
+    response = test_client.get("/insert_xem_command_into_queue/get_num_words_fifo")
+    assert response.status_code == 200
+
+    test_process_manager.soft_stop_and_join_processes()
+    comm_queue = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
+        0
+    )
+    assert is_queue_eventually_empty(comm_queue) is True
+
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+        0
+    )
+    comm_from_ok_queue.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # pull out the initial boot-up message
+
+    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
+    communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["command"] == "get_num_words_fifo"
+    assert communication["response"] == expected_num_words
+    assert communication["hex_converted_response"] == hex(expected_num_words)

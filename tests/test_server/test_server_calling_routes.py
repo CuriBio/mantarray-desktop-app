@@ -120,3 +120,15 @@ def test_send_single_start_calibration_command__returns_200(
     test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
     response = test_client.get("/start_calibration")
     assert response.status_code == 200
+
+
+def test_dev_begin_hardware_script__returns_correct_response(test_client):
+    response = test_client.get(
+        "/development/begin_hardware_script?script_type=ENUM&version=integer"
+    )
+    assert response.status_code == 200
+
+
+def test_dev_end_hardware_script__returns_correct_response(test_client):
+    response = test_client.get("/development/end_hardware_script")
+    assert response.status_code == 200

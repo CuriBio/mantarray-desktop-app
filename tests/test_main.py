@@ -415,18 +415,6 @@ def test_read_from_fifo_command__is_received_by_ok_comm__with_correct_num_words_
     assert communication["num_words_to_log"] == test_num_words_to_log
 
 
-def test_dev_begin_hardware_script__returns_correct_response(test_client):
-    response = test_client.get(
-        "/development/begin_hardware_script?script_type=ENUM&version=integer"
-    )
-    assert response.status_code == 200
-
-
-def test_dev_end_hardware_script__returns_correct_response(test_client):
-    response = test_client.get("/development/end_hardware_script")
-    assert response.status_code == 200
-
-
 def test_send_single_get_available_data_command__gets_item_from_data_out_queue_when_data_is_available(
     test_process_manager, test_client
 ):

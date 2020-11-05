@@ -637,62 +637,6 @@ def queue_set_wire_in() -> Response:
     return response
 
 
-@flask_app.route("/insert_xem_command_into_queue/get_num_words_fifo", methods=["GET"])
-def queue_get_num_words_fifo() -> Response:
-    """Queue up a command to set a wire-in value on the XEM.
-
-    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/get_num_words_fifo
-    """
-    comm_dict = {
-        "communication_type": "debug_console",
-        "command": "get_num_words_fifo",
-        "suppress_error": True,
-    }
-
-    response = queue_command_to_ok_comm(comm_dict)
-
-    return response
-
-
-@flask_app.route("/insert_xem_command_into_queue/comm_delay", methods=["GET"])
-def queue_comm_delay() -> Response:
-    """Queue up a command delay comms to the XEM for a given period of time.
-
-    Mainly to be used in XEM scripting when delays between commands are necessary.
-
-    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/comm_delay?num_milliseconds=10"
-    """
-    num_milliseconds = int(request.args["num_milliseconds"])
-    comm_dict = {
-        "communication_type": "debug_console",
-        "command": "comm_delay",
-        "num_milliseconds": num_milliseconds,
-        "suppress_error": True,
-    }
-
-    response = queue_command_to_ok_comm(comm_dict)
-
-    return response
-
-
-@flask_app.route("/development/begin_hardware_script", methods=["GET"])
-def dev_begin_hardware_script() -> Response:
-    """Designate the beginning of a hardware script in flask log.
-
-    Can be invoked by curl "http://localhost:4567/development/begin_hardware_script?script_type=ENUM&version=integer"
-    """
-    return Response(json.dumps({}), mimetype="application/json")
-
-
-@flask_app.route("/development/end_hardware_script", methods=["GET"])
-def dev_end_hardware_script() -> Response:
-    """Designate the end of a hardware script in flask log.
-
-    Can be invoked by curl http://localhost:4567/development/end_hardware_script
-    """
-    return Response(json.dumps({}), mimetype="application/json")
-
-
 @flask_app.route("/xem_scripts", methods=["GET"])
 def run_xem_script() -> Response:
     """Run a script of XEM commands created from an existing flask log.

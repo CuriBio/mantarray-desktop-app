@@ -556,23 +556,6 @@ def test_send_single_set_wire_in_command__using_hex_notation__populates_queue(
     assert response_json["suppress_error"] is True
 
 
-def test_send_single_get_num_words_fifo_command__populates_queue(
-    test_process_manager, test_client
-):
-    response = test_client.get("/insert_xem_command_into_queue/get_num_words_fifo")
-    assert response.status_code == 200
-
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-    assert is_queue_eventually_not_empty(comm_queue) is True
-    communication = comm_queue.get_nowait()
-    assert communication["communication_type"] == "debug_console"
-    assert communication["command"] == "get_num_words_fifo"
-    assert communication["suppress_error"] is True
-    response_json = response.get_json()
-    assert response_json["command"] == "get_num_words_fifo"
-    assert response_json["suppress_error"] is True
-
-
 def test_send_single_start_managed_acquisition_command__populates_queues(
     test_process_manager, test_client, patched_shared_values_dict
 ):
@@ -650,28 +633,6 @@ def test_send_single_xem_scripts_command__populates_queue(
     assert communication["script_type"] == expected_script_type
     response_json = response.get_json()
     assert response_json["script_type"] == expected_script_type
-
-
-def test_send_single_comm_delay_command__populates_queue(
-    test_process_manager, test_client
-):
-    expected_num_millis = 35
-    response = test_client.get(
-        f"/insert_xem_command_into_queue/comm_delay?num_milliseconds={expected_num_millis}"
-    )
-    assert response.status_code == 200
-
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-    assert is_queue_eventually_not_empty(comm_queue) is True
-    communication = comm_queue.get_nowait()
-    assert communication["communication_type"] == "debug_console"
-    assert communication["command"] == "comm_delay"
-    assert communication["num_milliseconds"] == expected_num_millis
-    assert communication["suppress_error"] is True
-    response_json = response.get_json()
-    assert response_json["command"] == "comm_delay"
-    assert response_json["num_milliseconds"] == expected_num_millis
-    assert response_json["suppress_error"] is True
 
 
 def test_send_single_boot_up_command__populates_queue_with_both_commands(
