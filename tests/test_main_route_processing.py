@@ -282,72 +282,6 @@ def test_send_single_is_spi_running_command__gets_processed(
 
 
 @pytest.mark.slow
-def test_send_single_start_acquisition_command__gets_processed(
-    test_process_manager, test_client
-):
-    simulator = FrontPanelSimulator({})
-    simulator.initialize_board()
-    ok_process = test_process_manager.get_ok_comm_process()
-    ok_process.set_board_connection(0, simulator)
-
-    test_process_manager.start_processes()
-
-    response = test_client.get("/insert_xem_command_into_queue/start_acquisition")
-    assert response.status_code == 200
-    response = test_client.get("/insert_xem_command_into_queue/get_status")
-    assert response.status_code == 200
-
-    test_process_manager.soft_stop_and_join_processes()
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-
-    assert is_queue_eventually_empty(comm_queue) is True
-
-    comm_from_ok_queue = test_process_manager.get_communication_queue_from_ok_comm_to_main(
-        0
-    )
-    comm_from_ok_queue.get_nowait()  # pull out the initial boot-up message
-    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
-    start_acquisition_communication = comm_from_ok_queue.get_nowait()
-
-    assert start_acquisition_communication["command"] == "start_acquisition"
-    get_status_communication = comm_from_ok_queue.get_nowait()
-    assert get_status_communication["response"]["is_spi_running"] is True
-
-
-@pytest.mark.slow
-def test_send_single_stop_acquisition_command__gets_processed(
-    test_process_manager, test_client
-):
-    simulator = FrontPanelSimulator({})
-    simulator.initialize_board()
-    simulator.start_acquisition()
-    ok_process = test_process_manager.get_ok_comm_process()
-    ok_process.set_board_connection(0, simulator)
-
-    test_process_manager.start_processes()
-
-    response = test_client.get("/insert_xem_command_into_queue/stop_acquisition")
-    assert response.status_code == 200
-    response = test_client.get("/insert_xem_command_into_queue/get_status")
-    assert response.status_code == 200
-
-    test_process_manager.soft_stop_and_join_processes()
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-    assert is_queue_eventually_empty(comm_queue) is True
-
-    comm_from_ok_queue = test_process_manager.get_communication_queue_from_ok_comm_to_main(
-        0
-    )
-    comm_from_ok_queue.get_nowait()  # pull out the initial boot-up message
-
-    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
-    stop_acquisition_communication = comm_from_ok_queue.get_nowait()
-    assert stop_acquisition_communication["command"] == "stop_acquisition"
-    get_status_communication = comm_from_ok_queue.get_nowait()
-    assert get_status_communication["response"]["is_spi_running"] is False
-
-
-@pytest.mark.slow
 def test_send_single_get_serial_number_command__gets_processed(
     test_process_manager, test_client
 ):
@@ -405,39 +339,6 @@ def test_send_single_get_device_id_command__gets_processed(
     communication = comm_from_ok_queue.get_nowait()
     assert communication["command"] == "get_device_id"
     assert communication["response"] == expected_id
-
-
-@pytest.mark.slow
-def test_send_single_set_device_id_command__gets_processed(
-    test_process_manager, test_client
-):
-    test_id = "Mantarray XEM"
-    simulator = FrontPanelSimulator({})
-
-    ok_process = test_process_manager.get_ok_comm_process()
-    ok_process.set_board_connection(0, simulator)
-
-    test_process_manager.start_processes()
-
-    response = test_client.get(
-        f"/insert_xem_command_into_queue/set_device_id?new_id={test_id}"
-    )
-    assert response.status_code == 200
-
-    test_process_manager.soft_stop_and_join_processes()
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-    assert is_queue_eventually_empty(comm_queue) is True
-
-    comm_from_ok_queue = test_process_manager.get_communication_queue_from_ok_comm_to_main(
-        0
-    )
-    comm_from_ok_queue.get_nowait()  # pull out the initial boot-up message
-
-    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
-
-    communication = comm_from_ok_queue.get_nowait()
-    assert communication["command"] == "set_device_id"
-    assert communication["new_id"] == test_id
 
 
 @pytest.mark.slow

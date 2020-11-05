@@ -212,3 +212,68 @@ def test_send_single_get_num_words_fifo_command__populates_queue(
     response_json = response.get_json()
     assert response_json["command"] == "get_num_words_fifo"
     assert response_json["suppress_error"] is True
+
+
+def test_send_single_set_device_id_command__populates_queue(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
+    test_server, _, _ = test_server_info
+
+    test_id = "Mantarray XEM"
+    response = test_client.get(
+        f"/insert_xem_command_into_queue/set_device_id?new_id={test_id}"
+    )
+    assert response.status_code == 200
+
+    comm_queue = test_server.queue_container().get_communication_to_ok_comm_queue(0)
+    assert is_queue_eventually_not_empty(comm_queue) is True
+    communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["communication_type"] == "debug_console"
+    assert communication["command"] == "set_device_id"
+    assert communication["new_id"] == test_id
+    assert communication["suppress_error"] is True
+    response_json = response.get_json()
+    assert response_json["command"] == "set_device_id"
+    assert response_json["new_id"] == test_id
+    assert response_json["suppress_error"] is True
+
+
+def test_send_single_stop_acquisition_command__populates_queue(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
+    test_server, _, _ = test_server_info
+
+    response = test_client.get("/insert_xem_command_into_queue/stop_acquisition")
+    assert response.status_code == 200
+
+    comm_queue = test_server.queue_container().get_communication_to_ok_comm_queue(0)
+    assert is_queue_eventually_not_empty(comm_queue) is True
+    communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["communication_type"] == "debug_console"
+    assert communication["command"] == "stop_acquisition"
+    assert communication["suppress_error"] is True
+    response_json = response.get_json()
+    assert response_json["command"] == "stop_acquisition"
+    assert response_json["suppress_error"] is True
+
+
+def test_send_single_start_acquisition_command__populates_queue(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
+    test_server, _, _ = test_server_info
+
+    response = test_client.get("/insert_xem_command_into_queue/start_acquisition")
+    assert response.status_code == 200
+
+    comm_queue = test_server.queue_container().get_communication_to_ok_comm_queue(0)
+    assert is_queue_eventually_not_empty(comm_queue) is True
+    communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["communication_type"] == "debug_console"
+    assert communication["command"] == "start_acquisition"
+    assert communication["suppress_error"] is True
+    response_json = response.get_json()
+    assert response_json["command"] == "start_acquisition"
+    assert response_json["suppress_error"] is True

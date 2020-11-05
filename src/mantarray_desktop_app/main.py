@@ -523,40 +523,6 @@ def queue_is_spi_running() -> Response:
     return response
 
 
-@flask_app.route("/insert_xem_command_into_queue/start_acquisition", methods=["GET"])
-def queue_start_acquisition() -> Response:
-    """Queue up a command to start running data acquisition on the XEM.
-
-    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/start_acquisition
-    """
-    comm_dict = {
-        "communication_type": "debug_console",
-        "command": "start_acquisition",
-        "suppress_error": True,
-    }
-
-    response = queue_command_to_ok_comm(comm_dict)
-
-    return response
-
-
-@flask_app.route("/insert_xem_command_into_queue/stop_acquisition", methods=["GET"])
-def queue_stop_acquisition() -> Response:
-    """Queue up a command to stop running data acquisition on the XEM.
-
-    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/stop_acquisition
-    """
-    comm_dict = {
-        "communication_type": "debug_console",
-        "command": "stop_acquisition",
-        "suppress_error": True,
-    }
-
-    response = queue_command_to_ok_comm(comm_dict)
-
-    return response
-
-
 @flask_app.route("/insert_xem_command_into_queue/get_serial_number", methods=["GET"])
 def queue_get_serial_number() -> Response:
     """Queue up a command to stop running data acquisition on the XEM.
@@ -583,29 +549,6 @@ def queue_get_device_id() -> Response:
     comm_dict = {
         "communication_type": "debug_console",
         "command": "get_device_id",
-        "suppress_error": True,
-    }
-
-    response = queue_command_to_ok_comm(comm_dict)
-
-    return response
-
-
-@flask_app.route("/insert_xem_command_into_queue/set_device_id", methods=["GET"])
-def queue_set_device_id() -> Response:
-    """Queue up a command to set the device ID on the XEM.
-
-    Do not use this route to set Mantarray Device Nicknames or Serial Numbers.
-
-    This route should be used cautiously as it will overwrite an exisiting Mantarray serial number / ID stored in the XEM.
-
-    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/set_device_id?new_id=""
-    """
-    new_id = request.args["new_id"]
-    comm_dict = {
-        "communication_type": "debug_console",
-        "command": "set_device_id",
-        "new_id": new_id,
         "suppress_error": True,
     }
 
