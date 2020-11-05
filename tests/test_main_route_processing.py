@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import datetime
-from multiprocessing import Queue
 import os
 import tempfile
 
@@ -154,83 +153,6 @@ def test_start_recording_command__gets_processed_with_given_time_index_parameter
 
 
 @pytest.mark.slow
-def test_send_single_read_wire_out_command__gets_processed(
-    test_process_manager, test_client
-):
-    board_idx = 0
-    expected_ep_addr = 7
-    wire_queue = Queue()
-    expected_wire_out_response = 33
-    wire_queue.put(expected_wire_out_response)
-
-    simulator = FrontPanelSimulator({"wire_outs": {expected_ep_addr: wire_queue}})
-    simulator.initialize_board()
-    ok_process = test_process_manager.get_ok_comm_process()
-    ok_process.set_board_connection(0, simulator)
-
-    test_process_manager.start_processes()
-
-    test_route = (
-        f"/insert_xem_command_into_queue/read_wire_out?ep_addr={expected_ep_addr}"
-    )
-    response = test_client.get(test_route)
-    assert response.status_code == 200
-
-    test_process_manager.soft_stop_and_join_processes()
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(board_idx)
-    assert is_queue_eventually_empty(comm_queue) is True
-
-    comm_from_ok_queue = test_process_manager.get_communication_queue_from_ok_comm_to_main(
-        board_idx
-    )
-    comm_from_ok_queue.get_nowait()  # pull out the initial boot-up message
-
-    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
-    communication = comm_from_ok_queue.get_nowait()
-    assert communication["command"] == "read_wire_out"
-    assert communication["ep_addr"] == expected_ep_addr
-    assert communication["response"] == expected_wire_out_response
-    assert communication["hex_converted_response"] == hex(expected_wire_out_response)
-
-
-@pytest.mark.slow
-def test_send_single_set_wire_in_command__gets_processed(
-    test_process_manager, test_client
-):
-    expected_ep_addr = 6
-    expected_value = 0x00000011
-    expected_mask = 0x00000011
-
-    simulator = FrontPanelSimulator({})
-    simulator.initialize_board()
-
-    ok_process = test_process_manager.get_ok_comm_process()
-    ok_process.set_board_connection(0, simulator)
-
-    test_process_manager.start_processes()
-
-    response = test_client.get(
-        f"/insert_xem_command_into_queue/set_wire_in?ep_addr={expected_ep_addr}&value={expected_value}&mask={expected_mask}"
-    )
-    assert response.status_code == 200
-
-    test_process_manager.soft_stop_and_join_processes()
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-    assert is_queue_eventually_empty(comm_queue) is True
-
-    comm_from_ok_queue = test_process_manager.get_communication_queue_from_ok_comm_to_main(
-        0
-    )
-    comm_from_ok_queue.get_nowait()  # pull out the initial boot-up message
-
-    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
-
-    communication = comm_from_ok_queue.get_nowait()
-    assert communication["command"] == "set_wire_in"
-    assert communication["ep_addr"] == expected_ep_addr
-
-
-@pytest.mark.slow
 def test_send_single_get_status_command__gets_processed(
     test_process_manager, test_client
 ):
@@ -317,96 +239,6 @@ def test_send_single_start_managed_acquisition_command__sets_system_status_to_bu
     assert is_queue_eventually_not_empty(comm_from_da_queue) is True
     communication = comm_from_da_queue.get_nowait()
     assert communication["command"] == "start_managed_acquisition"
-
-
-@pytest.mark.slow
-def test_send_single_stop_managed_acquisition_command__gets_processed(
-    test_process_manager, test_client
-):
-    simulator = FrontPanelSimulator({})
-    simulator.initialize_board()
-    simulator.start_acquisition()
-
-    ok_process = test_process_manager.get_ok_comm_process()
-    ok_process.set_board_connection(0, simulator)
-
-    test_process_manager.start_processes()
-
-    response = test_client.get("/stop_managed_acquisition")
-    assert response.status_code == 200
-
-    test_process_manager.soft_stop_and_join_processes()
-    to_ok_comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-    assert is_queue_eventually_empty(to_ok_comm_queue) is True
-    to_file_writer_queue = (
-        test_process_manager.get_communication_queue_from_main_to_file_writer()
-    )
-    assert is_queue_eventually_empty(to_file_writer_queue) is True
-    to_da_queue = (
-        test_process_manager.get_communication_queue_from_main_to_data_analyzer()
-    )
-    assert is_queue_eventually_empty(to_da_queue) is True
-
-    comm_from_ok_queue = test_process_manager.get_communication_queue_from_ok_comm_to_main(
-        0
-    )
-    comm_from_ok_queue.get_nowait()  # pull out the initial boot-up message
-    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
-    communication = comm_from_ok_queue.get_nowait()
-    assert communication["command"] == "stop_managed_acquisition"
-
-    comm_from_file_writer_queue = (
-        test_process_manager.get_communication_queue_from_file_writer_to_main()
-    )
-    assert is_queue_eventually_not_empty(comm_from_file_writer_queue) is True
-    communication = comm_from_file_writer_queue.get_nowait()
-    assert communication["communication_type"] == "command_receipt"
-    assert communication["command"] == "stop_managed_acquisition"
-
-    comm_from_da_queue = (
-        test_process_manager.get_communication_queue_from_data_analyzer_to_main()
-    )
-    assert is_queue_eventually_not_empty(comm_from_da_queue) is True
-    communication = comm_from_da_queue.get_nowait()
-    assert communication["command"] == "stop_managed_acquisition"
-
-
-@pytest.mark.slow
-def test_send_xem_scripts_command__gets_processed(
-    test_process_manager, test_client, patched_test_xem_scripts_folder, mocker
-):
-    expected_script_type = "test_script"
-
-    test_process_manager.start_processes()
-
-    response = test_client.get("/insert_xem_command_into_queue/initialize_board")
-    assert response.status_code == 200
-    response = test_client.get(f"/xem_scripts?script_type={expected_script_type}")
-    assert response.status_code == 200
-    test_process_manager.soft_stop_and_join_processes()
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-    assert is_queue_eventually_empty(comm_queue) is True
-
-    comm_from_ok_queue = test_process_manager.get_communication_queue_from_ok_comm_to_main(
-        0
-    )
-    comm_from_ok_queue.get_nowait()  # pull out the initial boot-up message
-    comm_from_ok_queue.get_nowait()  # pull ok_comm connect to board message
-    comm_from_ok_queue.get_nowait()  # pull initialize board response message
-
-    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
-
-    script_communication = comm_from_ok_queue.get_nowait()
-    assert script_communication["script_type"] == expected_script_type
-    assert f"Running {expected_script_type} script" in script_communication["response"]
-
-    done_message = comm_from_ok_queue.get_nowait()
-    teardown_message = comm_from_ok_queue.get_nowait()
-    while is_queue_eventually_not_empty(comm_from_ok_queue):
-        done_message = teardown_message
-        teardown_message = comm_from_ok_queue.get_nowait()
-    assert done_message["communication_type"] == "xem_scripts"
-    assert done_message["response"] == f"'{expected_script_type}' script complete."
 
 
 @pytest.mark.timeout(20)

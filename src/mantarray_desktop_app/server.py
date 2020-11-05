@@ -193,6 +193,32 @@ def start_calibration() -> Response:
     return response
 
 
+@flask_app.route("/stop_managed_acquisition", methods=["GET"])
+def stop_managed_acquisition() -> Response:
+    """Stop "managed" data acquisition on the XEM.
+
+    Can be invoked by:
+
+    `curl http://localhost:4567/stop_managed_acquisition`
+    """
+    comm_dict = {
+        "communication_type": "acquisition_manager",
+        "command": "stop_managed_acquisition",
+    }
+    server_thread = get_the_server_thread()
+    to_da_queue = (
+        server_thread.queue_container().get_communication_queue_from_main_to_data_analyzer()
+    )
+    to_da_queue.put(comm_dict)
+    to_file_writer_queue = (
+        server_thread.queue_container().get_communication_queue_from_main_to_file_writer()
+    )
+    to_file_writer_queue.put(comm_dict)
+
+    response = queue_command_to_ok_comm(comm_dict)
+    return response
+
+
 # Single "debug console" commands to send to XEM
 @flask_app.route("/insert_xem_command_into_queue/initialize_board", methods=["GET"])
 def queue_initialize_board() -> Response:
@@ -419,6 +445,67 @@ def queue_read_from_fifo() -> Response:
         "num_words_to_log": num_words_to_log,
         "suppress_error": True,
     }
+
+    response = queue_command_to_ok_comm(comm_dict)
+
+    return response
+
+
+@flask_app.route("/insert_xem_command_into_queue/set_wire_in", methods=["GET"])
+def queue_set_wire_in() -> Response:
+    """Queue up a command to set a wire-in value on the XEM.
+
+    Can be invoked by: curl "http://localhost:4567/insert_xem_command_into_queue/set_wire_in?ep_addr=6&value=0x00000010&mask=0x00000010"
+    """
+    ep_addr = int(request.args["ep_addr"], 0)
+    value = int(request.args["value"], 0)
+    mask = int(request.args["mask"], 0)
+    comm_dict = {
+        "communication_type": "debug_console",
+        "command": "set_wire_in",
+        "ep_addr": ep_addr,
+        "value": value,
+        "mask": mask,
+        "suppress_error": True,
+    }
+
+    response = queue_command_to_ok_comm(comm_dict)
+
+    return response
+
+
+@flask_app.route("/xem_scripts", methods=["GET"])
+def run_xem_script() -> Response:
+    """Run a script of XEM commands created from an existing flask log.
+
+    Can be invoked by curl http://localhost:4567/xem_scripts?script_type=start_up
+    """
+    script_type = request.args["script_type"]
+    comm_dict = {"communication_type": "xem_scripts", "script_type": script_type}
+
+    response = queue_command_to_ok_comm(comm_dict)
+
+    return response
+
+
+@flask_app.route("/insert_xem_command_into_queue/read_wire_out", methods=["GET"])
+def queue_read_wire_out() -> Response:
+    """Queue up a command to read from wire out on the XEM.
+
+    Takes an optional description message for commenting in the the log
+
+    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/read_wire_out?ep_addr=0x06&description=description_contents
+    """
+    ep_addr = int(request.args["ep_addr"], 0)
+    comm_dict = {
+        "communication_type": "debug_console",
+        "command": "read_wire_out",
+        "ep_addr": ep_addr,
+        "suppress_error": True,
+    }
+    description = request.args.get("description", None)
+    if description is not None:
+        comm_dict["description"] = description
 
     response = queue_command_to_ok_comm(comm_dict)
 
