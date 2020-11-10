@@ -46,6 +46,7 @@ from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SYSTEM_STATUS_UUIDS
 from .exceptions import LocalServerPortAlreadyInUseError
+from .ok_comm import check_mantarray_serial_number
 from .queue_container import MantarrayQueueContainer
 from .queue_utils import _drain_queue
 
@@ -214,6 +215,23 @@ def start_calibration() -> Response:
     return response
 
 
+@flask_app.route("/boot_up", methods=["GET"])
+def boot_up() -> Response:
+    """Initialize XEM then run start up script.
+
+    Can be invoked by: curl http://localhost:4567/boot_up
+    """
+
+    comm_dict = {
+        "communication_type": "to_instrument",
+        "command": "boot_up",
+    }
+
+    response = queue_command_to_main(comm_dict)
+
+    return response
+
+
 @flask_app.route("/stop_managed_acquisition", methods=["GET"])
 def stop_managed_acquisition() -> Response:
     """Stop "managed" data acquisition on the XEM.
@@ -241,6 +259,39 @@ def stop_managed_acquisition() -> Response:
 
 
 # Single "debug console" commands to send to XEM
+@flask_app.route(
+    "/insert_xem_command_into_queue/set_mantarray_serial_number", methods=["GET"]
+)
+def set_mantarray_serial_number() -> Response:
+    """Set the serial number of the Mantarray device.
+
+    This serial number pertains to the Mantarray instrument itself. This is different than the Opal Kelly serial number which pertains only to the XEM.
+
+    This route will overwrite an existing Mantarray Nickname if present
+
+    Can be invoked by curl http://localhost:4567/insert_xem_command_into_queue/set_mantarray_serial_number?serial_number=M02001900
+    """
+    serial_number = request.args["serial_number"]
+    error_message = check_mantarray_serial_number(serial_number)
+    if error_message:
+        response = Response(status=f"400 {error_message}")
+        return response
+
+    # board_idx = 0
+    # shared_values_dict = get_shared_values_between_server_and_monitor()
+    # shared_values_dict["mantarray_serial_number"][board_idx] = serial_number
+
+    comm_dict = {
+        "communication_type": "mantarray_naming",
+        "command": "set_mantarray_serial_number",
+        "mantarray_serial_number": serial_number,
+    }
+
+    response = queue_command_to_main(comm_dict)
+
+    return response
+
+
 @flask_app.route("/insert_xem_command_into_queue/initialize_board", methods=["GET"])
 def queue_initialize_board() -> Response:
     """Queue up a command to initialize the XEM.

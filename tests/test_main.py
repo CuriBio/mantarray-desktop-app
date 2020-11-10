@@ -529,67 +529,6 @@ def test_start_recording__returns_no_error_message_with_multiple_hardware_test_r
     assert response.status_code == 200
 
 
-@pytest.mark.parametrize(
-    "test_serial_number,expected_error_message,test_description",
-    [
-        (
-            "M120019000",
-            "Serial Number exceeds max length",
-            "returns error message when too long",
-        ),
-        (
-            "M1200190",
-            "Serial Number does not reach min length",
-            "returns error message when too short",
-        ),
-        (
-            "M02-36700",
-            "Serial Number contains invalid character: '-'",
-            "returns error message with invalid character",
-        ),
-        (
-            "M12001900",
-            "Serial Number contains invalid header: 'M1'",
-            "returns error message with invalid header",
-        ),
-        (
-            "M01901900",
-            "Serial Number contains invalid year: '19'",
-            "returns error message with year 19",
-        ),
-        (
-            "M02101900",
-            "Serial Number contains invalid year: '21'",
-            "returns error message with year 21",
-        ),
-        (
-            "M02000000",
-            "Serial Number contains invalid Julian date: '000'",
-            "returns error message with invalid Julian date 000",
-        ),
-        (
-            "M02036700",
-            "Serial Number contains invalid Julian date: '367'",
-            "returns error message with invalid Julian date 367",
-        ),
-    ],
-)
-def test_set_mantarray_serial_number__returns_error_code_and_message_if_serial_number_is_invalid(
-    test_client,
-    test_serial_number,
-    expected_error_message,
-    test_description,
-    patched_shared_values_dict,
-):
-    patched_shared_values_dict["mantarray_serial_number"] = dict()
-
-    response = test_client.get(
-        f"/insert_xem_command_into_queue/set_mantarray_serial_number?serial_number={test_serial_number}"
-    )
-    assert response.status_code == 400
-    assert response.status.endswith(expected_error_message) is True
-
-
 def test_start_managed_acquisition__returns_error_code_and_message_if_mantarray_serial_number_is_empty(
     test_client, patched_shared_values_dict
 ):

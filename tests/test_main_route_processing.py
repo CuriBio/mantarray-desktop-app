@@ -10,9 +10,7 @@ from mantarray_desktop_app import get_api_endpoint
 from mantarray_desktop_app import get_mantarray_process_manager
 from mantarray_desktop_app import get_mantarray_processes_monitor
 from mantarray_desktop_app import get_server_port_number
-from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import PLATE_BARCODE_UUID
-from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import system_state_eventually_equals
@@ -276,114 +274,6 @@ def test_send_xem_scripts_command__gets_processed_in_fully_running_app(
     expected_gain_value = 16
     assert patched_shared_values_dict["adc_gain"] == expected_gain_value
     assert is_queue_eventually_empty(monitor_error_queue) is True
-
-
-@pytest.mark.slow
-def test_send_single_boot_up_command__gets_processed_and_sets_system_status_to_instrument_initializing(
-    patched_shared_values_dict,
-    patched_xem_scripts_folder,
-    patched_firmware_folder,
-    test_process_manager,
-    test_client,
-):
-    expected_script_type = "start_up"
-    expected_bit_file_name = patched_firmware_folder
-
-    test_process_manager.start_processes()
-    response = test_client.get("/boot_up")
-    assert response.status_code == 200
-    assert patched_shared_values_dict["system_status"] == INSTRUMENT_INITIALIZING_STATE
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-    assert is_queue_eventually_not_empty(comm_queue) is True
-
-    test_process_manager.soft_stop_and_join_processes()
-    assert is_queue_eventually_empty(comm_queue) is True
-
-    comm_from_ok_queue = test_process_manager.get_communication_queue_from_ok_comm_to_main(
-        0
-    )
-    comm_from_ok_queue.get_nowait()  # pull out the initial boot-up message
-    comm_from_ok_queue.get_nowait()  # pull ok_comm connect to board message
-
-    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
-    initialize_board_communication = comm_from_ok_queue.get_nowait()
-    assert initialize_board_communication["command"] == "initialize_board"
-    assert expected_bit_file_name in initialize_board_communication["bit_file_name"]
-    assert initialize_board_communication["allow_board_reinitialization"] is False
-
-    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
-
-    script_communication = comm_from_ok_queue.get_nowait()
-    assert script_communication["communication_type"] == "xem_scripts"
-    assert script_communication["script_type"] == expected_script_type
-    assert f"Running {expected_script_type} script" in script_communication["response"]
-
-
-@pytest.mark.slow
-def test_send_single_boot_up_command__populates_ok_comm_error_queue_if_bit_file_cannot_be_found(
-    patched_shared_values_dict, test_process_manager, test_client, mocker
-):
-    mocker.patch(
-        "builtins.print", autospec=True
-    )  # don't print all the error messages to console
-    mocker.patch.object(
-        process_manager, "get_latest_firmware", autospec=True, return_value="fake.bit"
-    )
-
-    test_process_manager.start_processes()
-    response = test_client.get("/boot_up")
-    assert response.status_code == 200
-    assert patched_shared_values_dict["system_status"] == INSTRUMENT_INITIALIZING_STATE
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-    assert is_queue_eventually_not_empty(comm_queue) is True
-
-    test_process_manager.soft_stop_and_join_processes()
-    assert is_queue_eventually_not_empty(comm_queue) is True
-
-    ok_comm_error_queue = test_process_manager.get_ok_communication_error_queue()
-    assert is_queue_eventually_not_empty(ok_comm_error_queue) is True
-
-    comm_from_ok_queue = test_process_manager.get_communication_queue_from_ok_comm_to_main(
-        0
-    )
-    comm_from_ok_queue.get_nowait()  # pull out the initial boot-up message
-    comm_from_ok_queue.get_nowait()  # pull ok_comm connect to board message
-    comm_from_ok_queue.get_nowait()  # pull ok_comm teardown message
-    assert is_queue_eventually_empty(comm_from_ok_queue) is True
-
-
-@pytest.mark.slow
-def test_send_single_set_mantarray_serial_number_command__gets_processed_and_stores_serial_number_in_shared_values_dict(
-    test_process_manager, test_client, patched_shared_values_dict
-):
-    patched_shared_values_dict["mantarray_serial_number"] = dict()
-    expected_serial_number = "M02001901"
-
-    test_process_manager.start_processes()
-    response = test_client.get(
-        f"/insert_xem_command_into_queue/set_mantarray_serial_number?serial_number={expected_serial_number}"
-    )
-    assert response.status_code == 200
-    assert (
-        patched_shared_values_dict["mantarray_serial_number"][0]
-        == expected_serial_number
-    )
-
-    test_process_manager.soft_stop_and_join_processes()
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-    assert is_queue_eventually_empty(comm_queue) is True
-
-    comm_from_ok_queue = test_process_manager.get_communication_queue_from_ok_comm_to_main(
-        0
-    )
-    comm_from_ok_queue.get_nowait()  # pull out the initial boot-up message
-    comm_from_ok_queue.get_nowait()  # pull ok_comm connect to board message
-
-    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
-    communication = comm_from_ok_queue.get_nowait()
-    assert communication["communication_type"] == "mantarray_naming"
-    assert communication["command"] == "set_mantarray_serial_number"
-    assert communication["mantarray_serial_number"] == expected_serial_number
 
 
 @pytest.mark.slow

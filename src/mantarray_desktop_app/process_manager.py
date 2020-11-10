@@ -13,6 +13,7 @@ from typing import Tuple
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import resource_path
 
+from .constants import INSTRUMENT_INITIALIZING_STATE
 from .data_analyzer import DataAnalyzerProcess
 from .file_writer import FileWriterProcess
 from .firmware_manager import get_latest_firmware
@@ -67,8 +68,12 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
     def get_logging_level(self) -> int:
         return self._logging_level
 
-    def get_ok_comm_process(self) -> OkCommunicationProcess:
+    def get_instrument_process(self) -> OkCommunicationProcess:
         return self._ok_communication_process
+
+    def get_ok_comm_process(self) -> OkCommunicationProcess:
+        # eventually should deprecate and replace with get_instrument_process
+        return self.get_instrument_process()
 
     def get_file_writer_process(self) -> FileWriterProcess:
         return self._file_writer_process
@@ -143,7 +148,9 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         """
         bit_file_name = get_latest_firmware()
         to_ok_comm_queue = self.queue_container().get_communication_to_ok_comm_queue(0)
-
+        self.get_values_to_share_to_server()[
+            "system_status"
+        ] = INSTRUMENT_INITIALIZING_STATE
         boot_up_dict = {
             "communication_type": "boot_up_instrument",
             "command": "initialize_board",

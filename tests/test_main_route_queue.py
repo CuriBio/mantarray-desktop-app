@@ -11,7 +11,6 @@ from mantarray_desktop_app import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_desktop_app import MANTARRAY_NICKNAME_UUID
 from mantarray_desktop_app import MANTARRAY_SERIAL_NUMBER_UUID
 from mantarray_desktop_app import PLATE_BARCODE_UUID
-from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import REFERENCE_VOLTAGE_UUID
 from mantarray_desktop_app import SLEEP_FIRMWARE_VERSION_UUID
@@ -282,74 +281,6 @@ def test_send_single_start_managed_acquisition_command__populates_queues(
     assert comm_to_da["command"] == "start_managed_acquisition"
     response_json = response.get_json()
     assert response_json["command"] == "start_managed_acquisition"
-
-
-def test_send_single_boot_up_command__populates_queue_with_both_commands(
-    test_process_manager, test_client, mocker
-):
-    expected_script_type = "start_up"
-    expected_bit_file_name = "main.bit"
-    mocker.patch.object(
-        process_manager,
-        "get_latest_firmware",
-        autospec=True,
-        return_value=expected_bit_file_name,
-    )
-
-    response = test_client.get("/boot_up")
-    assert response.status_code == 200
-
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-
-    assert is_queue_eventually_not_empty(comm_queue) is True
-    communication = comm_queue.get_nowait()
-    assert communication["communication_type"] == "boot_up_instrument"
-    assert communication["command"] == "initialize_board"
-    assert communication["bit_file_name"] == expected_bit_file_name
-    assert communication["suppress_error"] is False
-    assert communication["allow_board_reinitialization"] is False
-
-    assert is_queue_eventually_not_empty(comm_queue) is True
-    communication = comm_queue.get_nowait()
-    assert communication["communication_type"] == "xem_scripts"
-    assert communication["script_type"] == expected_script_type
-
-    expected_boot_up_dict = {
-        "communication_type": "boot_up_instrument",
-        "command": "initialize_board",
-        "bit_file_name": expected_bit_file_name,
-        "suppress_error": False,
-        "allow_board_reinitialization": False,
-    }
-    expected_start_up_dict = {
-        "communication_type": "xem_scripts",
-        "script_type": expected_script_type,
-    }
-    response_json = response.get_json()
-    assert response_json["boot_up_instrument"] == expected_boot_up_dict
-    assert response_json["start_up"] == expected_start_up_dict
-
-
-def test_send_single_set_mantarray_serial_number_command__populates_queue(
-    test_process_manager, test_client, patched_shared_values_dict
-):
-    patched_shared_values_dict["mantarray_serial_number"] = dict()
-    expected_serial_number = "M02001901"
-
-    response = test_client.get(
-        f"/insert_xem_command_into_queue/set_mantarray_serial_number?serial_number={expected_serial_number}"
-    )
-    assert response.status_code == 200
-
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-    assert is_queue_eventually_not_empty(comm_queue) is True
-    communication = comm_queue.get_nowait()
-    assert communication["communication_type"] == "mantarray_naming"
-    assert communication["command"] == "set_mantarray_serial_number"
-    assert communication["mantarray_serial_number"] == expected_serial_number
-    response_json = response.get_json()
-    assert response_json["command"] == "set_mantarray_serial_number"
-    assert response_json["mantarray_serial_number"] == expected_serial_number
 
 
 def test_single_update_settings_command_with_recording_dir__populates_file_writer_queue(

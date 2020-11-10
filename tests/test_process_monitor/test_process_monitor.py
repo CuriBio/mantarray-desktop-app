@@ -672,6 +672,7 @@ def test_MantarrayProcessesMonitor__stores_firmware_versions_during_instrument_b
     monitor_thread, shared_values_dict, _, _ = test_monitor
 
     test_process_manager.create_processes()
+
     okc_process = test_process_manager.get_ok_comm_process()
     to_ok_comm_queue = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
         0

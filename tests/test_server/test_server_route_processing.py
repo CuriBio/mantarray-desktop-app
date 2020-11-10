@@ -3,18 +3,23 @@ from multiprocessing import Queue
 import struct
 
 from mantarray_desktop_app import CALIBRATING_STATE
+from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
+from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import produce_data
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 from xem_wrapper import DATA_FRAME_SIZE_WORDS
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 from xem_wrapper import FrontPanelSimulator
+from xem_wrapper import OpalKellyFileNotFoundError
 from xem_wrapper import PIPE_OUT_FIFO
 
 from ..fixtures import fixture_generic_queue_container
+from ..fixtures import fixture_patch_print
 from ..fixtures import fixture_patched_firmware_folder
 from ..fixtures import fixture_patched_short_calibration_script
 from ..fixtures import fixture_patched_test_xem_scripts_folder
+from ..fixtures import fixture_patched_xem_scripts_folder
 from ..fixtures import fixture_test_process_manager
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_process_monitor import fixture_test_monitor
@@ -34,6 +39,8 @@ __fixtures__ = [
     fixture_patched_firmware_folder,
     fixture_patched_short_calibration_script,
     fixture_patched_test_xem_scripts_folder,
+    fixture_patched_xem_scripts_folder,
+    fixture_patch_print,
 ]
 
 
@@ -902,3 +909,145 @@ def test_send_single_stop_managed_acquisition_command__gets_processed(
     assert is_queue_eventually_not_empty(comm_from_da_queue) is True
     communication = comm_from_da_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "stop_managed_acquisition"
+
+
+@pytest.mark.slow
+def test_send_single_set_mantarray_serial_number_command__gets_processed_and_stores_serial_number_in_shared_values_dict(
+    test_monitor, test_process_manager, test_client
+):
+    monitor_thread, _, _, _ = test_monitor
+    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+    expected_serial_number = "M02001901"
+
+    test_process_manager.start_processes()
+    response = test_client.get(
+        f"/insert_xem_command_into_queue/set_mantarray_serial_number?serial_number={expected_serial_number}"
+    )
+    assert response.status_code == 200
+    invoke_process_run_and_check_errors(monitor_thread)
+    test_process_manager.soft_stop_and_join_processes()
+
+    assert shared_values_dict["mantarray_serial_number"][0] == expected_serial_number
+
+    comm_queue = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
+        0
+    )
+    assert is_queue_eventually_empty(comm_queue) is True
+
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+        0
+    )
+    comm_from_ok_queue.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # pull out the initial boot-up message
+    comm_from_ok_queue.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # pull ok_comm connect to board message
+
+    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
+    communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["communication_type"] == "mantarray_naming"
+    assert communication["command"] == "set_mantarray_serial_number"
+    assert communication["mantarray_serial_number"] == expected_serial_number
+
+
+@pytest.mark.slow
+def test_send_single_boot_up_command__gets_processed_and_sets_system_status_to_instrument_initializing(
+    patched_xem_scripts_folder,
+    patched_firmware_folder,
+    test_monitor,
+    test_process_manager,
+    test_client,
+):
+    monitor_thread, _, _, _ = test_monitor
+    expected_script_type = "start_up"
+    expected_bit_file_name = patched_firmware_folder
+
+    test_process_manager.start_processes()
+    response = test_client.get("/boot_up")
+    assert response.status_code == 200
+    invoke_process_run_and_check_errors(monitor_thread)
+
+    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+    assert shared_values_dict["system_status"] == INSTRUMENT_INITIALIZING_STATE
+    comm_queue = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
+        0
+    )
+    assert is_queue_eventually_not_empty(comm_queue) is True
+
+    test_process_manager.soft_stop_and_join_processes()
+    assert is_queue_eventually_empty(comm_queue) is True
+
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+        0
+    )
+    comm_from_ok_queue.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # pull out the initial boot-up message
+    comm_from_ok_queue.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # pull ok_comm connect to board message
+
+    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
+    initialize_board_communication = comm_from_ok_queue.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )
+    assert initialize_board_communication["command"] == "initialize_board"
+    assert expected_bit_file_name in initialize_board_communication["bit_file_name"]
+    assert initialize_board_communication["allow_board_reinitialization"] is False
+
+    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
+
+    script_communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert script_communication["communication_type"] == "xem_scripts"
+    assert script_communication["script_type"] == expected_script_type
+    assert f"Running {expected_script_type} script" in script_communication["response"]
+
+
+@pytest.mark.slow
+def test_send_single_boot_up_command__populates_ok_comm_error_queue_if_bit_file_cannot_be_found(
+    patch_print, test_monitor, test_process_manager, test_client, mocker
+):
+    monitor_thread, _, _, _ = test_monitor
+
+    mocker.patch.object(
+        process_manager, "get_latest_firmware", autospec=True, return_value="fake.bit"
+    )
+
+    test_process_manager.start_processes()
+    response = test_client.get("/boot_up")
+    assert response.status_code == 200
+    invoke_process_run_and_check_errors(monitor_thread)
+    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+    assert shared_values_dict["system_status"] == INSTRUMENT_INITIALIZING_STATE
+    comm_queue = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
+        0
+    )
+    assert is_queue_eventually_not_empty(comm_queue) is True
+
+    test_process_manager.soft_stop_and_join_processes()
+    assert is_queue_eventually_not_empty(comm_queue) is True
+
+    ok_comm_error_queue = (
+        test_process_manager.queue_container().get_ok_communication_error_queue()
+    )
+    assert is_queue_eventually_not_empty(ok_comm_error_queue) is True
+
+    error_info = ok_comm_error_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    actual_exception, _ = error_info
+    assert isinstance(actual_exception, OpalKellyFileNotFoundError) is True
+    assert "fake.bit" in str(actual_exception)
+
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+        0
+    )
+    comm_from_ok_queue.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # pull out the initial boot-up message
+    comm_from_ok_queue.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # pull ok_comm connect to board message
+    comm_from_ok_queue.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # pull ok_comm teardown message
+    assert is_queue_eventually_empty(comm_from_ok_queue) is True

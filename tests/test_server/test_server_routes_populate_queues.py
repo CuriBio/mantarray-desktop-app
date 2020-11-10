@@ -593,3 +593,47 @@ def test_send_single_stop_managed_acquisition_command__populates_queues(
     assert comm_to_da["command"] == "stop_managed_acquisition"
     response_json = response.get_json()
     assert response_json["command"] == "stop_managed_acquisition"
+
+
+def test_send_single_set_mantarray_serial_number_command__populates_queue(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
+    test_server, _, _ = test_server_info
+
+    expected_serial_number = "M02001901"
+
+    response = test_client.get(
+        f"/insert_xem_command_into_queue/set_mantarray_serial_number?serial_number={expected_serial_number}"
+    )
+    assert response.status_code == 200
+
+    server_to_main_queue = test_server.get_queue_to_main()
+    assert is_queue_eventually_not_empty(server_to_main_queue) is True
+    communication = server_to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["communication_type"] == "mantarray_naming"
+    assert communication["command"] == "set_mantarray_serial_number"
+    assert communication["mantarray_serial_number"] == expected_serial_number
+    response_json = response.get_json()
+    assert response_json["command"] == "set_mantarray_serial_number"
+    assert response_json["mantarray_serial_number"] == expected_serial_number
+
+
+def test_send_single_boot_up_command__populates_queue(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
+    test_server, _, _ = test_server_info
+
+    response = test_client.get("/boot_up")
+    assert response.status_code == 200
+
+    to_main_queue = test_server.get_queue_to_main()
+
+    assert is_queue_eventually_not_empty(to_main_queue) is True
+    communication = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["communication_type"] == "to_instrument"
+    assert communication["command"] == "boot_up"
+
+    response_json = response.get_json()
+    assert response_json == communication

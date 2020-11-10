@@ -5,6 +5,7 @@ import os
 from mantarray_desktop_app import DataAnalyzerProcess
 from mantarray_desktop_app import FileWriterProcess
 from mantarray_desktop_app import get_mantarray_process_manager
+from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import MantarrayProcessesManager
 from mantarray_desktop_app import OkCommunicationProcess
 from mantarray_desktop_app import ServerThread
@@ -12,7 +13,12 @@ import pytest
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import resource_path
 
+from .fixtures import fixture_patched_firmware_folder
+from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from .helpers import is_queue_eventually_of_size
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
+
+__fixtures__ = [fixture_patched_firmware_folder]
 
 
 @pytest.fixture(scope="function", name="generic_manager")
@@ -316,6 +322,40 @@ def test_get_mantarray_process_manager__returns_process_monitor_with_correct_rec
         actual_manager._file_directory  # pylint: disable=protected-access
         == expected_recordings_path
     )
+
+
+def test_MantarrayProcessesManager__boot_up_instrument__populates_ok_comm_queue__and_sets_system_status(
+    generic_manager, patched_firmware_folder
+):
+    generic_manager.create_processes()
+    generic_manager.boot_up_instrument()
+    main_to_ok_comm_queue = generic_manager.queue_container().get_communication_to_ok_comm_queue(
+        0
+    )
+    assert is_queue_eventually_of_size(main_to_ok_comm_queue, 2) is True
+    assert (
+        generic_manager.get_values_to_share_to_server()["system_status"]
+        == INSTRUMENT_INITIALIZING_STATE
+    )
+
+    actual_communication_1 = main_to_ok_comm_queue.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )
+    assert actual_communication_1 == {
+        "communication_type": "boot_up_instrument",
+        "command": "initialize_board",
+        "bit_file_name": patched_firmware_folder,
+        "suppress_error": False,
+        "allow_board_reinitialization": False,
+    }
+
+    actual_communication_2 = main_to_ok_comm_queue.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )
+    assert actual_communication_2 == {
+        "communication_type": "xem_scripts",
+        "script_type": "start_up",
+    }
 
 
 # def test_get_mantarray_process_manager__spawns_processes_if_not_already_started__but_not_again(

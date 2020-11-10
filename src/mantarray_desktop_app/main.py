@@ -58,7 +58,6 @@ from .constants import CURI_BIO_USER_ACCOUNT_ID
 from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import CUSTOMER_ACCOUNT_ID_UUID
 from .constants import DEFAULT_SERVER_PORT_NUMBER
-from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
 from .constants import MAIN_FIRMWARE_VERSION_UUID
 from .constants import MANTARRAY_NICKNAME_UUID
@@ -84,7 +83,6 @@ from .exceptions import ImproperlyFormattedUserAccountUUIDError
 from .exceptions import LocalServerPortAlreadyInUseError
 from .exceptions import MultiprocessingNotSetToSpawnError
 from .exceptions import RecordingFolderDoesNotExistError
-from .ok_comm import check_mantarray_serial_number
 from .process_manager import get_mantarray_process_manager
 from .process_monitor import MantarrayProcessesMonitor
 from .process_monitor import set_mantarray_processes_monitor
@@ -224,22 +222,6 @@ def _get_timestamp_of_acquisition_sample_index_zero() -> datetime.datetime:  # p
         0
     ]  # board index 0 hardcoded for now
     return timestamp_of_sample_idx_zero
-
-
-@flask_app.route("/boot_up", methods=["GET"])
-def boot_up() -> Response:
-    """Initialize XEM then run start up script.
-
-    Can be invoked by: curl http://localhost:4567/boot_up
-    """
-    shared_values_dict = get_shared_values_between_server_and_monitor()
-    shared_values_dict["system_status"] = INSTRUMENT_INITIALIZING_STATE
-
-    manager = get_mantarray_process_manager()
-    response_dict = manager.boot_up_instrument()
-    response = Response(json.dumps(response_dict), mimetype="application/json")
-
-    return response
 
 
 @flask_app.route("/start_recording", methods=["GET"])
@@ -436,39 +418,6 @@ def start_managed_acquisition() -> Response:
     to_da_queue.put(START_MANAGED_ACQUISITION_COMMUNICATION)
 
     response = queue_command_to_ok_comm(START_MANAGED_ACQUISITION_COMMUNICATION)
-
-    return response
-
-
-@flask_app.route(
-    "/insert_xem_command_into_queue/set_mantarray_serial_number", methods=["GET"]
-)
-def set_mantarray_serial_number() -> Response:
-    """Set the serial number of the Mantarray device.
-
-    This serial number pertains to the Mantarray instrument itself. This is different than the Opal Kelly serial number which pertains only to the XEM.
-
-    This route will overwrite an existing Mantarray Nickname if present
-
-    Can be invoked by curl http://localhost:4567/insert_xem_command_into_queue/set_mantarray_serial_number?serial_number=M02001900
-    """
-    serial_number = request.args["serial_number"]
-    error_message = check_mantarray_serial_number(serial_number)
-    if error_message:
-        response = Response(status=f"400 {error_message}")
-        return response
-
-    board_idx = 0
-    shared_values_dict = get_shared_values_between_server_and_monitor()
-    shared_values_dict["mantarray_serial_number"][board_idx] = serial_number
-
-    comm_dict = {
-        "communication_type": "mantarray_naming",
-        "command": "set_mantarray_serial_number",
-        "mantarray_serial_number": serial_number,
-    }
-
-    response = queue_command_to_ok_comm(comm_dict)
 
     return response
 

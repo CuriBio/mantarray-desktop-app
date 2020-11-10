@@ -91,17 +91,32 @@ class MantarrayProcessesMonitor(InfiniteThread):
         communication_type = communication["communication_type"]
         shared_values_dict = self._values_to_share_to_server
         if communication_type == "mantarray_naming":
-            if "mantarray_nickname" not in shared_values_dict:
-                shared_values_dict["mantarray_nickname"]: Dict[int, str] = dict()
-            shared_values_dict["mantarray_nickname"][0] = communication[
-                "mantarray_nickname"
-            ]
+            command = communication["command"]
+            if command == "set_mantarray_nickname":
+                if "mantarray_nickname" not in shared_values_dict:
+                    shared_values_dict["mantarray_nickname"]: Dict[int, str] = dict()
+                shared_values_dict["mantarray_nickname"][0] = communication[
+                    "mantarray_nickname"
+                ]
+            elif command == "set_mantarray_serial_number":
+                if "mantarray_serial_number" not in shared_values_dict:
+                    shared_values_dict["mantarray_serial_number"]: Dict[
+                        int, str
+                    ] = dict()
+                shared_values_dict["mantarray_serial_number"][0] = communication[
+                    "mantarray_serial_number"
+                ]
+
             self._put_communication_into_ok_comm_queue(communication)
         elif communication_type == "xem_scripts":
             script_type = communication["script_type"]
             if script_type == "start_calibration":
                 shared_values_dict["system_status"] = CALIBRATING_STATE
             self._put_communication_into_ok_comm_queue(communication)
+        elif communication_type == "to_instrument":
+            command = communication["command"]
+            if command == "boot_up":
+                self._process_manager.boot_up_instrument()
 
     def _put_communication_into_ok_comm_queue(self, communication) -> None:
         main_to_ok_comm_queue = self._process_manager.queue_container().get_communication_to_ok_comm_queue(
