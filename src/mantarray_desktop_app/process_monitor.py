@@ -117,6 +117,17 @@ class MantarrayProcessesMonitor(InfiniteThread):
             command = communication["command"]
             if command == "boot_up":
                 self._process_manager.boot_up_instrument()
+            elif command == "start_managed_acquisition":
+                shared_values_dict["system_status"] = BUFFERING_STATE
+                main_to_ok_comm_queue = self._process_manager.queue_container().get_communication_to_ok_comm_queue(
+                    0
+                )
+                main_to_da_queue = (
+                    self._process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
+                )
+
+                main_to_ok_comm_queue.put(communication)
+                main_to_da_queue.put(communication)
 
     def _put_communication_into_ok_comm_queue(self, communication) -> None:
         main_to_ok_comm_queue = self._process_manager.queue_container().get_communication_to_ok_comm_queue(

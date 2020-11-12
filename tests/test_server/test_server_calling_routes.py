@@ -263,3 +263,18 @@ def test_set_mantarray_serial_number__returns_error_code_and_message_if_serial_n
     )
     assert response.status_code == 400
     assert response.status.endswith(expected_error_message) is True
+
+
+def test_start_managed_acquisition__returns_error_code_and_message_if_mantarray_serial_number_is_empty(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    board_idx = 0
+    shared_values_dict["mantarray_serial_number"] = {board_idx: ""}
+
+    response = test_client.get("/start_managed_acquisition")
+    assert response.status_code == 406
+    assert (
+        response.status.endswith("Mantarray has not been assigned a Serial Number")
+        is True
+    )

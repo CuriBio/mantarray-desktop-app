@@ -255,34 +255,6 @@ def test_start_recording_command__populates_queue__with_correct_adc_offset_value
     )
 
 
-def test_send_single_start_managed_acquisition_command__populates_queues(
-    test_process_manager, test_client, patched_shared_values_dict
-):
-    board_idx = 0
-    patched_shared_values_dict["mantarray_serial_number"] = {board_idx: "M02001801"}
-
-    response = test_client.get("/start_managed_acquisition")
-    assert response.status_code == 200
-
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-    assert is_queue_eventually_not_empty(comm_queue) is True
-    communication = comm_queue.get_nowait()
-    assert communication["communication_type"] == "acquisition_manager"
-    assert communication["command"] == "start_managed_acquisition"
-    response_json = response.get_json()
-    assert response_json["command"] == "start_managed_acquisition"
-
-    to_da_queue = (
-        test_process_manager.get_communication_queue_from_main_to_data_analyzer()
-    )
-    assert is_queue_eventually_not_empty(to_da_queue) is True
-    comm_to_da = to_da_queue.get_nowait()
-    assert comm_to_da["communication_type"] == "acquisition_manager"
-    assert comm_to_da["command"] == "start_managed_acquisition"
-    response_json = response.get_json()
-    assert response_json["command"] == "start_managed_acquisition"
-
-
 def test_single_update_settings_command_with_recording_dir__populates_file_writer_queue(
     test_process_manager, test_client, patched_shared_values_dict
 ):

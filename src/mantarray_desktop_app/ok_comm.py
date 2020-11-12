@@ -643,20 +643,22 @@ class OkCommunicationProcess(InfiniteProcess):
         except queue.Empty:
             return
 
-        if this_communication["communication_type"] == "debug_console":
+        communication_type = this_communication["communication_type"]
+
+        if communication_type == "debug_console":
             self._handle_debug_console_comm(this_communication)
-        elif this_communication["communication_type"] == "boot_up_instrument":
+        elif communication_type == "boot_up_instrument":
             self._boot_up_instrument(this_communication)
-        elif this_communication["communication_type"] == "acquisition_manager":
+        elif communication_type == "acquisition_manager":
             self._handle_acquisition_manager_comm(this_communication)
-        elif this_communication["communication_type"] == "xem_scripts":
+        elif communication_type == "xem_scripts":
             self._handle_xem_scripts_comm(this_communication)
-        elif this_communication["communication_type"] == "mantarray_naming":
+        elif communication_type == "mantarray_naming":
             self._handle_mantarray_naming_comm(this_communication)
+        elif communication_type == "to_instrument":
+            self._handle_acquisition_manager_comm(this_communication)
         else:
-            raise UnrecognizedCommTypeFromMainToOKCommError(
-                this_communication["communication_type"]
-            )
+            raise UnrecognizedCommTypeFromMainToOKCommError(communication_type)
         if not input_queue.empty():
             self._process_can_be_soft_stopped = False
 

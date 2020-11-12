@@ -19,6 +19,7 @@ from mantarray_desktop_app import OkCommunicationProcess
 from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
+from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
 from mantarray_desktop_app import UnrecognizedAcquisitionManagerCommandError
 from mantarray_desktop_app import UnrecognizedDataFrameFormatNameError
@@ -58,10 +59,9 @@ def test_OkCommunicationProcess_run__processes_start_managed_acquisition_command
 
     input_queue = board_queues[0][0]
     ok_comm_to_main = board_queues[0][1]
-    expected_returned_communication: Dict[str, Any] = {
-        "communication_type": "acquisition_manager",
-        "command": "start_managed_acquisition",
-    }
+    expected_returned_communication: Dict[
+        str, Any
+    ] = START_MANAGED_ACQUISITION_COMMUNICATION
     input_queue.put(copy.deepcopy(expected_returned_communication))
     assert (
         is_queue_eventually_of_size(
@@ -293,13 +293,10 @@ def test_OkCommunicationProcess_managed_acquisition_reads_at_least_one_prepopula
 ):
     # mocker.patch('builtins.print') # don't print all the debug messages to console
     ok_process, board_queues, _ = four_board_comm_process
-    start_communication = {
-        "communication_type": "acquisition_manager",
-        "command": "start_managed_acquisition",
-    }
+
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
-    board_queues[0][0].put(start_communication)
+    board_queues[0][0].put(START_MANAGED_ACQUISITION_COMMUNICATION)
     fifo = Queue()
     fifo.put(produce_data(2, 0))
     assert (
@@ -341,13 +338,10 @@ def test_OkCommunicationProcess_managed_acquisition_handles_ignoring_first_data_
     four_board_comm_process,
 ):
     ok_process, board_queues, _ = four_board_comm_process
-    start_communication = {
-        "communication_type": "acquisition_manager",
-        "command": "start_managed_acquisition",
-    }
+
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
-    board_queues[0][0].put(start_communication)
+    board_queues[0][0].put(START_MANAGED_ACQUISITION_COMMUNICATION)
     fifo = Queue()
     fifo.put(produce_data(2, 0))
     assert (
@@ -444,13 +438,10 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
         "builtins.print", autospec=True
     )  # don't print all the error messages to console
     ok_process, board_queues, _ = four_board_comm_process
-    start_communication = {
-        "communication_type": "acquisition_manager",
-        "command": "start_managed_acquisition",
-    }
+
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
-    board_queues[0][0].put(start_communication)
+    board_queues[0][0].put(START_MANAGED_ACQUISITION_COMMUNICATION)
     assert (
         is_queue_eventually_of_size(
             board_queues[0][0], 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
@@ -552,14 +543,11 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_when_non_parsin
         "builtins.print", autospec=True
     )  # don't print all the error messages to console
     ok_process, board_queues, _ = four_board_comm_process
-    start_communication = {
-        "communication_type": "acquisition_manager",
-        "command": "start_managed_acquisition",
-    }
+
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
     ok_process._data_frame_format = "fake_format"  # pylint:disable=protected-access
 
-    board_queues[0][0].put(start_communication)
+    board_queues[0][0].put(START_MANAGED_ACQUISITION_COMMUNICATION)
     fifo = Queue()
     fifo.put(produce_data(1, 0))
     assert (
@@ -619,13 +607,10 @@ def test_OkCommunicationProcess_raises_and_logs_error_if_first_managed_read_does
     )  # don't print all the error messages to console
     test_bytearray = bytearray(0)
     ok_process, board_queues, _ = four_board_comm_process
-    start_communication = {
-        "communication_type": "acquisition_manager",
-        "command": "start_managed_acquisition",
-    }
+
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
-    board_queues[0][0].put(start_communication)
+    board_queues[0][0].put(START_MANAGED_ACQUISITION_COMMUNICATION)
     fifo = Queue()
     fifo.put(test_bytearray)
     assert (
@@ -701,13 +686,10 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
     test_read = bytearray([1] * DATA_FRAME_SIZE_WORDS * DATA_FRAMES_PER_ROUND_ROBIN * 4)
     test_read.extend(produce_data(1, 12345))
     ok_process, board_queues, _ = four_board_comm_process
-    start_communication = {
-        "communication_type": "acquisition_manager",
-        "command": "start_managed_acquisition",
-    }
+
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
-    board_queues[0][0].put(start_communication)
+    board_queues[0][0].put(START_MANAGED_ACQUISITION_COMMUNICATION)
     fifo = Queue()
     fifo.put(test_read)
     assert (
@@ -794,14 +776,11 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_when_non_parsin
         "builtins.print", autospec=True
     )  # don't print all the error messages to console
     ok_process, board_queues, _ = four_board_comm_process
-    start_communication = {
-        "communication_type": "acquisition_manager",
-        "command": "start_managed_acquisition",
-    }
+
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
     ok_process._data_frame_format = "fake_format"  # pylint:disable=protected-access
 
-    board_queues[0][0].put(start_communication)
+    board_queues[0][0].put(START_MANAGED_ACQUISITION_COMMUNICATION)
     assert (
         is_queue_eventually_of_size(
             board_queues[0][0], 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
@@ -938,12 +917,7 @@ def test_OkCommunicationProcess_managed_acquisition_logs_performance_metrics_aft
     simulator = FrontPanelSimulator(queues)
     simulator.initialize_board()
     ok_process.set_board_connection(0, simulator)
-    board_queues[0][0].put(
-        {
-            "communication_type": "acquisition_manager",
-            "command": "start_managed_acquisition",
-        }
-    )
+    board_queues[0][0].put(START_MANAGED_ACQUISITION_COMMUNICATION)
     assert (
         is_queue_eventually_of_size(
             board_queues[0][0], 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
@@ -1063,12 +1037,7 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_percent_use_met
     simulator = FrontPanelSimulator(queues)
     simulator.initialize_board()
     ok_process.set_board_connection(0, simulator)
-    board_queues[0][0].put(
-        {
-            "communication_type": "acquisition_manager",
-            "command": "start_managed_acquisition",
-        }
-    )
+    board_queues[0][0].put(START_MANAGED_ACQUISITION_COMMUNICATION)
     assert (
         is_queue_eventually_of_size(
             board_queues[0][0], 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS

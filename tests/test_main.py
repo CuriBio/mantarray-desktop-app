@@ -529,20 +529,6 @@ def test_start_recording__returns_no_error_message_with_multiple_hardware_test_r
     assert response.status_code == 200
 
 
-def test_start_managed_acquisition__returns_error_code_and_message_if_mantarray_serial_number_is_empty(
-    test_client, patched_shared_values_dict
-):
-    board_idx = 0
-    patched_shared_values_dict["mantarray_serial_number"] = {board_idx: ""}
-
-    response = test_client.get("/start_managed_acquisition")
-    assert response.status_code == 406
-    assert (
-        response.status.endswith("Mantarray has not been assigned a Serial Number")
-        is True
-    )
-
-
 def test_main__logs_command_line_arguments(mocker):
     expected_command_line_args = ["--debug-test-post-build", "--log-level-debug"]
     spied_info_logger = mocker.spy(main.logger, "info")

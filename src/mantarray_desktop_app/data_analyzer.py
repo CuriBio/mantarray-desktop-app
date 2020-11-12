@@ -142,7 +142,10 @@ class DataAnalyzerProcess(InfiniteProcess):
         communication_type = communication["communication_type"]
         if communication_type == "calibration":
             self._calibration_settings = communication["calibration_settings"]
-        elif communication_type == "acquisition_manager":
+        elif communication_type in [
+            "to_instrument",
+            "acquisition_manager",
+        ]:  # TODO (Eli 11/10/20): acquisition_manager communication type is in the process of being deprecated, but stop_managed_acquisition still uses it
             if communication["command"] == "start_managed_acquisition":
                 self._is_managed_acquisition_running = True
                 _drain_queue(self._board_queues[0][1])
@@ -154,7 +157,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                         "ref_data": None,
                     }
             else:
-                raise UnrecognizedAcquisitionManagerCommandError(
+                raise UnrecognizedAcquisitionManagerCommandError(  # TODO (Eli 11/10/20): probably rename this to something more generic like "command to instrument error"
                     communication["command"]
                 )
             self._comm_to_main_queue.put(communication)

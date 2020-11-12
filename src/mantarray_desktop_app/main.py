@@ -51,7 +51,6 @@ from stdlib_utils import InfiniteLoopingParallelismMixIn
 from stdlib_utils import is_port_in_use
 
 from .constants import ADC_GAIN_SETTING_UUID
-from .constants import BUFFERING_STATE
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CURI_BIO_ACCOUNT_UUID
 from .constants import CURI_BIO_USER_ACCOUNT_ID
@@ -69,7 +68,6 @@ from .constants import REFERENCE_VOLTAGE_UUID
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SLEEP_FIRMWARE_VERSION_UUID
 from .constants import SOFTWARE_RELEASE_VERSION_UUID
-from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import START_RECORDING_TIME_INDEX_UUID
 from .constants import SUBPROCESS_POLL_DELAY_SECONDS
 from .constants import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
@@ -111,20 +109,6 @@ def get_shared_values_between_server_and_monitor() -> Dict[  # pylint:disable=in
 def get_server_port_number() -> int:
     shared_values_dict = get_shared_values_between_server_and_monitor()
     return shared_values_dict.get("server_port_number", DEFAULT_SERVER_PORT_NUMBER)
-
-
-def get_server_address_components() -> Tuple[str, str, int]:
-    """Get Flask server address components.
-
-    Returns:
-        protocol (i.e. http), host (i.e. 127.0.0.1), port (i.e. 4567)
-    """
-    return "http", "127.0.0.1", get_server_port_number()
-
-
-def get_api_endpoint() -> str:
-    protocol, host, port = get_server_address_components()
-    return f"{protocol}://{host}:{port}/"
 
 
 def _check_barcode_for_errors(barcode: str) -> str:
@@ -186,25 +170,6 @@ def shutdown_server() -> None:
     logger.info("Cleaning up the rest of the program before quitting.")
     prepare_to_shutdown()
     logger.info("Successful exit")
-
-
-@flask_app.after_request
-def after_request(response: Response) -> Response:
-    """Log request and handle any necessary response clean up."""
-    rule = request.url_rule
-    response_json = response.get_json()
-    if rule is None:
-        response = Response(status="404 Route not implemented")
-    elif "get_available_data" in rule.rule and response.status_code == 200:
-        del response_json["waveform_data"]["basic_data"]
-
-    msg = "Response to HTTP Request in next log entry: "
-    if response.status_code == 200:
-        msg += f"{response_json}"
-    else:
-        msg += response.status
-    logger.info(msg)
-    return response
 
 
 @flask_app.route("/shutdown", methods=["GET"])
@@ -392,32 +357,6 @@ def stop_recording() -> Response:
     to_file_writer_queue.put(comm_dict)
 
     response = Response(json.dumps(comm_dict), mimetype="application/json")
-
-    return response
-
-
-@flask_app.route("/start_managed_acquisition", methods=["GET"])
-def start_managed_acquisition() -> Response:
-    """Begin "managed" data acquisition on the XEM.
-
-    Can be invoked by:
-
-    `curl http://localhost:4567/start_managed_acquisition`
-    """
-    shared_values_dict = get_shared_values_between_server_and_monitor()
-    if not shared_values_dict["mantarray_serial_number"][0]:
-        response = Response(
-            status="406 Mantarray has not been assigned a Serial Number"
-        )
-        return response
-
-    shared_values_dict["system_status"] = BUFFERING_STATE
-
-    manager = get_mantarray_process_manager()
-    to_da_queue = manager.get_communication_queue_from_main_to_data_analyzer()
-    to_da_queue.put(START_MANAGED_ACQUISITION_COMMUNICATION)
-
-    response = queue_command_to_ok_comm(START_MANAGED_ACQUISITION_COMMUNICATION)
 
     return response
 

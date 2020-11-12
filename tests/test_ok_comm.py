@@ -27,6 +27,7 @@ from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
 from mantarray_desktop_app import REF_INDEX_TO_24_WELL_INDEX
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import RunningFIFOSimulator
+from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
 from mantarray_desktop_app import UnrecognizedCommTypeFromMainToOKCommError
 from mantarray_desktop_app import UnrecognizedDataFrameFormatNameError
@@ -1118,12 +1119,7 @@ def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_
             "bit_file_name": None,
         }
     )
-    input_queue.put(
-        {
-            "communication_type": "acquisition_manager",
-            "command": "start_managed_acquisition",
-        }
-    )
+    input_queue.put(START_MANAGED_ACQUISITION_COMMUNICATION)
     ok_process.soft_stop()
     ok_process.join()
 

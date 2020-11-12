@@ -7,7 +7,7 @@ import requests
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SYSTEM_STATUS_UUIDS
 from .exceptions import SystemStartUpError
-from .main import get_api_endpoint
+from .server import get_api_endpoint
 
 
 def system_state_eventually_equals(state_name: str, timeout: int) -> bool:

@@ -44,6 +44,7 @@ from stdlib_utils import put_log_message_into_queue
 
 from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SYSTEM_STATUS_UUIDS
 from .exceptions import LocalServerPortAlreadyInUseError
 from .ok_comm import check_mantarray_serial_number
@@ -228,6 +229,26 @@ def boot_up() -> Response:
     }
 
     response = queue_command_to_main(comm_dict)
+
+    return response
+
+
+@flask_app.route("/start_managed_acquisition", methods=["GET"])
+def start_managed_acquisition() -> Response:
+    """Begin "managed" data acquisition on the XEM.
+
+    Can be invoked by:
+
+    `curl http://localhost:4567/start_managed_acquisition`
+    """
+    shared_values_dict = _get_values_from_process_monitor()
+    if not shared_values_dict["mantarray_serial_number"][0]:
+        response = Response(
+            status="406 Mantarray has not been assigned a Serial Number"
+        )
+        return response
+
+    response = queue_command_to_main(START_MANAGED_ACQUISITION_COMMUNICATION)
 
     return response
 

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from mantarray_desktop_app import server
+from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 
 from ..fixtures import fixture_generic_queue_container
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
@@ -7,6 +8,7 @@ from ..fixtures_server import fixture_client_and_server_thread_and_shared_values
 from ..fixtures_server import fixture_server_thread
 from ..fixtures_server import fixture_test_client
 from ..helpers import is_queue_eventually_not_empty
+from ..helpers import is_queue_eventually_of_size
 
 __fixtures__ = [
     fixture_client_and_server_thread_and_shared_values,
@@ -481,7 +483,7 @@ def test_send_single_read_wire_out_command__populates_queue__and_logs_response(
     comm_queue = test_server.queue_container().get_communication_to_ok_comm_queue(
         board_idx
     )
-    assert is_queue_eventually_not_empty(comm_queue) is True
+    assert is_queue_eventually_of_size(comm_queue, 1) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
     assert communication["command"] == "read_wire_out"
@@ -512,7 +514,7 @@ def test_send_single_read_wire_out_command_with_hex_notation__populates_queue(
     comm_queue = test_server.queue_container().get_communication_to_ok_comm_queue(
         board_idx
     )
-    assert is_queue_eventually_not_empty(comm_queue) is True
+    assert is_queue_eventually_of_size(comm_queue, 1) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
     assert communication["command"] == "read_wire_out"
@@ -541,7 +543,7 @@ def test_send_single_read_wire_out_command_with_description__populates_queue(
     comm_queue = test_server.queue_container().get_communication_to_ok_comm_queue(
         board_idx
     )
-    assert is_queue_eventually_not_empty(comm_queue) is True
+    assert is_queue_eventually_of_size(comm_queue, 1) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
     assert communication["command"] == "read_wire_out"
@@ -567,7 +569,7 @@ def test_send_single_stop_managed_acquisition_command__populates_queues(
     to_ok_comm_queue = test_server.queue_container().get_communication_to_ok_comm_queue(
         0
     )
-    assert is_queue_eventually_not_empty(to_ok_comm_queue) is True
+    assert is_queue_eventually_of_size(to_ok_comm_queue, 1) is True
     comm_to_ok_comm = to_ok_comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert comm_to_ok_comm["communication_type"] == "acquisition_manager"
     assert comm_to_ok_comm["command"] == "stop_managed_acquisition"
@@ -587,7 +589,7 @@ def test_send_single_stop_managed_acquisition_command__populates_queues(
     to_da_queue = (
         test_server.queue_container().get_communication_queue_from_main_to_data_analyzer()
     )
-    assert is_queue_eventually_not_empty(to_da_queue) is True
+    assert is_queue_eventually_of_size(to_da_queue, 1) is True
     comm_to_da = to_da_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert comm_to_da["communication_type"] == "acquisition_manager"
     assert comm_to_da["command"] == "stop_managed_acquisition"
@@ -609,7 +611,7 @@ def test_send_single_set_mantarray_serial_number_command__populates_queue(
     assert response.status_code == 200
 
     server_to_main_queue = test_server.get_queue_to_main()
-    assert is_queue_eventually_not_empty(server_to_main_queue) is True
+    assert is_queue_eventually_of_size(server_to_main_queue, 1) is True
     communication = server_to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "mantarray_naming"
     assert communication["command"] == "set_mantarray_serial_number"
@@ -630,10 +632,35 @@ def test_send_single_boot_up_command__populates_queue(
 
     to_main_queue = test_server.get_queue_to_main()
 
-    assert is_queue_eventually_not_empty(to_main_queue) is True
+    assert is_queue_eventually_of_size(to_main_queue, 1) is True
     communication = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "to_instrument"
     assert communication["command"] == "boot_up"
 
     response_json = response.get_json()
     assert response_json == communication
+
+
+def test_send_single_start_managed_acquisition_command__populates_queues(
+    client_and_server_thread_and_shared_values,
+):
+    (
+        test_client,
+        test_server_info,
+        shared_values_dict,
+    ) = client_and_server_thread_and_shared_values
+    test_server, _, _ = test_server_info
+
+    board_idx = 0
+    shared_values_dict["mantarray_serial_number"] = {board_idx: "M02001801"}
+
+    response = test_client.get("/start_managed_acquisition")
+    assert response.status_code == 200
+
+    to_main_queue = test_server.get_queue_to_main()
+
+    assert is_queue_eventually_of_size(to_main_queue, 1) is True
+    communication = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication == START_MANAGED_ACQUISITION_COMMUNICATION
+    response_json = response.get_json()
+    assert response_json == START_MANAGED_ACQUISITION_COMMUNICATION

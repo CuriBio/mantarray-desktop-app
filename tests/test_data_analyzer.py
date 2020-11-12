@@ -24,6 +24,7 @@ from mantarray_desktop_app import REF_INDEX_TO_24_WELL_INDEX
 from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
+from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
 from mantarray_desktop_app import UnrecognizedAcquisitionManagerCommandError
 from mantarray_desktop_app import UnrecognizedCommTypeFromMainToDataAnalyzerError
@@ -640,10 +641,7 @@ def test_DataAnalyzerProcess__processes_start_managed_acquisition_command(
 ):
     p, _, comm_from_main_queue, _, _ = four_board_analyzer_process
 
-    start_command = {
-        "communication_type": "acquisition_manager",
-        "command": "start_managed_acquisition",
-    }
+    start_command = START_MANAGED_ACQUISITION_COMMUNICATION
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         start_command, comm_from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )

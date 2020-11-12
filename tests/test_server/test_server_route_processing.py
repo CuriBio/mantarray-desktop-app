@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
+import datetime
 from multiprocessing import Queue
 import struct
 
+from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import produce_data
+from mantarray_desktop_app import queue_utils
+from mantarray_desktop_app import RunningFIFOSimulator
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 from xem_wrapper import DATA_FRAME_SIZE_WORDS
@@ -26,8 +30,12 @@ from ..fixtures_process_monitor import fixture_test_monitor
 from ..fixtures_server import fixture_client_and_server_thread_and_shared_values
 from ..fixtures_server import fixture_server_thread
 from ..fixtures_server import fixture_test_client
+from ..helpers import assert_queue_is_eventually_not_empty
+from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import is_queue_eventually_empty
 from ..helpers import is_queue_eventually_not_empty
+from ..helpers import is_queue_eventually_of_size
+from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 __fixtures__ = [
     fixture_client_and_server_thread_and_shared_values,
@@ -1051,3 +1059,80 @@ def test_send_single_boot_up_command__populates_ok_comm_error_queue_if_bit_file_
         timeout=QUEUE_CHECK_TIMEOUT_SECONDS
     )  # pull ok_comm teardown message
     assert is_queue_eventually_empty(comm_from_ok_queue) is True
+
+
+@pytest.mark.slow
+def test_send_single_start_managed_acquisition_command__sets_system_status_to_buffering__and_clears_data_analyzer_outgoing_queue(
+    test_process_manager, test_client, test_monitor
+):
+    monitor_thread, _, _, _ = test_monitor
+    board_idx = 0
+    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+    shared_values_dict["mantarray_serial_number"] = {
+        board_idx: RunningFIFOSimulator.default_mantarray_serial_number
+    }
+
+    simulator = FrontPanelSimulator({})
+    simulator.initialize_board()
+
+    ok_process = test_process_manager.get_instrument_process()
+    ok_process.set_board_connection(0, simulator)
+
+    dummy_data = {"well_index": 0, "data": [[0, 1], [100, 200]]}
+    outgoing_data_queue = (
+        test_process_manager.queue_container().get_data_analyzer_data_out_queue()
+    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        dummy_data, outgoing_data_queue
+    )
+
+    test_process_manager.start_processes()
+
+    response = test_client.get("/start_managed_acquisition")
+    assert response.status_code == 200
+
+    invoke_process_run_and_check_errors(monitor_thread)
+
+    assert shared_values_dict["system_status"] == BUFFERING_STATE
+
+    test_process_manager.soft_stop_and_join_processes()
+    instrument_error_queue = (
+        test_process_manager.queue_container().get_ok_communication_error_queue()
+    )
+    confirm_queue_is_eventually_of_size(instrument_error_queue, 0)
+    comm_queue = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
+        0
+    )
+    assert is_queue_eventually_empty(comm_queue) is True
+    to_da_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
+    )
+    assert is_queue_eventually_empty(to_da_queue) is True
+    assert is_queue_eventually_empty(outgoing_data_queue) is True
+
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+        0
+    )
+    msg = comm_from_ok_queue.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # pull out the initial boot-up message
+    assert_queue_is_eventually_not_empty(
+        comm_from_ok_queue
+    )  # Eli (11/12/20): specifically using "not empty" instead of checking an exact size, because after calling soft_stop a variety of teardown messages get put into the queue
+
+    communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+
+    assert communication["command"] == "start_managed_acquisition"
+    assert communication["timestamp"] - datetime.datetime.utcnow() < datetime.timedelta(
+        0, 5
+    )  # TODO (Eli 11/10/20): consider if this should be replaced with using freezegun
+
+    comm_from_da_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_data_analyzer_to_main()
+    )
+    assert is_queue_eventually_of_size(comm_from_da_queue, 1) is True
+    communication = comm_from_da_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["command"] == "start_managed_acquisition"
+
+    # clean up teardown messages in Instrument queue
+    queue_utils._drain_queue(comm_from_ok_queue)

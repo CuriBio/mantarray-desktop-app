@@ -156,7 +156,7 @@ for adc_num in range(6):
 
 # Communications from Main to Subprocesses
 START_MANAGED_ACQUISITION_COMMUNICATION = {
-    "communication_type": "acquisition_manager",
+    "communication_type": "to_instrument",
     "command": "start_managed_acquisition",
 }
 

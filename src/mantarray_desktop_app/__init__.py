@@ -127,7 +127,6 @@ from .firmware_manager import get_latest_firmware
 from .firmware_manager import get_latest_firmware_name
 from .firmware_manager import get_latest_firmware_version
 from .firmware_manager import sort_firmware_files
-from .main import get_api_endpoint
 from .main import get_server_port_number
 from .main import get_shared_values_between_server_and_monitor
 from .main import prepare_to_shutdown
@@ -150,6 +149,7 @@ from .process_monitor import MantarrayProcessesMonitor
 from .process_monitor import set_mantarray_processes_monitor
 from .queue_container import MantarrayQueueContainer
 from .server import flask_app
+from .server import get_api_endpoint
 from .server import get_the_server_thread
 from .server import ServerThread
 from .system_utils import system_state_eventually_equals
