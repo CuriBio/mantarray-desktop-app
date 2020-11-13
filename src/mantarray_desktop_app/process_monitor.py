@@ -27,6 +27,7 @@ from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
 from .process_manager import MantarrayProcessesManager
 from .server import ServerThread
+from .utils import update_shared_dict
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +109,26 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 ]
 
             self._put_communication_into_ok_comm_queue(communication)
+        elif communication_type == "update_shared_values_dictionary":
+            new_values = communication["content"]
+            new_recording_directory: Optional[str] = None
+            try:
+                new_recording_directory = new_values["config_settings"][
+                    "Recording Directory"
+                ]
+            except KeyError:
+                pass
+            if new_recording_directory is not None:
+                to_file_writer_queue = (
+                    process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
+                )
+                to_file_writer_queue.put(
+                    {
+                        "command": "update_directory",
+                        "new_directory": new_recording_directory,
+                    }
+                )
+            update_shared_dict(shared_values_dict, new_values)
         elif communication_type == "xem_scripts":
             script_type = communication["script_type"]
             if script_type == "start_calibration":

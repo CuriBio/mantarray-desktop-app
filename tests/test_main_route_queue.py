@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import datetime
-import tempfile
 
 from freezegun import freeze_time
 from mantarray_desktop_app import ADC_GAIN_SETTING_UUID
@@ -253,21 +252,3 @@ def test_start_recording_command__populates_queue__with_correct_adc_offset_value
         communication["metadata_to_copy_onto_main_file_attributes"]["adc_offsets"]
         == expected_adc_offsets
     )
-
-
-def test_single_update_settings_command_with_recording_dir__populates_file_writer_queue(
-    test_process_manager, test_client, patched_shared_values_dict
-):
-    with tempfile.TemporaryDirectory() as expected_recordings_dir:
-        response = test_client.get(
-            f"/update_settings?recording_directory={expected_recordings_dir}"
-        )
-        assert response.status_code == 200
-
-        comm_queue = (
-            test_process_manager.get_communication_queue_from_main_to_file_writer()
-        )
-        assert is_queue_eventually_not_empty(comm_queue) is True
-        communication = comm_queue.get_nowait()
-        assert communication["command"] == "update_directory"
-        assert communication["new_directory"] == expected_recordings_dir

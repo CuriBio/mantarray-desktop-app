@@ -4,6 +4,9 @@ import json
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
+from mantarray_desktop_app import ImproperlyFormattedCustomerAccountUUIDError
+from mantarray_desktop_app import ImproperlyFormattedUserAccountUUIDError
+from mantarray_desktop_app import RecordingFolderDoesNotExistError
 from mantarray_desktop_app import server
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
@@ -276,5 +279,72 @@ def test_start_managed_acquisition__returns_error_code_and_message_if_mantarray_
     assert response.status_code == 406
     assert (
         response.status.endswith("Mantarray has not been assigned a Serial Number")
+        is True
+    )
+
+
+@pytest.mark.parametrize(
+    "test_uuid,test_description",
+    [
+        ("", "returns error_message when uuid is empty",),
+        (
+            "e140e2b-397a-427b-81f3-4f889c5181a9",
+            "returns error_message when uuid is invalid",
+        ),
+    ],
+)
+def test_update_settings__returns_error_message_for_invalid_customer_account_uuid(
+    test_uuid, test_description, test_client,
+):
+    response = test_client.get(f"/update_settings?customer_account_uuid={test_uuid}")
+    assert response.status_code == 400
+    assert (
+        response.status.endswith(
+            f"{repr(ImproperlyFormattedCustomerAccountUUIDError(test_uuid))}"
+        )
+        is True
+    )
+
+
+def test_update_settings__returns_error_message_when_recording_directory_does_not_exist(
+    test_client,
+):
+    test_dir = "fake_dir/fake_sub_dir"
+    response = test_client.get(f"/update_settings?recording_directory={test_dir}")
+    assert response.status_code == 400
+    assert (
+        response.status.endswith(f"{repr(RecordingFolderDoesNotExistError(test_dir))}")
+        is True
+    )
+
+
+def test_update_settings__returns_error_message_when_unexpected_argument_is_given(
+    test_client,
+):
+    test_arg = "bad_arg"
+    response = test_client.get(f"/update_settings?{test_arg}=True")
+    assert response.status_code == 400
+    assert response.status.endswith(f"Invalid argument given: {test_arg}") is True
+
+
+@pytest.mark.parametrize(
+    "test_uuid,test_description",
+    [
+        ("", "returns error_message when uuid is empty",),
+        (
+            "11e140e2b-397a-427b-81f3-4f889c5181a9",
+            "returns error_message when uuid is invalid",
+        ),
+    ],
+)
+def test_update_settings__returns_error_message_for_invalid_user_account_uuid(
+    test_uuid, test_description, test_client
+):
+    response = test_client.get(f"/update_settings?user_account_uuid={test_uuid}")
+    assert response.status_code == 400
+    assert (
+        response.status.endswith(
+            f"{repr(ImproperlyFormattedUserAccountUUIDError(test_uuid))}"
+        )
         is True
     )

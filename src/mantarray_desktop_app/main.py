@@ -74,7 +74,6 @@ from .constants import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from .constants import USER_ACCOUNT_ID_UUID
 from .constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from .constants import UTC_BEGINNING_RECORDING_UUID
-from .constants import VALID_CONFIG_SETTINGS
 from .constants import XEM_SERIAL_NUMBER_UUID
 from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
 from .exceptions import ImproperlyFormattedUserAccountUUIDError
@@ -358,34 +357,6 @@ def stop_recording() -> Response:
 
     response = Response(json.dumps(comm_dict), mimetype="application/json")
 
-    return response
-
-
-@flask_app.route("/update_settings", methods=["GET"])
-def update_settings() -> Response:
-    """Update the user settings.
-
-    Can be invoked by curl http://localhost:4567/update_settings?customer_account_uuid=<UUID>&user_account_uuid=<UUID>&recording_directory=recording_dir
-    """
-    for arg in request.args:
-        if arg not in VALID_CONFIG_SETTINGS:
-            response = Response(status=f"400 Invalid argument given: {arg}")
-            return response
-
-    try:
-        _update_settings(request.args)
-    except (
-        ImproperlyFormattedCustomerAccountUUIDError,
-        ImproperlyFormattedUserAccountUUIDError,
-        RecordingFolderDoesNotExistError,
-    ) as e:
-        response = Response(status=f"400 {repr(e)}")
-        return response
-
-    shared_values_dict = get_shared_values_between_server_and_monitor()
-    response = Response(
-        json.dumps(shared_values_dict["config_settings"]), mimetype="application/json"
-    )
     return response
 
 

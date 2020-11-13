@@ -33,6 +33,7 @@ from flask import Flask
 from flask import request
 from flask import Response
 from flask_cors import CORS
+from immutable_data_validation import is_uuid
 from immutabledict import immutabledict
 import requests
 from requests.exceptions import ConnectionError
@@ -46,7 +47,11 @@ from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SYSTEM_STATUS_UUIDS
+from .constants import VALID_CONFIG_SETTINGS
+from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
+from .exceptions import ImproperlyFormattedUserAccountUUIDError
 from .exceptions import LocalServerPortAlreadyInUseError
+from .exceptions import RecordingFolderDoesNotExistError
 from .ok_comm import check_mantarray_serial_number
 from .queue_container import MantarrayQueueContainer
 from .queue_utils import _drain_queue
@@ -230,6 +235,58 @@ def boot_up() -> Response:
 
     response = queue_command_to_main(comm_dict)
 
+    return response
+
+
+def validate_settings(settings_dict: Dict[str, Any]) -> None:
+    """Check if potential new user configuration settings are valid.
+
+    Args:
+        settings_dict: dictionary containing the new user configuration settings.
+    """
+    customer_account_uuid = settings_dict.get("customer_account_uuid", None)
+    user_account_uuid = settings_dict.get("user_account_uuid", None)
+    recording_directory = settings_dict.get("recording_directory", None)
+
+    if customer_account_uuid is not None:
+        if customer_account_uuid == "curi":
+            customer_account_uuid = str(CURI_BIO_ACCOUNT_UUID)
+            user_account_uuid = str(CURI_BIO_USER_ACCOUNT_ID)
+        elif not is_uuid(customer_account_uuid):
+            raise ImproperlyFormattedCustomerAccountUUIDError(customer_account_uuid)
+    if user_account_uuid is not None:
+        if not is_uuid(user_account_uuid):
+            raise ImproperlyFormattedUserAccountUUIDError(user_account_uuid)
+    if recording_directory is not None:
+        if not os.path.isdir(recording_directory):
+            raise RecordingFolderDoesNotExistError(recording_directory)
+
+
+@flask_app.route("/update_settings", methods=["GET"])
+def update_settings() -> Response:
+    """Update the user settings.
+
+    Can be invoked by curl http://localhost:4567/update_settings?customer_account_uuid=<UUID>&user_account_uuid=<UUID>&recording_directory=recording_dir
+    """
+    for arg in request.args:
+        if arg not in VALID_CONFIG_SETTINGS:
+            response = Response(status=f"400 Invalid argument given: {arg}")
+            return response
+
+    try:
+        validate_settings(request.args)
+    except (
+        ImproperlyFormattedCustomerAccountUUIDError,
+        ImproperlyFormattedUserAccountUUIDError,
+        RecordingFolderDoesNotExistError,
+    ) as e:
+        response = Response(status=f"400 {repr(e)}")
+        return response
+
+    shared_values_dict = get_shared_values_between_server_and_monitor()
+    response = Response(
+        json.dumps(shared_values_dict["config_settings"]), mimetype="application/json"
+    )
     return response
 
 

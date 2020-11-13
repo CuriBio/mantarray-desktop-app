@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+import tempfile
+from uuid import UUID
+
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
@@ -9,8 +12,8 @@ from ..fixtures import fixture_test_process_manager
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_ok_comm import fixture_patch_connection_to_board
 from ..fixtures_process_monitor import fixture_test_monitor
+from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import is_queue_eventually_empty
-from ..helpers import is_queue_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 __fixtures__ = [
@@ -50,7 +53,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     main_to_ok_comm = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
         0
     )
-    assert is_queue_eventually_of_size(main_to_ok_comm, 1)
+    confirm_queue_is_eventually_of_size(main_to_ok_comm, 1)
     actual_comm = main_to_ok_comm.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_comm == expected_comm
 
@@ -87,7 +90,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     main_to_ok_comm = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
         0
     )
-    assert is_queue_eventually_of_size(main_to_ok_comm, 1)
+    confirm_queue_is_eventually_of_size(main_to_ok_comm, 1)
     actual_comm = main_to_ok_comm.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_comm == expected_comm
 
@@ -120,7 +123,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     main_to_ok_comm = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
         0
     )
-    assert is_queue_eventually_of_size(main_to_ok_comm, 1)
+    confirm_queue_is_eventually_of_size(main_to_ok_comm, 1)
     actual_comm = main_to_ok_comm.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_comm == expected_comm
 
@@ -172,16 +175,83 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     main_to_ok_comm = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
         0
     )
-    assert is_queue_eventually_of_size(main_to_ok_comm, 1)
+    confirm_queue_is_eventually_of_size(main_to_ok_comm, 1)
     actual_comm = main_to_ok_comm.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_comm == START_MANAGED_ACQUISITION_COMMUNICATION
 
     main_to_da = (
         test_process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
     )
-    assert is_queue_eventually_of_size(main_to_da, 1)
+    confirm_queue_is_eventually_of_size(main_to_da, 1)
     actual_comm = main_to_da.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_comm == START_MANAGED_ACQUISITION_COMMUNICATION
 
     # clean up the instrument subprocess to avoid broken pipe errors
     test_process_manager.get_instrument_process().hard_stop()
+
+
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_update_shared_values_by_updating_shared_values_dictionary__and_overriding_existing_value(
+    test_process_manager, test_monitor
+):
+    monitor_thread, _, _, _ = test_monitor
+
+    test_process_manager.create_processes()
+
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+
+    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+    original_id = UUID("e623b13c-05a5-41f2-8526-c2eba8e78e7f")
+    new_id = UUID("e7744225-c41c-4bd5-9e32-e79716cc8f40")
+    shared_values_dict["config_settings"] = dict()
+    shared_values_dict["config_settings"]["User Account ID"] = original_id
+    communication = {
+        "communication_type": "update_shared_values_dictionary",
+        "content": {"config_settings": {"User Account ID": new_id}},
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        communication, server_to_main_queue
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert is_queue_eventually_empty(server_to_main_queue) is True
+
+    assert (
+        test_process_manager.get_values_to_share_to_server()["config_settings"][
+            "User Account ID"
+        ]
+        == new_id
+    )
+
+
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_update_shared_values__by_populating_file_writer_queue_when_recording_directory_updated(
+    test_process_manager, test_monitor
+):
+    monitor_thread, _, _, _ = test_monitor
+    test_process_manager.create_processes()
+
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+
+    with tempfile.TemporaryDirectory() as expected_recordings_dir:
+        communication = {
+            "communication_type": "update_shared_values_dictionary",
+            "content": {
+                "config_settings": {"Recording Directory": expected_recordings_dir}
+            },
+        }
+
+        put_object_into_queue_and_raise_error_if_eventually_still_empty(
+            communication, server_to_main_queue
+        )
+
+        invoke_process_run_and_check_errors(monitor_thread)
+
+        to_file_writer_queue = (
+            test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
+        )
+        confirm_queue_is_eventually_of_size(to_file_writer_queue, 1)
+        communication = to_file_writer_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+        assert communication["command"] == "update_directory"
+        assert communication["new_directory"] == expected_recordings_dir
