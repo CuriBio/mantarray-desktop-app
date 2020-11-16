@@ -255,3 +255,4 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         communication = to_file_writer_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
         assert communication["command"] == "update_directory"
         assert communication["new_directory"] == expected_recordings_dir
+        assert test_process_manager.get_file_directory() == expected_recordings_dir

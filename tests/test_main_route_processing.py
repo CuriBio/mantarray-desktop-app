@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import datetime
 import os
-import tempfile
 
 from freezegun import freeze_time
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
@@ -217,29 +216,3 @@ def test_send_xem_scripts_command__gets_processed_in_fully_running_app(
     expected_gain_value = 16
     assert patched_shared_values_dict["adc_gain"] == expected_gain_value
     assert is_queue_eventually_empty(monitor_error_queue) is True
-
-
-@pytest.mark.slow
-def test_single_update_settings_command_with_recording_dir__gets_processed_by_FileWriter(
-    test_process_manager, test_client, patched_shared_values_dict
-):
-    test_process_manager.start_processes()
-    with tempfile.TemporaryDirectory() as expected_recordings_dir:
-        response = test_client.get(
-            f"/update_settings?recording_directory={expected_recordings_dir}"
-        )
-        assert response.status_code == 200
-
-        test_process_manager.soft_stop_and_join_processes()
-        to_fw_queue = (
-            test_process_manager.get_communication_queue_from_main_to_file_writer()
-        )
-        assert is_queue_eventually_empty(to_fw_queue) is True
-
-        from_fw_queue = (
-            test_process_manager.get_communication_queue_from_file_writer_to_main()
-        )
-        assert is_queue_eventually_not_empty(from_fw_queue) is True
-        communication = from_fw_queue.get_nowait()
-        assert communication["command"] == "update_directory"
-        assert communication["new_directory"] == expected_recordings_dir

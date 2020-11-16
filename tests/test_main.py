@@ -14,8 +14,6 @@ from unittest.mock import ANY
 from freezegun import freeze_time
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
-from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
-from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import get_api_endpoint
 from mantarray_desktop_app import get_mantarray_process_manager
@@ -609,76 +607,6 @@ def test_main__stores_and_logs_directory_for_log_files_from_command_line_argumen
     )
     spied_info_logger.assert_any_call(
         f"Using directory for log files: {expected_log_dir}"
-    )
-
-
-def test_update_settings__stores_values_in_shared_values_dict__and_recordings_folder_in_file_writer_and_process_manager__and_logs_recording_folder(
-    test_client, patched_shared_values_dict, test_process_manager, mocker
-):
-    spied_info_logger = mocker.spy(main.logger, "info")
-    expected_customer_uuid = "2dc06596-9cea-46a2-9ddd-a0d8a0f13584"
-    expected_user_uuid = "21875600-ca08-44c4-b1ea-0877b3c63ca7"
-    with tempfile.TemporaryDirectory() as expected_recordings_dir:
-        response = test_client.get(
-            f"/update_settings?customer_account_uuid={expected_customer_uuid}&user_account_uuid={expected_user_uuid}&recording_directory={expected_recordings_dir}"
-        )
-        assert response.status_code == 200
-
-        assert (
-            patched_shared_values_dict["config_settings"]["Customer Account ID"]
-            == expected_customer_uuid
-        )
-        assert (
-            patched_shared_values_dict["config_settings"]["User Account ID"]
-            == expected_user_uuid
-        )
-        assert (
-            patched_shared_values_dict["config_settings"]["Recording Directory"]
-            == expected_recordings_dir
-        )
-        assert test_process_manager.get_file_directory() == expected_recordings_dir
-
-        spied_info_logger.assert_any_call(
-            f"Using directory for recording files: {expected_recordings_dir}"
-        )
-
-
-def test_update_settings__replaces_only_new_values_in_shared_values_dict(
-    test_client, patched_shared_values_dict, test_process_manager, mocker
-):
-    expected_customer_uuid = "b357cab5-adba-4cc3-a805-93b0b57a6d72"
-    expected_user_uuid = "05dab94c-88dc-4505-ae4f-be6fa4a6f5f0"
-
-    patched_shared_values_dict["config_settings"] = {
-        "Customer Account ID": "2dc06596-9cea-46a2-9ddd-a0d8a0f13584",
-        "User Account ID": expected_user_uuid,
-    }
-    response = test_client.get(
-        f"/update_settings?customer_account_uuid={expected_customer_uuid}"
-    )
-    assert response.status_code == 200
-
-    assert (
-        patched_shared_values_dict["config_settings"]["Customer Account ID"]
-        == expected_customer_uuid
-    )
-    assert (
-        patched_shared_values_dict["config_settings"]["User Account ID"]
-        == expected_user_uuid
-    )
-
-
-def test_update_settings__replaces_curi_with_default_account_uuids(
-    test_client, patched_shared_values_dict
-):
-    response = test_client.get("/update_settings?customer_account_uuid=curi")
-    assert response.status_code == 200
-
-    assert patched_shared_values_dict["config_settings"]["Customer Account ID"] == str(
-        CURI_BIO_ACCOUNT_UUID
-    )
-    assert patched_shared_values_dict["config_settings"]["User Account ID"] == str(
-        CURI_BIO_USER_ACCOUNT_ID
     )
 
 

@@ -128,6 +128,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                         "new_directory": new_recording_directory,
                     }
                 )
+                process_manager.set_file_directory(new_recording_directory)
             update_shared_dict(shared_values_dict, new_values)
         elif communication_type == "xem_scripts":
             script_type = communication["script_type"]

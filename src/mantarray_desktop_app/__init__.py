@@ -10,6 +10,7 @@ from . import ok_comm
 from . import process_manager
 from . import process_monitor
 from . import server
+from . import utils
 from .constants import ADC_CH_TO_24_WELL_INDEX
 from .constants import ADC_CH_TO_IS_REF_SENSOR
 from .constants import ADC_GAIN
@@ -166,6 +167,7 @@ if (
 
 __all__ = [
     "main",
+    "utils",
     "get_shared_values_between_server_and_monitor",
     "flask_app",
     "MultiprocessingNotSetToSpawnError",

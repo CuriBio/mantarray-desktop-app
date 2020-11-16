@@ -33,7 +33,6 @@ from flask import Flask
 from flask import request
 from flask import Response
 from flask_cors import CORS
-from immutable_data_validation import is_uuid
 from immutabledict import immutabledict
 import requests
 from requests.exceptions import ConnectionError
@@ -55,6 +54,8 @@ from .exceptions import RecordingFolderDoesNotExistError
 from .ok_comm import check_mantarray_serial_number
 from .queue_container import MantarrayQueueContainer
 from .queue_utils import _drain_queue
+from .utils import convert_request_args_to_config_dict
+from .utils import validate_settings
 
 logger = logging.getLogger(__name__)
 os.environ[
@@ -238,30 +239,6 @@ def boot_up() -> Response:
     return response
 
 
-def validate_settings(settings_dict: Dict[str, Any]) -> None:
-    """Check if potential new user configuration settings are valid.
-
-    Args:
-        settings_dict: dictionary containing the new user configuration settings.
-    """
-    customer_account_uuid = settings_dict.get("customer_account_uuid", None)
-    user_account_uuid = settings_dict.get("user_account_uuid", None)
-    recording_directory = settings_dict.get("recording_directory", None)
-
-    if customer_account_uuid is not None:
-        if customer_account_uuid == "curi":
-            customer_account_uuid = str(CURI_BIO_ACCOUNT_UUID)
-            user_account_uuid = str(CURI_BIO_USER_ACCOUNT_ID)
-        elif not is_uuid(customer_account_uuid):
-            raise ImproperlyFormattedCustomerAccountUUIDError(customer_account_uuid)
-    if user_account_uuid is not None:
-        if not is_uuid(user_account_uuid):
-            raise ImproperlyFormattedUserAccountUUIDError(user_account_uuid)
-    if recording_directory is not None:
-        if not os.path.isdir(recording_directory):
-            raise RecordingFolderDoesNotExistError(recording_directory)
-
-
 @flask_app.route("/update_settings", methods=["GET"])
 def update_settings() -> Response:
     """Update the user settings.
@@ -283,10 +260,14 @@ def update_settings() -> Response:
         response = Response(status=f"400 {repr(e)}")
         return response
 
-    shared_values_dict = get_shared_values_between_server_and_monitor()
-    response = Response(
-        json.dumps(shared_values_dict["config_settings"]), mimetype="application/json"
+    # shared_values_dict = get_shared_values_between_server_and_monitor()
+    queue_command_to_main(
+        {
+            "communication_type": "update_shared_values_dictionary",
+            "content": convert_request_args_to_config_dict(request.args),
+        }
     )
+    response = Response(json.dumps(request.args), mimetype="application/json")
     return response
 
 

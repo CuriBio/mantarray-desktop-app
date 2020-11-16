@@ -2,14 +2,18 @@
 import datetime
 from multiprocessing import Queue
 import struct
+import tempfile
 
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
+from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
+from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import queue_utils
 from mantarray_desktop_app import RunningFIFOSimulator
+from mantarray_desktop_app import utils
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 from xem_wrapper import DATA_FRAME_SIZE_WORDS
@@ -1136,3 +1140,124 @@ def test_send_single_start_managed_acquisition_command__sets_system_status_to_bu
 
     # clean up teardown messages in Instrument queue
     queue_utils._drain_queue(comm_from_ok_queue)
+
+
+def test_update_settings__stores_values_in_shared_values_dict__and_recordings_folder_in_file_writer_and_process_manager__and_logs_recording_folder(
+    test_process_manager, test_client, test_monitor, mocker
+):
+    monitor_thread, _, _, _ = test_monitor
+
+    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+    spied_utils_logger = mocker.spy(utils.logger, "info")
+
+    expected_customer_uuid = "2dc06596-9cea-46a2-9ddd-a0d8a0f13584"
+    expected_user_uuid = "21875600-ca08-44c4-b1ea-0877b3c63ca7"
+
+    with tempfile.TemporaryDirectory() as expected_recordings_dir:
+        response = test_client.get(
+            f"/update_settings?customer_account_uuid={expected_customer_uuid}&user_account_uuid={expected_user_uuid}&recording_directory={expected_recordings_dir}"
+        )
+        assert response.status_code == 200
+        invoke_process_run_and_check_errors(monitor_thread)
+
+        assert (
+            shared_values_dict["config_settings"]["Customer Account ID"]
+            == expected_customer_uuid
+        )
+        assert (
+            shared_values_dict["config_settings"]["User Account ID"]
+            == expected_user_uuid
+        )
+        assert (
+            shared_values_dict["config_settings"]["Recording Directory"]
+            == expected_recordings_dir
+        )
+        assert test_process_manager.get_file_directory() == expected_recordings_dir
+
+        spied_utils_logger.assert_any_call(
+            f"Using directory for recording files: {expected_recordings_dir}"
+        )
+
+    queue_from_main_to_file_writer = (
+        test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
+    )
+    confirm_queue_is_eventually_of_size(queue_from_main_to_file_writer, 1)
+
+    # clean up the message that goes to file writer to update the recording directory
+    queue_utils._drain_queue(queue_from_main_to_file_writer)
+
+
+def test_update_settings__replaces_curi_with_default_account_uuids(
+    test_process_manager, test_client, test_monitor
+):
+    monitor_thread, _, _, _ = test_monitor
+
+    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+
+    response = test_client.get("/update_settings?customer_account_uuid=curi")
+    assert response.status_code == 200
+
+    invoke_process_run_and_check_errors(monitor_thread)
+
+    assert shared_values_dict["config_settings"]["Customer Account ID"] == str(
+        CURI_BIO_ACCOUNT_UUID
+    )
+    assert shared_values_dict["config_settings"]["User Account ID"] == str(
+        CURI_BIO_USER_ACCOUNT_ID
+    )
+
+
+def test_update_settings__replaces_only_new_values_in_shared_values_dict(
+    test_process_manager, test_client, test_monitor
+):
+    monitor_thread, _, _, _ = test_monitor
+    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+    expected_customer_uuid = "b357cab5-adba-4cc3-a805-93b0b57a6d72"
+    expected_user_uuid = "05dab94c-88dc-4505-ae4f-be6fa4a6f5f0"
+
+    shared_values_dict["config_settings"] = {
+        "Customer Account ID": "2dc06596-9cea-46a2-9ddd-a0d8a0f13584",
+        "User Account ID": expected_user_uuid,
+    }
+    response = test_client.get(
+        f"/update_settings?customer_account_uuid={expected_customer_uuid}"
+    )
+    assert response.status_code == 200
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert (
+        shared_values_dict["config_settings"]["Customer Account ID"]
+        == expected_customer_uuid
+    )
+    assert (
+        shared_values_dict["config_settings"]["User Account ID"] == expected_user_uuid
+    )
+
+
+@pytest.mark.slow
+def test_single_update_settings_command_with_recording_dir__gets_processed_by_FileWriter(
+    test_process_manager, test_client, test_monitor
+):
+    monitor_thread, _, _, _ = test_monitor
+    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+
+    test_process_manager.start_processes()
+    with tempfile.TemporaryDirectory() as expected_recordings_dir:
+        response = test_client.get(
+            f"/update_settings?recording_directory={expected_recordings_dir}"
+        )
+        assert response.status_code == 200
+        invoke_process_run_and_check_errors(monitor_thread)
+        test_process_manager.soft_stop_and_join_processes()
+        to_fw_queue = (
+            test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
+        )
+        assert is_queue_eventually_empty(to_fw_queue) is True
+
+        from_fw_queue = (
+            test_process_manager.queue_container().get_communication_queue_from_file_writer_to_main()
+        )
+        assert is_queue_eventually_not_empty(from_fw_queue) is True
+        communication = from_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+
+        assert communication["command"] == "update_directory"
+        assert communication["new_directory"] == expected_recordings_dir
