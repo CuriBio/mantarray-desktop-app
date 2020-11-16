@@ -17,6 +17,7 @@ Custom HTTP Error Codes:
 from __future__ import annotations
 
 from copy import deepcopy
+import datetime
 import json
 import logging
 import multiprocessing
@@ -34,6 +35,7 @@ from flask import request
 from flask import Response
 from flask_cors import CORS
 from immutabledict import immutabledict
+from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import requests
 from requests.exceptions import ConnectionError
 from stdlib_utils import get_formatted_stack_trace
@@ -128,6 +130,16 @@ def queue_command_to_main(comm_dict: Dict[str, Any]) -> Response:
     response = Response(json.dumps(comm_dict), mimetype="application/json")
 
     return response
+
+
+def _get_timestamp_of_acquisition_sample_index_zero() -> datetime.datetime:  # pylint:disable=invalid-name # yeah, it's kind of long, but Eli (2/27/20) doesn't know a good way to shorten it
+    shared_values_dict = _get_values_from_process_monitor()
+    timestamp_of_sample_idx_zero: datetime.datetime = shared_values_dict[
+        "utc_timestamps_of_beginning_of_data_acquisition"
+    ][
+        0
+    ]  # board index 0 hardcoded for now
+    return timestamp_of_sample_idx_zero
 
 
 @flask_app.route("/system_status", methods=["GET"])
@@ -268,6 +280,39 @@ def update_settings() -> Response:
         }
     )
     response = Response(json.dumps(request.args), mimetype="application/json")
+    return response
+
+
+@flask_app.route("/stop_recording", methods=["GET"])
+def stop_recording() -> Response:
+    """Tell the FileWriter to stop recording data to disk.
+
+    Supplies a specific timepoint that FileWriter should stop at, since there is a lag between what the user sees and what's actively streaming into FileWriter.
+
+    Can be invoked by: curl http://localhost:4567/stop_recording
+
+    Args:
+        time_index: [Optional, int] centimilliseconds since acquisition began to end the recording at. defaults to when this command is received
+    """
+    timestamp_of_sample_idx_zero = _get_timestamp_of_acquisition_sample_index_zero()
+
+    comm_dict: Dict[str, Any] = {
+        "communication_type": "recording",
+        "command": "stop_recording",
+    }
+
+    stop_timepoint: Union[int, float]
+    if "time_index" in request.args:
+        stop_timepoint = int(request.args["time_index"])
+    else:
+        time_since_index_0 = datetime.datetime.utcnow() - timestamp_of_sample_idx_zero
+        stop_timepoint = (
+            time_since_index_0.total_seconds() * CENTIMILLISECONDS_PER_SECOND
+        )
+    comm_dict["timepoint_to_stop_recording_at"] = stop_timepoint
+
+    response = queue_command_to_main(comm_dict)
+
     return response
 
 

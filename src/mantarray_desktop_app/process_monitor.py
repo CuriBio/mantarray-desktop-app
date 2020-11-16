@@ -135,6 +135,15 @@ class MantarrayProcessesMonitor(InfiniteThread):
             if script_type == "start_calibration":
                 shared_values_dict["system_status"] = CALIBRATING_STATE
             self._put_communication_into_ok_comm_queue(communication)
+        elif communication_type == "recording":
+            command = communication["command"]
+            if command == "stop_recording":
+                main_to_fw_queue = (
+                    self._process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
+                )
+                main_to_fw_queue.put(communication)
+                shared_values_dict["system_status"] = LIVE_VIEW_ACTIVE_STATE
+
         elif communication_type == "to_instrument":
             command = communication["command"]
             if command == "boot_up":
@@ -205,7 +214,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         if "command" in communication:
             command = communication["command"]
 
-        if communication_type == "acquisition_manager":
+        if communication_type in ["acquisition_manager", "to_instrument"]:
             if command == "start_managed_acquisition":
                 self._values_to_share_to_server[
                     "utc_timestamps_of_beginning_of_data_acquisition"

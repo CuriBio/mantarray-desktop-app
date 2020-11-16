@@ -1,9 +1,14 @@
 # -*- coding: utf-8 -*-
+import datetime
+
+from freezegun import freeze_time
 from mantarray_desktop_app import server
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 
 from ..fixtures import fixture_generic_queue_container
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from ..fixtures_server import fixture_client_and_server_thread_and_shared_values
 from ..fixtures_server import fixture_server_thread
 from ..fixtures_server import fixture_test_client
@@ -664,3 +669,49 @@ def test_send_single_start_managed_acquisition_command__populates_queues(
     assert communication == START_MANAGED_ACQUISITION_COMMUNICATION
     response_json = response.get_json()
     assert response_json == START_MANAGED_ACQUISITION_COMMUNICATION
+
+
+@freeze_time(
+    datetime.datetime(
+        year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332597
+    )
+    + datetime.timedelta(
+        seconds=GENERIC_STOP_RECORDING_COMMAND["timepoint_to_stop_recording_at"]
+        / CENTIMILLISECONDS_PER_SECOND
+    )
+)
+def test_stop_recording_command__is_received_by_main__with_default__utcnow_recording_stop_time(
+    client_and_server_thread_and_shared_values,
+):
+    (
+        test_client,
+        test_server_info,
+        shared_values_dict,
+    ) = client_and_server_thread_and_shared_values
+    test_server, _, _ = test_server_info
+
+    expected_acquisition_timestamp = datetime.datetime(
+        year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332597
+    )
+
+    shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [
+        expected_acquisition_timestamp
+    ]
+
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+    response = test_client.get("/stop_recording")
+    assert response.status_code == 200
+    confirm_queue_is_eventually_of(server_to_main_queue, 1)
+
+    response_json = response.get_json()
+    assert response_json["command"] == "stop_recording"
+
+    communication = server_to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["command"] == "stop_recording"
+
+    assert (
+        communication["timepoint_to_stop_recording_at"]
+        == GENERIC_STOP_RECORDING_COMMAND["timepoint_to_stop_recording_at"]
+    )

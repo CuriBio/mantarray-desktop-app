@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import base64
-import datetime
 import json
 import logging
 import multiprocessing
@@ -22,7 +21,6 @@ from mantarray_desktop_app import get_server_port_number
 from mantarray_desktop_app import get_shared_values_between_server_and_monitor
 from mantarray_desktop_app import ImproperlyFormattedCustomerAccountUUIDError
 from mantarray_desktop_app import ImproperlyFormattedUserAccountUUIDError
-from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import LocalServerPortAlreadyInUseError
 from mantarray_desktop_app import main
 from mantarray_desktop_app import MantarrayProcessesMonitor
@@ -36,12 +34,10 @@ from mantarray_desktop_app import SUBPROCESS_POLL_DELAY_SECONDS
 from mantarray_desktop_app import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from mantarray_desktop_app import system_state_eventually_equals
 from mantarray_desktop_app import wait_for_subprocesses_to_start
-from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import pytest
 import requests
 from stdlib_utils import confirm_port_available
 from stdlib_utils import confirm_port_in_use
-from stdlib_utils import invoke_process_run_and_check_errors
 
 from .fixtures import fixture_fully_running_app_from_main_entrypoint
 from .fixtures import fixture_patched_shared_values_dict
@@ -50,9 +46,6 @@ from .fixtures import fixture_patched_xem_scripts_folder
 from .fixtures import fixture_test_client
 from .fixtures import fixture_test_process_manager
 from .fixtures import fixture_test_process_manager_without_created_processes
-from .fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
-from .helpers import is_queue_eventually_empty
-from .helpers import is_queue_eventually_not_empty
 
 
 __fixtures__ = [
@@ -265,104 +258,6 @@ def test_start_server__raises_error_if_port_unavailable(mocker):
     mocker.patch.object(main, "is_port_in_use", autospec=True, return_value=True)
     with pytest.raises(LocalServerPortAlreadyInUseError):
         start_server()
-
-
-@freeze_time(
-    datetime.datetime(
-        year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332597
-    )
-    + datetime.timedelta(
-        seconds=GENERIC_STOP_RECORDING_COMMAND["timepoint_to_stop_recording_at"]
-        / CENTIMILLISECONDS_PER_SECOND
-    )
-)
-def test_stop_recording_command__is_received_by_file_writer__with_default__utcnow_recording_stop_time(
-    test_process_manager, test_client, mocker, patched_shared_values_dict
-):
-    expected_acquisition_timestamp = datetime.datetime(
-        year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332597
-    )
-
-    patched_shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [
-        expected_acquisition_timestamp
-    ]
-
-    comm_queue = test_process_manager.get_communication_queue_from_main_to_file_writer()
-    response = test_client.get("/stop_recording")
-    assert response.status_code == 200
-    assert is_queue_eventually_not_empty(comm_queue) is True
-
-    response_json = response.get_json()
-    assert response_json["command"] == "stop_recording"
-
-    file_writer_process = test_process_manager.get_file_writer_process()
-    invoke_process_run_and_check_errors(file_writer_process)
-
-    assert is_queue_eventually_empty(comm_queue) is True
-
-    file_writer_to_main = (
-        test_process_manager.get_communication_queue_from_file_writer_to_main()
-    )
-    assert is_queue_eventually_not_empty(file_writer_to_main) is True
-
-    communication = file_writer_to_main.get_nowait()
-    assert communication["command"] == "stop_recording"
-
-    assert (
-        communication["timepoint_to_stop_recording_at"]
-        == GENERIC_STOP_RECORDING_COMMAND["timepoint_to_stop_recording_at"]
-    )
-
-
-def test_stop_recording_command__is_received_by_file_writer__with_given_time_index_parameter(
-    test_process_manager, test_client, mocker, patched_shared_values_dict
-):
-    expected_acquisition_timestamp = datetime.datetime(
-        year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332597
-    )
-    patched_shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [
-        expected_acquisition_timestamp
-    ]
-
-    expected_time_index = 1000
-    comm_queue = test_process_manager.get_communication_queue_from_main_to_file_writer()
-    response = test_client.get(f"/stop_recording?time_index={expected_time_index}")
-    assert response.status_code == 200
-    assert is_queue_eventually_not_empty(comm_queue) is True
-
-    response_json = response.get_json()
-    assert response_json["command"] == "stop_recording"
-
-    file_writer_process = test_process_manager.get_file_writer_process()
-    invoke_process_run_and_check_errors(file_writer_process)
-
-    assert is_queue_eventually_empty(comm_queue) is True
-
-    file_writer_to_main = (
-        test_process_manager.get_communication_queue_from_file_writer_to_main()
-    )
-    assert is_queue_eventually_not_empty(file_writer_to_main) is True
-
-    communication = file_writer_to_main.get_nowait()
-    assert communication["command"] == "stop_recording"
-
-    assert communication["timepoint_to_stop_recording_at"] == expected_time_index
-
-
-def test_stop_recording_command__sets_system_status_to_live_view_active(
-    test_process_manager, test_client, patched_shared_values_dict
-):
-    expected_acquisition_timestamp = datetime.datetime(
-        year=2020, month=6, day=2, hour=17, minute=9, second=22, microsecond=362490
-    )
-    patched_shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [
-        expected_acquisition_timestamp
-    ]
-
-    response = test_client.get("/stop_recording")
-    assert response.status_code == 200
-
-    assert patched_shared_values_dict["system_status"] == LIVE_VIEW_ACTIVE_STATE
 
 
 @pytest.mark.slow

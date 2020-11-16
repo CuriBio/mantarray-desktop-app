@@ -9,6 +9,7 @@ from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
+from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import queue_utils
@@ -1261,3 +1262,72 @@ def test_single_update_settings_command_with_recording_dir__gets_processed_by_Fi
 
         assert communication["command"] == "update_directory"
         assert communication["new_directory"] == expected_recordings_dir
+
+
+def test_stop_recording_command__sets_system_status_to_live_view_active(
+    test_process_manager, test_client, test_monitor
+):
+    monitor_thread, _, _, _ = test_monitor
+    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+
+    expected_acquisition_timestamp = datetime.datetime(
+        year=2020, month=6, day=2, hour=17, minute=9, second=22, microsecond=362490
+    )
+    shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [
+        expected_acquisition_timestamp
+    ]
+
+    response = test_client.get("/stop_recording")
+    assert response.status_code == 200
+
+    invoke_process_run_and_check_errors(monitor_thread)
+
+    assert shared_values_dict["system_status"] == LIVE_VIEW_ACTIVE_STATE
+
+    queue_from_main_to_file_writer = (
+        test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
+    )
+
+    # clean up the message that goes to file writer to stop the recording
+    queue_utils._drain_queue(queue_from_main_to_file_writer)
+
+
+def test_stop_recording_command__is_received_by_file_writer__with_given_time_index_parameter(
+    test_process_manager, test_client, test_monitor
+):
+    monitor_thread, _, _, _ = test_monitor
+    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+
+    expected_acquisition_timestamp = datetime.datetime(
+        year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332597
+    )
+    shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [
+        expected_acquisition_timestamp
+    ]
+
+    expected_time_index = 1000
+    comm_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
+    )
+    response = test_client.get(f"/stop_recording?time_index={expected_time_index}")
+    assert response.status_code == 200
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert is_queue_eventually_not_empty(comm_queue) is True
+
+    response_json = response.get_json()
+    assert response_json["command"] == "stop_recording"
+
+    file_writer_process = test_process_manager.get_file_writer_process()
+    invoke_process_run_and_check_errors(file_writer_process)
+
+    assert is_queue_eventually_empty(comm_queue) is True
+
+    file_writer_to_main = (
+        test_process_manager.queue_container().get_communication_queue_from_file_writer_to_main()
+    )
+    confirm_queue_is_eventually_of_size(file_writer_to_main, 1)
+
+    communication = file_writer_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["command"] == "stop_recording"
+
+    assert communication["timepoint_to_stop_recording_at"] == expected_time_index

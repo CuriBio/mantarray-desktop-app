@@ -342,6 +342,7 @@ def test_MantarrayProcessesMonitor__updates_timestamp_in_shared_values_dict_afte
 
     invoke_process_run_and_check_errors(ok_comm_process)
     invoke_process_run_and_check_errors(monitor_thread)
+    print(shared_values_dict)
     assert shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"][
         0
     ] == datetime.datetime(

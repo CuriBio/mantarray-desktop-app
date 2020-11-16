@@ -57,7 +57,6 @@ from .constants import CURI_BIO_USER_ACCOUNT_ID
 from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import CUSTOMER_ACCOUNT_ID_UUID
 from .constants import DEFAULT_SERVER_PORT_NUMBER
-from .constants import LIVE_VIEW_ACTIVE_STATE
 from .constants import MAIN_FIRMWARE_VERSION_UUID
 from .constants import MANTARRAY_NICKNAME_UUID
 from .constants import MANTARRAY_SERIAL_NUMBER_UUID
@@ -176,16 +175,6 @@ def shutdown() -> str:
     # curl http://localhost:4567/shutdown
     shutdown_server()
     return "Server shutting down..."
-
-
-def _get_timestamp_of_acquisition_sample_index_zero() -> datetime.datetime:  # pylint:disable=invalid-name # yeah, it's kind of long, but Eli (2/27/20) doesn't know a good way to shorten it
-    shared_values_dict = get_shared_values_between_server_and_monitor()
-    timestamp_of_sample_idx_zero: datetime.datetime = shared_values_dict[
-        "utc_timestamps_of_beginning_of_data_acquisition"
-    ][
-        0
-    ]  # board index 0 hardcoded for now
-    return timestamp_of_sample_idx_zero
 
 
 @flask_app.route("/start_recording", methods=["GET"])
@@ -321,45 +310,6 @@ def start_recording() -> Response:
     return response
 
 
-@flask_app.route("/stop_recording", methods=["GET"])
-def stop_recording() -> Response:
-    """Tell the FileWriter to stop recording data to disk.
-
-    Supplies a specific timepoint that FileWriter should stop at, since there is a lag between what the user sees and what's actively streaming into FileWriter.
-
-    Can be invoked by: curl http://localhost:4567/stop_recording
-
-    Args:
-        time_index: [Optional, int] centimilliseconds since acquisition began to end the recording at. defaults to when this command is received
-    """
-    timestamp_of_sample_idx_zero = _get_timestamp_of_acquisition_sample_index_zero()
-
-    shared_values_dict = get_shared_values_between_server_and_monitor()
-    shared_values_dict["system_status"] = LIVE_VIEW_ACTIVE_STATE
-
-    comm_dict: Dict[str, Any] = {
-        "command": "stop_recording",
-    }
-
-    stop_timepoint: Union[int, float]
-    if "time_index" in request.args:
-        stop_timepoint = int(request.args["time_index"])
-    else:
-        time_since_index_0 = datetime.datetime.utcnow() - timestamp_of_sample_idx_zero
-        stop_timepoint = (
-            time_since_index_0.total_seconds() * CENTIMILLISECONDS_PER_SECOND
-        )
-    comm_dict["timepoint_to_stop_recording_at"] = stop_timepoint
-
-    manager = get_mantarray_process_manager()
-    to_file_writer_queue = manager.get_communication_queue_from_main_to_file_writer()
-    to_file_writer_queue.put(comm_dict)
-
-    response = Response(json.dumps(comm_dict), mimetype="application/json")
-
-    return response
-
-
 def _update_settings(
     settings_dict: Dict[str, Any], is_initial_settings: bool = False
 ) -> None:
@@ -445,6 +395,7 @@ def main(command_line_args: List[str]) -> None:
         action="store_true",
         help="bypasses automatic run of boot_up for hardware testing",
     )
+    # TODO (Eli 11/16/20): fix all Command Line Arguments to be consistently kebab-case
     parser.add_argument(
         "--port_number", type=int, help="allow manual setting of server port number",
     )

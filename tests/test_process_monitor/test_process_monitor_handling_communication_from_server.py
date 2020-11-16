@@ -4,6 +4,7 @@ from uuid import UUID
 
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
+from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 import numpy as np
 from stdlib_utils import invoke_process_run_and_check_errors
@@ -256,3 +257,37 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         assert communication["command"] == "update_directory"
         assert communication["new_directory"] == expected_recordings_dir
         assert test_process_manager.get_file_directory() == expected_recordings_dir
+
+
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_stop_recording__by_passing_command_to_file_writer__and_setting_status_to_live_view_active(
+    test_process_manager, test_monitor
+):
+    monitor_thread, _, _, _ = test_monitor
+
+    test_process_manager.create_processes()
+
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+    expected_timepoint = 55432
+    communication = {
+        "communication_type": "recording",
+        "command": "stop_recording",
+        "timepoint_to_stop_recording_at": expected_timepoint,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        communication, server_to_main_queue
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert is_queue_eventually_empty(server_to_main_queue) is True
+    main_to_fw_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
+    )
+    confirm_queue_is_eventually_of_size(main_to_fw_queue, 1)
+
+    actual = main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert actual == communication
+    assert (
+        test_process_manager.get_values_to_share_to_server()["system_status"]
+        == LIVE_VIEW_ACTIVE_STATE
+    )

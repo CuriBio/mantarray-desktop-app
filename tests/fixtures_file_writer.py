@@ -77,6 +77,7 @@ GENERIC_START_RECORDING_COMMAND: Dict[str, Any] = {
 }
 
 GENERIC_STOP_RECORDING_COMMAND: Dict[str, Any] = {
+    "communication_type": "recording",
     "command": "stop_recording",
     "timepoint_to_stop_recording_at": 302412 * 125,
 }
