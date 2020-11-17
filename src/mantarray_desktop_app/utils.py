@@ -46,7 +46,8 @@ def validate_settings(settings_dict: Dict[str, Any]) -> None:
 
 
 def convert_request_args_to_config_dict(request_args: Dict[str, Any]) -> Dict[str, Any]:
-    """Perform conversion from request/CLI inputs to standard dictionary format."""
+    """Perform conversion from request/CLI inputs to standard dictionary
+    format."""
     validate_settings(request_args)
     customer_account_uuid = request_args.get("customer_account_uuid", None)
     user_account_uuid = request_args.get("user_account_uuid", None)
@@ -69,7 +70,8 @@ def update_shared_dict(
 ) -> None:
     """Update the dictionary and log any critical changes.
 
-    Because this is a nested dictionary, make sure to flatten and then unflatten it to ensure full updates.
+    Because this is a nested dictionary, make sure to flatten and then
+    unflatten it to ensure full updates.
     """
     flattened_new_dict = flatten(new_info_dict)
     flattened_shared_dict = flatten(shared_values_dict)

@@ -13,6 +13,7 @@ from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
 import pytest
 
 from ..fixtures import fixture_generic_queue_container
+from ..fixtures import fixture_test_process_manager
 from ..fixtures_process_monitor import fixture_test_monitor
 from ..fixtures_server import fixture_client_and_server_thread_and_shared_values
 from ..fixtures_server import fixture_generic_start_recording_info_in_shared_dict
@@ -27,6 +28,7 @@ __fixtures__ = [
     fixture_test_client,
     fixture_generic_start_recording_info_in_shared_dict,
     fixture_test_monitor,
+    fixture_test_process_manager,
 ]
 
 

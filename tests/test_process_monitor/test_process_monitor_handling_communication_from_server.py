@@ -323,7 +323,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         "communication_type": "recording",
         "command": "start_recording",
         "is_hardware_test_recording": True,
-        "adc_offsets": adc_offsets,
+        "metadata_to_copy_onto_main_file_attributes": {"adc_offsets": adc_offsets},
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         communication, server_to_main_queue
@@ -341,4 +341,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     shared_values_dict = test_process_manager.get_values_to_share_to_server()
     assert shared_values_dict["is_hardware_test_recording"] is True
     assert shared_values_dict["system_status"] == RECORDING_STATE
-    assert shared_values_dict["adc_offsets"] == communication["adc_offsets"]
+    assert (
+        shared_values_dict["adc_offsets"]
+        == communication["metadata_to_copy_onto_main_file_attributes"]["adc_offsets"]
+    )
