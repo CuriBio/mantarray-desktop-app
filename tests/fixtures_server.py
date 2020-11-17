@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
 from queue import Empty
 
+from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
+from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import DEFAULT_SERVER_PORT_NUMBER
 from mantarray_desktop_app import flask_app
+from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import ServerThread
+from mantarray_desktop_app import UTC_BEGINNING_DATA_ACQUISTION_UUID
 import pytest
 from stdlib_utils import confirm_port_available
 from stdlib_utils import confirm_port_in_use
@@ -11,8 +15,14 @@ from stdlib_utils import confirm_port_in_use
 from .fixtures import fixture_generic_queue_container
 from .fixtures import fixture_patch_print
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from .fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
+from .fixtures_process_monitor import fixture_test_monitor
 
-__fixtures__ = [fixture_patch_print, fixture_generic_queue_container]
+__fixtures__ = [
+    fixture_patch_print,
+    fixture_generic_queue_container,
+    fixture_test_monitor,
+]
 
 
 def _clean_up_server_thread(st, to_main_queue, error_queue) -> None:
@@ -79,3 +89,39 @@ def fixture_running_server_thread(server_thread):
 
     # clean up
     st.hard_stop()
+
+
+@pytest.fixture(scope="function", name="generic_start_recording_info_in_shared_dict")
+def fixture_generic_start_recording_info_in_shared_dict(test_monitor,):
+    _, shared_values_dict, _, _ = test_monitor
+    # _,_, shared_values_dict=client_and_server_thread_and_shared_values
+    board_idx = 0
+    timestamp = GENERIC_START_RECORDING_COMMAND[
+        "metadata_to_copy_onto_main_file_attributes"
+    ][UTC_BEGINNING_DATA_ACQUISTION_UUID]
+    shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [timestamp]
+    shared_values_dict["config_settings"] = {
+        "Customer Account ID": CURI_BIO_ACCOUNT_UUID,
+        "User Account ID": CURI_BIO_USER_ACCOUNT_ID,
+    }
+    shared_values_dict["adc_gain"] = 32
+    shared_values_dict["adc_offsets"] = dict()
+    for well_idx in range(24):
+        shared_values_dict["adc_offsets"][well_idx] = {
+            "construct": well_idx * 2,
+            "ref": well_idx * 2 + 1,
+        }
+    shared_values_dict["main_firmware_version"] = {
+        board_idx: RunningFIFOSimulator.default_firmware_version
+    }
+    shared_values_dict["sleep_firmware_version"] = {board_idx: 2.0}
+    shared_values_dict["xem_serial_number"] = {
+        board_idx: RunningFIFOSimulator.default_xem_serial_number
+    }
+    shared_values_dict["mantarray_serial_number"] = {
+        board_idx: RunningFIFOSimulator.default_mantarray_serial_number
+    }
+    shared_values_dict["mantarray_nickname"] = {
+        board_idx: RunningFIFOSimulator.default_mantarray_nickname
+    }
+    yield shared_values_dict

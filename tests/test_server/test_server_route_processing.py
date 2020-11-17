@@ -1,20 +1,26 @@
 # -*- coding: utf-8 -*-
 import datetime
 from multiprocessing import Queue
+import os
 import struct
 import tempfile
 
+from freezegun import freeze_time
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
+from mantarray_desktop_app import PLATE_BARCODE_UUID
 from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import queue_utils
+from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import RunningFIFOSimulator
+from mantarray_desktop_app import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_desktop_app import utils
+from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 from xem_wrapper import DATA_FRAME_SIZE_WORDS
@@ -31,8 +37,10 @@ from ..fixtures import fixture_patched_test_xem_scripts_folder
 from ..fixtures import fixture_patched_xem_scripts_folder
 from ..fixtures import fixture_test_process_manager
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from ..fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
 from ..fixtures_process_monitor import fixture_test_monitor
 from ..fixtures_server import fixture_client_and_server_thread_and_shared_values
+from ..fixtures_server import fixture_generic_start_recording_info_in_shared_dict
 from ..fixtures_server import fixture_server_thread
 from ..fixtures_server import fixture_test_client
 from ..helpers import assert_queue_is_eventually_not_empty
@@ -54,6 +62,7 @@ __fixtures__ = [
     fixture_patched_test_xem_scripts_folder,
     fixture_patched_xem_scripts_folder,
     fixture_patch_print,
+    fixture_generic_start_recording_info_in_shared_dict,
 ]
 
 
@@ -1331,3 +1340,153 @@ def test_stop_recording_command__is_received_by_file_writer__with_given_time_ind
     assert communication["command"] == "stop_recording"
 
     assert communication["timepoint_to_stop_recording_at"] == expected_time_index
+
+
+def test_start_recording__returns_error_code_and_message_if_called_with_is_hardware_test_mode_false_when_previously_true(
+    test_process_manager,
+    test_client,
+    test_monitor,
+    generic_start_recording_info_in_shared_dict,
+):
+    monitor_thread, _, _, _ = test_monitor
+
+    test_process_manager.create_processes()
+
+    response = test_client.get(
+        "/start_recording?barcode=MA200440001&is_hardware_test_recording=True"
+    )
+    assert response.status_code == 200
+    invoke_process_run_and_check_errors(monitor_thread)
+    response = test_client.get(
+        "/start_recording?barcode=MA200440001&is_hardware_test_recording=False"
+    )
+    assert response.status_code == 403
+    assert (
+        response.status.endswith(
+            "Cannot make standard recordings after previously making hardware test recordings. Server and board must both be restarted before making any more standard recordings"
+        )
+        is True
+    )
+
+
+@pytest.mark.slow
+@freeze_time(
+    GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+        UTC_BEGINNING_DATA_ACQUISTION_UUID
+    ]
+)
+def test_start_recording_command__gets_processed_with_given_time_index_parameter(
+    test_process_manager,
+    test_client,
+    mocker,
+    test_monitor,
+    generic_start_recording_info_in_shared_dict,
+):
+    monitor_thread, _, _, _ = test_monitor
+    expected_time_index = 10000000
+    timestamp_str = (
+        GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+            UTC_BEGINNING_DATA_ACQUISTION_UUID
+        ]
+        + datetime.timedelta(
+            seconds=(expected_time_index / CENTIMILLISECONDS_PER_SECOND)
+        )
+    ).strftime("%Y_%m_%d_%H%M%S")
+    generic_start_recording_info_in_shared_dict[  # pylint: disable=duplicate-code
+        "utc_timestamps_of_beginning_of_data_acquisition"
+    ] = [
+        GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+            UTC_BEGINNING_DATA_ACQUISTION_UUID
+        ]
+    ]
+
+    test_process_manager.start_processes()
+
+    expected_barcode = GENERIC_START_RECORDING_COMMAND[
+        "metadata_to_copy_onto_main_file_attributes"
+    ][PLATE_BARCODE_UUID]
+    response = test_client.get(
+        f"/start_recording?barcode={expected_barcode}&active_well_indices=3&time_index={expected_time_index}"
+    )
+    assert response.status_code == 200
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert (
+        generic_start_recording_info_in_shared_dict["system_status"] == RECORDING_STATE
+    )
+    assert (
+        generic_start_recording_info_in_shared_dict["is_hardware_test_recording"]
+        is True
+    )
+
+    test_process_manager.soft_stop_and_join_processes()
+
+    error_queue = test_process_manager.queue_container().get_file_writer_error_queue()
+
+    assert is_queue_eventually_empty(error_queue) is True
+    file_dir = test_process_manager.get_file_writer_process().get_file_directory()
+    actual_files = os.listdir(
+        os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}")
+    )
+    assert actual_files == [f"{expected_barcode}__{timestamp_str}__D1.h5"]
+
+
+@pytest.mark.slow
+@freeze_time(
+    GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+        UTC_BEGINNING_DATA_ACQUISTION_UUID
+    ]
+    + datetime.timedelta(
+        seconds=GENERIC_START_RECORDING_COMMAND[  # pylint: disable=duplicate-code
+            "timepoint_to_begin_recording_at"
+        ]
+        / CENTIMILLISECONDS_PER_SECOND
+    )
+)
+def test_start_recording_command__gets_processed__and_creates_a_file__and_updates_shared_values_dict(
+    test_process_manager,
+    test_client,
+    mocker,
+    test_monitor,
+    generic_start_recording_info_in_shared_dict,
+):
+    monitor_thread, _, _, _ = test_monitor
+
+    timestamp_str = (
+        GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+            UTC_BEGINNING_DATA_ACQUISTION_UUID
+        ]
+        + datetime.timedelta(
+            seconds=GENERIC_START_RECORDING_COMMAND[  # pylint: disable=duplicate-code
+                "timepoint_to_begin_recording_at"
+            ]
+            / CENTIMILLISECONDS_PER_SECOND
+        )
+    ).strftime("%Y_%m_%d_%H%M%S")
+
+    test_process_manager.start_processes()
+
+    expected_barcode = GENERIC_START_RECORDING_COMMAND[
+        "metadata_to_copy_onto_main_file_attributes"
+    ][PLATE_BARCODE_UUID]
+    response = test_client.get(
+        f"/start_recording?barcode={expected_barcode}&active_well_indices=3&is_hardware_test_recording=False"
+    )
+    assert response.status_code == 200
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert (
+        generic_start_recording_info_in_shared_dict["system_status"] == RECORDING_STATE
+    )
+    assert (
+        generic_start_recording_info_in_shared_dict["is_hardware_test_recording"]
+        is False
+    )
+
+    test_process_manager.soft_stop_and_join_processes()
+    error_queue = test_process_manager.queue_container().get_file_writer_error_queue()
+
+    assert is_queue_eventually_empty(error_queue) is True
+    file_dir = test_process_manager.get_file_writer_process().get_file_directory()
+    actual_files = os.listdir(
+        os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}")
+    )
+    assert actual_files == [f"{expected_barcode}__2020_02_09_190935__D1.h5"]

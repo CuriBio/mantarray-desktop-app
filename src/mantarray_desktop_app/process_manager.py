@@ -88,7 +88,6 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         """Create/init the processes."""
         queue_container = MantarrayQueueContainer()
         self._queue_container = queue_container
-        # self._create_queues()
 
         self._server_thread = ServerThread(
             queue_container.get_communication_queue_from_server_to_main(),

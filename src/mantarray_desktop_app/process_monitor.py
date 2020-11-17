@@ -22,6 +22,7 @@ from .constants import CALIBRATED_STATE
 from .constants import CALIBRATING_STATE
 from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
+from .constants import RECORDING_STATE
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
@@ -137,13 +138,25 @@ class MantarrayProcessesMonitor(InfiniteThread):
             self._put_communication_into_ok_comm_queue(communication)
         elif communication_type == "recording":
             command = communication["command"]
-            if command == "stop_recording":
-                main_to_fw_queue = (
-                    self._process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
-                )
-                main_to_fw_queue.put(communication)
-                shared_values_dict["system_status"] = LIVE_VIEW_ACTIVE_STATE
+            main_to_fw_queue = (
+                self._process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
+            )
 
+            if command == "stop_recording":
+                shared_values_dict["system_status"] = LIVE_VIEW_ACTIVE_STATE
+            elif command == "start_recording":
+                shared_values_dict["system_status"] = RECORDING_STATE
+                is_hardware_test_recording = communication.get(
+                    "is_hardware_test_recording", False
+                )
+                shared_values_dict[
+                    "is_hardware_test_recording"
+                ] = is_hardware_test_recording
+                if is_hardware_test_recording:
+                    shared_values_dict["adc_offsets"] = communication[
+                        "metadata_to_copy_onto_main_file_attributes"
+                    ]["adc_offsets"]
+            main_to_fw_queue.put(communication)
         elif communication_type == "to_instrument":
             command = communication["command"]
             if command == "boot_up":

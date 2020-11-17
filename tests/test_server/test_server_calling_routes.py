@@ -13,7 +13,9 @@ from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
 import pytest
 
 from ..fixtures import fixture_generic_queue_container
+from ..fixtures_process_monitor import fixture_test_monitor
 from ..fixtures_server import fixture_client_and_server_thread_and_shared_values
+from ..fixtures_server import fixture_generic_start_recording_info_in_shared_dict
 from ..fixtures_server import fixture_server_thread
 from ..fixtures_server import fixture_test_client
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -23,6 +25,8 @@ __fixtures__ = [
     fixture_server_thread,
     fixture_generic_queue_container,
     fixture_test_client,
+    fixture_generic_start_recording_info_in_shared_dict,
+    fixture_test_monitor,
 ]
 
 
@@ -348,3 +352,124 @@ def test_update_settings__returns_error_message_for_invalid_user_account_uuid(
         )
         is True
     )
+
+
+def test_route_error_message_is_logged(mocker, test_client):
+    expected_error_msg = "400 Request missing 'barcode' parameter"
+
+    mocked_logger = mocker.spy(server.logger, "info")
+
+    response = test_client.get("/start_recording")
+    assert response.status == expected_error_msg
+
+    assert expected_error_msg in mocked_logger.call_args[0][0]
+
+
+def test_start_recording__returns_no_error_message_with_multiple_hardware_test_recordings(
+    client_and_server_thread_and_shared_values,
+    generic_start_recording_info_in_shared_dict,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    # test_process_manager.create_processes()
+
+    response = test_client.get(
+        "/start_recording?barcode=MA200440001&is_hardware_test_recording=True"
+    )
+    assert response.status_code == 200
+    response = test_client.get(
+        "/start_recording?barcode=MA200440001&is_hardware_test_recording=True"
+    )
+    assert response.status_code == 200
+
+
+def test_start_recording__returns_error_code_and_message_if_user_account_id_not_set(
+    test_client, test_monitor, generic_start_recording_info_in_shared_dict
+):
+    generic_start_recording_info_in_shared_dict["config_settings"][
+        "User Account ID"
+    ] = ""
+    response = test_client.get("/start_recording?barcode=MA200440001")
+    assert response.status_code == 406
+    assert response.status.endswith("User Account ID has not yet been set") is True
+
+
+def test_start_recording__returns_error_code_and_message_if_customer_account_id_not_set(
+    test_client, test_monitor, generic_start_recording_info_in_shared_dict
+):
+    generic_start_recording_info_in_shared_dict["config_settings"][
+        "Customer Account ID"
+    ] = ""
+    response = test_client.get("/start_recording?barcode=MA200440001")
+    assert response.status_code == 406
+    assert response.status.endswith("Customer Account ID has not yet been set") is True
+
+
+def test_start_recording__returns_error_code_and_message_if_barcode_is_not_given(
+    test_client,
+):
+    response = test_client.get("/start_recording")
+    assert response.status_code == 400
+    assert response.status.endswith("Request missing 'barcode' parameter") is True
+
+
+@pytest.mark.parametrize(
+    ",".join(("test_barcode", "expected_error_message", "test_description")),
+    [
+        (
+            "MA1234567890",
+            "Barcode exceeds max length",
+            "returns error message when barcode is too long",
+        ),
+        (
+            "MA1234567",
+            "Barcode does not reach min length",
+            "returns error message when barcode is too short",
+        ),
+        (
+            "MA21044-001",
+            "Barcode contains invalid character: '-'",
+            "returns error message when '-' is present",
+        ),
+        (
+            "M$210440001",
+            "Barcode contains invalid character: '$'",
+            "returns error message when '$' is present",
+        ),
+        (
+            "MZ20044001",
+            "Barcode contains invalid header: 'MZ'",
+            "returns error message when barcode header is invalid",
+        ),
+        (
+            "MA210440001",
+            "Barcode contains invalid year: '21'",
+            "returns error message when year is invalid",
+        ),
+        (
+            "MA200000001",
+            "Barcode contains invalid Julian date: '000'",
+            "returns error message when julian date is too low",
+        ),
+        (
+            "MA20367001",
+            "Barcode contains invalid Julian date: '367'",
+            "returns error message when julian date is too big",
+        ),
+        (
+            "MA2004400BA",
+            "Barcode contains nom-numeric string after Julian date: '00BA'",
+            "returns error message when barcode ending is non-numeric",
+        ),
+        (
+            "MA2004400A",
+            "Barcode contains nom-numeric string after Julian date: '00A'",
+            "returns error message when barcode ending is non-numeric",
+        ),
+    ],
+)
+def test_start_recording__returns_error_code_and_message_if_barcode_is_invalid(
+    test_client, test_barcode, expected_error_message, test_description
+):
+    response = test_client.get(f"/start_recording?barcode={test_barcode}")
+    assert response.status_code == 400
+    assert response.status.endswith(expected_error_message) is True

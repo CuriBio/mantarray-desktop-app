@@ -18,8 +18,6 @@ from __future__ import annotations
 
 import argparse
 import base64
-import copy
-import datetime
 import json
 import logging
 import multiprocessing
@@ -34,46 +32,23 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Tuple
-from typing import Union
-from uuid import UUID
 
 from flask import Flask
 from flask import request
-from flask import Response
 from flask_cors import CORS
 from immutable_data_validation import is_uuid
-from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
-from mantarray_file_manager import METADATA_UUID_DESCRIPTIONS
-from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
-from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 from stdlib_utils import configure_logging
 from stdlib_utils import InfiniteLoopingParallelismMixIn
 from stdlib_utils import is_port_in_use
 
-from .constants import ADC_GAIN_SETTING_UUID
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CURI_BIO_ACCOUNT_UUID
 from .constants import CURI_BIO_USER_ACCOUNT_ID
 from .constants import CURRENT_SOFTWARE_VERSION
-from .constants import CUSTOMER_ACCOUNT_ID_UUID
 from .constants import DEFAULT_SERVER_PORT_NUMBER
-from .constants import MAIN_FIRMWARE_VERSION_UUID
-from .constants import MANTARRAY_NICKNAME_UUID
-from .constants import MANTARRAY_SERIAL_NUMBER_UUID
-from .constants import PLATE_BARCODE_UUID
-from .constants import RECORDING_STATE
-from .constants import REFERENCE_VOLTAGE
-from .constants import REFERENCE_VOLTAGE_UUID
 from .constants import SERVER_INITIALIZING_STATE
-from .constants import SLEEP_FIRMWARE_VERSION_UUID
-from .constants import SOFTWARE_RELEASE_VERSION_UUID
-from .constants import START_RECORDING_TIME_INDEX_UUID
 from .constants import SUBPROCESS_POLL_DELAY_SECONDS
 from .constants import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
-from .constants import USER_ACCOUNT_ID_UUID
-from .constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
-from .constants import UTC_BEGINNING_RECORDING_UUID
-from .constants import XEM_SERIAL_NUMBER_UUID
 from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
 from .exceptions import ImproperlyFormattedUserAccountUUIDError
 from .exceptions import LocalServerPortAlreadyInUseError
@@ -107,25 +82,6 @@ def get_shared_values_between_server_and_monitor() -> Dict[  # pylint:disable=in
 def get_server_port_number() -> int:
     shared_values_dict = get_shared_values_between_server_and_monitor()
     return shared_values_dict.get("server_port_number", DEFAULT_SERVER_PORT_NUMBER)
-
-
-def _check_barcode_for_errors(barcode: str) -> str:
-    if len(barcode) > 11:
-        return "Barcode exceeds max length"
-    if len(barcode) < 10:
-        return "Barcode does not reach min length"
-    for char in barcode:
-        if not char.isalnum():
-            return f"Barcode contains invalid character: '{char}'"
-    if barcode[:2] != "MA" and barcode[:2] != "MB" and barcode[:2] != "M1":
-        return f"Barcode contains invalid header: '{barcode[:2]}'"
-    if int(barcode[2:4]) != 20:
-        return f"Barcode contains invalid year: '{barcode[2:4]}'"
-    if int(barcode[4:7]) < 1 or int(barcode[4:7]) > 366:
-        return f"Barcode contains invalid Julian date: '{barcode[4:7]}'"
-    if not barcode[7:].isnumeric():
-        return f"Barcode contains nom-numeric string after Julian date: '{barcode[7:]}'"
-    return ""
 
 
 def prepare_to_shutdown() -> None:
@@ -175,139 +131,6 @@ def shutdown() -> str:
     # curl http://localhost:4567/shutdown
     shutdown_server()
     return "Server shutting down..."
-
-
-@flask_app.route("/start_recording", methods=["GET"])
-def start_recording() -> Response:
-    """Tell the FileWriter to begin recording data to disk.
-
-    Can be invoked by: curl http://localhost:4567/start_recording
-    curl http://localhost:4567/start_recording?active_well_indices=2,5,9&barcode=MA200440001&time_index=960&is_hardware_test_recording=True
-
-    Args:
-        active_well_indices: [Optional, default=all 24] CSV of well indices to record from
-        time_index: [Optional, int] centimilliseconds since acquisition began to start the recording at. Defaults to when this command is received
-    """
-    if "barcode" not in request.args:
-        response = Response(status="400 Request missing 'barcode' parameter")
-        return response
-    barcode = request.args["barcode"]
-    error_message = _check_barcode_for_errors(barcode)
-    if error_message:
-        response = Response(status=f"400 {error_message}")
-        return response
-
-    shared_values_dict = get_shared_values_between_server_and_monitor()
-    if not shared_values_dict["config_settings"]["Customer Account ID"]:
-        response = Response(status="406 Customer Account ID has not yet been set")
-        return response
-    if not shared_values_dict["config_settings"]["User Account ID"]:
-        response = Response(status="406 User Account ID has not yet been set")
-        return response
-
-    is_hardware_test_recording = request.args.get("is_hardware_test_recording", True)
-    if isinstance(is_hardware_test_recording, str):
-        is_hardware_test_recording = is_hardware_test_recording not in (
-            "False",
-            "false",
-        )
-    if (
-        shared_values_dict.get("is_hardware_test_recording", False)
-        and not is_hardware_test_recording
-    ):
-        response = Response(
-            status="403 Cannot make standard recordings after previously making hardware test recordings. Server and board must both be restarted before making any more standard recordings"
-        )
-        return response
-    shared_values_dict["is_hardware_test_recording"] = is_hardware_test_recording
-    if is_hardware_test_recording:
-        adc_offsets = dict()
-        for well_idx in range(24):
-            adc_offsets[well_idx] = {
-                "construct": 0,
-                "ref": 0,
-            }
-        shared_values_dict["adc_offsets"] = adc_offsets
-
-    timestamp_of_sample_idx_zero = _get_timestamp_of_acquisition_sample_index_zero()
-
-    shared_values_dict["system_status"] = RECORDING_STATE
-
-    begin_timepoint: Union[int, float]
-    timestamp_of_begin_recording = datetime.datetime.utcnow()
-    if "time_index" in request.args:
-        begin_timepoint = int(request.args["time_index"])
-    else:
-        time_since_index_0 = timestamp_of_begin_recording - timestamp_of_sample_idx_zero
-        begin_timepoint = (
-            time_since_index_0.total_seconds() * CENTIMILLISECONDS_PER_SECOND
-        )
-
-    comm_dict: Dict[str, Any] = {
-        "command": "start_recording",
-        "metadata_to_copy_onto_main_file_attributes": {
-            HARDWARE_TEST_RECORDING_UUID: is_hardware_test_recording,
-            UTC_BEGINNING_DATA_ACQUISTION_UUID: timestamp_of_sample_idx_zero,
-            START_RECORDING_TIME_INDEX_UUID: begin_timepoint,
-            UTC_BEGINNING_RECORDING_UUID: timestamp_of_begin_recording,
-            CUSTOMER_ACCOUNT_ID_UUID: shared_values_dict["config_settings"][
-                "Customer Account ID"
-            ],
-            USER_ACCOUNT_ID_UUID: shared_values_dict["config_settings"][
-                "User Account ID"
-            ],
-            SOFTWARE_BUILD_NUMBER_UUID: COMPILED_EXE_BUILD_TIMESTAMP,
-            SOFTWARE_RELEASE_VERSION_UUID: CURRENT_SOFTWARE_VERSION,
-            MAIN_FIRMWARE_VERSION_UUID: shared_values_dict["main_firmware_version"][0],
-            SLEEP_FIRMWARE_VERSION_UUID: shared_values_dict["sleep_firmware_version"][
-                0
-            ],
-            XEM_SERIAL_NUMBER_UUID: shared_values_dict["xem_serial_number"][0],
-            MANTARRAY_SERIAL_NUMBER_UUID: shared_values_dict["mantarray_serial_number"][
-                0
-            ],
-            MANTARRAY_NICKNAME_UUID: shared_values_dict["mantarray_nickname"][0],
-            REFERENCE_VOLTAGE_UUID: REFERENCE_VOLTAGE,
-            ADC_GAIN_SETTING_UUID: shared_values_dict["adc_gain"],
-            "adc_offsets": shared_values_dict["adc_offsets"],
-            PLATE_BARCODE_UUID: barcode,
-        },
-        "timepoint_to_begin_recording_at": begin_timepoint,
-    }
-
-    if "active_well_indices" in request.args:
-        comm_dict["active_well_indices"] = [
-            int(x) for x in request.args["active_well_indices"].split(",")
-        ]
-    else:
-        comm_dict["active_well_indices"] = list(range(24))
-
-    manager = get_mantarray_process_manager()
-    to_file_writer_queue = manager.get_communication_queue_from_main_to_file_writer()
-    to_file_writer_queue.put(
-        copy.deepcopy(comm_dict)
-    )  # Eli (3/16/20): apparently when using multiprocessing.Queue you have to be careful when modifying values put into the queue because they might still be editable. So making a copy first
-    for this_attr_name, this_attr_value in list(
-        comm_dict["metadata_to_copy_onto_main_file_attributes"].items()
-    ):
-        if this_attr_name == "adc_offsets":
-            continue
-        if METADATA_UUID_DESCRIPTIONS[this_attr_name].startswith("UTC Timestamp"):
-            this_attr_value = this_attr_value.strftime("%Y-%m-%dT%H:%M:%S.%f")
-            comm_dict["metadata_to_copy_onto_main_file_attributes"][
-                this_attr_name
-            ] = this_attr_value
-        if isinstance(this_attr_value, UUID):
-            this_attr_value = str(this_attr_value)
-        del comm_dict["metadata_to_copy_onto_main_file_attributes"][this_attr_name]
-        this_attr_name = str(this_attr_name)
-        comm_dict["metadata_to_copy_onto_main_file_attributes"][
-            this_attr_name
-        ] = this_attr_value
-
-    response = Response(json.dumps(comm_dict), mimetype="application/json")
-
-    return response
 
 
 def _update_settings(
