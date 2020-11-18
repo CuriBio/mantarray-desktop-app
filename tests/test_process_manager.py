@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import logging
 import os
+import time
 
 from mantarray_desktop_app import DataAnalyzerProcess
 from mantarray_desktop_app import FileWriterProcess
@@ -9,16 +10,18 @@ from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import MantarrayProcessesManager
 from mantarray_desktop_app import OkCommunicationProcess
 from mantarray_desktop_app import ServerThread
+from mantarray_desktop_app import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 import pytest
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import resource_path
 
 from .fixtures import fixture_patched_firmware_folder
+from .fixtures import fixture_test_process_manager
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .helpers import is_queue_eventually_of_size
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
-__fixtures__ = [fixture_patched_firmware_folder]
+__fixtures__ = [fixture_patched_firmware_folder, fixture_test_process_manager]
 
 
 @pytest.fixture(scope="function", name="generic_manager")
@@ -64,6 +67,25 @@ def test_MantarrayProcessesManager__soft_stop_processes__calls_soft_stop_on_all_
     mocked_file_writer_soft_stop.assert_called_once()
     mocked_data_analyzer_soft_stop.assert_called_once()
     mocked_server_soft_stop.assert_called_once()
+
+
+def test_MantarrayProcessesManager__soft_stop_processes_except_server__calls_soft_stop_on_all_processes_except_server(
+    generic_manager, mocker,
+):
+    generic_manager.create_processes()
+    mocked_ok_comm_soft_stop = mocker.patch.object(OkCommunicationProcess, "soft_stop")
+    mocked_file_writer_soft_stop = mocker.patch.object(FileWriterProcess, "soft_stop")
+    mocked_data_analyzer_soft_stop = mocker.patch.object(
+        DataAnalyzerProcess, "soft_stop"
+    )
+    mocked_server_soft_stop = mocker.patch.object(ServerThread, "soft_stop")
+
+    generic_manager.soft_stop_processes_except_server()
+
+    mocked_ok_comm_soft_stop.assert_called_once()
+    mocked_file_writer_soft_stop.assert_called_once()
+    mocked_data_analyzer_soft_stop.assert_called_once()
+    assert mocked_server_soft_stop.call_count == 0
 
 
 def test_MantarrayProcessesManager__hard_stop_processes__calls_hard_stop_on_all_processes_and_returns_process_queue_items(
@@ -356,6 +378,81 @@ def test_MantarrayProcessesManager__boot_up_instrument__populates_ok_comm_queue_
         "communication_type": "xem_scripts",
         "script_type": "start_up",
     }
+
+
+# @pytest.mark.slow
+def test_MantarrayProcessesManager__are_processes_stopped__waits_correct_amount_of_time_before_returning_false(
+    test_process_manager, mocker
+):
+    test_process_manager.create_processes()
+    okc_process = test_process_manager.get_ok_comm_process()
+    fw_process = test_process_manager.get_file_writer_process()
+    da_process = test_process_manager.get_data_analyzer_process()
+    server_thread = test_process_manager.get_server_thread()
+    mocked_server_is_stopped = mocker.patch.object(
+        server_thread,
+        "is_stopped",
+        autospec=True,
+        side_effect=[False, True, True, True],
+    )
+    mocked_okc_is_stopped = mocker.patch.object(
+        okc_process, "is_stopped", autospec=True, side_effect=[False, True, True]
+    )
+    mocked_fw_is_stopped = mocker.patch.object(
+        fw_process, "is_stopped", autospec=True, side_effect=[False, True]
+    )
+    mocked_da_is_stopped = mocker.patch.object(
+        da_process, "is_stopped", autospec=True, side_effect=[False]
+    )
+
+    mocked_counter = mocker.patch.object(
+        time,
+        "perf_counter",
+        autospec=True,
+        side_effect=[0, 0, 0, 0, SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS],
+    )
+    mocker.patch.object(time, "sleep", autospec=True)
+
+    assert test_process_manager.are_processes_stopped() is False
+
+    assert mocked_counter.call_count == 5
+    assert mocked_server_is_stopped.call_count == 4
+    assert mocked_okc_is_stopped.call_count == 3
+    assert mocked_fw_is_stopped.call_count == 2
+    assert mocked_da_is_stopped.call_count == 1
+
+
+def test_MantarrayProcessesManager__are_processes_stopped__returns_true_if_stop_occurs_during_polling(
+    test_process_manager, mocker
+):
+    test_process_manager.create_processes()
+    okc_process = test_process_manager.get_ok_comm_process()
+    fw_process = test_process_manager.get_file_writer_process()
+    da_process = test_process_manager.get_data_analyzer_process()
+    server_thread = test_process_manager.get_server_thread()
+    mocked_server_is_stopped = mocker.patch.object(
+        server_thread, "is_stopped", autospec=True, return_value=True
+    )
+    mocked_okc_is_stopped = mocker.patch.object(
+        okc_process, "is_stopped", autospec=True, return_value=True
+    )
+    mocked_fw_is_stopped = mocker.patch.object(
+        fw_process, "is_stopped", autospec=True, return_value=True
+    )
+    mocked_da_is_stopped = mocker.patch.object(
+        da_process, "is_stopped", autospec=True, side_effect=[False, True]
+    )
+
+    mocked_counter = mocker.patch.object(
+        time, "perf_counter", autospec=True, return_value=0
+    )
+    mocker.patch.object(time, "sleep", autospec=True)
+
+    assert test_process_manager.are_processes_stopped() is True
+
+    assert (
+        mocked_counter.call_count == 2
+    )  # ensure it was activated once inside the loop
 
 
 # def test_get_mantarray_process_manager__spawns_processes_if_not_already_started__but_not_again(

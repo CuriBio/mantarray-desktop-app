@@ -971,3 +971,30 @@ def test_start_recording_command__populates_queue__with_defaults__24_wells__utcn
     assert set(communication["active_well_indices"]) == set(range(24))
     response_json = response.get_json()
     assert response_json["command"] == "start_recording"
+
+
+def test_shutdown__populates_queue_with_request_to_soft_stop_then_request_to_hard_stop__and_calls_function_to_shut_down_server(
+    client_and_server_thread_and_shared_values, mocker
+):
+    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
+    test_server, _, _ = test_server_info
+
+    mocked_stop_server = mocker.patch.object(
+        server, "shutdown_server", autospec=True
+    )  # in the testing context, the Flask server cannot actually be shut down, so mocking instead of spying here
+
+    response = test_client.get("/shutdown")
+    assert response.status_code == 200
+
+    server_to_main_queue = test_server.get_queue_to_main()
+    assert is_queue_eventually_of_size(server_to_main_queue, 2) is True
+    communication = server_to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["communication_type"] == "shutdown"
+    assert communication["command"] == "soft_stop"
+    communication = server_to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["communication_type"] == "shutdown"
+    assert communication["command"] == "hard_stop"
+    response_json = response.get_json()
+    assert response_json == communication
+
+    mocked_stop_server.assert_called_once()

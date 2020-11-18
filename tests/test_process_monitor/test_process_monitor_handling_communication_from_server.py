@@ -345,3 +345,60 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         shared_values_dict["adc_offsets"]
         == communication["metadata_to_copy_onto_main_file_attributes"]["adc_offsets"]
     )
+
+
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_shutdown_soft_stop__by_soft_stopping_everything_except_the_server(
+    test_process_manager, test_monitor, mocker
+):
+    monitor_thread, _, _, _ = test_monitor
+
+    test_process_manager.create_processes()
+    mocked_soft_stop_processes_except_server = mocker.patch.object(
+        test_process_manager, "soft_stop_processes_except_server", autospec=True
+    )  # Eli (11/17/20): mocking instead of spying because processes can't be joined unless they were actaully started, and we're just doing a create_processes here
+
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+
+    communication = {
+        "communication_type": "shutdown",
+        "command": "soft_stop",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        communication, server_to_main_queue
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert is_queue_eventually_empty(server_to_main_queue) is True
+
+    mocked_soft_stop_processes_except_server.assert_called_once()
+
+
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_shutdown_hard_stop__by_checking_if_processes_are_stopped_and_hard_stop_and_join_all_processes(
+    test_process_manager, test_monitor, mocker
+):
+    monitor_thread, _, _, _ = test_monitor
+
+    test_process_manager.create_processes()
+    mocked_are_processes_stopped = mocker.patch.object(
+        test_process_manager, "are_processes_stopped", autospec=True
+    )  # Eli (11/17/20): mocking instead of spying because processes can't be joined unless they were actaully started, and we're just doing a create_processes here
+    mocked_hard_stop_and_join = mocker.patch.object(
+        test_process_manager, "hard_stop_and_join_processes", autospec=True
+    )  # Eli (11/17/20): mocking instead of spying because processes can't be joined unless they were actaully started, and we're just doing a create_processes here
+
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+
+    communication = {
+        "communication_type": "shutdown",
+        "command": "hard_stop",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        communication, server_to_main_queue
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert is_queue_eventually_empty(server_to_main_queue) is True
+    mocked_are_processes_stopped.assert_called_once()
+    mocked_hard_stop_and_join.assert_called_once()

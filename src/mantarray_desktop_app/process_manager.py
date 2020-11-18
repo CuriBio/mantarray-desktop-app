@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import logging
 import os
+import time
 from typing import Any
 from typing import Dict
 from typing import Iterable
@@ -14,6 +15,8 @@ from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import resource_path
 
 from .constants import INSTRUMENT_INITIALIZING_STATE
+from .constants import SUBPROCESS_POLL_DELAY_SECONDS
+from .constants import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from .data_analyzer import DataAnalyzerProcess
 from .file_writer import FileWriterProcess
 from .firmware_manager import get_latest_firmware
@@ -178,9 +181,15 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             iter_process.stop()
 
     def soft_stop_processes(self) -> None:
+        self.soft_stop_processes_except_server()
+        self.get_server_thread().soft_stop()
+
+    def soft_stop_processes_except_server(self) -> None:
         if not isinstance(self._all_processes, Iterable):
             raise NotImplementedError("Processes must be created first.")
         for iter_process in self._all_processes:
+            if isinstance(iter_process, ServerThread):
+                continue
             iter_process.soft_stop()
 
     def hard_stop_processes(self) -> Dict[str, Any]:
@@ -227,6 +236,22 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             "server_items": server_items,
         }
         return process_items
+
+    def are_processes_stopped(self) -> bool:
+        """Check if processes are stopped."""
+
+        # TODO (Eli 11/18/20): consider accepting a kwarg for SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
+        start = time.perf_counter()
+        processes = self._all_processes
+        are_stopped = all(p.is_stopped() for p in processes)
+        while (
+            not are_stopped
+            and time.perf_counter() - start < SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
+        ):
+            are_stopped = all(p.is_stopped() for p in processes)
+            time.sleep(SUBPROCESS_POLL_DELAY_SECONDS)
+
+        return are_stopped
 
 
 def _create_process_manager() -> MantarrayProcessesManager:

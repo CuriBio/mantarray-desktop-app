@@ -887,12 +887,10 @@ def queue_get_status() -> Response:
     return response
 
 
-@flask_app.route("/stop_server", methods=["GET"])
-def stop_server() -> str:
-    """Shut down Flask.
+def shutdown_server() -> None:
+    """Stop / shutdown the Flask Server itself.
 
-    Obtained from https://stackoverflow.com/questions/15562446/how-to-stop-flask-application-without-using-ctrl-c
-    curl http://localhost:4567/stop_server
+    Eli (11/18/20): If separate routes call this, then it needs to be broken out into a subfunction not decorated as a Flask route.
     """
     shutdown_function = request.environ.get("werkzeug.server.shutdown")
     if shutdown_function is None:
@@ -900,7 +898,30 @@ def stop_server() -> str:
     logger.info("Calling function to shut down Flask Server.")
     shutdown_function()
     logger.info("Flask server successfully shut down.")
+
+
+@flask_app.route("/stop_server", methods=["GET"])
+def stop_server() -> str:
+    """Shut down Flask.
+
+    Obtained from https://stackoverflow.com/questions/15562446/how-to-stop-flask-application-without-using-ctrl-c
+    curl http://localhost:4567/stop_server
+    """
+    shutdown_server()
     return "Server shutting down..."
+
+
+@flask_app.route("/shutdown", methods=["GET"])
+def shutdown() -> Response:
+    # curl http://localhost:4567/shutdown
+    queue_command_to_main({"communication_type": "shutdown", "command": "soft_stop"})
+    response = queue_command_to_main(
+        {"communication_type": "shutdown", "command": "hard_stop"}
+    )
+    shutdown_server()
+    return response
+    # shutdown_server()
+    return Response(status="200 Server shutdown")
 
 
 @flask_app.after_request

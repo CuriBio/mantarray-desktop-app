@@ -110,6 +110,14 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 ]
 
             self._put_communication_into_ok_comm_queue(communication)
+        elif communication_type == "shutdown":
+            command = communication["command"]
+            if command == "soft_stop":
+                self._process_manager.soft_stop_processes_except_server()
+            else:
+                self._process_manager.are_processes_stopped()
+
+                self._hard_stop_and_join_processes_and_log_leftovers()
         elif communication_type == "update_shared_values_dictionary":
             new_values = communication["content"]
             new_recording_directory: Optional[str] = None
@@ -359,6 +367,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
         # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
         with self._lock:
             logger.error(msg)
+        self._hard_stop_and_join_processes_and_log_leftovers()
+
+    def _hard_stop_and_join_processes_and_log_leftovers(self) -> None:
         process_items = self._process_manager.hard_stop_and_join_processes()
         msg = f"Remaining items in process queues: {process_items}"
         # Tanner (5/21/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
