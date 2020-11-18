@@ -1490,3 +1490,41 @@ def test_start_recording_command__gets_processed__and_creates_a_file__and_update
         os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}")
     )
     assert actual_files == [f"{expected_barcode}__2020_02_09_190935__D1.h5"]
+
+
+@pytest.mark.slow
+def test_send_single_get_status_command__gets_processed(
+    test_process_manager, test_client
+):
+    expected_response = {
+        "is_spi_running": False,
+        "is_board_initialized": False,
+        "bit_file_name": None,
+    }
+    simulator = FrontPanelSimulator({})
+
+    ok_process = test_process_manager.get_ok_comm_process()
+    ok_process.set_board_connection(0, simulator)
+
+    test_process_manager.start_processes()
+
+    response = test_client.get("/insert_xem_command_into_queue/get_status")
+    assert response.status_code == 200
+
+    test_process_manager.soft_stop_and_join_processes()
+    comm_queue = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
+        0
+    )
+    assert is_queue_eventually_empty(comm_queue) is True
+
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+        0
+    )
+    comm_from_ok_queue.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # pull out the initial boot-up message
+
+    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
+    communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["command"] == "get_status"
+    assert communication["response"] == expected_response

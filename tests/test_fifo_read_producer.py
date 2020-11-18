@@ -16,8 +16,8 @@ from mantarray_desktop_app import FIFOReadProducer
 from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
-import numpy as np
 import pytest
+from pytest import approx
 from scipy import signal
 from stdlib_utils import invoke_process_run_and_check_errors
 from xem_wrapper import build_header_magic_number_bytes
@@ -56,9 +56,9 @@ def test_FIFOReadProducer__sleeps_for_correct_duration_every_cycle(mocker):
 
     # Tanner (4/30/20): num_iterations=2 so that we check for idle time once. There is no check on the final iteration.
     invoke_process_run_and_check_errors(producer_thread, num_iterations=2)
-    np.testing.assert_almost_equal(
-        mocked_sleep.call_args[0], expected_sleep_time, decimal=8
-    )
+
+    mocked_sleep_first_call = mocked_sleep.call_args_list[0]
+    assert mocked_sleep_first_call[0][0] == approx(expected_sleep_time)
 
     # clean up the queues to avoid BrokenPipe errors
     producer_thread.hard_stop()

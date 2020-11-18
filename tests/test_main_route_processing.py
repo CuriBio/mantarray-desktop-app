@@ -9,7 +9,6 @@ from mantarray_desktop_app import wait_for_subprocesses_to_start
 import pytest
 import requests
 from stdlib_utils import confirm_port_in_use
-from xem_wrapper import FrontPanelSimulator
 
 from .fixtures import fixture_fully_running_app_from_main_entrypoint
 from .fixtures import fixture_patched_firmware_folder
@@ -21,7 +20,6 @@ from .fixtures import fixture_patched_xem_scripts_folder
 from .fixtures import fixture_test_client
 from .fixtures import fixture_test_process_manager
 from .helpers import is_queue_eventually_empty
-from .helpers import is_queue_eventually_not_empty
 
 __fixtures__ = [
     fixture_fully_running_app_from_main_entrypoint,
@@ -35,40 +33,6 @@ __fixtures__ = [
     fixture_patched_short_calibration_script,
     fixture_patched_test_xem_scripts_folder,
 ]
-
-
-@pytest.mark.slow
-def test_send_single_get_status_command__gets_processed(
-    test_process_manager, test_client
-):
-    expected_response = {
-        "is_spi_running": False,
-        "is_board_initialized": False,
-        "bit_file_name": None,
-    }
-    simulator = FrontPanelSimulator({})
-
-    ok_process = test_process_manager.get_ok_comm_process()
-    ok_process.set_board_connection(0, simulator)
-
-    test_process_manager.start_processes()
-
-    response = test_client.get("/insert_xem_command_into_queue/get_status")
-    assert response.status_code == 200
-
-    test_process_manager.soft_stop_and_join_processes()
-    comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
-    assert is_queue_eventually_empty(comm_queue) is True
-
-    comm_from_ok_queue = test_process_manager.get_communication_queue_from_ok_comm_to_main(
-        0
-    )
-    comm_from_ok_queue.get_nowait()  # pull out the initial boot-up message
-
-    assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
-    communication = comm_from_ok_queue.get_nowait()
-    assert communication["command"] == "get_status"
-    assert communication["response"] == expected_response
 
 
 @pytest.mark.timeout(20)
