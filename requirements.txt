@@ -13,3 +13,5 @@ labware-domain-models==0.2
 mantarray-waveform-analysis==0.5.1
 immutable-data-validation==0.2.1
 mantarray-file-manager==0.2.1
+immutabledict==1.1.0
+flatten-dict==0.3.0

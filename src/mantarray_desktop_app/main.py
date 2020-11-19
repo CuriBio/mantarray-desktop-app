@@ -111,26 +111,26 @@ def prepare_to_shutdown() -> None:
     logger.info(msg)
 
 
-def shutdown_server() -> None:
-    """Shut down Flask.
+# def shutdown_server() -> None:
+#     """Shut down Flask.
 
-    Obtained from https://stackoverflow.com/questions/15562446/how-to-stop-flask-application-without-using-ctrl-c
-    """
-    shutdown_function = request.environ.get("werkzeug.server.shutdown")
-    if shutdown_function is None:
-        raise NotImplementedError("Not running with the Werkzeug Server")
-    logger.info("Calling function to shut down Flask Server")
-    shutdown_function()
-    logger.info("Cleaning up the rest of the program before quitting.")
-    prepare_to_shutdown()
-    logger.info("Successful exit")
+#     Obtained from https://stackoverflow.com/questions/15562446/how-to-stop-flask-application-without-using-ctrl-c
+#     """
+#     shutdown_function = request.environ.get("werkzeug.server.shutdown")
+#     if shutdown_function is None:
+#         raise NotImplementedError("Not running with the Werkzeug Server")
+#     logger.info("Calling function to shut down Flask Server")
+#     shutdown_function()
+#     logger.info("Cleaning up the rest of the program before quitting.")
+#     prepare_to_shutdown()
+#     logger.info("Successful exit")
 
 
-@flask_app.route("/shutdown", methods=["GET"])
-def shutdown() -> str:
-    # curl http://localhost:4567/shutdown
-    shutdown_server()
-    return "Server shutting down..."
+# @flask_app.route("/shutdown", methods=["GET"])
+# def shutdown() -> str:
+#     # curl http://localhost:4567/shutdown
+#     shutdown_server()
+#     return "Server shutting down..."
 
 
 def _update_settings(
@@ -185,18 +185,18 @@ def _update_settings(
         logger.info(msg)
 
 
-def start_server() -> None:
-    _, host, port = get_server_address_components()
-    if is_port_in_use(port):
-        raise LocalServerPortAlreadyInUseError()
-    flask_app.run(host=host, port=port)
-    # Note (Eli 1/14/20) it appears with the current method of using werkzeug.server.shutdown that nothing after this line will ever be executed. somehow the program exists before returning from app.run
+# def start_server() -> None:
+#     _, host, port = get_server_address_components()
+#     if is_port_in_use(port):
+#         raise LocalServerPortAlreadyInUseError()
+#     flask_app.run(host=host, port=port)
+#     # Note (Eli 1/14/20) it appears with the current method of using werkzeug.server.shutdown that nothing after this line will ever be executed. somehow the program exists before returning from app.run
 
 
-def start_server_in_thread() -> threading.Thread:
-    server_thread = threading.Thread(target=start_server, name="server_thread")
-    server_thread.start()
-    return server_thread
+# def start_server_in_thread() -> threading.Thread:
+#     server_thread = threading.Thread(target=start_server, name="server_thread")
+#     server_thread.start()
+#     return server_thread
 
 
 def main(command_line_args: List[str]) -> None:
@@ -300,7 +300,7 @@ def main(command_line_args: List[str]) -> None:
     system_messages.append(f"Python Compiler: {platform.python_compiler()}")
     for msg in system_messages:
         logger.info(msg)
-    logger.info("Spawning subprocesses")
+    logger.info("Spawning subprocesses and starting server thread")
     process_manager = get_mantarray_process_manager()
     process_manager.set_logging_level(log_level)
     process_manager.spawn_processes()
@@ -312,7 +312,7 @@ def main(command_line_args: List[str]) -> None:
         str
     ] = queue.Queue()
     process_monitor_thread = MantarrayProcessesMonitor(
-        get_shared_values_between_server_and_monitor(),
+        shared_values_dict,
         process_manager,
         process_monitor_error_queue,
         the_lock,
@@ -321,8 +321,7 @@ def main(command_line_args: List[str]) -> None:
     set_mantarray_processes_monitor(process_monitor_thread)
     logger.info("Starting process monitor thread")
     process_monitor_thread.start()
-    logger.info("Starting server thread")
-    server_thread = start_server_in_thread()
+    server_thread = process_manager.get_server_thread()
     server_thread.join()
     logger.info("Server shut down, about to stop processes")
     process_monitor_thread.soft_stop()

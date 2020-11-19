@@ -131,8 +131,8 @@ from .firmware_manager import sort_firmware_files
 from .main import get_server_port_number
 from .main import get_shared_values_between_server_and_monitor
 from .main import prepare_to_shutdown
-from .main import start_server
-from .main import start_server_in_thread
+# from .main import start_server
+# from .main import start_server_in_thread
 from .mantarray_front_panel import MantarrayFrontPanel
 from .mantarray_front_panel import MantarrayFrontPanelMixIn
 from .ok_comm import build_file_writer_objects
@@ -175,7 +175,7 @@ __all__ = [
     "UnrecognizedDebugConsoleCommandError",
     "UnrecognizedCommandFromMainToFileWriterError",
     "UnrecognizedDataFrameFormatNameError",
-    "start_server",
+    # "start_server",
     "get_server_port_number",
     "process_manager",
     "MantarrayProcessesManager",
@@ -183,7 +183,7 @@ __all__ = [
     "set_mantarray_processes_monitor",
     "get_mantarray_processes_monitor",
     "MantarrayProcessesMonitor",
-    "start_server_in_thread",
+    # "start_server_in_thread",
     "get_api_endpoint",
     "MAX_POSSIBLE_CONNECTED_BOARDS",
     "ok_comm",

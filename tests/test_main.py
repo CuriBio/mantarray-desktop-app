@@ -22,14 +22,13 @@ from mantarray_desktop_app import get_shared_values_between_server_and_monitor
 from mantarray_desktop_app import ImproperlyFormattedCustomerAccountUUIDError
 from mantarray_desktop_app import ImproperlyFormattedUserAccountUUIDError
 from mantarray_desktop_app import LocalServerPortAlreadyInUseError
-from mantarray_desktop_app import main
+from mantarray_desktop_app import main, server
 from mantarray_desktop_app import MantarrayProcessesMonitor
 from mantarray_desktop_app import MultiprocessingNotSetToSpawnError
 from mantarray_desktop_app import prepare_to_shutdown
 from mantarray_desktop_app import process_monitor
 from mantarray_desktop_app import RecordingFolderDoesNotExistError
 from mantarray_desktop_app import SERVER_READY_STATE
-from mantarray_desktop_app import start_server
 from mantarray_desktop_app import SUBPROCESS_POLL_DELAY_SECONDS
 from mantarray_desktop_app import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from mantarray_desktop_app import system_state_eventually_equals
@@ -43,7 +42,7 @@ from .fixtures import fixture_fully_running_app_from_main_entrypoint
 from .fixtures import fixture_patched_shared_values_dict
 from .fixtures import fixture_patched_start_recording_shared_dict
 from .fixtures import fixture_patched_xem_scripts_folder
-from .fixtures import fixture_test_client
+from .fixtures_server import fixture_test_client
 from .fixtures import fixture_test_process_manager
 from .fixtures import fixture_test_process_manager_without_created_processes
 
@@ -251,13 +250,6 @@ def test_main__logs_system_info__and_software_version_at_very_start(
     )
     spied_info_logger.assert_any_call(f"Python Build: {platform.python_build()}")
     spied_info_logger.assert_any_call(f"Python Compiler: {platform.python_compiler()}")
-
-
-@pytest.mark.timeout(1)
-def test_start_server__raises_error_if_port_unavailable(mocker):
-    mocker.patch.object(main, "is_port_in_use", autospec=True, return_value=True)
-    with pytest.raises(LocalServerPortAlreadyInUseError):
-        start_server()
 
 
 @pytest.mark.slow
@@ -489,14 +481,17 @@ def test_prepare_to_shutdown__waits_correct_amount_of_time_before_hard_stopping_
     okc_process = test_process_manager.get_ok_comm_process()
     fw_process = test_process_manager.get_file_writer_process()
     da_process = test_process_manager.get_data_analyzer_process()
+    server_thread = test_process_manager.get_server_thread()
 
     spied_okc_join = mocker.spy(okc_process, "join")
     spied_fw_join = mocker.spy(fw_process, "join")
     spied_da_join = mocker.spy(da_process, "join")
+    spied_server_join = mocker.spy(server_thread, "join")
 
     mocked_okc_hard_stop = mocker.patch.object(okc_process, "hard_stop", autospec=True)
     mocked_fw_hard_stop = mocker.patch.object(fw_process, "hard_stop", autospec=True)
     mocked_da_hard_stop = mocker.patch.object(da_process, "hard_stop", autospec=True)
+    mocked_server_hard_stop = mocker.patch.object(server_thread, "hard_stop", autospec=True)
     mocked_okc_is_stopped = mocker.patch.object(
         okc_process, "is_stopped", autospec=True, side_effect=[False, True, True]
     )
@@ -520,9 +515,11 @@ def test_prepare_to_shutdown__waits_correct_amount_of_time_before_hard_stopping_
     mocked_okc_hard_stop.assert_called_once()
     mocked_fw_hard_stop.assert_called_once()
     mocked_da_hard_stop.assert_called_once()
+    mocked_server_hard_stop.assert_called_once()
     spied_okc_join.assert_called_once()
     spied_fw_join.assert_called_once()
     spied_da_join.assert_called_once()
+    spied_server_join.assert_called_once()
     assert mocked_counter.call_count == 4
     assert mocked_okc_is_stopped.call_count == 3
     assert mocked_fw_is_stopped.call_count == 2
@@ -593,7 +590,7 @@ def test_prepare_to_shutdown__logs_items_in_queues_after_hard_stop(
 def test_route_with_no_url_rule__returns_error_message__and_logs_reponse_to_request(
     test_client, patched_shared_values_dict, mocker
 ):
-    mocked_logger = mocker.spy(main.logger, "info")
+    mocked_logger = mocker.spy(server.logger, "info")
 
     response = test_client.get("/fake_route")
     assert response.status_code == 404

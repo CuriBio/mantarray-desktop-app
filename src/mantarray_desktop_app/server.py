@@ -225,7 +225,6 @@ def set_mantarray_nickname() -> Response:
 
     board_idx = 0
     shared_values_dict = _get_values_from_process_monitor()
-    # shared_values_dict["mantarray_nickname"][board_idx] = nickname
 
     comm_dict = {
         "communication_type": "mantarray_naming",
@@ -294,7 +293,6 @@ def update_settings() -> Response:
         response = Response(status=f"400 {repr(e)}")
         return response
 
-    # shared_values_dict = get_shared_values_between_server_and_monitor()
     queue_command_to_main(
         {
             "communication_type": "update_shared_values_dictionary",
@@ -434,8 +432,6 @@ def start_recording() -> Response:
     else:
         comm_dict["active_well_indices"] = list(range(24))
 
-    # manager = get_mantarray_process_manager()
-    # to_file_writer_queue = manager.get_communication_queue_from_main_to_file_writer()
     to_main_queue = get_server_to_main_queue()
     to_main_queue.put(
         copy.deepcopy(comm_dict)
@@ -560,10 +556,6 @@ def set_mantarray_serial_number() -> Response:
     if error_message:
         response = Response(status=f"400 {error_message}")
         return response
-
-    # board_idx = 0
-    # shared_values_dict = get_shared_values_between_server_and_monitor()
-    # shared_values_dict["mantarray_serial_number"][board_idx] = serial_number
 
     comm_dict = {
         "communication_type": "mantarray_naming",
@@ -920,8 +912,6 @@ def shutdown() -> Response:
     )
     shutdown_server()
     return response
-    # shutdown_server()
-    return Response(status="200 Server shutdown")
 
 
 @flask_app.after_request
