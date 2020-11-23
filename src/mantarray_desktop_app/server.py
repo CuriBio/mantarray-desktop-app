@@ -882,7 +882,8 @@ def queue_get_status() -> Response:
 def shutdown_server() -> None:
     """Stop / shutdown the Flask Server itself.
 
-    Eli (11/18/20): If separate routes call this, then it needs to be broken out into a subfunction not decorated as a Flask route.
+    Eli (11/18/20): If separate routes call this, then it needs to be
+    broken out into a subfunction not decorated as a Flask route.
     """
     shutdown_function = request.environ.get("werkzeug.server.shutdown")
     if shutdown_function is None:

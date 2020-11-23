@@ -2,6 +2,7 @@
 import logging
 import os
 import time
+from unittest.mock import ANY
 
 from mantarray_desktop_app import DataAnalyzerProcess
 from mantarray_desktop_app import FileWriterProcess
@@ -420,6 +421,28 @@ def test_MantarrayProcessesManager__are_processes_stopped__waits_correct_amount_
     assert mocked_okc_is_stopped.call_count == 3
     assert mocked_fw_is_stopped.call_count == 2
     assert mocked_da_is_stopped.call_count == 1
+
+
+def test_MantarrayProcessesManager__create_processes__passes_port_value_from_dictionary_to_server_thread(
+    mocker,
+):
+    expected_port = 5432
+    manager = MantarrayProcessesManager(
+        values_to_share_to_server={"server_port_number": expected_port}
+    )
+    spied_create_server_thread = mocker.spy(ServerThread, "__init__")
+
+    manager.create_processes()
+
+    spied_create_server_thread.assert_called_once_with(
+        ANY,
+        ANY,
+        ANY,
+        ANY,
+        values_from_process_monitor=ANY,
+        port=expected_port,
+        logging_level=ANY,
+    )
 
 
 def test_MantarrayProcessesManager__are_processes_stopped__returns_true_if_stop_occurs_during_polling(

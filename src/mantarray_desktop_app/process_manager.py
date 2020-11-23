@@ -14,6 +14,7 @@ from typing import Tuple
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import resource_path
 
+from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import SUBPROCESS_POLL_DELAY_SECONDS
 from .constants import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
@@ -98,6 +99,9 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             queue_container,
             logging_level=self._logging_level,
             values_from_process_monitor=self._values_to_share_to_server,
+            port=self._values_to_share_to_server.get(
+                "server_port_number", DEFAULT_SERVER_PORT_NUMBER
+            ),
         )
 
         self._ok_communication_process = OkCommunicationProcess(

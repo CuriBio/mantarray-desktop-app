@@ -1,19 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Python Flask Server controlling Mantarray.
-
-Custom HTTP Error Codes:
-
-* 204 - Call to /get_available_data when no available data in outgoing data queue from Data Analyzer.
-* 400 - Call to /start_recording with invalid or missing barcode parameter
-* 400 - Call to /set_mantarray_nickname with invalid nickname parameter
-* 400 - Call to /update_settings with unexpected argument, invalid account UUID, or a recording directory that doesn't exist
-* 400 - Call to /insert_xem_command_into_queue/set_mantarray_serial_number with invalid serial_number parameter
-* 403 - Call to /start_recording with is_hardware_test_recording=False after calling route with is_hardware_test_recording=True (default value)
-* 404 - Route not implemented
-* 406 - Call to /start_managed_acquisition when Mantarray device does not have a serial number assigned to it
-* 406 - Call to /start_recording before customer_account_uuid and user_account_uuid are set
-* 452 -
-"""
+"""Python Backend controlling Mantarray."""
 from __future__ import annotations
 
 import argparse
@@ -34,12 +20,12 @@ from typing import List
 from typing import Tuple
 
 from flask import Flask
-from flask import request
 from flask_cors import CORS
 from immutable_data_validation import is_uuid
 from stdlib_utils import configure_logging
+from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import InfiniteLoopingParallelismMixIn
-from stdlib_utils import is_port_in_use
+from stdlib_utils import resource_path
 
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CURI_BIO_ACCOUNT_UUID
@@ -51,10 +37,10 @@ from .constants import SUBPROCESS_POLL_DELAY_SECONDS
 from .constants import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
 from .exceptions import ImproperlyFormattedUserAccountUUIDError
-from .exceptions import LocalServerPortAlreadyInUseError
 from .exceptions import MultiprocessingNotSetToSpawnError
 from .exceptions import RecordingFolderDoesNotExistError
 from .process_manager import get_mantarray_process_manager
+from .process_manager import MantarrayProcessesManager
 from .process_monitor import MantarrayProcessesMonitor
 from .process_monitor import set_mantarray_processes_monitor
 
@@ -79,9 +65,9 @@ def get_shared_values_between_server_and_monitor() -> Dict[  # pylint:disable=in
     return _shared_values_between_server_and_process_monitor
 
 
-def get_server_port_number() -> int:
-    shared_values_dict = get_shared_values_between_server_and_monitor()
-    return shared_values_dict.get("server_port_number", DEFAULT_SERVER_PORT_NUMBER)
+# def get_server_port_number() -> int:
+#     shared_values_dict = get_shared_values_between_server_and_monitor()
+#     return shared_values_dict.get("server_port_number", DEFAULT_SERVER_PORT_NUMBER)
 
 
 def prepare_to_shutdown() -> None:
@@ -131,6 +117,17 @@ def prepare_to_shutdown() -> None:
 #     # curl http://localhost:4567/shutdown
 #     shutdown_server()
 #     return "Server shutting down..."
+
+
+def _create_process_manager(
+    shared_values_dict: Dict[str, Any]
+) -> MantarrayProcessesManager:
+    base_path = os.path.join(get_current_file_abs_directory(), os.pardir, os.pardir)
+    relative_path = "recordings"
+    file_dir = resource_path(relative_path, base_path=base_path)
+    return MantarrayProcessesManager(
+        file_directory=file_dir, values_to_share_to_server=shared_values_dict
+    )
 
 
 def _update_settings(
@@ -266,11 +263,13 @@ def main(command_line_args: List[str]) -> None:
         print("Successfully opened and closed application.")  # allow-print
         return
 
-    shared_values_dict = get_shared_values_between_server_and_monitor()
+    shared_values_dict: Dict[
+        str, Any
+    ] = dict()  # = get_shared_values_between_server_and_monitor()
     shared_values_dict["system_status"] = SERVER_INITIALIZING_STATE
     if parsed_args.port_number is not None:
         shared_values_dict["server_port_number"] = parsed_args.port_number
-    msg = f"Using server port number: {get_server_port_number()}"
+    msg = f"Using server port number: {shared_values_dict.get('server_port_number',DEFAULT_SERVER_PORT_NUMBER)}"
     logger.info(msg)
 
     if parsed_args.initial_base64_settings:
@@ -301,10 +300,16 @@ def main(command_line_args: List[str]) -> None:
     for msg in system_messages:
         logger.info(msg)
     logger.info("Spawning subprocesses and starting server thread")
-    process_manager = get_mantarray_process_manager()
+    process_manager = _create_process_manager(
+        shared_values_dict
+    )  # get_mantarray_process_manager()
     process_manager.set_logging_level(log_level)
     process_manager.spawn_processes()
-
+    print(f"after spawn {shared_values_dict}")
+    print(f"after spawn pm {process_manager.get_values_to_share_to_server()}")
+    print(
+        f"after spawn st {process_manager.get_server_thread().get_values_from_process_monitor()}"
+    )
     boot_up_after_processes_start = not parsed_args.skip_mantarray_boot_up
 
     the_lock = threading.Lock()

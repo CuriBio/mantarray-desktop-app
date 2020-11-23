@@ -234,7 +234,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         if "command" in communication:
             command = communication["command"]
-        
+
         if communication_type in ["acquisition_manager", "to_instrument"]:
             if command == "start_managed_acquisition":
                 self._values_to_share_to_server[

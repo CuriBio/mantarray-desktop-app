@@ -21,13 +21,13 @@ from mantarray_desktop_app import get_server_port_number
 from mantarray_desktop_app import get_shared_values_between_server_and_monitor
 from mantarray_desktop_app import ImproperlyFormattedCustomerAccountUUIDError
 from mantarray_desktop_app import ImproperlyFormattedUserAccountUUIDError
-from mantarray_desktop_app import LocalServerPortAlreadyInUseError
-from mantarray_desktop_app import main, server
+from mantarray_desktop_app import main
 from mantarray_desktop_app import MantarrayProcessesMonitor
 from mantarray_desktop_app import MultiprocessingNotSetToSpawnError
 from mantarray_desktop_app import prepare_to_shutdown
 from mantarray_desktop_app import process_monitor
 from mantarray_desktop_app import RecordingFolderDoesNotExistError
+from mantarray_desktop_app import server
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import SUBPROCESS_POLL_DELAY_SECONDS
 from mantarray_desktop_app import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
@@ -42,9 +42,9 @@ from .fixtures import fixture_fully_running_app_from_main_entrypoint
 from .fixtures import fixture_patched_shared_values_dict
 from .fixtures import fixture_patched_start_recording_shared_dict
 from .fixtures import fixture_patched_xem_scripts_folder
-from .fixtures_server import fixture_test_client
 from .fixtures import fixture_test_process_manager
 from .fixtures import fixture_test_process_manager_without_created_processes
+from .fixtures_server import fixture_test_client
 
 
 __fixtures__ = [
@@ -491,7 +491,9 @@ def test_prepare_to_shutdown__waits_correct_amount_of_time_before_hard_stopping_
     mocked_okc_hard_stop = mocker.patch.object(okc_process, "hard_stop", autospec=True)
     mocked_fw_hard_stop = mocker.patch.object(fw_process, "hard_stop", autospec=True)
     mocked_da_hard_stop = mocker.patch.object(da_process, "hard_stop", autospec=True)
-    mocked_server_hard_stop = mocker.patch.object(server_thread, "hard_stop", autospec=True)
+    mocked_server_hard_stop = mocker.patch.object(
+        server_thread, "hard_stop", autospec=True
+    )
     mocked_okc_is_stopped = mocker.patch.object(
         okc_process, "is_stopped", autospec=True, side_effect=[False, True, True]
     )
