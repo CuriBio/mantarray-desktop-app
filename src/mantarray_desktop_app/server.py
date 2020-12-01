@@ -93,6 +93,11 @@ CORS(flask_app)
 _the_server_thread: "ServerThread"  # pylint: disable=invalid-name # Eli (11/3/20) yes, this is intentionally a singleton, not a constant. This is the current best guess at how to allow Flask routes to access some info they need
 
 
+def clear_the_server_thread() -> None:
+    global _the_server_thread
+    _the_server_thread = None
+
+
 def get_the_server_thread() -> "ServerThread":
     """Return the singleton instance."""
     return _the_server_thread
@@ -102,8 +107,8 @@ def get_server_to_main_queue() -> Queue:
     return get_the_server_thread().get_queue_to_main()
 
 
-def get_server_port_number() -> int:
-    return get_the_server_thread().get_port_number()
+# def get_server_port_number() -> int:
+#     return get_the_server_thread().get_port_number()
 
 
 def get_server_address_components() -> Tuple[str, str, int]:
@@ -112,7 +117,11 @@ def get_server_address_components() -> Tuple[str, str, int]:
     Returns:
         protocol (i.e. http), host (i.e. 127.0.0.1), port (i.e. 4567)
     """
-    return "http", "127.0.0.1", get_server_port_number()
+    return (
+        "http",
+        "127.0.0.1",
+        get_the_server_thread().get_port_number(),
+    )  # get_server_port_number()
 
 
 def get_api_endpoint() -> str:

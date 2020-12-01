@@ -128,6 +128,8 @@ from .firmware_manager import get_latest_firmware
 from .firmware_manager import get_latest_firmware_name
 from .firmware_manager import get_latest_firmware_version
 from .firmware_manager import sort_firmware_files
+from .main import clear_server_singletons
+from .main import get_server_port_number
 from .main import get_shared_values_between_server_and_monitor
 from .main import prepare_to_shutdown
 from .mantarray_front_panel import MantarrayFrontPanel
@@ -142,17 +144,18 @@ from .ok_comm import parse_scripting_log
 from .ok_comm import parse_scripting_log_line
 from .process_manager import get_mantarray_process_manager
 from .process_manager import MantarrayProcessesManager
-from .process_monitor import get_mantarray_processes_monitor
 from .process_monitor import MantarrayProcessesMonitor
-from .process_monitor import set_mantarray_processes_monitor
 from .queue_container import MantarrayQueueContainer
+from .server import clear_the_server_thread
 from .server import flask_app
 from .server import get_api_endpoint
-from .server import get_server_port_number
 from .server import get_the_server_thread
 from .server import ServerThread
 from .system_utils import system_state_eventually_equals
 from .system_utils import wait_for_subprocesses_to_start
+
+# from .process_monitor import get_mantarray_processes_monitor
+# from .process_monitor import set_mantarray_processes_monitor
 
 # from .main import start_server
 # from .main import start_server_in_thread
@@ -181,8 +184,8 @@ __all__ = [
     "process_manager",
     "MantarrayProcessesManager",
     "get_mantarray_process_manager",
-    "set_mantarray_processes_monitor",
-    "get_mantarray_processes_monitor",
+    # "set_mantarray_processes_monitor",
+    # "get_mantarray_processes_monitor",
     "MantarrayProcessesMonitor",
     # "start_server_in_thread",
     "get_api_endpoint",
@@ -323,5 +326,7 @@ __all__ = [
     "ServerThread",
     "server",
     "get_the_server_thread",
+    "clear_the_server_thread",
+    "clear_server_singletons",
     "MantarrayQueueContainer",
 ]

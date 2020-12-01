@@ -5,9 +5,11 @@ import os
 from shutil import copy
 import tempfile
 import threading
+import time
 from typing import List
 from typing import Optional
 
+from mantarray_desktop_app import clear_server_singletons
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import get_api_endpoint
@@ -17,7 +19,6 @@ from mantarray_desktop_app import MantarrayProcessesManager
 from mantarray_desktop_app import MantarrayQueueContainer
 from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import RunningFIFOSimulator
-from mantarray_desktop_app import set_mantarray_processes_monitor
 from mantarray_desktop_app import UTC_BEGINNING_DATA_ACQUISTION_UUID
 import pytest
 import requests
@@ -28,6 +29,8 @@ from stdlib_utils import is_port_in_use
 from stdlib_utils import resource_path
 
 from .fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
+
+# from mantarray_desktop_app import set_mantarray_processes_monitor
 
 PATH_TO_CURRENT_FILE = get_current_file_abs_directory()
 QUEUE_CHECK_TIMEOUT_SECONDS = 1.1  # for is_queue_eventually_of_size, is_queue_eventually_not_empty, is_queue_eventually_empty, put_object_into_queue_and_raise_error_if_eventually_still_empty, etc. # Eli (10/28/20) issue encountered where even 0.5 seconds was insufficient, so raising to 1 second
@@ -105,14 +108,22 @@ def fixture_fully_running_app_from_main_entrypoint(mocker, patched_shared_values
     def _foo(command_line_args: Optional[List[str]] = None):
         if command_line_args is None:
             command_line_args = []
-        main_thread = threading.Thread(target=main.main, args=[command_line_args])
+        thread_access_inside_main = dict()
+        main_thread = threading.Thread(
+            target=main.main,
+            args=[command_line_args],
+            kwargs={"object_access_for_testing": thread_access_inside_main},
+        )
         main_thread.start()
-
+        time.sleep(
+            1
+        )  # wait for the server to initialize so that the port number could be updated
         confirm_port_in_use(
-            get_server_port_number(), timeout=3
+            get_server_port_number(), timeout=4
         )  # wait for server to boot up
         dict_to_yield["main_thread"] = main_thread
         dict_to_yield["mocked_configure_logging"] = mocked_configure_logging
+        dict_to_yield["object_access_inside_main"] = thread_access_inside_main
         return dict_to_yield
 
     yield _foo
@@ -123,9 +134,10 @@ def fixture_fully_running_app_from_main_entrypoint(mocker, patched_shared_values
         response = requests.get(f"{get_api_endpoint()}shutdown")
         assert response.status_code == 200
     dict_to_yield["main_thread"].join()
-    confirm_port_available(get_server_port_number())
+    confirm_port_available(get_server_port_number(), timeout=5)
     # clean up singletons
-    set_mantarray_processes_monitor(None)
+    clear_server_singletons()
+    # set_mantarray_processes_monitor(None)
 
 
 @pytest.fixture(scope="function", name="test_process_manager")

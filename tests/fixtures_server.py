@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from queue import Empty
 
+from mantarray_desktop_app import clear_the_server_thread
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import DEFAULT_SERVER_PORT_NUMBER
@@ -32,6 +33,8 @@ def _clean_up_server_thread(st, to_main_queue, error_queue) -> None:
                 iter_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
             except Empty:
                 break
+    # clean up singletons
+    clear_the_server_thread()
 
 
 @pytest.fixture(scope="function", name="server_thread")

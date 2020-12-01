@@ -42,7 +42,10 @@ from .exceptions import RecordingFolderDoesNotExistError
 from .process_manager import get_mantarray_process_manager
 from .process_manager import MantarrayProcessesManager
 from .process_monitor import MantarrayProcessesMonitor
-from .process_monitor import set_mantarray_processes_monitor
+from .server import clear_the_server_thread
+from .server import get_the_server_thread
+
+# from .process_monitor import set_mantarray_processes_monitor
 
 logger = logging.getLogger(__name__)
 os.environ[
@@ -65,9 +68,25 @@ def get_shared_values_between_server_and_monitor() -> Dict[  # pylint:disable=in
     return _shared_values_between_server_and_process_monitor
 
 
-# def get_server_port_number() -> int:
-#     shared_values_dict = get_shared_values_between_server_and_monitor()
-#     return shared_values_dict.get("server_port_number", DEFAULT_SERVER_PORT_NUMBER)
+_server_port_number = DEFAULT_SERVER_PORT_NUMBER
+
+
+def clear_server_singletons() -> None:
+    clear_the_server_thread()
+    global _server_port_number
+    _server_port_number = DEFAULT_SERVER_PORT_NUMBER
+
+
+def get_server_port_number() -> int:
+    try:
+        st = get_the_server_thread()
+    except NameError:
+        return _server_port_number
+    if st is None:
+        return _server_port_number
+    return st.get_port_number()
+    # shared_values_dict = get_shared_values_between_server_and_monitor()
+    # return shared_values_dict.get("server_port_number", DEFAULT_SERVER_PORT_NUMBER)
 
 
 def prepare_to_shutdown() -> None:
@@ -196,8 +215,13 @@ def _update_settings(
 #     return server_thread
 
 
-def main(command_line_args: List[str]) -> None:
+def main(
+    command_line_args: List[str],
+    object_access_for_testing: Optional[Dict[str, Any]] = None,
+) -> None:
     """Parse command line arguments and run."""
+    if object_access_for_testing is None:
+        object_access_for_testing = dict()
     log_level = logging.INFO
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -269,7 +293,11 @@ def main(command_line_args: List[str]) -> None:
     shared_values_dict["system_status"] = SERVER_INITIALIZING_STATE
     if parsed_args.port_number is not None:
         shared_values_dict["server_port_number"] = parsed_args.port_number
-    msg = f"Using server port number: {shared_values_dict.get('server_port_number',DEFAULT_SERVER_PORT_NUMBER)}"
+    global _server_port_number
+    _server_port_number = shared_values_dict.get(
+        "server_port_number", DEFAULT_SERVER_PORT_NUMBER
+    )
+    msg = f"Using server port number: {_server_port_number}"
     logger.info(msg)
 
     if parsed_args.initial_base64_settings:
@@ -300,22 +328,26 @@ def main(command_line_args: List[str]) -> None:
     for msg in system_messages:
         logger.info(msg)
     logger.info("Spawning subprocesses and starting server thread")
+    print(f"shared dict going into process manager: {shared_values_dict}")
     process_manager = _create_process_manager(
         shared_values_dict
     )  # get_mantarray_process_manager()
     process_manager.set_logging_level(log_level)
+    object_access_for_testing["process_manager"] = process_manager
+    object_access_for_testing["values_to_share_to_server"] = shared_values_dict
     process_manager.spawn_processes()
-    print(f"after spawn {shared_values_dict}")
-    print(f"after spawn pm {process_manager.get_values_to_share_to_server()}")
-    print(
-        f"after spawn st {process_manager.get_server_thread().get_values_from_process_monitor()}"
-    )
+    # print(f"after spawn {shared_values_dict}")
+    # print(f"after spawn pm {process_manager.get_values_to_share_to_server()}")
+    # print(
+    #     f"after spawn st {process_manager.get_server_thread().get_values_from_process_monitor()}"
+    # )
     boot_up_after_processes_start = not parsed_args.skip_mantarray_boot_up
 
     the_lock = threading.Lock()
     process_monitor_error_queue: Queue[  # pylint: disable=unsubscriptable-object
         str
     ] = queue.Queue()
+
     process_monitor_thread = MantarrayProcessesMonitor(
         shared_values_dict,
         process_manager,
@@ -323,7 +355,9 @@ def main(command_line_args: List[str]) -> None:
         the_lock,
         boot_up_after_processes_start=boot_up_after_processes_start,
     )
-    set_mantarray_processes_monitor(process_monitor_thread)
+
+    object_access_for_testing["process_monitor"] = process_monitor_thread
+    # set_mantarray_processes_monitor(process_monitor_thread)
     logger.info("Starting process monitor thread")
     process_monitor_thread.start()
     server_thread = process_manager.get_server_thread()

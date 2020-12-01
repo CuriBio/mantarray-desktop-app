@@ -381,17 +381,17 @@ class MantarrayProcessesMonitor(InfiniteThread):
         super().soft_stop()
 
 
-the_mantarray_processes_monitor: Optional[  # pylint: disable=invalid-name # this is a singleton
-    MantarrayProcessesMonitor
-] = None
+# the_mantarray_processes_monitor: Optional[  # pylint: disable=invalid-name # this is a singleton
+#     MantarrayProcessesMonitor
+# ] = None
 
 
-def set_mantarray_processes_monitor(
-    processes_monitor: MantarrayProcessesMonitor,
-) -> None:
-    global the_mantarray_processes_monitor  # pylint: disable=global-statement,invalid-name #for the singleton
-    the_mantarray_processes_monitor = processes_monitor
+# def set_mantarray_processes_monitor(
+#     processes_monitor: MantarrayProcessesMonitor,
+# ) -> None:
+#     global the_mantarray_processes_monitor  # pylint: disable=global-statement,invalid-name #for the singleton
+#     the_mantarray_processes_monitor = processes_monitor
 
 
-def get_mantarray_processes_monitor() -> Optional[MantarrayProcessesMonitor]:
-    return the_mantarray_processes_monitor
+# def get_mantarray_processes_monitor() -> Optional[MantarrayProcessesMonitor]:
+#     return the_mantarray_processes_monitor
