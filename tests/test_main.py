@@ -1,30 +1,13 @@
 # -*- coding: utf-8 -*-
-import base64
-import json
-import logging
-import tempfile
-import threading
 import time
 
-from freezegun import freeze_time
-from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
-from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
-from mantarray_desktop_app import get_api_endpoint
-from mantarray_desktop_app import get_server_port_number
 from mantarray_desktop_app import main
 from mantarray_desktop_app import MantarrayProcessesMonitor
 from mantarray_desktop_app import prepare_to_shutdown
-from mantarray_desktop_app import process_monitor
 from mantarray_desktop_app import server
-from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import SUBPROCESS_POLL_DELAY_SECONDS
 from mantarray_desktop_app import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
-from mantarray_desktop_app import system_state_eventually_equals
-from mantarray_desktop_app import wait_for_subprocesses_to_start
 import pytest
-import requests
-from stdlib_utils import confirm_port_available
-from stdlib_utils import confirm_port_in_use
 
 from .fixtures import fixture_fully_running_app_from_main_entrypoint
 from .fixtures import fixture_patched_shared_values_dict
@@ -55,156 +38,6 @@ def fixture_confirm_monitor_found_no_errors_in_subprocesses(mocker):
     )
     yield mocker_error_handling_for_subprocess
     assert mocker_error_handling_for_subprocess.call_count == 0
-
-
-@pytest.mark.timeout(15)
-@freeze_time("2020-07-21 21:51:36.704515")
-def test_main_can_launch_server_and_processes_and_initial_boot_up_of_ok_comm_process_gets_logged__default_exe_execution(
-    mocker, confirm_monitor_found_no_errors_in_subprocesses, patched_shared_values_dict,
-):
-    mocked_process_monitor_info_logger = mocker.patch.object(
-        process_monitor.logger, "info", autospec=True,
-    )
-
-    mocker.patch.object(main, "configure_logging", autospec=True)
-    mocked_main_info_logger = mocker.patch.object(main.logger, "info", autospec=True)
-    main_thread = threading.Thread(
-        target=main.main, args=[[]], name="thread_for_main_function_in_test"
-    )
-    main_thread.start()
-
-    confirm_port_in_use(
-        get_server_port_number(), timeout=3
-    )  # wait for server to boot up
-    wait_for_subprocesses_to_start()
-
-    requests.get(f"{get_api_endpoint()}shutdown")
-
-    main_thread.join()
-    confirm_port_available(get_server_port_number())
-
-    expected_initiated_str = "OpalKelly Communication Process initiated at"
-    assert any(
-        [
-            expected_initiated_str in call[0][0]
-            for call in mocked_process_monitor_info_logger.call_args_list
-        ]
-    )
-    expected_connection_str = "Communication from the OpalKelly Controller: {'communication_type': 'board_connection_status_change'"
-    assert any(
-        [
-            expected_connection_str in call[0][0]
-            for call in mocked_process_monitor_info_logger.call_args_list
-        ]
-    )
-
-    mocked_main_info_logger.assert_any_call(
-        f"Build timestamp/version: {COMPILED_EXE_BUILD_TIMESTAMP}"
-    )
-
-
-@pytest.mark.slow
-def test_main__calls_boot_up_function_upon_launch(
-    patched_xem_scripts_folder,
-    fully_running_app_from_main_entrypoint,
-    mocker,
-    test_process_manager,
-):
-    spied_boot_up = mocker.spy(test_process_manager, "boot_up_instrument")
-
-    _ = fully_running_app_from_main_entrypoint()
-    port = get_server_port_number()
-    confirm_port_in_use(port, timeout=5)
-    wait_for_subprocesses_to_start()
-
-    assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
-    spied_boot_up.assert_called_once()
-
-
-@pytest.mark.slow
-def test_main__does_not_call_boot_up_function_upon_launch_if_command_line_arg_passed(
-    patched_shared_values_dict,
-    patched_xem_scripts_folder,
-    fully_running_app_from_main_entrypoint,
-    mocker,
-    test_process_manager,
-):
-    spied_boot_up = mocker.spy(test_process_manager, "boot_up_instrument")
-
-    _ = fully_running_app_from_main_entrypoint(["--skip-mantarray-boot-up"])
-    port = get_server_port_number()
-    confirm_port_in_use(port, timeout=5)
-    wait_for_subprocesses_to_start()
-
-    assert system_state_eventually_equals(SERVER_READY_STATE, 5) is True
-    spied_boot_up.assert_not_called()
-
-
-@pytest.mark.slow
-def test_main__stores_and_logs_directory_for_log_files_from_command_line_arguments(
-    mocker, patched_shared_values_dict
-):
-    spied_info_logger = mocker.spy(main.logger, "info")
-    mocked_configure = mocker.patch.object(main, "configure_logging", autospec=True)
-
-    expected_log_dir = r"C:\Users\Curi Bio\MantarrayController"
-    command_line_args = [f"--log_file_dir={expected_log_dir}"]
-    main_thread = threading.Thread(
-        target=main.main,
-        args=[command_line_args],
-        name="thread_for_main_function_in_test",
-    )
-    main_thread.start()
-    confirm_port_in_use(get_server_port_number(), timeout=3)
-    requests.get(f"{get_api_endpoint()}shutdown")
-    main_thread.join()
-
-    mocked_configure.assert_called_once_with(
-        path_to_log_folder=expected_log_dir,
-        log_file_prefix="mantarray_log",
-        log_level=logging.INFO,
-    )
-    spied_info_logger.assert_any_call(
-        f"Using directory for log files: {expected_log_dir}"
-    )
-
-
-@pytest.mark.slow
-def test_main__stores_and_logs_user_settings_and_recordings_folder_from_command_line_arguments(
-    mocker, patched_shared_values_dict, test_process_manager_without_created_processes
-):
-    with tempfile.TemporaryDirectory() as expected_recordings_dir:
-        test_dict = {
-            "customer_account_uuid": "14b9294a-9efb-47dd-a06e-8247e982e196",
-            "user_account_uuid": "0288efbc-7705-4946-8815-02701193f766",
-            "recording_directory": expected_recordings_dir,
-        }
-        json_str = json.dumps(test_dict)
-        b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
-
-        command_line_args = [f"--initial-base64-settings={b64_encoded}"]
-        main_thread = threading.Thread(
-            target=main.main,
-            args=[command_line_args],
-            name="thread_for_main_function_in_test",
-        )
-        main_thread.start()
-        confirm_port_in_use(get_server_port_number(), timeout=3)
-        requests.get(f"{get_api_endpoint()}shutdown")
-        main_thread.join()
-
-        assert (
-            patched_shared_values_dict["config_settings"]["Customer Account ID"]
-            == "14b9294a-9efb-47dd-a06e-8247e982e196"
-        )
-        assert (
-            patched_shared_values_dict["config_settings"]["User Account ID"]
-            == "0288efbc-7705-4946-8815-02701193f766"
-        )
-        assert (
-            patched_shared_values_dict["config_settings"]["Recording Directory"]
-            == expected_recordings_dir
-        )
 
 
 @pytest.mark.slow

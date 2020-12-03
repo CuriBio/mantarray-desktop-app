@@ -44,6 +44,8 @@ from .process_manager import MantarrayProcessesManager
 from .process_monitor import MantarrayProcessesMonitor
 from .server import clear_the_server_thread
 from .server import get_the_server_thread
+from .utils import convert_request_args_to_config_dict
+from .utils import update_shared_dict
 
 # from .process_monitor import set_mantarray_processes_monitor
 
@@ -201,20 +203,6 @@ def _update_settings(
         logger.info(msg)
 
 
-# def start_server() -> None:
-#     _, host, port = get_server_address_components()
-#     if is_port_in_use(port):
-#         raise LocalServerPortAlreadyInUseError()
-#     flask_app.run(host=host, port=port)
-#     # Note (Eli 1/14/20) it appears with the current method of using werkzeug.server.shutdown that nothing after this line will ever be executed. somehow the program exists before returning from app.run
-
-
-# def start_server_in_thread() -> threading.Thread:
-#     server_thread = threading.Thread(target=start_server, name="server_thread")
-#     server_thread.start()
-#     return server_thread
-
-
 def main(
     command_line_args: List[str],
     object_access_for_testing: Optional[Dict[str, Any]] = None,
@@ -302,7 +290,10 @@ def main(
 
     if parsed_args.initial_base64_settings:
         settings_dict = json.loads(decoded_settings)
-        _update_settings(settings_dict, is_initial_settings=True)
+        # validate_settings(settings_dict) # TODO (Eli 12/3/20): unit test and add this
+        update_shared_dict(
+            shared_values_dict, convert_request_args_to_config_dict(settings_dict)
+        )
 
     system_messages = list()
     uname = platform.uname()
@@ -328,19 +319,13 @@ def main(
     for msg in system_messages:
         logger.info(msg)
     logger.info("Spawning subprocesses and starting server thread")
-    print(f"shared dict going into process manager: {shared_values_dict}")
-    process_manager = _create_process_manager(
-        shared_values_dict
-    )  # get_mantarray_process_manager()
+
+    process_manager = _create_process_manager(shared_values_dict)
     process_manager.set_logging_level(log_level)
     object_access_for_testing["process_manager"] = process_manager
     object_access_for_testing["values_to_share_to_server"] = shared_values_dict
     process_manager.spawn_processes()
-    # print(f"after spawn {shared_values_dict}")
-    # print(f"after spawn pm {process_manager.get_values_to_share_to_server()}")
-    # print(
-    #     f"after spawn st {process_manager.get_server_thread().get_values_from_process_monitor()}"
-    # )
+
     boot_up_after_processes_start = not parsed_args.skip_mantarray_boot_up
 
     the_lock = threading.Lock()

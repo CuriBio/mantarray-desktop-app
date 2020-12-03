@@ -5,18 +5,24 @@ import logging
 import multiprocessing
 import platform
 import sys
+import tempfile
 import threading
 from unittest.mock import ANY
 
+from freezegun import freeze_time
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
+from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import get_api_endpoint
 from mantarray_desktop_app import get_server_port_number
 from mantarray_desktop_app import ImproperlyFormattedCustomerAccountUUIDError
 from mantarray_desktop_app import ImproperlyFormattedUserAccountUUIDError
 from mantarray_desktop_app import main
+from mantarray_desktop_app import MantarrayProcessesManager
 from mantarray_desktop_app import MantarrayProcessesMonitor
 from mantarray_desktop_app import MultiprocessingNotSetToSpawnError
+from mantarray_desktop_app import process_monitor
+from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import system_state_eventually_equals
 from mantarray_desktop_app import wait_for_subprocesses_to_start
 import pytest
@@ -43,6 +49,8 @@ __fixtures__ = [
     fixture_test_process_manager_without_created_processes,
 ]
 
+GENERAL_LAUNCH_TIMEOUT = 15
+
 
 @pytest.fixture(
     scope="function", name="confirm_monitor_found_no_errors_in_subprocesses"
@@ -55,6 +63,7 @@ def fixture_confirm_monitor_found_no_errors_in_subprocesses(mocker):
     assert mocker_error_handling_for_subprocess.call_count == 0
 
 
+@pytest.mark.timeout(GENERAL_LAUNCH_TIMEOUT)
 @pytest.mark.slow
 def test_main__stores_and_logs_port_number_from_command_line_arguments(
     mocker, fully_running_app_from_main_entrypoint, patched_xem_scripts_folder
@@ -108,6 +117,7 @@ def test_main_argparse_debug_test_post_build(mocker):
     main.main(["--debug-test-post-build"])
 
 
+@pytest.mark.timeout(GENERAL_LAUNCH_TIMEOUT)
 def test_main_configures_logging(mocker):
     mocked_configure_logging = mocker.patch.object(
         main, "configure_logging", autospec=True
@@ -118,6 +128,7 @@ def test_main_configures_logging(mocker):
     )
 
 
+@pytest.mark.timeout(GENERAL_LAUNCH_TIMEOUT)
 def test_main__logs_system_info__and_software_version_at_very_start(
     mocker,
     fully_running_app_from_main_entrypoint,
@@ -156,6 +167,7 @@ def test_main__logs_system_info__and_software_version_at_very_start(
     spied_info_logger.assert_any_call(f"Python Compiler: {platform.python_compiler()}")
 
 
+@pytest.mark.timeout(GENERAL_LAUNCH_TIMEOUT)
 @pytest.mark.slow
 def test_main__raises_error_when_invalid_customer_account_uuid_is_passed_in_cmd_line_args(
     mocker,
@@ -171,6 +183,7 @@ def test_main__raises_error_when_invalid_customer_account_uuid_is_passed_in_cmd_
         main.main(command_line_args)
 
 
+@pytest.mark.timeout(GENERAL_LAUNCH_TIMEOUT)
 @pytest.mark.slow
 def test_main__raises_error_when_invalid_user_account_uuid_is_passed_in_cmd_line_args(
     mocker,
@@ -260,3 +273,127 @@ def test_main_entrypoint__correctly_assigns_shared_values_dictionary_to_process_
         "values_to_share_to_server"
     ]
     assert "in_simulation_mode" in shared_values_dict
+
+
+@pytest.mark.timeout(GENERAL_LAUNCH_TIMEOUT)
+@pytest.mark.slow
+def test_main__calls_boot_up_function_upon_launch(
+    patched_xem_scripts_folder, fully_running_app_from_main_entrypoint, mocker,
+):
+    spied_boot_up = mocker.spy(MantarrayProcessesManager, "boot_up_instrument")
+
+    fully_running_app_from_main_entrypoint()
+    port = get_server_port_number()
+    confirm_port_in_use(port, timeout=5)
+    wait_for_subprocesses_to_start()
+
+    assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
+    spied_boot_up.assert_called_once()
+
+
+@pytest.mark.timeout(GENERAL_LAUNCH_TIMEOUT)
+@pytest.mark.slow
+def test_main__stores_and_logs_directory_for_log_files_from_command_line_arguments(
+    mocker, fully_running_app_from_main_entrypoint
+):
+    spied_info_logger = mocker.spy(main.logger, "info")
+
+    expected_log_dir = r"C:\Users\Curi Bio\MantarrayController"
+    command_line_args = [f"--log_file_dir={expected_log_dir}"]
+    app_info = fully_running_app_from_main_entrypoint(command_line_args)
+
+    app_info["mocked_configure_logging"].assert_called_once_with(
+        path_to_log_folder=expected_log_dir,
+        log_file_prefix="mantarray_log",
+        log_level=logging.INFO,
+    )
+    spied_info_logger.assert_any_call(
+        f"Using directory for log files: {expected_log_dir}"
+    )
+
+
+@pytest.mark.timeout(GENERAL_LAUNCH_TIMEOUT)
+@pytest.mark.slow
+def test_main__stores_and_logs_user_settings_and_recordings_folder_from_command_line_arguments(
+    mocker, fully_running_app_from_main_entrypoint
+):
+    with tempfile.TemporaryDirectory() as expected_recordings_dir:
+        test_dict = {
+            "customer_account_uuid": "14b9294a-9efb-47dd-a06e-8247e982e196",
+            "user_account_uuid": "0288efbc-7705-4946-8815-02701193f766",
+            "recording_directory": expected_recordings_dir,
+        }
+        json_str = json.dumps(test_dict)
+        b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
+
+        command_line_args = [f"--initial-base64-settings={b64_encoded}"]
+        app_info = fully_running_app_from_main_entrypoint(command_line_args)
+
+        shared_values_dict = app_info["object_access_inside_main"][
+            "values_to_share_to_server"
+        ]
+
+        assert (
+            shared_values_dict["config_settings"]["Customer Account ID"]
+            == "14b9294a-9efb-47dd-a06e-8247e982e196"
+        )
+        assert (
+            shared_values_dict["config_settings"]["User Account ID"]
+            == "0288efbc-7705-4946-8815-02701193f766"
+        )
+        assert (
+            shared_values_dict["config_settings"]["Recording Directory"]
+            == expected_recordings_dir
+        )
+
+
+@pytest.mark.timeout(GENERAL_LAUNCH_TIMEOUT)
+@pytest.mark.slow
+def test_main__does_not_call_boot_up_function_upon_launch_if_command_line_arg_passed(
+    fully_running_app_from_main_entrypoint, mocker,
+):
+    spied_boot_up = mocker.spy(MantarrayProcessesManager, "boot_up_instrument")
+
+    fully_running_app_from_main_entrypoint(["--skip-mantarray-boot-up"])
+    port = get_server_port_number()
+    confirm_port_in_use(port, timeout=5)
+    wait_for_subprocesses_to_start()
+
+    assert system_state_eventually_equals(SERVER_READY_STATE, 5) is True
+    spied_boot_up.assert_not_called()
+
+
+@pytest.mark.timeout(15)
+@freeze_time("2020-07-21 21:51:36.704515")
+def test_main_can_launch_server_and_processes_and_initial_boot_up_of_ok_comm_process_gets_logged__default_exe_execution(
+    mocker,
+    confirm_monitor_found_no_errors_in_subprocesses,
+    fully_running_app_from_main_entrypoint,
+):
+    mocked_process_monitor_info_logger = mocker.patch.object(
+        process_monitor.logger, "info", autospec=True,
+    )
+
+    mocked_main_info_logger = mocker.patch.object(main.logger, "info", autospec=True)
+    fully_running_app_from_main_entrypoint()
+
+    wait_for_subprocesses_to_start()
+
+    expected_initiated_str = "OpalKelly Communication Process initiated at"
+    assert any(
+        [
+            expected_initiated_str in call[0][0]
+            for call in mocked_process_monitor_info_logger.call_args_list
+        ]
+    )
+    expected_connection_str = "Communication from the OpalKelly Controller: {'communication_type': 'board_connection_status_change'"
+    assert any(
+        [
+            expected_connection_str in call[0][0]
+            for call in mocked_process_monitor_info_logger.call_args_list
+        ]
+    )
+
+    mocked_main_info_logger.assert_any_call(
+        f"Build timestamp/version: {COMPILED_EXE_BUILD_TIMESTAMP}"
+    )

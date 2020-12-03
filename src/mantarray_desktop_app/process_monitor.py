@@ -310,6 +310,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             except queue.Empty:
                 continue
             self._handle_error_in_subprocess(iter_process, communication)
+
         if (
             self._values_to_share_to_server["system_status"]
             == SERVER_INITIALIZING_STATE
