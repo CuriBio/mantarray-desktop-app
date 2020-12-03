@@ -35,7 +35,7 @@ from ..fixtures import fixture_patched_shared_values_dict
 from ..fixtures import fixture_patched_start_recording_shared_dict
 from ..fixtures import fixture_patched_xem_scripts_folder
 from ..fixtures import fixture_test_process_manager
-from ..fixtures import fixture_test_process_manager_without_created_processes
+from ..fixtures import fixture_test_process_manager_without_created_processes,GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
 from ..fixtures_server import fixture_test_client
 
 
@@ -49,7 +49,7 @@ __fixtures__ = [
     fixture_test_process_manager_without_created_processes,
 ]
 
-GENERAL_LAUNCH_TIMEOUT = 15
+
 
 
 @pytest.fixture(
@@ -63,7 +63,7 @@ def fixture_confirm_monitor_found_no_errors_in_subprocesses(mocker):
     assert mocker_error_handling_for_subprocess.call_count == 0
 
 
-@pytest.mark.timeout(GENERAL_LAUNCH_TIMEOUT)
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 @pytest.mark.slow
 def test_main__stores_and_logs_port_number_from_command_line_arguments(
     mocker, fully_running_app_from_main_entrypoint, patched_xem_scripts_folder
@@ -117,7 +117,7 @@ def test_main_argparse_debug_test_post_build(mocker):
     main.main(["--debug-test-post-build"])
 
 
-@pytest.mark.timeout(GENERAL_LAUNCH_TIMEOUT)
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 def test_main_configures_logging(mocker):
     mocked_configure_logging = mocker.patch.object(
         main, "configure_logging", autospec=True
@@ -128,7 +128,7 @@ def test_main_configures_logging(mocker):
     )
 
 
-@pytest.mark.timeout(GENERAL_LAUNCH_TIMEOUT)
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 def test_main__logs_system_info__and_software_version_at_very_start(
     mocker,
     fully_running_app_from_main_entrypoint,
@@ -167,7 +167,7 @@ def test_main__logs_system_info__and_software_version_at_very_start(
     spied_info_logger.assert_any_call(f"Python Compiler: {platform.python_compiler()}")
 
 
-@pytest.mark.timeout(GENERAL_LAUNCH_TIMEOUT)
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 @pytest.mark.slow
 def test_main__raises_error_when_invalid_customer_account_uuid_is_passed_in_cmd_line_args(
     mocker,
@@ -183,7 +183,7 @@ def test_main__raises_error_when_invalid_customer_account_uuid_is_passed_in_cmd_
         main.main(command_line_args)
 
 
-@pytest.mark.timeout(GENERAL_LAUNCH_TIMEOUT)
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 @pytest.mark.slow
 def test_main__raises_error_when_invalid_user_account_uuid_is_passed_in_cmd_line_args(
     mocker,
@@ -275,7 +275,7 @@ def test_main_entrypoint__correctly_assigns_shared_values_dictionary_to_process_
     assert "in_simulation_mode" in shared_values_dict
 
 
-@pytest.mark.timeout(GENERAL_LAUNCH_TIMEOUT)
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 @pytest.mark.slow
 def test_main__calls_boot_up_function_upon_launch(
     patched_xem_scripts_folder, fully_running_app_from_main_entrypoint, mocker,
@@ -291,7 +291,7 @@ def test_main__calls_boot_up_function_upon_launch(
     spied_boot_up.assert_called_once()
 
 
-@pytest.mark.timeout(GENERAL_LAUNCH_TIMEOUT)
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 @pytest.mark.slow
 def test_main__stores_and_logs_directory_for_log_files_from_command_line_arguments(
     mocker, fully_running_app_from_main_entrypoint
@@ -312,7 +312,7 @@ def test_main__stores_and_logs_directory_for_log_files_from_command_line_argumen
     )
 
 
-@pytest.mark.timeout(GENERAL_LAUNCH_TIMEOUT)
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 @pytest.mark.slow
 def test_main__stores_and_logs_user_settings_and_recordings_folder_from_command_line_arguments(
     mocker, fully_running_app_from_main_entrypoint
@@ -347,7 +347,7 @@ def test_main__stores_and_logs_user_settings_and_recordings_folder_from_command_
         )
 
 
-@pytest.mark.timeout(GENERAL_LAUNCH_TIMEOUT)
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 @pytest.mark.slow
 def test_main__does_not_call_boot_up_function_upon_launch_if_command_line_arg_passed(
     fully_running_app_from_main_entrypoint, mocker,

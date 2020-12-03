@@ -145,7 +145,11 @@ def _create_process_manager(
 ) -> MantarrayProcessesManager:
     base_path = os.path.join(get_current_file_abs_directory(), os.pardir, os.pardir)
     relative_path = "recordings"
-    file_dir = resource_path(relative_path, base_path=base_path)
+    try:
+        file_dir = shared_values_dict['config_settings']['Recording Directory']
+    except KeyError:
+        file_dir=resource_path(relative_path, base_path=base_path)
+    
     return MantarrayProcessesManager(
         file_directory=file_dir, values_to_share_to_server=shared_values_dict
     )

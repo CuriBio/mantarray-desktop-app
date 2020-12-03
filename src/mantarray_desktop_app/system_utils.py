@@ -22,6 +22,7 @@ def system_state_eventually_equals(state_name: str, timeout: int) -> bool:
         )
         if is_desired_state and response.status_code == 200:
             break
+        time.sleep(0.01) # sleep shortly between relentlessly pinging the server
         elapsed_time = time.perf_counter() - start
     return is_desired_state
 

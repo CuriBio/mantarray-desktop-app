@@ -184,7 +184,6 @@ def system_status() -> Response:
     Can be invoked by: curl http://localhost:4567/system_status
     """
     shared_values_dict = _get_values_from_process_monitor()
-
     status = shared_values_dict["system_status"]
     status_dict = {
         "ui_status_code": str(SYSTEM_STATUS_UUIDS[status]),
