@@ -32,10 +32,6 @@ class MantarrayQueueContainer:
             ...,
         ] = tuple([(Queue(), Queue(), Queue(),)] * 1)
 
-        self._server_error_queue: queue.Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-            Tuple[Exception, str]
-        ] = queue.Queue()
-
         self._from_main_to_file_writer_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
             Dict[str, Any]
         ] = Queue()
@@ -106,10 +102,37 @@ class MantarrayQueueContainer:
     ]:
         return self._ok_comm_board_queues[board_idx][0]
 
-    def get_ok_comm_board_queues(self):
+    def get_ok_comm_board_queues(
+        self,
+    ) -> Tuple[  # pylint-disable: duplicate-code
+        Tuple[
+            Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+                Dict[str, Any]
+            ],
+            Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+                Dict[str, Any]
+            ],
+            Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+                Any
+            ],
+        ],
+        ...,
+    ]:
         return self._ok_comm_board_queues
 
-    def get_file_writer_board_queues(self):
+    def get_file_writer_board_queues(
+        self,
+    ) -> Tuple[  # pylint-disable: duplicate-code
+        Tuple[
+            Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+                Any
+            ],
+            Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+                Any
+            ],
+        ],  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
+        ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
+    ]:
         return self._file_writer_board_queues
 
     def get_data_analyzer_board_queues(self):

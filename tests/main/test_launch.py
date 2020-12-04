@@ -35,7 +35,8 @@ from ..fixtures import fixture_patched_shared_values_dict
 from ..fixtures import fixture_patched_start_recording_shared_dict
 from ..fixtures import fixture_patched_xem_scripts_folder
 from ..fixtures import fixture_test_process_manager
-from ..fixtures import fixture_test_process_manager_without_created_processes,GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
+from ..fixtures import fixture_test_process_manager_without_created_processes
+from ..fixtures import GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
 from ..fixtures_server import fixture_test_client
 
 
@@ -48,8 +49,6 @@ __fixtures__ = [
     fixture_patched_xem_scripts_folder,
     fixture_test_process_manager_without_created_processes,
 ]
-
-
 
 
 @pytest.fixture(

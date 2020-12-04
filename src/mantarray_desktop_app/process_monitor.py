@@ -120,7 +120,6 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._hard_stop_and_join_processes_and_log_leftovers()
         elif communication_type == "update_shared_values_dictionary":
             new_values = communication["content"]
-            print (f'updating with new values: {new_values}')
             new_recording_directory: Optional[str] = None
             try:
                 new_recording_directory = new_values["config_settings"][
@@ -128,7 +127,6 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 ]
             except KeyError:
                 pass
-            print (f' new recording directory is: {new_recording_directory}')
             if new_recording_directory is not None:
                 to_file_writer_queue = (
                     process_manager.queue_container().get_communication_queue_from_main_to_file_writer()

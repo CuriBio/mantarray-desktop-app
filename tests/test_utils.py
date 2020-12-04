@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from mantarray_desktop_app import utils
-import numpy as np
 
 
 def test_convert_request_args_to_config_dict__calls_validate_settings(mocker):

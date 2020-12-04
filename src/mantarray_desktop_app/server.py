@@ -30,6 +30,7 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 from typing import Tuple
+from typing import Union
 from uuid import UUID
 
 from flask import Flask
@@ -90,7 +91,9 @@ flask_app = Flask(  # pylint: disable=invalid-name # yes, this is intentionally 
 )
 CORS(flask_app)
 
-_the_server_thread: "ServerThread"  # pylint: disable=invalid-name # Eli (11/3/20) yes, this is intentionally a singleton, not a constant. This is the current best guess at how to allow Flask routes to access some info they need
+_the_server_thread: Optional[
+    "ServerThread"
+]  # pylint: disable=invalid-name # Eli (11/3/20) yes, this is intentionally a singleton, not a constant. This is the current best guess at how to allow Flask routes to access some info they need
 
 
 def clear_the_server_thread() -> None:
@@ -100,6 +103,10 @@ def clear_the_server_thread() -> None:
 
 def get_the_server_thread() -> "ServerThread":
     """Return the singleton instance."""
+    if _the_server_thread is None:
+        raise NotImplementedError(
+            "This function should not be called when the ServerThread is None and hasn't been initialized yet."
+        )
     return _the_server_thread
 
 

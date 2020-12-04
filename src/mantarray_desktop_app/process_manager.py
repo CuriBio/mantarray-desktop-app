@@ -9,6 +9,7 @@ import time
 from typing import Any
 from typing import Dict
 from typing import Iterable
+from typing import Optional
 from typing import Tuple
 
 from stdlib_utils import get_current_file_abs_directory
@@ -154,7 +155,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         """
         bit_file_name = get_latest_firmware()
         to_ok_comm_queue = self.queue_container().get_communication_to_ok_comm_queue(0)
-        
+
         self.get_values_to_share_to_server()[
             "system_status"
         ] = INSTRUMENT_INITIALIZING_STATE

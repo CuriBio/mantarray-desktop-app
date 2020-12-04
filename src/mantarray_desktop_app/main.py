@@ -17,28 +17,23 @@ import time
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Optional
 from typing import Tuple
 
 from flask import Flask
 from flask_cors import CORS
-from immutable_data_validation import is_uuid
 from stdlib_utils import configure_logging
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import InfiniteLoopingParallelismMixIn
 from stdlib_utils import resource_path
 
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
-from .constants import CURI_BIO_ACCOUNT_UUID
-from .constants import CURI_BIO_USER_ACCOUNT_ID
 from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SUBPROCESS_POLL_DELAY_SECONDS
 from .constants import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
-from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
-from .exceptions import ImproperlyFormattedUserAccountUUIDError
 from .exceptions import MultiprocessingNotSetToSpawnError
-from .exceptions import RecordingFolderDoesNotExistError
 from .process_manager import get_mantarray_process_manager
 from .process_manager import MantarrayProcessesManager
 from .process_monitor import MantarrayProcessesMonitor
@@ -146,65 +141,65 @@ def _create_process_manager(
     base_path = os.path.join(get_current_file_abs_directory(), os.pardir, os.pardir)
     relative_path = "recordings"
     try:
-        file_dir = shared_values_dict['config_settings']['Recording Directory']
+        file_dir = shared_values_dict["config_settings"]["Recording Directory"]
     except KeyError:
-        file_dir=resource_path(relative_path, base_path=base_path)
-    
+        file_dir = resource_path(relative_path, base_path=base_path)
+
     return MantarrayProcessesManager(
         file_directory=file_dir, values_to_share_to_server=shared_values_dict
     )
 
 
-def _update_settings(
-    settings_dict: Dict[str, Any], is_initial_settings: bool = False
-) -> None:
-    """Update the user configuration settings.
+# def _update_settings(
+#     settings_dict: Dict[str, Any], is_initial_settings: bool = False
+# ) -> None:
+#     """Update the user configuration settings.
 
-    Args:
-        settings_dict: dictionary containing the new user configuration settings.
-        is_initial_settings: boolean kwarg of whether not these are the initial values being set. This should only ever be set to True when using settings passed in from command line arguments on app start up
-    """
-    customer_account_uuid = settings_dict.get("customer_account_uuid", None)
-    user_account_uuid = settings_dict.get("user_account_uuid", None)
-    recording_directory = settings_dict.get("recording_directory", None)
+#     Args:
+#         settings_dict: dictionary containing the new user configuration settings.
+#         is_initial_settings: boolean kwarg of whether not these are the initial values being set. This should only ever be set to True when using settings passed in from command line arguments on app start up
+#     """
+#     customer_account_uuid = settings_dict.get("customer_account_uuid", None)
+#     user_account_uuid = settings_dict.get("user_account_uuid", None)
+#     recording_directory = settings_dict.get("recording_directory", None)
 
-    shared_values_dict = get_shared_values_between_server_and_monitor()
-    if "config_settings" not in shared_values_dict:
-        shared_values_dict["config_settings"] = dict()
+#     shared_values_dict = get_shared_values_between_server_and_monitor()
+#     if "config_settings" not in shared_values_dict:
+#         shared_values_dict["config_settings"] = dict()
 
-    if customer_account_uuid is not None:
-        if customer_account_uuid == "curi":
-            customer_account_uuid = str(CURI_BIO_ACCOUNT_UUID)
-            user_account_uuid = str(CURI_BIO_USER_ACCOUNT_ID)
-        elif not is_uuid(customer_account_uuid):
-            raise ImproperlyFormattedCustomerAccountUUIDError(customer_account_uuid)
-        shared_values_dict["config_settings"][
-            "Customer Account ID"
-        ] = customer_account_uuid
-    if user_account_uuid is not None:
-        if not is_uuid(user_account_uuid):
-            raise ImproperlyFormattedUserAccountUUIDError(user_account_uuid)
-        shared_values_dict["config_settings"]["User Account ID"] = user_account_uuid
-    if recording_directory is not None:
-        if not os.path.isdir(recording_directory):
-            raise RecordingFolderDoesNotExistError(recording_directory)
-        shared_values_dict["config_settings"][
-            "Recording Directory"
-        ] = recording_directory
-        process_manager = get_mantarray_process_manager()
-        process_manager.set_file_directory(recording_directory)
-        if not is_initial_settings:
-            comm_to_file_writer = (
-                process_manager.get_communication_queue_from_main_to_file_writer()
-            )
-            file_dir_comm = {
-                "command": "update_directory",
-                "new_directory": recording_directory,
-            }
-            comm_to_file_writer.put(file_dir_comm)
+#     if customer_account_uuid is not None:
+#         if customer_account_uuid == "curi":
+#             customer_account_uuid = str(CURI_BIO_ACCOUNT_UUID)
+#             user_account_uuid = str(CURI_BIO_USER_ACCOUNT_ID)
+#         elif not is_uuid(customer_account_uuid):
+#             raise ImproperlyFormattedCustomerAccountUUIDError(customer_account_uuid)
+#         shared_values_dict["config_settings"][
+#             "Customer Account ID"
+#         ] = customer_account_uuid
+#     if user_account_uuid is not None:
+#         if not is_uuid(user_account_uuid):
+#             raise ImproperlyFormattedUserAccountUUIDError(user_account_uuid)
+#         shared_values_dict["config_settings"]["User Account ID"] = user_account_uuid
+#     if recording_directory is not None:
+#         if not os.path.isdir(recording_directory):
+#             raise RecordingFolderDoesNotExistError(recording_directory)
+#         shared_values_dict["config_settings"][
+#             "Recording Directory"
+#         ] = recording_directory
+#         process_manager = get_mantarray_process_manager()
+#         process_manager.set_file_directory(recording_directory)
+#         if not is_initial_settings:
+#             comm_to_file_writer = (
+#                 process_manager.get_communication_queue_from_main_to_file_writer()
+#             )
+#             file_dir_comm = {
+#                 "command": "update_directory",
+#                 "new_directory": recording_directory,
+#             }
+#             comm_to_file_writer.put(file_dir_comm)
 
-        msg = f"Using directory for recording files: {recording_directory}"
-        logger.info(msg)
+#         msg = f"Using directory for recording files: {recording_directory}"
+#         logger.info(msg)
 
 
 def main(

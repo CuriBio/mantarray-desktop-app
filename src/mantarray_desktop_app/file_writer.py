@@ -365,14 +365,12 @@ class FileWriterProcess(InfiniteProcess):
         tissue_status[0].clear()
         reference_status[0].clear()
         for this_well_idx in communication["active_well_indices"]:
-            file_path=os.path.join(
-                    self._file_directory,
-                    sub_dir_name,
-                    f"{sub_dir_name}__{GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(this_well_idx)}.h5",
-                )
-            this_file = MantarrayH5FileCreator(file_path
-                ,
+            file_path = os.path.join(
+                self._file_directory,
+                sub_dir_name,
+                f"{sub_dir_name}__{GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(this_well_idx)}.h5",
             )
+            this_file = MantarrayH5FileCreator(file_path,)
             self._open_files[0][this_well_idx] = this_file
             this_file.attrs["File Format Version"] = CURRENT_HDF5_FILE_FORMAT_VERSION
             this_file.attrs[
