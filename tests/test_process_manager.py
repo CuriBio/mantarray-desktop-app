@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
 import os
-import time
 from unittest.mock import ANY
 
 from mantarray_desktop_app import DataAnalyzerProcess
@@ -394,7 +393,7 @@ def test_MantarrayProcessesManager__boot_up_instrument__populates_ok_comm_queue_
 def test_MantarrayProcessesManager__are_processes_stopped__waits_correct_amount_of_time_before_returning_false(
     test_process_manager, mocker
 ):
-    test_process_manager.create_processes()
+    # test_process_manager.create_processes()
     okc_process = test_process_manager.get_ok_comm_process()
     fw_process = test_process_manager.get_file_writer_process()
     da_process = test_process_manager.get_data_analyzer_process()
@@ -416,12 +415,12 @@ def test_MantarrayProcessesManager__are_processes_stopped__waits_correct_amount_
     )
 
     mocked_counter = mocker.patch.object(
-        time,
+        process_manager,
         "perf_counter",
         autospec=True,
         side_effect=[0, 0, 0, 0, SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS],
     )
-    mocker.patch.object(time, "sleep", autospec=True)
+    # mocker.patch.object(time, "sleep", autospec=True)
 
     assert test_process_manager.are_processes_stopped() is False
 
@@ -476,9 +475,9 @@ def test_MantarrayProcessesManager__are_processes_stopped__returns_true_if_stop_
     )
 
     mocked_counter = mocker.patch.object(
-        time, "perf_counter", autospec=True, return_value=0
+        process_manager, "perf_counter", autospec=True, return_value=0
     )
-    mocker.patch.object(time, "sleep", autospec=True)
+    mocker.patch.object(process_manager, "sleep", autospec=True)
 
     assert test_process_manager.are_processes_stopped() is True
 

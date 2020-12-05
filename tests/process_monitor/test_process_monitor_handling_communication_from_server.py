@@ -463,8 +463,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         process_manager,
         "perf_counter",
         autospec=True,
-        side_effect=[0, 0, 0, SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS],
+        side_effect=[0, 0, 0, 0, SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS],
     )
+
+    mocker.patch.object(process_manager, "sleep", autospec=True)  # speed up test
 
     invoke_process_run_and_check_errors(monitor_thread)
 
@@ -479,7 +481,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     spied_da_join.assert_called_once()
     spied_server_join.assert_called_once()
 
-    assert mocked_counter.call_count == 4
+    assert mocked_counter.call_count == 5
     assert mocked_server_is_stopped.call_count == 4
     assert mocked_okc_is_stopped.call_count == 3
     assert mocked_fw_is_stopped.call_count == 2

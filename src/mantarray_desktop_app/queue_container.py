@@ -81,13 +81,6 @@ class MantarrayQueueContainer:
             Tuple[Exception, str]
         ] = queue.Queue()
 
-    def get_communication_queue_from_server_to_main(
-        self,
-    ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Dict[str, Any]
-    ]:
-        return self._server_error_queue
-
     def get_communication_queue_from_main_to_file_writer(
         self,
     ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
@@ -208,36 +201,36 @@ class MantarrayQueueContainer:
     ]:
         return self._data_analyzer_error_queue
 
-    def _create_queues(self) -> None:
-        """Create all the queues and assign to the instance variables."""
-        self._ok_communication_error_queue = Queue()
-        ok_board_queues: Tuple[  # pylint-disable: duplicate-code
-            Tuple[
-                Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-                    Dict[str, Any]
-                ],
-                Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-                    Dict[str, Any]
-                ],
-                Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-                    Any
-                ],
-            ],  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-            ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-        ] = tuple([(Queue(), Queue(), Queue(),)] * 1)
-        self._ok_comm_board_queues = ok_board_queues
+    # def _create_queues(self) -> None:
+    #     """Create all the queues and assign to the instance variables."""
+    #     self._ok_communication_error_queue = Queue()
+    #     ok_board_queues: Tuple[  # pylint-disable: duplicate-code
+    #         Tuple[
+    #             Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+    #                 Dict[str, Any]
+    #             ],
+    #             Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+    #                 Dict[str, Any]
+    #             ],
+    #             Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+    #                 Any
+    #             ],
+    #         ],  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
+    #         ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
+    #     ] = tuple([(Queue(), Queue(), Queue(),)] * 1)
+    #     self._ok_comm_board_queues = ok_board_queues
 
-        self._from_file_writer_to_main_queue = Queue()
-        self._file_writer_error_queue = Queue()
-        self._from_main_to_file_writer_queue = Queue()
-        self._file_writer_board_queues = tuple([(ok_board_queues[0][2], Queue(),)] * 1)
+    #     self._from_file_writer_to_main_queue = Queue()
+    #     self._file_writer_error_queue = Queue()
+    #     self._from_main_to_file_writer_queue = Queue()
+    #     self._file_writer_board_queues = tuple([(ok_board_queues[0][2], Queue(),)] * 1)
 
-        self._from_data_analyzer_to_main_queue = Queue()
-        self._data_analyzer_error_queue = Queue()
-        self._from_main_to_data_analyzer_queue = Queue()
-        self._data_analyzer_board_queues = tuple(
-            [(self._file_writer_board_queues[0][1], Queue(),)] * 1
-        )
+    #     self._from_data_analyzer_to_main_queue = Queue()
+    #     self._data_analyzer_error_queue = Queue()
+    #     self._from_main_to_data_analyzer_queue = Queue()
+    #     self._data_analyzer_board_queues = tuple(
+    #         [(self._file_writer_board_queues[0][1], Queue(),)] * 1
+    #     )
 
-        self._from_server_to_main_queue = queue.Queue()
-        self._server_error_queue = queue.Queue()
+    #     self._from_server_to_main_queue = queue.Queue()
+    #     self._server_error_queue = queue.Queue()

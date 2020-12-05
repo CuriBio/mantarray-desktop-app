@@ -8,9 +8,7 @@ from __future__ import annotations
 from typing import Union
 
 import stdlib_utils
-from stdlib_utils import (
-    confirm_queue_is_eventually_of_size as stdlib_confirm_queue_is_eventually_of_size,
-)
+from stdlib_utils import confirm_queue_is_eventually_of_size as stdlib_c_q_is_e_of_s
 from stdlib_utils import is_queue_eventually_empty as stdlib_is_queue_eventually_empty
 from stdlib_utils import is_queue_eventually_not_empty as stdlib_is_queue_ena
 from stdlib_utils import is_queue_eventually_of_size as stdlib_is_queue_eos
@@ -47,9 +45,7 @@ def confirm_queue_is_eventually_of_size(
     size: int,
     timeout_seconds: Union[float, int] = QUEUE_CHECK_TIMEOUT_SECONDS,
 ) -> None:
-    stdlib_confirm_queue_is_eventually_of_size(
-        the_queue, size, timeout_seconds=timeout_seconds
-    )
+    stdlib_c_q_is_e_of_s(the_queue, size, timeout_seconds=timeout_seconds)
 
 
 def is_queue_eventually_empty(

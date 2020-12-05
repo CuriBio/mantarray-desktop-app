@@ -250,14 +250,16 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         # TODO (Eli 11/18/20): consider accepting a kwarg for SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
         start = perf_counter()
         processes = self._all_processes
+        if not isinstance(processes, Iterable):
+            raise NotImplementedError("Processes must be created first.")
         are_stopped = all(p.is_stopped() for p in processes)
-        while True:
-            if all(p.is_stopped() for p in processes):
-                break
+
+        while not are_stopped:
             sleep(SUBPROCESS_POLL_DELAY_SECONDS)
             elapsed_time = perf_counter() - start
             if elapsed_time >= SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS:
                 break
+            are_stopped = all(p.is_stopped() for p in processes)
         return are_stopped
 
 

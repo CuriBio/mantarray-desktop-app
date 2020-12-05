@@ -110,7 +110,9 @@ def get_the_server_thread() -> "ServerThread":
     return _the_server_thread
 
 
-def get_server_to_main_queue() -> Queue:
+def get_server_to_main_queue() -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+    Dict[str, Any]
+]:
     return get_the_server_thread().get_queue_to_main()
 
 
@@ -982,7 +984,11 @@ class ServerThread(InfiniteThread):
     def get_port_number(self) -> int:
         return self._port
 
-    def get_queue_to_main(self) -> Queue:
+    def get_queue_to_main(
+        self,
+    ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+        Dict[str, Any]
+    ]:
         return self._to_main_queue
 
     def queue_container(self) -> MantarrayQueueContainer:
