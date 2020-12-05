@@ -7,11 +7,16 @@ from freezegun import freeze_time
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
+from mantarray_desktop_app import process_manager
+from mantarray_desktop_app import process_monitor
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_desktop_app import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 import numpy as np
+import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
+from ..fixtures import fixture_patch_subprocess_joins
 from ..fixtures import fixture_test_process_manager
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_ok_comm import fixture_patch_connection_to_board
@@ -24,6 +29,7 @@ __fixtures__ = [
     fixture_test_process_manager,
     fixture_test_monitor,
     fixture_patch_connection_to_board,
+    fixture_patch_subprocess_joins,
 ]
 
 
@@ -374,7 +380,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     mocked_soft_stop_processes_except_server.assert_called_once()
 
 
-def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_shutdown_hard_stop__by_checking_if_processes_are_stopped_and_hard_stop_and_join_all_processes(
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_shutdown_hard_stop_by_hard_stop_and_join_all_processes(
     test_process_manager, test_monitor, mocker
 ):
     monitor_thread, _, _, _ = test_monitor
@@ -402,3 +408,140 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     assert is_queue_eventually_empty(server_to_main_queue) is True
     mocked_are_processes_stopped.assert_called_once()
     mocked_hard_stop_and_join.assert_called_once()
+
+
+@pytest.mark.timeout(10)
+@pytest.mark.slow
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_shutdown_hard_stop__by_soft_stop_then_checking_if_processes_are_stopped_for_desired_time_and_then_finally_hard_stop_and_join_all_processes(
+    test_process_manager, test_monitor, mocker
+):
+    monitor_thread, _, _, _ = test_monitor
+
+    test_process_manager.start_processes()
+
+    okc_process = test_process_manager.get_ok_comm_process()
+    fw_process = test_process_manager.get_file_writer_process()
+    da_process = test_process_manager.get_data_analyzer_process()
+    server_thread = test_process_manager.get_server_thread()
+
+    spied_okc_join = mocker.spy(okc_process, "join")
+    spied_fw_join = mocker.spy(fw_process, "join")
+    spied_da_join = mocker.spy(da_process, "join")
+    spied_server_join = mocker.spy(server_thread, "join")
+
+    spied_okc_hard_stop = mocker.spy(okc_process, "hard_stop")
+    spied_fw_hard_stop = mocker.spy(fw_process, "hard_stop")
+    spied_da_hard_stop = mocker.spy(da_process, "hard_stop")
+    spied_server_hard_stop = mocker.spy(server_thread, "hard_stop")
+
+    mocked_server_is_stopped = mocker.patch.object(
+        server_thread, "is_stopped", side_effect=[False, True, True, True]
+    )
+    mocked_okc_is_stopped = mocker.patch.object(
+        okc_process, "is_stopped", autospec=True, side_effect=[False, True, True]
+    )
+    mocked_fw_is_stopped = mocker.patch.object(
+        fw_process, "is_stopped", autospec=True, side_effect=[False, True]
+    )
+    mocked_da_is_stopped = mocker.patch.object(
+        da_process, "is_stopped", autospec=True, side_effect=[False, False]
+    )
+
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+
+    communication = {
+        "communication_type": "shutdown",
+        "command": "hard_stop",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        communication, server_to_main_queue
+    )
+
+    mocked_counter = mocker.patch.object(
+        process_manager,
+        "perf_counter",
+        autospec=True,
+        side_effect=[0, 0, 0, SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS],
+    )
+
+    invoke_process_run_and_check_errors(monitor_thread)
+
+    assert is_queue_eventually_empty(server_to_main_queue) is True
+
+    spied_okc_hard_stop.assert_called_once()
+    spied_fw_hard_stop.assert_called_once()
+    spied_da_hard_stop.assert_called_once()
+    spied_server_hard_stop.assert_called_once()
+    spied_okc_join.assert_called_once()
+    spied_fw_join.assert_called_once()
+    spied_da_join.assert_called_once()
+    spied_server_join.assert_called_once()
+
+    assert mocked_counter.call_count == 4
+    assert mocked_server_is_stopped.call_count == 4
+    assert mocked_okc_is_stopped.call_count == 3
+    assert mocked_fw_is_stopped.call_count == 2
+    assert mocked_da_is_stopped.call_count == 1
+
+
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_shutdown_hard_stop__by_logging_items_in_queues_from_subprocesses(
+    test_process_manager, test_monitor, patch_subprocess_joins, mocker
+):
+    monitor_thread, _, _, _ = test_monitor
+
+    okc_process = test_process_manager.get_ok_comm_process()
+    fw_process = test_process_manager.get_file_writer_process()
+    da_process = test_process_manager.get_data_analyzer_process()
+    server_thread = test_process_manager.get_server_thread()
+    expected_okc_item = "item 1"
+    expected_fw_item = "item 2"
+    expected_da_item = "item 3"
+    expected_server_item = "item 4"
+
+    mocker.patch.object(
+        okc_process, "hard_stop", autospec=True, return_value=expected_okc_item
+    )
+    mocker.patch.object(
+        fw_process, "hard_stop", autospec=True, return_value=expected_fw_item
+    )
+    mocker.patch.object(
+        da_process, "hard_stop", autospec=True, return_value=expected_da_item
+    )
+    mocker.patch.object(
+        server_thread, "hard_stop", autospec=True, return_value=expected_server_item
+    )
+
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+
+    communication = {
+        "communication_type": "shutdown",
+        "command": "hard_stop",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        communication, server_to_main_queue
+    )
+
+    mocker.patch.object(
+        process_manager,
+        "perf_counter",
+        autospec=True,
+        side_effect=[0, SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS],
+    )
+
+    mocked_monitor_logger_error = mocker.patch.object(
+        process_monitor.logger, "error", autospec=True
+    )
+
+    invoke_process_run_and_check_errors(monitor_thread)
+
+    assert is_queue_eventually_empty(server_to_main_queue) is True
+
+    actual_log_message = mocked_monitor_logger_error.call_args[0][0]
+    assert expected_okc_item in actual_log_message
+    assert expected_fw_item in actual_log_message
+    assert expected_da_item in actual_log_message
+    assert expected_server_item in actual_log_message

@@ -87,7 +87,6 @@ from ..fixtures import fixture_patched_firmware_folder
 from ..fixtures import fixture_patched_shared_values_dict
 from ..fixtures import fixture_patched_xem_scripts_folder
 from ..fixtures import fixture_test_process_manager
-from ..fixtures import fixture_test_process_manager_without_created_processes
 from ..fixtures import GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
 from ..fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
 from ..helpers import is_queue_eventually_empty
@@ -98,7 +97,6 @@ __fixtures__ = [
     fixture_patched_shared_values_dict,
     fixture_patched_xem_scripts_folder,
     fixture_patched_firmware_folder,
-    fixture_test_process_manager_without_created_processes,
 ]
 LIVE_VIEW_ACTIVE_WAIT_TIME = 120
 CALIBRATED_WAIT_TIME = 10

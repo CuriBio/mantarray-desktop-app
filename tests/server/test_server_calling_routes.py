@@ -475,3 +475,17 @@ def test_start_recording__returns_error_code_and_message_if_barcode_is_invalid(
     response = test_client.get(f"/start_recording?barcode={test_barcode}")
     assert response.status_code == 400
     assert response.status.endswith(expected_error_message) is True
+
+
+def test_route_with_no_url_rule__returns_error_message__and_logs_reponse_to_request(
+    test_client, mocker
+):
+    mocked_logger = mocker.spy(server.logger, "info")
+
+    response = test_client.get("/fake_route")
+    assert response.status_code == 404
+    assert response.status.endswith("Route not implemented") is True
+
+    mocked_logger.assert_called_once_with(
+        f"Response to HTTP Request in next log entry: {response.status}"
+    )

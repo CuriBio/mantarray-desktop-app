@@ -5,7 +5,8 @@ from __future__ import annotations
 import copy
 import logging
 import os
-import time
+from time import perf_counter
+from time import sleep
 from typing import Any
 from typing import Dict
 from typing import Iterable
@@ -247,16 +248,16 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         """Check if processes are stopped."""
 
         # TODO (Eli 11/18/20): consider accepting a kwarg for SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
-        start = time.perf_counter()
+        start = perf_counter()
         processes = self._all_processes
         are_stopped = all(p.is_stopped() for p in processes)
-        while (
-            not are_stopped
-            and time.perf_counter() - start < SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
-        ):
-            are_stopped = all(p.is_stopped() for p in processes)
-            time.sleep(SUBPROCESS_POLL_DELAY_SECONDS)
-
+        while True:
+            if all(p.is_stopped() for p in processes):
+                break
+            sleep(SUBPROCESS_POLL_DELAY_SECONDS)
+            elapsed_time = perf_counter() - start
+            if elapsed_time >= SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS:
+                break
         return are_stopped
 
 

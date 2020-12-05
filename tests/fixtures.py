@@ -12,13 +12,17 @@ from typing import Optional
 from mantarray_desktop_app import clear_server_singletons
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
+from mantarray_desktop_app import DataAnalyzerProcess
+from mantarray_desktop_app import FileWriterProcess
 from mantarray_desktop_app import get_api_endpoint
 from mantarray_desktop_app import get_server_port_number
 from mantarray_desktop_app import main
 from mantarray_desktop_app import MantarrayProcessesManager
 from mantarray_desktop_app import MantarrayQueueContainer
+from mantarray_desktop_app import OkCommunicationProcess
 from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import RunningFIFOSimulator
+from mantarray_desktop_app import ServerThread
 from mantarray_desktop_app import UTC_BEGINNING_DATA_ACQUISTION_UUID
 import pytest
 import requests
@@ -157,14 +161,33 @@ def fixture_test_process_manager(mocker):
             fw.close_all_files()
 
 
+@pytest.fixture(scope="function", name="patch_subprocess_joins")
+def fixture_patch_subprocess_joins(mocker):
+    mocker.patch.object(OkCommunicationProcess, "join", autospec=True)
+    mocker.patch.object(FileWriterProcess, "join", autospec=True)
+    mocker.patch.object(DataAnalyzerProcess, "join", autospec=True)
+    mocker.patch.object(ServerThread, "join", autospec=True)
+
+
+@pytest.fixture(scope="function", name="patch_subprocess_is_stopped_to_false")
+def fixture_patch_subprocess_is_stopped_to_false(mocker):
+    mocker.patch.object(
+        OkCommunicationProcess, "is_stopped", autospec=True, return_value=False
+    )
+    mocker.patch.object(
+        FileWriterProcess, "is_stopped", autospec=True, return_value=False
+    )
+    mocker.patch.object(
+        DataAnalyzerProcess, "is_stopped", autospec=True, return_value=False
+    )
+    mocker.patch.object(ServerThread, "is_stopped", autospec=True, return_value=False)
+
+
 @pytest.fixture(scope="function", name="test_process_manager_without_created_processes")
 def fixture_test_process_manager_without_created_processes(mocker):
     with tempfile.TemporaryDirectory() as tmp_dir:
         manager = MantarrayProcessesManager(file_directory=tmp_dir)
 
-        mocker.patch.object(
-            main, "get_mantarray_process_manager", autospec=True, return_value=manager
-        )
         yield manager
 
         fw = manager.get_file_writer_process()

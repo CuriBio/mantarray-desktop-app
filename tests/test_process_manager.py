@@ -10,19 +10,28 @@ from mantarray_desktop_app import get_mantarray_process_manager
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import MantarrayProcessesManager
 from mantarray_desktop_app import OkCommunicationProcess
+from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import ServerThread
+from mantarray_desktop_app import SUBPROCESS_POLL_DELAY_SECONDS
 from mantarray_desktop_app import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 import pytest
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import resource_path
 
+from .fixtures import fixture_patch_subprocess_is_stopped_to_false
 from .fixtures import fixture_patched_firmware_folder
 from .fixtures import fixture_test_process_manager
+from .fixtures import fixture_test_process_manager_without_created_processes
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .helpers import is_queue_eventually_of_size
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
-__fixtures__ = [fixture_patched_firmware_folder, fixture_test_process_manager]
+__fixtures__ = [
+    fixture_patched_firmware_folder,
+    fixture_test_process_manager,
+    fixture_test_process_manager_without_created_processes,
+    fixture_patch_subprocess_is_stopped_to_false,
+]
 
 
 @pytest.fixture(scope="function", name="generic_manager")
@@ -476,6 +485,28 @@ def test_MantarrayProcessesManager__are_processes_stopped__returns_true_if_stop_
     assert (
         mocked_counter.call_count == 2
     )  # ensure it was activated once inside the loop
+
+
+def test_MantarrayProcessesManager__are_processes_stopped__sleeps_for_correct_amount_of_time_each_cycle_of_checking_subprocess_status(
+    test_process_manager, mocker, patch_subprocess_is_stopped_to_false
+):
+    # test_process_manager.spawn_processes()
+
+    # mocker.patch.object(
+    #     test_process_manager, "hard_stop_and_join_processes", autospec=True
+    # )
+
+    mocker.patch.object(
+        process_manager,
+        "perf_counter",
+        autospec=True,
+        side_effect=[0, SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS],
+    )
+    mocked_sleep = mocker.patch.object(process_manager, "sleep", autospec=True)
+
+    test_process_manager.are_processes_stopped()
+
+    mocked_sleep.assert_called_once_with(SUBPROCESS_POLL_DELAY_SECONDS)
 
 
 # def test_get_mantarray_process_manager__spawns_processes_if_not_already_started__but_not_again(
