@@ -12,8 +12,9 @@ from typing import Tuple
 class MantarrayQueueContainer:
     """Getter for all the queues."""
 
+    # pylint:disable=too-many-instance-attributes # Eli (12/8/20): there are a lot of queues, this class manages them
     def __init__(self,) -> None:
-        # pylint-disable: duplicate-code # needed for the type definition of the board_queues
+        # pylint:disable=duplicate-code # needed for the type definition of the board_queues
         self._ok_communication_error_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
             Tuple[Exception, str]
         ] = Queue()
@@ -111,6 +112,7 @@ class MantarrayQueueContainer:
         ],
         ...,
     ]:
+        """Return all board queues for Instrument subprocess."""
         return self._ok_comm_board_queues
 
     def get_file_writer_board_queues(
@@ -126,6 +128,7 @@ class MantarrayQueueContainer:
         ],
         ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
     ]:
+        """Return all board queues for File Writer subprocess."""
         return self._file_writer_board_queues
 
     def get_data_analyzer_board_queues(
@@ -141,6 +144,7 @@ class MantarrayQueueContainer:
         ],
         ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
     ]:
+        """Return all board queues for Data Analyzer subprocess."""
         return self._data_analyzer_board_queues
 
     def get_communication_queue_from_ok_comm_to_main(

@@ -951,6 +951,8 @@ def after_request(response: Response) -> Response:
 
 # TODO (Eli 11/3/20): refactor stdlib utils to separate some of the more generic multiprocessing functionality out of the "InfiniteLooping" mixin so that it could be included here without all the other things
 class ServerThread(InfiniteThread):
+    """Thread to run the Flask server."""
+
     def __init__(
         self,
         to_main_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
@@ -1012,7 +1014,10 @@ class ServerThread(InfiniteThread):
         if is_port_in_use(port):
             raise LocalServerPortAlreadyInUseError(port)
 
-    def run(self) -> None:
+    # TODO Eli (12/8/20): refactor so there's something other than InfiniteThread this can inherit from which retains the other abilities for communication but not the infinite looping
+    def run(  # pylint:disable=arguments-differ # Eli (12/8/20): this should be fixed by a refactor, see TODO above
+        self,
+    ) -> None:
         try:
             _, host, _ = get_server_address_components()
             self.check_port()

@@ -130,8 +130,6 @@ from .firmware_manager import get_latest_firmware_version
 from .firmware_manager import sort_firmware_files
 from .main import clear_server_singletons
 from .main import get_server_port_number
-from .main import get_shared_values_between_server_and_monitor
-from .main import prepare_to_shutdown
 from .mantarray_front_panel import MantarrayFrontPanel
 from .mantarray_front_panel import MantarrayFrontPanelMixIn
 from .ok_comm import build_file_writer_objects
@@ -154,11 +152,6 @@ from .server import ServerThread
 from .system_utils import system_state_eventually_equals
 from .system_utils import wait_for_subprocesses_to_start
 
-# from .process_monitor import get_mantarray_processes_monitor
-# from .process_monitor import set_mantarray_processes_monitor
-
-# from .main import start_server
-# from .main import start_server_in_thread
 
 if (
     6 < 9
@@ -172,7 +165,6 @@ if (
 __all__ = [
     "main",
     "utils",
-    "get_shared_values_between_server_and_monitor",
     "flask_app",
     "MultiprocessingNotSetToSpawnError",
     "LocalServerPortAlreadyInUseError",
@@ -312,7 +304,6 @@ __all__ = [
     "ImproperlyFormattedUserAccountUUIDError",
     "RecordingFolderDoesNotExistError",
     "VALID_CONFIG_SETTINGS",
-    "prepare_to_shutdown",
     "FIRMWARE_VERSION_WIRE_OUT_ADDRESS",
     "SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS",
     "SUBPROCESS_POLL_DELAY_SECONDS",

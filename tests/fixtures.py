@@ -12,8 +12,6 @@ from typing import List
 from typing import Optional
 
 from mantarray_desktop_app import clear_server_singletons
-from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
-from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import DataAnalyzerProcess
 from mantarray_desktop_app import FileWriterProcess
 from mantarray_desktop_app import get_api_endpoint
@@ -23,9 +21,7 @@ from mantarray_desktop_app import MantarrayProcessesManager
 from mantarray_desktop_app import MantarrayQueueContainer
 from mantarray_desktop_app import OkCommunicationProcess
 from mantarray_desktop_app import process_manager
-from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import ServerThread
-from mantarray_desktop_app import UTC_BEGINNING_DATA_ACQUISTION_UUID
 import pytest
 import requests
 from stdlib_utils import confirm_port_available
@@ -34,8 +30,6 @@ from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import is_port_in_use
 from stdlib_utils import resource_path
 
-from .fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
-
 # from mantarray_desktop_app import set_mantarray_processes_monitor
 
 PATH_TO_CURRENT_FILE = get_current_file_abs_directory()
@@ -43,11 +37,11 @@ QUEUE_CHECK_TIMEOUT_SECONDS = 1.1  # for is_queue_eventually_of_size, is_queue_e
 GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS = 15
 
 
-@pytest.fixture(scope="function", name="patched_shared_values_dict")
-def fixture_patched_shared_values_dict(mocker):
-    the_dict = main.get_shared_values_between_server_and_monitor()
-    mocker.patch.dict(the_dict)
-    yield the_dict
+# @pytest.fixture(scope="function", name="patched_shared_values_dict")
+# def fixture_patched_shared_values_dict(mocker):
+#     the_dict = main.get_shared_values_between_server_and_monitor()
+#     mocker.patch.dict(the_dict)
+#     yield the_dict
 
 
 @pytest.fixture(scope="function", name="generic_queue_container")
@@ -66,44 +60,44 @@ def fixture_patch_print(mocker):
     )  # don't print all the error messages to console
 
 
-@pytest.fixture(scope="function", name="patched_start_recording_shared_dict")
-def fixture_patched_start_recording_shared_dict(mocker):
-    the_dict = main.get_shared_values_between_server_and_monitor()
-    mocker.patch.dict(the_dict)
-    board_idx = 0
-    timestamp = GENERIC_START_RECORDING_COMMAND[
-        "metadata_to_copy_onto_main_file_attributes"
-    ][UTC_BEGINNING_DATA_ACQUISTION_UUID]
-    the_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [timestamp]
-    the_dict["config_settings"] = {
-        "Customer Account ID": CURI_BIO_ACCOUNT_UUID,
-        "User Account ID": CURI_BIO_USER_ACCOUNT_ID,
-    }
-    the_dict["adc_gain"] = 32
-    the_dict["adc_offsets"] = dict()
-    for well_idx in range(24):
-        the_dict["adc_offsets"][well_idx] = {
-            "construct": well_idx * 2,
-            "ref": well_idx * 2 + 1,
-        }
-    the_dict["main_firmware_version"] = {
-        board_idx: RunningFIFOSimulator.default_firmware_version
-    }
-    the_dict["sleep_firmware_version"] = {board_idx: 2.0}
-    the_dict["xem_serial_number"] = {
-        board_idx: RunningFIFOSimulator.default_xem_serial_number
-    }
-    the_dict["mantarray_serial_number"] = {
-        board_idx: RunningFIFOSimulator.default_mantarray_serial_number
-    }
-    the_dict["mantarray_nickname"] = {
-        board_idx: RunningFIFOSimulator.default_mantarray_nickname
-    }
-    yield the_dict
+# @pytest.fixture(scope="function", name="patched_start_recording_shared_dict")
+# def fixture_patched_start_recording_shared_dict(mocker):
+#     the_dict = main.get_shared_values_between_server_and_monitor()
+#     mocker.patch.dict(the_dict)
+#     board_idx = 0
+#     timestamp = GENERIC_START_RECORDING_COMMAND[
+#         "metadata_to_copy_onto_main_file_attributes"
+#     ][UTC_BEGINNING_DATA_ACQUISTION_UUID]
+#     the_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [timestamp]
+#     the_dict["config_settings"] = {
+#         "Customer Account ID": CURI_BIO_ACCOUNT_UUID,
+#         "User Account ID": CURI_BIO_USER_ACCOUNT_ID,
+#     }
+#     the_dict["adc_gain"] = 32
+#     the_dict["adc_offsets"] = dict()
+#     for well_idx in range(24):
+#         the_dict["adc_offsets"][well_idx] = {
+#             "construct": well_idx * 2,
+#             "ref": well_idx * 2 + 1,
+#         }
+#     the_dict["main_firmware_version"] = {
+#         board_idx: RunningFIFOSimulator.default_firmware_version
+#     }
+#     the_dict["sleep_firmware_version"] = {board_idx: 2.0}
+#     the_dict["xem_serial_number"] = {
+#         board_idx: RunningFIFOSimulator.default_xem_serial_number
+#     }
+#     the_dict["mantarray_serial_number"] = {
+#         board_idx: RunningFIFOSimulator.default_mantarray_serial_number
+#     }
+#     the_dict["mantarray_nickname"] = {
+#         board_idx: RunningFIFOSimulator.default_mantarray_nickname
+#     }
+#     yield the_dict
 
 
 @pytest.fixture(scope="function", name="fully_running_app_from_main_entrypoint")
-def fixture_fully_running_app_from_main_entrypoint(mocker, patched_shared_values_dict):
+def fixture_fully_running_app_from_main_entrypoint(mocker):
     mocked_configure_logging = mocker.patch.object(
         main, "configure_logging", autospec=True
     )
@@ -152,9 +146,6 @@ def fixture_test_process_manager(mocker):
     with tempfile.TemporaryDirectory() as tmp_dir:
         manager = MantarrayProcessesManager(file_directory=tmp_dir)
         manager.create_processes()
-        mocker.patch.object(
-            main, "get_mantarray_process_manager", autospec=True, return_value=manager
-        )
         yield manager
 
         fw = manager.get_file_writer_process()

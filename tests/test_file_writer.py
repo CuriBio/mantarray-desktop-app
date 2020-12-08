@@ -4,6 +4,7 @@ import json
 import logging
 from multiprocessing import Queue
 import os
+import queue
 from statistics import stdev
 import tempfile
 import time
@@ -66,7 +67,6 @@ from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import is_queue_eventually_empty
 from stdlib_utils import is_queue_eventually_of_size
 from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty
-from stdlib_utils import safe_get
 from stdlib_utils import validate_file_head_crc32
 
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
@@ -669,10 +669,10 @@ def test_FileWriterProcess__drain_all_queues__drains_all_queues_except_error_que
         _,
     ) = four_board_file_writer_process
     for i, board in enumerate(board_queues):
-        for j, queue in enumerate(board):
+        for j, iter_queue in enumerate(board):
             item = expected[i][j]
             put_object_into_queue_and_raise_error_if_eventually_still_empty(
-                item, queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+                item, iter_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
             )
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         expected_from_main, from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
@@ -1310,11 +1310,12 @@ def test_FileWriterProcess_teardown_after_loop__can_teardown_process_while_recor
     fw_process.soft_stop()
     fw_process.join()
 
-    actual = safe_get(to_main_queue)
-    while not to_main_queue.empty():
-        item = safe_get(to_main_queue)
-        if item is not None:
-            actual = item
+    while True:
+        try:
+            actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+        except queue.Empty:
+            break
+
     assert (
         actual["message"]
         == "Data is still be written to file. Stopping recording and closing files to complete teardown"

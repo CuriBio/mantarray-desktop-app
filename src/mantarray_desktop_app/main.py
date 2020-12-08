@@ -13,28 +13,20 @@ import queue
 from queue import Queue
 import sys
 import threading
-import time
 from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
-from typing import Tuple
 
-from flask import Flask
-from flask_cors import CORS
 from stdlib_utils import configure_logging
 from stdlib_utils import get_current_file_abs_directory
-from stdlib_utils import InfiniteLoopingParallelismMixIn
 from stdlib_utils import resource_path
 
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import SERVER_INITIALIZING_STATE
-from .constants import SUBPROCESS_POLL_DELAY_SECONDS
-from .constants import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from .exceptions import MultiprocessingNotSetToSpawnError
-from .process_manager import get_mantarray_process_manager
 from .process_manager import MantarrayProcessesManager
 from .process_monitor import MantarrayProcessesMonitor
 from .server import clear_the_server_thread
@@ -43,95 +35,24 @@ from .server import ServerThreadNotInitializedError
 from .utils import convert_request_args_to_config_dict
 from .utils import update_shared_dict
 
-# from .process_monitor import set_mantarray_processes_monitor
 
 logger = logging.getLogger(__name__)
-os.environ[
-    "FLASK_ENV"
-] = "DEVELOPMENT"  # this removes warnings about running the Werkzeug server (which is not meant for high volume requests, but should be fine for intra-PC communication from a single client)
-flask_app = Flask(  # pylint: disable=invalid-name # yes, this is intentionally a singleton, not a constant
-    __name__
-)
-CORS(flask_app)
 
-
-_shared_values_between_server_and_process_monitor: Dict[  # pylint: disable=invalid-name # yes, this is intentionally a singleton, not a constant
-    str, Any
-] = dict()
-
-
-def get_shared_values_between_server_and_monitor() -> Dict[  # pylint:disable=invalid-name # yeah, it's a little long, but descriptive
-    str, Any
-]:
-    return _shared_values_between_server_and_process_monitor
-
-
-_server_port_number = DEFAULT_SERVER_PORT_NUMBER
+_server_port_number = DEFAULT_SERVER_PORT_NUMBER  # pylint:disable=invalid-name # Eli (12/8/20): this is deliberately a module-level singleton
 
 
 def clear_server_singletons() -> None:
     clear_the_server_thread()
-    global _server_port_number  # pylint:disable=global-statement # Eli (12/8/20) this is deliberately setting a global singleton
+    global _server_port_number  # pylint:disable=global-statement,invalid-name # Eli (12/8/20) this is deliberately setting a module-level singleton
     _server_port_number = DEFAULT_SERVER_PORT_NUMBER
 
 
 def get_server_port_number() -> int:
     try:
-        st = get_the_server_thread()
+        server_thread = get_the_server_thread()
     except (NameError, ServerThreadNotInitializedError):
         return _server_port_number
-    return st.get_port_number()
-    # shared_values_dict = get_shared_values_between_server_and_monitor()
-    # return shared_values_dict.get("server_port_number", DEFAULT_SERVER_PORT_NUMBER)
-
-
-def prepare_to_shutdown() -> None:
-    """Stop and clean up subprocesses before shutting down."""
-    manager = get_mantarray_process_manager()
-    manager.soft_stop_processes()
-    processes: Tuple[
-        InfiniteLoopingParallelismMixIn,
-        InfiniteLoopingParallelismMixIn,
-        InfiniteLoopingParallelismMixIn,
-    ] = (
-        manager.get_ok_comm_process(),
-        manager.get_file_writer_process(),
-        manager.get_data_analyzer_process(),
-    )
-
-    start = time.perf_counter()
-    are_processes_stopped = all(p.is_stopped() for p in processes)
-    while (
-        not are_processes_stopped
-        and time.perf_counter() - start < SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
-    ):
-        are_processes_stopped = all(p.is_stopped() for p in processes)
-        time.sleep(SUBPROCESS_POLL_DELAY_SECONDS)
-    process_items = manager.hard_stop_and_join_processes()
-    msg = f"Remaining items in process queues: {process_items}"
-    logger.info(msg)
-
-
-# def shutdown_server() -> None:
-#     """Shut down Flask.
-
-#     Obtained from https://stackoverflow.com/questions/15562446/how-to-stop-flask-application-without-using-ctrl-c
-#     """
-#     shutdown_function = request.environ.get("werkzeug.server.shutdown")
-#     if shutdown_function is None:
-#         raise NotImplementedError("Not running with the Werkzeug Server")
-#     logger.info("Calling function to shut down Flask Server")
-#     shutdown_function()
-#     logger.info("Cleaning up the rest of the program before quitting.")
-#     prepare_to_shutdown()
-#     logger.info("Successful exit")
-
-
-# @flask_app.route("/shutdown", methods=["GET"])
-# def shutdown() -> str:
-#     # curl http://localhost:4567/shutdown
-#     shutdown_server()
-#     return "Server shutting down..."
+    return server_thread.get_port_number()
 
 
 def _create_process_manager(
@@ -149,56 +70,30 @@ def _create_process_manager(
     )
 
 
-# def _update_settings(
-#     settings_dict: Dict[str, Any], is_initial_settings: bool = False
-# ) -> None:
-#     """Update the user configuration settings.
-
-#     Args:
-#         settings_dict: dictionary containing the new user configuration settings.
-#         is_initial_settings: boolean kwarg of whether not these are the initial values being set. This should only ever be set to True when using settings passed in from command line arguments on app start up
-#     """
-#     customer_account_uuid = settings_dict.get("customer_account_uuid", None)
-#     user_account_uuid = settings_dict.get("user_account_uuid", None)
-#     recording_directory = settings_dict.get("recording_directory", None)
-
-#     shared_values_dict = get_shared_values_between_server_and_monitor()
-#     if "config_settings" not in shared_values_dict:
-#         shared_values_dict["config_settings"] = dict()
-
-#     if customer_account_uuid is not None:
-#         if customer_account_uuid == "curi":
-#             customer_account_uuid = str(CURI_BIO_ACCOUNT_UUID)
-#             user_account_uuid = str(CURI_BIO_USER_ACCOUNT_ID)
-#         elif not is_uuid(customer_account_uuid):
-#             raise ImproperlyFormattedCustomerAccountUUIDError(customer_account_uuid)
-#         shared_values_dict["config_settings"][
-#             "Customer Account ID"
-#         ] = customer_account_uuid
-#     if user_account_uuid is not None:
-#         if not is_uuid(user_account_uuid):
-#             raise ImproperlyFormattedUserAccountUUIDError(user_account_uuid)
-#         shared_values_dict["config_settings"]["User Account ID"] = user_account_uuid
-#     if recording_directory is not None:
-#         if not os.path.isdir(recording_directory):
-#             raise RecordingFolderDoesNotExistError(recording_directory)
-#         shared_values_dict["config_settings"][
-#             "Recording Directory"
-#         ] = recording_directory
-#         process_manager = get_mantarray_process_manager()
-#         process_manager.set_file_directory(recording_directory)
-#         if not is_initial_settings:
-#             comm_to_file_writer = (
-#                 process_manager.get_communication_queue_from_main_to_file_writer()
-#             )
-#             file_dir_comm = {
-#                 "command": "update_directory",
-#                 "new_directory": recording_directory,
-#             }
-#             comm_to_file_writer.put(file_dir_comm)
-
-#         msg = f"Using directory for recording files: {recording_directory}"
-#         logger.info(msg)
+def _log_system_info() -> None:
+    system_messages = list()
+    uname = platform.uname()
+    uname_sys = getattr(uname, "system")
+    uname_release = getattr(uname, "release")
+    uname_version = getattr(uname, "version")
+    system_messages.append(f"System: {uname_sys}")
+    system_messages.append(f"Release: {uname_release}")
+    system_messages.append(f"Version: {uname_version}")
+    system_messages.append(f"Machine: {getattr(uname, 'machine')}")
+    system_messages.append(f"Processor: {getattr(uname, 'processor')}")
+    system_messages.append(f"Win 32 Ver: {platform.win32_ver()}")
+    system_messages.append(f"Platform: {platform.platform()}")
+    system_messages.append(f"Architecture: {platform.architecture()}")
+    system_messages.append(f"Interpreter is 64-bits: {sys.maxsize > 2**32}")
+    system_messages.append(
+        f"System Alias: {platform.system_alias(uname_sys, uname_release, uname_version)}"
+    )
+    system_messages.append(f"Python Version: {platform.python_version_tuple()}")
+    system_messages.append(f"Python Implementation: {platform.python_implementation()}")
+    system_messages.append(f"Python Build: {platform.python_build()}")
+    system_messages.append(f"Python Compiler: {platform.python_compiler()}")
+    for msg in system_messages:
+        logger.info(msg)
 
 
 def main(
@@ -279,7 +174,7 @@ def main(
     shared_values_dict["system_status"] = SERVER_INITIALIZING_STATE
     if parsed_args.port_number is not None:
         shared_values_dict["server_port_number"] = parsed_args.port_number
-    global _server_port_number  # pylint:disable=global-statement # Eli (12/8/20) this is deliberately setting a global singleton
+    global _server_port_number  # pylint:disable=global-statement,invalid-name# Eli (12/8/20) this is deliberately setting a global singleton
     _server_port_number = shared_values_dict.get(
         "server_port_number", DEFAULT_SERVER_PORT_NUMBER
     )
@@ -292,30 +187,7 @@ def main(
         update_shared_dict(
             shared_values_dict, convert_request_args_to_config_dict(settings_dict)
         )
-
-    system_messages = list()
-    uname = platform.uname()
-    uname_sys = getattr(uname, "system")
-    uname_release = getattr(uname, "release")
-    uname_version = getattr(uname, "version")
-    system_messages.append(f"System: {uname_sys}")
-    system_messages.append(f"Release: {uname_release}")
-    system_messages.append(f"Version: {uname_version}")
-    system_messages.append(f"Machine: {getattr(uname, 'machine')}")
-    system_messages.append(f"Processor: {getattr(uname, 'processor')}")
-    system_messages.append(f"Win 32 Ver: {platform.win32_ver()}")
-    system_messages.append(f"Platform: {platform.platform()}")
-    system_messages.append(f"Architecture: {platform.architecture()}")
-    system_messages.append(f"Interpreter is 64-bits: {sys.maxsize > 2**32}")
-    system_messages.append(
-        f"System Alias: {platform.system_alias(uname_sys, uname_release, uname_version)}"
-    )
-    system_messages.append(f"Python Version: {platform.python_version_tuple()}")
-    system_messages.append(f"Python Implementation: {platform.python_implementation()}")
-    system_messages.append(f"Python Build: {platform.python_build()}")
-    system_messages.append(f"Python Compiler: {platform.python_compiler()}")
-    for msg in system_messages:
-        logger.info(msg)
+    _log_system_info()
     logger.info("Spawning subprocesses and starting server thread")
 
     process_manager = _create_process_manager(shared_values_dict)

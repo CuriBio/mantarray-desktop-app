@@ -84,7 +84,6 @@ from stdlib_utils import confirm_port_available
 
 from ..fixtures import fixture_fully_running_app_from_main_entrypoint
 from ..fixtures import fixture_patched_firmware_folder
-from ..fixtures import fixture_patched_shared_values_dict
 from ..fixtures import fixture_patched_xem_scripts_folder
 from ..fixtures import fixture_test_process_manager
 from ..fixtures import GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
@@ -94,7 +93,6 @@ from ..helpers import is_queue_eventually_empty
 __fixtures__ = [
     fixture_fully_running_app_from_main_entrypoint,
     fixture_test_process_manager,
-    fixture_patched_shared_values_dict,
     fixture_patched_xem_scripts_folder,
     fixture_patched_firmware_folder,
 ]

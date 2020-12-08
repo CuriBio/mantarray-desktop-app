@@ -137,7 +137,9 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         )
 
     def start_processes(self) -> None:
-        if not isinstance(self._all_processes, Iterable):
+        if not isinstance(  # pylint:disable=isinstance-second-argument-not-valid-type # Eli (12/8/20): pylint issue https://github.com/PyCQA/pylint/issues/3507
+            self._all_processes, Iterable
+        ):
             raise NotImplementedError("Processes must be created first.")
         for iter_process in self._all_processes:
             iter_process.start()
@@ -182,7 +184,9 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         return response_dict
 
     def stop_processes(self) -> None:
-        if not isinstance(self._all_processes, Iterable):
+        if not isinstance(  # pylint:disable=isinstance-second-argument-not-valid-type # Eli (12/8/20): pylint issue https://github.com/PyCQA/pylint/issues/3507
+            self._all_processes, Iterable
+        ):
             raise NotImplementedError("Processes must be created first.")
         for iter_process in self._all_processes:
             iter_process.stop()
@@ -192,7 +196,9 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         self.get_server_thread().soft_stop()
 
     def soft_stop_processes_except_server(self) -> None:
-        if not isinstance(self._all_processes, Iterable):
+        if not isinstance(  # pylint:disable=isinstance-second-argument-not-valid-type # Eli (12/8/20): pylint issue https://github.com/PyCQA/pylint/issues/3507
+            self._all_processes, Iterable
+        ):
             raise NotImplementedError("Processes must be created first.")
         for iter_process in self._all_processes:
             if isinstance(iter_process, ServerThread):
@@ -200,6 +206,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             iter_process.soft_stop()
 
     def hard_stop_processes(self) -> Dict[str, Any]:
+        """Immediately stop subprocesses."""
         ok_comm_items = self._ok_communication_process.hard_stop()
         file_writer_items = self._file_writer_process.hard_stop()
         data_analyzer_items = self._data_analyzer_process.hard_stop()
@@ -213,7 +220,9 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         return process_items
 
     def join_processes(self) -> None:
-        if not isinstance(self._all_processes, Iterable):
+        if not isinstance(  # pylint:disable=isinstance-second-argument-not-valid-type # Eli (12/8/20): pylint issue https://github.com/PyCQA/pylint/issues/3507
+            self._all_processes, Iterable
+        ):
             raise NotImplementedError("Processes must be created first.")
         for iter_process in self._all_processes:
             iter_process.join()
@@ -249,7 +258,9 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         # TODO (Eli 11/18/20): consider accepting a kwarg for SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
         start = perf_counter()
         processes = self._all_processes
-        if not isinstance(processes, Iterable):
+        if not isinstance(  # pylint:disable=isinstance-second-argument-not-valid-type # Eli (12/8/20): pylint issue https://github.com/PyCQA/pylint/issues/3507
+            processes, Iterable
+        ):
             raise NotImplementedError("Processes must be created first.")
         are_stopped = all(p.is_stopped() for p in processes)
 

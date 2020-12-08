@@ -31,8 +31,6 @@ from stdlib_utils import confirm_port_available
 from stdlib_utils import confirm_port_in_use
 
 from ..fixtures import fixture_fully_running_app_from_main_entrypoint
-from ..fixtures import fixture_patched_shared_values_dict
-from ..fixtures import fixture_patched_start_recording_shared_dict
 from ..fixtures import fixture_patched_xem_scripts_folder
 from ..fixtures import fixture_test_process_manager
 from ..fixtures import GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
@@ -40,10 +38,8 @@ from ..fixtures_server import fixture_test_client
 
 
 __fixtures__ = [
-    fixture_patched_start_recording_shared_dict,
     fixture_test_client,
     fixture_test_process_manager,
-    fixture_patched_shared_values_dict,
     fixture_fully_running_app_from_main_entrypoint,
     fixture_patched_xem_scripts_folder,
 ]
@@ -127,10 +123,7 @@ def test_main_configures_logging(mocker):
 
 @pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 def test_main__logs_system_info__and_software_version_at_very_start(
-    mocker,
-    fully_running_app_from_main_entrypoint,
-    patched_xem_scripts_folder,
-    patched_shared_values_dict,
+    mocker, fully_running_app_from_main_entrypoint, patched_xem_scripts_folder,
 ):
     spied_info_logger = mocker.spy(main.logger, "info")
 
