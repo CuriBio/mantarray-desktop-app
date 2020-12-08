@@ -13,6 +13,7 @@ from typing import Dict
 from typing import Tuple
 import uuid
 
+from immutabledict import immutabledict
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
@@ -31,6 +32,9 @@ FIRMWARE_VERSION_WIRE_OUT_ADDRESS = 0x21
 
 CURI_BIO_ACCOUNT_UUID = uuid.UUID("73f52be0-368c-42d8-a1fd-660d49ba5604")
 CURI_BIO_USER_ACCOUNT_ID = uuid.UUID("455b93eb-c78f-4494-9f73-d3291130f126")
+
+# TODO (Eli 12/8/20): make all potentially mutable constants explicitly immutable (e.g. immutabledicts)
+
 DEFAULT_USER_CONFIG = {
     "Customer Account ID": "",
     "User Account ID": "",
@@ -155,10 +159,9 @@ for adc_num in range(6):
         WELL_24_INDEX_TO_ADC_AND_CH_INDEX[well_idx] = (adc_num, ch_num)
 
 # Communications from Main to Subprocesses
-START_MANAGED_ACQUISITION_COMMUNICATION = {
-    "communication_type": "to_instrument",
-    "command": "start_managed_acquisition",
-}
+START_MANAGED_ACQUISITION_COMMUNICATION = immutabledict(
+    {"communication_type": "to_instrument", "command": "start_managed_acquisition",}
+)
 
 SERVER_INITIALIZING_STATE = "server_initializing"
 SERVER_READY_STATE = "server_ready"

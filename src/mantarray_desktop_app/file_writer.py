@@ -166,6 +166,11 @@ def _drain_queue(
     return queue_items
 
 
+# MPQueueOfCommunicationsType = Queue[  # pylint: disable=unsubscriptable-object
+#     Dict[str, Any]
+# ]
+
+
 # pylint: disable=too-many-instance-attributes
 class FileWriterProcess(InfiniteProcess):
     """Process that writes data to disk.
@@ -195,9 +200,7 @@ class FileWriterProcess(InfiniteProcess):
         from_main_queue: Queue[  # pylint: disable=unsubscriptable-object
             Dict[str, Any]
         ],
-        to_main_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-            Dict[str, Any]
-        ],
+        to_main_queue: Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
         fatal_error_reporter: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
             Tuple[Exception, str]
         ],

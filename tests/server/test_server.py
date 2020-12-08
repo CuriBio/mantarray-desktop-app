@@ -21,6 +21,7 @@ from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_server import _clean_up_server_thread
 from ..fixtures_server import fixture_running_server_thread
 from ..fixtures_server import fixture_server_thread
+from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import is_queue_eventually_empty
 from ..helpers import is_queue_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -251,3 +252,29 @@ def test_get_server_address_components__returns_default_port_number_if_server_th
     clear_server_singletons()
     _, _, actual_port = server.get_server_address_components()
     assert actual_port == DEFAULT_SERVER_PORT_NUMBER
+
+
+def test_server_queue_command_to_main_puts_in_a_copy_of_the_dict(server_thread,):
+    _, to_main_queue, _ = server_thread
+    test_dict = {"bill": "clinton"}
+    server.queue_command_to_main(test_dict)
+
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert actual == test_dict
+    assert id(actual) != id(test_dict)
+
+
+def test_server_queue_command_to_ok_comm_puts_in_a_mutable_version_of_the_dict(
+    server_thread,
+):
+
+    test_dict = immutabledict({"al": "gore"})
+    server.queue_command_to_ok_comm(test_dict)
+    to_instrument_queue = (
+        get_the_server_thread().queue_container().get_communication_to_ok_comm_queue(0)
+    )
+    confirm_queue_is_eventually_of_size(to_instrument_queue, 1)
+    actual = to_instrument_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert actual == test_dict
+    assert isinstance(actual, immutabledict) is False

@@ -17,7 +17,6 @@ from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE
-from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app.server import queue_command_to_ok_comm
 import numpy as np
 import pytest
@@ -25,6 +24,7 @@ from stdlib_utils import invoke_process_run_and_check_errors
 from xem_wrapper import FrontPanelSimulator
 
 from ..fixtures import fixture_test_process_manager
+from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
 from ..fixtures_ok_comm import fixture_patch_connection_to_board
 from ..fixtures_process_monitor import fixture_test_monitor
 from ..helpers import is_queue_eventually_empty
@@ -329,7 +329,9 @@ def test_MantarrayProcessesMonitor__updates_timestamp_in_shared_values_dict_afte
 ):
     monitor_thread, shared_values_dict, _, _ = test_monitor
     test_process_manager.create_processes()
-    queue_command_to_ok_comm(START_MANAGED_ACQUISITION_COMMUNICATION)
+    queue_command_to_ok_comm(
+        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
+    )
     comm_to_ok_comm = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
         0
     )

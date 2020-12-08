@@ -154,8 +154,8 @@ def queue_command_to_ok_comm(comm_dict: Dict[str, Any]) -> Response:
     to_ok_comm_queue = (
         get_the_server_thread().queue_container().get_communication_to_ok_comm_queue(0)
     )
+    comm_dict = dict(comm_dict)  # make a mutable version to pass into ok_comm
     to_ok_comm_queue.put(comm_dict)
-
     response = Response(json.dumps(comm_dict), mimetype="application/json")
 
     return response
@@ -168,8 +168,12 @@ def queue_command_to_main(comm_dict: Dict[str, Any]) -> Response:
     order to make pylint happier.
     """
     to_main_queue = get_server_to_main_queue()
-    to_main_queue.put(comm_dict)
 
+    comm_dict = dict(
+        copy.deepcopy(comm_dict)
+    )  # Eli (12/8/20): make a copy since sometimes this dictionary can be mutated after the communication gets passed elsewhere. This is relevant since this is a thread queue. Queues between true processes get pickled and in essence already get copied
+    # Eli (12/8/20): immutable dicts cannot be JSON serialized, so make a regular dict copy
+    to_main_queue.put(comm_dict)
     response = Response(json.dumps(comm_dict), mimetype="application/json")
 
     return response

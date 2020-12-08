@@ -27,7 +27,6 @@ from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
 from mantarray_desktop_app import REF_INDEX_TO_24_WELL_INDEX
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import RunningFIFOSimulator
-from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
 from mantarray_desktop_app import UnrecognizedCommTypeFromMainToOKCommError
 from mantarray_desktop_app import UnrecognizedDataFrameFormatNameError
@@ -46,6 +45,7 @@ from xem_wrapper import okCFrontPanel
 from xem_wrapper import OpalKellyIncorrectHeaderError
 
 from .fixtures import fixture_patched_firmware_folder
+from .fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .fixtures_ok_comm import fixture_four_board_comm_process
 from .fixtures_ok_comm import fixture_patch_connection_to_board
@@ -1119,7 +1119,7 @@ def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_
             "bit_file_name": None,
         }
     )
-    input_queue.put(START_MANAGED_ACQUISITION_COMMUNICATION)
+    input_queue.put(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
     ok_process.soft_stop()
     ok_process.join()
 

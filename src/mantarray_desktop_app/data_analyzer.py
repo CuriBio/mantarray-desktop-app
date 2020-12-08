@@ -70,6 +70,17 @@ def _drain_queue(
     return queue_items
 
 
+# BoardQueuesType=Tuple[
+#             Tuple[
+#                 Queue[Any],  # pylint: disable=unsubscriptable-object
+#                 Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+#                     Any
+#                 ],
+#             ],
+#             ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
+#         ]
+
+
 class DataAnalyzerProcess(InfiniteProcess):
     """Process that analyzes data.
 
