@@ -461,16 +461,10 @@ def test_MantarrayProcessesManager__are_processes_stopped__returns_true_if_stop_
     fw_process = test_process_manager.get_file_writer_process()
     da_process = test_process_manager.get_data_analyzer_process()
     server_thread = test_process_manager.get_server_thread()
-    mocked_server_is_stopped = mocker.patch.object(
-        server_thread, "is_stopped", autospec=True, return_value=True
-    )
-    mocked_okc_is_stopped = mocker.patch.object(
-        okc_process, "is_stopped", autospec=True, return_value=True
-    )
-    mocked_fw_is_stopped = mocker.patch.object(
-        fw_process, "is_stopped", autospec=True, return_value=True
-    )
-    mocked_da_is_stopped = mocker.patch.object(
+    mocker.patch.object(server_thread, "is_stopped", autospec=True, return_value=True)
+    mocker.patch.object(okc_process, "is_stopped", autospec=True, return_value=True)
+    mocker.patch.object(fw_process, "is_stopped", autospec=True, return_value=True)
+    mocker.patch.object(
         da_process, "is_stopped", autospec=True, side_effect=[False, True]
     )
 

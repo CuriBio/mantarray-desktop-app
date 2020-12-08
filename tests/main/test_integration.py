@@ -179,7 +179,7 @@ def test_system_states_and_recording_files_with_file_directory_passed_in_cmd_lin
         app_info = fully_running_app_from_main_entrypoint(command_line_args)
         wait_for_subprocesses_to_start()
         test_process_manager = app_info["object_access_inside_main"]["process_manager"]
-        test_process_monitor = app_info["object_access_inside_main"]["process_monitor"]
+
         response = requests.get(f"{get_api_endpoint()}system_status")
         assert response.status_code == 200
         assert response.json()["ui_status_code"] == str(

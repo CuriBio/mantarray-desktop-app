@@ -43,7 +43,6 @@ from mantarray_file_manager import METADATA_UUID_DESCRIPTIONS
 from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import requests
-from requests.exceptions import ConnectionError
 from stdlib_utils import get_formatted_stack_trace
 from stdlib_utils import InfiniteThread
 from stdlib_utils import is_port_in_use
@@ -97,14 +96,18 @@ _the_server_thread: Optional[
 
 
 def clear_the_server_thread() -> None:
-    global _the_server_thread
+    global _the_server_thread  # pylint:disable=global-statement # Eli (12/8/20) this is deliberately setting a module-level singleton
     _the_server_thread = None
+
+
+class ServerThreadNotInitializedError(Exception):
+    pass
 
 
 def get_the_server_thread() -> "ServerThread":
     """Return the singleton instance."""
     if _the_server_thread is None:
-        raise NotImplementedError(
+        raise ServerThreadNotInitializedError(
             "This function should not be called when the ServerThread is None and hasn't been initialized yet."
         )
     return _the_server_thread
@@ -116,20 +119,20 @@ def get_server_to_main_queue() -> Queue[  # pylint: disable=unsubscriptable-obje
     return get_the_server_thread().get_queue_to_main()
 
 
-# def get_server_port_number() -> int:
-#     return get_the_server_thread().get_port_number()
-
-
 def get_server_address_components() -> Tuple[str, str, int]:
     """Get Flask server address components.
 
     Returns:
         protocol (i.e. http), host (i.e. 127.0.0.1), port (i.e. 4567)
     """
+    try:
+        port_number = get_the_server_thread().get_port_number()
+    except (NameError, ServerThreadNotInitializedError):
+        port_number = DEFAULT_SERVER_PORT_NUMBER
     return (
         "http",
         "127.0.0.1",
-        get_the_server_thread().get_port_number(),
+        port_number,
     )  # get_server_port_number()
 
 
@@ -240,9 +243,6 @@ def set_mantarray_nickname() -> Response:
         response = Response(status="400 Nickname exceeds 23 bytes")
         return response
 
-    board_idx = 0
-    shared_values_dict = _get_values_from_process_monitor()
-
     comm_dict = {
         "communication_type": "mantarray_naming",
         "command": "set_mantarray_nickname",
@@ -261,7 +261,6 @@ def start_calibration() -> Response:
 
     `curl http://localhost:4567/start_calibration`
     """
-
     comm_dict = {
         "communication_type": "xem_scripts",
         "script_type": "start_calibration",
@@ -278,7 +277,6 @@ def boot_up() -> Response:
 
     Can be invoked by: curl http://localhost:4567/boot_up
     """
-
     comm_dict = {
         "communication_type": "to_instrument",
         "command": "boot_up",
@@ -1028,9 +1026,9 @@ class ServerThread(InfiniteThread):
     def _shutdown_server(self) -> None:
         http_route = f"{get_api_endpoint()}stop_server"
         try:
-            response = requests.get(http_route)
+            requests.get(http_route)
             msg = "Server has been successfully shutdown."
-        except ConnectionError:
+        except requests.exceptions.ConnectionError:
             msg = f"Server was not running on {http_route} during shutdown attempt."
 
         put_log_message_into_queue(

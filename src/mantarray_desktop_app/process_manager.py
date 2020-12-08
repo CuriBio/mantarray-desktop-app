@@ -246,7 +246,6 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
 
     def are_processes_stopped(self) -> bool:
         """Check if processes are stopped."""
-
         # TODO (Eli 11/18/20): consider accepting a kwarg for SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
         start = perf_counter()
         processes = self._all_processes

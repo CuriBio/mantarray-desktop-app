@@ -1127,7 +1127,7 @@ def test_send_single_start_managed_acquisition_command__sets_system_status_to_bu
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
     )
-    msg = comm_from_ok_queue.get(
+    comm_from_ok_queue.get(
         timeout=QUEUE_CHECK_TIMEOUT_SECONDS
     )  # pull out the initial boot-up message
     assert_queue_is_eventually_not_empty(
@@ -1248,7 +1248,6 @@ def test_single_update_settings_command_with_recording_dir__gets_processed_by_Fi
     test_process_manager, test_client, test_monitor
 ):
     monitor_thread, _, _, _ = test_monitor
-    shared_values_dict = test_process_manager.get_values_to_share_to_server()
 
     test_process_manager.start_processes()
     with tempfile.TemporaryDirectory() as expected_recordings_dir:

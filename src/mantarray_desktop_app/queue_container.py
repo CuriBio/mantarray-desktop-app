@@ -74,10 +74,10 @@ class MantarrayQueueContainer:
             Tuple[Exception, str]
         ] = Queue()
 
-        self._from_server_to_main_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+        self._from_server_to_main_queue: queue.Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
             Dict[str, Any]
         ] = queue.Queue()
-        self._server_error_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+        self._server_error_queue: queue.Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
             Tuple[Exception, str]
         ] = queue.Queue()
 
@@ -123,12 +123,24 @@ class MantarrayQueueContainer:
             Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
                 Any
             ],
-        ],  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
+        ],
         ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
     ]:
         return self._file_writer_board_queues
 
-    def get_data_analyzer_board_queues(self):
+    def get_data_analyzer_board_queues(
+        self,
+    ) -> Tuple[  # pylint-disable: duplicate-code
+        Tuple[
+            Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+                Any
+            ],
+            Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+                Any
+            ],
+        ],
+        ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
+    ]:
         return self._data_analyzer_board_queues
 
     def get_communication_queue_from_ok_comm_to_main(
@@ -161,7 +173,7 @@ class MantarrayQueueContainer:
 
     def get_server_error_queue(
         self,
-    ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+    ) -> queue.Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
         Tuple[Exception, str]
     ]:
         return self._server_error_queue

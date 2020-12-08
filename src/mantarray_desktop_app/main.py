@@ -39,6 +39,7 @@ from .process_manager import MantarrayProcessesManager
 from .process_monitor import MantarrayProcessesMonitor
 from .server import clear_the_server_thread
 from .server import get_the_server_thread
+from .server import ServerThreadNotInitializedError
 from .utils import convert_request_args_to_config_dict
 from .utils import update_shared_dict
 
@@ -70,16 +71,14 @@ _server_port_number = DEFAULT_SERVER_PORT_NUMBER
 
 def clear_server_singletons() -> None:
     clear_the_server_thread()
-    global _server_port_number
+    global _server_port_number  # pylint:disable=global-statement # Eli (12/8/20) this is deliberately setting a global singleton
     _server_port_number = DEFAULT_SERVER_PORT_NUMBER
 
 
 def get_server_port_number() -> int:
     try:
         st = get_the_server_thread()
-    except NameError:
-        return _server_port_number
-    if st is None:
+    except (NameError, ServerThreadNotInitializedError):
         return _server_port_number
     return st.get_port_number()
     # shared_values_dict = get_shared_values_between_server_and_monitor()
@@ -280,7 +279,7 @@ def main(
     shared_values_dict["system_status"] = SERVER_INITIALIZING_STATE
     if parsed_args.port_number is not None:
         shared_values_dict["server_port_number"] = parsed_args.port_number
-    global _server_port_number
+    global _server_port_number  # pylint:disable=global-statement # Eli (12/8/20) this is deliberately setting a global singleton
     _server_port_number = shared_values_dict.get(
         "server_port_number", DEFAULT_SERVER_PORT_NUMBER
     )

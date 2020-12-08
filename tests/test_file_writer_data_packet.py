@@ -34,7 +34,7 @@ __fixtures__ = [
 ]
 
 
-@pytest.mark.timeout(4)
+@pytest.mark.timeout(10)
 def test_FileWriterProcess__passes_data_packet_through_to_output_queue(
     four_board_file_writer_process,
 ):

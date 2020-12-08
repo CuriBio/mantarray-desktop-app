@@ -96,15 +96,13 @@ class MantarrayProcessesMonitor(InfiniteThread):
             command = communication["command"]
             if command == "set_mantarray_nickname":
                 if "mantarray_nickname" not in shared_values_dict:
-                    shared_values_dict["mantarray_nickname"]: Dict[int, str] = dict()
+                    shared_values_dict["mantarray_nickname"] = dict()
                 shared_values_dict["mantarray_nickname"][0] = communication[
                     "mantarray_nickname"
                 ]
             elif command == "set_mantarray_serial_number":
                 if "mantarray_serial_number" not in shared_values_dict:
-                    shared_values_dict["mantarray_serial_number"]: Dict[
-                        int, str
-                    ] = dict()
+                    shared_values_dict["mantarray_serial_number"] = dict()
                 shared_values_dict["mantarray_serial_number"][0] = communication[
                     "mantarray_serial_number"
                 ]
@@ -181,7 +179,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 main_to_ok_comm_queue.put(communication)
                 main_to_da_queue.put(communication)
 
-    def _put_communication_into_ok_comm_queue(self, communication) -> None:
+    def _put_communication_into_ok_comm_queue(
+        self, communication: Dict[str, Any]
+    ) -> None:
         main_to_ok_comm_queue = self._process_manager.queue_container().get_communication_to_ok_comm_queue(
             0
         )

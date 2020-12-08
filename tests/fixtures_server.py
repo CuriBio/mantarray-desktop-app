@@ -59,7 +59,6 @@ def fixture_test_client():
 
     Note, the routes require a ServerThread to be created using another fixture or within the test itself before the test Client will be fully functional.
     """
-
     testing_client = flask_app.test_client()
 
     # Establish an application context before running the tests.

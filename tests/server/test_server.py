@@ -5,6 +5,7 @@ from threading import Thread
 
 from flask import Flask
 from immutabledict import immutabledict
+from mantarray_desktop_app import clear_server_singletons
 from mantarray_desktop_app import DEFAULT_SERVER_PORT_NUMBER
 from mantarray_desktop_app import get_the_server_thread
 from mantarray_desktop_app import LocalServerPortAlreadyInUseError
@@ -231,3 +232,22 @@ def test_ServerThread__get_values_from_process_monitor__acquires_lock_and_return
 
     # drain queues to avoid broken pipe errors
     _clean_up_server_thread(st, to_main_queue, error_queue)
+
+
+def test_get_server_address_components__returns_default_port_number_if_server_thread_not_defined(
+    mocker,
+):
+    clear_server_singletons()
+    mocker.patch.object(
+        server, "get_the_server_thread", autospec=True, side_effect=NameError
+    )
+    _, _, actual_port = server.get_server_address_components()
+    assert actual_port == DEFAULT_SERVER_PORT_NUMBER
+
+
+def test_get_server_address_components__returns_default_port_number_if_server_thread_is_None(
+    mocker,
+):
+    clear_server_singletons()
+    _, _, actual_port = server.get_server_address_components()
+    assert actual_port == DEFAULT_SERVER_PORT_NUMBER

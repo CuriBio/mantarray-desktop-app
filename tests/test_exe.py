@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 import subprocess
+import time
 
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
@@ -33,7 +34,7 @@ def test_exe_can_access_xem_script_and_firmware_folders():
             ),
         ]
 
-    subprocess.Popen(subprocess_args)
+    sub_process = subprocess.Popen(subprocess_args)
     port = get_server_port_number()
     confirm_port_in_use(port, timeout=10)
     wait_for_subprocesses_to_start()
@@ -46,3 +47,8 @@ def test_exe_can_access_xem_script_and_firmware_folders():
 
     response = requests.get(f"{get_api_endpoint()}shutdown")
     assert response.status_code == 200
+
+    time.sleep(5)  # wait for everything to fully shut down
+
+    # assert that the subprocesses closed with an exit code of 0 (no error)
+    assert sub_process.poll() == 0

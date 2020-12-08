@@ -6,6 +6,8 @@ from shutil import copy
 import tempfile
 import threading
 import time
+from typing import Any
+from typing import Dict
 from typing import List
 from typing import Optional
 
@@ -113,7 +115,7 @@ def fixture_fully_running_app_from_main_entrypoint(mocker, patched_shared_values
     def _foo(command_line_args: Optional[List[str]] = None):
         if command_line_args is None:
             command_line_args = []
-        thread_access_inside_main = dict()
+        thread_access_inside_main: Dict[str, Any] = dict()
         main_thread = threading.Thread(
             target=main.main,
             args=[command_line_args],

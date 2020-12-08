@@ -12,7 +12,6 @@ from mantarray_desktop_app import process_monitor
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
-import numpy as np
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
@@ -317,7 +316,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
-    expected_timepoint = 55432
+    # expected_timepoint = 55432
     adc_offsets = dict()
     for well_idx in range(24):
         adc_offsets[well_idx] = {
