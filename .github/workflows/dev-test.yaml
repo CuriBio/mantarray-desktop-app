@@ -123,7 +123,7 @@ jobs:
       - name: Get App Name
         if: matrix.IS_DEPLOYMENT_CONFIG == true
         id: productName
-        uses: gr2m/get-json-paths-action@v1.0.2
+        uses: gr2m/get-json-paths-action@v1.0.4
         with:
           json: ${{ steps.package.outputs.content }}
           productName: "productName"

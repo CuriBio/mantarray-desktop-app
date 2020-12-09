@@ -52,10 +52,7 @@ def test_exe_can_access_xem_script_and_firmware_folders():
                 == "Apparently the path to entrypoint.py is incorrect"
             )
 
-        subprocess_args = [
-            "python3",
-            path_to_entrypoint,
-        ]
+        subprocess_args = ["python", path_to_entrypoint]
 
     sub_process = subprocess.Popen(subprocess_args)
     port = get_server_port_number()
