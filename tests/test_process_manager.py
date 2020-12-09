@@ -59,7 +59,8 @@ def test_MantarrayProcessesManager__stop_processes__calls_stop_on_all_processes(
 
 
 def test_MantarrayProcessesManager__soft_stop_processes__calls_soft_stop_on_all_processes(
-    generic_manager, mocker,
+    generic_manager,
+    mocker,
 ):
     generic_manager.create_processes()
     mocked_ok_comm_soft_stop = mocker.patch.object(OkCommunicationProcess, "soft_stop")
@@ -79,7 +80,8 @@ def test_MantarrayProcessesManager__soft_stop_processes__calls_soft_stop_on_all_
 
 
 def test_MantarrayProcessesManager__soft_stop_processes_except_server__calls_soft_stop_on_all_processes_except_server(
-    generic_manager, mocker,
+    generic_manager,
+    mocker,
 ):
     generic_manager.create_processes()
     mocked_ok_comm_soft_stop = mocker.patch.object(OkCommunicationProcess, "soft_stop")
@@ -214,6 +216,13 @@ def test_MantarrayProcessesManager__soft_stop_and_join_processes__soft_stops_pro
     spied_server_join = mocker.spy(ServerThread, "join")
 
     manager.spawn_processes()
+
+    # drain all queues of start-up messages before attempting to join
+    manager.get_instrument_process()._drain_all_queues()  # pylint:disable=protected-access
+    manager.get_file_writer_process()._drain_all_queues()  # pylint:disable=protected-access
+    manager.get_data_analyzer_process()._drain_all_queues()  # pylint:disable=protected-access
+    manager.get_server_thread()._drain_all_queues()  # pylint:disable=protected-access
+
     manager.soft_stop_and_join_processes()
     spied_ok_comm_start.assert_called_once()
     spied_ok_comm_soft_stop.assert_called_once()
@@ -363,8 +372,8 @@ def test_MantarrayProcessesManager__boot_up_instrument__populates_ok_comm_queue_
 ):
     generic_manager.create_processes()
     generic_manager.boot_up_instrument()
-    main_to_ok_comm_queue = generic_manager.queue_container().get_communication_to_ok_comm_queue(
-        0
+    main_to_ok_comm_queue = (
+        generic_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     assert is_queue_eventually_of_size(main_to_ok_comm_queue, 2) is True
     assert (
