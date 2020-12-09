@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 import subprocess
+import sys
 import time
 
 from mantarray_desktop_app import CALIBRATED_STATE
@@ -18,7 +19,7 @@ PATH_OF_CURRENT_FILE = get_current_file_abs_directory()
 
 
 @pytest.mark.slow
-# @pytest.mark.only_exe
+@pytest.mark.only_exe  # TODO (Eli 12/9/20): figure out why this won't run on entrypoint.py in Windows GitHub
 def test_exe_can_access_xem_script_and_firmware_folders():
     # Eli (10/21/20): other parts of CI ensure that the EXE actually exists, so this can be run on the source file and the exe both to ensure we can catch test failures earlier
     subprocess_args = [
@@ -52,11 +53,18 @@ def test_exe_can_access_xem_script_and_firmware_folders():
                 == "Apparently the path to entrypoint.py is incorrect"
             )
 
-        subprocess_args = ["python", path_to_entrypoint]
+        subprocess_args = [sys.executable, path_to_entrypoint]
 
-    sub_process = subprocess.Popen(subprocess_args)
+    sub_process = subprocess.Popen(
+        subprocess_args
+        # ,stdout=PIPE,stderr=PIPE
+    )
     port = get_server_port_number()
     confirm_port_in_use(port, timeout=10)
+    # except PortNotInUseError as e:
+    #     print(f"\nSubprocess STDOUT: {sub_process.stdout.read()}")  # allow-print
+    #     print(f"\nSubprocess STDERR: {sub_process.stderr.read()}")  # allow-print
+    #     raise e
     wait_for_subprocesses_to_start()
     assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 30) is True
 

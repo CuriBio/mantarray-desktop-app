@@ -23,6 +23,7 @@ jobs:
       matrix:
         os:
           - "ubuntu-18.04"
+          - "ubuntu-20.04"
           - "windows-2019"
           - "windows-2016"
         python-version:
@@ -33,7 +34,7 @@ jobs:
           #- 14
         include:
           # only enable coverage on the fastest job
-          - os: "ubuntu-18.04"
+          - os: "ubuntu-20.04"
             python-version: "3.7"
             node-version: "12"
             IS_FASTEST_JOB: true
