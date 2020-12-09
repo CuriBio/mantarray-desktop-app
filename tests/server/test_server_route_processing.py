@@ -1177,7 +1177,9 @@ def test_send_single_start_managed_acquisition_command__sets_system_status_to_bu
     assert communication["command"] == "start_managed_acquisition"
 
     # clean up teardown messages in Instrument queue
-    queue_utils._drain_queue(comm_from_ok_queue)
+    queue_utils._drain_queue(  # pylint:disable=protected-access # Eli (12/8/20) - drain_queue should be moved into stdlib_utils
+        comm_from_ok_queue
+    )
 
 
 def test_update_settings__stores_values_in_shared_values_dict__and_recordings_folder_in_file_writer_and_process_manager__and_logs_recording_folder(
@@ -1203,12 +1205,12 @@ def test_update_settings__stores_values_in_shared_values_dict__and_recordings_fo
             == expected_customer_uuid
         )
         assert (
-            shared_values_dict["config_settings"]["User Account ID"]
-            == expected_user_uuid
-        )
-        assert (
             shared_values_dict["config_settings"]["Recording Directory"]
             == expected_recordings_dir
+        )
+        assert (
+            shared_values_dict["config_settings"]["User Account ID"]
+            == expected_user_uuid
         )
         assert test_process_manager.get_file_directory() == expected_recordings_dir
 
@@ -1222,7 +1224,9 @@ def test_update_settings__stores_values_in_shared_values_dict__and_recordings_fo
     confirm_queue_is_eventually_of_size(queue_from_main_to_file_writer, 1)
 
     # clean up the message that goes to file writer to update the recording directory
-    queue_utils._drain_queue(queue_from_main_to_file_writer)
+    queue_utils._drain_queue(  # pylint:disable=protected-access # Eli (12/8/20) - drain_queue should be moved into stdlib_utils
+        queue_from_main_to_file_writer
+    )
 
 
 def test_update_settings__replaces_curi_with_default_account_uuids(
@@ -1326,7 +1330,9 @@ def test_stop_recording_command__sets_system_status_to_live_view_active(
     )
 
     # clean up the message that goes to file writer to stop the recording
-    queue_utils._drain_queue(queue_from_main_to_file_writer)
+    queue_utils._drain_queue(  # pylint:disable=protected-access # Eli (12/8/20) - drain_queue should be moved into stdlib_utils
+        queue_from_main_to_file_writer
+    )
 
 
 def test_stop_recording_command__is_received_by_file_writer__with_given_time_index_parameter(

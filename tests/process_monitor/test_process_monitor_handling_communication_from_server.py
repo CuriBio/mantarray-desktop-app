@@ -435,17 +435,17 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     spied_da_hard_stop = mocker.spy(da_process, "hard_stop")
     spied_server_hard_stop = mocker.spy(server_thread, "hard_stop")
 
-    mocked_server_is_stopped = mocker.patch.object(
-        server_thread, "is_stopped", side_effect=[False, True, True, True]
-    )
     mocked_okc_is_stopped = mocker.patch.object(
         okc_process, "is_stopped", autospec=True, side_effect=[False, True, True]
+    )
+    mocked_server_is_stopped = mocker.patch.object(
+        server_thread, "is_stopped", side_effect=[False, True, True, True]
     )
     mocked_fw_is_stopped = mocker.patch.object(
         fw_process, "is_stopped", autospec=True, side_effect=[False, True]
     )
     mocked_da_is_stopped = mocker.patch.object(
-        da_process, "is_stopped", autospec=True, side_effect=[False, False]
+        da_process, "is_stopped", autospec=True, return_value=False
     )
 
     server_to_main_queue = (
@@ -483,8 +483,8 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     spied_server_join.assert_called_once()
 
     assert mocked_counter.call_count == 5
-    assert mocked_server_is_stopped.call_count == 4
     assert mocked_okc_is_stopped.call_count == 3
+    assert mocked_server_is_stopped.call_count == 4
     assert mocked_fw_is_stopped.call_count == 2
     assert mocked_da_is_stopped.call_count == 1
 

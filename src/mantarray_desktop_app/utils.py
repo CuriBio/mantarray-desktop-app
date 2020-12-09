@@ -64,6 +64,19 @@ def convert_request_args_to_config_dict(request_args: Dict[str, Any]) -> Dict[st
     return out_dict
 
 
+def attempt_to_get_recording_directory_from_new_dict(  # pylint:disable=invalid-name # Eli (12/8/20) I know this is a long name, can try and shorten later
+    new_dict: Dict[str, Any]
+) -> Optional[str]:
+    """Attempt to get the recording directory from the dict of new values."""
+    try:
+        directory = new_dict["config_settings"]["Recording Directory"]
+    except KeyError:
+        return None
+    if not isinstance(directory, str):
+        raise NotImplementedError("The directory should always be a string")
+    return directory
+
+
 def update_shared_dict(
     shared_values_dict: Dict[str, Any], new_info_dict: Dict[str, Any]
 ) -> None:
@@ -78,13 +91,10 @@ def update_shared_dict(
     updated_shared_dict = unflatten(flattened_shared_dict)
     shared_values_dict.update(updated_shared_dict)
 
-    new_recording_directory: Optional[str] = None
-    try:
-        new_recording_directory = new_info_dict["config_settings"][
-            "Recording Directory"
-        ]
-    except KeyError:
-        pass
+    new_recording_directory: Optional[
+        str
+    ] = attempt_to_get_recording_directory_from_new_dict(new_info_dict)
+
     if new_recording_directory is not None:
         msg = f"Using directory for recording files: {new_recording_directory}"
         logger.info(msg)

@@ -115,25 +115,26 @@ class MantarrayQueueContainer:
         """Return all board queues for Instrument subprocess."""
         return self._ok_comm_board_queues
 
-    def get_file_writer_board_queues(
+    def get_file_writer_board_queues(  # pylint: disable=duplicate-code # Eli (12/8/20): I can't figure out how to use mypy type aliases correctly...but the type definitions are triggering duplicate code warnings
         self,
-    ) -> Tuple[  # pylint-disable: duplicate-code
+    ) -> Tuple[  # pylint: disable=duplicate-code
         Tuple[
             Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-                Any
+                Any  # pylint: disable=duplicate-code
             ],
             Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
                 Any
-            ],
+            ],  # pylint: disable=duplicate-code
         ],
         ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
     ]:
         """Return all board queues for File Writer subprocess."""
         return self._file_writer_board_queues
 
-    def get_data_analyzer_board_queues(
+    # pylint: disable=duplicate-code # Eli (12/8/20): I can't figure out how to use mypy type aliases correctly...but the type definitions are triggering duplicate code warnings
+    def get_data_analyzer_board_queues(  # pylint: disable=duplicate-code # Eli (12/8/20): I can't figure out how to use mypy type aliases correctly...but the type definitions are triggering duplicate code warnings
         self,
-    ) -> Tuple[  # pylint-disable: duplicate-code
+    ) -> Tuple[  # pylint:disable=duplicate-code
         Tuple[
             Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
                 Any

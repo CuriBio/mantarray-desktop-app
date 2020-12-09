@@ -91,14 +91,15 @@ class DataAnalyzerProcess(InfiniteProcess):
         fatal_error_reporter: a queue to report fatal errors back to the main process
     """
 
-    def __init__(
+    # pylint: disable=duplicate-code # Eli (12/8/20): I can't figure out how to use mypy type aliases correctly...but the type definitions are triggering duplicate code warnings
+    def __init__(  # pylint: disable=duplicate-code # Eli (12/8/20): I can't figure out how to use mypy type aliases correctly...but the type definitions are triggering duplicate code warnings
         self,
         the_board_queues: Tuple[
             Tuple[
                 Queue[Any],  # pylint: disable=unsubscriptable-object
-                Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+                Queue[  # pylint: disable=unsubscriptable-object,duplicate-code # https://github.com/PyCQA/pylint/issues/1498
                     Any
-                ],
+                ],  # pylint: disable=duplicate-code
             ],
             ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
         ],

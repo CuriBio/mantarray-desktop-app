@@ -28,6 +28,7 @@ from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
 from .process_manager import MantarrayProcessesManager
 from .server import ServerThread
+from .utils import attempt_to_get_recording_directory_from_new_dict
 from .utils import update_shared_dict
 
 logger = logging.getLogger(__name__)
@@ -118,13 +119,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._hard_stop_and_join_processes_and_log_leftovers()
         elif communication_type == "update_shared_values_dictionary":
             new_values = communication["content"]
-            new_recording_directory: Optional[str] = None
-            try:
-                new_recording_directory = new_values["config_settings"][
-                    "Recording Directory"
-                ]
-            except KeyError:
-                pass
+            new_recording_directory: Optional[
+                str
+            ] = attempt_to_get_recording_directory_from_new_dict(new_values)
+
             if new_recording_directory is not None:
                 to_file_writer_queue = (
                     process_manager.queue_container().get_communication_queue_from_main_to_file_writer()

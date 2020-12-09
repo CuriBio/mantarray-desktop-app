@@ -24,8 +24,8 @@ from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_
 __fixtures__ = [
     fixture_client_and_server_thread_and_shared_values,
     fixture_server_thread,
-    fixture_generic_queue_container,
     fixture_test_client,
+    fixture_generic_queue_container,
     fixture_generic_start_recording_info_in_shared_dict,
     fixture_test_monitor,
     fixture_test_process_manager,
@@ -130,7 +130,7 @@ def test_set_mantarray_serial_number__returns_error_code_and_message_if_serial_n
 def test_send_single_start_calibration_command__returns_200(
     client_and_server_thread_and_shared_values,
 ):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    test_client, _, _ = client_and_server_thread_and_shared_values
     response = test_client.get("/start_calibration")
     assert response.status_code == 200
 
@@ -371,8 +371,7 @@ def test_start_recording__returns_no_error_message_with_multiple_hardware_test_r
     client_and_server_thread_and_shared_values,
     generic_start_recording_info_in_shared_dict,
 ):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
-    # test_process_manager.create_processes()
+    test_client, _, _ = client_and_server_thread_and_shared_values
 
     response = test_client.get(
         "/start_recording?barcode=MA200440001&is_hardware_test_recording=True"

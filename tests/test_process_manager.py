@@ -252,28 +252,23 @@ def test_MantarrayProcessesManager__hard_stop_and_join_processes__hard_stops_pro
     spied_server_join = mocker.spy(ServerThread, "join")
 
     manager.spawn_processes()
-    ok_comm_to_main = manager.queue_container().get_communication_queue_from_ok_comm_to_main(
-        0
-    )
+    container = manager.queue_container()
+    ok_comm_to_main = container.get_communication_queue_from_ok_comm_to_main(0)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         expected_ok_comm_item, ok_comm_to_main
     )
-    file_writer_to_main = (
-        manager.queue_container().get_communication_queue_from_file_writer_to_main()
-    )
+    file_writer_to_main = container.get_communication_queue_from_file_writer_to_main()
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         expected_file_writer_item, file_writer_to_main
     )
     data_analyzer_to_main = (
-        manager.queue_container().get_communication_queue_from_data_analyzer_to_main()
+        container.get_communication_queue_from_data_analyzer_to_main()
     )
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         expected_da_item, data_analyzer_to_main
     )
 
-    server_to_main = (
-        manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    server_to_main = container.get_communication_queue_from_server_to_main()
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         expected_server_items, server_to_main
     )
@@ -417,8 +412,8 @@ def test_MantarrayProcessesManager__are_processes_stopped__waits_correct_amount_
     mocked_counter = mocker.patch.object(
         process_manager,
         "perf_counter",
-        autospec=True,
         side_effect=[0, 0, 0, 0, SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS],
+        autospec=True,
     )
     # mocker.patch.object(time, "sleep", autospec=True)
 
@@ -457,12 +452,14 @@ def test_MantarrayProcessesManager__are_processes_stopped__returns_true_if_stop_
     test_process_manager, mocker
 ):
     test_process_manager.create_processes()
-    okc_process = test_process_manager.get_ok_comm_process()
-    fw_process = test_process_manager.get_file_writer_process()
+    instrument_process = test_process_manager.get_instrument_process()
     da_process = test_process_manager.get_data_analyzer_process()
+    fw_process = test_process_manager.get_file_writer_process()
     server_thread = test_process_manager.get_server_thread()
     mocker.patch.object(server_thread, "is_stopped", autospec=True, return_value=True)
-    mocker.patch.object(okc_process, "is_stopped", autospec=True, return_value=True)
+    mocker.patch.object(
+        instrument_process, "is_stopped", autospec=True, return_value=True
+    )
     mocker.patch.object(fw_process, "is_stopped", autospec=True, return_value=True)
     mocker.patch.object(
         da_process, "is_stopped", autospec=True, side_effect=[False, True]
@@ -483,17 +480,11 @@ def test_MantarrayProcessesManager__are_processes_stopped__returns_true_if_stop_
 def test_MantarrayProcessesManager__are_processes_stopped__sleeps_for_correct_amount_of_time_each_cycle_of_checking_subprocess_status(
     test_process_manager, mocker, patch_subprocess_is_stopped_to_false
 ):
-    # test_process_manager.spawn_processes()
-
-    # mocker.patch.object(
-    #     test_process_manager, "hard_stop_and_join_processes", autospec=True
-    # )
-
     mocker.patch.object(
         process_manager,
         "perf_counter",
-        autospec=True,
         side_effect=[0, SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS],
+        autospec=True,
     )
     mocked_sleep = mocker.patch.object(process_manager, "sleep", autospec=True)
 

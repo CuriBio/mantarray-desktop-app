@@ -279,11 +279,11 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         ("error", "stack_trace"), ok_comm_error_queue
     )
-    ok_comm_to_main = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
+    instrument_to_main = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
         0
     )
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        expected_ok_comm_item, ok_comm_to_main
+        expected_ok_comm_item, instrument_to_main
     )
     file_writer_to_main = (
         test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
@@ -456,9 +456,8 @@ def test_MantarrayProcessesMonitor__sets_in_simulation_mode_to_false_when_connec
 
     test_process_manager.create_processes()
     ok_comm_process = test_process_manager.get_ok_comm_process()
-    ok_comm_to_main_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
-        0
-    )
+    container = test_process_manager.queue_container()
+    ok_comm_to_main_queue = container.get_communication_queue_from_ok_comm_to_main(0)
 
     ok_comm_process.create_connections_to_all_available_boards()
     assert is_queue_eventually_not_empty(ok_comm_to_main_queue) is True

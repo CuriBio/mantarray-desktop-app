@@ -73,7 +73,9 @@ def fixture_test_client():
 def fixture_client_and_server_thread_and_shared_values(server_thread, test_client):
 
     st, _, _ = server_thread
-    shared_values_dict = st._values_from_process_monitor
+    shared_values_dict = (
+        st._values_from_process_monitor  # pylint:disable=protected-access
+    )
     yield test_client, server_thread, shared_values_dict
 
 

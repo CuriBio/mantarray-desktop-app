@@ -322,18 +322,15 @@ def test_main__stores_and_logs_user_settings_and_recordings_folder_from_command_
         shared_values_dict = app_info["object_access_inside_main"][
             "values_to_share_to_server"
         ]
-
+        actual_config_settings = shared_values_dict["config_settings"]
         assert (
-            shared_values_dict["config_settings"]["Customer Account ID"]
+            actual_config_settings["Customer Account ID"]
             == "14b9294a-9efb-47dd-a06e-8247e982e196"
         )
+        assert actual_config_settings["Recording Directory"] == expected_recordings_dir
         assert (
-            shared_values_dict["config_settings"]["User Account ID"]
+            actual_config_settings["User Account ID"]
             == "0288efbc-7705-4946-8815-02701193f766"
-        )
-        assert (
-            shared_values_dict["config_settings"]["Recording Directory"]
-            == expected_recordings_dir
         )
 
 
