@@ -28,15 +28,16 @@ jobs:
           - "windows-2016"
         python-version:
           - 3.7
-          #- 3.8
+          - 3.8
+          - 3.9
         node-version:
           - 12
-          #- 14
+          - 14
         include:
           # only enable coverage on the fastest job
           - os: "ubuntu-20.04"
-            python-version: "3.7"
-            node-version: "12"
+            python-version: "3.8"
+            node-version: "14"
             IS_FASTEST_JOB: true
           - os: "windows-2019"
             python-version: "3.7"
