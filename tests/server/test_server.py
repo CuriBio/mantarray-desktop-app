@@ -122,7 +122,7 @@ def test_ServerThread_start__puts_error_into_queue_if_flask_run_raises_error(
     )
 
     st.start()
-    assert is_queue_eventually_of_size(error_queue, 1,) is True
+    confirm_queue_is_eventually_of_size(error_queue, 1)
     e, msg = error_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
     assert isinstance(e, DummyException)
     assert expected_error_msg in msg

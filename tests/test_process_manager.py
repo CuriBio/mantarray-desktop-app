@@ -166,6 +166,14 @@ def test_MantarrayProcessesManager__spawn_processes__stop_and_join_processes__st
     spied_server_join = mocker.spy(ServerThread, "join")
 
     generic_manager.spawn_processes()
+
+    # drain all queues of start-up messages before attempting to join
+    generic_manager.get_instrument_process()._drain_all_queues()  # pylint:disable=protected-access
+    generic_manager.get_file_writer_process()._drain_all_queues()  # pylint:disable=protected-access
+    generic_manager.get_data_analyzer_process()._drain_all_queues()  # pylint:disable=protected-access
+    generic_manager.get_server_thread()._drain_all_queues()  # pylint:disable=protected-access
+    # instrument_to_main_queue=generic_manager.queue_container().get_communication_queue_from_ok_comm_to_main()
+
     generic_manager.stop_and_join_processes()
     spied_ok_comm_start.assert_called_once()
     spied_ok_comm_stop.assert_called_once()
