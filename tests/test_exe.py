@@ -25,13 +25,36 @@ def test_exe_can_access_xem_script_and_firmware_folders():
         os.path.join("dist-python", "mantarray-flask", "mantarray-flask.exe")
     ]
     if not os.path.isfile(subprocess_args[0]):
+        path_to_entrypoint = os.path.abspath(
+            os.path.join(
+                get_current_file_abs_directory(), os.pardir, "src", "entrypoint.py"
+            )
+        )
+        if not os.path.isfile(path_to_entrypoint):
+            # Eli (12/9/20): the path to entrypoint.py was different somehow in Windows containers for GitHub actions, so leaving this here for future possible debugging
+            print(  # allow-print
+                f"\nfile path that does not exist: {path_to_entrypoint}"
+            )
+            print(  # allow-print
+                f"path of current file: {get_current_file_abs_directory()}"
+            )
+            print(  # allow-print
+                f"path of parent directory: {os.path.abspath(os.path.join(get_current_file_abs_directory(), os.pardir))}"
+            )
+            print(  # allow-print
+                f"contents of parent directory: {os.listdir(os.path.abspath(os.path.join(get_current_file_abs_directory(), os.pardir)))}"
+            )
+            print(  # allow-print
+                f'contents of src directory: {os.listdir(os.path.abspath(os.path.join(get_current_file_abs_directory(), os.pardir,"src")))}'
+            )
+            assert (
+                "file does not exist"
+                == "Apparently the path to entrypoint.py is incorrect"
+            )
+
         subprocess_args = [
             "python3",
-            os.path.abspath(
-                os.path.join(
-                    get_current_file_abs_directory(), os.pardir, "src", "entrypoint.py"
-                )
-            ),
+            path_to_entrypoint,
         ]
 
     sub_process = subprocess.Popen(subprocess_args)

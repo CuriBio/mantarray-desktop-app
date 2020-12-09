@@ -13,6 +13,7 @@ from mantarray_desktop_app import system_utils
 from mantarray_desktop_app import SystemStartUpError
 from mantarray_desktop_app import wait_for_subprocesses_to_start
 import pytest
+import requests
 from requests import Response
 
 
@@ -117,6 +118,21 @@ def test_wait_for_subprocesses_to_start__raises_error_if_state_does_not_reach_se
     )
     mocker.patch.object(
         system_utils, "system_state_eventually_equals", return_value=False
+    )
+
+    with pytest.raises(SystemStartUpError):
+        wait_for_subprocesses_to_start()
+
+
+def test_wait_for_subprocesses_to_start__raises_error_if_server_is_never_able_to_be_connected_to(
+    mocker,
+):
+    mocker.patch.object(time, "perf_counter", side_effect=[0, 11])
+    mocker.patch.object(
+        system_utils.requests,
+        "get",
+        autospec=True,
+        side_effect=requests.exceptions.ConnectionError,
     )
 
     with pytest.raises(SystemStartUpError):

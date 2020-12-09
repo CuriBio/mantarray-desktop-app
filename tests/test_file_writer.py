@@ -66,7 +66,6 @@ from stdlib_utils import InfiniteProcess
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import is_queue_eventually_empty
 from stdlib_utils import is_queue_eventually_of_size
-from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty
 from stdlib_utils import validate_file_head_crc32
 
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
@@ -78,6 +77,7 @@ from .fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from .fixtures_file_writer import GENERIC_TISSUE_DATA_PACKET
 from .fixtures_file_writer import open_the_generic_h5_file
 from .helpers import assert_queue_is_eventually_not_empty
+from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 from .parsed_channel_data_packets import SIMPLE_CONSTRUCT_DATA_FROM_WELL_0
 
 
@@ -124,9 +124,7 @@ def test_FileWriterProcess_soft_stop_not_allowed_if_incoming_data_still_in_queue
     # The first communication will be processed, but if there is a second one in the queue then the soft stop should be disabled
     board_queues[0][0].put(SIMPLE_CONSTRUCT_DATA_FROM_WELL_0)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        SIMPLE_CONSTRUCT_DATA_FROM_WELL_0,
-        board_queues[0][0],
-        timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
+        SIMPLE_CONSTRUCT_DATA_FROM_WELL_0, board_queues[0][0],
     )
     assert (
         is_queue_eventually_of_size(
@@ -147,9 +145,7 @@ def test_FileWriterProcess__raises_error_if_not_a_dict_is_passed_through_the_que
     )  # don't print all the error messages to console
     (file_writer_process, board_queues, _, _, _, _,) = four_board_file_writer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        "a string is not a dictionary",
-        board_queues[0][0],
-        timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
+        "a string is not a dictionary", board_queues[0][0],
     )
     with pytest.raises(
         InvalidDataTypeFromOkCommError, match="a string is not a dictionary"
@@ -173,9 +169,7 @@ def test_FileWriterProcess__raises_error_if_unrecognized_command_from_main(
         _,
     ) = four_board_file_writer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "do the hokey pokey"},
-        from_main_queue,
-        timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
+        {"command": "do the hokey pokey"}, from_main_queue,
     )
     file_writer_process.run(num_iterations=1)
     assert_queue_is_eventually_not_empty(error_queue)
@@ -214,7 +208,7 @@ def test_FileWriterProcess__close_all_files(four_board_file_writer_process, mock
     this_command["active_well_indices"] = [3, 18]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_command, from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        this_command, from_main_queue
     )
     invoke_process_run_and_check_errors(file_writer_process)
     open_files = file_writer_process._open_files  # pylint: disable=protected-access
@@ -245,9 +239,7 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
     ][PLATE_BARCODE_UUID]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        GENERIC_START_RECORDING_COMMAND,
-        from_main_queue,
-        timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
+        GENERIC_START_RECORDING_COMMAND, from_main_queue
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
@@ -394,7 +386,7 @@ def test_FileWriterProcess__only_creates_file_indices_specified__when_receiving_
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [3, 18]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_command, from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        this_command, from_main_queue
     )
     invoke_process_run_and_check_errors(file_writer_process)
     actual_set_of_files = set(
@@ -536,7 +528,7 @@ def test_FileWriterProcess__closes_the_files_and_adds_crc32_checksum_and_sends_c
     start_command["active_well_indices"] = [4, 5]
     num_data_points = 10
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        start_command, from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        start_command, from_main_queue
     )
 
     data = np.zeros((2, num_data_points), dtype=np.int32)
@@ -552,9 +544,7 @@ def test_FileWriterProcess__closes_the_files_and_adds_crc32_checksum_and_sends_c
     this_data_packet["data"] = data
     queue_to_file_writer_from_board_0 = board_queues[0][0]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_data_packet,
-        queue_to_file_writer_from_board_0,
-        timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
+        this_data_packet, queue_to_file_writer_from_board_0,
     )
 
     # tissue data
@@ -575,9 +565,7 @@ def test_FileWriterProcess__closes_the_files_and_adds_crc32_checksum_and_sends_c
     data_packet_for_5 = copy.deepcopy(this_data_packet)
     data_packet_for_5["well_index"] = 5
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        data_packet_for_5,
-        board_queues[0][0],
-        timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
+        data_packet_for_5, board_queues[0][0],
     )
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=3)
@@ -596,7 +584,7 @@ def test_FileWriterProcess__closes_the_files_and_adds_crc32_checksum_and_sends_c
 
     stop_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        stop_command, from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        stop_command, from_main_queue
     )
 
     # reference data
@@ -627,9 +615,7 @@ def test_FileWriterProcess__closes_the_files_and_adds_crc32_checksum_and_sends_c
     data_packet_for_5 = copy.deepcopy(tissue_data_packet_after_stop)
     data_packet_for_5["well_index"] = 5
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        data_packet_for_5,
-        board_queues[0][0],
-        timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
+        data_packet_for_5, board_queues[0][0],
     )
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=3)
@@ -672,16 +658,16 @@ def test_FileWriterProcess__drain_all_queues__drains_all_queues_except_error_que
         for j, iter_queue in enumerate(board):
             item = expected[i][j]
             put_object_into_queue_and_raise_error_if_eventually_still_empty(
-                item, iter_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+                item, iter_queue
             )
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        expected_from_main, from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        expected_from_main, from_main_queue
     )
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        expected_to_main, to_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        expected_to_main, to_main_queue
     )
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        expected_error, error_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        expected_error, error_queue
     )
 
     actual = file_writer_process._drain_all_queues()  # pylint:disable=protected-access
@@ -830,9 +816,7 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_when_recording(
         START_RECORDING_TIME_INDEX_UUID
     ] = 0
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        start_recording_command,
-        from_main_queue,
-        timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
+        start_recording_command, from_main_queue
     )
     invoke_process_run_and_check_errors(file_writer_process)
     to_main_queue.get_nowait()  # Tanner (9/10/20): remove start_recording confirmation
@@ -976,9 +960,7 @@ def test_FileWriterProcess__clears_data_buffer_when_stop_mananged_acquisition_co
         "command": "stop_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        stop_managed_acquisition_command,
-        from_main_queue,
-        timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
+        stop_managed_acquisition_command, from_main_queue
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
@@ -1022,9 +1004,7 @@ def test_FileWriterProcess__records_all_requested_data_in_buffer__and_creates_di
         "timepoint_to_begin_recording_at"
     ] = expected_start_timepoint
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        start_recording_command,
-        from_main_queue,
-        timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
+        start_recording_command, from_main_queue
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
@@ -1072,9 +1052,7 @@ def test_FileWriterProcess__deletes_recorded_well_data_after_stop_time(
     start_recording_command["timepoint_to_begin_recording_at"] = 0
     start_recording_command["active_well_indices"] = [expected_well_idx]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        start_recording_command,
-        comm_from_main_queue,
-        timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
+        start_recording_command, comm_from_main_queue
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
@@ -1162,9 +1140,7 @@ def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
     start_recording_command["timepoint_to_begin_recording_at"] = 0
     start_recording_command["active_well_indices"] = [expected_well_idx]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        start_recording_command,
-        comm_from_main_queue,
-        timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
+        start_recording_command, comm_from_main_queue
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
@@ -1207,9 +1183,7 @@ def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
         comm_from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        stop_recording_command,
-        comm_from_main_queue,
-        timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
+        stop_recording_command, comm_from_main_queue
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
@@ -1282,13 +1256,30 @@ def test_FileWriterProcess_teardown_after_loop__calls_close_all_files__when_stil
     fw_process, _, from_main_queue, _, _, _ = four_board_file_writer_process
     spied_close_all_files = mocker.spy(fw_process, "close_all_files")
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        GENERIC_START_RECORDING_COMMAND,
-        from_main_queue,
-        timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
+        GENERIC_START_RECORDING_COMMAND, from_main_queue
     )
 
     fw_process.soft_stop()
     fw_process.run(perform_setup_before_loop=False, num_iterations=1)
+
+    spied_close_all_files.assert_called_once()
+
+
+def test_FileWriterProcess_hard_stop__calls_close_all_files__when_still_recording(
+    four_board_file_writer_process, mocker
+):
+    fw_process, _, from_main_queue, _, _, _ = four_board_file_writer_process
+    spied_close_all_files = mocker.spy(fw_process, "close_all_files")
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        GENERIC_START_RECORDING_COMMAND, from_main_queue
+    )
+    fw_process.run(
+        perform_setup_before_loop=False,
+        num_iterations=1,
+        perform_teardown_after_loop=False,
+    )
+    assert spied_close_all_files.call_count == 0  # confirm pre-condition
+    fw_process.hard_stop()
 
     spied_close_all_files.assert_called_once()
 

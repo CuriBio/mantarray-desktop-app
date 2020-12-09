@@ -757,16 +757,17 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
 
         response = requests.get(f"{get_api_endpoint()}shutdown")
         assert response.status_code == 200
+        # TODO (Eli 12/9/20): have /shutdown wait to return until the other processes have been stopped, or have a separate route to shut down other processes (that also waits)
 
-    confirm_port_available(get_server_port_number(), timeout=10)
+        confirm_port_available(get_server_port_number(), timeout=10)
 
-    spied_server_logger.assert_any_call("Flask server successfully shut down.")
+        spied_server_logger.assert_any_call("Flask server successfully shut down.")
 
-    # Eli (12/4/20): currently, Flask immediately shuts down and communicates up to ProcessMonitor to start shutting everything else down. So for now need to sleep a bit before attempting to confirm everything else is shut down
-    time.sleep(10)
+        # Eli (12/4/20): currently, Flask immediately shuts down and communicates up to ProcessMonitor to start shutting everything else down. So for now need to sleep a bit before attempting to confirm everything else is shut down
+        time.sleep(10)
 
-    spied_logger.assert_any_call("Program exiting")
+        spied_logger.assert_any_call("Program exiting")
 
-    assert okc_process.is_alive() is False
-    assert fw_process.is_alive() is False
-    assert da_process.is_alive() is False
+        assert okc_process.is_alive() is False
+        assert fw_process.is_alive() is False
+        assert da_process.is_alive() is False
