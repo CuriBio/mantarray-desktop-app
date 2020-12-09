@@ -198,7 +198,7 @@ jobs:
 
       - name: Run Python Tests with randomly generated seed (Windows)
         if: github.event.inputs.randomlyseed == '' && runner.os == 'Windows'
-        run: pipenv run pytest -svv --cov-report=xml # --include-slow-tests # --full-ci
+        run: pipenv run pytest -svv --cov-report=xml --include-slow-tests --full-ci
         # run: pytest -xsvv --cov-report=xml --include-slow-tests # --full-ci
 
       - name: Run Python Tests with randomly generated seed (Linux)
