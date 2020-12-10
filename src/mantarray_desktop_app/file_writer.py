@@ -276,14 +276,21 @@ class FileWriterProcess(InfiniteProcess):
         return self._is_recording
 
     def _teardown_after_loop(self) -> None:
+        to_main_queue = self._to_main_queue
         msg = f"File Writer Process beginning teardown at {_get_formatted_utc_now()}"
         put_log_message_into_queue(
-            logging.INFO, msg, self._to_main_queue, self.get_logging_level(),
+            logging.INFO,
+            msg,
+            to_main_queue,
+            self.get_logging_level(),
         )
         if self._is_recording:
             msg = "Data is still be written to file. Stopping recording and closing files to complete teardown"
             put_log_message_into_queue(
-                logging.INFO, msg, self._to_main_queue, self.get_logging_level(),
+                logging.INFO,
+                msg,
+                to_main_queue,
+                self.get_logging_level(),
             )
             self.close_all_files()
         super()._teardown_after_loop()
@@ -373,7 +380,9 @@ class FileWriterProcess(InfiniteProcess):
                 sub_dir_name,
                 f"{sub_dir_name}__{GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(this_well_idx)}.h5",
             )
-            this_file = MantarrayH5FileCreator(file_path,)
+            this_file = MantarrayH5FileCreator(
+                file_path,
+            )
             self._open_files[0][this_well_idx] = this_file
             this_file.attrs["File Format Version"] = CURRENT_HDF5_FILE_FORMAT_VERSION
             this_file.attrs[
@@ -454,7 +463,9 @@ class FileWriterProcess(InfiniteProcess):
             ref_dataset = get_reference_dataset_from_file(this_file)
             for dataset in (tissue_dataset, ref_dataset):
                 last_index_of_valid_data = _find_last_valid_data_index(
-                    latest_timepoint, dataset.shape[0] - 1, stop_recording_timestamp,
+                    latest_timepoint,
+                    dataset.shape[0] - 1,
+                    stop_recording_timestamp,
                 )
                 index_to_slice_to = last_index_of_valid_data + 1
                 new_data = dataset[:index_to_slice_to]

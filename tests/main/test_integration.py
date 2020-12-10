@@ -105,7 +105,8 @@ INTEGRATION_TEST_TIMEOUT = 720
 @pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 @pytest.mark.slow
 def test_send_xem_scripts_command__gets_processed_in_fully_running_app(
-    fully_running_app_from_main_entrypoint, patched_xem_scripts_folder,
+    fully_running_app_from_main_entrypoint,
+    patched_xem_scripts_folder,
 ):
     app_info = fully_running_app_from_main_entrypoint(["--skip-mantarray-boot-up"])
     wait_for_subprocesses_to_start()

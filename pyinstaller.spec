@@ -50,7 +50,11 @@ a = Analysis(  # type: ignore # noqa: F821     the 'Analysis' object is special 
             os.path.join("src", "drivers"),
         ),
     ],
-    hiddenimports=["xem_wrapper._windows._ok", "scipy.special.cython_special"],
+    hiddenimports=[
+        "xem_wrapper._windows._ok",
+        "scipy.special.cython_special",
+        "flatten_dict",
+    ],
     hookspath=[],
     runtime_hooks=[],
     excludes=["FixTk", "tcl", "tk", "_tkinter", "tkinter", "Tkinter"],

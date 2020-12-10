@@ -38,6 +38,7 @@ from xem_wrapper import PIPE_OUT_FIFO
 from .fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .fixtures_ok_comm import fixture_four_board_comm_process
+from .fixtures_ok_comm import generate_board_and_error_queues
 from .helpers import is_queue_eventually_empty
 from .helpers import is_queue_eventually_not_empty
 from .helpers import is_queue_eventually_of_size
@@ -159,9 +160,8 @@ def test_OkCommunicationProcess_run__raises_error_if_acquisition_manager_command
 def test_OkCommunicationProcess_commands_for_each_run_iteration__sets_default_time_since_last_fifo_read_if_none_while_spi_running(
     mocker,
 ):
-    error_queue = Queue()
+    board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
 
-    board_queues = tuple([(Queue(), Queue(), Queue(),)] * 4)
     p = OkCommunicationProcess(board_queues, error_queue)
 
     expected_timepoint = 9876
@@ -186,9 +186,8 @@ def test_OkCommunicationProcess_commands_for_each_run_iteration__sets_default_ti
 
 @freeze_time("2020-02-13 11:43:11.123456")
 def test_OkCommunicationProcess_commands_for_each_run_iteration__removes_default_time_since_last_fifo_read_while_spi_not_running():
-    error_queue = Queue()
+    board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
 
-    board_queues = tuple([(Queue(), Queue(), Queue(),)] * 4)
     p = OkCommunicationProcess(board_queues, error_queue)
     simulator = FrontPanelSimulator({})
     simulator.initialize_board()
@@ -209,7 +208,16 @@ def test_OkCommunicationProcess_commands_for_each_run_iteration__removes_default
 def test_OkCommunicationProcess_commands_for_each_run_iteration__sends_fifo_read_to_file_writer_if_ready_to_read():
     error_queue = Queue()
 
-    board_queues = tuple([(Queue(), Queue(), Queue(),)] * 4)
+    board_queues = tuple(
+        [
+            (
+                Queue(),
+                Queue(),
+                Queue(),
+            )
+        ]
+        * 4
+    )
     p = OkCommunicationProcess(board_queues, error_queue)
     test_bytearray = produce_data(1, 0)
     fifo = Queue()
@@ -230,10 +238,13 @@ def test_OkCommunicationProcess_commands_for_each_run_iteration__sends_fifo_read
     invoke_process_run_and_check_errors(p)
 
     expected_well_idx = 0
-    test_value_1 = FIFO_READ_PRODUCER_DATA_OFFSET + FIFO_READ_PRODUCER_WELL_AMPLITUDE * (
-        expected_well_idx + 1
-    ) / 24 * 6 * signal.sawtooth(
-        0 / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5
+    test_value_1 = (
+        FIFO_READ_PRODUCER_DATA_OFFSET
+        + FIFO_READ_PRODUCER_WELL_AMPLITUDE
+        * (expected_well_idx + 1)
+        / 24
+        * 6
+        * signal.sawtooth(0 / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5)
     )
     expected_first_dict_sent = {
         "is_reference_sensor": False,
@@ -254,7 +265,16 @@ def test_OkCommunicationProcess_commands_for_each_run_iteration__sends_fifo_read
 def test_OkCommunicationProcess_commands_for_each_run_iteration__does_not_send_fifo_read_to_file_writer_if_not_ready_to_read():
     error_queue = Queue()
 
-    board_queues = tuple([(Queue(), Queue(), Queue(),)] * 4)
+    board_queues = tuple(
+        [
+            (
+                Queue(),
+                Queue(),
+                Queue(),
+            )
+        ]
+        * 4
+    )
     test_bytearray = bytearray(DATA_FRAME_SIZE_WORDS * 4 * DATA_FRAMES_PER_ROUND_ROBIN)
     test_bytearray[:8] = build_header_magic_number_bytes(HEADER_MAGIC_NUMBER)
     fifo = Queue()
@@ -375,12 +395,17 @@ def test_OkCommunicationProcess_managed_acquisition_handles_ignoring_first_data_
     )
 
     expected_well_idx = 0
-    test_value_1 = FIFO_READ_PRODUCER_DATA_OFFSET + FIFO_READ_PRODUCER_WELL_AMPLITUDE * (
-        expected_well_idx + 1
-    ) / 24 * 6 * signal.sawtooth(
-        (ROUND_ROBIN_PERIOD // TIMESTEP_CONVERSION_FACTOR)
-        / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD,
-        width=0.5,
+    test_value_1 = (
+        FIFO_READ_PRODUCER_DATA_OFFSET
+        + FIFO_READ_PRODUCER_WELL_AMPLITUDE
+        * (expected_well_idx + 1)
+        / 24
+        * 6
+        * signal.sawtooth(
+            (ROUND_ROBIN_PERIOD // TIMESTEP_CONVERSION_FACTOR)
+            / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD,
+            width=0.5,
+        )
     )
     expected_first_dict_sent = {
         "is_reference_sensor": False,
@@ -909,9 +934,9 @@ def test_OkCommunicationProcess_managed_acquisition_logs_performance_metrics_aft
     ok_process._start_timepoint_of_last_performance_measurement = (  # pylint: disable=protected-access
         expected_start_timepoint
     )
-    ok_process._percent_use_values = expected_percent_use_values[  # pylint: disable=protected-access
+    ok_process._percent_use_values = expected_percent_use_values[
         :-1
-    ]
+    ]  # pylint: disable=protected-access
 
     test_fifo_reads = [
         produce_data(i + 2, 0) for i in range(OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)

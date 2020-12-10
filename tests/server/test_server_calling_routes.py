@@ -116,7 +116,9 @@ def test_system_status__returns_correct_serial_number_and_nickname_with_empty_st
     ],
 )
 def test_set_mantarray_serial_number__returns_error_code_and_message_if_serial_number_is_too_many_bytes(
-    test_nickname, test_description, client_and_server_thread_and_shared_values,
+    test_nickname,
+    test_description,
+    client_and_server_thread_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
 
@@ -292,7 +294,10 @@ def test_start_managed_acquisition__returns_error_code_and_message_if_mantarray_
 @pytest.mark.parametrize(
     "test_uuid,test_description",
     [
-        ("", "returns error_message when uuid is empty",),
+        (
+            "",
+            "returns error_message when uuid is empty",
+        ),
         (
             "e140e2b-397a-427b-81f3-4f889c5181a9",
             "returns error_message when uuid is invalid",
@@ -300,7 +305,9 @@ def test_start_managed_acquisition__returns_error_code_and_message_if_mantarray_
     ],
 )
 def test_update_settings__returns_error_message_for_invalid_customer_account_uuid(
-    test_uuid, test_description, test_client,
+    test_uuid,
+    test_description,
+    test_client,
 ):
     response = test_client.get(f"/update_settings?customer_account_uuid={test_uuid}")
     assert response.status_code == 400
@@ -336,7 +343,10 @@ def test_update_settings__returns_error_message_when_unexpected_argument_is_give
 @pytest.mark.parametrize(
     "test_uuid,test_description",
     [
-        ("", "returns error_message when uuid is empty",),
+        (
+            "",
+            "returns error_message when uuid is empty",
+        ),
         (
             "11e140e2b-397a-427b-81f3-4f889c5181a9",
             "returns error_message when uuid is invalid",

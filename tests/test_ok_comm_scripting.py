@@ -234,8 +234,8 @@ def test_gain_value_is_parsed_and_saved_when_running_start_up_script(
     from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
     )
-    to_ok_comm_queue = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
-        0
+    to_ok_comm_queue = (
+        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     ok_comm_process.set_board_connection(0, simulator)
 
@@ -306,8 +306,8 @@ def test_offset_values_are_parsed_and_saved_when_running_start_calibration_scrip
     from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
     )
-    to_ok_comm_queue = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
-        0
+    to_ok_comm_queue = (
+        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     ok_comm_process.set_board_connection(0, simulator)
 

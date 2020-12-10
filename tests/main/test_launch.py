@@ -7,6 +7,7 @@ import platform
 import sys
 import tempfile
 import threading
+import time
 from unittest.mock import ANY
 
 from freezegun import freeze_time
@@ -123,7 +124,9 @@ def test_main_configures_logging(mocker):
 
 @pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 def test_main__logs_system_info__and_software_version_at_very_start(
-    mocker, fully_running_app_from_main_entrypoint, patched_xem_scripts_folder,
+    mocker,
+    fully_running_app_from_main_entrypoint,
+    patched_xem_scripts_folder,
 ):
     spied_info_logger = mocker.spy(main.logger, "info")
 
@@ -268,7 +271,9 @@ def test_main_entrypoint__correctly_assigns_shared_values_dictionary_to_process_
 @pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 @pytest.mark.slow
 def test_main__calls_boot_up_function_upon_launch(
-    patched_xem_scripts_folder, fully_running_app_from_main_entrypoint, mocker,
+    patched_xem_scripts_folder,
+    fully_running_app_from_main_entrypoint,
+    mocker,
 ):
     spied_boot_up = mocker.spy(MantarrayProcessesManager, "boot_up_instrument")
 
@@ -337,7 +342,8 @@ def test_main__stores_and_logs_user_settings_and_recordings_folder_from_command_
 @pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 @pytest.mark.slow
 def test_main__does_not_call_boot_up_function_upon_launch_if_command_line_arg_passed(
-    fully_running_app_from_main_entrypoint, mocker,
+    fully_running_app_from_main_entrypoint,
+    mocker,
 ):
     spied_boot_up = mocker.spy(MantarrayProcessesManager, "boot_up_instrument")
 
@@ -358,7 +364,9 @@ def test_main_can_launch_server_and_processes_and_initial_boot_up_of_ok_comm_pro
     fully_running_app_from_main_entrypoint,
 ):
     mocked_process_monitor_info_logger = mocker.patch.object(
-        process_monitor.logger, "info", autospec=True,
+        process_monitor.logger,
+        "info",
+        autospec=True,
     )
 
     mocked_main_info_logger = mocker.patch.object(main.logger, "info", autospec=True)
@@ -374,6 +382,9 @@ def test_main_can_launch_server_and_processes_and_initial_boot_up_of_ok_comm_pro
         ]
     )
     expected_connection_str = "Communication from the OpalKelly Controller: {'communication_type': 'board_connection_status_change'"
+    time.sleep(
+        0.5
+    )  # Eli (12/9/20): There was periodic failure of asserting that this log message had been made, so trying to sleep a tiny amount to allow more time for the log message to be processed
     assert any(
         [
             expected_connection_str in call[0][0]

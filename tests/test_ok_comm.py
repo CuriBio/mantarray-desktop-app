@@ -162,9 +162,21 @@ def test_parse_adc_metadata_byte(
 @pytest.mark.parametrize(
     """test_bytearray,expected_value,test_description""",
     [
-        (bytearray([0x00, 0x00, 0x00]), 0x000000, "zero",),
-        (bytearray([0x00, 0x00, 0x80]), 0x800000, "mid value",),
-        (bytearray([0xFF, 0xFF, 0xFF]), 0xFFFFFF, "max reading",),
+        (
+            bytearray([0x00, 0x00, 0x00]),
+            0x000000,
+            "zero",
+        ),
+        (
+            bytearray([0x00, 0x00, 0x80]),
+            0x800000,
+            "mid value",
+        ),
+        (
+            bytearray([0xFF, 0xFF, 0xFF]),
+            0xFFFFFF,
+            "max reading",
+        ),
     ],
 )
 def test_parse_little_endian_int24(test_bytearray, expected_value, test_description):
@@ -300,7 +312,10 @@ def test_build_file_writer_objects__raises_error_if_format_name_not_recognized(
     q = Queue()
     with pytest.raises(UnrecognizedDataFrameFormatNameError, match="fakeformat"):
         build_file_writer_objects(
-            bytearray([0, 0, 0, 0, 0, 0, 0, 0]), "fakeformat", q, logging.DEBUG,
+            bytearray([0, 0, 0, 0, 0, 0, 0, 0]),
+            "fakeformat",
+            q,
+            logging.DEBUG,
         )
 
 
@@ -372,7 +387,10 @@ def test_build_file_writer_objects__logs_warning__when_first_data_frame_period_o
 
     expected_message = f"Detected period between first two data frames of FIFO read: {test_data_frame_period * TIMESTEP_CONVERSION_FACTOR} does not matched expected value: {DATA_FRAME_PERIOD}. Actual time indices: 0x0, {hex(test_data_frame_period * TIMESTEP_CONVERSION_FACTOR)}"
     mocked_put.assert_any_call(
-        logging.DEBUG, expected_message, expected_queue, expected_logging_threshold,
+        logging.DEBUG,
+        expected_message,
+        expected_queue,
+        expected_logging_threshold,
     )
 
 
@@ -724,7 +742,16 @@ def test_OkCommunicationProcess__sets_up_board_connection_when_run(
 ):
     error_queue = Queue()
 
-    board_queues = tuple([(Queue(), Queue(), Queue(),)] * 4)
+    board_queues = tuple(
+        [
+            (
+                Queue(),
+                Queue(),
+                Queue(),
+            )
+        ]
+        * 4
+    )
     p = OkCommunicationProcess(board_queues, error_queue)
     dummy_xem, _ = patch_connection_to_board
     invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
@@ -738,7 +765,16 @@ def test_OkCommunicationProcess__puts_message_into_queue_for_successful_board_co
 ):
     error_queue = Queue()
 
-    board_queues = tuple([(Queue(), Queue(), Queue(),)] * 4)
+    board_queues = tuple(
+        [
+            (
+                Queue(),
+                Queue(),
+                Queue(),
+            )
+        ]
+        * 4
+    )
     p = OkCommunicationProcess(board_queues, error_queue)
     invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
     ok_comm_to_main = board_queues[0][1]
@@ -763,7 +799,16 @@ def test_OkCommunicationProcess__puts_message_into_queue_for_successful_board_co
 def test_OkCommunicationProcess__puts_message_into_queue_for_unsuccessful_board_connection_when_run():
     error_queue = Queue()
 
-    board_queues = tuple([(Queue(), Queue(), Queue(),)] * 4)
+    board_queues = tuple(
+        [
+            (
+                Queue(),
+                Queue(),
+                Queue(),
+            )
+        ]
+        * 4
+    )
     p = OkCommunicationProcess(board_queues, error_queue)
 
     invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
@@ -1074,7 +1119,8 @@ def test_OkCommunicationProcess_create_connections_to_all_available_boards__hand
 
 
 def test_OkCommunicationProcess_teardown_after_loop__sets_teardown_complete_event(
-    four_board_comm_process, mocker,
+    four_board_comm_process,
+    mocker,
 ):
     ok_process, _, _ = four_board_comm_process
 
@@ -1086,7 +1132,8 @@ def test_OkCommunicationProcess_teardown_after_loop__sets_teardown_complete_even
 
 @freeze_time("2020-07-20 11:57:11.123456")
 def test_OkCommunicationProcess_teardown_after_loop__puts_teardown_log_message_into_queue(
-    four_board_comm_process, mocker,
+    four_board_comm_process,
+    mocker,
 ):
     ok_process, board_queues, _ = four_board_comm_process
     comm_to_main_queue = board_queues[0][1]
@@ -1105,7 +1152,8 @@ def test_OkCommunicationProcess_teardown_after_loop__puts_teardown_log_message_i
 @pytest.mark.slow
 @pytest.mark.timeout(6)
 def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_acquisition_is_running_with_simulator__and_log_stop_acquistion_message(
-    running_process_with_simulated_board, mocker,
+    running_process_with_simulated_board,
+    mocker,
 ):
     simulator = RunningFIFOSimulator()
     ok_process, board_queues, _ = running_process_with_simulated_board(simulator)
@@ -1141,7 +1189,9 @@ def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_
 
 
 def test_OkCommunicationProcess_boot_up_instrument__with_real_board__raises_error_if_firmware_version_does_not_match_file_name(
-    four_board_comm_process, patched_firmware_folder, mocker,
+    four_board_comm_process,
+    patched_firmware_folder,
+    mocker,
 ):
     mocker.patch(
         "builtins.print", autospec=True
@@ -1182,7 +1232,9 @@ def test_OkCommunicationProcess_boot_up_instrument__with_real_board__raises_erro
 
 
 def test_OkCommunicationProcess_boot_up_instrument__with_real_board__does_not_raise_error_if_firmware_version_matches_file_name(
-    four_board_comm_process, patched_firmware_folder, mocker,
+    four_board_comm_process,
+    patched_firmware_folder,
+    mocker,
 ):
     ok_process, board_queues, _ = four_board_comm_process
 

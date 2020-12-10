@@ -1036,12 +1036,15 @@ class ServerThread(InfiniteThread):
         http_route = f"{get_api_endpoint()}stop_server"
         try:
             requests.get(http_route)
-            msg = "Server has been successfully shutdown."
+            message = "Server has been successfully shutdown."
         except requests.exceptions.ConnectionError:
-            msg = f"Server was not running on {http_route} during shutdown attempt."
+            message = f"Server was not running on {http_route} during shutdown attempt."
 
         put_log_message_into_queue(
-            logging.INFO, msg, self._to_main_queue, self.get_logging_level(),
+            logging.INFO,
+            message,
+            self._to_main_queue,
+            self.get_logging_level(),
         )
 
     def stop(self) -> None:

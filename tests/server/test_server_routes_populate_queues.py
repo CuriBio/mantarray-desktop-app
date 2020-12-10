@@ -829,8 +829,10 @@ def test_start_recording_command__populates_queue__with_correctly_parsed_set_of_
 def test_start_recording_command__populates_queue__with_defaults__24_wells__utcnow_recording_start_time__and_metadata(
     test_process_manager, test_client, generic_start_recording_info_in_shared_dict
 ):
-    expected_acquisition_timestamp = datetime.datetime(  # pylint: disable=duplicate-code
-        year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332598
+    expected_acquisition_timestamp = (
+        datetime.datetime(  # pylint: disable=duplicate-code
+            year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332598
+        )
     )
     expected_recording_timepoint = GENERIC_START_RECORDING_COMMAND[
         "timepoint_to_begin_recording_at"

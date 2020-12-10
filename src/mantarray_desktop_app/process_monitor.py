@@ -180,8 +180,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
     def _put_communication_into_ok_comm_queue(
         self, communication: Dict[str, Any]
     ) -> None:
-        main_to_ok_comm_queue = self._process_manager.queue_container().get_communication_to_ok_comm_queue(
-            0
+        main_to_ok_comm_queue = (
+            self._process_manager.queue_container().get_communication_to_ok_comm_queue(
+                0
+            )
         )
         main_to_ok_comm_queue.put(communication)
 

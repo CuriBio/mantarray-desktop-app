@@ -96,7 +96,9 @@ def fixture_running_server_thread(server_thread):
 
 
 @pytest.fixture(scope="function", name="generic_start_recording_info_in_shared_dict")
-def fixture_generic_start_recording_info_in_shared_dict(test_monitor,):
+def fixture_generic_start_recording_info_in_shared_dict(
+    test_monitor,
+):
     _, shared_values_dict, _, _ = test_monitor
     # _,_, shared_values_dict=client_and_server_thread_and_shared_values
     board_idx = 0

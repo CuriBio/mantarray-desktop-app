@@ -151,7 +151,15 @@ def fixture_four_board_file_writer_process():
     from_main = Queue()
     to_main = Queue()
 
-    board_queues = tuple([(Queue(), Queue(),) for _ in range(4)])
+    board_queues = tuple(
+        [
+            (
+                Queue(),
+                Queue(),
+            )
+            for _ in range(4)
+        ]
+    )
     with tempfile.TemporaryDirectory() as tmp_dir:
         p = FileWriterProcess(
             board_queues, from_main, to_main, error_queue, file_directory=tmp_dir

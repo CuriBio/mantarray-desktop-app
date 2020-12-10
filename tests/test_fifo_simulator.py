@@ -75,7 +75,9 @@ def test_RunningFIFOSimulator__super_called_during_initialize_board_with_correct
 
     fifo_simulator.initialize_board()
     mocked_super_init_board.assert_called_once_with(
-        fifo_simulator, bit_file_name=None, allow_board_reinitialization=False,
+        fifo_simulator,
+        bit_file_name=None,
+        allow_board_reinitialization=False,
     )
 
 

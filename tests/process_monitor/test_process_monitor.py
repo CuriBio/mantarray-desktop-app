@@ -279,8 +279,8 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         ("error", "stack_trace"), ok_comm_error_queue
     )
-    instrument_to_main = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
-        0
+    instrument_to_main = (
+        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         expected_ok_comm_item, instrument_to_main
@@ -332,8 +332,8 @@ def test_MantarrayProcessesMonitor__updates_timestamp_in_shared_values_dict_afte
     queue_command_to_ok_comm(
         get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
     )
-    comm_to_ok_comm = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
-        0
+    comm_to_ok_comm = (
+        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     assert is_queue_eventually_not_empty(comm_to_ok_comm) is True
     ok_comm_process = test_process_manager.get_ok_comm_process()
@@ -504,8 +504,8 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_needs_calibration_afte
     from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
     )
-    to_ok_comm_queue = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
-        0
+    to_ok_comm_queue = (
+        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     to_ok_comm_queue.put(
         {"communication_type": "xem_scripts", "script_type": "start_up"}
@@ -541,8 +541,8 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_calibrated_after_calib
     from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
     )
-    to_ok_comm_queue = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
-        0
+    to_ok_comm_queue = (
+        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     to_ok_comm_queue.put(
         {"communication_type": "xem_scripts", "script_type": "start_calibration"}
@@ -570,8 +570,8 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_calibrated_after_manag
     from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
     )
-    to_ok_comm_queue = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
-        0
+    to_ok_comm_queue = (
+        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
 
     simulator = FrontPanelSimulator({})
@@ -676,8 +676,8 @@ def test_MantarrayProcessesMonitor__stores_firmware_versions_during_instrument_b
     test_process_manager.create_processes()
 
     okc_process = test_process_manager.get_ok_comm_process()
-    to_ok_comm_queue = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
-        0
+    to_ok_comm_queue = (
+        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0

@@ -13,7 +13,9 @@ class MantarrayQueueContainer:
     """Getter for all the queues."""
 
     # pylint:disable=too-many-instance-attributes # Eli (12/8/20): there are a lot of queues, this class manages them
-    def __init__(self,) -> None:
+    def __init__(
+        self,
+    ) -> None:
         # pylint:disable=duplicate-code # needed for the type definition of the board_queues
         self._ok_communication_error_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
             Tuple[Exception, str]
@@ -31,7 +33,16 @@ class MantarrayQueueContainer:
                 ],
             ],
             ...,
-        ] = tuple([(Queue(), Queue(), Queue(),)] * 1)
+        ] = tuple(
+            [
+                (
+                    Queue(),
+                    Queue(),
+                    Queue(),
+                )
+            ]
+            * 1
+        )
 
         self._from_main_to_file_writer_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
             Dict[str, Any]
@@ -52,7 +63,15 @@ class MantarrayQueueContainer:
                 ],
             ],  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
             ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-        ] = tuple([(self._ok_comm_board_queues[0][2], Queue(),)] * 1)
+        ] = tuple(
+            [
+                (
+                    self._ok_comm_board_queues[0][2],
+                    Queue(),
+                )
+            ]
+            * 1
+        )
 
         self._data_analyzer_board_queues: Tuple[  # pylint-disable: duplicate-code
             Tuple[
@@ -64,7 +83,15 @@ class MantarrayQueueContainer:
                 ],
             ],  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
             ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-        ] = tuple([(self._file_writer_board_queues[0][1], Queue(),)] * 1)
+        ] = tuple(
+            [
+                (
+                    self._file_writer_board_queues[0][1],
+                    Queue(),
+                )
+            ]
+            * 1
+        )
         self._from_main_to_data_analyzer_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
             Dict[str, Any]
         ] = Queue()

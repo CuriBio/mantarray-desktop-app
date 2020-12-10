@@ -103,7 +103,13 @@ def test_ServerThread_start__puts_error_into_queue_if_port_in_use(
     mocker.patch.object(server, "is_port_in_use", autospec=True, return_value=True)
 
     st.start()
-    assert is_queue_eventually_of_size(error_queue, 1,) is True
+    assert (
+        is_queue_eventually_of_size(
+            error_queue,
+            1,
+        )
+        is True
+    )
     e, _ = error_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
     assert isinstance(e, LocalServerPortAlreadyInUseError)
 
@@ -254,7 +260,9 @@ def test_get_server_address_components__returns_default_port_number_if_server_th
     assert actual_port == DEFAULT_SERVER_PORT_NUMBER
 
 
-def test_server_queue_command_to_main_puts_in_a_copy_of_the_dict(server_thread,):
+def test_server_queue_command_to_main_puts_in_a_copy_of_the_dict(
+    server_thread,
+):
     _, to_main_queue, _ = server_thread
     test_dict = {"bill": "clinton"}
     server.queue_command_to_main(test_dict)

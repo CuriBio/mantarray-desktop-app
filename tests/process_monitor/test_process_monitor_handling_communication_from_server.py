@@ -60,8 +60,8 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         == expected_nickname
     )
 
-    main_to_ok_comm = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
-        0
+    main_to_ok_comm = (
+        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     confirm_queue_is_eventually_of_size(main_to_ok_comm, 1)
     actual_comm = main_to_ok_comm.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -97,8 +97,8 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         == expected_serial
     )
 
-    main_to_ok_comm = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
-        0
+    main_to_ok_comm = (
+        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     confirm_queue_is_eventually_of_size(main_to_ok_comm, 1)
     actual_comm = main_to_ok_comm.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -130,8 +130,8 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         == CALIBRATING_STATE
     )
 
-    main_to_ok_comm = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
-        0
+    main_to_ok_comm = (
+        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     confirm_queue_is_eventually_of_size(main_to_ok_comm, 1)
     actual_comm = main_to_ok_comm.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -183,8 +183,8 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     shared_values_dict = test_process_manager.get_values_to_share_to_server()
     assert shared_values_dict["system_status"] == BUFFERING_STATE
 
-    main_to_ok_comm = test_process_manager.queue_container().get_communication_to_ok_comm_queue(
-        0
+    main_to_ok_comm = (
+        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     confirm_queue_is_eventually_of_size(main_to_ok_comm, 1)
     actual_comm = main_to_ok_comm.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)

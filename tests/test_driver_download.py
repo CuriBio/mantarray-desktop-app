@@ -9,7 +9,9 @@ from stdlib_utils import get_current_file_abs_directory
 def test_correct_driver_exe_is_downloaded__and_put_in_correct_folder():
     path_to_drivers_folder = os.path.normcase(
         os.path.join(
-            os.path.dirname(get_current_file_abs_directory()), "src", "drivers",
+            os.path.dirname(get_current_file_abs_directory()),
+            "src",
+            "drivers",
         )
     )
     assert "FrontPanelUSB-DriverOnly-5.2.2.exe" in os.listdir(path_to_drivers_folder)

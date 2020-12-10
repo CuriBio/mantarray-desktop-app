@@ -13,7 +13,10 @@ def test_MantarrayFrontPanelMixIn__get_firmware_version_calls_read_wire_out(mock
 
     expected_value = "3.2.1"
     mocked_read_wire = mocker.patch.object(
-        mantarray_mixin, "read_wire_out", autospec=True, return_value=0x04030201,
+        mantarray_mixin,
+        "read_wire_out",
+        autospec=True,
+        return_value=0x04030201,
     )
 
     actual = mantarray_mixin.get_firmware_version()
@@ -58,7 +61,10 @@ def test_MantarrayFrontPanel__get_firmware_version_returns_expected_value_from_c
 
     expected_value = "0.1.2"
     mocked_get_wire = mocker.patch.object(
-        dummy_xem, "GetWireOutValue", autospec=True, return_value=0x00000102,
+        dummy_xem,
+        "GetWireOutValue",
+        autospec=True,
+        return_value=0x00000102,
     )
     mocker.patch.object(
         dummy_xem, "IsFrontPanelEnabled", autospec=True, return_value=True

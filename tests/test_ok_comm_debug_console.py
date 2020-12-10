@@ -55,7 +55,8 @@ def test_execute_debug_console_command__lets_error_propagate_up_with_default_sup
     )
     with pytest.raises(KeyError, match="side_effect_error"):
         execute_debug_console_command(
-            dummy_panel, {"command": "initialize_board", "bit_file_name": "main.bit"},
+            dummy_panel,
+            {"command": "initialize_board", "bit_file_name": "main.bit"},
         )
 
 
@@ -128,7 +129,10 @@ def test_OkCommunicationProcess_run__processes_init_board_debug_console_command_
     [(7, 5, "response of 5 from wire 7"), (4, 8, "response of 8 from wire 4")],
 )
 def test_OkCommunicationProcess_run__processes_read_wire_out_debug_console_command(
-    test_address, test_response, test_description, running_process_with_simulated_board,
+    test_address,
+    test_response,
+    test_description,
+    running_process_with_simulated_board,
 ):
     wire_queue = Queue()
     wire_queue.put(test_response)

@@ -122,7 +122,9 @@ def main(
     )
     # TODO (Eli 11/16/20): fix all Command Line Arguments to be consistently kebab-case
     parser.add_argument(
-        "--port_number", type=int, help="allow manual setting of server port number",
+        "--port_number",
+        type=int,
+        help="allow manual setting of server port number",
     )
     parser.add_argument(
         "--log_file_dir",

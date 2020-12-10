@@ -202,9 +202,21 @@ def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_wh
 @pytest.mark.parametrize(
     "test_well_index,test_construct_data,test_description",
     [
-        (0, [[0, 1000, 2000], [0, 48, 96]], "correctly loads well 0 data",),
-        (9, [[250, 1250, 2250], [13, 61, 109]], "correctly loads well 9 data",),
-        (18, [[750, 1750, 2750], [41, 89, 137]], "correctly loads well 18 data",),
+        (
+            0,
+            [[0, 1000, 2000], [0, 48, 96]],
+            "correctly loads well 0 data",
+        ),
+        (
+            9,
+            [[250, 1250, 2250], [13, 61, 109]],
+            "correctly loads well 9 data",
+        ),
+        (
+            18,
+            [[750, 1750, 2750], [41, 89, 137]],
+            "correctly loads well 18 data",
+        ),
     ],
 )
 def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_when_not_empty(
@@ -321,13 +333,17 @@ def test_DataAnalyzerProcess__correctly_pairs_descending_order_ref_sensor_data_i
         ),
         (
             np.array(
-                [0, DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS - 1], dtype=np.int32,
+                [0, DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS - 1],
+                dtype=np.int32,
             ),
             False,
             "correctly sets flag when not full",
         ),
         (
-            np.array([0, DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS], dtype=np.int32,),
+            np.array(
+                [0, DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS],
+                dtype=np.int32,
+            ),
             True,
             "correctly sets flag when full",
         ),
@@ -374,10 +390,12 @@ def test_DataAnalyzerProcess__dumps_all_data_when_buffer_is_full_and_clears_buff
     data_buffer = p._data_buffer  # pylint:disable=protected-access
     for well_index in range(24):
         data_buffer[well_index]["construct_data"] = np.array(
-            [expected_x_vals, expected_y_vals[well_index]], dtype=np.int32,
+            [expected_x_vals, expected_y_vals[well_index]],
+            dtype=np.int32,
         )
         data_buffer[well_index]["ref_data"] = np.array(
-            [expected_x_vals, [0, 0]], dtype=np.int32,
+            [expected_x_vals, [0, 0]],
+            dtype=np.int32,
         )
 
     invoke_process_run_and_check_errors(p)
@@ -768,12 +786,12 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_dumping_data(
     da_process._start_timepoint_of_last_performance_measurement = (  # pylint: disable=protected-access
         expected_start_timepoint
     )
-    da_process._percent_use_values = expected_percent_use_vals[  # pylint: disable=protected-access
-        :-1
-    ]
-    da_process._outgoing_data_creation_durations = expected_data_creation_durs[  # pylint: disable=protected-access
-        :-1
-    ]
+    da_process._percent_use_values = (
+        expected_percent_use_vals[:-1]  # pylint: disable=protected-access
+    )
+    da_process._outgoing_data_creation_durations = (
+        expected_data_creation_durs[:-1]  # pylint: disable=protected-access
+    )
     data_buffer = da_process._data_buffer  # pylint: disable=protected-access
     for i in range(24):
         data_buffer[i]["construct_data"] = np.zeros((2, 2))

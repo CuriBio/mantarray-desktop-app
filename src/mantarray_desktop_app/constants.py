@@ -160,7 +160,10 @@ for adc_num in range(6):
 
 # Communications from Main to Subprocesses
 START_MANAGED_ACQUISITION_COMMUNICATION = immutabledict(
-    {"communication_type": "to_instrument", "command": "start_managed_acquisition",}
+    {
+        "communication_type": "to_instrument",
+        "command": "start_managed_acquisition",
+    }
 )
 
 SERVER_INITIALIZING_STATE = "server_initializing"
