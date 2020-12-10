@@ -73,7 +73,7 @@ def test_OkCommunicationProcess_run__processes_start_managed_acquisition_command
     invoke_process_run_and_check_errors(ok_process)
 
     expected_returned_communication["timestamp"] = datetime.datetime.utcnow()
-    actual = ok_comm_to_main.get_nowait()
+    actual = ok_comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_returned_communication
 
     assert (
@@ -115,7 +115,7 @@ def test_OkCommunicationProcess_run__processes_stop_managed_acquisition_command(
     )
     invoke_process_run_and_check_errors(ok_process)
 
-    actual = ok_comm_to_main.get_nowait()
+    actual = ok_comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_returned_communication
 
     assert (
@@ -242,7 +242,7 @@ def test_OkCommunicationProcess_commands_for_each_run_iteration__sends_fifo_read
             [[0], [int(test_value_1) - RAW_TO_SIGNED_CONVERSION_VALUE]], dtype=np.int32
         ),
     }
-    actual = board_queues[0][2].get_nowait()
+    actual = board_queues[0][2].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert (
         actual["is_reference_sensor"] == expected_first_dict_sent["is_reference_sensor"]
     )
@@ -313,7 +313,9 @@ def test_OkCommunicationProcess_managed_acquisition_reads_at_least_one_prepopula
     to_main_queue = board_queues[0][1]
     invoke_process_run_and_check_errors(ok_process)
 
-    to_main_queue.get_nowait()  # pop out the receipt of the command
+    to_main_queue.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # pop out the receipt of the command
     assert to_main_queue.empty()
 
     ok_process._time_of_last_fifo_read[  # pylint: disable=protected-access
@@ -324,13 +326,13 @@ def test_OkCommunicationProcess_managed_acquisition_reads_at_least_one_prepopula
     ] = time.perf_counter()
     invoke_process_run_and_check_errors(ok_process)
 
-    words_msg = to_main_queue.get_nowait()
+    words_msg = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert "words in the FIFO" in words_msg["message"]
-    about_to_read_msg = to_main_queue.get_nowait()
+    about_to_read_msg = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert "About to read from FIFO" in about_to_read_msg["message"]
-    after_read_msg = to_main_queue.get_nowait()
+    after_read_msg = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert "After reading from FIFO" in after_read_msg["message"]
-    size_msg = to_main_queue.get_nowait()
+    size_msg = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert "576 bytes" in size_msg["message"]
 
 
@@ -396,7 +398,7 @@ def test_OkCommunicationProcess_managed_acquisition_handles_ignoring_first_data_
             dtype=np.int32,
         ),
     }
-    actual = to_file_writer_queue.get_nowait()
+    actual = to_file_writer_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert (
         actual["is_reference_sensor"] == expected_first_dict_sent["is_reference_sensor"]
     )
@@ -473,7 +475,7 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
         is True
     )
     invoke_process_run_and_check_errors(ok_process)
-    comm_to_main.get_nowait()  # pop out init message
+    comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pop out init message
     assert (
         is_queue_eventually_empty(
             comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
@@ -497,7 +499,9 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
     )
 
     for _ in range(10):
-        comm_to_main.get_nowait()  # pop expected log messages
+        comm_to_main.get(
+            timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+        )  # pop expected log messages
         assert (
             is_queue_eventually_not_empty(
                 comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
@@ -511,7 +515,7 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
         )
         is True
     )
-    fifo_read_msg = comm_to_main.get_nowait()
+    fifo_read_msg = comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     first_managed_read_length = len(test_read) - (
         DATA_FRAME_SIZE_WORDS * DATA_FRAMES_PER_ROUND_ROBIN * 4
     )
@@ -524,7 +528,7 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
         )
         is True
     )
-    error_msg = comm_to_main.get_nowait()
+    error_msg = comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert "OpalKellyIncorrectHeaderError" in error_msg["message"]
 
     if is_read_convertable:
@@ -534,7 +538,7 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
             )
             is True
         )
-        hex_words_msg = comm_to_main.get_nowait()
+        hex_words_msg = comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
         assert "['0x1010101', '0x1010101'" in hex_words_msg["message"]
 
     assert (
@@ -575,7 +579,7 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_when_non_parsin
     comm_to_main = board_queues[0][1]
 
     invoke_process_run_and_check_errors(ok_process)
-    comm_to_main.get_nowait()  # pop out init message
+    comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pop out init message
     assert (
         is_queue_eventually_empty(
             comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
@@ -600,7 +604,9 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_when_non_parsin
             )
             is True
         )
-        comm_to_main.get_nowait()  # pop out expected log messages
+        comm_to_main.get(
+            timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+        )  # pop out expected log messages
 
     assert (
         is_queue_eventually_empty(
@@ -640,7 +646,7 @@ def test_OkCommunicationProcess_raises_and_logs_error_if_first_managed_read_does
     comm_to_main = board_queues[0][1]
 
     invoke_process_run_and_check_errors(ok_process)
-    comm_to_main.get_nowait()  # pop out init log message
+    comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pop out init log message
     assert (
         is_queue_eventually_empty(
             comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
@@ -664,7 +670,9 @@ def test_OkCommunicationProcess_raises_and_logs_error_if_first_managed_read_does
     )
 
     for _ in range(4):
-        comm_to_main.get_nowait()  # pop out expected log messages
+        comm_to_main.get(
+            timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+        )  # pop out expected log messages
         assert (
             is_queue_eventually_not_empty(
                 comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
@@ -672,7 +680,7 @@ def test_OkCommunicationProcess_raises_and_logs_error_if_first_managed_read_does
             is True
         )
 
-    fifo_read_msg = comm_to_main.get_nowait()
+    fifo_read_msg = comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert f"{len(test_bytearray)} bytes" in fifo_read_msg["message"]
     assert r"b''" in fifo_read_msg["message"]
 
@@ -682,7 +690,7 @@ def test_OkCommunicationProcess_raises_and_logs_error_if_first_managed_read_does
         )
         is True
     )
-    error_msg = comm_to_main.get_nowait()
+    error_msg = comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert "FirstManagedReadLessThanOneRoundRobinError" in error_msg["message"]
 
     assert (
@@ -722,7 +730,7 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
 
     invoke_process_run_and_check_errors(ok_process)
 
-    comm_to_main.get_nowait()  # pop out init message
+    comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pop out init message
     assert (
         is_queue_eventually_empty(
             comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
@@ -745,7 +753,9 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
     )
 
     for _ in range(6):
-        comm_to_main.get_nowait()  # pop out expected log messages
+        comm_to_main.get(
+            timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+        )  # pop out expected log messages
         assert (
             is_queue_eventually_not_empty(
                 comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
@@ -753,7 +763,7 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
             is True
         )
 
-    fifo_read_msg = comm_to_main.get_nowait()
+    fifo_read_msg = comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     first_round_robin_len = DATA_FRAME_SIZE_WORDS * DATA_FRAMES_PER_ROUND_ROBIN * 4
     assert f"{first_round_robin_len} bytes" in fifo_read_msg["message"]
     assert r"b'\x01\x01\x01\x01" in fifo_read_msg["message"]
@@ -764,7 +774,7 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
         )
         is True
     )
-    error_msg = comm_to_main.get_nowait()
+    error_msg = comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert "OpalKellyIncorrectHeaderError" in error_msg["message"]
 
     for _ in range(2):
@@ -774,7 +784,9 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
             )
             is True
         )
-        comm_to_main.get_nowait()  # pop out expected log messages
+        comm_to_main.get(
+            timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+        )  # pop out expected log messages
 
     assert (
         is_queue_eventually_empty(
@@ -820,7 +832,7 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_when_non_parsin
     comm_to_main = board_queues[0][1]
 
     invoke_process_run_and_check_errors(ok_process)
-    comm_to_main.get_nowait()  # pop out init message
+    comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pop out init message
     assert (
         is_queue_eventually_empty(
             comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
@@ -844,7 +856,9 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_when_non_parsin
             )
             is True
         )
-        comm_to_main.get_nowait()  # pop out expected log messages
+        comm_to_main.get(
+            timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+        )  # pop out expected log messages
 
     assert (
         is_queue_eventually_empty(
@@ -954,11 +968,11 @@ def test_OkCommunicationProcess_managed_acquisition_logs_performance_metrics_aft
         )
         is True
     )
-    actual = board_queues[0][1].get_nowait()
+    actual = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     while is_queue_eventually_not_empty(
         board_queues[0][1], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     ):
-        actual = board_queues[0][1].get_nowait()
+        actual = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     actual = actual["message"]
 
     expected_num_bytes = [len(read) for read in test_fifo_reads]
@@ -1021,7 +1035,7 @@ def test_OkCommunicationProcess_managed_acquisition_logs_performance_metrics_aft
     while is_queue_eventually_not_empty(
         board_queues[0][2], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     ):
-        board_queues[0][2].get_nowait()
+        board_queues[0][2].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
 
 @pytest.mark.slow
@@ -1076,11 +1090,11 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_percent_use_met
         )
         is True
     )
-    actual = board_queues[0][1].get_nowait()
+    actual = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     while is_queue_eventually_not_empty(
         board_queues[0][1], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     ):
-        actual = board_queues[0][1].get_nowait()
+        actual = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     actual = actual["message"]
     assert "percent_use_metrics" not in actual
 
@@ -1088,4 +1102,4 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_percent_use_met
     while is_queue_eventually_not_empty(
         board_queues[0][2], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     ):
-        board_queues[0][2].get_nowait()
+        board_queues[0][2].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)

@@ -729,7 +729,7 @@ def test_OkCommunicationProcess_run_sends_initial_communication_to_main_during_s
     invoke_process_run_and_check_errors(ok_process, perform_setup_before_loop=True)
     comm_to_main = board_queues[0][1]
     assert is_queue_eventually_not_empty(comm_to_main) is True
-    actual_msg = comm_to_main.get_nowait()
+    actual_msg = comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_msg["communication_type"] == "log"
     assert (
         actual_msg["message"]
@@ -778,10 +778,12 @@ def test_OkCommunicationProcess__puts_message_into_queue_for_successful_board_co
     p = OkCommunicationProcess(board_queues, error_queue)
     invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
     ok_comm_to_main = board_queues[0][1]
-    ok_comm_to_main.get_nowait()  # pop out initial boot-up message
+    ok_comm_to_main.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # pop out initial boot-up message
 
     assert is_queue_eventually_not_empty(ok_comm_to_main) is True
-    msg = ok_comm_to_main.get_nowait()
+    msg = ok_comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert msg["communication_type"] == "board_connection_status_change"
     assert msg["is_connected"] is True
     assert msg["board_index"] == 0
@@ -813,10 +815,12 @@ def test_OkCommunicationProcess__puts_message_into_queue_for_unsuccessful_board_
 
     invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
     ok_comm_to_main = board_queues[0][1]
-    ok_comm_to_main.get_nowait()  # pop out initial boot-up message
+    ok_comm_to_main.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # pop out initial boot-up message
 
     assert is_queue_eventually_not_empty(ok_comm_to_main) is True
-    msg = ok_comm_to_main.get_nowait()
+    msg = ok_comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert msg["communication_type"] == "board_connection_status_change"
     assert msg["is_connected"] is False
     assert msg["message"] == "No board detected. Creating simulator."
@@ -1113,7 +1117,7 @@ def test_OkCommunicationProcess_create_connections_to_all_available_boards__hand
     ok_process.create_connections_to_all_available_boards()
     assert is_queue_eventually_not_empty(comm_to_main_queue) is True
 
-    actual = comm_to_main_queue.get_nowait()
+    actual = comm_to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual["mantarray_serial_number"] == expected_serial_number
     assert actual["mantarray_nickname"] == expected_nickname
 
@@ -1142,7 +1146,7 @@ def test_OkCommunicationProcess_teardown_after_loop__puts_teardown_log_message_i
     ok_process.run(perform_setup_before_loop=False, num_iterations=1)
     assert is_queue_eventually_not_empty(comm_to_main_queue)
 
-    actual = comm_to_main_queue.get_nowait()
+    actual = comm_to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert (
         actual["message"]
         == "OpalKelly Communication Process beginning teardown at 2020-07-20 11:57:11.123456"
@@ -1266,5 +1270,5 @@ def test_OkCommunicationProcess_boot_up_instrument__with_real_board__does_not_ra
     invoke_process_run_and_check_errors(ok_process)
 
     assert is_queue_eventually_not_empty(board_queues[0][1]) is True
-    response_comm = board_queues[0][1].get_nowait()
+    response_comm = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert response_comm["main_firmware_version"] == expected_wire_out_version

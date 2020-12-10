@@ -186,7 +186,7 @@ def test_FileWriterProcess__raises_error_if_unrecognized_command_from_main(
     )
     file_writer_process.run(num_iterations=1)
     assert_queue_is_eventually_not_empty(error_queue)
-    raised_error, _ = error_queue.get_nowait()
+    raised_error, _ = error_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert (
         isinstance(raised_error, UnrecognizedCommandFromMainToFileWriterError) is True
     )
@@ -429,7 +429,7 @@ def test_FileWriterProcess__only_creates_file_indices_specified__when_receiving_
     )
     assert actual_set_of_files == expected_set_of_files
     assert_queue_is_eventually_not_empty(to_main_queue)
-    comm_to_main = to_main_queue.get_nowait()
+    comm_to_main = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert comm_to_main["communication_type"] == "command_receipt"
     assert comm_to_main["command"] == "start_recording"
     assert (
@@ -531,9 +531,11 @@ def test_FileWriterProcess__stop_recording__sets_stop_recording_timestamp_to_tim
 
     assert stop_timestamps[0] == 302412 * 125
 
-    to_main_queue.get_nowait()  # pop off the initial receipt of start command message
+    to_main_queue.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # pop off the initial receipt of start command message
     assert_queue_is_eventually_not_empty(to_main_queue)
-    comm_to_main = to_main_queue.get_nowait()
+    comm_to_main = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert comm_to_main["communication_type"] == "command_receipt"
     assert comm_to_main["command"] == "stop_recording"
     assert comm_to_main["timepoint_to_stop_recording_at"] == 302412 * 125
@@ -661,16 +663,20 @@ def test_FileWriterProcess__closes_the_files_and_adds_crc32_checksum_and_sends_c
     with open(actual_file.filename, "rb") as actual_file_buffer:
         validate_file_head_crc32(actual_file_buffer)
 
-    to_main_queue.get_nowait()  # pop off the initial receipt of start command message
-    to_main_queue.get_nowait()  # pop off the initial receipt of stop command message
+    to_main_queue.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # pop off the initial receipt of start command message
+    to_main_queue.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # pop off the initial receipt of stop command message
     assert_queue_is_eventually_not_empty(to_main_queue)
 
-    first_comm_to_main = to_main_queue.get_nowait()
+    first_comm_to_main = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert first_comm_to_main["communication_type"] == "file_finalized"
     assert "_A2" in first_comm_to_main["file_path"]
     assert_queue_is_eventually_not_empty(to_main_queue)
 
-    second_comm_to_main = to_main_queue.get_nowait()
+    second_comm_to_main = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert second_comm_to_main["communication_type"] == "file_finalized"
     assert "_B2" in second_comm_to_main["file_path"]
 
@@ -710,7 +716,7 @@ def test_FileWriterProcess__drain_all_queues__drains_all_queues_except_error_que
     actual = file_writer_process._drain_all_queues()  # pylint:disable=protected-access
 
     assert_queue_is_eventually_not_empty(error_queue)
-    actual_error = error_queue.get_nowait()
+    actual_error = error_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_error == expected_error
 
     for iter_queue_idx, iter_queue in enumerate(
@@ -791,7 +797,7 @@ def test_FileWriterProcess__logs_performance_metrics_after_appropriate_number_of
         file_writer_process, num_iterations=FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
     )
     assert_queue_is_eventually_not_empty(to_main_queue)
-    actual = to_main_queue.get_nowait()
+    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     actual = actual["message"]
 
     assert actual["communication_type"] == "performance_metrics"
@@ -828,7 +834,7 @@ def test_FileWriterProcess__does_not_log_percent_use_metrics_in_first_logging_cy
     )
     assert_queue_is_eventually_not_empty(to_main_queue)
 
-    actual = to_main_queue.get_nowait()
+    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     actual = actual["message"]
     assert "percent_use_metrics" not in actual
 
@@ -856,7 +862,9 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_when_recording(
         start_recording_command, from_main_queue
     )
     invoke_process_run_and_check_errors(file_writer_process)
-    to_main_queue.get_nowait()  # Tanner (9/10/20): remove start_recording confirmation
+    to_main_queue.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # Tanner (9/10/20): remove start_recording confirmation
 
     num_points_list = list()
     for i in range(24):
@@ -895,7 +903,7 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_when_recording(
         file_writer_process, num_iterations=FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
     )
 
-    actual = to_main_queue.get_nowait()
+    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     actual = actual["message"]
     assert actual["num_recorded_data_points_metrics"] == {
         "max": max(num_points_list),
@@ -1282,7 +1290,7 @@ def test_FileWriterProcess_teardown_after_loop__puts_teardown_log_message_into_q
     fw_process.run(perform_setup_before_loop=False, num_iterations=1)
     assert_queue_is_eventually_not_empty(to_main_queue)
 
-    actual = to_main_queue.get_nowait()
+    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert (
         actual["message"]
         == "File Writer Process beginning teardown at 2020-07-20 15:09:22.654321"

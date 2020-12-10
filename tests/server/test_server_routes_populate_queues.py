@@ -143,7 +143,7 @@ def test_send_single_get_status_command__populates_queue(
 
     comm_queue = test_server.queue_container().get_communication_to_ok_comm_queue(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
-    communication = comm_queue.get_nowait()
+    communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
     assert communication["command"] == "get_status"
     assert communication["suppress_error"] is True

@@ -122,7 +122,9 @@ def test_DataAnalyzerProcess_performance(four_board_analyzer_process):
         )
         is True
     )
-    board_queues[0][1].get_nowait()  # Tanner (8/31/20): prevent BrokenPipeError
+    board_queues[0][1].get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # Tanner (8/31/20): prevent BrokenPipeError
 
     # print(f"Duration (ns): {dur}")
     assert dur < 7000000000
@@ -400,7 +402,7 @@ def test_DataAnalyzerProcess__dumps_all_data_when_buffer_is_full_and_clears_buff
 
     invoke_process_run_and_check_errors(p)
 
-    actual_json = outgoing_data.get_nowait()
+    actual_json = outgoing_data.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert (
         is_queue_eventually_empty(
             outgoing_data, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
@@ -466,7 +468,7 @@ def test_DataAnalyzerProcess__dump_data_into_queue__sends_message_to_main_indica
         "earliest_timepoint": dummy_data_dict["earliest_timepoint"],
         "latest_timepoint": dummy_data_dict["latest_timepoint"],
     }
-    actual = comm_to_main_queue.get_nowait()
+    actual = comm_to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_message
 
 
@@ -520,7 +522,7 @@ def test_DataAnalyzerProcess__drain_all_queues__drains_all_queues_except_error_q
         )
         is True
     )
-    actual_error = error_queue.get_nowait()
+    actual_error = error_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_error == expected_error
 
     assert (
@@ -833,7 +835,7 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_dumping_data(
         is True
     )
 
-    actual = to_main_queue.get_nowait()
+    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     actual = actual["message"]
     assert actual["communication_type"] == "performance_metrics"
     assert actual["analysis_durations"] == {
@@ -899,7 +901,7 @@ def test_DataAnalyzerProcess__does_not_metrics_in_first_logging_cycle(
         )
         is True
     )
-    actual = to_main_queue.get_nowait()
+    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     actual = actual["message"]
     assert "percent_use_metrics" not in actual
     assert "outgoing_data_creation_metrics" not in actual

@@ -23,6 +23,7 @@ from stdlib_utils import invoke_process_run_and_check_errors
 from xem_wrapper import build_header_magic_number_bytes
 from xem_wrapper import HEADER_MAGIC_NUMBER
 
+from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .helpers import is_queue_eventually_empty
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
@@ -94,9 +95,9 @@ def test_FIFOReadProducer__puts_sawtooth_waveform_in_data_out_queue_each_iterati
 
     invoke_process_run_and_check_errors(producer_thread, num_iterations=2)
 
-    actual_1 = data_out_queue.get_nowait()
+    actual_1 = data_out_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_1 == expected_read_1
-    actual_2 = data_out_queue.get_nowait()
+    actual_2 = data_out_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_2 == expected_read_2
 
     # clean up the queues to avoid BrokenPipe errors

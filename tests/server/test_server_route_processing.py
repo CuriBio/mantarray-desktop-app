@@ -351,7 +351,9 @@ def test_send_single_activate_trigger_in_command__gets_processed(
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
     )
-    comm_from_ok_queue.get_nowait()  # pull out the initial boot-up message
+    comm_from_ok_queue.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # pull out the initial boot-up message
 
     assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
 
@@ -769,7 +771,9 @@ def test_send_single_read_from_fifo_command__gets_processed_with_correct_num_wor
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
     )
-    comm_from_ok_queue.get_nowait()  # pull out the initial boot-up message
+    comm_from_ok_queue.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # pull out the initial boot-up message
 
     total_num_words = len(test_bytearray) // 4
     test_words = struct.unpack(f"<{total_num_words}L", test_bytearray)
