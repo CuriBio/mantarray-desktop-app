@@ -29,7 +29,7 @@ jobs:
         python-version:
           - 3.7
           - 3.8
-          # - 3.9
+          # - 3.9 # Eli (12/10/20): Cython package is giving issues with Python 3.9 currently
         node-version:
           - 12
           - 14

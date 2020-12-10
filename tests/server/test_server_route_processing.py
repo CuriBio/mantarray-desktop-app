@@ -632,6 +632,7 @@ def test_send_single_get_device_id_command__gets_processed(
     assert communication["response"] == expected_id
 
 
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 @pytest.mark.slow
 def test_send_single_is_spi_running_command__gets_processed(
     test_process_manager, test_client
@@ -646,13 +647,16 @@ def test_send_single_is_spi_running_command__gets_processed(
     response = test_client.get("/insert_xem_command_into_queue/is_spi_running")
     assert response.status_code == 200
 
-    test_process_manager.soft_stop_and_join_processes()
+    test_process_manager.soft_stop_processes()
+    confirm_parallelism_is_stopped(
+        ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
+    )
+
     comm_queue = (
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
 
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
@@ -665,6 +669,9 @@ def test_send_single_is_spi_running_command__gets_processed(
     communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "is_spi_running"
     assert communication["response"] is False
+
+    # clean up
+    test_process_manager.hard_stop_and_join_processes()
 
 
 @pytest.mark.parametrize(
@@ -702,7 +709,6 @@ def test_read_from_fifo_command__is_received_by_ok_comm__with_correct_num_words_
     invoke_process_run_and_check_errors(ok_process)
 
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     ok_comm_to_main = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
@@ -714,6 +720,8 @@ def test_read_from_fifo_command__is_received_by_ok_comm__with_correct_num_words_
     assert communication["num_words_to_log"] == test_num_words_to_log
 
 
+# TODO (Eli 12/10/20): It's highly unlikely that slow tests should need to be parametrized--this should probably be set up as unit tests and one single slow integration test
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 @pytest.mark.slow
 @pytest.mark.parametrize(
     ",".join(("test_num_words_to_log", "test_num_cycles_to_read", "test_description")),
@@ -748,12 +756,15 @@ def test_send_single_read_from_fifo_command__gets_processed_with_correct_num_wor
     )
     assert response.status_code == 200
 
-    test_process_manager.soft_stop_and_join_processes()
+    test_process_manager.soft_stop_processes()
+    confirm_parallelism_is_stopped(
+        ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
+    )
+
     comm_queue = (
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
@@ -770,6 +781,9 @@ def test_send_single_read_from_fifo_command__gets_processed_with_correct_num_wor
     communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "read_from_fifo"
     assert communication["response"] == expected_formatted_response
+
+    # clean up
+    test_process_manager.hard_stop_and_join_processes()
 
 
 @pytest.mark.slow
