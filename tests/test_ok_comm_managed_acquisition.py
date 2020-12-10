@@ -206,18 +206,7 @@ def test_OkCommunicationProcess_commands_for_each_run_iteration__removes_default
 
 @freeze_time("2020-02-13 11:43:11.123456")
 def test_OkCommunicationProcess_commands_for_each_run_iteration__sends_fifo_read_to_file_writer_if_ready_to_read():
-    error_queue = Queue()
-
-    board_queues = tuple(
-        [
-            (
-                Queue(),
-                Queue(),
-                Queue(),
-            )
-        ]
-        * 4
-    )
+    board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
     p = OkCommunicationProcess(board_queues, error_queue)
     test_bytearray = produce_data(1, 0)
     fifo = Queue()
@@ -263,18 +252,7 @@ def test_OkCommunicationProcess_commands_for_each_run_iteration__sends_fifo_read
 
 @freeze_time("2020-02-13 11:43:11.123456")
 def test_OkCommunicationProcess_commands_for_each_run_iteration__does_not_send_fifo_read_to_file_writer_if_not_ready_to_read():
-    error_queue = Queue()
-
-    board_queues = tuple(
-        [
-            (
-                Queue(),
-                Queue(),
-                Queue(),
-            )
-        ]
-        * 4
-    )
+    board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
     test_bytearray = bytearray(DATA_FRAME_SIZE_WORDS * 4 * DATA_FRAMES_PER_ROUND_ROBIN)
     test_bytearray[:8] = build_header_magic_number_bytes(HEADER_MAGIC_NUMBER)
     fifo = Queue()
