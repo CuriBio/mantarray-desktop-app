@@ -3,6 +3,7 @@ import datetime
 import os
 import queue
 import threading
+import time
 
 from freezegun import freeze_time
 from mantarray_desktop_app import BUFFERING_STATE
@@ -53,6 +54,11 @@ def test_MantarrayProcessesMonitor__soft_stop_calls_manager_soft_stop_and_join(
     spied_stop = mocker.spy(test_process_manager, "soft_stop_and_join_processes")
     test_process_manager.spawn_processes()
     monitor_thread.start()
+
+    time.sleep(
+        0.5
+    )  # Eli (12/10/20): give time for the ProcessMonitor to consume the start up messages from the queues of the subprocesses before attempting to join them
+
     monitor_thread.soft_stop()
     monitor_thread.join()
     assert spied_stop.call_count == 1
