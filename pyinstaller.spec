@@ -59,9 +59,9 @@ a = Analysis(  # type: ignore # noqa: F821     the 'Analysis' object is special 
     cipher=block_cipher,
 )
 
-# print("Modules/packages found during analysis:")
-# for this_info in sorted(a.pure, key=lambda x: x[0]):
-#     print(this_info)
+print("Modules/packages found during analysis:")  # allow-print
+for this_info in sorted(a.pure, key=lambda x: x[0]):
+    print(this_info)  # allow-print
 
 
 pyz = PYZ(  # type: ignore # noqa: F821   the 'PYZ' object is special to how pyinstaller reads the file
