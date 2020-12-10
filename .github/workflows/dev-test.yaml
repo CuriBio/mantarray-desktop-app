@@ -40,8 +40,8 @@ jobs:
             node-version: "14"
             IS_FASTEST_JOB: true
           - os: "windows-2019"
-            python-version: "3.7"
-            node-version: "12"
+            python-version: "3.8"
+            node-version: "14"
             IS_DEPLOYMENT_CONFIG: true
 
     name: Python ${{ matrix.python-version }} with Node ${{ matrix.node-version }} on ${{ matrix.os }}
@@ -210,6 +210,7 @@ jobs:
 
       - name: Run Python Tests with randomly generated seed
         if: github.event.inputs.randomlyseed == ''
+        timeout-minutes: 40
         run: pipenv run pytest -svv --cov-report=xml --include-slow-tests --full-ci
 
       - name: Run Python Tests with supplied pytest-randomly seed
