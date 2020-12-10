@@ -14,7 +14,7 @@ from xem_wrapper import FrontPanelSimulator
 from xem_wrapper import okCFrontPanel
 
 
-def generate_board_and_error_queues(num_boards: int = 1):
+def generate_board_and_error_queues(num_boards: int = 4):
     error_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
         Tuple[Exception, str]
     ] = Queue()
@@ -56,7 +56,7 @@ def fixture_patch_connection_to_board(mocker):
 
 @pytest.fixture(scope="function", name="four_board_comm_process")
 def fixture_four_board_comm_process():
-    board_queues, error_queue = generate_board_and_error_queues()
+    board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
     p = OkCommunicationProcess(board_queues, error_queue)
     yield p, board_queues, error_queue
     # clean up queues to avoid broken pipe errors

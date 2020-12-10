@@ -233,7 +233,7 @@ jobs:
       - name: Install Pyinstaller (Windows) and display all packages # Eli (10/21/20): when installed with pipenv during development on Linux, not all the right dependencies are included. Maybe there's a better way to get it into the pipfile, but unsure right now
         if: runner.os == 'Windows'
         run: |
-          pipenv run pip install pyinstaller==4.0.0
+          pipenv run pip install pyinstaller==4.1
           pipenv run pip freeze
 
       - name: Compile the Python Executable (Windows)
