@@ -22,6 +22,7 @@ from mantarray_desktop_app import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_desktop_app import utils
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import pytest
+from stdlib_utils import confirm_parallelism_is_stopped
 from stdlib_utils import invoke_process_run_and_check_errors
 from xem_wrapper import DATA_FRAME_SIZE_WORDS
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
@@ -36,6 +37,7 @@ from ..fixtures import fixture_patched_short_calibration_script
 from ..fixtures import fixture_patched_test_xem_scripts_folder
 from ..fixtures import fixture_patched_xem_scripts_folder
 from ..fixtures import fixture_test_process_manager
+from ..fixtures import GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
 from ..fixtures_process_monitor import fixture_test_monitor
@@ -771,6 +773,7 @@ def test_send_single_read_from_fifo_command__gets_processed_with_correct_num_wor
 
 
 @pytest.mark.slow
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 def test_send_single_set_wire_in_command__gets_processed(
     test_process_manager, test_client
 ):
@@ -791,12 +794,14 @@ def test_send_single_set_wire_in_command__gets_processed(
     )
     assert response.status_code == 200
 
-    test_process_manager.soft_stop_and_join_processes()
+    test_process_manager.soft_stop_processes()
+    confirm_parallelism_is_stopped(
+        ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
+    )
     comm_queue = (
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
@@ -811,12 +816,17 @@ def test_send_single_set_wire_in_command__gets_processed(
     assert communication["command"] == "set_wire_in"
     assert communication["ep_addr"] == expected_ep_addr
 
+    # clean up
+    test_process_manager.hard_stop_and_join_processes()
 
+
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 @pytest.mark.slow
 def test_send_xem_scripts_command__gets_processed(
     test_process_manager, test_client, patched_test_xem_scripts_folder, mocker
 ):
     expected_script_type = "test_script"
+    ok_process = test_process_manager.get_instrument_process()
 
     test_process_manager.start_processes()
 
@@ -824,12 +834,16 @@ def test_send_xem_scripts_command__gets_processed(
     assert response.status_code == 200
     response = test_client.get(f"/xem_scripts?script_type={expected_script_type}")
     assert response.status_code == 200
-    test_process_manager.soft_stop_and_join_processes()
+
+    test_process_manager.soft_stop_processes()
+    confirm_parallelism_is_stopped(
+        ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
+    )
+
     comm_queue = (
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
@@ -857,6 +871,9 @@ def test_send_xem_scripts_command__gets_processed(
         teardown_message = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert done_message["communication_type"] == "xem_scripts"
     assert done_message["response"] == f"'{expected_script_type}' script complete."
+
+    # clean up
+    test_process_manager.hard_stop_and_join_processes()
 
 
 @pytest.mark.slow

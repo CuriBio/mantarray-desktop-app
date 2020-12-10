@@ -786,11 +786,11 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_dumping_data(
     da_process._start_timepoint_of_last_performance_measurement = (  # pylint: disable=protected-access
         expected_start_timepoint
     )
-    da_process._percent_use_values = (
-        expected_percent_use_vals[:-1]  # pylint: disable=protected-access
+    da_process._percent_use_values = (  # pylint: disable=protected-access
+        expected_percent_use_vals[:-1]
     )
-    da_process._outgoing_data_creation_durations = (
-        expected_data_creation_durs[:-1]  # pylint: disable=protected-access
+    da_process._outgoing_data_creation_durations = (  # pylint: disable=protected-access
+        expected_data_creation_durs[:-1]
     )
     data_buffer = da_process._data_buffer  # pylint: disable=protected-access
     for i in range(24):

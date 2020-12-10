@@ -120,14 +120,10 @@ def test_FileWriterProcess_super_is_called_during_init(mocker):
 def test_FileWriterProcess_soft_stop_not_allowed_if_incoming_data_still_in_queue_for_board_0(
     four_board_file_writer_process,
 ):
-    (  # pylint:disable=duplicate-code # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
-        file_writer_process,
-        board_queues,
-        _,
-        _,
-        _,
-        _,
-    ) = four_board_file_writer_process
+    # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
+    # fmt: off
+    file_writer_process, board_queues, _, _, _, _, = four_board_file_writer_process
+    # fmt: on
     # The first communication will be processed, but if there is a second one in the queue then the soft stop should be disabled
     board_queues[0][0].put(SIMPLE_CONSTRUCT_DATA_FROM_WELL_0)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -787,9 +783,9 @@ def test_FileWriterProcess__logs_performance_metrics_after_appropriate_number_of
     file_writer_process._start_timepoint_of_last_performance_measurement = (  # pylint: disable=protected-access
         expected_start_timepoint
     )
-    file_writer_process._percent_use_values = expected_percent_use_values[
-        :-1
-    ]  # pylint: disable=protected-access
+    file_writer_process._percent_use_values = (  # pylint: disable=protected-access
+        expected_percent_use_values[:-1]
+    )
 
     invoke_process_run_and_check_errors(
         file_writer_process, num_iterations=FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
@@ -920,14 +916,10 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_when_recording(
 def test_FileWriterProcess__begins_building_data_buffer_when_managed_acquisition_starts(
     four_board_file_writer_process,
 ):
-    (  # pylint:disable=duplicate-code # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
-        file_writer_process,
-        board_queues,
-        _,
-        _,
-        _,
-        _,
-    ) = four_board_file_writer_process
+    # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
+    # fmt: off
+    file_writer_process, board_queues, _, _, _, _, = four_board_file_writer_process
+    # fmt: on
 
     expected_num_items = 3
     for _ in range(expected_num_items):
@@ -954,14 +946,10 @@ def test_FileWriterProcess__begins_building_data_buffer_when_managed_acquisition
 def test_FileWriterProcess__removes_packets_from_data_buffer_that_are_older_than_buffer_memory_size(
     four_board_file_writer_process,
 ):
-    (  # pylint:disable=duplicate-code # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
-        file_writer_process,
-        board_queues,
-        _,
-        _,
-        _,
-        _,
-    ) = four_board_file_writer_process
+    # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
+    # fmt: off
+    file_writer_process, board_queues, _, _, _, _, = four_board_file_writer_process
+    # fmt: on
 
     new_packet = {
         "is_reference_sensor": False,
@@ -987,9 +975,10 @@ def test_FileWriterProcess__removes_packets_from_data_buffer_that_are_older_than
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=2)
 
-    data_packet_buffer = file_writer_process._data_packet_buffers[
-        0
-    ]  # pylint: disable=protected-access
+    # Eli (12/10/20): the new version of black is forcing the pylint note to be moved away from the relevant line
+    # fmt: off
+    data_packet_buffer = file_writer_process._data_packet_buffers[0]  # pylint: disable=protected-access
+    # fmt: on
     assert len(data_packet_buffer) == 1
     assert (
         data_packet_buffer[0]["is_reference_sensor"]
@@ -1011,9 +1000,10 @@ def test_FileWriterProcess__clears_data_buffer_when_stop_mananged_acquisition_co
         _,
     ) = four_board_file_writer_process
 
-    data_packet_buffer = file_writer_process._data_packet_buffers[
-        0
-    ]  # pylint: disable=protected-access
+    # Eli (12/10/20): the new version of black is forcing the pylint note to be moved away from the relevant line
+    # fmt: off
+    data_packet_buffer = file_writer_process._data_packet_buffers[0]  # pylint: disable=protected-access
+    # fmt: on
     for _ in range(3):
         data_packet_buffer.append(SIMPLE_CONSTRUCT_DATA_FROM_WELL_0)
 
@@ -1026,9 +1016,6 @@ def test_FileWriterProcess__clears_data_buffer_when_stop_mananged_acquisition_co
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
-    data_packet_buffer = file_writer_process._data_packet_buffers[
-        0
-    ]  # pylint: disable=protected-access
     assert len(data_packet_buffer) == 0
 
 
@@ -1044,9 +1031,10 @@ def test_FileWriterProcess__records_all_requested_data_in_buffer__and_creates_di
         file_dir,
     ) = four_board_file_writer_process
 
-    data_packet_buffer = file_writer_process._data_packet_buffers[
-        0
-    ]  # pylint: disable=protected-access
+    # Eli (12/10/20): the new version of black is forcing the pylint note to be moved away from the relevant line
+    # fmt: off
+    data_packet_buffer = file_writer_process._data_packet_buffers[0]  # pylint: disable=protected-access
+    # fmt: on
     for _ in range(2):
         data_packet_buffer.append(SIMPLE_CONSTRUCT_DATA_FROM_WELL_0)
 

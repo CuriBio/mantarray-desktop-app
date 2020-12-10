@@ -128,6 +128,7 @@ CHANNEL_INDEX_TO_24_WELL_INDEX = {  # may be unnecessary
     22: 19,
     23: 18,
 }
+# Eli (12/10/20): having some trouble converting these to immutable dicts as Cython doesn't seem to like it. Could maybe make a mutable copy right before passing to Cython
 REF_INDEX_TO_24_WELL_INDEX = {
     0: frozenset([0, 1, 4, 5]),
     1: frozenset([8, 9, 12, 13]),
@@ -175,17 +176,21 @@ CALIBRATED_STATE = "calibrated"
 BUFFERING_STATE = "buffering"
 LIVE_VIEW_ACTIVE_STATE = "live_view_active"
 RECORDING_STATE = "recording"
-SYSTEM_STATUS_UUIDS = {
-    SERVER_INITIALIZING_STATE: uuid.UUID("04471bcf-1a00-4a0d-83c8-4160622f9a25"),
-    SERVER_READY_STATE: uuid.UUID("8e24ef4d-2353-4e9d-aa32-4346126e73e3"),
-    INSTRUMENT_INITIALIZING_STATE: uuid.UUID("d2e3d386-b760-4c9a-8b2d-410362ff11c4"),
-    CALIBRATION_NEEDED_STATE: uuid.UUID("009301eb-625c-4dc4-9e92-1a4d0762465f"),
-    CALIBRATING_STATE: uuid.UUID("43c08fc5-ca2f-4dcd-9dff-5e9324cb5dbf"),
-    CALIBRATED_STATE: uuid.UUID("b480373b-9466-4fa0-92a6-fa5f8e340d30"),
-    BUFFERING_STATE: uuid.UUID("dc774d4b-6bd1-4717-b36e-6df6f1ef6cf4"),
-    LIVE_VIEW_ACTIVE_STATE: uuid.UUID("9fbee58e-c6af-49a5-b2e2-5b085eead2ea"),
-    RECORDING_STATE: uuid.UUID("1e3d76a2-508d-4c99-8bf5-60dac5cc51fe"),
-}
+SYSTEM_STATUS_UUIDS = immutabledict(
+    {
+        SERVER_INITIALIZING_STATE: uuid.UUID("04471bcf-1a00-4a0d-83c8-4160622f9a25"),
+        SERVER_READY_STATE: uuid.UUID("8e24ef4d-2353-4e9d-aa32-4346126e73e3"),
+        INSTRUMENT_INITIALIZING_STATE: uuid.UUID(
+            "d2e3d386-b760-4c9a-8b2d-410362ff11c4"
+        ),
+        CALIBRATION_NEEDED_STATE: uuid.UUID("009301eb-625c-4dc4-9e92-1a4d0762465f"),
+        CALIBRATING_STATE: uuid.UUID("43c08fc5-ca2f-4dcd-9dff-5e9324cb5dbf"),
+        CALIBRATED_STATE: uuid.UUID("b480373b-9466-4fa0-92a6-fa5f8e340d30"),
+        BUFFERING_STATE: uuid.UUID("dc774d4b-6bd1-4717-b36e-6df6f1ef6cf4"),
+        LIVE_VIEW_ACTIVE_STATE: uuid.UUID("9fbee58e-c6af-49a5-b2e2-5b085eead2ea"),
+        RECORDING_STATE: uuid.UUID("1e3d76a2-508d-4c99-8bf5-60dac5cc51fe"),
+    }
+)
 
 UTC_BEGINNING_DATA_ACQUISTION_UUID = uuid.UUID("98c67f22-013b-421a-831b-0ea55df4651e")
 START_RECORDING_TIME_INDEX_UUID = uuid.UUID("e41422b3-c903-48fd-9856-46ff56a6534c")

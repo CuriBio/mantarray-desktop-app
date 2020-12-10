@@ -168,15 +168,7 @@ def generate_fw_from_main_to_main_board_and_error_queues(num_boards: int = 4):
             ],
         ],  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
         ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-    ] = tuple(
-        [
-            (
-                Queue(),
-                Queue(),
-            )
-            for _ in range(4)
-        ]
-    )
+    ] = tuple([(Queue(), Queue()) for _ in range(4)])
     return from_main, to_main, board_queues, error_queue
 
 

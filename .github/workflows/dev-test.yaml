@@ -198,15 +198,19 @@ jobs:
         run: pipenv run python .github/workflows/run_s3_download.py
         # run: python run_s3_download.py
 
-      - name: Run Python Tests with randomly generated seed (Windows)
-        if: github.event.inputs.randomlyseed == '' && runner.os == 'Windows'
-        run: pipenv run pytest -svv --cov-report=xml --include-slow-tests --full-ci
-        # run: pytest -xsvv --cov-report=xml --include-slow-tests # --full-ci
+      # - name: Run Python Tests with randomly generated seed (Windows)
+      #   if: github.event.inputs.randomlyseed == '' && runner.os == 'Windows'
+      #   run: pipenv run pytest -svv --cov-report=xml --include-slow-tests --full-ci
+      #   # run: pytest -xsvv --cov-report=xml --include-slow-tests # --full-ci
 
-      - name: Run Python Tests with randomly generated seed (Linux)
-        if: github.event.inputs.randomlyseed == '' && runner.os == 'Linux'
+      # - name: Run Python Tests with randomly generated seed (Linux)
+      #   if: github.event.inputs.randomlyseed == '' && runner.os == 'Linux'
+      #   run: pipenv run pytest -svv --cov-report=xml --include-slow-tests --full-ci
+      #   # run: pytest -xsvv --cov-report=xml --include-slow-tests # --full-ci
+
+      - name: Run Python Tests with randomly generated seed
+        if: github.event.inputs.randomlyseed == ''
         run: pipenv run pytest -svv --cov-report=xml --include-slow-tests --full-ci
-        # run: pytest -xsvv --cov-report=xml --include-slow-tests # --full-ci
 
       - name: Run Python Tests with supplied pytest-randomly seed
         if: github.event.inputs.randomlyseed != ''

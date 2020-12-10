@@ -119,14 +119,10 @@ def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_if_the_
 def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_if_the_timestamp_idx_starts_part_way_through_the_chunk__and_sets_timestamp_metadata_for_tissue_since_this_is_first_piece_of_data(
     four_board_file_writer_process,
 ):
-    (  # pylint:disable=duplicate-code # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
-        file_writer_process,
-        board_queues,
-        from_main_queue,
-        _,
-        _,
-        file_dir,
-    ) = four_board_file_writer_process
+    # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
+    # fmt: off
+    file_writer_process, board_queues, from_main_queue, _, _, file_dir = four_board_file_writer_process
+    # fmt: on
 
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [4]
@@ -174,14 +170,10 @@ def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_if_the_
 def test_FileWriterProcess__process_next_data_packet__does_not_write_tissue_data_if_data_chunk_is_all_before_the_timestamp_idx(
     four_board_file_writer_process,
 ):
-    (
-        file_writer_process,
-        board_queues,
-        from_main_queue,
-        _,
-        _,
-        file_dir,
-    ) = four_board_file_writer_process
+    # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
+    # fmt: off
+    file_writer_process, board_queues, from_main_queue, _, _, file_dir = four_board_file_writer_process
+    # fmt: on
 
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [4]
@@ -217,14 +209,10 @@ def test_FileWriterProcess__process_next_data_packet__does_not_write_tissue_data
 def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_for_two_packets_when_the_timestamp_idx_starts_part_way_through_the_first_packet__and_sets_timestamp_metadata_for_tissue_since_this_is_first_piece_of_data(
     four_board_file_writer_process,
 ):
-    (
-        file_writer_process,
-        board_queues,
-        from_main_queue,
-        _,
-        _,
-        file_dir,
-    ) = four_board_file_writer_process
+    # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
+    # fmt: off
+    file_writer_process, board_queues, from_main_queue, _, _, file_dir = four_board_file_writer_process
+    # fmt: on
 
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [4]
@@ -283,14 +271,10 @@ def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_for_two
 def test_FileWriterProcess__process_next_data_packet__writes_reference_data_to_active_subset_of_wells_if_the_timestamp_idx_starts_part_way_through_the_chunk__and_sets_timestamp_metadata_for_reference_sensor_since_this_is_first_piece_of_data(
     four_board_file_writer_process,
 ):
-    (
-        file_writer_process,
-        board_queues,
-        from_main_queue,
-        _,
-        _,
-        file_dir,
-    ) = four_board_file_writer_process
+    # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
+    # fmt: off
+    file_writer_process, board_queues, from_main_queue, _, _, file_dir = four_board_file_writer_process
+    # fmt: on
 
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [4, 0]
@@ -347,14 +331,10 @@ def test_FileWriterProcess__process_next_data_packet__writes_reference_data_to_a
 def test_FileWriterProcess__process_next_data_packet__does_not_add_a_data_packet_after_the_stop_recording_timepoint__and_sets_tissue_finalization_status_to_true__if_data_packet_is_completely_after_timepoint(
     four_board_file_writer_process,
 ):
-    (
-        file_writer_process,
-        board_queues,
-        from_main_queue,
-        _,
-        _,
-        file_dir,
-    ) = four_board_file_writer_process
+    # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
+    # fmt: off
+    file_writer_process, board_queues, from_main_queue, _, _, file_dir = four_board_file_writer_process
+    # fmt: on
 
     start_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     start_command["active_well_indices"] = [4]
@@ -422,14 +402,10 @@ def test_FileWriterProcess__process_next_data_packet__does_not_add_a_data_packet
 def test_FileWriterProcess__process_next_data_packet__adds_part_of_a_data_packet_if_includes_the_stop_recording_timepoint__and_sets_reference_finalization_status_to_true(
     four_board_file_writer_process,
 ):
-    (  # pylint:disable=duplicate-code # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
-        file_writer_process,
-        board_queues,
-        from_main_queue,
-        _,
-        _,
-        file_dir,
-    ) = four_board_file_writer_process
+    # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
+    # fmt: off
+    file_writer_process, board_queues, from_main_queue, _, _, file_dir = four_board_file_writer_process
+    # fmt: on
 
     start_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     start_command["active_well_indices"] = [4]
@@ -501,14 +477,10 @@ def test_FileWriterProcess__process_next_data_packet__adds_part_of_a_data_packet
 def test_FileWriterProcess__process_next_data_packet__adds_a_data_packet_before_the_stop_recording_timepoint__and_does_not_set_tissue_finalization_status_to_true__if_data_packet_is_completely_before_timepoint(
     four_board_file_writer_process,
 ):
-    (  # pylint:disable=duplicate-code # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
-        file_writer_process,
-        board_queues,
-        from_main_queue,
-        _,
-        _,
-        file_dir,
-    ) = four_board_file_writer_process
+    # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
+    # fmt: off
+    file_writer_process, board_queues, from_main_queue, _, _, file_dir = four_board_file_writer_process
+    # fmt: on
 
     start_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     start_command["active_well_indices"] = [4]
@@ -579,14 +551,10 @@ def test_FileWriterProcess__process_next_data_packet__adds_a_data_packet_before_
 def test_FileWriterProcess__process_next_data_packet__updates_dict_of_time_index_of_latest_recorded_data__when_new_data_is_added(
     four_board_file_writer_process,
 ):
-    (  # pylint:disable=duplicate-code # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
-        file_writer_process,
-        board_queues,
-        from_main_queue,
-        _,
-        _,
-        _,
-    ) = four_board_file_writer_process
+    # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
+    # fmt: off
+    file_writer_process, board_queues, from_main_queue, _, _, _ = four_board_file_writer_process
+    # fmt: on
 
     start_recording_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     start_recording_command["timepoint_to_begin_recording_at"] = 0

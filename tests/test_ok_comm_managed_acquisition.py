@@ -912,9 +912,9 @@ def test_OkCommunicationProcess_managed_acquisition_logs_performance_metrics_aft
     ok_process._start_timepoint_of_last_performance_measurement = (  # pylint: disable=protected-access
         expected_start_timepoint
     )
-    ok_process._percent_use_values = expected_percent_use_values[
-        :-1
-    ]  # pylint: disable=protected-access
+    ok_process._percent_use_values = (  # pylint: disable=protected-access
+        expected_percent_use_values[:-1]
+    )
 
     test_fifo_reads = [
         produce_data(i + 2, 0) for i in range(OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)

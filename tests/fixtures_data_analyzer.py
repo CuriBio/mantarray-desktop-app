@@ -7,6 +7,7 @@ import pytest
 
 @pytest.fixture(scope="function", name="four_board_analyzer_process")
 def fixture_four_board_analyzer_process():
+    num_boards = 4
     comm_from_main_queue = Queue()
     comm_to_main_queue = Queue()
     error_queue = Queue()
@@ -17,7 +18,7 @@ def fixture_four_board_analyzer_process():
                 Queue(),
                 Queue(),
             )
-            for _ in range(4)
+            for _ in range(num_boards)
         ]
     )
     p = DataAnalyzerProcess(
