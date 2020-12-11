@@ -10,6 +10,7 @@ from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
+from mantarray_desktop_app import get_server_port_number
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import PLATE_BARCODE_UUID
@@ -23,6 +24,7 @@ from mantarray_desktop_app import utils
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import pytest
 from stdlib_utils import confirm_parallelism_is_stopped
+from stdlib_utils import confirm_port_in_use
 from stdlib_utils import invoke_process_run_and_check_errors
 from xem_wrapper import DATA_FRAME_SIZE_WORDS
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
@@ -1171,6 +1173,9 @@ def test_send_single_boot_up_command__gets_processed_and_sets_system_status_to_i
     expected_bit_file_name = patched_firmware_folder
 
     test_process_manager.start_processes()
+    port = get_server_port_number()
+    confirm_port_in_use(port, timeout=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
+
     response = test_client.get("/boot_up")
     assert response.status_code == 200
     instrument_process = test_process_manager.get_instrument_process()
