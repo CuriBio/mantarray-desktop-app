@@ -6,6 +6,10 @@
     "name": "Curi Bio",
     "email": "contact@curibio.com"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CuriBio/mantarray-desktop-app.git"
+  },
   "homepage": "http://www.curiobio.com",
   "private": false,
   "license": "MIT",
@@ -35,7 +39,7 @@
     "electron-util": "~0.14.2",
     "js-yaml": "~3.14.0",
     "mkdirp": "~1.0.4",
-    "typeface-anonymous-pro": "~0.0.72",
+    "typeface-anonymous-pro": "~1.1.13",
     "typeface-muli": "~1.1.3",
     "urlsafe-base64": "~1.0.0",
     "vue-axios": "~2.1.5",
