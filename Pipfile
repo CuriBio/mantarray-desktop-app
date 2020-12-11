@@ -34,4 +34,4 @@ xem-wrapper = "==0.2.5"
 secrets-manager = "==0.4"
 immutabledict = "==1.1.0"
 flatten-dict = "==0.3.0"
-numpy = "==1.19.3,!=1.19.4" # there's currently a problem with 1.19.4 https://developercommunity.visualstudio.com/content/problem/1207405/fmod-after-an-update-to-windows-2004-is-causing-a.html
+numpy = "==1.19.3" # Eli (12/11/20) there's currently a problem with 1.19.4 that doesn't show up in the WindowsServer Github Images, only locally https://developercommunity.visualstudio.com/content/problem/1207405/fmod-after-an-update-to-windows-2004-is-causing-a.html
