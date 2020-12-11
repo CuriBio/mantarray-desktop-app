@@ -96,7 +96,7 @@ __fixtures__ = [
     fixture_patched_xem_scripts_folder,
     fixture_patched_firmware_folder,
 ]
-LIVE_VIEW_ACTIVE_WAIT_TIME = 120
+LIVE_VIEW_ACTIVE_WAIT_TIME = 150
 CALIBRATED_WAIT_TIME = 10
 STOP_MANAGED_ACQUISITION_WAIT_TIME = 40
 INTEGRATION_TEST_TIMEOUT = 720

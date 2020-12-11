@@ -1178,6 +1178,12 @@ def test_send_single_boot_up_command__gets_processed_and_sets_system_status_to_i
 
     response = test_client.get("/boot_up")
     assert response.status_code == 200
+
+    server_to_main = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+    confirm_queue_is_eventually_of_size(server_to_main, 1)
+
     instrument_process = test_process_manager.get_instrument_process()
     invoke_process_run_and_check_errors(monitor_thread)
 
