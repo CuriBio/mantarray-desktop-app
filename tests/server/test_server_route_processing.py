@@ -75,21 +75,23 @@ def test_send_single_set_mantarray_nickname_command__gets_processed_and_stores_n
     monitor_thread, _, _, _ = test_monitor
     shared_values_dict = test_process_manager.get_values_to_share_to_server()
     expected_nickname = "Surnom Français"
-
+    ok_process = test_process_manager.get_instrument_process()
     test_process_manager.start_processes()
     response = test_client.get(f"/set_mantarray_nickname?nickname={expected_nickname}")
     assert response.status_code == 200
 
     invoke_process_run_and_check_errors(monitor_thread)
 
-    test_process_manager.soft_stop_and_join_processes()
+    test_process_manager.soft_stop_processes()
+    confirm_parallelism_is_stopped(
+        ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
+    )
 
     assert shared_values_dict["mantarray_nickname"][0] == expected_nickname
     comm_queue = (
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
@@ -106,6 +108,9 @@ def test_send_single_set_mantarray_nickname_command__gets_processed_and_stores_n
     assert communication["communication_type"] == "mantarray_naming"
     assert communication["command"] == "set_mantarray_nickname"
     assert communication["mantarray_nickname"] == expected_nickname
+
+    # clean up
+    test_process_manager.hard_stop_and_join_processes()
 
 
 @pytest.mark.slow
@@ -128,7 +133,11 @@ def test_send_single_start_calibration_command__gets_processed_and_sets_system_s
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["system_status"] == CALIBRATING_STATE
 
-    test_process_manager.soft_stop_and_join_processes()
+    test_process_manager.soft_stop_processes()
+    confirm_parallelism_is_stopped(
+        test_process_manager.get_instrument_process(),
+        timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
+    )
 
     comm_queue = (
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
@@ -164,6 +173,9 @@ def test_send_single_start_calibration_command__gets_processed_and_sets_system_s
     assert done_message["communication_type"] == "xem_scripts"
     assert done_message["response"] == f"'{expected_script_type}' script complete."
 
+    # clean up
+    test_process_manager.hard_stop_and_join_processes()
+
 
 # Keep this "gets_processed" test in main test suite
 def test_send_single_initialize_board_command_with_bit_file__gets_processed(
@@ -186,7 +198,10 @@ def test_send_single_initialize_board_command_with_bit_file__gets_processed(
     response = test_client.get("/insert_xem_command_into_queue/get_status")
     assert response.status_code == 200
 
-    test_process_manager.soft_stop_and_join_processes()
+    test_process_manager.soft_stop_processes()
+    confirm_parallelism_is_stopped(
+        ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
+    )
     comm_queue = (
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(
             board_idx
@@ -216,6 +231,9 @@ def test_send_single_initialize_board_command_with_bit_file__gets_processed(
         get_status_communication["response"]["bit_file_name"] == expected_bit_file_name
     )
 
+    # clean up
+    test_process_manager.hard_stop_and_join_processes()
+
 
 @pytest.mark.slow
 def test_send_single_initialize_board_command_without_bit_file__gets_processed(
@@ -236,7 +254,12 @@ def test_send_single_initialize_board_command_without_bit_file__gets_processed(
     response = test_client.get("/insert_xem_command_into_queue/get_status")
     assert response.status_code == 200
 
-    test_process_manager.soft_stop_and_join_processes()
+    test_process_manager.soft_stop_processes()
+    confirm_parallelism_is_stopped(
+        test_process_manager.get_instrument_process(),
+        timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
+    )
+
     comm_queue = (
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(
             board_idx
@@ -264,6 +287,9 @@ def test_send_single_initialize_board_command_without_bit_file__gets_processed(
     )
     assert get_status_communication["response"]["bit_file_name"] is None
 
+    # clean up
+    test_process_manager.hard_stop_and_join_processes()
+
 
 @pytest.mark.slow
 def test_send_single_initialize_board_command_with_reinitialization__gets_processed(
@@ -290,7 +316,12 @@ def test_send_single_initialize_board_command_with_reinitialization__gets_proces
     response = test_client.get("/insert_xem_command_into_queue/get_status")
     assert response.status_code == 200
 
-    test_process_manager.soft_stop_and_join_processes()
+    test_process_manager.soft_stop_processes()
+    confirm_parallelism_is_stopped(
+        test_process_manager.get_instrument_process(),
+        timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
+    )
+
     comm_queue = (
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(
             board_idx
@@ -320,6 +351,9 @@ def test_send_single_initialize_board_command_with_reinitialization__gets_proces
         get_status_communication["response"]["bit_file_name"] == expected_bit_file_name
     )
 
+    # clean up
+    test_process_manager.hard_stop_and_join_processes()
+
 
 @pytest.mark.slow
 def test_send_single_activate_trigger_in_command__gets_processed(
@@ -341,7 +375,12 @@ def test_send_single_activate_trigger_in_command__gets_processed(
     )
     assert response.status_code == 200
 
-    test_process_manager.soft_stop_and_join_processes()
+    test_process_manager.soft_stop_processes()
+    confirm_parallelism_is_stopped(
+        test_process_manager.get_instrument_process(),
+        timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
+    )
+
     comm_queue = (
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
@@ -362,6 +401,9 @@ def test_send_single_activate_trigger_in_command__gets_processed(
     assert communication["ep_addr"] == expected_ep_addr
     assert communication["bit"] == expected_bit
 
+    # clean up
+    test_process_manager.hard_stop_and_join_processes()
+
 
 @pytest.mark.slow
 def test_send_single_comm_delay_command__gets_processed(
@@ -375,12 +417,17 @@ def test_send_single_comm_delay_command__gets_processed(
         f"/insert_xem_command_into_queue/comm_delay?num_milliseconds={expected_num_millis}"
     )
     assert response.status_code == 200
-    test_process_manager.soft_stop_and_join_processes()
+
+    test_process_manager.soft_stop_processes()
+    confirm_parallelism_is_stopped(
+        test_process_manager.get_instrument_process(),
+        timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
+    )
+
     comm_queue = (
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
@@ -400,6 +447,9 @@ def test_send_single_comm_delay_command__gets_processed(
     assert (
         communication["response"] == f"Delayed for {expected_num_millis} milliseconds"
     )
+
+    # clean up
+    test_process_manager.hard_stop_and_join_processes()
 
 
 @pytest.mark.slow
@@ -422,12 +472,14 @@ def test_send_single_get_num_words_fifo_command__gets_processed(
     response = test_client.get("/insert_xem_command_into_queue/get_num_words_fifo")
     assert response.status_code == 200
 
-    test_process_manager.soft_stop_and_join_processes()
+    test_process_manager.soft_stop_processes()
+    confirm_parallelism_is_stopped(
+        ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
+    )
     comm_queue = (
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
@@ -441,6 +493,9 @@ def test_send_single_get_num_words_fifo_command__gets_processed(
     assert communication["command"] == "get_num_words_fifo"
     assert communication["response"] == expected_num_words
     assert communication["hex_converted_response"] == hex(expected_num_words)
+
+    # clean up
+    test_process_manager.hard_stop_and_join_processes()
 
 
 @pytest.mark.slow
@@ -460,12 +515,15 @@ def test_send_single_set_device_id_command__gets_processed(
     )
     assert response.status_code == 200
 
-    test_process_manager.soft_stop_and_join_processes()
+    test_process_manager.soft_stop_processes()
+    confirm_parallelism_is_stopped(
+        ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
+    )
+
     comm_queue = (
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
@@ -479,6 +537,9 @@ def test_send_single_set_device_id_command__gets_processed(
     communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "set_device_id"
     assert communication["new_id"] == test_id
+
+    # clean up
+    test_process_manager.hard_stop_and_join_processes()
 
 
 @pytest.mark.slow
@@ -498,12 +559,16 @@ def test_send_single_stop_acquisition_command__gets_processed(
     response = test_client.get("/insert_xem_command_into_queue/get_status")
     assert response.status_code == 200
 
-    test_process_manager.soft_stop_and_join_processes()
+    test_process_manager.soft_stop_processes()
+    confirm_parallelism_is_stopped(
+        test_process_manager.get_instrument_process(),
+        timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
+    )
+
     comm_queue = (
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
@@ -522,6 +587,9 @@ def test_send_single_stop_acquisition_command__gets_processed(
     )
     assert get_status_communication["response"]["is_spi_running"] is False
 
+    # clean up
+    test_process_manager.hard_stop_and_join_processes()
+
 
 @pytest.mark.slow
 def test_send_single_start_acquisition_command__gets_processed(
@@ -539,12 +607,15 @@ def test_send_single_start_acquisition_command__gets_processed(
     response = test_client.get("/insert_xem_command_into_queue/get_status")
     assert response.status_code == 200
 
-    test_process_manager.soft_stop_and_join_processes()
+    test_process_manager.soft_stop_processes()
+    confirm_parallelism_is_stopped(
+        ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
+    )
+
     comm_queue = (
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
@@ -563,6 +634,9 @@ def test_send_single_start_acquisition_command__gets_processed(
     )
     assert get_status_communication["response"]["is_spi_running"] is True
 
+    # clean up
+    test_process_manager.hard_stop_and_join_processes()
+
 
 @pytest.mark.slow
 def test_send_single_get_serial_number_command__gets_processed(
@@ -578,7 +652,10 @@ def test_send_single_get_serial_number_command__gets_processed(
     response = test_client.get("/insert_xem_command_into_queue/get_serial_number")
     assert response.status_code == 200
 
-    test_process_manager.soft_stop_and_join_processes()
+    test_process_manager.soft_stop_processes()
+    confirm_parallelism_is_stopped(
+        ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
+    )
     comm_queue = (
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
@@ -597,6 +674,9 @@ def test_send_single_get_serial_number_command__gets_processed(
     assert communication["command"] == "get_serial_number"
     assert communication["response"] == "1917000Q70"
 
+    # clean up
+    test_process_manager.hard_stop_and_join_processes()
+
 
 @pytest.mark.slow
 def test_send_single_get_device_id_command__gets_processed(
@@ -614,12 +694,16 @@ def test_send_single_get_device_id_command__gets_processed(
     response = test_client.get("/insert_xem_command_into_queue/get_device_id")
     assert response.status_code == 200
 
-    test_process_manager.soft_stop_and_join_processes()
+    test_process_manager.soft_stop_processes()
+    confirm_parallelism_is_stopped(
+        test_process_manager.get_instrument_process(),
+        timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
+    )
+
     comm_queue = (
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
@@ -632,6 +716,9 @@ def test_send_single_get_device_id_command__gets_processed(
     communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "get_device_id"
     assert communication["response"] == expected_id
+
+    # clean up
+    test_process_manager.hard_stop_and_join_processes()
 
 
 @pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
@@ -917,7 +1004,11 @@ def test_send_single_read_wire_out_command__gets_processed(
     response = test_client.get(test_route)
     assert response.status_code == 200
 
-    test_process_manager.soft_stop_and_join_processes()
+    test_process_manager.soft_stop_processes()
+    confirm_parallelism_is_stopped(
+        ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
+    )
+
     comm_queue = (
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(
             board_idx
@@ -940,6 +1031,9 @@ def test_send_single_read_wire_out_command__gets_processed(
     assert communication["response"] == expected_wire_out_response
     assert communication["hex_converted_response"] == hex(expected_wire_out_response)
 
+    # clean-up
+    test_process_manager.hard_stop_and_join_processes()
+
 
 @pytest.mark.slow
 def test_send_single_stop_managed_acquisition_command__gets_processed(
@@ -957,22 +1051,33 @@ def test_send_single_stop_managed_acquisition_command__gets_processed(
     response = test_client.get("/stop_managed_acquisition")
     assert response.status_code == 200
 
-    test_process_manager.soft_stop_and_join_processes()
+    test_process_manager.soft_stop_processes()
+    confirm_parallelism_is_stopped(
+        ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
+    )
+    confirm_parallelism_is_stopped(
+        test_process_manager.get_file_writer_process(),
+        timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
+    )
+    confirm_parallelism_is_stopped(
+        test_process_manager.get_data_analyzer_process(),
+        timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
+    )
+
     to_ok_comm_queue = (
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     confirm_queue_is_eventually_empty(to_ok_comm_queue)
-    # assert is_queue_eventually_empty(to_ok_comm_queue) is True
+
     to_file_writer_queue = (
         test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
     )
     confirm_queue_is_eventually_empty(to_file_writer_queue)
-    # assert is_queue_eventually_empty(to_file_writer_queue) is True
+
     to_da_queue = (
         test_process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
     )
     confirm_queue_is_eventually_empty(to_da_queue)
-    # assert is_queue_eventually_empty(to_da_queue) is True
 
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
@@ -999,6 +1104,9 @@ def test_send_single_stop_managed_acquisition_command__gets_processed(
     communication = comm_from_da_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "stop_managed_acquisition"
 
+    # clean-up
+    test_process_manager.hard_stop_and_join_processes()
+
 
 @pytest.mark.slow
 def test_send_single_set_mantarray_serial_number_command__gets_processed_and_stores_serial_number_in_shared_values_dict(
@@ -1014,7 +1122,12 @@ def test_send_single_set_mantarray_serial_number_command__gets_processed_and_sto
     )
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
-    test_process_manager.soft_stop_and_join_processes()
+
+    test_process_manager.soft_stop_processes()
+    confirm_parallelism_is_stopped(
+        test_process_manager.get_instrument_process(),
+        timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
+    )
 
     assert shared_values_dict["mantarray_serial_number"][0] == expected_serial_number
 
@@ -1039,6 +1152,9 @@ def test_send_single_set_mantarray_serial_number_command__gets_processed_and_sto
     assert communication["communication_type"] == "mantarray_naming"
     assert communication["command"] == "set_mantarray_serial_number"
     assert communication["mantarray_serial_number"] == expected_serial_number
+
+    # clean up
+    test_process_manager.hard_stop_and_join_processes()
 
 
 @pytest.mark.slow
@@ -1065,9 +1181,12 @@ def test_send_single_boot_up_command__gets_processed_and_sets_system_status_to_i
     )
     assert is_queue_eventually_not_empty(comm_queue) is True
 
-    test_process_manager.soft_stop_and_join_processes()
+    test_process_manager.soft_stop_processes()
+    confirm_parallelism_is_stopped(
+        test_process_manager.get_instrument_process(),
+        timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
+    )
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
@@ -1094,6 +1213,9 @@ def test_send_single_boot_up_command__gets_processed_and_sets_system_status_to_i
     assert script_communication["script_type"] == expected_script_type
     assert f"Running {expected_script_type} script" in script_communication["response"]
 
+    # clean up
+    test_process_manager.hard_stop_and_join_processes()
+
 
 @pytest.mark.slow
 def test_send_single_boot_up_command__populates_ok_comm_error_queue_if_bit_file_cannot_be_found(
@@ -1116,7 +1238,11 @@ def test_send_single_boot_up_command__populates_ok_comm_error_queue_if_bit_file_
     )
     assert is_queue_eventually_not_empty(comm_queue) is True
 
-    test_process_manager.soft_stop_and_join_processes()
+    test_process_manager.soft_stop_processes()
+    confirm_parallelism_is_stopped(
+        test_process_manager.get_instrument_process(),
+        timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
+    )
     assert is_queue_eventually_not_empty(comm_queue) is True
 
     ok_comm_error_queue = (
@@ -1142,7 +1268,9 @@ def test_send_single_boot_up_command__populates_ok_comm_error_queue_if_bit_file_
         timeout=QUEUE_CHECK_TIMEOUT_SECONDS
     )  # pull ok_comm teardown message
     confirm_queue_is_eventually_empty(comm_from_ok_queue)
-    # assert is_queue_eventually_empty(comm_from_ok_queue) is True
+
+    # clean up
+    test_process_manager.hard_stop_and_join_processes()
 
 
 @pytest.mark.slow
@@ -1179,24 +1307,32 @@ def test_send_single_start_managed_acquisition_command__sets_system_status_to_bu
 
     assert shared_values_dict["system_status"] == BUFFERING_STATE
 
-    test_process_manager.soft_stop_and_join_processes()
+    test_process_manager.soft_stop_processes()
+    confirm_parallelism_is_stopped(
+        test_process_manager.get_instrument_process(),
+        timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
+    )
+    confirm_parallelism_is_stopped(
+        test_process_manager.get_data_analyzer_process(),
+        timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
+    )
+
     instrument_error_queue = (
         test_process_manager.queue_container().get_ok_communication_error_queue()
     )
     confirm_queue_is_eventually_empty(instrument_error_queue)
-    # confirm_queue_is_eventually_of_size(instrument_error_queue, 0)
+
     comm_queue = (
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
+
     to_da_queue = (
         test_process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
     )
     confirm_queue_is_eventually_empty(to_da_queue)
-    # assert is_queue_eventually_empty(to_da_queue) is True
+
     confirm_queue_is_eventually_empty(outgoing_data_queue)
-    # assert is_queue_eventually_empty(outgoing_data_queue) is True
 
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
@@ -1226,6 +1362,9 @@ def test_send_single_start_managed_acquisition_command__sets_system_status_to_bu
     queue_utils._drain_queue(  # pylint:disable=protected-access # Eli (12/8/20) - drain_queue should be moved into stdlib_utils
         comm_from_ok_queue
     )
+
+    # clean up
+    test_process_manager.hard_stop_and_join_processes()
 
 
 def test_update_settings__stores_values_in_shared_values_dict__and_recordings_folder_in_file_writer_and_process_manager__and_logs_recording_folder(
@@ -1334,12 +1473,15 @@ def test_single_update_settings_command_with_recording_dir__gets_processed_by_Fi
         )
         assert response.status_code == 200
         invoke_process_run_and_check_errors(monitor_thread)
-        test_process_manager.soft_stop_and_join_processes()
+        test_process_manager.soft_stop_processes()
+        confirm_parallelism_is_stopped(
+            test_process_manager.get_file_writer_process(),
+            timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
+        )
         to_fw_queue = (
             test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
         )
         confirm_queue_is_eventually_empty(to_fw_queue)
-        # assert is_queue_eventually_empty(to_fw_queue) is True
 
         from_fw_queue = (
             test_process_manager.queue_container().get_communication_queue_from_file_writer_to_main()
@@ -1349,6 +1491,9 @@ def test_single_update_settings_command_with_recording_dir__gets_processed_by_Fi
 
         assert communication["command"] == "update_directory"
         assert communication["new_directory"] == expected_recordings_dir
+
+        # clean up
+        test_process_manager.hard_stop_and_join_processes()
 
 
 def test_stop_recording_command__sets_system_status_to_live_view_active(
@@ -1499,17 +1644,24 @@ def test_start_recording_command__gets_processed_with_given_time_index_parameter
         is True
     )
 
-    test_process_manager.soft_stop_and_join_processes()
+    test_process_manager.soft_stop_processes()
+    confirm_parallelism_is_stopped(
+        test_process_manager.get_file_writer_process(),
+        timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
+    )
 
     error_queue = test_process_manager.queue_container().get_file_writer_error_queue()
 
     confirm_queue_is_eventually_empty(error_queue)
-    # assert is_queue_eventually_empty(error_queue) is True
+
     file_dir = test_process_manager.get_file_writer_process().get_file_directory()
     actual_files = os.listdir(
         os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}")
     )
     assert actual_files == [f"{expected_barcode}__{timestamp_str}__D1.h5"]
+
+    # clean up
+    test_process_manager.hard_stop_and_join_processes()
 
 
 @pytest.mark.slow
@@ -1563,16 +1715,24 @@ def test_start_recording_command__gets_processed__and_creates_a_file__and_update
         is False
     )
 
-    test_process_manager.soft_stop_and_join_processes()
+    test_process_manager.soft_stop_processes()
+    confirm_parallelism_is_stopped(
+        test_process_manager.get_file_writer_process(),
+        timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
+    )
+
     error_queue = test_process_manager.queue_container().get_file_writer_error_queue()
 
     confirm_queue_is_eventually_empty(error_queue)
-    # assert is_queue_eventually_empty(error_queue) is True
+
     file_dir = test_process_manager.get_file_writer_process().get_file_directory()
     actual_files = os.listdir(
         os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}")
     )
     assert actual_files == [f"{expected_barcode}__2020_02_09_190935__D1.h5"]
+
+    # clean up
+    test_process_manager.hard_stop_and_join_processes()
 
 
 @pytest.mark.slow
@@ -1594,12 +1754,14 @@ def test_send_single_get_status_command__gets_processed(
     response = test_client.get("/insert_xem_command_into_queue/get_status")
     assert response.status_code == 200
 
-    test_process_manager.soft_stop_and_join_processes()
+    test_process_manager.soft_stop_processes()
+    confirm_parallelism_is_stopped(
+        ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
+    )
     comm_queue = (
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
@@ -1612,3 +1774,6 @@ def test_send_single_get_status_command__gets_processed(
     communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "get_status"
     assert communication["response"] == expected_response
+
+    # clean up
+    test_process_manager.hard_stop_and_join_processes()
