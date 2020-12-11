@@ -1157,6 +1157,7 @@ def test_send_single_set_mantarray_serial_number_command__gets_processed_and_sto
     test_process_manager.hard_stop_and_join_processes()
 
 
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 @pytest.mark.slow
 def test_send_single_boot_up_command__gets_processed_and_sets_system_status_to_instrument_initializing(
     patched_xem_scripts_folder,
@@ -1172,6 +1173,7 @@ def test_send_single_boot_up_command__gets_processed_and_sets_system_status_to_i
     test_process_manager.start_processes()
     response = test_client.get("/boot_up")
     assert response.status_code == 200
+    instrument_process = test_process_manager.get_instrument_process()
     invoke_process_run_and_check_errors(monitor_thread)
 
     shared_values_dict = test_process_manager.get_values_to_share_to_server()
@@ -1183,7 +1185,7 @@ def test_send_single_boot_up_command__gets_processed_and_sets_system_status_to_i
 
     test_process_manager.soft_stop_processes()
     confirm_parallelism_is_stopped(
-        test_process_manager.get_instrument_process(),
+        instrument_process,
         timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
     )
     confirm_queue_is_eventually_empty(comm_queue)
