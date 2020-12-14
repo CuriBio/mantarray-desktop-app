@@ -1185,14 +1185,15 @@ def test_send_single_boot_up_command__gets_processed_and_sets_system_status_to_i
     confirm_queue_is_eventually_of_size(server_to_main, 1)
 
     instrument_process = test_process_manager.get_instrument_process()
-    invoke_process_run_and_check_errors(monitor_thread)
-
-    shared_values_dict = test_process_manager.get_values_to_share_to_server()
-    assert shared_values_dict["system_status"] == INSTRUMENT_INITIALIZING_STATE
     comm_queue = (
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
+    instrument_process.pause()  # pause so that it can be confirmed that an item gets put into the Instrument Process' queue
+    invoke_process_run_and_check_errors(monitor_thread)
     assert is_queue_eventually_not_empty(comm_queue) is True
+    instrument_process.unpause()
+    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+    assert shared_values_dict["system_status"] == INSTRUMENT_INITIALIZING_STATE
 
     test_process_manager.soft_stop_processes()
     confirm_parallelism_is_stopped(
