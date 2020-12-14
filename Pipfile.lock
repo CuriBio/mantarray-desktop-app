@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "853d472b15384294c52f6984421df99242884ce78c45fc36dd5d85615e7d3811"
+            "sha256": "f697a8bf6e3c15aabbcec8aee730c6fbf3dc10949d59feffd29742bd0075bfdc"
         },
         "pipfile-spec": 6,
         "requires": {},
@@ -316,7 +316,7 @@
         "stdlib-utils": {
             "editable": true,
             "git": "https://github.com/CuriBio/stdlib-utils.git",
-            "ref": "203409f51dd92fdf3104b084369129a2998ff373"
+            "ref": "fb48b0d4343e323aa338ee04eb66638d72a760fe"
         },
         "typish": {
             "hashes": [
