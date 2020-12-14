@@ -13,6 +13,7 @@ from mantarray_desktop_app import UTC_FIRST_TISSUE_DATA_POINT_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
 import pytest
+from stdlib_utils import confirm_parallelism_is_stopped
 from stdlib_utils import invoke_process_run_and_check_errors
 
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
@@ -35,7 +36,7 @@ __fixtures__ = [
 ]
 
 
-@pytest.mark.timeout(10)
+@pytest.mark.timeout(15)
 def test_FileWriterProcess__passes_data_packet_through_to_output_queue(
     four_board_file_writer_process,
 ):
@@ -55,7 +56,8 @@ def test_FileWriterProcess__passes_data_packet_through_to_output_queue(
     fw_process.start()  # start it after the queue has been populated so that the process will certainly see the object in the queue
 
     fw_process.soft_stop()
-    fw_process.join()
+    confirm_parallelism_is_stopped(fw_process, timeout_seconds=15)
+
     assert_queue_is_eventually_empty(error_queue)
 
     out_data = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -63,6 +65,10 @@ def test_FileWriterProcess__passes_data_packet_through_to_output_queue(
         out_data["data"], SIMPLE_CONSTRUCT_DATA_FROM_WELL_0["data"]
     )
     assert out_data["well_index"] == SIMPLE_CONSTRUCT_DATA_FROM_WELL_0["well_index"]
+
+    # clean up
+    fw_process.hard_stop()
+    fw_process.join()
 
 
 def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_if_the_whole_data_chunk_is_at_the_timestamp_idx__and_sets_timestamp_metadata_for_tissue_since_this_is_first_piece_of_data(
