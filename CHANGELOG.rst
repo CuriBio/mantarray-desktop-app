@@ -1,6 +1,29 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+0.3.9 (unreleased)
+------------------
+
+- Transferred to GitHub
+- Bumped H5 file version to 0.3.3 to create a new version that is conclusively above 0.3.2/0.3.1 which have odd issues
+- Changed subprocesses to poll queues with a wait timeout of 0.025 seconds instead of using queue.empty(), since .empty() seemed was discovered to be less reliable during testing while transitioning to GitHub
+
+
+0.3.8 (2020-10-12)
+------------------
+
+- Adjusted data output passed to GUI to be in mV instead of V to reduce number of decimal points in display
+- Adjusted zoom levels in GUI to match new lower posts
+
+
+0.3.7 (2020-10-09)
+------------------
+
+- Added logging of HTTP error messages.
+- Added packing of FrontPanel 5.2.2 drivers.
+- Converted visual output from V to mV (multiplied by 1000)
+
+
 0.3.7 (2020-10-09)
 ------------------
 

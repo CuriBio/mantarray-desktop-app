@@ -7,6 +7,7 @@ import os
 import tempfile
 from typing import Any
 from typing import Dict
+from typing import Tuple
 
 import h5py
 from mantarray_desktop_app import ADC_GAIN_SETTING_UUID
@@ -77,6 +78,7 @@ GENERIC_START_RECORDING_COMMAND: Dict[str, Any] = {
 }
 
 GENERIC_STOP_RECORDING_COMMAND: Dict[str, Any] = {
+    "communication_type": "recording",
     "command": "stop_recording",
     "timepoint_to_stop_recording_at": 302412 * 125,
 }
@@ -144,13 +146,40 @@ def open_the_generic_h5_file_as_WellFile(
     return actual_file
 
 
+def generate_fw_from_main_to_main_board_and_error_queues(num_boards: int = 4):
+    error_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+        Tuple[Exception, str]
+    ] = Queue()
+
+    from_main: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+        Dict[str, Any]
+    ] = Queue()
+    to_main: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+        Dict[str, Any]
+    ] = Queue()
+
+    board_queues: Tuple[  # pylint-disable: duplicate-code
+        Tuple[
+            Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+                Any
+            ],
+            Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+                Any
+            ],
+        ],  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
+        ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
+    ] = tuple([(Queue(), Queue()) for _ in range(4)])
+    return from_main, to_main, board_queues, error_queue
+
+
 @pytest.fixture(scope="function", name="four_board_file_writer_process")
 def fixture_four_board_file_writer_process():
-    error_queue = Queue()
-    from_main = Queue()
-    to_main = Queue()
-
-    board_queues = tuple([(Queue(), Queue(),) for _ in range(4)])
+    (
+        from_main,
+        to_main,
+        board_queues,
+        error_queue,
+    ) = generate_fw_from_main_to_main_board_and_error_queues()
     with tempfile.TemporaryDirectory() as tmp_dir:
         p = FileWriterProcess(
             board_queues, from_main, to_main, error_queue, file_directory=tmp_dir
@@ -159,6 +188,8 @@ def fixture_four_board_file_writer_process():
         if not p.is_alive():
             # Eli (2/10/20): it is important in windows based systems to make sure to close the files before deleting them. be careful about this when running tests in a linux dev environment
             p.close_all_files()
+        # cleanup queues to avoid broken pipe errors
+        p.hard_stop()
 
 
 @pytest.fixture(scope="function", name="running_four_board_file_writer_process")

@@ -9,6 +9,7 @@ import logging
 import math
 from multiprocessing import Queue
 import os
+import queue
 from statistics import stdev
 import struct
 import time
@@ -44,6 +45,7 @@ from .constants import CALIBRATION_NEEDED_STATE
 from .constants import DATA_FRAME_PERIOD
 from .constants import OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import REF_INDEX_TO_24_WELL_INDEX
+from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import TIMESTEP_CONVERSION_FACTOR
 from .constants import VALID_SCRIPTING_COMMANDS
 from .exceptions import FirmwareFileNameDoesNotMatchWireOutVersionError
@@ -174,7 +176,9 @@ def _create_activate_trigger_in_callable(
     return functools.partial(front_panel.activate_trigger_in, ep_addr, bit)
 
 
-def _comm_delay(communication: Dict[str, Any],) -> str:
+def _comm_delay(
+    communication: Dict[str, Any],
+) -> str:
     """Pause comms to XEM for given number of milliseconds."""
     num_milliseconds = communication["num_milliseconds"]
     sleep_val = num_milliseconds / 1000
@@ -328,7 +332,10 @@ def _check_data_frame_period(
         if logging_threshold >= logging.INFO:
             raise InvalidDataFramePeriodError(msg)
         put_log_message_into_queue(
-            logging.DEBUG, msg, logging_queue, logging_threshold,
+            logging.DEBUG,
+            msg,
+            logging_queue,
+            logging_threshold,
         )
 
 
@@ -479,19 +486,27 @@ class OkCommunicationProcess(InfiniteProcess):
             suppress_setup_communication_to_main
         )
         self._data_frame_format = "six_channels_32_bit__single_sample_index"
-        self._time_of_last_fifo_read: List[Union[None, datetime.datetime]] = (
-            [None] * len(self._board_queues)
+        self._time_of_last_fifo_read: List[Union[None, datetime.datetime]] = [
+            None
+        ] * len(self._board_queues)
+        self._timepoint_of_last_fifo_read: List[Union[None, float]] = [None] * len(
+            self._board_queues
         )
-        self._timepoint_of_last_fifo_read: List[Union[None, float]] = (
-            [None] * len(self._board_queues)
-        )
-        self._reads_since_last_logging: List[int] = ([0] * len(self._board_queues))
+        self._reads_since_last_logging: List[int] = [0] * len(self._board_queues)
         self._is_managed_acquisition_running = [False] * len(self._board_queues)
         self._is_first_managed_read = [False] * len(self._board_queues)
         self._fifo_read_durations: List[float] = list()
         self._fifo_read_lengths: List[int] = list()
         self._data_parsing_durations: List[float] = list()
         self._durations_between_acquisition: List[float] = list()
+
+    def hard_stop(self, timeout: Optional[float] = None) -> Dict[str, Any]:
+        return_value: Dict[str, Any] = super().hard_stop(timeout=timeout)
+        board_connections = self.get_board_connections_list()
+        for iter_board in board_connections:
+            if iter_board is not None:
+                iter_board.hard_stop(timeout=timeout)
+        return return_value
 
     def determine_how_many_boards_are_connected(self) -> int:
         # pylint: disable=no-self-use # currently a place holder just being mocked
@@ -553,12 +568,18 @@ class OkCommunicationProcess(InfiniteProcess):
     def _teardown_after_loop(self) -> None:
         msg = f"OpalKelly Communication Process beginning teardown at {_get_formatted_utc_now()}"
         put_log_message_into_queue(
-            logging.INFO, msg, self._board_queues[0][1], self.get_logging_level(),
+            logging.INFO,
+            msg,
+            self._board_queues[0][1],
+            self.get_logging_level(),
         )
         if self._is_managed_acquisition_running[0]:
             msg = "Board acquisition still running. Stopping acquisition to complete teardown"
             put_log_message_into_queue(
-                logging.INFO, msg, self._board_queues[0][1], self.get_logging_level(),
+                logging.INFO,
+                msg,
+                self._board_queues[0][1],
+                self.get_logging_level(),
             )
             self._is_managed_acquisition_running[0] = False
             board_connections = self.get_board_connections_list()
@@ -626,24 +647,29 @@ class OkCommunicationProcess(InfiniteProcess):
         Will just return if no communications in queue.
         """
         input_queue = self._board_queues[0][0]
-        if input_queue.qsize() == 0:
+        try:
+            this_communication = input_queue.get(
+                timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+            )
+        except queue.Empty:
             return
 
-        this_communication = input_queue.get()
-        if this_communication["communication_type"] == "debug_console":
+        communication_type = this_communication["communication_type"]
+
+        if communication_type == "debug_console":
             self._handle_debug_console_comm(this_communication)
-        elif this_communication["communication_type"] == "boot_up_instrument":
+        elif communication_type == "boot_up_instrument":
             self._boot_up_instrument(this_communication)
-        elif this_communication["communication_type"] == "acquisition_manager":
+        elif communication_type == "acquisition_manager":
             self._handle_acquisition_manager_comm(this_communication)
-        elif this_communication["communication_type"] == "xem_scripts":
+        elif communication_type == "xem_scripts":
             self._handle_xem_scripts_comm(this_communication)
-        elif this_communication["communication_type"] == "mantarray_naming":
+        elif communication_type == "mantarray_naming":
             self._handle_mantarray_naming_comm(this_communication)
+        elif communication_type == "to_instrument":
+            self._handle_acquisition_manager_comm(this_communication)
         else:
-            raise UnrecognizedCommTypeFromMainToOKCommError(
-                this_communication["communication_type"]
-            )
+            raise UnrecognizedCommTypeFromMainToOKCommError(communication_type)
         if not input_queue.empty():
             self._process_can_be_soft_stopped = False
 
@@ -816,13 +842,19 @@ class OkCommunicationProcess(InfiniteProcess):
         num_words_in_fifo = board.get_num_words_fifo()
         msg = f"Timestamp: {_get_formatted_utc_now()} {num_words_in_fifo} words in the FIFO currently."
         put_log_message_into_queue(
-            logging.DEBUG, msg, comm_to_main_queue, logging_threshold,
+            logging.DEBUG,
+            msg,
+            comm_to_main_queue,
+            logging_threshold,
         )
 
         msg = f"Timestamp: {_get_formatted_utc_now()} About to read from FIFO"
 
         put_log_message_into_queue(
-            logging.DEBUG, msg, comm_to_main_queue, logging_threshold,
+            logging.DEBUG,
+            msg,
+            comm_to_main_queue,
+            logging_threshold,
         )
 
         read_start = time.perf_counter()
@@ -928,10 +960,22 @@ class OkCommunicationProcess(InfiniteProcess):
             Union[int, float]
         ]  # Tanner (5/28/20): This type annotation and the 'ignore' on the following line are necessary for mypy to not incorrectly type this variable
         for name, okc_measurements in (  # type: ignore
-            ("fifo_read_num_bytes", self._fifo_read_lengths,),
-            ("fifo_read_duration", self._fifo_read_durations,),
-            ("data_parsing_duration", self._data_parsing_durations,),
-            ("duration_between_acquisition", self._durations_between_acquisition,),
+            (
+                "fifo_read_num_bytes",
+                self._fifo_read_lengths,
+            ),
+            (
+                "fifo_read_duration",
+                self._fifo_read_durations,
+            ),
+            (
+                "data_parsing_duration",
+                self._data_parsing_durations,
+            ),
+            (
+                "duration_between_acquisition",
+                self._durations_between_acquisition,
+            ),
         ):
             performance_metrics[name] = {
                 "max": max(okc_measurements),

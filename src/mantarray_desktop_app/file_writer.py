@@ -8,6 +8,7 @@ import json
 import logging
 from multiprocessing import Queue
 import os
+import queue
 from statistics import stdev
 import time
 from typing import Any
@@ -40,6 +41,7 @@ from .constants import PLATE_BARCODE_UUID
 from .constants import REF_SAMPLING_PERIOD_UUID
 from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from .constants import ROUND_ROBIN_PERIOD
+from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import TISSUE_SAMPLING_PERIOD_UUID
 from .constants import TOTAL_WELL_COUNT_UUID
 from .constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
@@ -164,6 +166,11 @@ def _drain_queue(
     return queue_items
 
 
+# MPQueueOfCommunicationsType = Queue[  # pylint: disable=unsubscriptable-object
+#     Dict[str, Any]
+# ]
+
+
 # pylint: disable=too-many-instance-attributes
 class FileWriterProcess(InfiniteProcess):
     """Process that writes data to disk.
@@ -193,9 +200,7 @@ class FileWriterProcess(InfiniteProcess):
         from_main_queue: Queue[  # pylint: disable=unsubscriptable-object
             Dict[str, Any]
         ],
-        to_main_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-            Dict[str, Any]
-        ],
+        to_main_queue: Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
         fatal_error_reporter: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
             Tuple[Exception, str]
         ],
@@ -271,14 +276,21 @@ class FileWriterProcess(InfiniteProcess):
         return self._is_recording
 
     def _teardown_after_loop(self) -> None:
+        to_main_queue = self._to_main_queue
         msg = f"File Writer Process beginning teardown at {_get_formatted_utc_now()}"
         put_log_message_into_queue(
-            logging.INFO, msg, self._to_main_queue, self.get_logging_level(),
+            logging.INFO,
+            msg,
+            to_main_queue,
+            self.get_logging_level(),
         )
         if self._is_recording:
             msg = "Data is still be written to file. Stopping recording and closing files to complete teardown"
             put_log_message_into_queue(
-                logging.INFO, msg, self._to_main_queue, self.get_logging_level(),
+                logging.INFO,
+                msg,
+                to_main_queue,
+                self.get_logging_level(),
             )
             self.close_all_files()
         super()._teardown_after_loop()
@@ -363,12 +375,13 @@ class FileWriterProcess(InfiniteProcess):
         tissue_status[0].clear()
         reference_status[0].clear()
         for this_well_idx in communication["active_well_indices"]:
+            file_path = os.path.join(
+                self._file_directory,
+                sub_dir_name,
+                f"{sub_dir_name}__{GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(this_well_idx)}.h5",
+            )
             this_file = MantarrayH5FileCreator(
-                os.path.join(
-                    self._file_directory,
-                    sub_dir_name,
-                    f"{sub_dir_name}__{GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(this_well_idx)}.h5",
-                ),
+                file_path,
             )
             self._open_files[0][this_well_idx] = this_file
             this_file.attrs["File Format Version"] = CURRENT_HDF5_FILE_FORMAT_VERSION
@@ -450,7 +463,9 @@ class FileWriterProcess(InfiniteProcess):
             ref_dataset = get_reference_dataset_from_file(this_file)
             for dataset in (tissue_dataset, ref_dataset):
                 last_index_of_valid_data = _find_last_valid_data_index(
-                    latest_timepoint, dataset.shape[0] - 1, stop_recording_timestamp,
+                    latest_timepoint,
+                    dataset.shape[0] - 1,
+                    stop_recording_timestamp,
                 )
                 index_to_slice_to = last_index_of_valid_data + 1
                 new_data = dataset[:index_to_slice_to]
@@ -458,9 +473,10 @@ class FileWriterProcess(InfiniteProcess):
 
     def _process_next_command_from_main(self) -> None:
         input_queue = self._from_main_queue
-        if input_queue.qsize() == 0:
+        try:
+            communication = input_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
+        except queue.Empty:
             return
-        communication = input_queue.get()
 
         to_main = self._to_main_queue
         logging_threshold = self.get_logging_level()
@@ -598,9 +614,10 @@ class FileWriterProcess(InfiniteProcess):
         If multiple boards are implemented, a kwarg board_idx:int=0 can be added.
         """
         input_queue = self._board_queues[0][0]
-        if input_queue.empty():
+        try:
+            data_packet = input_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
+        except queue.Empty:
             return
-        data_packet = input_queue.get_nowait()
 
         to_main = self._to_main_queue
 

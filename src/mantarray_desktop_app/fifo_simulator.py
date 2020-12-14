@@ -18,11 +18,13 @@ from xem_wrapper import OpalKellyBoardNotInitializedError
 from .constants import FIFO_READ_PRODUCER_CYCLES_PER_ITERATION
 from .constants import FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
 from .constants import FIRMWARE_VERSION_WIRE_OUT_ADDRESS
+from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .exceptions import AttemptToAddCyclesWhileSPIRunningError
 from .exceptions import AttemptToInitializeFIFOReadsError
 from .fifo_read_producer import FIFOReadProducer
 from .fifo_read_producer import produce_data
 from .mantarray_front_panel import MantarrayFrontPanelMixIn
+from .queue_utils import _drain_queue
 
 
 class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
@@ -54,6 +56,14 @@ class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
             Queue[bytearray]  # pylint: disable=unsubscriptable-object
         ] = None
         self._lock: Optional[threading.Lock] = None
+
+    def hard_stop(self, timeout: Optional[float] = None) -> None:
+        if self._fifo_read_producer is not None:
+            self._fifo_read_producer.hard_stop(timeout=timeout)
+        if "wire_outs" in self._simulated_response_queues:
+            wire_outs = self._simulated_response_queues["wire_outs"]
+            for _, wire_out_queue in wire_outs.items():
+                _drain_queue(wire_out_queue)
 
     def initialize_board(
         self,
@@ -98,8 +108,14 @@ class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
             is_producer_stopped = self._fifo_read_producer.is_stopped()
 
         with self._lock:
-            while not self._producer_data_queue.empty():
-                self._producer_data_queue.get_nowait()
+            while True:
+                try:
+                    self._producer_data_queue.get(
+                        timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+                    )
+                except queue.Empty:
+                    break
+
         self._fifo_read_producer.join()
         self._fifo_read_producer = None
 
@@ -111,10 +127,15 @@ class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
         wire_out_queue = wire_outs.get(ep_addr, None)
         if wire_out_queue is None:
             return FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
-        if wire_out_queue.empty():
+        try:
+            wire_out_value = wire_out_queue.get(
+                timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+            )
+        except queue.Empty:
             return FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
-        wire_out_val: int = wire_out_queue.get_nowait()
-        return wire_out_val
+        if not isinstance(wire_out_value, int):
+            raise NotImplementedError("Wire out values should always be ints")
+        return wire_out_value
 
     def read_from_fifo(self) -> bytearray:
         if self._producer_data_queue is None:
@@ -124,8 +145,14 @@ class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
         # Tanner (3/12/20) is not sure how to test that we are using a lock here. The purpose of this lock is to ensure that data is not pulled from the queue at the same time it is being added.
         with self._lock:
             data_read = bytearray(0)
-            while not self._producer_data_queue.empty():
-                data_read.extend(self._producer_data_queue.get_nowait())
+            while True:
+                try:
+                    iter_data = self._producer_data_queue.get(
+                        timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+                    )
+                except queue.Empty:
+                    break
+                data_read.extend(iter_data)
             return data_read
 
     def get_num_words_fifo(self) -> int:
@@ -140,15 +167,28 @@ class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
         ] = queue.Queue()
         # Tanner (3/12/20) is not sure how to test that we are using a lock here. The purpose of this lock is to ensure that data is not pulled from the queue at the same time it is being added.
         with self._lock:
-            while not self._producer_data_queue.empty():
+            while True:
+                try:
+                    iter_data = self._producer_data_queue.get(
+                        timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+                    )
+                except queue.Empty:
+                    break
                 num_words += (
                     DATA_FRAME_SIZE_WORDS
                     * DATA_FRAMES_PER_ROUND_ROBIN
                     * FIFO_READ_PRODUCER_CYCLES_PER_ITERATION
                 )
-                temp_queue.put(self._producer_data_queue.get_nowait())
-            while not temp_queue.empty():
-                self._producer_data_queue.put(temp_queue.get_nowait())
+                temp_queue.put(iter_data)
+
+            while True:
+                try:
+                    iter_data = temp_queue.get(
+                        timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+                    )
+                except queue.Empty:
+                    break
+                self._producer_data_queue.put(iter_data)
         return num_words
 
     def add_data_cycles(self, num_cycles: int) -> None:

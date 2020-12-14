@@ -15,7 +15,6 @@ from mantarray_desktop_app import ScriptDoesNotContainEndCommandError
 import pytest
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import invoke_process_run_and_check_errors
-from stdlib_utils import is_queue_eventually_not_empty
 from stdlib_utils import resource_path
 from xem_wrapper import convert_wire_value
 from xem_wrapper import OkHardwareUnsupportedFeatureError
@@ -23,6 +22,7 @@ from xem_wrapper import OkHardwareUnsupportedFeatureError
 from .fixtures import fixture_test_process_manager
 from .fixtures_ok_comm import fixture_four_board_comm_process
 from .fixtures_process_monitor import fixture_test_monitor
+from .helpers import is_queue_eventually_not_empty
 
 __fixtures__ = [
     fixture_test_monitor,
@@ -231,10 +231,12 @@ def test_gain_value_is_parsed_and_saved_when_running_start_up_script(
     monitor_thread, shared_values_dict, _, _ = test_monitor
     test_process_manager.create_processes()
     ok_comm_process = test_process_manager.get_ok_comm_process()
-    from_ok_comm_queue = test_process_manager.get_communication_queue_from_ok_comm_to_main(
+    from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
     )
-    to_ok_comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
+    to_ok_comm_queue = (
+        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    )
     ok_comm_process.set_board_connection(0, simulator)
 
     to_ok_comm_queue.put(
@@ -301,10 +303,12 @@ def test_offset_values_are_parsed_and_saved_when_running_start_calibration_scrip
     monitor_thread, shared_values_dict, _, _ = test_monitor
     test_process_manager.create_processes()
     ok_comm_process = test_process_manager.get_ok_comm_process()
-    from_ok_comm_queue = test_process_manager.get_communication_queue_from_ok_comm_to_main(
+    from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
     )
-    to_ok_comm_queue = test_process_manager.get_communication_to_ok_comm_queue(0)
+    to_ok_comm_queue = (
+        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    )
     ok_comm_process.set_board_connection(0, simulator)
 
     to_ok_comm_queue.put(

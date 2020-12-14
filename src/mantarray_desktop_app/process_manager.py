@@ -4,94 +4,66 @@ from __future__ import annotations
 
 import copy
 import logging
-from multiprocessing import Queue
 import os
+from time import perf_counter
+from time import sleep
 from typing import Any
 from typing import Dict
+from typing import Iterable
+from typing import Optional
 from typing import Tuple
 
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import resource_path
 
+from .constants import DEFAULT_SERVER_PORT_NUMBER
+from .constants import INSTRUMENT_INITIALIZING_STATE
+from .constants import SUBPROCESS_POLL_DELAY_SECONDS
+from .constants import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from .data_analyzer import DataAnalyzerProcess
 from .file_writer import FileWriterProcess
 from .firmware_manager import get_latest_firmware
 from .ok_comm import OkCommunicationProcess
+from .queue_container import MantarrayQueueContainer
+from .server import ServerThread
 
 
-class MantarrayProcessesManager:  # pylint: disable=too-many-instance-attributes, too-many-public-methods
+class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
     """Controls access to all the subprocesses."""
 
     def __init__(
-        self, file_directory: str = "", logging_level: int = logging.INFO
+        self,
+        file_directory: str = "",
+        logging_level: int = logging.INFO,
+        values_to_share_to_server: Optional[Dict[str, Any]] = None,
     ) -> None:
-        # pylint-disable: duplicate-code # needed for the type definition of the board_queues
-        self._ok_communication_error_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-            Tuple[Exception, str]
-        ]
+        self._queue_container: MantarrayQueueContainer
+
         self._ok_communication_process: OkCommunicationProcess
-        self._ok_comm_board_queues: Tuple[  # pylint-disable: duplicate-code
-            Tuple[
-                Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-                    Dict[str, Any]
-                ],
-                Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-                    Dict[str, Any]
-                ],
-                Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-                    Any
-                ],
-            ],
-            ...,
-        ]
         self._logging_level: int
-        self.set_logging_level(logging_level)
+        if values_to_share_to_server is None:
+            values_to_share_to_server = dict()
+
+        self._values_to_share_to_server = values_to_share_to_server
+        self._server_thread: ServerThread
         self._file_writer_process: FileWriterProcess
-        self._from_main_to_file_writer_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-            Dict[str, Any]
-        ]
-        self._from_file_writer_to_main_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-            Dict[str, Any]
-        ]
-        self._file_writer_error_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-            Tuple[Exception, str]
-        ]
-        self._file_writer_board_queues: Tuple[  # pylint-disable: duplicate-code
-            Tuple[
-                Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-                    Any
-                ],
-                Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-                    Any
-                ],
-            ],  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-            ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-        ]
         self._file_directory: str = file_directory
         self._data_analyzer_process: DataAnalyzerProcess
-        self._data_analyzer_board_queues: Tuple[  # pylint-disable: duplicate-code
-            Tuple[
-                Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-                    Any
-                ],
-                Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-                    Any
-                ],
-            ],  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-            ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-        ]
-        self._from_main_to_data_analyzer_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-            Dict[str, Any]
-        ]
-        self._from_data_analyzer_to_main_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-            Dict[str, Any]
-        ]
-        self._data_analyzer_error_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-            Tuple[Exception, str]
-        ]
+
+        self._all_processes = Tuple[
+            ServerThread, OkCommunicationProcess, FileWriterProcess, DataAnalyzerProcess
+        ]  # server takes longest to start, so have that first
+
+        self.set_logging_level(logging_level)
 
     def set_logging_level(self, logging_level: int) -> None:
         self._logging_level = logging_level
+
+    def get_values_to_share_to_server(self) -> Dict[str, Any]:
+        return self._values_to_share_to_server
+
+    def queue_container(self) -> MantarrayQueueContainer:
+        return self._queue_container
 
     def get_file_directory(self) -> str:
         return self._file_directory
@@ -102,146 +74,75 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-instance-attributes
     def get_logging_level(self) -> int:
         return self._logging_level
 
-    def get_communication_queue_from_main_to_file_writer(
-        self,
-    ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Dict[str, Any]
-    ]:
-        return self._from_main_to_file_writer_queue
-
-    def get_communication_to_ok_comm_queue(
-        self, board_idx: int
-    ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Dict[str, Any]
-    ]:
-        return self._ok_comm_board_queues[board_idx][0]
-
-    def get_communication_queue_from_ok_comm_to_main(
-        self, board_idx: int
-    ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Dict[str, Any]
-    ]:
-        return self._ok_comm_board_queues[board_idx][1]
+    def get_instrument_process(self) -> OkCommunicationProcess:
+        return self._ok_communication_process
 
     def get_ok_comm_process(self) -> OkCommunicationProcess:
-        return self._ok_communication_process
+        # eventually should deprecate and replace with get_instrument_process
+        return self.get_instrument_process()
 
     def get_file_writer_process(self) -> FileWriterProcess:
         return self._file_writer_process
 
-    def get_communication_queue_from_file_writer_to_main(
-        self,
-    ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Dict[str, Any]
-    ]:
-        return self._from_file_writer_to_main_queue
-
-    def get_file_writer_error_queue(
-        self,
-    ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Tuple[Exception, str]
-    ]:
-        return self._file_writer_error_queue
-
-    def get_ok_communication_error_queue(
-        self,
-    ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Tuple[Exception, str]
-    ]:
-        return self._ok_communication_error_queue
+    def get_server_thread(self) -> ServerThread:
+        return self._server_thread
 
     def get_data_analyzer_process(self) -> DataAnalyzerProcess:
         return self._data_analyzer_process
 
-    def get_communication_queue_from_data_analyzer_to_main(
-        self,
-    ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Dict[str, Any]
-    ]:
-        return self._from_data_analyzer_to_main_queue
-
-    def get_communication_queue_from_main_to_data_analyzer(
-        self,
-    ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Dict[str, Any]
-    ]:
-        return self._from_main_to_data_analyzer_queue
-
-    def get_data_analyzer_data_out_queue(
-        self,
-    ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Dict[str, Any]
-    ]:
-        return self._data_analyzer_board_queues[0][1]
-
-    def get_data_analyzer_error_queue(
-        self,
-    ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Tuple[Exception, str]
-    ]:
-        return self._data_analyzer_error_queue
-
-    def _create_queues(self) -> None:
-        """Create all the queues and assign to the instance variables."""
-        self._ok_communication_error_queue = Queue()
-        ok_board_queues: Tuple[  # pylint-disable: duplicate-code
-            Tuple[
-                Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-                    Dict[str, Any]
-                ],
-                Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-                    Dict[str, Any]
-                ],
-                Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-                    Any
-                ],
-            ],  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-            ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-        ] = tuple([(Queue(), Queue(), Queue(),)] * 1)
-        self._ok_comm_board_queues = ok_board_queues
-
-        self._from_file_writer_to_main_queue = Queue()
-        self._file_writer_error_queue = Queue()
-        self._from_main_to_file_writer_queue = Queue()
-        self._file_writer_board_queues = tuple([(ok_board_queues[0][2], Queue(),)] * 1)
-
-        self._from_data_analyzer_to_main_queue = Queue()
-        self._data_analyzer_error_queue = Queue()
-        self._from_main_to_data_analyzer_queue = Queue()
-        self._data_analyzer_board_queues = tuple(
-            [(self._file_writer_board_queues[0][1], Queue(),)] * 1
-        )
-
     def create_processes(self) -> None:
         """Create/init the processes."""
-        self._create_queues()
+        queue_container = MantarrayQueueContainer()
+        self._queue_container = queue_container
+
+        self._server_thread = ServerThread(
+            queue_container.get_communication_queue_from_server_to_main(),
+            queue_container.get_server_error_queue(),
+            queue_container,
+            logging_level=self._logging_level,
+            values_from_process_monitor=self._values_to_share_to_server,
+            port=self._values_to_share_to_server.get(
+                "server_port_number", DEFAULT_SERVER_PORT_NUMBER
+            ),
+        )
 
         self._ok_communication_process = OkCommunicationProcess(
-            self._ok_comm_board_queues,
-            self._ok_communication_error_queue,
+            queue_container.get_ok_comm_board_queues(),
+            queue_container.get_ok_communication_error_queue(),
             logging_level=self._logging_level,
         )
 
         self._file_writer_process = FileWriterProcess(
-            self._file_writer_board_queues,
-            self._from_main_to_file_writer_queue,
-            self._from_file_writer_to_main_queue,
-            self._file_writer_error_queue,
+            queue_container.get_file_writer_board_queues(),
+            queue_container.get_communication_queue_from_main_to_file_writer(),
+            queue_container.get_communication_queue_from_file_writer_to_main(),
+            queue_container.get_file_writer_error_queue(),
             file_directory=self._file_directory,
             logging_level=self._logging_level,
         )
 
         self._data_analyzer_process = DataAnalyzerProcess(
-            self._data_analyzer_board_queues,
-            self._from_main_to_data_analyzer_queue,
-            self._from_data_analyzer_to_main_queue,
-            self._data_analyzer_error_queue,
+            queue_container.get_data_analyzer_board_queues(),
+            queue_container.get_communication_queue_from_main_to_data_analyzer(),
+            queue_container.get_communication_queue_from_data_analyzer_to_main(),
+            queue_container.get_data_analyzer_error_queue(),
+            logging_level=self._logging_level,
+        )
+
+        self._all_processes = (
+            self._server_thread,
+            self._ok_communication_process,
+            self._file_writer_process,
+            self._data_analyzer_process,
         )
 
     def start_processes(self) -> None:
-        self._ok_communication_process.start()
-        self._file_writer_process.start()
-        self._data_analyzer_process.start()
+        if not isinstance(  # pylint:disable=isinstance-second-argument-not-valid-type # Eli (12/8/20): pylint issue https://github.com/PyCQA/pylint/issues/3507
+            self._all_processes, Iterable
+        ):
+            raise NotImplementedError("Processes must be created first.")
+        for iter_process in self._all_processes:
+            iter_process.start()
 
     def spawn_processes(self) -> None:
         """Create and start processes, no extra args."""
@@ -256,8 +157,11 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-instance-attributes
         'mantarray_#_#_#.bit'
         """
         bit_file_name = get_latest_firmware()
-        to_ok_comm_queue = self.get_communication_to_ok_comm_queue(0)
+        to_ok_comm_queue = self.queue_container().get_communication_to_ok_comm_queue(0)
 
+        self.get_values_to_share_to_server()[
+            "system_status"
+        ] = INSTRUMENT_INITIALIZING_STATE
         boot_up_dict = {
             "communication_type": "boot_up_instrument",
             "command": "initialize_board",
@@ -280,30 +184,48 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-instance-attributes
         return response_dict
 
     def stop_processes(self) -> None:
-        self._ok_communication_process.stop()
-        self._file_writer_process.stop()
-        self._data_analyzer_process.stop()
+        if not isinstance(  # pylint:disable=isinstance-second-argument-not-valid-type # Eli (12/8/20): pylint issue https://github.com/PyCQA/pylint/issues/3507
+            self._all_processes, Iterable
+        ):
+            raise NotImplementedError("Processes must be created first.")
+        for iter_process in self._all_processes:
+            iter_process.stop()
 
     def soft_stop_processes(self) -> None:
-        self._ok_communication_process.soft_stop()
-        self._file_writer_process.soft_stop()
-        self._data_analyzer_process.soft_stop()
+        self.soft_stop_processes_except_server()
+        self.get_server_thread().soft_stop()
+
+    def soft_stop_processes_except_server(self) -> None:
+        if not isinstance(  # pylint:disable=isinstance-second-argument-not-valid-type # Eli (12/8/20): pylint issue https://github.com/PyCQA/pylint/issues/3507
+            self._all_processes, Iterable
+        ):
+            raise NotImplementedError("Processes must be created first.")
+        for iter_process in self._all_processes:
+            if isinstance(iter_process, ServerThread):
+                continue
+            iter_process.soft_stop()
 
     def hard_stop_processes(self) -> Dict[str, Any]:
+        """Immediately stop subprocesses."""
         ok_comm_items = self._ok_communication_process.hard_stop()
         file_writer_items = self._file_writer_process.hard_stop()
         data_analyzer_items = self._data_analyzer_process.hard_stop()
+        server_items = self._server_thread.hard_stop()
         process_items = {
             "ok_comm_items": ok_comm_items,
             "file_writer_items": file_writer_items,
             "data_analyzer_items": data_analyzer_items,
+            "server_items": server_items,
         }
         return process_items
 
     def join_processes(self) -> None:
-        self._ok_communication_process.join()
-        self._file_writer_process.join()
-        self._data_analyzer_process.join()
+        if not isinstance(  # pylint:disable=isinstance-second-argument-not-valid-type # Eli (12/8/20): pylint issue https://github.com/PyCQA/pylint/issues/3507
+            self._all_processes, Iterable
+        ):
+            raise NotImplementedError("Processes must be created first.")
+        for iter_process in self._all_processes:
+            iter_process.join()
 
     def soft_stop_and_join_processes(self) -> None:
         self.soft_stop_processes()
@@ -321,12 +243,34 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-instance-attributes
         self._file_writer_process.join()
         data_analyzer_items = self._data_analyzer_process.hard_stop()
         self._data_analyzer_process.join()
+        server_items = self._server_thread.hard_stop()
+        self._server_thread.join()
         process_items = {
             "ok_comm_items": ok_comm_items,
             "file_writer_items": file_writer_items,
             "data_analyzer_items": data_analyzer_items,
+            "server_items": server_items,
         }
         return process_items
+
+    def are_processes_stopped(self) -> bool:
+        """Check if processes are stopped."""
+        # TODO (Eli 11/18/20): consider accepting a kwarg for SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
+        start = perf_counter()
+        processes = self._all_processes
+        if not isinstance(  # pylint:disable=isinstance-second-argument-not-valid-type # Eli (12/8/20): pylint issue https://github.com/PyCQA/pylint/issues/3507
+            processes, Iterable
+        ):
+            raise NotImplementedError("Processes must be created first.")
+        are_stopped = all(p.is_stopped() for p in processes)
+
+        while not are_stopped:
+            sleep(SUBPROCESS_POLL_DELAY_SECONDS)
+            elapsed_time = perf_counter() - start
+            if elapsed_time >= SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS:
+                break
+            are_stopped = all(p.is_stopped() for p in processes)
+        return are_stopped
 
 
 def _create_process_manager() -> MantarrayProcessesManager:

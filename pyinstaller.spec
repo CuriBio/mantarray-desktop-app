@@ -8,6 +8,7 @@ import inspect
 import os
 import sys
 from stdlib_utils import configure_logging
+from stdlib_utils import get_current_file_abs_directory
 from mantarray_desktop_app import get_latest_firmware
 
 # import PyInstaller.config # https://stackoverflow.com/questions/37319911/python-how-to-specify-output-folders-in-pyinstaller-spec-file?rq=1
@@ -50,8 +51,12 @@ a = Analysis(  # type: ignore # noqa: F821     the 'Analysis' object is special 
             os.path.join("src", "drivers"),
         ),
     ],
-    hiddenimports=["xem_wrapper._windows._ok", "scipy.special.cython_special"],
-    hookspath=[],
+    hiddenimports=[
+        "xem_wrapper._windows._ok",
+        "scipy.special.cython_special",
+        "flatten_dict",
+    ],
+    hookspath=[os.path.join(get_current_file_abs_directory(), "hooks")],
     runtime_hooks=[],
     excludes=["FixTk", "tcl", "tk", "_tkinter", "tkinter", "Tkinter"],
     win_no_prefer_redirects=False,
@@ -59,9 +64,9 @@ a = Analysis(  # type: ignore # noqa: F821     the 'Analysis' object is special 
     cipher=block_cipher,
 )
 
-# print("Modules/packages found during analysis:")
-# for this_info in sorted(a.pure, key=lambda x: x[0]):
-#     print(this_info)
+print("Modules/packages found during analysis:")  # allow-print
+for this_info in sorted(a.pure, key=lambda x: x[0]):
+    print(this_info)  # allow-print
 
 
 pyz = PYZ(  # type: ignore # noqa: F821   the 'PYZ' object is special to how pyinstaller reads the file

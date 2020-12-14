@@ -13,6 +13,7 @@ from typing import Dict
 from typing import Tuple
 import uuid
 
+from immutabledict import immutabledict
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
@@ -21,7 +22,7 @@ CURRENT_SOFTWARE_VERSION = "0.3.8"
 
 COMPILED_EXE_BUILD_TIMESTAMP = "REPLACETHISWITHTIMESTAMPDURINGBUILD"
 
-CURRENT_HDF5_FILE_FORMAT_VERSION = "0.3.1"
+CURRENT_HDF5_FILE_FORMAT_VERSION = "0.3.3"
 
 DEFAULT_SERVER_PORT_NUMBER = 4567
 
@@ -31,6 +32,9 @@ FIRMWARE_VERSION_WIRE_OUT_ADDRESS = 0x21
 
 CURI_BIO_ACCOUNT_UUID = uuid.UUID("73f52be0-368c-42d8-a1fd-660d49ba5604")
 CURI_BIO_USER_ACCOUNT_ID = uuid.UUID("455b93eb-c78f-4494-9f73-d3291130f126")
+
+# TODO (Eli 12/8/20): make all potentially mutable constants explicitly immutable (e.g. immutabledicts)
+
 DEFAULT_USER_CONFIG = {
     "Customer Account ID": "",
     "User Account ID": "",
@@ -124,6 +128,7 @@ CHANNEL_INDEX_TO_24_WELL_INDEX = {  # may be unnecessary
     22: 19,
     23: 18,
 }
+# Eli (12/10/20): having some trouble converting these to immutable dicts as Cython doesn't seem to like it. Could maybe make a mutable copy right before passing to Cython
 REF_INDEX_TO_24_WELL_INDEX = {
     0: frozenset([0, 1, 4, 5]),
     1: frozenset([8, 9, 12, 13]),
@@ -155,10 +160,12 @@ for adc_num in range(6):
         WELL_24_INDEX_TO_ADC_AND_CH_INDEX[well_idx] = (adc_num, ch_num)
 
 # Communications from Main to Subprocesses
-START_MANAGED_ACQUISITION_COMMUNICATION = {
-    "communication_type": "acquisition_manager",
-    "command": "start_managed_acquisition",
-}
+START_MANAGED_ACQUISITION_COMMUNICATION = immutabledict(
+    {
+        "communication_type": "to_instrument",
+        "command": "start_managed_acquisition",
+    }
+)
 
 SERVER_INITIALIZING_STATE = "server_initializing"
 SERVER_READY_STATE = "server_ready"
@@ -169,17 +176,21 @@ CALIBRATED_STATE = "calibrated"
 BUFFERING_STATE = "buffering"
 LIVE_VIEW_ACTIVE_STATE = "live_view_active"
 RECORDING_STATE = "recording"
-SYSTEM_STATUS_UUIDS = {
-    SERVER_INITIALIZING_STATE: uuid.UUID("04471bcf-1a00-4a0d-83c8-4160622f9a25"),
-    SERVER_READY_STATE: uuid.UUID("8e24ef4d-2353-4e9d-aa32-4346126e73e3"),
-    INSTRUMENT_INITIALIZING_STATE: uuid.UUID("d2e3d386-b760-4c9a-8b2d-410362ff11c4"),
-    CALIBRATION_NEEDED_STATE: uuid.UUID("009301eb-625c-4dc4-9e92-1a4d0762465f"),
-    CALIBRATING_STATE: uuid.UUID("43c08fc5-ca2f-4dcd-9dff-5e9324cb5dbf"),
-    CALIBRATED_STATE: uuid.UUID("b480373b-9466-4fa0-92a6-fa5f8e340d30"),
-    BUFFERING_STATE: uuid.UUID("dc774d4b-6bd1-4717-b36e-6df6f1ef6cf4"),
-    LIVE_VIEW_ACTIVE_STATE: uuid.UUID("9fbee58e-c6af-49a5-b2e2-5b085eead2ea"),
-    RECORDING_STATE: uuid.UUID("1e3d76a2-508d-4c99-8bf5-60dac5cc51fe"),
-}
+SYSTEM_STATUS_UUIDS = immutabledict(
+    {
+        SERVER_INITIALIZING_STATE: uuid.UUID("04471bcf-1a00-4a0d-83c8-4160622f9a25"),
+        SERVER_READY_STATE: uuid.UUID("8e24ef4d-2353-4e9d-aa32-4346126e73e3"),
+        INSTRUMENT_INITIALIZING_STATE: uuid.UUID(
+            "d2e3d386-b760-4c9a-8b2d-410362ff11c4"
+        ),
+        CALIBRATION_NEEDED_STATE: uuid.UUID("009301eb-625c-4dc4-9e92-1a4d0762465f"),
+        CALIBRATING_STATE: uuid.UUID("43c08fc5-ca2f-4dcd-9dff-5e9324cb5dbf"),
+        CALIBRATED_STATE: uuid.UUID("b480373b-9466-4fa0-92a6-fa5f8e340d30"),
+        BUFFERING_STATE: uuid.UUID("dc774d4b-6bd1-4717-b36e-6df6f1ef6cf4"),
+        LIVE_VIEW_ACTIVE_STATE: uuid.UUID("9fbee58e-c6af-49a5-b2e2-5b085eead2ea"),
+        RECORDING_STATE: uuid.UUID("1e3d76a2-508d-4c99-8bf5-60dac5cc51fe"),
+    }
+)
 
 UTC_BEGINNING_DATA_ACQUISTION_UUID = uuid.UUID("98c67f22-013b-421a-831b-0ea55df4651e")
 START_RECORDING_TIME_INDEX_UUID = uuid.UUID("e41422b3-c903-48fd-9856-46ff56a6534c")
@@ -209,3 +220,5 @@ PLATE_BARCODE_UUID = uuid.UUID("cf60afef-a9f0-4bc3-89e9-c665c6bb6941")
 
 SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS = 1
 SUBPROCESS_POLL_DELAY_SECONDS = 0.025
+
+SECONDS_TO_WAIT_WHEN_POLLING_QUEUES = 0.02  # Due to the unreliablity of the .empty() .qsize() methods in queues, switched to a .get(timeout=) approach for polling the queues in the subprocesses.  Eli (10/26/20): 0.01 seconds was still causing sporadic failures in Linux CI in Github, so bumped to 0.02 seconds.

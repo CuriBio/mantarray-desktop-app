@@ -56,6 +56,7 @@ from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import REFERENCE_VOLTAGE_UUID
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
+from mantarray_desktop_app import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import SLEEP_FIRMWARE_VERSION_UUID
@@ -239,7 +240,7 @@ def test_sensors_and_mappings():
 
 
 def test_CURRENT_HDF5_FILE_FORMAT_VERSION():
-    assert CURRENT_HDF5_FILE_FORMAT_VERSION == "0.3.1"
+    assert CURRENT_HDF5_FILE_FORMAT_VERSION == "0.3.3"
 
 
 def test_COMPILED_EXE_BUILD_TIMESTAMP():
@@ -252,7 +253,7 @@ def test_CURRENT_SOFTWARE_VERSION():
 
 def test_START_MANAGED_ACQUISITION_COMMUNICATION():
     assert START_MANAGED_ACQUISITION_COMMUNICATION == {
-        "communication_type": "acquisition_manager",
+        "communication_type": "to_instrument",
         "command": "start_managed_acquisition",
     }
 
@@ -322,3 +323,7 @@ def test_user_config():
 def test_shutdown_values():
     assert SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS == 1
     assert SUBPROCESS_POLL_DELAY_SECONDS == 0.025
+
+
+def test_parallelism_config():
+    assert SECONDS_TO_WAIT_WHEN_POLLING_QUEUES == 0.02

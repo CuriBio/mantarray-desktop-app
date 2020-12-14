@@ -24,6 +24,8 @@ from __future__ import annotations
 from queue import Queue
 import struct
 import threading
+from typing import Any
+from typing import Dict
 
 from scipy import signal
 from stdlib_utils import InfiniteThread
@@ -40,6 +42,7 @@ from .constants import FIFO_READ_PRODUCER_SLEEP_DURATION
 from .constants import FIFO_READ_PRODUCER_WELL_AMPLITUDE
 from .constants import ROUND_ROBIN_PERIOD
 from .constants import TIMESTEP_CONVERSION_FACTOR
+from .queue_utils import _drain_queue
 
 
 def produce_data(num_cycles: int, starting_sample_index: int) -> bytearray:
@@ -130,3 +133,8 @@ class FIFOReadProducer(InfiniteThread):
         self._sample_index += (
             FIFO_READ_PRODUCER_CYCLES_PER_ITERATION * ROUND_ROBIN_PERIOD
         ) // TIMESTEP_CONVERSION_FACTOR
+
+    def _drain_all_queues(self) -> Dict[str, Any]:
+        queue_items: Dict[str, Any] = dict()
+        queue_items["data_out"] = _drain_queue(self._data_out_queue)
+        return queue_items

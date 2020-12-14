@@ -7,14 +7,15 @@ from mantarray_desktop_app import execute_debug_console_command
 from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import UnrecognizedDebugConsoleCommandError
 import pytest
-from stdlib_utils import is_queue_eventually_not_empty
 from xem_wrapper import DATA_FRAME_SIZE_WORDS
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 from xem_wrapper import FrontPanelSimulator
 from xem_wrapper import PIPE_OUT_FIFO
 
 from .fixtures import fixture_patched_firmware_folder
+from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .fixtures_ok_comm import fixture_running_process_with_simulated_board
+from .helpers import is_queue_eventually_not_empty
 
 __fixtures__ = [
     fixture_running_process_with_simulated_board,
@@ -55,7 +56,8 @@ def test_execute_debug_console_command__lets_error_propagate_up_with_default_sup
     )
     with pytest.raises(KeyError, match="side_effect_error"):
         execute_debug_console_command(
-            dummy_panel, {"command": "initialize_board", "bit_file_name": "main.bit"},
+            dummy_panel,
+            {"command": "initialize_board", "bit_file_name": "main.bit"},
         )
 
 
@@ -89,7 +91,7 @@ def test_OkCommunicationProcess_run__processes_init_board_debug_console_command(
     ok_process.join()
     assert error_queue.empty() is True
 
-    init_response = response_queue.get_nowait()
+    init_response = response_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert init_response["command"] == "initialize_board"
     assert init_response["bit_file_name"] == test_bit_file_name
 
@@ -116,7 +118,7 @@ def test_OkCommunicationProcess_run__processes_init_board_debug_console_command_
     ok_process.join()
     assert error_queue.empty() is True
 
-    init_response = response_queue.get_nowait()
+    init_response = response_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert init_response["command"] == "initialize_board"
     assert init_response["bit_file_name"] == test_bit_file_name
     # Tanner (5/26/20): Asserting respone is None is the simplest way to assert no error was returned
@@ -128,7 +130,10 @@ def test_OkCommunicationProcess_run__processes_init_board_debug_console_command_
     [(7, 5, "response of 5 from wire 7"), (4, 8, "response of 8 from wire 4")],
 )
 def test_OkCommunicationProcess_run__processes_read_wire_out_debug_console_command(
-    test_address, test_response, test_description, running_process_with_simulated_board,
+    test_address,
+    test_response,
+    test_description,
+    running_process_with_simulated_board,
 ):
     wire_queue = Queue()
     wire_queue.put(test_response)
@@ -151,7 +156,7 @@ def test_OkCommunicationProcess_run__processes_read_wire_out_debug_console_comma
 
     expected_returned_communication["response"] = test_response
     expected_returned_communication["hex_converted_response"] = hex(test_response)
-    actual = response_queue.get_nowait()
+    actual = response_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_returned_communication
 
 
@@ -200,7 +205,7 @@ def test_OkCommunicationProcess_run__processes_read_from_fifo_debug_console_comm
     for i in range(num_words_to_log):
         formatted_test_words.append(hex(test_words[i]))
     expected_returned_communication["response"] = formatted_test_words
-    actual = response_queue.get_nowait()
+    actual = response_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_returned_communication
 
 
@@ -226,7 +231,7 @@ def test_OkCommunicationProcess_run__processes_get_device_id_debug_console_comma
     assert error_queue.empty() is True
 
     expected_returned_communication["response"] = expected_id
-    actual = response_queue.get_nowait()
+    actual = response_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_returned_communication
 
 
@@ -250,7 +255,7 @@ def test_OkCommunicationProcess_run__processes_get_serial_number_debug_console_c
     assert error_queue.empty() is True
 
     expected_returned_communication["response"] = "1917000Q70"
-    actual = response_queue.get_nowait()
+    actual = response_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_returned_communication
 
 
@@ -275,7 +280,7 @@ def test_OkCommunicationProcess_run__processes_is_spi_running_debug_console_comm
     assert error_queue.empty() is True
 
     expected_returned_communication["response"] = False
-    actual = response_queue.get_nowait()
+    actual = response_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_returned_communication
 
 
@@ -304,7 +309,9 @@ def test_OkCommunicationProcess_run__processes_start_acquisition_debug_console_c
     ok_process.join()
     assert error_queue.empty() is True
 
-    actual_returned_communication = response_queue.get_nowait()
+    actual_returned_communication = response_queue.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )
     assert (
         actual_returned_communication["communication_type"]
         == expected_returned_communication["communication_type"]
@@ -314,7 +321,7 @@ def test_OkCommunicationProcess_run__processes_start_acquisition_debug_console_c
         == expected_returned_communication["command"]
     )
     expected_spi_communication["response"] = True
-    actual_spi_communication = response_queue.get_nowait()
+    actual_spi_communication = response_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_spi_communication == expected_spi_communication
 
 
@@ -343,14 +350,14 @@ def test_OkCommunicationProcess_run__processes_stop_acquisition_debug_console_co
     ok_process.join()
     assert error_queue.empty() is True
 
-    actual = response_queue.get_nowait()
+    actual = response_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert (
         actual["communication_type"]
         == expected_returned_communication["communication_type"]
     )
     assert actual["command"] == expected_returned_communication["command"]
     expected_spi_communication["response"] = False
-    actual_spi_response = response_queue.get_nowait()
+    actual_spi_response = response_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_spi_response == expected_spi_communication
 
 
@@ -379,11 +386,11 @@ def test_OkCommunicationProcess_run__processes_set_device_id_debug_console_comma
     ok_process.join()
     assert error_queue.empty() is True
 
-    actual = response_queue.get_nowait()
+    actual = response_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual["command"] == expected_returned_communication["command"]
     assert actual["new_id"] == expected_returned_communication["new_id"]
 
-    get_response = response_queue.get_nowait()
+    get_response = response_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     actual_id = get_response["response"]
     assert actual_id == expected_id
 
@@ -410,7 +417,7 @@ def test_OkCommunicationProcess_run__processes_set_wire_in_debug_console_command
     ok_process.join()
     assert error_queue.empty() is True
 
-    actual = response_queue.get_nowait()
+    actual = response_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual["command"] == expected_returned_communication["command"]
     assert actual["ep_addr"] == expected_returned_communication["ep_addr"]
     assert actual["value"] == expected_returned_communication["value"]
@@ -438,7 +445,7 @@ def test_OkCommunicationProcess_run__processes_activate_trigger_in_debug_console
     ok_process.join()
     assert error_queue.empty() is True
 
-    actual = response_queue.get_nowait()
+    actual = response_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual["command"] == expected_returned_communication["command"]
     assert actual["ep_addr"] == expected_returned_communication["ep_addr"]
     assert actual["bit"] == expected_returned_communication["bit"]
@@ -471,7 +478,7 @@ def test_OkCommunicationProcess_run__processes_get_num_words_fifo_debug_console_
 
     expected_returned_communication["response"] = expected_num_words
     expected_returned_communication["hex_converted_response"] = hex(expected_num_words)
-    actual = response_queue.get_nowait()
+    actual = response_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_returned_communication
 
 
@@ -498,7 +505,7 @@ def test_OkCommunicationProcess_run__processes_get_status_debug_console_command_
     expected_response["is_board_initialized"] = False
     expected_response["bit_file_name"] = None
     expected_returned_communication["response"] = expected_response
-    actual = response_queue.get_nowait()
+    actual = response_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_returned_communication
 
 
@@ -523,7 +530,7 @@ def test_OkCommunicationProcess_run__processes_comm_delay_debug_console_command(
     ok_process.join()
     assert error_queue.empty() is True
 
-    actual = response_queue.get_nowait()
+    actual = response_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual["command"] == expected_returned_communication["command"]
     assert (
         actual["num_milliseconds"]

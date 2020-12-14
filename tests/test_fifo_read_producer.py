@@ -16,12 +16,16 @@ from mantarray_desktop_app import FIFOReadProducer
 from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
-import numpy as np
 import pytest
+from pytest import approx
 from scipy import signal
 from stdlib_utils import invoke_process_run_and_check_errors
 from xem_wrapper import build_header_magic_number_bytes
 from xem_wrapper import HEADER_MAGIC_NUMBER
+
+from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from .helpers import is_queue_eventually_empty
+from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 
 def test_FIFOReadProducer__super_is_called_during_init(mocker):
@@ -53,9 +57,12 @@ def test_FIFOReadProducer__sleeps_for_correct_duration_every_cycle(mocker):
 
     # Tanner (4/30/20): num_iterations=2 so that we check for idle time once. There is no check on the final iteration.
     invoke_process_run_and_check_errors(producer_thread, num_iterations=2)
-    np.testing.assert_almost_equal(
-        mocked_sleep.call_args[0], expected_sleep_time, decimal=8
-    )
+
+    mocked_sleep_first_call = mocked_sleep.call_args_list[0]
+    assert mocked_sleep_first_call[0][0] == approx(expected_sleep_time)
+
+    # clean up the queues to avoid BrokenPipe errors
+    producer_thread.hard_stop()
 
 
 def test_FIFOReadProducer__increments_sample_idx_by_correct_number_of_round_robin_periods_each_iteration():
@@ -69,6 +76,9 @@ def test_FIFOReadProducer__increments_sample_idx_by_correct_number_of_round_robi
         * TIMESTEP_CONVERSION_FACTOR
         == FIFO_READ_PRODUCER_CYCLES_PER_ITERATION * ROUND_ROBIN_PERIOD
     )
+
+    # clean up the queues to avoid BrokenPipe errors
+    producer_thread.hard_stop()
 
 
 def test_FIFOReadProducer__puts_sawtooth_waveform_in_data_out_queue_each_iteration_with_increasing_sample_idx():
@@ -85,10 +95,13 @@ def test_FIFOReadProducer__puts_sawtooth_waveform_in_data_out_queue_each_iterati
 
     invoke_process_run_and_check_errors(producer_thread, num_iterations=2)
 
-    actual_1 = data_out_queue.get_nowait()
+    actual_1 = data_out_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_1 == expected_read_1
-    actual_2 = data_out_queue.get_nowait()
+    actual_2 = data_out_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_2 == expected_read_2
+
+    # clean up the queues to avoid BrokenPipe errors
+    producer_thread.hard_stop()
 
 
 @pytest.mark.parametrize(
@@ -159,3 +172,17 @@ def test_produce_data__returns_correct_bytearray_with_given_num_cycles_and_start
 
     actual = produce_data(test_num_cycles, test_starting_sample_index)
     assert actual == expected_data
+
+
+def test_FIFOReadProducter_hard_stop__drains_the_fifo_queue():
+    data_out_queue = queue.Queue()
+    error_queue = queue.Queue()
+    producer_thread = FIFOReadProducer(data_out_queue, error_queue, threading.Lock())
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        "blah", data_out_queue
+    )
+    actual_stop_results = producer_thread.hard_stop()
+    assert is_queue_eventually_empty(data_out_queue)
+
+    assert "data_out" in actual_stop_results
+    assert actual_stop_results["data_out"] == ["blah"]

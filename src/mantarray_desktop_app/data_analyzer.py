@@ -6,6 +6,7 @@ import datetime
 import json
 import logging
 from multiprocessing import Queue
+import queue
 from statistics import stdev
 import time
 from typing import Any
@@ -30,6 +31,7 @@ from .constants import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from .constants import MILLIVOLTS_PER_VOLT
 from .constants import REF_INDEX_TO_24_WELL_INDEX
 from .constants import REFERENCE_VOLTAGE
+from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .exceptions import UnrecognizedAcquisitionManagerCommandError
 from .exceptions import UnrecognizedCommTypeFromMainToDataAnalyzerError
 
@@ -68,6 +70,17 @@ def _drain_queue(
     return queue_items
 
 
+# BoardQueuesType=Tuple[
+#             Tuple[
+#                 Queue[Any],  # pylint: disable=unsubscriptable-object
+#                 Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+#                     Any
+#                 ],
+#             ],
+#             ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
+#         ]
+
+
 class DataAnalyzerProcess(InfiniteProcess):
     """Process that analyzes data.
 
@@ -78,14 +91,15 @@ class DataAnalyzerProcess(InfiniteProcess):
         fatal_error_reporter: a queue to report fatal errors back to the main process
     """
 
-    def __init__(
+    # pylint: disable=duplicate-code # Eli (12/8/20): I can't figure out how to use mypy type aliases correctly...but the type definitions are triggering duplicate code warnings
+    def __init__(  # pylint: disable=duplicate-code # Eli (12/8/20): I can't figure out how to use mypy type aliases correctly...but the type definitions are triggering duplicate code warnings
         self,
         the_board_queues: Tuple[
             Tuple[
                 Queue[Any],  # pylint: disable=unsubscriptable-object
-                Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+                Queue[  # pylint: disable=unsubscriptable-object,duplicate-code # https://github.com/PyCQA/pylint/issues/1498
                     Any
-                ],
+                ],  # pylint: disable=duplicate-code
             ],
             ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
         ],
@@ -127,14 +141,23 @@ class DataAnalyzerProcess(InfiniteProcess):
             self._dump_data_into_queue(outgoing_data)
 
     def _process_next_command_from_main(self) -> None:
-        if self._comm_from_main_queue.empty():
+        input_queue = self._comm_from_main_queue
+        try:
+            communication = input_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
+        except queue.Empty:
             return
 
-        communication = self._comm_from_main_queue.get()
+        # if self._comm_from_main_queue.qsize() == 0:
+        #     return
+
+        # communication = self._comm_from_main_queue.get()
         communication_type = communication["communication_type"]
         if communication_type == "calibration":
             self._calibration_settings = communication["calibration_settings"]
-        elif communication_type == "acquisition_manager":
+        elif communication_type in [
+            "to_instrument",
+            "acquisition_manager",
+        ]:  # TODO (Eli 11/10/20): acquisition_manager communication type is in the process of being deprecated, but stop_managed_acquisition still uses it
             if communication["command"] == "start_managed_acquisition":
                 self._is_managed_acquisition_running = True
                 _drain_queue(self._board_queues[0][1])
@@ -146,7 +169,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                         "ref_data": None,
                     }
             else:
-                raise UnrecognizedAcquisitionManagerCommandError(
+                raise UnrecognizedAcquisitionManagerCommandError(  # TODO (Eli 11/10/20): probably rename this to something more generic like "command to instrument error"
                     communication["command"]
                 )
             self._comm_to_main_queue.put(communication)
@@ -154,10 +177,12 @@ class DataAnalyzerProcess(InfiniteProcess):
             raise UnrecognizedCommTypeFromMainToDataAnalyzerError(communication_type)
 
     def _load_memory_into_buffer(self) -> None:
-        if self._board_queues[0][0].empty():
+        input_queue = self._board_queues[0][0]
+        try:
+            data_dict = input_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
+        except queue.Empty:
             return
 
-        data_dict = self._board_queues[0][0].get_nowait()
         if not self._is_managed_acquisition_running:
             return
 

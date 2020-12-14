@@ -3,6 +3,7 @@ import copy
 import logging
 import math
 from multiprocessing import Queue
+from queue import Empty
 import struct
 import time
 
@@ -33,12 +34,8 @@ from mantarray_desktop_app import UnrecognizedMantarrayNamingCommandError
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
 import pytest
-from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import invoke_process_run_and_check_errors
-from stdlib_utils import is_queue_eventually_empty
-from stdlib_utils import is_queue_eventually_not_empty
-from stdlib_utils import is_queue_eventually_of_size
 from xem_wrapper import build_header_magic_number_bytes
 from xem_wrapper import DATA_FRAME_SIZE_WORDS
 from xem_wrapper import FrontPanel
@@ -48,9 +45,14 @@ from xem_wrapper import okCFrontPanel
 from xem_wrapper import OpalKellyIncorrectHeaderError
 
 from .fixtures import fixture_patched_firmware_folder
+from .fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
+from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .fixtures_ok_comm import fixture_four_board_comm_process
 from .fixtures_ok_comm import fixture_patch_connection_to_board
 from .fixtures_ok_comm import fixture_running_process_with_simulated_board
+from .helpers import is_queue_eventually_empty
+from .helpers import is_queue_eventually_not_empty
+from .helpers import is_queue_eventually_of_size
 
 __fixtures__ = [
     fixture_four_board_comm_process,
@@ -160,9 +162,21 @@ def test_parse_adc_metadata_byte(
 @pytest.mark.parametrize(
     """test_bytearray,expected_value,test_description""",
     [
-        (bytearray([0x00, 0x00, 0x00]), 0x000000, "zero",),
-        (bytearray([0x00, 0x00, 0x80]), 0x800000, "mid value",),
-        (bytearray([0xFF, 0xFF, 0xFF]), 0xFFFFFF, "max reading",),
+        (
+            bytearray([0x00, 0x00, 0x00]),
+            0x000000,
+            "zero",
+        ),
+        (
+            bytearray([0x00, 0x00, 0x80]),
+            0x800000,
+            "mid value",
+        ),
+        (
+            bytearray([0xFF, 0xFF, 0xFF]),
+            0xFFFFFF,
+            "max reading",
+        ),
     ],
 )
 def test_parse_little_endian_int24(test_bytearray, expected_value, test_description):
@@ -286,8 +300,8 @@ def test_build_file_writer_objects_performance():
     ns_per_iter = dur / num_iterations
     # print(f"ns per iterations: {ns_per_iter}")
     assert (
-        ns_per_iter < 400000000
-    )  # Eli (10/20/20): bumped up from 300000000 to 400000000 because it was running a bit slow on windows in Github CI
+        ns_per_iter < 450000000
+    )  # Eli (10/20/20): bumped up from 300000000 to 450000000 because it was running a bit slow on windows in Github CI
 
 
 def test_build_file_writer_objects__raises_error_if_format_name_not_recognized(
@@ -298,7 +312,10 @@ def test_build_file_writer_objects__raises_error_if_format_name_not_recognized(
     q = Queue()
     with pytest.raises(UnrecognizedDataFrameFormatNameError, match="fakeformat"):
         build_file_writer_objects(
-            bytearray([0, 0, 0, 0, 0, 0, 0, 0]), "fakeformat", q, logging.DEBUG,
+            bytearray([0, 0, 0, 0, 0, 0, 0, 0]),
+            "fakeformat",
+            q,
+            logging.DEBUG,
         )
 
 
@@ -370,7 +387,10 @@ def test_build_file_writer_objects__logs_warning__when_first_data_frame_period_o
 
     expected_message = f"Detected period between first two data frames of FIFO read: {test_data_frame_period * TIMESTEP_CONVERSION_FACTOR} does not matched expected value: {DATA_FRAME_PERIOD}. Actual time indices: 0x0, {hex(test_data_frame_period * TIMESTEP_CONVERSION_FACTOR)}"
     mocked_put.assert_any_call(
-        logging.DEBUG, expected_message, expected_queue, expected_logging_threshold,
+        logging.DEBUG,
+        expected_message,
+        expected_queue,
+        expected_logging_threshold,
     )
 
 
@@ -429,11 +449,11 @@ def test_build_file_writer_objects__returns_correct_values__with_six_channel_for
                     )
                 else:
                     expected[key]["data"] = data
-
+    actual_queue = Queue()
     actual = build_file_writer_objects(
         test_bytearray,
         "six_channels_32_bit__single_sample_index",
-        Queue(),
+        actual_queue,
         logging.DEBUG,
     )
 
@@ -451,6 +471,13 @@ def test_build_file_writer_objects__returns_correct_values__with_six_channel_for
             assert actual[key]["well_index"] == expected[key]["well_index"]
 
         np.testing.assert_equal(actual[key]["data"], expected[key]["data"])
+
+    # drain the queue to avoid broken pipe errors
+    while True:
+        try:
+            actual_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+        except Empty:
+            break
 
 
 DATA_FROM_JASON = [
@@ -602,6 +629,13 @@ def test_build_file_writer_objects__correctly_parses_a_real_data_cycle_from_jaso
 
         np.testing.assert_equal(actual[key]["data"], expected_dict[key]["data"])
 
+    # drain the queue to avoid broken pipe errors
+    while True:
+        try:
+            logging_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+        except Empty:
+            break
+
 
 def test_OkCommunicationProcess_super_is_called_during_init(mocker):
     error_queue = Queue()
@@ -655,7 +689,6 @@ def test_OkCommunicationProcess_soft_stop_not_allowed_if_communication_from_main
     board_queues[0][0].put(dummy_communication)
     board_queues[0][0].put(dummy_communication)
     assert is_queue_eventually_of_size(board_queues[0][0], 2) is True
-    # assert is_queue_eventually_not_empty(board_queues[0][0]) is True
     simulator = FrontPanelSimulator({})
     ok_process.set_board_connection(0, simulator)
     ok_process.soft_stop()
@@ -696,7 +729,7 @@ def test_OkCommunicationProcess_run_sends_initial_communication_to_main_during_s
     invoke_process_run_and_check_errors(ok_process, perform_setup_before_loop=True)
     comm_to_main = board_queues[0][1]
     assert is_queue_eventually_not_empty(comm_to_main) is True
-    actual_msg = comm_to_main.get_nowait()
+    actual_msg = comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_msg["communication_type"] == "log"
     assert (
         actual_msg["message"]
@@ -709,7 +742,16 @@ def test_OkCommunicationProcess__sets_up_board_connection_when_run(
 ):
     error_queue = Queue()
 
-    board_queues = tuple([(Queue(), Queue(), Queue(),)] * 4)
+    board_queues = tuple(
+        [
+            (
+                Queue(),
+                Queue(),
+                Queue(),
+            )
+        ]
+        * 4
+    )
     p = OkCommunicationProcess(board_queues, error_queue)
     dummy_xem, _ = patch_connection_to_board
     invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
@@ -723,14 +765,25 @@ def test_OkCommunicationProcess__puts_message_into_queue_for_successful_board_co
 ):
     error_queue = Queue()
 
-    board_queues = tuple([(Queue(), Queue(), Queue(),)] * 4)
+    board_queues = tuple(
+        [
+            (
+                Queue(),
+                Queue(),
+                Queue(),
+            )
+        ]
+        * 4
+    )
     p = OkCommunicationProcess(board_queues, error_queue)
     invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
     ok_comm_to_main = board_queues[0][1]
-    ok_comm_to_main.get_nowait()  # pop out initial boot-up message
+    ok_comm_to_main.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # pop out initial boot-up message
 
     assert is_queue_eventually_not_empty(ok_comm_to_main) is True
-    msg = ok_comm_to_main.get_nowait()
+    msg = ok_comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert msg["communication_type"] == "board_connection_status_change"
     assert msg["is_connected"] is True
     assert msg["board_index"] == 0
@@ -748,15 +801,26 @@ def test_OkCommunicationProcess__puts_message_into_queue_for_successful_board_co
 def test_OkCommunicationProcess__puts_message_into_queue_for_unsuccessful_board_connection_when_run():
     error_queue = Queue()
 
-    board_queues = tuple([(Queue(), Queue(), Queue(),)] * 4)
+    board_queues = tuple(
+        [
+            (
+                Queue(),
+                Queue(),
+                Queue(),
+            )
+        ]
+        * 4
+    )
     p = OkCommunicationProcess(board_queues, error_queue)
 
     invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
     ok_comm_to_main = board_queues[0][1]
-    ok_comm_to_main.get_nowait()  # pop out initial boot-up message
+    ok_comm_to_main.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # pop out initial boot-up message
 
     assert is_queue_eventually_not_empty(ok_comm_to_main) is True
-    msg = ok_comm_to_main.get_nowait()
+    msg = ok_comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert msg["communication_type"] == "board_connection_status_change"
     assert msg["is_connected"] is False
     assert msg["message"] == "No board detected. Creating simulator."
@@ -770,8 +834,57 @@ def test_OkCommunicationProcess__puts_message_into_queue_for_unsuccessful_board_
     board_0 = p.get_board_connections_list()[0]
     assert isinstance(board_0, FrontPanelSimulator)
 
+    # cleanup process/queues to avoid broken pipe errors
+    p.hard_stop()
 
-def test_OkCommunicationProcess__drain_all_queues__drains_all_queues_except_error_queue_and_returns__all_items(
+
+def test_OkCommunicationProcess__hard_stop__hard_stops_the_RunningFIFOSimulator__for_board_0(
+    four_board_comm_process, mocker
+):
+    ok_process, _, _ = four_board_comm_process
+    simulator = FrontPanelSimulator({})
+    # simulator.set_device_id('bob')
+    ok_process.set_board_connection(0, simulator)
+
+    spied_simulator_hard_stop = mocker.spy(simulator, "hard_stop")
+
+    ok_process.hard_stop()
+    assert spied_simulator_hard_stop.call_count == 1
+
+
+def test_OkCommunicationProcess__hard_stop__does_not_raise_error_if_board_connections_not_yet_made(
+    four_board_comm_process, mocker
+):
+    ok_process, _, _ = four_board_comm_process
+
+    # would raise error if attempting to hard stop a non-existent board connection
+    ok_process.hard_stop()
+
+
+def test_OkCommunicationProcess__hard_stop__passes_timeout_arg_to_super_hard_stop__and_front_panel_hard_stop__and_returns_value_from_super(
+    four_board_comm_process, mocker
+):
+    ok_process, _, _ = four_board_comm_process
+    simulator = FrontPanelSimulator({})
+    ok_process.set_board_connection(0, simulator)
+    expected_return = {"someinfo": ["list"]}
+    mocked_parent_hard_stop = mocker.patch.object(
+        InfiniteProcess, "hard_stop", autospec=True, return_value=expected_return
+    )
+    mocked_front_panel_hard_stop = mocker.patch.object(
+        simulator, "hard_stop", autospec=True
+    )
+
+    expected_timeout = 1.1
+    actual_return = ok_process.hard_stop(timeout=expected_timeout)
+    assert actual_return == expected_return
+    mocked_parent_hard_stop.assert_called_once_with(
+        ok_process, timeout=expected_timeout
+    )
+    mocked_front_panel_hard_stop.assert_called_once_with(timeout=expected_timeout)
+
+
+def test_OkCommunicationProcess__hard_stop__drains_all_queues_and_returns__all_items(
     four_board_comm_process,
 ):
     expected = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11]]
@@ -784,13 +897,10 @@ def test_OkCommunicationProcess__drain_all_queues__drains_all_queues_except_erro
             queue.put(item)
     assert is_queue_eventually_not_empty(board_queues[3][2]) is True
     error_queue.put(expected_error)
-    assert is_queue_eventually_not_empty(error_queue) is True
+    assert is_queue_eventually_of_size(error_queue, 1) is True
 
-    actual = ok_process._drain_all_queues()  # pylint:disable=protected-access
-
-    assert is_queue_eventually_not_empty(error_queue) is True
-    actual_error = error_queue.get_nowait()
-    assert actual_error == expected_error
+    actual = ok_process.hard_stop()
+    assert actual["fatal_error_reporter"] == [expected_error]
 
     assert is_queue_eventually_empty(board_queues[0][0]) is True
     assert is_queue_eventually_empty(board_queues[0][2]) is True
@@ -799,7 +909,7 @@ def test_OkCommunicationProcess__drain_all_queues__drains_all_queues_except_erro
     assert is_queue_eventually_empty(board_queues[3][0]) is True
 
     assert actual["board_0"]["main_to_ok_comm"] == [expected[0][0]]
-    assert actual["board_0"]["ok_comm_to_main"] == [expected[0][1]]
+    assert expected[0][1] in actual["board_0"]["ok_comm_to_main"]
     assert actual["board_0"]["ok_comm_to_file_writer"] == [expected[0][2]]
     assert actual["board_1"]["main_to_ok_comm"] == [expected[1][0]]
     assert actual["board_2"]["main_to_ok_comm"] == [expected[2][0]]
@@ -1007,13 +1117,14 @@ def test_OkCommunicationProcess_create_connections_to_all_available_boards__hand
     ok_process.create_connections_to_all_available_boards()
     assert is_queue_eventually_not_empty(comm_to_main_queue) is True
 
-    actual = comm_to_main_queue.get_nowait()
+    actual = comm_to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual["mantarray_serial_number"] == expected_serial_number
     assert actual["mantarray_nickname"] == expected_nickname
 
 
 def test_OkCommunicationProcess_teardown_after_loop__sets_teardown_complete_event(
-    four_board_comm_process, mocker,
+    four_board_comm_process,
+    mocker,
 ):
     ok_process, _, _ = four_board_comm_process
 
@@ -1025,7 +1136,8 @@ def test_OkCommunicationProcess_teardown_after_loop__sets_teardown_complete_even
 
 @freeze_time("2020-07-20 11:57:11.123456")
 def test_OkCommunicationProcess_teardown_after_loop__puts_teardown_log_message_into_queue(
-    four_board_comm_process, mocker,
+    four_board_comm_process,
+    mocker,
 ):
     ok_process, board_queues, _ = four_board_comm_process
     comm_to_main_queue = board_queues[0][1]
@@ -1034,7 +1146,7 @@ def test_OkCommunicationProcess_teardown_after_loop__puts_teardown_log_message_i
     ok_process.run(perform_setup_before_loop=False, num_iterations=1)
     assert is_queue_eventually_not_empty(comm_to_main_queue)
 
-    actual = comm_to_main_queue.get_nowait()
+    actual = comm_to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert (
         actual["message"]
         == "OpalKelly Communication Process beginning teardown at 2020-07-20 11:57:11.123456"
@@ -1044,7 +1156,8 @@ def test_OkCommunicationProcess_teardown_after_loop__puts_teardown_log_message_i
 @pytest.mark.slow
 @pytest.mark.timeout(6)
 def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_acquisition_is_running_with_simulator__and_log_stop_acquistion_message(
-    running_process_with_simulated_board, mocker,
+    running_process_with_simulated_board,
+    mocker,
 ):
     simulator = RunningFIFOSimulator()
     ok_process, board_queues, _ = running_process_with_simulated_board(simulator)
@@ -1058,25 +1171,31 @@ def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_
             "bit_file_name": None,
         }
     )
-    input_queue.put(
-        {
-            "communication_type": "acquisition_manager",
-            "command": "start_managed_acquisition",
-        }
-    )
+    input_queue.put(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
     ok_process.soft_stop()
     ok_process.join()
 
     # TODO Tanner (8/31/20): add drain queue to other tests where applicable
-    actual = drain_queue(comm_to_main_queue)
+    # drain the queue to avoid broken pipe errors
+    actual_last_queue_item = dict()
+    while True:
+        try:
+            actual_last_queue_item = comm_to_main_queue.get(
+                timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+            )
+        except Empty:
+            break
+
     assert (
-        actual[-1]["message"]
+        actual_last_queue_item["message"]
         == "Board acquisition still running. Stopping acquisition to complete teardown"
     )
 
 
 def test_OkCommunicationProcess_boot_up_instrument__with_real_board__raises_error_if_firmware_version_does_not_match_file_name(
-    four_board_comm_process, patched_firmware_folder, mocker,
+    four_board_comm_process,
+    patched_firmware_folder,
+    mocker,
 ):
     mocker.patch(
         "builtins.print", autospec=True
@@ -1117,7 +1236,9 @@ def test_OkCommunicationProcess_boot_up_instrument__with_real_board__raises_erro
 
 
 def test_OkCommunicationProcess_boot_up_instrument__with_real_board__does_not_raise_error_if_firmware_version_matches_file_name(
-    four_board_comm_process, patched_firmware_folder, mocker,
+    four_board_comm_process,
+    patched_firmware_folder,
+    mocker,
 ):
     ok_process, board_queues, _ = four_board_comm_process
 
@@ -1149,5 +1270,5 @@ def test_OkCommunicationProcess_boot_up_instrument__with_real_board__does_not_ra
     invoke_process_run_and_check_errors(ok_process)
 
     assert is_queue_eventually_not_empty(board_queues[0][1]) is True
-    response_comm = board_queues[0][1].get_nowait()
+    response_comm = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert response_comm["main_firmware_version"] == expected_wire_out_version

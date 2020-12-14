@@ -13,10 +13,10 @@ from mantarray_desktop_app import UTC_FIRST_TISSUE_DATA_POINT_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
 import pytest
+from stdlib_utils import confirm_parallelism_is_stopped
 from stdlib_utils import invoke_process_run_and_check_errors
-from stdlib_utils import is_queue_eventually_empty
-from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
+from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .fixtures_file_writer import fixture_four_board_file_writer_process
 from .fixtures_file_writer import fixture_running_four_board_file_writer_process
 from .fixtures_file_writer import GENERIC_REFERENCE_SENSOR_DATA_PACKET
@@ -25,6 +25,8 @@ from .fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from .fixtures_file_writer import GENERIC_TISSUE_DATA_PACKET
 from .fixtures_file_writer import open_the_generic_h5_file
 from .fixtures_file_writer import open_the_generic_h5_file_as_WellFile
+from .helpers import assert_queue_is_eventually_empty
+from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 from .parsed_channel_data_packets import SIMPLE_CONSTRUCT_DATA_FROM_WELL_0
 
 
@@ -34,30 +36,39 @@ __fixtures__ = [
 ]
 
 
-@pytest.mark.timeout(4)
+@pytest.mark.timeout(15)
 def test_FileWriterProcess__passes_data_packet_through_to_output_queue(
-    running_four_board_file_writer_process,
+    four_board_file_writer_process,
 ):
-
     (
-        file_writer_process,
+        fw_process,
         board_queues,
         _,
         _,
         error_queue,
         _,
-    ) = running_four_board_file_writer_process
+    ) = four_board_file_writer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        SIMPLE_CONSTRUCT_DATA_FROM_WELL_0, board_queues[0][0]
+        SIMPLE_CONSTRUCT_DATA_FROM_WELL_0,
+        board_queues[0][0],
     )
-    file_writer_process.soft_stop()
-    file_writer_process.join()
-    assert is_queue_eventually_empty(error_queue) is True
-    out_data = board_queues[0][1].get_nowait()
+
+    fw_process.start()  # start it after the queue has been populated so that the process will certainly see the object in the queue
+
+    fw_process.soft_stop()
+    confirm_parallelism_is_stopped(fw_process, timeout_seconds=15)
+
+    assert_queue_is_eventually_empty(error_queue)
+
+    out_data = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     np.testing.assert_array_equal(
         out_data["data"], SIMPLE_CONSTRUCT_DATA_FROM_WELL_0["data"]
     )
     assert out_data["well_index"] == SIMPLE_CONSTRUCT_DATA_FROM_WELL_0["well_index"]
+
+    # clean up
+    fw_process.hard_stop()
+    fw_process.join()
 
 
 def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_if_the_whole_data_chunk_is_at_the_timestamp_idx__and_sets_timestamp_metadata_for_tissue_since_this_is_first_piece_of_data(
@@ -75,7 +86,8 @@ def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_if_the_
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [3]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_command, from_main_queue
+        this_command,
+        from_main_queue,
     )
     num_data_points = 50
     data = np.zeros((2, num_data_points), dtype=np.int32)
@@ -90,7 +102,8 @@ def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_if_the_
     this_data_packet["data"] = data
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_data_packet, board_queues[0][0]
+        this_data_packet,
+        board_queues[0][0],
     )
     invoke_process_run_and_check_errors(file_writer_process)
     actual_file = open_the_generic_h5_file(file_dir, well_name="D1")
@@ -113,19 +126,16 @@ def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_if_the_
 def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_if_the_timestamp_idx_starts_part_way_through_the_chunk__and_sets_timestamp_metadata_for_tissue_since_this_is_first_piece_of_data(
     four_board_file_writer_process,
 ):
-    (
-        file_writer_process,
-        board_queues,
-        from_main_queue,
-        _,
-        _,
-        file_dir,
-    ) = four_board_file_writer_process
+    # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
+    # fmt: off
+    file_writer_process, board_queues, from_main_queue, _, _, file_dir = four_board_file_writer_process
+    # fmt: on
 
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [4]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_command, from_main_queue
+        this_command,
+        from_main_queue,
     )
     num_data_points = 75
     data = np.zeros((2, num_data_points), dtype=np.int32)
@@ -142,7 +152,8 @@ def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_if_the_
     this_data_packet["data"] = data
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_data_packet, board_queues[0][0]
+        this_data_packet,
+        board_queues[0][0],
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
@@ -166,19 +177,16 @@ def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_if_the_
 def test_FileWriterProcess__process_next_data_packet__does_not_write_tissue_data_if_data_chunk_is_all_before_the_timestamp_idx(
     four_board_file_writer_process,
 ):
-    (
-        file_writer_process,
-        board_queues,
-        from_main_queue,
-        _,
-        _,
-        file_dir,
-    ) = four_board_file_writer_process
+    # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
+    # fmt: off
+    file_writer_process, board_queues, from_main_queue, _, _, file_dir = four_board_file_writer_process
+    # fmt: on
 
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [4]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_command, from_main_queue
+        this_command,
+        from_main_queue,
     )
     num_data_points = 5
     data = np.zeros((2, num_data_points), dtype=np.int32)
@@ -194,7 +202,8 @@ def test_FileWriterProcess__process_next_data_packet__does_not_write_tissue_data
     this_data_packet["data"] = data
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_data_packet, board_queues[0][0]
+        this_data_packet,
+        board_queues[0][0],
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
@@ -207,19 +216,16 @@ def test_FileWriterProcess__process_next_data_packet__does_not_write_tissue_data
 def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_for_two_packets_when_the_timestamp_idx_starts_part_way_through_the_first_packet__and_sets_timestamp_metadata_for_tissue_since_this_is_first_piece_of_data(
     four_board_file_writer_process,
 ):
-    (
-        file_writer_process,
-        board_queues,
-        from_main_queue,
-        _,
-        _,
-        file_dir,
-    ) = four_board_file_writer_process
+    # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
+    # fmt: off
+    file_writer_process, board_queues, from_main_queue, _, _, file_dir = four_board_file_writer_process
+    # fmt: on
 
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [4]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_command, from_main_queue
+        this_command,
+        from_main_queue,
     )
     num_data_points = 75
     data = np.zeros((2, num_data_points), dtype=np.int32)
@@ -248,7 +254,8 @@ def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_for_two
 
     board_queues[0][0].put(this_data_packet)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        next_data_packet, board_queues[0][0]
+        next_data_packet,
+        board_queues[0][0],
     )
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=2)
 
@@ -271,19 +278,16 @@ def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_for_two
 def test_FileWriterProcess__process_next_data_packet__writes_reference_data_to_active_subset_of_wells_if_the_timestamp_idx_starts_part_way_through_the_chunk__and_sets_timestamp_metadata_for_reference_sensor_since_this_is_first_piece_of_data(
     four_board_file_writer_process,
 ):
-    (
-        file_writer_process,
-        board_queues,
-        from_main_queue,
-        _,
-        _,
-        file_dir,
-    ) = four_board_file_writer_process
+    # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
+    # fmt: off
+    file_writer_process, board_queues, from_main_queue, _, _, file_dir = four_board_file_writer_process
+    # fmt: on
 
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [4, 0]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_command, from_main_queue
+        this_command,
+        from_main_queue,
     )
     num_data_points = 70
     data = np.zeros((2, num_data_points), dtype=np.int32)
@@ -299,7 +303,8 @@ def test_FileWriterProcess__process_next_data_packet__writes_reference_data_to_a
     this_data_packet = copy.deepcopy(GENERIC_REFERENCE_SENSOR_DATA_PACKET)
     this_data_packet["data"] = data
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_data_packet, board_queues[0][0]
+        this_data_packet,
+        board_queues[0][0],
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
@@ -333,19 +338,16 @@ def test_FileWriterProcess__process_next_data_packet__writes_reference_data_to_a
 def test_FileWriterProcess__process_next_data_packet__does_not_add_a_data_packet_after_the_stop_recording_timepoint__and_sets_tissue_finalization_status_to_true__if_data_packet_is_completely_after_timepoint(
     four_board_file_writer_process,
 ):
-    (
-        file_writer_process,
-        board_queues,
-        from_main_queue,
-        _,
-        _,
-        file_dir,
-    ) = four_board_file_writer_process
+    # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
+    # fmt: off
+    file_writer_process, board_queues, from_main_queue, _, _, file_dir = four_board_file_writer_process
+    # fmt: on
 
     start_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     start_command["active_well_indices"] = [4]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        start_command, from_main_queue
+        start_command,
+        from_main_queue,
     )
     num_data_points = 10
     data = np.zeros((2, num_data_points), dtype=np.int32)
@@ -362,7 +364,8 @@ def test_FileWriterProcess__process_next_data_packet__does_not_add_a_data_packet
     this_data_packet["data"] = data
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_data_packet, board_queues[0][0]
+        this_data_packet,
+        board_queues[0][0],
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
@@ -377,7 +380,8 @@ def test_FileWriterProcess__process_next_data_packet__does_not_add_a_data_packet
     stop_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        stop_command, from_main_queue
+        stop_command,
+        from_main_queue,
     )
 
     data_after_stop = np.zeros((2, num_data_points), dtype=np.int32)
@@ -389,7 +393,8 @@ def test_FileWriterProcess__process_next_data_packet__does_not_add_a_data_packet
     this_data_packet["data"] = data_after_stop
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_data_packet, board_queues[0][0]
+        this_data_packet,
+        board_queues[0][0],
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
@@ -404,19 +409,16 @@ def test_FileWriterProcess__process_next_data_packet__does_not_add_a_data_packet
 def test_FileWriterProcess__process_next_data_packet__adds_part_of_a_data_packet_if_includes_the_stop_recording_timepoint__and_sets_reference_finalization_status_to_true(
     four_board_file_writer_process,
 ):
-    (
-        file_writer_process,
-        board_queues,
-        from_main_queue,
-        _,
-        _,
-        file_dir,
-    ) = four_board_file_writer_process
+    # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
+    # fmt: off
+    file_writer_process, board_queues, from_main_queue, _, _, file_dir = four_board_file_writer_process
+    # fmt: on
 
     start_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     start_command["active_well_indices"] = [4]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        start_command, from_main_queue
+        start_command,
+        from_main_queue,
     )
 
     num_data_points = 10
@@ -433,7 +435,8 @@ def test_FileWriterProcess__process_next_data_packet__adds_part_of_a_data_packet
     this_data_packet["data"] = data
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_data_packet, board_queues[0][0]
+        this_data_packet,
+        board_queues[0][0],
     )
 
     invoke_process_run_and_check_errors(file_writer_process)
@@ -449,7 +452,8 @@ def test_FileWriterProcess__process_next_data_packet__adds_part_of_a_data_packet
     stop_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        stop_command, from_main_queue
+        stop_command,
+        from_main_queue,
     )
 
     data_after_stop = np.zeros((2, num_data_points), dtype=np.int32)
@@ -462,7 +466,8 @@ def test_FileWriterProcess__process_next_data_packet__adds_part_of_a_data_packet
     this_data_packet["data"] = data_after_stop
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_data_packet, board_queues[0][0]
+        this_data_packet,
+        board_queues[0][0],
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
@@ -479,19 +484,16 @@ def test_FileWriterProcess__process_next_data_packet__adds_part_of_a_data_packet
 def test_FileWriterProcess__process_next_data_packet__adds_a_data_packet_before_the_stop_recording_timepoint__and_does_not_set_tissue_finalization_status_to_true__if_data_packet_is_completely_before_timepoint(
     four_board_file_writer_process,
 ):
-    (
-        file_writer_process,
-        board_queues,
-        from_main_queue,
-        _,
-        _,
-        file_dir,
-    ) = four_board_file_writer_process
+    # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
+    # fmt: off
+    file_writer_process, board_queues, from_main_queue, _, _, file_dir = four_board_file_writer_process
+    # fmt: on
 
     start_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     start_command["active_well_indices"] = [4]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        start_command, from_main_queue
+        start_command,
+        from_main_queue,
     )
 
     num_data_points = 10
@@ -509,7 +511,8 @@ def test_FileWriterProcess__process_next_data_packet__adds_a_data_packet_before_
     this_data_packet["data"] = data
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_data_packet, board_queues[0][0]
+        this_data_packet,
+        board_queues[0][0],
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
@@ -524,7 +527,8 @@ def test_FileWriterProcess__process_next_data_packet__adds_a_data_packet_before_
     stop_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        stop_command, from_main_queue
+        stop_command,
+        from_main_queue,
     )
     data_before_stop = np.zeros((2, num_data_points), dtype=np.int32)
     for this_index in range(num_data_points):
@@ -536,7 +540,8 @@ def test_FileWriterProcess__process_next_data_packet__adds_a_data_packet_before_
     this_data_packet["data"] = data_before_stop
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_data_packet, board_queues[0][0]
+        this_data_packet,
+        board_queues[0][0],
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
@@ -553,19 +558,16 @@ def test_FileWriterProcess__process_next_data_packet__adds_a_data_packet_before_
 def test_FileWriterProcess__process_next_data_packet__updates_dict_of_time_index_of_latest_recorded_data__when_new_data_is_added(
     four_board_file_writer_process,
 ):
-    (
-        file_writer_process,
-        board_queues,
-        from_main_queue,
-        _,
-        _,
-        _,
-    ) = four_board_file_writer_process
+    # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
+    # fmt: off
+    file_writer_process, board_queues, from_main_queue, _, _, _ = four_board_file_writer_process
+    # fmt: on
 
     start_recording_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     start_recording_command["timepoint_to_begin_recording_at"] = 0
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        start_recording_command, from_main_queue
+        start_recording_command,
+        from_main_queue,
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
@@ -577,7 +579,8 @@ def test_FileWriterProcess__process_next_data_packet__updates_dict_of_time_index
         "data": np.array([[expected_latest_timepoint], [0]], dtype=np.int32),
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        data_packet, board_queues[0][0]
+        data_packet,
+        board_queues[0][0],
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
