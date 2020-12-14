@@ -1,8 +1,13 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-0.3.9 (unreleased)
+0.4.0 (unreleased)
 ------------------
+
+- Added following changes to barcode format:
+
+  - Disallow 'M1', 'MC', 'MD' as first two characters.
+  - Allow 'ME' as first two characters.
 
 - Transferred to GitHub
 - Bumped H5 file version to 0.3.3 to create a new version that is conclusively above 0.3.2/0.3.1 which have odd issues
@@ -14,6 +19,7 @@ Changelog for Mantarray Desktop App
 
 - Adjusted data output passed to GUI to be in mV instead of V to reduce number of decimal points in display
 - Adjusted zoom levels in GUI to match new lower posts
+- Converted visual output from V to mV (multiplied by 1000)
 
 
 0.3.7 (2020-10-09)
@@ -21,7 +27,6 @@ Changelog for Mantarray Desktop App
 
 - Added logging of HTTP error messages.
 - Added packing of FrontPanel 5.2.2 drivers.
-- Converted visual output from V to mV (multiplied by 1000)
 
 
 0.3.7 (2020-10-09)

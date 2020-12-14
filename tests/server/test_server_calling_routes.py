@@ -447,14 +447,24 @@ def test_start_recording__returns_error_code_and_message_if_barcode_is_not_given
             "returns error message when '$' is present",
         ),
         (
-            "MZ20044001",
-            "Barcode contains invalid header: 'MZ'",
+            "M120044001",
+            "Barcode contains invalid header: 'M1'",
             "returns error message when barcode header is invalid",
         ),
         (
-            "MA210440001",
-            "Barcode contains invalid year: '21'",
-            "returns error message when year is invalid",
+            "MC20044001",
+            "Barcode contains invalid header: 'MC'",
+            "returns error message when barcode header is invalid",
+        ),
+        (
+            "MD20044001",
+            "Barcode contains invalid header: 'MD'",
+            "returns error message when barcode header is invalid",
+        ),
+        (
+            "MAS10440001",
+            "Barcode contains invalid year: 'S1'",
+            "returns error message when year is contains non-numeric character",
         ),
         (
             "MA200000001",
@@ -465,6 +475,11 @@ def test_start_recording__returns_error_code_and_message_if_barcode_is_not_given
             "MA20367001",
             "Barcode contains invalid Julian date: '367'",
             "returns error message when julian date is too big",
+        ),
+        (
+            "MA203P2001",
+            "Barcode contains invalid Julian date: '3P2'",
+            "returns error message when julian date contains non-numeric value",
         ),
         (
             "MA2004400BA",
@@ -484,6 +499,58 @@ def test_start_recording__returns_error_code_and_message_if_barcode_is_invalid(
     response = test_client.get(f"/start_recording?barcode={test_barcode}")
     assert response.status_code == 400
     assert response.status.endswith(expected_error_message) is True
+
+
+@pytest.mark.parametrize(
+    "test_barcode,test_description",
+    [
+        (
+            "MA210440001",
+            "allows year to be 21",
+        ),
+        (
+            "MA190440001",
+            "allows year to be 19",
+        ),
+    ],
+)
+def test_start_recording__allows_years_other_than_20_in_barcode(
+    test_barcode,
+    test_description,
+    client_and_server_thread_and_shared_values,
+    generic_start_recording_info_in_shared_dict,
+):
+    test_client, _, _ = client_and_server_thread_and_shared_values
+    response = test_client.get(f"/start_recording?barcode={test_barcode}")
+    assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "test_barcode,test_description",
+    [
+        (
+            "MA200440001",
+            "allows header 'MA'",
+        ),
+        (
+            "ME200440001",
+            "allows header 'ME'",
+        ),
+        (
+            "MB200440001",
+            "allows header 'MB'",
+        ),
+    ],
+)
+def test_start_recording__allows_years_correct_barcode_headers(
+    test_barcode,
+    test_description,
+    client_and_server_thread_and_shared_values,
+    generic_start_recording_info_in_shared_dict,
+):
+    test_client, _, _ = client_and_server_thread_and_shared_values
+    response = test_client.get(f"/start_recording?barcode={test_barcode}")
+    assert response.status_code == 200
 
 
 def test_route_with_no_url_rule__returns_error_message__and_logs_reponse_to_request(
