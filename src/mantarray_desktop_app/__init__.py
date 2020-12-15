@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """Docstring."""
 
+# TODO (Eli 12/15/20): delete all of the UUID contants that should be imported from the mantarray-file-manager package. delete them also from constants.py and from test_constants.py
+
 from . import fifo_read_producer
 from . import fifo_simulator
 from . import file_writer
@@ -31,7 +33,6 @@ from .constants import CURI_BIO_ACCOUNT_UUID
 from .constants import CURI_BIO_USER_ACCOUNT_ID
 from .constants import CURRENT_HDF5_FILE_FORMAT_VERSION
 from .constants import CURRENT_SOFTWARE_VERSION
-from .constants import CUSTOMER_ACCOUNT_ID_UUID
 from .constants import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from .constants import DATA_FRAME_PERIOD
 from .constants import DEFAULT_SERVER_PORT_NUMBER
@@ -48,20 +49,15 @@ from .constants import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import FIRMWARE_VERSION_WIRE_OUT_ADDRESS
 from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
-from .constants import MAIN_FIRMWARE_VERSION_UUID
-from .constants import MANTARRAY_NICKNAME_UUID
-from .constants import MANTARRAY_SERIAL_NUMBER_UUID
 from .constants import MAX_POSSIBLE_CONNECTED_BOARDS
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MIDSCALE_CODE
 from .constants import MILLIVOLTS_PER_VOLT
 from .constants import OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import OUTGOING_DATA_BUFFER_SIZE
-from .constants import PLATE_BARCODE_UUID
 from .constants import RAW_TO_SIGNED_CONVERSION_VALUE
 from .constants import RECORDING_STATE
 from .constants import REF_INDEX_TO_24_WELL_INDEX
-from .constants import REF_SAMPLING_PERIOD_UUID
 from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from .constants import REFERENCE_VOLTAGE
 from .constants import REFERENCE_VOLTAGE_UUID
@@ -70,28 +66,15 @@ from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
 from .constants import SLEEP_FIRMWARE_VERSION_UUID
-from .constants import SOFTWARE_RELEASE_VERSION_UUID
 from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import START_RECORDING_TIME_INDEX_UUID
 from .constants import SUBPROCESS_POLL_DELAY_SECONDS
 from .constants import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from .constants import SYSTEM_STATUS_UUIDS
 from .constants import TIMESTEP_CONVERSION_FACTOR
-from .constants import TISSUE_SAMPLING_PERIOD_UUID
-from .constants import TOTAL_WELL_COUNT_UUID
-from .constants import USER_ACCOUNT_ID_UUID
-from .constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
-from .constants import UTC_BEGINNING_RECORDING_UUID
-from .constants import UTC_FIRST_REF_DATA_POINT_UUID
-from .constants import UTC_FIRST_TISSUE_DATA_POINT_UUID
 from .constants import VALID_CONFIG_SETTINGS
 from .constants import VALID_SCRIPTING_COMMANDS
 from .constants import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
-from .constants import WELL_COLUMN_UUID
-from .constants import WELL_INDEX_UUID
-from .constants import WELL_NAME_UUID
-from .constants import WELL_ROW_UUID
-from .constants import XEM_SERIAL_NUMBER_UUID
 from .data_analyzer import convert_24_bit_codes_to_voltage
 from .data_analyzer import DataAnalyzerProcess
 from .exceptions import AttemptToAddCyclesWhileSPIRunningError
@@ -242,23 +225,9 @@ __all__ = [
     "get_latest_firmware",
     "get_latest_firmware_version",
     "redact_sensitive_info_from_path",
-    "UTC_BEGINNING_DATA_ACQUISTION_UUID",
     "START_RECORDING_TIME_INDEX_UUID",
-    "CUSTOMER_ACCOUNT_ID_UUID",
-    "USER_ACCOUNT_ID_UUID",
-    "SOFTWARE_RELEASE_VERSION_UUID",
-    "MAIN_FIRMWARE_VERSION_UUID",
     "SLEEP_FIRMWARE_VERSION_UUID",
-    "XEM_SERIAL_NUMBER_UUID",
-    "MANTARRAY_NICKNAME_UUID",
     "REFERENCE_VOLTAGE_UUID",
-    "WELL_NAME_UUID",
-    "WELL_ROW_UUID",
-    "WELL_COLUMN_UUID",
-    "WELL_INDEX_UUID",
-    "TOTAL_WELL_COUNT_UUID",
-    "REF_SAMPLING_PERIOD_UUID",
-    "TISSUE_SAMPLING_PERIOD_UUID",
     "ADC_GAIN_DESCRIPTION_TAG",
     "parse_gain",
     "ADC_GAIN_SETTING_UUID",
@@ -275,7 +244,6 @@ __all__ = [
     "SERVER_READY_STATE",
     "INSTRUMENT_INITIALIZING_STATE",
     "UnrecognizedCommTypeFromMainToDataAnalyzerError",
-    "PLATE_BARCODE_UUID",
     "FIFO_READ_PRODUCER_DATA_OFFSET",
     "FIFO_READ_PRODUCER_WELL_AMPLITUDE",
     "FIFO_READ_PRODUCER_REF_AMPLITUDE",
@@ -285,7 +253,6 @@ __all__ = [
     "ADC_CH_TO_IS_REF_SENSOR",
     "UnrecognizedMantarrayNamingCommandError",
     "check_mantarray_serial_number",
-    "MANTARRAY_SERIAL_NUMBER_UUID",
     "FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES",
     "FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS",
     "OUTGOING_DATA_BUFFER_SIZE",
@@ -305,9 +272,6 @@ __all__ = [
     "SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS",
     "SUBPROCESS_POLL_DELAY_SECONDS",
     "ScriptDoesNotContainEndCommandError",
-    "UTC_BEGINNING_RECORDING_UUID",
-    "UTC_FIRST_TISSUE_DATA_POINT_UUID",
-    "UTC_FIRST_REF_DATA_POINT_UUID",
     "WELL_24_INDEX_TO_ADC_AND_CH_INDEX",
     "FirmwareFileNameDoesNotMatchWireOutVersionError",
     "SECONDS_TO_WAIT_WHEN_POLLING_QUEUES",
