@@ -34,6 +34,7 @@ from mantarray_desktop_app import UnrecognizedMantarrayNamingCommandError
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
 import pytest
+from stdlib_utils import confirm_parallelism_is_stopped
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import invoke_process_run_and_check_errors
 from xem_wrapper import build_header_magic_number_bytes
@@ -1154,7 +1155,7 @@ def test_OkCommunicationProcess_teardown_after_loop__puts_teardown_log_message_i
 
 
 @pytest.mark.slow
-@pytest.mark.timeout(6)
+@pytest.mark.timeout(8)
 def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_acquisition_is_running_with_simulator__and_log_stop_acquistion_message(
     running_process_with_simulated_board,
     mocker,
@@ -1173,7 +1174,10 @@ def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_
     )
     input_queue.put(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
     ok_process.soft_stop()
-    ok_process.join()
+    confirm_parallelism_is_stopped(
+        ok_process,
+        timeout_seconds=5,
+    )
 
     # TODO Tanner (8/31/20): add drain queue to other tests where applicable
     # drain the queue to avoid broken pipe errors
@@ -1190,6 +1194,8 @@ def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_
         actual_last_queue_item["message"]
         == "Board acquisition still running. Stopping acquisition to complete teardown"
     )
+
+    ok_process.join()
 
 
 def test_OkCommunicationProcess_boot_up_instrument__with_real_board__raises_error_if_firmware_version_does_not_match_file_name(
