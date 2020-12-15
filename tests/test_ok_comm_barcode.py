@@ -11,15 +11,20 @@ from mantarray_desktop_app import ok_comm
 from mantarray_desktop_app import RunningFIFOSimulator
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
-from stdlib_utils import is_queue_eventually_empty
-from stdlib_utils import is_queue_eventually_not_empty
 
+from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .fixtures_barcode import fixture_test_barcode_simulator
 from .fixtures_ok_comm import fixture_four_board_comm_process
+from .helpers import confirm_queue_is_eventually_empty
+from .helpers import confirm_queue_is_eventually_of_size
+from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 __fixtures__ = [fixture_four_board_comm_process, fixture_test_barcode_simulator]
 
-
+RUN_BARCODE_SCAN_COMMUNICATION = {
+    "communication_type": "barcode_comm",
+    "command": "start_scan",
+}
 TEST_11_CHAR_BARCODE = RunningFIFOSimulator.default_barcode + chr(0)
 TEST_10_CHAR_BARCODE = RunningFIFOSimulator.default_barcode[:10] + chr(0) * 2
 EXPECTED_11_CHAR_BARCODE = RunningFIFOSimulator.default_barcode
@@ -45,19 +50,23 @@ def test_OkCommunicationProcess__always_returns_default_barcode_when_connected_t
         "valid": True,
     }
 
-    assert is_queue_eventually_empty(to_main_queue) is True
-    input_queue.put({"communication_type": "barcode_comm", "command": "start_scan"})
-    assert is_queue_eventually_not_empty(input_queue) is True
+    confirm_queue_is_eventually_empty(to_main_queue)
+    input_queue.put(RUN_BARCODE_SCAN_COMMUNICATION)
+    confirm_queue_is_eventually_of_size(input_queue, 1)
+
     invoke_process_run_and_check_errors(ok_process)
-    assert is_queue_eventually_not_empty(to_main_queue) is True
-    actual = to_main_queue.get_nowait()
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+
+    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_barcode_comm
 
-    input_queue.put({"communication_type": "barcode_comm", "command": "start_scan"})
-    assert is_queue_eventually_not_empty(input_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        RUN_BARCODE_SCAN_COMMUNICATION, input_queue
+    )
+
     invoke_process_run_and_check_errors(ok_process)
-    assert is_queue_eventually_not_empty(to_main_queue) is True
-    actual = to_main_queue.get_nowait()
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_barcode_comm
 
 
@@ -72,8 +81,9 @@ def test_OkCommunicationProcess__clears_barcode_scanner_after_receiving_start_sc
 
     ok_process.set_board_connection(0, simulator)
 
-    input_queue.put({"communication_type": "barcode_comm", "command": "start_scan"})
-    assert is_queue_eventually_not_empty(input_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        RUN_BARCODE_SCAN_COMMUNICATION, input_queue
+    )
 
     spied_clear.assert_not_called()
     invoke_process_run_and_check_errors(ok_process)
@@ -99,9 +109,9 @@ def test_OkCommunicationProcess__waits_appropriate_amount_of_time_after_clearing
     simulator, mocked_get = test_barcode_simulator(CLEARED_BARCODE_VALUE)
     spied_start_scan = mocker.spy(simulator, "start_barcode_scan")
     ok_process.set_board_connection(0, simulator)
-
-    input_queue.put({"communication_type": "barcode_comm", "command": "start_scan"})
-    assert is_queue_eventually_not_empty(input_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        RUN_BARCODE_SCAN_COMMUNICATION, input_queue
+    )
 
     invoke_process_run_and_check_errors(ok_process)
     mocked_get.assert_not_called()
@@ -130,8 +140,9 @@ def test_OkCommunicationProcess__raises_error_if_barcode_buffer_not_cleared_afte
     spied_start_scan = mocker.spy(simulator, "start_barcode_scan")
     ok_process.set_board_connection(0, simulator)
 
-    input_queue.put({"communication_type": "barcode_comm", "command": "start_scan"})
-    assert is_queue_eventually_not_empty(input_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        RUN_BARCODE_SCAN_COMMUNICATION, input_queue
+    )
 
     with pytest.raises(BarcodeNotClearedError, match=expected_barcode):
         invoke_process_run_and_check_errors(ok_process)
@@ -156,8 +167,9 @@ def test_OkCommunicationProcess__checks_barcode_value_after_appropriate_amount_o
     )
     ok_process.set_board_connection(0, simulator)
 
-    input_queue.put({"communication_type": "barcode_comm", "command": "start_scan"})
-    assert is_queue_eventually_not_empty(input_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        RUN_BARCODE_SCAN_COMMUNICATION, input_queue
+    )
 
     invoke_process_run_and_check_errors(ok_process)
     mocked_get.assert_called_once()
@@ -202,12 +214,13 @@ def test_OkCommunicationProcess__sends_message_to_main_if_valid_barcode_received
     simulator, mocked_get = test_barcode_simulator(test_barcode)
     ok_process.set_board_connection(0, simulator)
 
-    input_queue.put({"communication_type": "barcode_comm", "command": "start_scan"})
-    assert is_queue_eventually_not_empty(input_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        RUN_BARCODE_SCAN_COMMUNICATION, input_queue
+    )
 
     invoke_process_run_and_check_errors(ok_process)
     mocked_get.assert_called_once()
-    assert is_queue_eventually_not_empty(to_main_queue) is True
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
 
     expected_barcode_comm = {
         "communication_type": "barcode_comm",
@@ -215,7 +228,7 @@ def test_OkCommunicationProcess__sends_message_to_main_if_valid_barcode_received
         "board_idx": 0,
         "valid": True,
     }
-    actual = to_main_queue.get_nowait()
+    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_barcode_comm
 
     invoke_process_run_and_check_errors(ok_process)
@@ -240,8 +253,10 @@ def test_OkCommunicationProcess__raises_error_if_barcode_scanner_does_not_respon
     simulator, _ = test_barcode_simulator(expected_barcode)
     ok_process.set_board_connection(0, simulator)
 
-    input_queue.put({"communication_type": "barcode_comm", "command": "start_scan"})
-    assert is_queue_eventually_not_empty(input_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        RUN_BARCODE_SCAN_COMMUNICATION, input_queue
+    )
+
     with pytest.raises(BarcodeScannerNotRespondingError):
         invoke_process_run_and_check_errors(ok_process)
 
@@ -269,8 +284,9 @@ def test_OkCommunicationProcess__logs_that_no_plate_was_detected_if_barcode_scan
     spied_clear = mocker.spy(simulator, "clear_barcode_scanner")
     ok_process.set_board_connection(0, simulator)
 
-    input_queue.put({"communication_type": "barcode_comm", "command": "start_scan"})
-    assert is_queue_eventually_not_empty(input_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        RUN_BARCODE_SCAN_COMMUNICATION, input_queue
+    )
 
     invoke_process_run_and_check_errors(ok_process)
     spied_clear.assert_called_once()
@@ -308,8 +324,9 @@ def test_OkCommunicationProcess__logs_that_invalid_barcode_received_if_barcode_s
     spied_clear = mocker.spy(simulator, "clear_barcode_scanner")
     ok_process.set_board_connection(0, simulator)
 
-    input_queue.put({"communication_type": "barcode_comm", "command": "start_scan"})
-    assert is_queue_eventually_not_empty(input_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        RUN_BARCODE_SCAN_COMMUNICATION, input_queue
+    )
 
     invoke_process_run_and_check_errors(ok_process)
     spied_clear.assert_called_once()
@@ -347,8 +364,9 @@ def test_OkCommunicationProcess__restarts_scan_process_if_valid_barcode_not_dete
     spied_start_scan = mocker.spy(simulator, "start_barcode_scan")
     ok_process.set_board_connection(0, simulator)
 
-    input_queue.put({"communication_type": "barcode_comm", "command": "start_scan"})
-    assert is_queue_eventually_not_empty(input_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        RUN_BARCODE_SCAN_COMMUNICATION, input_queue
+    )
 
     invoke_process_run_and_check_errors(ok_process)
     mocked_get.assert_called_once()
@@ -387,14 +405,16 @@ def test_OkCommunicationProcess__sends_correct_values_to_main_for_valid_second_b
     )
     ok_process.set_board_connection(0, simulator)
 
-    input_queue.put({"communication_type": "barcode_comm", "command": "start_scan"})
-    assert is_queue_eventually_not_empty(input_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        RUN_BARCODE_SCAN_COMMUNICATION, input_queue
+    )
 
     invoke_process_run_and_check_errors(ok_process, num_iterations=3)
-    assert is_queue_eventually_empty(to_main_queue) is True
+    confirm_queue_is_eventually_empty(to_main_queue)
+
     invoke_process_run_and_check_errors(ok_process)
     assert mocked_get.call_count == 4
-    assert is_queue_eventually_not_empty(to_main_queue) is True
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
 
     expected_barcode_comm = {
         "communication_type": "barcode_comm",
@@ -402,7 +422,7 @@ def test_OkCommunicationProcess__sends_correct_values_to_main_for_valid_second_b
         "board_idx": 0,
         "valid": True,
     }
-    actual = to_main_queue.get_nowait()
+    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_barcode_comm
 
     invoke_process_run_and_check_errors(ok_process)
@@ -437,14 +457,16 @@ def test_OkCommunicationProcess__sends_correct_values_to_main_for_invalid_second
     )
     ok_process.set_board_connection(0, simulator)
 
-    input_queue.put({"communication_type": "barcode_comm", "command": "start_scan"})
-    assert is_queue_eventually_not_empty(input_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        RUN_BARCODE_SCAN_COMMUNICATION, input_queue
+    )
 
     invoke_process_run_and_check_errors(ok_process, num_iterations=3)
-    assert is_queue_eventually_empty(to_main_queue) is True
+    confirm_queue_is_eventually_empty(to_main_queue)
+
     invoke_process_run_and_check_errors(ok_process)
     assert mocked_get.call_count == 4
-    assert is_queue_eventually_not_empty(to_main_queue) is True
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
 
     expected_barcode_comm = {
         "communication_type": "barcode_comm",
@@ -452,7 +474,7 @@ def test_OkCommunicationProcess__sends_correct_values_to_main_for_invalid_second
         "board_idx": 0,
         "valid": False,
     }
-    actual = to_main_queue.get_nowait()
+    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_barcode_comm
 
     invoke_process_run_and_check_errors(ok_process)
@@ -490,21 +512,22 @@ def test_OkCommunicationProcess__sends_correct_values_to_main_when_no_valid_barc
     )
     ok_process.set_board_connection(0, simulator)
 
-    input_queue.put({"communication_type": "barcode_comm", "command": "start_scan"})
-    assert is_queue_eventually_not_empty(input_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        RUN_BARCODE_SCAN_COMMUNICATION, input_queue
+    )
 
     invoke_process_run_and_check_errors(ok_process, num_iterations=3)
-    assert is_queue_eventually_empty(to_main_queue) is True
+    confirm_queue_is_eventually_empty(to_main_queue)
     invoke_process_run_and_check_errors(ok_process)
     assert mocked_get.call_count == 4
-    assert is_queue_eventually_not_empty(to_main_queue) is True
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
 
     expected_barcode_comm = {
         "communication_type": "barcode_comm",
         "barcode": "",
         "board_idx": 0,
     }
-    actual = to_main_queue.get_nowait()
+    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_barcode_comm
 
     invoke_process_run_and_check_errors(ok_process)
@@ -552,30 +575,35 @@ def test_OkCommunicationProcess__correctly_handles_two_consecutive_full_process_
     )
     ok_process.set_board_connection(0, simulator)
 
-    input_queue.put({"communication_type": "barcode_comm", "command": "start_scan"})
-    assert is_queue_eventually_not_empty(input_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        RUN_BARCODE_SCAN_COMMUNICATION, input_queue
+    )
+
     invoke_process_run_and_check_errors(ok_process, num_iterations=4)
-    assert is_queue_eventually_not_empty(to_main_queue) is True
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+
     expected_barcode_comm_1 = {
         "communication_type": "barcode_comm",
         "barcode": expected_invalid_barcode,
         "board_idx": 0,
         "valid": False,
     }
-    actual = to_main_queue.get_nowait()
+    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_barcode_comm_1
 
-    input_queue.put({"communication_type": "barcode_comm", "command": "start_scan"})
-    assert is_queue_eventually_not_empty(input_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        RUN_BARCODE_SCAN_COMMUNICATION, input_queue
+    )
     invoke_process_run_and_check_errors(ok_process, num_iterations=4)
-    assert is_queue_eventually_not_empty(to_main_queue) is True
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+
     expected_barcode_comm_2 = {
         "communication_type": "barcode_comm",
         "barcode": EXPECTED_10_CHAR_BARCODE,
         "board_idx": 0,
         "valid": True,
     }
-    actual = to_main_queue.get_nowait()
+    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_barcode_comm_2
 
 
@@ -591,14 +619,16 @@ def test_OkCommunicationProcess__does_not_try_to_scan_barcode_before_board_is_in
     simulator = RunningFIFOSimulator()
     ok_process.set_board_connection(0, simulator)
 
-    input_queue.put({"communication_type": "barcode_comm", "command": "start_scan"})
-    assert is_queue_eventually_not_empty(input_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        RUN_BARCODE_SCAN_COMMUNICATION, input_queue
+    )
+
     invoke_process_run_and_check_errors(ok_process)
-    assert is_queue_eventually_not_empty(to_main_queue) is True
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
     expected_barcode_comm = {
         "communication_type": "barcode_comm",
         "barcode": "",
         "board_idx": 0,
     }
-    actual = to_main_queue.get_nowait()
+    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_barcode_comm

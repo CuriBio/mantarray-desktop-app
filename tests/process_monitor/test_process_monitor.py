@@ -31,6 +31,7 @@ from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATI
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_ok_comm import fixture_patch_connection_to_board
 from ..fixtures_process_monitor import fixture_test_monitor
+from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import is_queue_eventually_empty
 from ..helpers import is_queue_eventually_not_empty
@@ -802,14 +803,14 @@ def test_MantarrayProcessesMonitor__sends_two_barcode_poll_commands_to_OKComm_at
     }
 
     invoke_process_run_and_check_errors(monitor_thread)
-    assert is_queue_eventually_empty(to_ok_comm_queue) is True
+    confirm_queue_is_eventually_empty(to_ok_comm_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_of_size(to_ok_comm_queue, 1)
     actual = to_ok_comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_comm
 
     invoke_process_run_and_check_errors(monitor_thread)
-    assert is_queue_eventually_empty(to_ok_comm_queue) is True
+    confirm_queue_is_eventually_empty(to_ok_comm_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_of_size(to_ok_comm_queue, 1)
     actual = to_ok_comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)

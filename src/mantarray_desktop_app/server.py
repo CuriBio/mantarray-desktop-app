@@ -325,25 +325,6 @@ def update_settings() -> Response:
     return response
 
 
-# def _check_barcode_for_errors(barcode: str) -> str:
-#     if len(barcode) > 11:
-#         return "Barcode exceeds max length"
-#     if len(barcode) < 10:
-#         return "Barcode does not reach min length"
-#     for char in barcode:
-#         if not char.isalnum():
-#             return f"Barcode contains invalid character: '{char}'"
-#     if barcode[:2] not in ("MA", "MB", "ME"):
-#         return f"Barcode contains invalid header: '{barcode[:2]}'"
-#     if not barcode[2:4].isnumeric():
-#         return f"Barcode contains invalid year: '{barcode[2:4]}'"
-#     if not barcode[4:7].isnumeric() or int(barcode[4:7]) < 1 or int(barcode[4:7]) > 366:
-#         return f"Barcode contains invalid Julian date: '{barcode[4:7]}'"
-#     if not barcode[7:].isnumeric():
-#         return f"Barcode contains nom-numeric string after Julian date: '{barcode[7:]}'"
-#     return ""
-
-
 @flask_app.route("/start_recording", methods=["GET"])
 def start_recording() -> Response:
     """Tell the FileWriter to begin recording data to disk.
