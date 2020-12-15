@@ -19,6 +19,8 @@ from mantarray_desktop_app import USER_ACCOUNT_ID_UUID
 from mantarray_desktop_app import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_desktop_app import UTC_BEGINNING_RECORDING_UUID
 from mantarray_desktop_app import XEM_SERIAL_NUMBER_UUID
+from mantarray_file_manager import BACKEND_LOG_UUID
+from mantarray_file_manager import COMPUTER_NAME_HASH
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
@@ -962,6 +964,19 @@ def test_start_recording_command__populates_queue__with_defaults__24_wells__utcn
             HARDWARE_TEST_RECORDING_UUID
         ]
         is False
+    )
+
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][BACKEND_LOG_UUID]
+        == GENERIC_START_RECORDING_COMMAND[
+            "metadata_to_copy_onto_main_file_attributes"
+        ][BACKEND_LOG_UUID]
+    )
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][COMPUTER_NAME_HASH]
+        == GENERIC_START_RECORDING_COMMAND[
+            "metadata_to_copy_onto_main_file_attributes"
+        ][COMPUTER_NAME_HASH]
     )
 
     assert (

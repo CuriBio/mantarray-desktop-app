@@ -38,6 +38,8 @@ from flask import request
 from flask import Response
 from flask_cors import CORS
 from immutabledict import immutabledict
+from mantarray_file_manager import BACKEND_LOG_UUID
+from mantarray_file_manager import COMPUTER_NAME_HASH
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
 from mantarray_file_manager import METADATA_UUID_DESCRIPTIONS
 from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
@@ -415,6 +417,8 @@ def start_recording() -> Response:
         "command": "start_recording",
         "is_hardware_test_recording": is_hardware_test_recording,
         "metadata_to_copy_onto_main_file_attributes": {
+            BACKEND_LOG_UUID: shared_values_dict["log_file_uuid"],
+            COMPUTER_NAME_HASH: shared_values_dict["computer_name_hash"],
             HARDWARE_TEST_RECORDING_UUID: is_hardware_test_recording,
             UTC_BEGINNING_DATA_ACQUISTION_UUID: timestamp_of_sample_idx_zero,
             START_RECORDING_TIME_INDEX_UUID: begin_timepoint,

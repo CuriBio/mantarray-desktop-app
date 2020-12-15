@@ -9,6 +9,7 @@ Changelog for Mantarray Desktop App
   		   metadata of recorded files to make linking them to a specific
   		   log file and computer easier.
 - Updated HDF5 File Format Version to 0.4.0
+- Redacted username from file path in log for recording directory and log file path
 
 - Added following changes to barcode format:
 
