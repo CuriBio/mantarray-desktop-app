@@ -4,6 +4,7 @@ Changelog for Mantarray Desktop App
 0.4.0 (unreleased)
 ------------------
 
+- Barcode is now read from the physical scanner on the instrument instead of being entered by the user
 - Added UUID to Log Files.
 - Added Log File UUID and hash sum of computer name to
   		   metadata of recorded files to make linking them to a specific

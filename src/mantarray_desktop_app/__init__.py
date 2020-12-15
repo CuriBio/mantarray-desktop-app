@@ -16,7 +16,13 @@ from .constants import ADC_CH_TO_IS_REF_SENSOR
 from .constants import ADC_GAIN
 from .constants import ADC_GAIN_DESCRIPTION_TAG
 from .constants import ADC_OFFSET_DESCRIPTION_TAG
-
+from .constants import BARCODE_CONFIRM_CLEAR_WAIT_SECONDS
+from .constants import BARCODE_GET_SCAN_WAIT_SECONDS
+from .constants import BARCODE_POLL_PERIOD
+from .constants import BARCODE_SCANNER_BOTTOM_WIRE_OUT_ADDRESS
+from .constants import BARCODE_SCANNER_MID_WIRE_OUT_ADDRESS
+from .constants import BARCODE_SCANNER_TOP_WIRE_OUT_ADDRESS
+from .constants import BARCODE_SCANNER_TRIGGER_IN_ADDRESS
 from .constants import BUFFERING_STATE
 from .constants import CALIBRATED_STATE
 from .constants import CALIBRATING_STATE
@@ -63,7 +69,7 @@ from .constants import ROUND_ROBIN_PERIOD
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
-
+from .constants import START_BARCODE_SCAN_TRIG_BIT
 from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SUBPROCESS_POLL_DELAY_SECONDS
 from .constants import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS

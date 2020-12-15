@@ -13,7 +13,6 @@ from mantarray_desktop_app import BARCODE_SCANNER_BOTTOM_WIRE_OUT_ADDRESS
 from mantarray_desktop_app import BARCODE_SCANNER_MID_WIRE_OUT_ADDRESS
 from mantarray_desktop_app import BARCODE_SCANNER_TOP_WIRE_OUT_ADDRESS
 from mantarray_desktop_app import BARCODE_SCANNER_TRIGGER_IN_ADDRESS
-
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE

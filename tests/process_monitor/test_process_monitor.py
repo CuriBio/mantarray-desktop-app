@@ -765,6 +765,8 @@ def test_MantarrayProcessesMonitor__scrubs_username_from_bit_file_name_in_boot_u
 
     expected_scrubbed_path = r"Users\*********\AppData\main.bit"
     assert expected_scrubbed_path in spied_info.call_args[0][0]
+
+
 def test_MantarrayProcessesMonitor__sends_two_barcode_poll_commands_to_OKComm_at_correct_time_intervals(
     test_monitor, test_process_manager, mocker
 ):
