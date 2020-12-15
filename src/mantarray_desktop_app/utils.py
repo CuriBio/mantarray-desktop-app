@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from typing import Any
 from typing import Dict
 from typing import Optional
@@ -98,3 +99,16 @@ def update_shared_dict(
     if new_recording_directory is not None:
         msg = f"Using directory for recording files: {new_recording_directory}"
         logger.info(msg)
+
+
+def redact_sensitive_info_from_path(file_path: Optional[str]) -> Optional[str]:
+    """Scrubs username from file path to protect sensitive info."""
+    if file_path is None:
+        return None
+    split_path = re.split(r"(Users\\)(.*)(\\AppData)", file_path)
+    if len(split_path) != 5:
+        return "*" * len(file_path)
+    scrubbed_path = split_path[0] + split_path[1]
+    scrubbed_path += "*" * len(split_path[2])
+    scrubbed_path += split_path[3] + split_path[4]
+    return scrubbed_path

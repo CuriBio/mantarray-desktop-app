@@ -6,12 +6,10 @@ import math
 import os
 import tempfile
 import time
+import uuid
 
 from freezegun import freeze_time
 import h5py
-from mantarray_desktop_app import ADC_GAIN_SETTING_UUID
-from mantarray_desktop_app import ADC_REF_OFFSET_UUID
-from mantarray_desktop_app import ADC_TISSUE_OFFSET_UUID
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
@@ -22,7 +20,6 @@ from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import CURRENT_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
-from mantarray_desktop_app import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_desktop_app import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from mantarray_desktop_app import DATA_FRAME_PERIOD
 from mantarray_desktop_app import FIFO_READ_PRODUCER_DATA_OFFSET
@@ -34,45 +31,51 @@ from mantarray_desktop_app import get_server_port_number
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import main
-from mantarray_desktop_app import MAIN_FIRMWARE_VERSION_UUID
-from mantarray_desktop_app import MANTARRAY_NICKNAME_UUID
-from mantarray_desktop_app import MANTARRAY_SERIAL_NUMBER_UUID
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import MILLIVOLTS_PER_VOLT
-from mantarray_desktop_app import PLATE_BARCODE_UUID
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
 from mantarray_desktop_app import RECORDING_STATE
-from mantarray_desktop_app import REF_SAMPLING_PERIOD_UUID
 from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import REFERENCE_VOLTAGE
-from mantarray_desktop_app import REFERENCE_VOLTAGE_UUID
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import server
 from mantarray_desktop_app import SERVER_READY_STATE
-from mantarray_desktop_app import SLEEP_FIRMWARE_VERSION_UUID
-from mantarray_desktop_app import SOFTWARE_RELEASE_VERSION_UUID
-from mantarray_desktop_app import START_RECORDING_TIME_INDEX_UUID
 from mantarray_desktop_app import system_state_eventually_equals
 from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
-from mantarray_desktop_app import TISSUE_SAMPLING_PERIOD_UUID
-from mantarray_desktop_app import TOTAL_WELL_COUNT_UUID
-from mantarray_desktop_app import USER_ACCOUNT_ID_UUID
-from mantarray_desktop_app import UTC_BEGINNING_DATA_ACQUISTION_UUID
-from mantarray_desktop_app import UTC_BEGINNING_RECORDING_UUID
-from mantarray_desktop_app import UTC_FIRST_REF_DATA_POINT_UUID
-from mantarray_desktop_app import UTC_FIRST_TISSUE_DATA_POINT_UUID
 from mantarray_desktop_app import wait_for_subprocesses_to_start
 from mantarray_desktop_app import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
-from mantarray_desktop_app import WELL_COLUMN_UUID
-from mantarray_desktop_app import WELL_INDEX_UUID
-from mantarray_desktop_app import WELL_NAME_UUID
-from mantarray_desktop_app import WELL_ROW_UUID
-from mantarray_desktop_app import XEM_SERIAL_NUMBER_UUID
+from mantarray_file_manager import ADC_GAIN_SETTING_UUID
+from mantarray_file_manager import ADC_REF_OFFSET_UUID
+from mantarray_file_manager import ADC_TISSUE_OFFSET_UUID
+from mantarray_file_manager import BACKEND_LOG_UUID
+from mantarray_file_manager import COMPUTER_NAME_HASH
+from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
+from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
+from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
+from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
 from mantarray_file_manager import METADATA_UUID_DESCRIPTIONS
+from mantarray_file_manager import PLATE_BARCODE_UUID
+from mantarray_file_manager import REF_SAMPLING_PERIOD_UUID
+from mantarray_file_manager import REFERENCE_VOLTAGE_UUID
+from mantarray_file_manager import SLEEP_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
+from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
+from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
+from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
+from mantarray_file_manager import TOTAL_WELL_COUNT_UUID
+from mantarray_file_manager import USER_ACCOUNT_ID_UUID
+from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
+from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
+from mantarray_file_manager import UTC_FIRST_REF_DATA_POINT_UUID
+from mantarray_file_manager import UTC_FIRST_TISSUE_DATA_POINT_UUID
+from mantarray_file_manager import WELL_COLUMN_UUID
+from mantarray_file_manager import WELL_INDEX_UUID
+from mantarray_file_manager import WELL_NAME_UUID
+from mantarray_file_manager import WELL_ROW_UUID
+from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
 from mantarray_waveform_analysis import BUTTERWORTH_LOWPASS_30_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 from mantarray_waveform_analysis import PipelineTemplate
@@ -364,6 +367,14 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         return_value=expected_time,
     )
     expected_timestamp = "2020_06_15_141955"
+    mocker.patch.object(
+        uuid,
+        "uuid4",
+        autospec=True,
+        return_value=GENERIC_START_RECORDING_COMMAND[
+            "metadata_to_copy_onto_main_file_attributes"
+        ][BACKEND_LOG_UUID],
+    )
 
     app_info = fully_running_app_from_main_entrypoint(["--skip-mantarray-boot-up"])
     wait_for_subprocesses_to_start()
@@ -371,11 +382,6 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
     test_process_manager = app_info["object_access_inside_main"]["process_manager"]
 
     assert system_state_eventually_equals(SERVER_READY_STATE, 5) is True
-    # response = requests.get(f"{get_api_endpoint()}system_status")
-    # assert response.status_code == 200
-    # assert response.json()["ui_status_code"] == str(
-    #     SYSTEM_STATUS_UUIDS[SERVER_READY_STATE]
-    # )
 
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         response = requests.get(
@@ -385,20 +391,12 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         response = requests.get(f"{get_api_endpoint()}boot_up")
         assert response.status_code == 200
         assert system_state_eventually_equals(INSTRUMENT_INITIALIZING_STATE, 5) is True
-        # response = requests.get(f"{get_api_endpoint()}system_status")
-        # assert response.status_code == 200
-        # assert response.json()["ui_status_code"] == str(
-        #     SYSTEM_STATUS_UUIDS[INSTRUMENT_INITIALIZING_STATE]
-        # )
+
         assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 3) is True
         response = requests.get(f"{get_api_endpoint()}start_calibration")
         assert response.status_code == 200
         assert system_state_eventually_equals(CALIBRATING_STATE, 3) is True
-        # response = requests.get(f"{get_api_endpoint()}system_status")
-        # assert response.status_code == 200
-        # assert response.json()["ui_status_code"] == str(
-        #     SYSTEM_STATUS_UUIDS[CALIBRATING_STATE]
-        # )
+
         assert (
             system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME)
             is True
@@ -407,11 +405,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
         assert response.status_code == 200
         assert system_state_eventually_equals(BUFFERING_STATE, 3) is True
-        # response = requests.get(f"{get_api_endpoint()}system_status")
-        # assert response.status_code == 200
-        # assert response.json()["ui_status_code"] == str(
-        #     SYSTEM_STATUS_UUIDS[BUFFERING_STATE]
-        # )
+
         assert (
             system_state_eventually_equals(
                 LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME
@@ -428,21 +422,11 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         )
         assert response.status_code == 200
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
-        # response = requests.get(f"{get_api_endpoint()}system_status")
-        # assert response.status_code == 200
-        # assert response.json()["ui_status_code"] == str(
-        #     SYSTEM_STATUS_UUIDS[RECORDING_STATE]
-        # )
 
         time.sleep(3)  # Tanner (6/15/20): This allows data to be written to files
         response = requests.get(f"{get_api_endpoint()}stop_recording")
         assert response.status_code == 200
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
-        # response = requests.get(f"{get_api_endpoint()}system_status")
-        # assert response.status_code == 200
-        # assert response.json()["ui_status_code"] == str(
-        #     SYSTEM_STATUS_UUIDS[LIVE_VIEW_ACTIVE_STATE]
-        # )
 
         response = requests.get(f"{get_api_endpoint()}stop_managed_acquisition")
         assert response.status_code == 200
@@ -587,6 +571,17 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                         this_file_attrs[str(REF_SAMPLING_PERIOD_UUID)]
                         == REFERENCE_SENSOR_SAMPLING_PERIOD
                         * MICROSECONDS_PER_CENTIMILLISECOND
+                    )
+                    assert this_file.attrs[str(BACKEND_LOG_UUID)] == str(
+                        GENERIC_START_RECORDING_COMMAND[
+                            "metadata_to_copy_onto_main_file_attributes"
+                        ][BACKEND_LOG_UUID]
+                    )
+                    assert (
+                        this_file.attrs[str(COMPUTER_NAME_HASH)]
+                        == GENERIC_START_RECORDING_COMMAND[
+                            "metadata_to_copy_onto_main_file_attributes"
+                        ][COMPUTER_NAME_HASH]
                     )
 
 

@@ -22,7 +22,20 @@ from uuid import UUID
 
 import h5py
 from labware_domain_models import LabwareDefinition
+from mantarray_file_manager import ADC_REF_OFFSET_UUID
+from mantarray_file_manager import ADC_TISSUE_OFFSET_UUID
 from mantarray_file_manager import METADATA_UUID_DESCRIPTIONS
+from mantarray_file_manager import PLATE_BARCODE_UUID
+from mantarray_file_manager import REF_SAMPLING_PERIOD_UUID
+from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
+from mantarray_file_manager import TOTAL_WELL_COUNT_UUID
+from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
+from mantarray_file_manager import UTC_FIRST_REF_DATA_POINT_UUID
+from mantarray_file_manager import UTC_FIRST_TISSUE_DATA_POINT_UUID
+from mantarray_file_manager import WELL_COLUMN_UUID
+from mantarray_file_manager import WELL_INDEX_UUID
+from mantarray_file_manager import WELL_NAME_UUID
+from mantarray_file_manager import WELL_ROW_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
 from stdlib_utils import compute_crc32_and_write_to_file_head
@@ -30,27 +43,14 @@ from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
 from stdlib_utils import safe_get
 
-from .constants import ADC_REF_OFFSET_UUID
-from .constants import ADC_TISSUE_OFFSET_UUID
 from .constants import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from .constants import CURRENT_HDF5_FILE_FORMAT_VERSION
 from .constants import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
 from .constants import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
-from .constants import PLATE_BARCODE_UUID
-from .constants import REF_SAMPLING_PERIOD_UUID
 from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from .constants import ROUND_ROBIN_PERIOD
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
-from .constants import TISSUE_SAMPLING_PERIOD_UUID
-from .constants import TOTAL_WELL_COUNT_UUID
-from .constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
-from .constants import UTC_FIRST_REF_DATA_POINT_UUID
-from .constants import UTC_FIRST_TISSUE_DATA_POINT_UUID
-from .constants import WELL_COLUMN_UUID
-from .constants import WELL_INDEX_UUID
-from .constants import WELL_NAME_UUID
-from .constants import WELL_ROW_UUID
 from .exceptions import InvalidDataTypeFromOkCommError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
 

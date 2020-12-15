@@ -19,6 +19,7 @@ from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
 import pytest
 from pytest import approx
 from scipy import signal
+import stdlib_utils
 from stdlib_utils import invoke_process_run_and_check_errors
 from xem_wrapper import build_header_magic_number_bytes
 from xem_wrapper import HEADER_MAGIC_NUMBER
@@ -37,19 +38,20 @@ def test_FIFOReadProducer__super_is_called_during_init(mocker):
 
 
 def test_FIFOReadProducer__sleeps_for_correct_duration_every_cycle(mocker):
-    test_start_timepoint = 0
-    test_stop_timepoint = 10
-    dummy_val = -1
+    test_iteration_time_ns = 10
     expected_sleep_time = (
-        FIFO_READ_PRODUCER_SLEEP_DURATION
-        - (test_stop_timepoint - test_start_timepoint) / 10 ** 9
+        FIFO_READ_PRODUCER_SLEEP_DURATION - test_iteration_time_ns / 10 ** 9
     )
 
-    # Tanner (4/28/20): dummy vals are for calls to perf_counter_ns in setup and second iteration respectively.
-    counter_vals = [dummy_val, test_start_timepoint, test_stop_timepoint, dummy_val]
-
-    mocked_sleep = mocker.patch.object(time, "sleep", autospec=True)
-    mocker.patch.object(time, "perf_counter_ns", side_effect=counter_vals)
+    mocked_sleep = mocker.patch.object(
+        time, "sleep", autospec=True
+    )  # Tanner (11/25/20): mock instead of spy so test runs faster
+    mocker.patch.object(
+        stdlib_utils.parallelism_framework,
+        "calculate_iteration_time_ns",
+        autospec=True,
+        return_value=test_iteration_time_ns,
+    )
 
     data_out_queue = queue.Queue()
     error_queue = queue.Queue()

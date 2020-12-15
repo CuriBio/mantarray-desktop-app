@@ -4,6 +4,13 @@ Changelog for Mantarray Desktop App
 0.4.0 (unreleased)
 ------------------
 
+- Added UUID to Log Files.
+- Added Log File UUID and hash sum of computer name to
+  		   metadata of recorded files to make linking them to a specific
+  		   log file and computer easier.
+- Updated HDF5 File Format Version to 0.4.0
+- Redacted username from file path in log for recording directory and log file path
+
 - Added following changes to barcode format:
 
   - Disallow 'M1', 'MC', 'MD' as first two characters.

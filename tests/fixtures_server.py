@@ -8,7 +8,9 @@ from mantarray_desktop_app import DEFAULT_SERVER_PORT_NUMBER
 from mantarray_desktop_app import flask_app
 from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import ServerThread
-from mantarray_desktop_app import UTC_BEGINNING_DATA_ACQUISTION_UUID
+from mantarray_file_manager import BACKEND_LOG_UUID
+from mantarray_file_manager import COMPUTER_NAME_HASH
+from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 import pytest
 from stdlib_utils import confirm_port_available
 from stdlib_utils import confirm_port_in_use
@@ -130,4 +132,10 @@ def fixture_generic_start_recording_info_in_shared_dict(
     shared_values_dict["mantarray_nickname"] = {
         board_idx: RunningFIFOSimulator.default_mantarray_nickname
     }
+    shared_values_dict["log_file_uuid"] = GENERIC_START_RECORDING_COMMAND[
+        "metadata_to_copy_onto_main_file_attributes"
+    ][BACKEND_LOG_UUID]
+    shared_values_dict["computer_name_hash"] = GENERIC_START_RECORDING_COMMAND[
+        "metadata_to_copy_onto_main_file_attributes"
+    ][COMPUTER_NAME_HASH]
     yield shared_values_dict
