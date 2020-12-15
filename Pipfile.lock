@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "f697a8bf6e3c15aabbcec8aee730c6fbf3dc10949d59feffd29742bd0075bfdc"
+            "sha256": "8b4cd7dd69a34b0deccbf481181dc1e7c7734e721383399cb6ecf522c9642ca5"
         },
         "pipfile-spec": 6,
         "requires": {},
@@ -143,21 +143,27 @@
         },
         "mantarray-file-manager": {
             "hashes": [
-                "sha256:cd3a3968dd02df6436d470a4645483492e445661d05c91060d09b21ec6852a81",
-                "sha256:d41c3ece70b8a601bc7467e01e699cd90f1773e25e8e75adde48901827863e79"
+                "sha256:1903f656928d77c08c883a2146256db205035a3b2b55011ba2626d0dbebe548d",
+                "sha256:68b0036ba659f3470a0418aed476c9c0f7be26a0df011d22d067864e070332f3"
             ],
             "index": "pypi",
-            "version": "==0.4.1"
+            "version": "==0.4.3"
         },
         "mantarray-waveform-analysis": {
             "hashes": [
-                "sha256:7251c923b515eaf20c5b0052e28312b47075fae091c2106e0f478420fc3237ff",
-                "sha256:79dd0012fb7a7dfc68e0e96a6bbeb22ee1fb72d60d00ff81c2bac8aa8c442b9d",
-                "sha256:a63b47e4eecedf5212c276a2316940c5206d03d2c9eccc8d735744193e104c0c",
-                "sha256:c7f5194a5584b5a8be3f3457b6108e0e40d350d7b6c042e5c0366d155e58b62f"
+                "sha256:05c82ec52be577d4bf009252c1f563a849bdeb6499429201113c1b3d7f5250f8",
+                "sha256:41b3d6fa0304fbf098e0d48d06f81f04c8120bef197eaf20ffd899be01c0530d",
+                "sha256:4fe17f02631dfda446c3cac302a43eeee92ef688ea39bd558f220cf9d45fd6d2",
+                "sha256:584fb76aa1649a93c03a900c76864e941e62fd065f0c3da0c23c87caf85e1f7d",
+                "sha256:8a54fecf6c4b3b64c6e4d4e155686689fca26cf03da44ff507b1bf2863320119",
+                "sha256:a23eb35065484e458daabd0d2861d9138e316e0c92f351fa36fc87b138dccd66",
+                "sha256:a9bb2ea9ccfa568606e21028c48fbf11ce1494e4e7aa6cae5e761e67538d30cf",
+                "sha256:caacb87c0afbfec04dafe9610dfb97c87aabf14fe2dab6ac4940c625d9c666b1",
+                "sha256:d08606316698982628d9a5eb360d2a4ccdce01180dc603983ed4a0909ef3a3b2",
+                "sha256:f4b11ac9478be77f219686581e5d2307046f923a681c411d2e5a9a75e3cdab89"
             ],
             "index": "pypi",
-            "version": "==0.5.1"
+            "version": "==0.5.10"
         },
         "markupsafe": {
             "hashes": [
@@ -314,9 +320,12 @@
             "version": "==1.15.0"
         },
         "stdlib-utils": {
-            "editable": true,
-            "git": "https://github.com/CuriBio/stdlib-utils.git",
-            "ref": "fb48b0d4343e323aa338ee04eb66638d72a760fe"
+            "hashes": [
+                "sha256:59d23890b64362406730ff3dfdb7b0c4a5cbd0882851422b9336bd893e4a8fa9",
+                "sha256:61dbeebeb3fb83670a0871e1f54dc2e535f3d7468ac9f03a611d466a1a0a4d7b"
+            ],
+            "index": "pypi",
+            "version": "==0.3.10"
         },
         "typish": {
             "hashes": [
@@ -406,18 +415,18 @@
         },
         "boto3": {
             "hashes": [
-                "sha256:abfd82a98fd3399d549dd77575e8933764928f4d7e9c4c24c3efc7e41719d238",
-                "sha256:ebbfbf391ff5deac7b00033dad8e98130db0a0961d76df98ebeb87f785eb0948"
+                "sha256:4ef19b74babe3925255cc0718bbed228e9b147f05051c39b3081c8e7fa6f1044",
+                "sha256:a1e64250415afd441799df4f70ac401bcf1611a300f3221547121193e3b10479"
             ],
             "index": "pypi",
-            "version": "==1.16.1"
+            "version": "==1.16.36"
         },
         "botocore": {
             "hashes": [
-                "sha256:633aa910509b060717df4130f7e2841f1101c0c47fd5871f4903b4b1dbab7e23",
-                "sha256:d31dce56799edb5796085d5296931faae201e28e14e568d9db4dac237a135fe3"
+                "sha256:9fba0246e29dbe0d4576a602aa5bc7a7caeaffb4e3c7f396f563dcdf04e26abf",
+                "sha256:a5ad68d2a2cd3781fa26dba36f355169c2a0ee103bcd544fdfc71d5709ecf0c1"
             ],
-            "version": "==1.19.35"
+            "version": "==1.19.36"
         },
         "certifi": {
             "hashes": [
@@ -478,7 +487,7 @@
                 "sha256:cedb2f9e1f990918ea061f28a0f0077a07702e3819602d3507e2ff98c8d20636",
                 "sha256:e8caf961e1b1a945db76f1b5fa9c91498d15f545ac0ababbe575cfab185d3bd8"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4.0'",
             "version": "==5.3"
         },
         "cython": {

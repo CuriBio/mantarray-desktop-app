@@ -70,6 +70,7 @@ __fixtures__ = [
 ]
 
 
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 @pytest.mark.slow
 def test_send_single_set_mantarray_nickname_command__gets_processed_and_stores_nickname_in_shared_values_dict(
     test_monitor, test_client, test_process_manager
@@ -79,6 +80,9 @@ def test_send_single_set_mantarray_nickname_command__gets_processed_and_stores_n
     expected_nickname = "Surnom Français"
     ok_process = test_process_manager.get_instrument_process()
     test_process_manager.start_processes()
+    port = get_server_port_number()
+    confirm_port_in_use(port, timeout=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
+
     response = test_client.get(f"/set_mantarray_nickname?nickname={expected_nickname}")
     assert response.status_code == 200
 

@@ -330,11 +330,11 @@ def _check_barcode_for_errors(barcode: str) -> str:
     for char in barcode:
         if not char.isalnum():
             return f"Barcode contains invalid character: '{char}'"
-    if barcode[:2] != "MA" and barcode[:2] != "MB" and barcode[:2] != "M1":
+    if barcode[:2] not in ("MA", "MB", "ME"):
         return f"Barcode contains invalid header: '{barcode[:2]}'"
-    if int(barcode[2:4]) != 20:
+    if not barcode[2:4].isnumeric():
         return f"Barcode contains invalid year: '{barcode[2:4]}'"
-    if int(barcode[4:7]) < 1 or int(barcode[4:7]) > 366:
+    if not barcode[4:7].isnumeric() or int(barcode[4:7]) < 1 or int(barcode[4:7]) > 366:
         return f"Barcode contains invalid Julian date: '{barcode[4:7]}'"
     if not barcode[7:].isnumeric():
         return f"Barcode contains nom-numeric string after Julian date: '{barcode[7:]}'"
