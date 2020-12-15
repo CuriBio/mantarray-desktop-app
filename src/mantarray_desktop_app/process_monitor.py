@@ -29,6 +29,7 @@ from .constants import SERVER_READY_STATE
 from .process_manager import MantarrayProcessesManager
 from .server import ServerThread
 from .utils import attempt_to_get_recording_directory_from_new_dict
+from .utils import redact_sensitive_info_from_path
 from .utils import update_shared_dict
 
 logger = logging.getLogger(__name__)
@@ -225,9 +226,25 @@ class MantarrayProcessesMonitor(InfiniteThread):
             )
         except queue.Empty:
             return
-
+        if "bit_file_name" in communication:
+            communication["bit_file_name"] = redact_sensitive_info_from_path(
+                communication["bit_file_name"]
+            )
+        if "response" in communication:
+            if (
+                communication["response"] is not None
+                and "bit_file_name" in communication["response"]
+            ):
+                communication["response"][
+                    "bit_file_name"
+                ] = redact_sensitive_info_from_path(
+                    communication["response"]["bit_file_name"]
+                )
+        msg = f"Communication from the OpalKelly Controller: {communication}".replace(
+            r"\\", "\\"
+        )
         # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
-        msg = f"Communication from the OpalKelly Controller: {communication}"
+        # msg = f"Communication from the OpalKelly Controller: {communication}"
         with self._lock:
             logger.info(msg)
         communication_type = communication["communication_type"]

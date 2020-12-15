@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 import base64
+import copy
+import hashlib
 import json
 import logging
 import multiprocessing
@@ -11,12 +13,14 @@ import os
 import platform
 import queue
 from queue import Queue
+import socket
 import sys
 import threading
 from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
+import uuid
 
 from stdlib_utils import configure_logging
 from stdlib_utils import get_current_file_abs_directory
@@ -33,6 +37,7 @@ from .server import clear_the_server_thread
 from .server import get_the_server_thread
 from .server import ServerThreadNotInitializedError
 from .utils import convert_request_args_to_config_dict
+from .utils import redact_sensitive_info_from_path
 from .utils import update_shared_dict
 
 
@@ -82,16 +87,9 @@ def _log_system_info() -> None:
     system_messages.append(f"Machine: {getattr(uname, 'machine')}")
     system_messages.append(f"Processor: {getattr(uname, 'processor')}")
     system_messages.append(f"Win 32 Ver: {platform.win32_ver()}")
-    system_messages.append(f"Platform: {platform.platform()}")
-    system_messages.append(f"Architecture: {platform.architecture()}")
-    system_messages.append(f"Interpreter is 64-bits: {sys.maxsize > 2**32}")
     system_messages.append(
-        f"System Alias: {platform.system_alias(uname_sys, uname_release, uname_version)}"
+        f"Platform: {platform.platform()}, Architecture: {platform.architecture()}, Interpreter is 64-bits: {sys.maxsize > 2**32}, System Alias: {platform.system_alias(uname_sys, uname_release, uname_version)}"
     )
-    system_messages.append(f"Python Version: {platform.python_version_tuple()}")
-    system_messages.append(f"Python Implementation: {platform.python_implementation()}")
-    system_messages.append(f"Python Build: {platform.python_build()}")
-    system_messages.append(f"Python Compiler: {platform.python_compiler()}")
     for msg in system_messages:
         logger.info(msg)
 
@@ -151,28 +149,48 @@ def main(
     logger.info(msg)
     msg = f"Build timestamp/version: {COMPILED_EXE_BUILD_TIMESTAMP}"
     logger.info(msg)
-    msg = f"Command Line Args: {vars(parsed_args)}"
+    parsed_args_dict = copy.deepcopy(vars(parsed_args))
+    del parsed_args_dict["initial_base64_settings"]
+    msg = f"Command Line Args: {parsed_args_dict}"
     logger.info(msg)
-    msg = f"Using directory for log files: {path_to_log_folder}"
+    scrubbed_path_to_log_folder = redact_sensitive_info_from_path(path_to_log_folder)
+    msg = f"Using directory for log files: {scrubbed_path_to_log_folder}"
     logger.info(msg)
+
     multiprocessing_start_method = multiprocessing.get_start_method(allow_none=True)
     if multiprocessing_start_method != "spawn":
         raise MultiprocessingNotSetToSpawnError(multiprocessing_start_method)
 
     decoded_settings: bytes
+    shared_values_dict: Dict[str, Any] = dict()
+    settings_dict: Dict[str, Any] = dict()
+
     if parsed_args.initial_base64_settings:
         # Eli (7/15/20): Moved this ahead of the exit for debug_test_post_build so that it could be easily unit tested. The equals signs are adding padding..apparently a quirk in python https://stackoverflow.com/questions/2941995/python-ignore-incorrect-padding-error-when-base64-decoding
         decoded_settings = base64.urlsafe_b64decode(
             str(parsed_args.initial_base64_settings) + "==="
         )
+        # validate_settings(settings_dict) # TODO (Eli 12/3/20): unit test and add this
+        settings_dict = json.loads(decoded_settings)
+
+    log_file_uuid = settings_dict.get("log_file_uuid", uuid.uuid4())
+
+    computer_name_hash = hashlib.sha512(
+        socket.gethostname().encode(encoding="UTF-8")
+    ).digest()
+
+    shared_values_dict["log_file_uuid"] = log_file_uuid
+    shared_values_dict["computer_name_hash"] = str(computer_name_hash)
+
+    msg = f"Log File UUID: {log_file_uuid}"  # TODO Tanner (11/25/20): figure out better way to handle missing log_file_uuid value
+    logger.info(msg)
+    msg = f"SHA512 digest of Computer Name {str(computer_name_hash)}"
+    logger.info(msg)
 
     if parsed_args.debug_test_post_build:
         print("Successfully opened and closed application.")  # allow-print
         return
 
-    shared_values_dict: Dict[
-        str, Any
-    ] = dict()  # = get_shared_values_between_server_and_monitor()
     shared_values_dict["system_status"] = SERVER_INITIALIZING_STATE
     if parsed_args.port_number is not None:
         shared_values_dict["server_port_number"] = parsed_args.port_number
@@ -183,9 +201,7 @@ def main(
     msg = f"Using server port number: {_server_port_number}"
     logger.info(msg)
 
-    if parsed_args.initial_base64_settings:
-        settings_dict = json.loads(decoded_settings)
-        # validate_settings(settings_dict) # TODO (Eli 12/3/20): unit test and add this
+    if settings_dict:
         update_shared_dict(
             shared_values_dict, convert_request_args_to_config_dict(settings_dict)
         )

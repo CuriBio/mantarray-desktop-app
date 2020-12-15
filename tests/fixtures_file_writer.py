@@ -2,12 +2,15 @@
 
 
 import datetime
+import hashlib
 from multiprocessing import Queue
 import os
+import socket
 import tempfile
 from typing import Any
 from typing import Dict
 from typing import Tuple
+import uuid
 
 import h5py
 from mantarray_desktop_app import ADC_GAIN_SETTING_UUID
@@ -33,6 +36,8 @@ from mantarray_desktop_app import USER_ACCOUNT_ID_UUID
 from mantarray_desktop_app import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_desktop_app import UTC_BEGINNING_RECORDING_UUID
 from mantarray_desktop_app import XEM_SERIAL_NUMBER_UUID
+from mantarray_file_manager import BACKEND_LOG_UUID
+from mantarray_file_manager import COMPUTER_NAME_HASH
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
 from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
 from mantarray_file_manager import WellFile
@@ -73,6 +78,10 @@ GENERIC_START_RECORDING_COMMAND: Dict[str, Any] = {
         ADC_GAIN_SETTING_UUID: 32,
         "adc_offsets": GENERIC_ADC_OFFSET_VALUES,
         PLATE_BARCODE_UUID: "MA200440001",
+        BACKEND_LOG_UUID: uuid.UUID("9a3d03f2-1f5a-4ecd-b843-0dc9ecde5f67"),
+        COMPUTER_NAME_HASH: str(
+            hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).digest()
+        ),
     },
     "active_well_indices": set(range(24)),
 }

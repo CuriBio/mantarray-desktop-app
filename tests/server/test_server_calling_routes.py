@@ -300,7 +300,7 @@ def test_start_managed_acquisition__returns_error_code_and_message_if_mantarray_
         ),
         (
             "e140e2b-397a-427b-81f3-4f889c5181a9",
-            "returns error_message when uuid is invalid",
+            "returns error_message when uuid is missing one char",
         ),
     ],
 )
@@ -349,7 +349,7 @@ def test_update_settings__returns_error_message_when_unexpected_argument_is_give
         ),
         (
             "11e140e2b-397a-427b-81f3-4f889c5181a9",
-            "returns error_message when uuid is invalid",
+            "returns error_message when uuid is missing one char",
         ),
     ],
 )

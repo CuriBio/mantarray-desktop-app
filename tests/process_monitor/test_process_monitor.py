@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import copy
 import datetime
 import os
 import queue
@@ -702,3 +703,62 @@ def test_MantarrayProcessesMonitor__stores_firmware_versions_during_instrument_b
         == RunningFIFOSimulator.default_firmware_version
     )
     assert shared_values_dict["sleep_firmware_version"][0] == "0.0.0"
+
+
+def test_MantarrayProcessesMonitor__scrubs_username_from_bit_file_name_in_get_status_log_message(
+    test_monitor, test_process_manager, mocker
+):
+    monitor_thread, _, _, _ = test_monitor
+    spied_info = mocker.spy(process_monitor.logger, "info")
+
+    from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+        0
+    )
+
+    test_communication = {
+        "communication_type": "debug_console",
+        "command": "get_status",
+        "response": {
+            "is_spi_running": False,
+            "is_board_initialized": True,
+            "bit_file_name": r"Users\username\AppData\main.bit",
+        },
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(test_communication), from_ok_comm_queue
+    )
+
+    invoke_process_run_and_check_errors(monitor_thread)
+
+    expected_scrubbed_path = r"Users\********\AppData\main.bit"
+    assert expected_scrubbed_path in spied_info.call_args[0][0]
+
+
+def test_MantarrayProcessesMonitor__scrubs_username_from_bit_file_name_in_boot_up_instrument_log_message(
+    test_monitor, test_process_manager, mocker
+):
+    monitor_thread, _, _, _ = test_monitor
+    spied_info = mocker.spy(process_monitor.logger, "info")
+
+    from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+        0
+    )
+
+    test_communication = {
+        "communication_type": "boot_up_instrument",
+        "command": "initialize_board",
+        "suppress_error": False,
+        "allow_board_reinitialization": False,
+        "board_index": 0,
+        "main_firmware_version": "1.1.1",
+        "sleep_firmware_version": "0.0.0",
+        "bit_file_name": r"Users\username1\AppData\main.bit",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(test_communication), from_ok_comm_queue
+    )
+
+    invoke_process_run_and_check_errors(monitor_thread)
+
+    expected_scrubbed_path = r"Users\*********\AppData\main.bit"
+    assert expected_scrubbed_path in spied_info.call_args[0][0]

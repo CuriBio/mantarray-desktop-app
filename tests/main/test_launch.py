@@ -1,14 +1,17 @@
 # -*- coding: utf-8 -*-
 import base64
+import hashlib
 import json
 import logging
 import multiprocessing
 import platform
+import socket
 import sys
 import tempfile
 import threading
 import time
 from unittest.mock import ANY
+import uuid
 
 from freezegun import freeze_time
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
@@ -84,8 +87,11 @@ def test_main__handles_base64_command_line_argument_with_padding_issue(mocker):
     main.main(expected_command_line_args)
 
     spied_info_logger.assert_any_call(
-        "Command Line Args: {'debug_test_post_build': True, 'log_level_debug': False, 'skip_mantarray_boot_up': False, 'port_number': None, 'log_file_dir': None, 'initial_base64_settings': 'eyJyZWNvcmRpbmdfZGlyZWN0b3J5IjoiL2hvbWUvdWJ1bnR1Ly5jb25maWcvTWFudGFycmF5Q29udHJvbGxlci9yZWNvcmRpbmdzIn0'}"
+        "Command Line Args: {'debug_test_post_build': True, 'log_level_debug': False, 'skip_mantarray_boot_up': False, 'port_number': None, 'log_file_dir': None}"
     )
+    for call_args in spied_info_logger.call_args_list:
+        # TODO (11/23/20): make this test easier to debug if it fails
+        assert "initial_base64_settings" not in call_args[0]
 
 
 def test_main__logs_command_line_arguments(mocker):
@@ -100,8 +106,11 @@ def test_main__logs_command_line_arguments(mocker):
     main_thread.join()
 
     spied_info_logger.assert_any_call(
-        "Command Line Args: {'debug_test_post_build': True, 'log_level_debug': True, 'skip_mantarray_boot_up': False, 'port_number': None, 'log_file_dir': None, 'initial_base64_settings': None}"
+        "Command Line Args: {'debug_test_post_build': True, 'log_level_debug': True, 'skip_mantarray_boot_up': False, 'port_number': None, 'log_file_dir': None}"
     )
+
+    for call_args in spied_info_logger.call_args_list:
+        assert "initial_base64_settings" not in call_args[0]
 
 
 @pytest.mark.timeout(1)
@@ -129,10 +138,25 @@ def test_main__logs_system_info__and_software_version_at_very_start(
     patched_xem_scripts_folder,
 ):
     spied_info_logger = mocker.spy(main.logger, "info")
+    expected_uuid = "c7d3e956-cfc3-42df-94d9-b3a19cf1529c"
+    test_dict = {
+        "log_file_uuid": expected_uuid,
+    }
+    json_str = json.dumps(test_dict)
+    b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
+    fully_running_app_from_main_entrypoint([f"--initial-base64-settings={b64_encoded}"])
 
-    fully_running_app_from_main_entrypoint([])
-
-    assert CURRENT_SOFTWARE_VERSION in spied_info_logger.call_args_list[0][0][0]
+    expected_name_hash = hashlib.sha512(
+        socket.gethostname().encode(encoding="UTF-8")
+    ).digest()
+    spied_info_logger.assert_any_call(f"Log File UUID: {expected_uuid}")
+    spied_info_logger.assert_any_call(
+        f"SHA512 digest of Computer Name {str(expected_name_hash)}"
+    )
+    spied_info_logger.assert_any_call(
+        f"Mantarray Controller v{CURRENT_SOFTWARE_VERSION} started"
+    )
+    # spied_info_logger.assert_any_call(assert CURRENT_SOFTWARE_VERSION in spied_info_logger.call_args_list[2][0][0]
 
     uname = platform.uname()
     uname_sys = getattr(uname, "system")
@@ -144,20 +168,9 @@ def test_main__logs_system_info__and_software_version_at_very_start(
     spied_info_logger.assert_any_call(f"Machine: {getattr(uname, 'machine')}")
     spied_info_logger.assert_any_call(f"Processor: {getattr(uname, 'processor')}")
     spied_info_logger.assert_any_call(f"Win 32 Ver: {platform.win32_ver()}")
-    spied_info_logger.assert_any_call(f"Platform: {platform.platform()}")
-    spied_info_logger.assert_any_call(f"Architecture: {platform.architecture()}")
-    spied_info_logger.assert_any_call(f"Interpreter is 64-bits: {sys.maxsize > 2**32}")
     spied_info_logger.assert_any_call(
-        f"System Alias: {platform.system_alias(uname_sys, uname_release, uname_version)}"
+        f"Platform: {platform.platform()}, Architecture: {platform.architecture()}, Interpreter is 64-bits: {sys.maxsize > 2**32}, System Alias: {platform.system_alias(uname_sys, uname_release, uname_version)}"
     )
-    spied_info_logger.assert_any_call(
-        f"Python Version: {platform.python_version_tuple()}"
-    )
-    spied_info_logger.assert_any_call(
-        f"Python Implementation: {platform.python_implementation()}"
-    )
-    spied_info_logger.assert_any_call(f"Python Build: {platform.python_build()}")
-    spied_info_logger.assert_any_call(f"Python Compiler: {platform.python_compiler()}")
 
 
 @pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
@@ -288,12 +301,15 @@ def test_main__calls_boot_up_function_upon_launch(
 
 @pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 @pytest.mark.slow
-def test_main__stores_and_logs_directory_for_log_files_from_command_line_arguments(
+def test_main__stores_and_logs_directory_for_log_files_from_command_line_arguments__and_scrubs_username_if_given(
     mocker, fully_running_app_from_main_entrypoint
 ):
     spied_info_logger = mocker.spy(main.logger, "info")
 
-    expected_log_dir = r"C:\Users\Curi Bio\MantarrayController"
+    expected_log_dir = r"C:\Users\Curi Bio\AppData\Local\Programs\MantarrayController"
+    expected_scrubbed_log_dir = expected_log_dir.replace(
+        "Curi Bio", "*" * len("Curi Bio")
+    )
     command_line_args = [f"--log_file_dir={expected_log_dir}"]
     app_info = fully_running_app_from_main_entrypoint(command_line_args)
 
@@ -303,13 +319,35 @@ def test_main__stores_and_logs_directory_for_log_files_from_command_line_argumen
         log_level=logging.INFO,
     )
     spied_info_logger.assert_any_call(
-        f"Using directory for log files: {expected_log_dir}"
+        f"Using directory for log files: {expected_scrubbed_log_dir}"
     )
 
 
 @pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 @pytest.mark.slow
-def test_main__stores_and_logs_user_settings_and_recordings_folder_from_command_line_arguments(
+def test_main__stores_and_logs_directory_for_log_files_from_command_line_arguments__when_not_matching_expected_windows_file_path(
+    mocker, fully_running_app_from_main_entrypoint
+):
+    spied_info_logger = mocker.spy(main.logger, "info")
+
+    expected_log_dir = r"C:\Programs\MantarrayController"
+    expected_scrubbed_log_dir = "*" * len(expected_log_dir)
+    command_line_args = [f"--log_file_dir={expected_log_dir}"]
+    app_info = fully_running_app_from_main_entrypoint(command_line_args)
+
+    app_info["mocked_configure_logging"].assert_called_once_with(
+        path_to_log_folder=expected_log_dir,
+        log_file_prefix="mantarray_log",
+        log_level=logging.INFO,
+    )
+    spied_info_logger.assert_any_call(
+        f"Using directory for log files: {expected_scrubbed_log_dir}"
+    )
+
+
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
+@pytest.mark.slow
+def test_main__stores_values_from_command_line_arguments(
     mocker, fully_running_app_from_main_entrypoint
 ):
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
@@ -317,6 +355,7 @@ def test_main__stores_and_logs_user_settings_and_recordings_folder_from_command_
             "customer_account_uuid": "14b9294a-9efb-47dd-a06e-8247e982e196",
             "user_account_uuid": "0288efbc-7705-4946-8815-02701193f766",
             "recording_directory": expected_recordings_dir,
+            "log_file_uuid": "91dbb151-0867-44da-a595-bd303f91927d",
         }
         json_str = json.dumps(test_dict)
         b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
@@ -337,6 +376,40 @@ def test_main__stores_and_logs_user_settings_and_recordings_folder_from_command_
             actual_config_settings["User Account ID"]
             == "0288efbc-7705-4946-8815-02701193f766"
         )
+        assert (
+            shared_values_dict["log_file_uuid"]
+            == "91dbb151-0867-44da-a595-bd303f91927d"
+        )
+        assert shared_values_dict["computer_name_hash"] == str(
+            hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).digest()
+        )
+
+
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
+@pytest.mark.slow
+def test_main__generates_log_file_uuid_if_none_passed_in_cmd_line_args(
+    mocker, fully_running_app_from_main_entrypoint
+):
+    expected_log_file_uuid = uuid.UUID("ab2e730b-8be5-440b-81f8-b268c7fb3584")
+    mocker.patch.object(
+        uuid, "uuid4", autospec=True, return_value=expected_log_file_uuid
+    )
+
+    test_dict = {
+        "customer_account_uuid": "14b9294a-9efb-47dd-a06e-8247e982e196",
+        "user_account_uuid": "0288efbc-7705-4946-8815-02701193f766",
+    }
+    json_str = json.dumps(test_dict)
+    b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
+
+    command_line_args = [f"--initial-base64-settings={b64_encoded}"]
+    app_info = fully_running_app_from_main_entrypoint(command_line_args)
+
+    shared_values_dict = app_info["object_access_inside_main"][
+        "values_to_share_to_server"
+    ]
+
+    assert shared_values_dict["log_file_uuid"] == expected_log_file_uuid
 
 
 @pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
