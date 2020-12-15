@@ -5,7 +5,13 @@ import struct
 from xem_wrapper import FrontPanel
 from xem_wrapper import FrontPanelBase
 
+from .constants import BARCODE_SCANNER_BOTTOM_WIRE_OUT_ADDRESS
+from .constants import BARCODE_SCANNER_MID_WIRE_OUT_ADDRESS
+from .constants import BARCODE_SCANNER_TOP_WIRE_OUT_ADDRESS
+from .constants import BARCODE_SCANNER_TRIGGER_IN_ADDRESS
+from .constants import CLEAR_BARCODE_TRIG_BIT
 from .constants import FIRMWARE_VERSION_WIRE_OUT_ADDRESS
+from .constants import START_BARCODE_SCAN_TRIG_BIT
 
 
 class MantarrayFrontPanelMixIn:
@@ -29,6 +35,37 @@ class MantarrayFrontPanelMixIn:
                 "This implementation of read_wire_out should never be called by a FrontPanelBase object. Use a FrontPanelBase implementation instead"
             )
         return 0
+
+    def activate_trigger_in(self, ep_addr: int, bit: int) -> None:
+        # pylint: disable=no-self-use,unused-argument # Tanner (7/14/20): this method should never actually be used by child classes. They should use this method provided by the other parent class due to MRO.
+        if isinstance(self, FrontPanelBase):
+            raise NotImplementedError(
+                "This implementation of activate_trigger_in should never be called by a FrontPanelBase object. Use a FrontPanelBase implementation instead"
+            )
+
+    def clear_barcode_scanner(self) -> None:
+        self.activate_trigger_in(
+            BARCODE_SCANNER_TRIGGER_IN_ADDRESS, CLEAR_BARCODE_TRIG_BIT
+        )
+
+    def start_barcode_scan(self) -> None:
+        self.activate_trigger_in(
+            BARCODE_SCANNER_TRIGGER_IN_ADDRESS, START_BARCODE_SCAN_TRIG_BIT
+        )
+
+    def get_barcode(self) -> str:
+        """Convert 3 32-bit wire out values to a barcode string."""
+        barcode_str = ""
+        barcode_words = [
+            self.read_wire_out(BARCODE_SCANNER_TOP_WIRE_OUT_ADDRESS),
+            self.read_wire_out(BARCODE_SCANNER_MID_WIRE_OUT_ADDRESS),
+            self.read_wire_out(BARCODE_SCANNER_BOTTOM_WIRE_OUT_ADDRESS),
+        ]
+        for word in barcode_words:
+            barcode_str += struct.unpack("<4s", struct.pack(">I", word))[0].decode(
+                "utf-8"
+            )
+        return barcode_str
 
 
 class MantarrayFrontPanel(FrontPanel, MantarrayFrontPanelMixIn):

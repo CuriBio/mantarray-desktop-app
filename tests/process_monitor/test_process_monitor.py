@@ -7,6 +7,7 @@ import threading
 import time
 
 from freezegun import freeze_time
+from mantarray_desktop_app import BARCODE_POLL_PERIOD
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
@@ -27,8 +28,10 @@ from xem_wrapper import FrontPanelSimulator
 
 from ..fixtures import fixture_test_process_manager
 from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
+from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_ok_comm import fixture_patch_connection_to_board
 from ..fixtures_process_monitor import fixture_test_monitor
+from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import is_queue_eventually_empty
 from ..helpers import is_queue_eventually_not_empty
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -762,3 +765,55 @@ def test_MantarrayProcessesMonitor__scrubs_username_from_bit_file_name_in_boot_u
 
     expected_scrubbed_path = r"Users\*********\AppData\main.bit"
     assert expected_scrubbed_path in spied_info.call_args[0][0]
+def test_MantarrayProcessesMonitor__sends_two_barcode_poll_commands_to_OKComm_at_correct_time_intervals(
+    test_monitor, test_process_manager, mocker
+):
+    monitor_thread, _, _, _ = test_monitor
+    to_ok_comm_queue = (
+        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    )
+
+    expected_time_1 = 0
+    expected_time_2 = 15
+
+    mocker.patch.object(
+        process_monitor,
+        "_get_barcode_clear_time",
+        autospec=True,
+        side_effect=[expected_time_1, expected_time_2, None],
+    )
+    mocked_get_dur = mocker.patch.object(
+        process_monitor,
+        "_get_dur_since_last_barcode_clear",
+        autospec=True,
+        side_effect=[
+            BARCODE_POLL_PERIOD - 1,
+            BARCODE_POLL_PERIOD,
+            BARCODE_POLL_PERIOD - 1,
+            BARCODE_POLL_PERIOD,
+        ],
+    )
+
+    expected_comm = {
+        "communication_type": "barcode_comm",
+        "command": "start_scan",
+    }
+
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert is_queue_eventually_empty(to_ok_comm_queue) is True
+    invoke_process_run_and_check_errors(monitor_thread)
+    confirm_queue_is_eventually_of_size(to_ok_comm_queue, 1)
+    actual = to_ok_comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert actual == expected_comm
+
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert is_queue_eventually_empty(to_ok_comm_queue) is True
+    invoke_process_run_and_check_errors(monitor_thread)
+    confirm_queue_is_eventually_of_size(to_ok_comm_queue, 1)
+    actual = to_ok_comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert actual == expected_comm
+
+    assert mocked_get_dur.call_args_list[0][0][0] == expected_time_1
+    assert mocked_get_dur.call_args_list[1][0][0] == expected_time_1
+    assert mocked_get_dur.call_args_list[2][0][0] == expected_time_2
+    assert mocked_get_dur.call_args_list[3][0][0] == expected_time_2

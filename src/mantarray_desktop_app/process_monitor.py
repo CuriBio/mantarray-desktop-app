@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import queue
 import threading
+import time
 from typing import Any
 from typing import Dict
 from typing import Optional
@@ -17,6 +18,7 @@ from stdlib_utils import InfiniteThread
 from .constants import ADC_CH_TO_24_WELL_INDEX
 from .constants import ADC_CH_TO_IS_REF_SENSOR
 from .constants import ADC_OFFSET_DESCRIPTION_TAG
+from .constants import BARCODE_POLL_PERIOD
 from .constants import BUFFERING_STATE
 from .constants import CALIBRATED_STATE
 from .constants import CALIBRATING_STATE
@@ -33,6 +35,14 @@ from .utils import redact_sensitive_info_from_path
 from .utils import update_shared_dict
 
 logger = logging.getLogger(__name__)
+
+
+def _get_barcode_clear_time() -> float:
+    return time.perf_counter()
+
+
+def _get_dur_since_last_barcode_clear(last_clear_time: float) -> float:
+    return time.perf_counter() - last_clear_time
 
 
 class MantarrayProcessesMonitor(InfiniteThread):
@@ -57,6 +67,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         self._process_manager = process_manager
         self._boot_up_after_processes_start = boot_up_after_processes_start
         self._data_dump_buffer_size = 0
+        self._last_barcode_clear_time: Optional[float] = None
 
     def _check_and_handle_file_writer_to_main_queue(self) -> None:
         process_manager = self._process_manager
@@ -346,6 +357,28 @@ class MantarrayProcessesMonitor(InfiniteThread):
         self._check_and_handle_file_writer_to_main_queue()
         self._check_and_handle_data_analyzer_to_main_queue()
         self._check_and_handle_server_to_main_queue()
+
+        to_ok_comm = (
+            self._process_manager.queue_container().get_communication_to_ok_comm_queue(
+                0
+            )
+        )
+
+        if self._last_barcode_clear_time is None:
+            self._last_barcode_clear_time = _get_barcode_clear_time()
+        if (
+            _get_dur_since_last_barcode_clear(self._last_barcode_clear_time)
+            >= BARCODE_POLL_PERIOD
+        ):
+            to_ok_comm = (
+                process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+            )
+            barcode_poll_comm = {
+                "communication_type": "barcode_comm",
+                "command": "start_scan",
+            }
+            to_ok_comm.put(barcode_poll_comm)
+            self._last_barcode_clear_time = _get_barcode_clear_time()
 
     def _check_subprocess_start_up_statuses(self) -> None:
         process_manager = self._process_manager

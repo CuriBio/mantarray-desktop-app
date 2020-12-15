@@ -16,11 +16,14 @@ from .constants import ADC_CH_TO_IS_REF_SENSOR
 from .constants import ADC_GAIN
 from .constants import ADC_GAIN_DESCRIPTION_TAG
 from .constants import ADC_OFFSET_DESCRIPTION_TAG
+
 from .constants import BUFFERING_STATE
 from .constants import CALIBRATED_STATE
 from .constants import CALIBRATING_STATE
 from .constants import CALIBRATION_NEEDED_STATE
 from .constants import CHANNEL_INDEX_TO_24_WELL_INDEX
+from .constants import CLEAR_BARCODE_TRIG_BIT
+from .constants import CLEARED_BARCODE_VALUE
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from .constants import CONSTRUCT_SENSORS_PER_REF_SENSOR
@@ -48,6 +51,7 @@ from .constants import MAX_POSSIBLE_CONNECTED_BOARDS
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MIDSCALE_CODE
 from .constants import MILLIVOLTS_PER_VOLT
+from .constants import NO_PLATE_DETECTED_BARCODE_VALUE
 from .constants import OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import OUTGOING_DATA_BUFFER_SIZE
 from .constants import RAW_TO_SIGNED_CONVERSION_VALUE
@@ -59,6 +63,7 @@ from .constants import ROUND_ROBIN_PERIOD
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
+
 from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SUBPROCESS_POLL_DELAY_SECONDS
 from .constants import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
@@ -71,6 +76,8 @@ from .data_analyzer import convert_24_bit_codes_to_voltage
 from .data_analyzer import DataAnalyzerProcess
 from .exceptions import AttemptToAddCyclesWhileSPIRunningError
 from .exceptions import AttemptToInitializeFIFOReadsError
+from .exceptions import BarcodeNotClearedError
+from .exceptions import BarcodeScannerNotRespondingError
 from .exceptions import FirmwareFileNameDoesNotMatchWireOutVersionError
 from .exceptions import FirstManagedReadLessThanOneRoundRobinError
 from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
@@ -108,6 +115,7 @@ from .main import get_server_port_number
 from .mantarray_front_panel import MantarrayFrontPanel
 from .mantarray_front_panel import MantarrayFrontPanelMixIn
 from .ok_comm import build_file_writer_objects
+from .ok_comm import check_barcode_for_errors
 from .ok_comm import check_mantarray_serial_number
 from .ok_comm import execute_debug_console_command
 from .ok_comm import OkCommunicationProcess
@@ -267,4 +275,18 @@ __all__ = [
     "clear_the_server_thread",
     "clear_server_singletons",
     "MantarrayQueueContainer",
+    "BARCODE_SCANNER_TRIGGER_IN_ADDRESS",
+    "BARCODE_SCANNER_TOP_WIRE_OUT_ADDRESS",
+    "BARCODE_SCANNER_MID_WIRE_OUT_ADDRESS",
+    "BARCODE_SCANNER_BOTTOM_WIRE_OUT_ADDRESS",
+    "BARCODE_POLL_PERIOD",
+    "BARCODE_CONFIRM_CLEAR_WAIT_SECONDS",
+    "BarcodeNotClearedError",
+    "CLEARED_BARCODE_VALUE",
+    "CLEAR_BARCODE_TRIG_BIT",
+    "START_BARCODE_SCAN_TRIG_BIT",
+    "BARCODE_GET_SCAN_WAIT_SECONDS",
+    "check_barcode_for_errors",
+    "BarcodeScannerNotRespondingError",
+    "NO_PLATE_DETECTED_BARCODE_VALUE",
 ]
