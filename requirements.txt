@@ -7,7 +7,7 @@ nptyping==1.3.0
 scipy==1.5.2
 h5py==2.10.0
 
-stdlib-utils==0.3.0
+stdlib-utils==0.3.10
 xem-wrapper==0.2.0
 labware-domain-models==0.2
 mantarray-waveform-analysis==0.5.1
