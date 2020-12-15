@@ -542,7 +542,7 @@ def test_start_recording__allows_years_other_than_20_in_barcode(
         ),
     ],
 )
-def test_start_recording__allows_years_correct_barcode_headers(
+def test_start_recording__allows_correct_barcode_headers(
     test_barcode,
     test_description,
     client_and_server_thread_and_shared_values,
