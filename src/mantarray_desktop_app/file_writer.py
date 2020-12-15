@@ -22,6 +22,8 @@ from uuid import UUID
 
 import h5py
 from labware_domain_models import LabwareDefinition
+from mantarray_file_manager import ADC_REF_OFFSET_UUID
+from mantarray_file_manager import ADC_TISSUE_OFFSET_UUID
 from mantarray_file_manager import METADATA_UUID_DESCRIPTIONS
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import REF_SAMPLING_PERIOD_UUID
@@ -41,8 +43,6 @@ from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
 from stdlib_utils import safe_get
 
-from .constants import ADC_REF_OFFSET_UUID
-from .constants import ADC_TISSUE_OFFSET_UUID
 from .constants import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from .constants import CURRENT_HDF5_FILE_FORMAT_VERSION
 from .constants import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS

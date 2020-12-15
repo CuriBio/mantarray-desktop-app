@@ -103,7 +103,6 @@ def update_shared_dict(
 
 def redact_sensitive_info_from_path(file_path: Optional[str]) -> Optional[str]:
     """Scrubs username from file path to protect sensitive info."""
-    # TODO Tanner (11/23/20): move this function into utils once added into GitHub repo.
     if file_path is None:
         return None
     split_path = re.split(r"(Users\\)(.*)(\\AppData)", file_path)

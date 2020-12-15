@@ -13,7 +13,6 @@ from typing import Tuple
 import uuid
 
 import h5py
-from mantarray_desktop_app import ADC_GAIN_SETTING_UUID
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
@@ -22,10 +21,8 @@ from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import FileWriterProcess
 from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import REFERENCE_VOLTAGE
-from mantarray_desktop_app import REFERENCE_VOLTAGE_UUID
 from mantarray_desktop_app import RunningFIFOSimulator
-from mantarray_desktop_app import SLEEP_FIRMWARE_VERSION_UUID
-from mantarray_desktop_app import START_RECORDING_TIME_INDEX_UUID
+from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import COMPUTER_NAME_HASH
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
@@ -34,8 +31,11 @@ from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
 from mantarray_file_manager import PLATE_BARCODE_UUID
+from mantarray_file_manager import REFERENCE_VOLTAGE_UUID
+from mantarray_file_manager import SLEEP_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
 from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
+from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
 from mantarray_file_manager import USER_ACCOUNT_ID_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID

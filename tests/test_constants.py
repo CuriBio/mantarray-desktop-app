@@ -5,10 +5,7 @@ from mantarray_desktop_app import ADC_CH_TO_24_WELL_INDEX
 from mantarray_desktop_app import ADC_CH_TO_IS_REF_SENSOR
 from mantarray_desktop_app import ADC_GAIN
 from mantarray_desktop_app import ADC_GAIN_DESCRIPTION_TAG
-from mantarray_desktop_app import ADC_GAIN_SETTING_UUID
 from mantarray_desktop_app import ADC_OFFSET_DESCRIPTION_TAG
-from mantarray_desktop_app import ADC_REF_OFFSET_UUID
-from mantarray_desktop_app import ADC_TISSUE_OFFSET_UUID
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
@@ -48,14 +45,11 @@ from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import REF_INDEX_TO_24_WELL_INDEX
 from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import REFERENCE_VOLTAGE
-from mantarray_desktop_app import REFERENCE_VOLTAGE_UUID
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE
-from mantarray_desktop_app import SLEEP_FIRMWARE_VERSION_UUID
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
-from mantarray_desktop_app import START_RECORDING_TIME_INDEX_UUID
 from mantarray_desktop_app import SUBPROCESS_POLL_DELAY_SECONDS
 from mantarray_desktop_app import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
@@ -63,25 +57,6 @@ from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
 from mantarray_desktop_app import VALID_CONFIG_SETTINGS
 from mantarray_desktop_app import VALID_SCRIPTING_COMMANDS
 from mantarray_desktop_app import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
-from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
-from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
-from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
-from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
-from mantarray_file_manager import PLATE_BARCODE_UUID
-from mantarray_file_manager import REF_SAMPLING_PERIOD_UUID
-from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
-from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
-from mantarray_file_manager import TOTAL_WELL_COUNT_UUID
-from mantarray_file_manager import USER_ACCOUNT_ID_UUID
-from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
-from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
-from mantarray_file_manager import UTC_FIRST_REF_DATA_POINT_UUID
-from mantarray_file_manager import UTC_FIRST_TISSUE_DATA_POINT_UUID
-from mantarray_file_manager import WELL_COLUMN_UUID
-from mantarray_file_manager import WELL_INDEX_UUID
-from mantarray_file_manager import WELL_NAME_UUID
-from mantarray_file_manager import WELL_ROW_UUID
-from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
 import numpy as np
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 
@@ -101,54 +76,6 @@ def test_firmware():
 def test_default_UUIDs():
     assert CURI_BIO_ACCOUNT_UUID == uuid.UUID("73f52be0-368c-42d8-a1fd-660d49ba5604")
     assert CURI_BIO_USER_ACCOUNT_ID == uuid.UUID("455b93eb-c78f-4494-9f73-d3291130f126")
-
-
-def test_metadata_UUIDs():
-    assert UTC_BEGINNING_DATA_ACQUISTION_UUID == uuid.UUID(
-        "98c67f22-013b-421a-831b-0ea55df4651e"
-    )
-    assert START_RECORDING_TIME_INDEX_UUID == uuid.UUID(
-        "e41422b3-c903-48fd-9856-46ff56a6534c"
-    )
-    assert UTC_BEGINNING_RECORDING_UUID == uuid.UUID(
-        "d2449271-0e84-4b45-a28b-8deab390b7c2"
-    )
-    assert UTC_FIRST_TISSUE_DATA_POINT_UUID == uuid.UUID(
-        "b32fb8cb-ebf8-4378-a2c0-f53a27bc77cc"
-    )
-    assert UTC_FIRST_REF_DATA_POINT_UUID == uuid.UUID(
-        "7cc07b2b-4146-4374-b8f3-1c4d40ff0cf7"
-    )
-    assert CUSTOMER_ACCOUNT_ID_UUID == uuid.UUID("4927c810-fbf4-406f-a848-eba5308576e6")
-    assert USER_ACCOUNT_ID_UUID == uuid.UUID("7282cf00-2b6e-4202-9d9e-db0c73c3a71f")
-    assert SOFTWARE_RELEASE_VERSION_UUID == uuid.UUID(
-        "432fc3c1-051b-4604-bc3d-cc0d0bd75368"
-    )
-    assert MAIN_FIRMWARE_VERSION_UUID == uuid.UUID(
-        "faa48a0c-0155-4234-afbf-5e5dbaa59537"
-    )
-    assert SLEEP_FIRMWARE_VERSION_UUID == uuid.UUID(
-        "3a816076-90e4-4437-9929-dc910724a49d"
-    )
-    assert XEM_SERIAL_NUMBER_UUID == uuid.UUID("e5f5b134-60c7-4881-a531-33aa0edba540")
-    assert MANTARRAY_NICKNAME_UUID == uuid.UUID("0cdec9bb-d2b4-4c5b-9dd5-6a49766c5ed4")
-    assert MANTARRAY_SERIAL_NUMBER_UUID == uuid.UUID(
-        "83720d36-b941-4d85-9b39-1d817799edd6"
-    )
-    assert REFERENCE_VOLTAGE_UUID == uuid.UUID("0b3f3f56-0cc7-45f0-b748-9b9de480cba8")
-    assert WELL_NAME_UUID == uuid.UUID("6d78f3b9-135a-4195-b014-e74dee70387b")
-    assert WELL_ROW_UUID == uuid.UUID("da82fe73-16dd-456a-ac05-0b70fb7e0161")
-    assert WELL_COLUMN_UUID == uuid.UUID("7af25a0a-8253-4d32-98c4-3c2ca0d83906")
-    assert WELL_INDEX_UUID == uuid.UUID("cd89f639-1e36-4a13-a5ed-7fec6205f779")
-    assert TOTAL_WELL_COUNT_UUID == uuid.UUID("7ca73e1c-9555-4eca-8281-3f844b5606dc")
-    assert ADC_GAIN_SETTING_UUID == uuid.UUID("a3c3bb32-9b92-4da1-8ed8-6c09f9c816f8")
-    assert ADC_TISSUE_OFFSET_UUID == uuid.UUID("41069860-159f-49f2-a59d-401783c1ecb4")
-    assert ADC_REF_OFFSET_UUID == uuid.UUID("dc10066c-abf2-42b6-9b94-5e52d1ea9bfc")
-    assert REF_SAMPLING_PERIOD_UUID == uuid.UUID("48aa034d-8775-453f-b135-75a983d6b553")
-    assert TISSUE_SAMPLING_PERIOD_UUID == uuid.UUID(
-        "f629083a-3724-4100-8ece-c03e637ac19c"
-    )
-    assert PLATE_BARCODE_UUID == uuid.UUID("cf60afef-a9f0-4bc3-89e9-c665c6bb6941")
 
 
 def test_running_fifo_simulator_constants():

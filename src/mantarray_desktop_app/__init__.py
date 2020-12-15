@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """Docstring."""
 
-# TODO (Eli 12/15/20): delete all of the UUID contants that should be imported from the mantarray-file-manager package. delete them also from constants.py and from test_constants.py
-
 from . import fifo_read_producer
 from . import fifo_simulator
 from . import file_writer
@@ -17,10 +15,7 @@ from .constants import ADC_CH_TO_24_WELL_INDEX
 from .constants import ADC_CH_TO_IS_REF_SENSOR
 from .constants import ADC_GAIN
 from .constants import ADC_GAIN_DESCRIPTION_TAG
-from .constants import ADC_GAIN_SETTING_UUID
 from .constants import ADC_OFFSET_DESCRIPTION_TAG
-from .constants import ADC_REF_OFFSET_UUID
-from .constants import ADC_TISSUE_OFFSET_UUID
 from .constants import BUFFERING_STATE
 from .constants import CALIBRATED_STATE
 from .constants import CALIBRATING_STATE
@@ -60,14 +55,11 @@ from .constants import RECORDING_STATE
 from .constants import REF_INDEX_TO_24_WELL_INDEX
 from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from .constants import REFERENCE_VOLTAGE
-from .constants import REFERENCE_VOLTAGE_UUID
 from .constants import ROUND_ROBIN_PERIOD
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
-from .constants import SLEEP_FIRMWARE_VERSION_UUID
 from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
-from .constants import START_RECORDING_TIME_INDEX_UUID
 from .constants import SUBPROCESS_POLL_DELAY_SECONDS
 from .constants import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from .constants import SYSTEM_STATUS_UUIDS
@@ -225,12 +217,8 @@ __all__ = [
     "get_latest_firmware",
     "get_latest_firmware_version",
     "redact_sensitive_info_from_path",
-    "START_RECORDING_TIME_INDEX_UUID",
-    "SLEEP_FIRMWARE_VERSION_UUID",
-    "REFERENCE_VOLTAGE_UUID",
     "ADC_GAIN_DESCRIPTION_TAG",
     "parse_gain",
-    "ADC_GAIN_SETTING_UUID",
     "system_state_eventually_equals",
     "wait_for_subprocesses_to_start",
     "SystemStartUpError",
@@ -248,8 +236,6 @@ __all__ = [
     "FIFO_READ_PRODUCER_WELL_AMPLITUDE",
     "FIFO_READ_PRODUCER_REF_AMPLITUDE",
     "ADC_OFFSET_DESCRIPTION_TAG",
-    "ADC_TISSUE_OFFSET_UUID",
-    "ADC_REF_OFFSET_UUID",
     "ADC_CH_TO_IS_REF_SENSOR",
     "UnrecognizedMantarrayNamingCommandError",
     "check_mantarray_serial_number",

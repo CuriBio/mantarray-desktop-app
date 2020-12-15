@@ -38,6 +38,7 @@ from flask import request
 from flask import Response
 from flask_cors import CORS
 from immutabledict import immutabledict
+from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import COMPUTER_NAME_HASH
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
@@ -47,8 +48,11 @@ from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
 from mantarray_file_manager import METADATA_UUID_DESCRIPTIONS
 from mantarray_file_manager import PLATE_BARCODE_UUID
+from mantarray_file_manager import REFERENCE_VOLTAGE_UUID
+from mantarray_file_manager import SLEEP_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
 from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
+from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
 from mantarray_file_manager import USER_ACCOUNT_ID_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
@@ -61,16 +65,12 @@ from stdlib_utils import is_port_in_use
 from stdlib_utils import print_exception
 from stdlib_utils import put_log_message_into_queue
 
-from .constants import ADC_GAIN_SETTING_UUID
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import REFERENCE_VOLTAGE
-from .constants import REFERENCE_VOLTAGE_UUID
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
-from .constants import SLEEP_FIRMWARE_VERSION_UUID
 from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
-from .constants import START_RECORDING_TIME_INDEX_UUID
 from .constants import SYSTEM_STATUS_UUIDS
 from .constants import VALID_CONFIG_SETTINGS
 from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
