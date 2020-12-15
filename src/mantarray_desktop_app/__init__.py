@@ -151,7 +151,7 @@ from .server import get_the_server_thread
 from .server import ServerThread
 from .system_utils import system_state_eventually_equals
 from .system_utils import wait_for_subprocesses_to_start
-
+from .utils import redact_sensitive_info_from_path
 
 if (
     6 < 9
@@ -171,15 +171,11 @@ __all__ = [
     "UnrecognizedDebugConsoleCommandError",
     "UnrecognizedCommandFromMainToFileWriterError",
     "UnrecognizedDataFrameFormatNameError",
-    # "start_server",
     "get_server_port_number",
     "process_manager",
     "MantarrayProcessesManager",
     "get_mantarray_process_manager",
-    # "set_mantarray_processes_monitor",
-    # "get_mantarray_processes_monitor",
     "MantarrayProcessesMonitor",
-    # "start_server_in_thread",
     "get_api_endpoint",
     "MAX_POSSIBLE_CONNECTED_BOARDS",
     "ok_comm",
@@ -245,6 +241,7 @@ __all__ = [
     "sort_firmware_files",
     "get_latest_firmware",
     "get_latest_firmware_version",
+    "redact_sensitive_info_from_path",
     "UTC_BEGINNING_DATA_ACQUISTION_UUID",
     "START_RECORDING_TIME_INDEX_UUID",
     "CUSTOMER_ACCOUNT_ID_UUID",

@@ -30,7 +30,7 @@ if USE_CYTHON:
 
 setup(
     name="mantarray_desktop_app",
-    version="0.3.8",
+    version="0.4.0",
     description="Windows Desktop App for viewing and recording data from a Mantarray Instrument.",
     url="https://github.com/curibio/mantarray-desktop-app",
     author="Curi Bio",

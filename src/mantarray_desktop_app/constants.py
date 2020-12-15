@@ -18,11 +18,11 @@ from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 
-CURRENT_SOFTWARE_VERSION = "0.3.8"
+CURRENT_SOFTWARE_VERSION = "0.4.0"
 
 COMPILED_EXE_BUILD_TIMESTAMP = "REPLACETHISWITHTIMESTAMPDURINGBUILD"
 
-CURRENT_HDF5_FILE_FORMAT_VERSION = "0.3.3"
+CURRENT_HDF5_FILE_FORMAT_VERSION = "0.4.0"
 
 DEFAULT_SERVER_PORT_NUMBER = 4567
 
@@ -35,10 +35,12 @@ CURI_BIO_USER_ACCOUNT_ID = uuid.UUID("455b93eb-c78f-4494-9f73-d3291130f126")
 
 # TODO (Eli 12/8/20): make all potentially mutable constants explicitly immutable (e.g. immutabledicts)
 
-DEFAULT_USER_CONFIG = {
-    "Customer Account ID": "",
-    "User Account ID": "",
-}
+DEFAULT_USER_CONFIG = immutabledict(
+    {
+        "Customer Account ID": "",
+        "User Account ID": "",
+    }
+)
 VALID_CONFIG_SETTINGS = frozenset(
     ["customer_account_uuid", "user_account_uuid", "recording_directory"]
 )
