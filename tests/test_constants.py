@@ -8,11 +8,14 @@ from mantarray_desktop_app import ADC_GAIN_DESCRIPTION_TAG
 from mantarray_desktop_app import ADC_OFFSET_DESCRIPTION_TAG
 from mantarray_desktop_app import BARCODE_CONFIRM_CLEAR_WAIT_SECONDS
 from mantarray_desktop_app import BARCODE_GET_SCAN_WAIT_SECONDS
+from mantarray_desktop_app import BARCODE_INVALID_UUID
 from mantarray_desktop_app import BARCODE_POLL_PERIOD
 from mantarray_desktop_app import BARCODE_SCANNER_BOTTOM_WIRE_OUT_ADDRESS
 from mantarray_desktop_app import BARCODE_SCANNER_MID_WIRE_OUT_ADDRESS
 from mantarray_desktop_app import BARCODE_SCANNER_TOP_WIRE_OUT_ADDRESS
 from mantarray_desktop_app import BARCODE_SCANNER_TRIGGER_IN_ADDRESS
+from mantarray_desktop_app import BARCODE_UNREADABLE_UUID
+from mantarray_desktop_app import BARCODE_VALID_UUID
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
@@ -48,6 +51,7 @@ from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import MIDSCALE_CODE
 from mantarray_desktop_app import MILLIVOLTS_PER_VOLT
 from mantarray_desktop_app import NO_PLATE_DETECTED_BARCODE_VALUE
+from mantarray_desktop_app import NO_PLATE_DETECTED_UUID
 from mantarray_desktop_app import OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import OUTGOING_DATA_BUFFER_SIZE
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
@@ -97,6 +101,13 @@ def test_barcode_constants():
     assert BARCODE_GET_SCAN_WAIT_SECONDS == 6
     assert CLEARED_BARCODE_VALUE == chr(0) * 12
     assert NO_PLATE_DETECTED_BARCODE_VALUE == chr(21) * 12
+
+
+def test_barcode_UUIDs():
+    assert BARCODE_VALID_UUID == uuid.UUID("22d5054a-ede2-4e94-8f74-f4ebaafde247")
+    assert BARCODE_INVALID_UUID == uuid.UUID("cec87db3-3181-4b84-8d5e-1643cd00b567")
+    assert NO_PLATE_DETECTED_UUID == uuid.UUID("e86ca1d0-2350-4e1b-ad6a-5c78a6c2ed7a")
+    assert BARCODE_UNREADABLE_UUID == uuid.UUID("87525976-4c98-4783-a6f2-ae34a89dace6")
 
 
 def test_default_UUIDs():

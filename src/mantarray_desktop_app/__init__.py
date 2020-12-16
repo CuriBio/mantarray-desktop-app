@@ -18,11 +18,14 @@ from .constants import ADC_GAIN_DESCRIPTION_TAG
 from .constants import ADC_OFFSET_DESCRIPTION_TAG
 from .constants import BARCODE_CONFIRM_CLEAR_WAIT_SECONDS
 from .constants import BARCODE_GET_SCAN_WAIT_SECONDS
+from .constants import BARCODE_INVALID_UUID
 from .constants import BARCODE_POLL_PERIOD
 from .constants import BARCODE_SCANNER_BOTTOM_WIRE_OUT_ADDRESS
 from .constants import BARCODE_SCANNER_MID_WIRE_OUT_ADDRESS
 from .constants import BARCODE_SCANNER_TOP_WIRE_OUT_ADDRESS
 from .constants import BARCODE_SCANNER_TRIGGER_IN_ADDRESS
+from .constants import BARCODE_UNREADABLE_UUID
+from .constants import BARCODE_VALID_UUID
 from .constants import BUFFERING_STATE
 from .constants import CALIBRATED_STATE
 from .constants import CALIBRATING_STATE
@@ -58,6 +61,7 @@ from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MIDSCALE_CODE
 from .constants import MILLIVOLTS_PER_VOLT
 from .constants import NO_PLATE_DETECTED_BARCODE_VALUE
+from .constants import NO_PLATE_DETECTED_UUID
 from .constants import OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import OUTGOING_DATA_BUFFER_SIZE
 from .constants import RAW_TO_SIGNED_CONVERSION_VALUE
@@ -295,4 +299,8 @@ __all__ = [
     "check_barcode_for_errors",
     "BarcodeScannerNotRespondingError",
     "NO_PLATE_DETECTED_BARCODE_VALUE",
+    "BARCODE_VALID_UUID",
+    "BARCODE_INVALID_UUID",
+    "NO_PLATE_DETECTED_UUID",
+    "BARCODE_UNREADABLE_UUID",
 ]
