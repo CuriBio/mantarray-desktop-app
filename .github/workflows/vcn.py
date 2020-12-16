@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 import sys
+from typing import List
 
 import boto3
 from botocore.config import Config
@@ -15,7 +16,7 @@ def download_vcn() -> None:
     bucket.download_file("generic/windows/vcn-v0.8.3-windows-amd64.exe", "vcn.exe")
 
 
-def login() -> None:
+def _set_vcn_environment_parameters() -> None:
     my_config = Config(  # based on https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html
         region_name="us-east-1",
         signature_version="v4",
@@ -33,11 +34,28 @@ def login() -> None:
             Names=[f"/CodeBuild/general/{param_name}"], WithDecryption=True
         )["Parameters"][0]["Value"]
         os.environ[environ_name.upper()] = value
-    args = ["vcn.exe", "login"]
+
+
+def _run_subprocess(args: List[str]) -> None:
     print(f"About to run with args: {args}")  # allow-print
     results = subprocess.run(args)  # nosec # B603 shell is false, but input is secure
     if results.returncode != 0:
         sys.exit(results.returncode)
+
+
+def login() -> None:
+    _set_vcn_environment_parameters()
+    _run_subprocess(["vcn.exe", "login"])
+
+
+def notarize(file_path: str) -> None:
+    _set_vcn_environment_parameters()
+    _run_subprocess(["vcn.exe", "notarize", f'"{file_path}"', "--silent", "--public"])
+
+
+def authenticate(file_path: str) -> None:
+    _set_vcn_environment_parameters()
+    _run_subprocess(["vcn.exe", "authenticate", f'"{file_path}"'])
 
 
 if __name__ == "__main__":
@@ -46,3 +64,7 @@ if __name__ == "__main__":
         download_vcn()
     elif first_arg == "login":
         login()
+    elif first_arg == "notarize":
+        notarize(sys.argv[2])
+    elif first_arg == "authenticate":
+        authenticate(sys.argv[2])

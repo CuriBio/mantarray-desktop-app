@@ -235,8 +235,8 @@ jobs:
       - name: Digitally Signing the EXE bundled by pyinstaller before it gets packaged into the built Electron app
         if: matrix.IS_DEPLOYMENT_CONFIG == true
         run: |
-          .\vcn notarize "dist-python/mantarray-flask/mantarray-flask.exe" --silent --public
-          .\vcn authenticate "dist-python/mantarray-flask/mantarray-flask.exe"
+          pipenv run python .github/workflows/vcn.py notarize dist-python/mantarray-flask/mantarray-flask.exe
+          pipenv run python .github/workflows/vcn.py authenticate dist-python/mantarray-flask/mantarray-flask.exe
 
       - name: Build Full Electron App
         run: pipenv run npm run build
@@ -265,10 +265,10 @@ jobs:
       - name: Digitally Signing the installation and win_unpacked EXE files
         if: matrix.IS_DEPLOYMENT_CONFIG == true
         run: |
-          .\vcn notarize "dist/MantarrayController-Setup-0.4.0.exe" --silent --public
-          .\vcn notarize "dist/win-unpacked/Mantarray Controller.exe" --silent --public
-          .\vcn authenticate "dist/MantarrayController-Setup-0.4.0.exe"
-          .\vcn authenticate "dist/win-unpacked/Mantarray Controller.exe"
+          pipenv run python .github/workflows/vcn.py notarize dist/MantarrayController-Setup-0.4.0.exe
+          pipenv run python .github/workflows/vcn.py notarize dist/win-unpacked/Mantarray Controller.exe
+          pipenv run python .github/workflows/vcn.py authenticate dist/MantarrayController-Setup-0.4.0.exe
+          pipenv run python .github/workflows/vcn.py authenticate dist/win-unpacked/Mantarray Controller.exe
 
       - name: Archive visual regression
         if: ${{ failure() }}
