@@ -211,8 +211,8 @@ jobs:
         env:
           build_number: ${{ github.run_number }}
         run: |
-          echo $build_number
-          ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHTIMESTAMPDURINGBUILD',"$(Get-Date -Format 'yyMMddHHmmss')--$build_number") | Set-Content -Path src\mantarray_desktop_app\constants.py
+          echo $env:build_number
+          ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHTIMESTAMPDURINGBUILD',"$(Get-Date -Format 'yyMMddHHmmss')--$env:build_number") | Set-Content -Path src\mantarray_desktop_app\constants.py
 
       - name: Install Pyinstaller (Windows) and display all packages # Eli (10/21/20): when installed with pipenv during development on Linux, not all the right dependencies are included. Maybe there's a better way to get it into the pipfile, but unsure right now
         if: runner.os == 'Windows'
