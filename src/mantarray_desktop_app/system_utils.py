@@ -49,6 +49,6 @@ def wait_for_subprocesses_to_start() -> None:
             ):
                 return
         elapsed_time = time.perf_counter() - start
-        time.sleep(0.25)  # Don't just relentlessly ping the Flask server
+        time.sleep(0.5)  # Don't just relentlessly ping the Flask server
 
     raise SystemStartUpError()
