@@ -179,6 +179,16 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_USER_SECRET_KEY }}
         run: pipenv run python .github/workflows/run_s3_download.py
 
+      - name: Download the VCN Notarizer and Login
+        if: matrix.IS_DEPLOYMENT_CONFIG == true
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_USER_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_USER_SECRET_KEY }}
+        run: |
+          pipenv run python .github/workflows/vcn.py download
+          .\vcn --version
+          pipenv run python .github/workflows/vcn.py login
+
       - name: Run Python Tests with randomly generated seed
         if: github.event.inputs.randomlyseed == ''
         timeout-minutes: 30
