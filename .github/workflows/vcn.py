@@ -3,6 +3,7 @@ import os
 import sys
 
 import boto3
+from botocore.config import Config
 
 if os != sys:  # need to protect the #nosec comment from being deleted by zimports
     import subprocess  # nosec # B404 security implications are considered
@@ -15,7 +16,13 @@ def download_vcn() -> None:
 
 
 def login() -> None:
-    ssm_client = boto3.client("ssm")
+    my_config = Config(
+        region_name="us-east-1",
+        signature_version="v4",
+        retries={"max_attempts": 10, "mode": "standard"},
+    )
+
+    ssm_client = boto3.client("ssm", config=my_config)
     for param_name, environ_name in (
         ("vcn_notarization_password", "vcn_notarization_password"),
         ("vcn_password", "vcn_password"),
