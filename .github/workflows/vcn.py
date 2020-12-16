@@ -33,7 +33,8 @@ def login() -> None:
             Names=[f"/CodeBuild/general/{param_name}"], WithDecryption=True
         )["Parameters"][0]["Value"]
         os.environ[environ_name.upper()] = value
-    args = [".\vcn", "login"]
+    args = ["vcn.exe", "login"]
+    print(f"About to run with args: {args}")  # allow-print
     results = subprocess.run(args)  # nosec # B603 shell is false, but input is secure
     if results.returncode != 0:
         sys.exit(results.returncode)
