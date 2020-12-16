@@ -234,6 +234,9 @@ jobs:
 
       - name: Digitally Signing the EXE bundled by pyinstaller before it gets packaged into the built Electron app
         if: matrix.IS_DEPLOYMENT_CONFIG == true
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_USER_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_USER_SECRET_KEY }}
         run: |
           pipenv run python .github/workflows/vcn.py notarize dist-python/mantarray-flask/mantarray-flask.exe
           pipenv run python .github/workflows/vcn.py authenticate dist-python/mantarray-flask/mantarray-flask.exe
@@ -264,6 +267,9 @@ jobs:
 
       - name: Digitally Signing the installation and win_unpacked EXE files
         if: matrix.IS_DEPLOYMENT_CONFIG == true
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_USER_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_USER_SECRET_KEY }}
         run: |
           pipenv run python .github/workflows/vcn.py notarize dist/MantarrayController-Setup-0.4.0.exe
           pipenv run python .github/workflows/vcn.py notarize dist/win-unpacked/Mantarray Controller.exe
