@@ -424,7 +424,7 @@ def test_start_recording__returns_error_code_and_message_if_barcode_is_not_given
 
 
 @pytest.mark.parametrize(
-    ",".join(("test_barcode", "expected_error_message", "test_description")),
+    "test_barcode,expected_error_message,test_description",
     [
         (
             "MA1234567890",
@@ -515,12 +515,12 @@ def test_start_recording__returns_error_code_and_message_if_barcode_is_invalid(
     ],
 )
 def test_start_recording__allows_years_other_than_20_in_barcode(
+    test_client,
     test_barcode,
     test_description,
-    client_and_server_thread_and_shared_values,
-    generic_start_recording_info_in_shared_dict,
+    patched_start_recording_shared_dict,
+    test_process_manager,
 ):
-    test_client, _, _ = client_and_server_thread_and_shared_values
     response = test_client.get(f"/start_recording?barcode={test_barcode}")
     assert response.status_code == 200
 
