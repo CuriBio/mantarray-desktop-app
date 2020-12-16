@@ -307,6 +307,15 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 ch_index = int(parsed_description[2][-1])
                 offset_val = communication["wire_out_value"]
                 self._add_offset_to_shared_dict(adc_index, ch_index, offset_val)
+        elif communication_type == "barcode_comm":
+            if "barcode" not in self._values_to_share_to_server:
+                self._values_to_share_to_server["barcode"] = dict()
+            board_idx = communication["board_idx"]
+            valid = communication.get("valid", False)
+            self._values_to_share_to_server["barcode"][board_idx] = (
+                communication["barcode"],
+                valid,
+            )
 
     def _commands_for_each_run_iteration(self) -> None:
         """Execute additional commands inside the run loop."""
