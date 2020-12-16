@@ -40,14 +40,20 @@ from xem_wrapper import OpalKellyNoDeviceFoundError
 from xem_wrapper import open_board
 
 from .constants import ADC_GAIN_DESCRIPTION_TAG
+from .constants import BARCODE_CONFIRM_CLEAR_WAIT_SECONDS
+from .constants import BARCODE_GET_SCAN_WAIT_SECONDS
 from .constants import CALIBRATED_STATE
 from .constants import CALIBRATION_NEEDED_STATE
+from .constants import CLEARED_BARCODE_VALUE
 from .constants import DATA_FRAME_PERIOD
+from .constants import NO_PLATE_DETECTED_BARCODE_VALUE
 from .constants import OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import REF_INDEX_TO_24_WELL_INDEX
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import TIMESTEP_CONVERSION_FACTOR
 from .constants import VALID_SCRIPTING_COMMANDS
+from .exceptions import BarcodeNotClearedError
+from .exceptions import BarcodeScannerNotRespondingError
 from .exceptions import FirmwareFileNameDoesNotMatchWireOutVersionError
 from .exceptions import FirstManagedReadLessThanOneRoundRobinError
 from .exceptions import InvalidDataFramePeriodError
@@ -70,8 +76,32 @@ if (
     )
 
 
+def check_barcode_for_errors(barcode: str) -> str:
+    """Return error message if barcode contains an error."""
+    if len(barcode) > 11:
+        return "Barcode exceeds max length"
+    if len(barcode) < 10:
+        return "Barcode does not reach min length"
+    for char in barcode:
+        if not char.isalnum():
+            return f"Barcode contains invalid character: '{char}'"
+    if barcode[:2] not in ("MA", "MB", "ME"):
+        return f"Barcode contains invalid header: '{barcode[:2]}'"
+    if not barcode[2:4].isnumeric():
+        return f"Barcode contains invalid year: '{barcode[2:4]}'"
+    if not barcode[4:7].isnumeric() or int(barcode[4:7]) < 1 or int(barcode[4:7]) > 366:
+        return f"Barcode contains invalid Julian date: '{barcode[4:7]}'"
+    if not barcode[7:].isnumeric():
+        return f"Barcode contains nom-numeric string after Julian date: '{barcode[7:]}'"
+    return ""
+
+
 def _get_formatted_utc_now() -> str:
     return datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
+
+
+def _get_dur_since_barcode_clear(clear_time: float) -> float:
+    return time.perf_counter() - clear_time
 
 
 def execute_debug_console_command(
@@ -499,6 +529,11 @@ class OkCommunicationProcess(InfiniteProcess):
         self._fifo_read_lengths: List[int] = list()
         self._data_parsing_durations: List[float] = list()
         self._durations_between_acquisition: List[float] = list()
+        self._barcode_scan_start_time: List[Optional[float]] = [
+            None,
+            None,
+        ]
+        self._is_barcode_cleared = [False, False]
 
     def hard_stop(self, timeout: Optional[float] = None) -> Dict[str, Any]:
         return_value: Dict[str, Any] = super().hard_stop(timeout=timeout)
@@ -592,6 +627,7 @@ class OkCommunicationProcess(InfiniteProcess):
 
     def _commands_for_each_run_iteration(self) -> None:
         self._process_next_communication_from_main()
+        self._handle_barcode_scan()
 
         if self._is_managed_acquisition_running[0]:
             board_connections = self.get_board_connections_list()
@@ -666,12 +702,109 @@ class OkCommunicationProcess(InfiniteProcess):
             self._handle_xem_scripts_comm(this_communication)
         elif communication_type == "mantarray_naming":
             self._handle_mantarray_naming_comm(this_communication)
+        elif this_communication["communication_type"] == "barcode_comm":
+            board_idx = 0
+            board = self.get_board_connections_list()[board_idx]
+            if board is None:
+                raise NotImplementedError(
+                    "Board should not be None when communicating with barcode scanner"
+                )
+            if not board.is_board_initialized():
+                # Tanner (12/10/20): This is to handle --skip-mantarray-boot-up which will not automatically initialize the board
+                self._send_barcode_to_main(board_idx, "", False)
+            else:
+                self._reset_barcode_values()
+                self._barcode_scan_start_time[0] = time.perf_counter()
+                board.clear_barcode_scanner()
         elif communication_type == "to_instrument":
             self._handle_acquisition_manager_comm(this_communication)
         else:
             raise UnrecognizedCommTypeFromMainToOKCommError(communication_type)
         if not input_queue.empty():
             self._process_can_be_soft_stopped = False
+
+    def _handle_barcode_scan(self) -> None:
+        if self._barcode_scan_start_time[0] is None:
+            return
+        board_idx = 0
+        board = self.get_board_connections_list()[board_idx]
+        if board is None:
+            raise NotImplementedError(
+                "Board should not be None when communicating with barcode scanner"
+            )
+
+        if isinstance(board, FrontPanelSimulator):
+            barcode = board.get_barcode()
+            self._send_barcode_to_main(board_idx, barcode, True)
+            return
+
+        scan_attempt = 0 if self._barcode_scan_start_time[1] is None else 1
+        start_time = self._barcode_scan_start_time[scan_attempt]
+        if start_time is None:  # Tanner (12/7/20): making mypy happy
+            raise NotImplementedError(
+                "the barcode_scan_start_time value should never be None past this point"
+            )
+        dur_since_barcode_clear = _get_dur_since_barcode_clear(start_time)
+        if dur_since_barcode_clear >= BARCODE_GET_SCAN_WAIT_SECONDS:
+            barcode = board.get_barcode()
+            if barcode == CLEARED_BARCODE_VALUE:
+                raise BarcodeScannerNotRespondingError()
+            barcode_11 = barcode[:11]
+            if not check_barcode_for_errors(barcode_11) and barcode[-1] == chr(0):
+                self._send_barcode_to_main(board_idx, barcode_11, True)
+                return
+            barcode_10 = barcode[:10]
+            if not check_barcode_for_errors(barcode_10) and barcode[-2:] == chr(0) * 2:
+                self._send_barcode_to_main(board_idx, barcode_10, True)
+                return
+            if scan_attempt == 1:
+                if barcode == NO_PLATE_DETECTED_BARCODE_VALUE:
+                    barcode = ""
+                self._send_barcode_to_main(board_idx, barcode, False)
+                return
+
+            log_msg = (
+                "No plate detected, retrying scan"
+                if barcode == NO_PLATE_DETECTED_BARCODE_VALUE
+                else f"Invalid barcode detected: {barcode}, retrying scan"
+            )
+            put_log_message_into_queue(
+                logging.INFO,
+                log_msg,
+                self._board_queues[0][1],
+                self.get_logging_level(),
+            )
+            board.clear_barcode_scanner()
+            self._barcode_scan_start_time[1] = time.perf_counter()
+        elif (
+            dur_since_barcode_clear >= BARCODE_CONFIRM_CLEAR_WAIT_SECONDS
+            and not self._is_barcode_cleared[scan_attempt]
+        ):
+            barcode = board.get_barcode()
+            if barcode != CLEARED_BARCODE_VALUE:
+                raise BarcodeNotClearedError(barcode)
+            self._is_barcode_cleared[scan_attempt] = True
+            board.start_barcode_scan()
+
+    def _send_barcode_to_main(
+        self, board_idx: int, barcode: str, is_valid: bool
+    ) -> None:
+        comm_to_main_queue = self._board_queues[0][1]
+        barcode_comm_dict: Dict[str, Union[str, bool, int]] = {
+            "communication_type": "barcode_comm",
+            "board_idx": board_idx,
+            "barcode": barcode,
+        }
+        if barcode:
+            barcode_comm_dict["valid"] = is_valid
+        comm_to_main_queue.put(barcode_comm_dict)
+        self._reset_barcode_values()
+
+    def _reset_barcode_values(self) -> None:
+        self._barcode_scan_start_time[0] = None
+        self._barcode_scan_start_time[1] = None
+        self._is_barcode_cleared[0] = False
+        self._is_barcode_cleared[1] = False
 
     def _handle_debug_console_comm(self, this_communication: Dict[str, Any]) -> None:
         response_queue = self._board_queues[0][1]

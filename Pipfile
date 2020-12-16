@@ -5,14 +5,14 @@ verify_ssl = true
 
 [dev-packages]
 pre-commit = "==2.9.3"
-pytest = "==6.2.0"
+pytest = "==6.2.1"
 pytest-cov = "==2.10.1"
 pytest-randomly = "==3.5.0"
 sphinx = "==3.3.1"
 pylint = "==2.6.0"
 boto3 = "==1.16.36"
 pytest-pylint = "==0.18.0"
-pytest-mock = "==3.3.1"
+pytest-mock = "==3.4.0"
 pytest-timeout = "==1.4.2"
 pytest-profiling = "==1.7.0"
 freezegun = "==1.0.0"

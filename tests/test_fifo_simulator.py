@@ -35,6 +35,9 @@ def test_RunningFIFOSimulator__class_attributes():
     assert RunningFIFOSimulator.default_mantarray_serial_number == "M02001900"
     assert RunningFIFOSimulator.default_mantarray_nickname == "Mantarray Simulator"
     assert RunningFIFOSimulator.default_firmware_version == "0.0.0"
+    assert (
+        RunningFIFOSimulator.default_barcode == "MA200190000"
+    )  # TODO Tanner (12/9/20): change this to "MA190190000" once merged with new barcode format code
 
 
 def test_RunningFIFOSimulator__super_is_called_during_init(mocker):
@@ -474,3 +477,15 @@ def test_RunningFIFOSimulator_hard_stop__drains_wire_out_queues(mocker):
 
     assert is_queue_eventually_empty(wire_out_queue) is True
     assert is_queue_eventually_empty(wire_out_queue_2) is True
+
+
+def test_RunningFIFOSimulator__get_barcode__raises_error_if_board_not_initialized():
+    simulator = RunningFIFOSimulator()
+    with pytest.raises(OpalKellyBoardNotInitializedError):
+        simulator.get_barcode()
+
+
+def test_RunningFIFOSimulator__get_barcode__returns_correct_value():
+    simulator = RunningFIFOSimulator()
+    simulator.initialize_board()
+    assert simulator.get_barcode() == RunningFIFOSimulator.default_barcode

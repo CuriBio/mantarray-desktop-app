@@ -6,11 +6,20 @@ from mantarray_desktop_app import ADC_CH_TO_IS_REF_SENSOR
 from mantarray_desktop_app import ADC_GAIN
 from mantarray_desktop_app import ADC_GAIN_DESCRIPTION_TAG
 from mantarray_desktop_app import ADC_OFFSET_DESCRIPTION_TAG
+from mantarray_desktop_app import BARCODE_CONFIRM_CLEAR_WAIT_SECONDS
+from mantarray_desktop_app import BARCODE_GET_SCAN_WAIT_SECONDS
+from mantarray_desktop_app import BARCODE_POLL_PERIOD
+from mantarray_desktop_app import BARCODE_SCANNER_BOTTOM_WIRE_OUT_ADDRESS
+from mantarray_desktop_app import BARCODE_SCANNER_MID_WIRE_OUT_ADDRESS
+from mantarray_desktop_app import BARCODE_SCANNER_TOP_WIRE_OUT_ADDRESS
+from mantarray_desktop_app import BARCODE_SCANNER_TRIGGER_IN_ADDRESS
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import CHANNEL_INDEX_TO_24_WELL_INDEX
+from mantarray_desktop_app import CLEAR_BARCODE_TRIG_BIT
+from mantarray_desktop_app import CLEARED_BARCODE_VALUE
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import CONSTRUCT_SENSORS_PER_REF_SENSOR
@@ -38,6 +47,7 @@ from mantarray_desktop_app import MAX_POSSIBLE_CONNECTED_BOARDS
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import MIDSCALE_CODE
 from mantarray_desktop_app import MILLIVOLTS_PER_VOLT
+from mantarray_desktop_app import NO_PLATE_DETECTED_BARCODE_VALUE
 from mantarray_desktop_app import OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import OUTGOING_DATA_BUFFER_SIZE
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
@@ -49,6 +59,7 @@ from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE
+from mantarray_desktop_app import START_BARCODE_SCAN_TRIG_BIT
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import SUBPROCESS_POLL_DELAY_SECONDS
 from mantarray_desktop_app import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
@@ -69,8 +80,23 @@ def test_max_boards():
     assert MAX_POSSIBLE_CONNECTED_BOARDS == 4
 
 
-def test_firmware():
+def test_fimrware_addresses():
     assert FIRMWARE_VERSION_WIRE_OUT_ADDRESS == 0x21
+
+    assert BARCODE_SCANNER_TRIGGER_IN_ADDRESS == 0x41
+    assert BARCODE_SCANNER_TOP_WIRE_OUT_ADDRESS == 0x2A
+    assert BARCODE_SCANNER_MID_WIRE_OUT_ADDRESS == 0x2B
+    assert BARCODE_SCANNER_BOTTOM_WIRE_OUT_ADDRESS == 0x2C
+
+
+def test_barcode_constants():
+    assert CLEAR_BARCODE_TRIG_BIT == 0x5
+    assert START_BARCODE_SCAN_TRIG_BIT == 0x6
+    assert BARCODE_POLL_PERIOD == 15
+    assert BARCODE_CONFIRM_CLEAR_WAIT_SECONDS == 0.5
+    assert BARCODE_GET_SCAN_WAIT_SECONDS == 6
+    assert CLEARED_BARCODE_VALUE == chr(0) * 12
+    assert NO_PLATE_DETECTED_BARCODE_VALUE == chr(21) * 12
 
 
 def test_default_UUIDs():

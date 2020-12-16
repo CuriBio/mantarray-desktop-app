@@ -92,3 +92,11 @@ class RecordingFolderDoesNotExistError(Exception):
 
 class FirmwareFileNameDoesNotMatchWireOutVersionError(Exception):
     pass
+
+
+class BarcodeNotClearedError(Exception):
+    pass
+
+
+class BarcodeScannerNotRespondingError(Exception):
+    pass

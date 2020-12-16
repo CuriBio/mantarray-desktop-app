@@ -15,6 +15,7 @@ from xem_wrapper import FrontPanelBase
 from xem_wrapper import FrontPanelSimulator
 from xem_wrapper import OpalKellyBoardNotInitializedError
 
+from .constants import BARCODE_SCANNER_TOP_WIRE_OUT_ADDRESS
 from .constants import FIFO_READ_PRODUCER_CYCLES_PER_ITERATION
 from .constants import FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
 from .constants import FIRMWARE_VERSION_WIRE_OUT_ADDRESS
@@ -38,6 +39,7 @@ class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
     default_mantarray_serial_number = "M02001900"
     default_mantarray_nickname = "Mantarray Simulator"
     default_firmware_version = "0.0.0"
+    default_barcode = "MA200190000"  # TODO Tanner (12/9/20): change this to "MA190190000" once merged with new barcode format code
 
     def __init__(
         self, simulated_response_queues: Optional[Dict[str, Any]] = None
@@ -205,3 +207,7 @@ class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
     def get_firmware_version(self) -> str:
         FrontPanelBase.read_wire_out(self, FIRMWARE_VERSION_WIRE_OUT_ADDRESS)
         return self.default_firmware_version
+
+    def get_barcode(self) -> str:
+        FrontPanelBase.read_wire_out(self, BARCODE_SCANNER_TOP_WIRE_OUT_ADDRESS)
+        return self.default_barcode
