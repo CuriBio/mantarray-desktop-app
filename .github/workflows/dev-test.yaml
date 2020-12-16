@@ -232,6 +232,12 @@ jobs:
         if: runner.os == 'Windows' && github.event.inputs.randomlyseed != ''
         run: pipenv run pytest tests/test_exe.py -xsvv --only-exe --no-cov --randomly-seed=${{ github.event.inputs.randomlyseed }}
 
+      - name: Digitally Signing the EXE bundled by pyinstaller before it gets packaged into the built Electron app
+        if: matrix.IS_DEPLOYMENT_CONFIG == true
+        run: |
+          .\vcn notarize "dist-python/mantarray-flask/mantarray-flask.exe" --silent --public
+          .\vcn authenticate "dist-python/mantarray-flask/mantarray-flask.exe"
+
       - name: Build Full Electron App
         run: pipenv run npm run build
 
@@ -255,6 +261,14 @@ jobs:
       #   #   DISPLAY: ":99.0"
       #   with:
       #     run: pipenv run npm run test:e2e-no-prebuild
+
+      - name: Digitally Signing the installation and win_unpacked EXE files
+        if: matrix.IS_DEPLOYMENT_CONFIG == true
+        run: |
+          .\vcn notarize "dist/MantarrayController-Setup-0.4.0.exe" --silent --public
+          .\vcn notarize "dist/win-unpacked/Mantarray Controller.exe" --silent --public
+          .\vcn authenticate "dist/MantarrayController-Setup-0.4.0.exe"
+          .\vcn authenticate "dist/win-unpacked/Mantarray Controller.exe"
 
       - name: Archive visual regression
         if: ${{ failure() }}
