@@ -134,16 +134,7 @@ jobs:
 
       - name: Install pipenv # no known reason for this specific version of pipenv, just pinning it for good practice
         run: pip install pipenv==2020.8.13
-      # - name: Display Python version
-      #   run: |
-      #     python -c "import sys; print(sys.version)"
-      #     python -m venv venv
-      # - name: Activate virtual environment (Linux/MacOS)
-      #   if: runner.os == 'Linux'
-      #   run: . venv/bin/activate
-      # - name: Activate virtual environment (Windows)
-      #   if: runner.os == 'Windows'
-      #   run: venv\Scripts\Activate.ps1
+
       - name: Setup Pipenv
         env:
           PIPENV_VENV_IN_PROJECT: 1
@@ -161,14 +152,8 @@ jobs:
       - name: Install Local Package in editable mode for testing
         run: pipenv run pip install -e .
 
-        # run: |
-        #   pip install -r requirements-dev.txt
-        #   pip install -r requirements.txt
-        #   pip install -e .
-
       - name: Log full installed Python packages
         run: pipenv run pip freeze
-        # run: pip freeze
 
       - name: Install NPM Dependencies
         run: pipenv run npm ci --cache .npm_cache/
@@ -181,34 +166,18 @@ jobs:
         run: |
           pipenv run pre-commit install
           pipenv run pre-commit run -a
-        # run: |
-        #   pre-commit install
-        #   pre-commit run -a
+
       - name: Move OpalKelly .so file to needed location (Linux)
         if: runner.os == 'Linux' # Eli (10/20/20): not sure if copying to both locations is needed...but it's working and haven't checked which is required...should theoretically only be one needed
         run: |
           sudo cp .venv/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/local/lib
           sudo cp .venv/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/lib
-        # run: |
-        #   sudo cp venv/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/local/lib
-        #   sudo cp venv/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/lib
 
       - name: Download the firmware files from AWS S3
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_USER_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_USER_SECRET_KEY }}
         run: pipenv run python .github/workflows/run_s3_download.py
-        # run: python run_s3_download.py
-
-      # - name: Run Python Tests with randomly generated seed (Windows)
-      #   if: github.event.inputs.randomlyseed == '' && runner.os == 'Windows'
-      #   run: pipenv run pytest -svv --cov-report=xml --include-slow-tests --full-ci
-      #   # run: pytest -xsvv --cov-report=xml --include-slow-tests # --full-ci
-
-      # - name: Run Python Tests with randomly generated seed (Linux)
-      #   if: github.event.inputs.randomlyseed == '' && runner.os == 'Linux'
-      #   run: pipenv run pytest -svv --cov-report=xml --include-slow-tests --full-ci
-      #   # run: pytest -xsvv --cov-report=xml --include-slow-tests # --full-ci
 
       - name: Run Python Tests with randomly generated seed
         if: github.event.inputs.randomlyseed == ''
@@ -218,7 +187,6 @@ jobs:
       - name: Run Python Tests with supplied pytest-randomly seed
         if: github.event.inputs.randomlyseed != ''
         run: pipenv run pytest -xsvv --cov-report=xml --include-slow-tests --full-ci --randomly-seed=${{ github.event.inputs.randomlyseed }}
-        # run: pytest -xsvv --cov-report=xml --randomly-seed=${{ github.event.inputs.randomlyseed }} --include-slow-tests --full-ci
 
       - name: Confirm Sphinx Docs build correctly
         # only check Sphinx docs build on the fastest job
@@ -226,7 +194,6 @@ jobs:
         run: pipenv run sh make_sphinx_fail_on_error.sh
 
       - name: Run Jest Tests
-        # run: pipenv run npm run test:unit -- --ci
         run: npm run test:unit -- --ci
 
       - name: Insert the Build Number into the code (Windows)
@@ -234,8 +201,8 @@ jobs:
         env:
           build_number: ${{ github.run_number }}
         run: |
-          echo $BUILD_NUMBER
-          ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHTIMESTAMPDURINGBUILD',"$(Get-Date -Format 'yyMMddHHmmss')--$BUILD_NUMBER") | Set-Content -Path src\mantarray_desktop_app\constants.py
+          echo $build_number
+          ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHTIMESTAMPDURINGBUILD',"$(Get-Date -Format 'yyMMddHHmmss')--$build_number") | Set-Content -Path src\mantarray_desktop_app\constants.py
 
       - name: Install Pyinstaller (Windows) and display all packages # Eli (10/21/20): when installed with pipenv during development on Linux, not all the right dependencies are included. Maybe there's a better way to get it into the pipfile, but unsure right now
         if: runner.os == 'Windows'
@@ -246,7 +213,6 @@ jobs:
       - name: Compile the Python Executable (Windows)
         if: runner.os == 'Windows'
         run: pipenv run pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=dist-python --workpath=build-python
-        # run: pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=dist-python --workpath=build-python
 
       - name: Run Python Tests on Executable with randomly generated seed (Windows)
         if: runner.os == 'Windows' && github.event.inputs.randomlyseed == ''
