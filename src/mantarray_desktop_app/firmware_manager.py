@@ -13,7 +13,7 @@ from semver import VersionInfo
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import resource_path
 
-SEMVER_REGEX = re.compile(r"mantarray\_(\d+)\_(\d+)_(\d+)\.bit$")
+SEMVER_REGEX = re.compile(r"\_(\d+)\_(\d+)_(\d+)\.bit$")
 
 
 def _get_firmware_dir() -> str:
