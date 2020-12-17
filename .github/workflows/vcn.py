@@ -50,12 +50,12 @@ def login() -> None:
 
 def notarize(file_path: str) -> None:
     _set_vcn_environment_parameters()
-    _run_subprocess(["vcn.exe", "notarize", f'"{file_path}"', "--silent", "--public"])
+    _run_subprocess(["vcn.exe", "notarize", file_path, "--silent", "--public"])
 
 
 def authenticate(file_path: str) -> None:
     _set_vcn_environment_parameters()
-    _run_subprocess(["vcn.exe", "authenticate", f'"{file_path}"'])
+    _run_subprocess(["vcn.exe", "authenticate", file_path])
 
 
 if __name__ == "__main__":
