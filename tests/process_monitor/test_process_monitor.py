@@ -7,7 +7,10 @@ import threading
 import time
 
 from freezegun import freeze_time
+from mantarray_desktop_app import BARCODE_INVALID_UUID
 from mantarray_desktop_app import BARCODE_POLL_PERIOD
+from mantarray_desktop_app import BARCODE_UNREADABLE_UUID
+from mantarray_desktop_app import BARCODE_VALID_UUID
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
@@ -822,25 +825,24 @@ def test_MantarrayProcessesMonitor__sends_two_barcode_poll_commands_to_OKComm_at
     assert mocked_get_dur.call_args_list[3][0][0] == expected_time_2
 
 
-# TODO add status UUID to following tests
-
-
 @pytest.mark.parametrize(
-    "expected_barcode,test_valid,test_description",
+    "expected_barcode,test_valid,expected_status,test_description",
     [
-        ("MA200190000", True, "stores new valid barcode"),
-        ("M$200190000", False, "stores new invalid barcode"),
-        ("", None, "stores no barcode"),
+        ("MA200190000", True, BARCODE_VALID_UUID, "stores new valid barcode"),
+        ("M$200190000", False, BARCODE_INVALID_UUID, "stores new invalid barcode"),
+        ("", None, BARCODE_UNREADABLE_UUID, "stores no barcode"),
     ],
 )
 def test_MantarrayProcessesMonitor__stores_barcode_sent_from_ok_comm__and_no_previously_stored_barcode(
-    expected_barcode, test_valid, test_description, test_monitor, test_process_manager
+    expected_barcode,
+    test_valid,
+    expected_status,
+    test_description,
+    test_monitor,
+    test_process_manager,
 ):
     monitor_thread, shared_values_dict, _, _ = test_monitor
-
     expected_board_idx = 0
-    expected_valid = bool(test_valid)
-
     test_process_manager.create_processes()
     from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
@@ -859,26 +861,30 @@ def test_MantarrayProcessesMonitor__stores_barcode_sent_from_ok_comm__and_no_pre
 
     assert shared_values_dict["barcodes"][expected_board_idx] == {
         "plate_barcode": expected_barcode,
-        "barcode_status": expected_valid,
+        "barcode_status": expected_status,
         "update": True,
     }
 
 
 @pytest.mark.parametrize(
-    "expected_barcode,test_valid,test_description",
+    "expected_barcode,test_valid,expected_status,test_description",
     [
-        ("MA200190000", True, "stores new valid barcode"),
-        ("M$200190000", False, "stores new invalid barcode"),
-        ("", None, "stores no barcode"),
+        ("MA200190000", True, BARCODE_VALID_UUID, "stores new valid barcode"),
+        ("M$200190000", False, BARCODE_INVALID_UUID, "stores new invalid barcode"),
+        ("", None, BARCODE_UNREADABLE_UUID, "stores no barcode"),
     ],
 )
 def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_ok_comm(
-    expected_barcode, test_valid, test_description, test_monitor, test_process_manager
+    expected_barcode,
+    test_valid,
+    expected_status,
+    test_description,
+    test_monitor,
+    test_process_manager,
 ):
     monitor_thread, shared_values_dict, _, _ = test_monitor
 
     expected_board_idx = 0
-    expected_valid = bool(test_valid)
     shared_values_dict["barcodes"] = {
         expected_board_idx: {
             "plate_barcode": "old barcode",
@@ -905,7 +911,7 @@ def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_ok_comm(
 
     assert shared_values_dict["barcodes"][expected_board_idx] == {
         "plate_barcode": expected_barcode,
-        "barcode_status": expected_valid,
+        "barcode_status": expected_status,
         "update": True,
     }
 
@@ -929,8 +935,6 @@ def test_MantarrayProcessesMonitor__does_not_update_any_values_if_new_barcode_ma
     monitor_thread, shared_values_dict, _, _ = test_monitor
 
     expected_board_idx = 0
-    # expected_valid = bool(test_valid)
-
     expected_dict = {
         "plate_barcode": expected_barcode,
         "barcode_status": None,

@@ -1,16 +1,11 @@
 # -*- coding: utf-8 -*-
 import json
 
-from mantarray_desktop_app import BARCODE_INVALID_UUID
-from mantarray_desktop_app import BARCODE_UNREADABLE_UUID
-from mantarray_desktop_app import BARCODE_VALID_UUID
 from mantarray_desktop_app import BUFFERING_STATE
-from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import ImproperlyFormattedCustomerAccountUUIDError
 from mantarray_desktop_app import ImproperlyFormattedUserAccountUUIDError
-from mantarray_desktop_app import NO_PLATE_DETECTED_UUID
 from mantarray_desktop_app import RecordingFolderDoesNotExistError
 from mantarray_desktop_app import server
 from mantarray_desktop_app import SERVER_READY_STATE
@@ -85,7 +80,7 @@ def test_system_status__returns_in_simulator_mode_False_as_default_value(
         ("M02002000", None, "correctly returns serial number and None"),
     ],
 )
-def test_system_status__returns_cofrrect_serial_number_and_nickname_with_empty_string_as_default(
+def test_system_status__returns_correct_serial_number_and_nickname_with_empty_string_as_default(
     expected_serial,
     expected_nickname,
     test_description,
@@ -111,53 +106,6 @@ def test_system_status__returns_cofrrect_serial_number_and_nickname_with_empty_s
         assert response_json["mantarray_nickname"] == expected_nickname
     else:
         assert response_json["mantarray_nickname"] == ""
-
-
-@pytest.mark.parametrize(
-    ",".join(("expected_status", "expected_barcode", "test_description")),
-    [
-        (BARCODE_VALID_UUID, "MA200190000", "correctly returns valid barcode values"),
-        (
-            BARCODE_INVALID_UUID,
-            "M$200190000",
-            "correctly returns invalid barcode values",
-        ),
-        (BARCODE_UNREADABLE_UUID, "", "correctly returns 'barcode unreadable' values"),
-        (NO_PLATE_DETECTED_UUID, "", "correctly returns 'no plate detected' values"),
-    ],
-)
-def test_system_status__returns_correct_plate_barcode_and_status__only_when_barcode_changes(
-    expected_status,
-    expected_barcode,
-    test_description,
-    client_and_server_thread_and_shared_values,
-):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
-
-    expected_board_idx = 0
-    shared_values_dict["system_status"] = CALIBRATED_STATE
-    shared_values_dict["barcodes"] = {
-        expected_board_idx: {
-            "plate_barcode": expected_barcode,
-            "barcode_status": expected_status,
-            "update": True,
-        }
-    }
-
-    response = test_client.get("/system_status")
-    assert response.status_code == 200
-    response_json = response.get_json()
-    assert response_json["barcode_status"] == str(expected_status)
-    assert response_json["plate_barcode"] == expected_barcode
-
-    # response = test_client.get("/system_status")
-    # assert response.status_code == 200
-    # response_json = response.get_json()
-    # assert "barcode_status" not in response_json
-    # assert "plate_barcode" not in response_json
-
-
-# TODO add test for before barcode sub-dict is created
 
 
 @pytest.mark.parametrize(

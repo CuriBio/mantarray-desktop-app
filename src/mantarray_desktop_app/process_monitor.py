@@ -11,6 +11,7 @@ from typing import Dict
 from typing import Optional
 from typing import Tuple
 from typing import Union
+import uuid
 
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import InfiniteThread
@@ -18,7 +19,10 @@ from stdlib_utils import InfiniteThread
 from .constants import ADC_CH_TO_24_WELL_INDEX
 from .constants import ADC_CH_TO_IS_REF_SENSOR
 from .constants import ADC_OFFSET_DESCRIPTION_TAG
+from .constants import BARCODE_INVALID_UUID
 from .constants import BARCODE_POLL_PERIOD
+from .constants import BARCODE_UNREADABLE_UUID
+from .constants import BARCODE_VALID_UUID
 from .constants import BUFFERING_STATE
 from .constants import CALIBRATED_STATE
 from .constants import CALIBRATING_STATE
@@ -188,6 +192,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
                 main_to_ok_comm_queue.put(communication)
                 main_to_da_queue.put(communication)
+        elif communication_type == "barcode_comm":
+            board_idx = communication["read_receipt"]
+            self._values_to_share_to_server["barcodes"][board_idx]["update"] = False
 
     def _put_communication_into_ok_comm_queue(
         self, communication: Dict[str, Any]
@@ -308,22 +315,27 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 offset_val = communication["wire_out_value"]
                 self._add_offset_to_shared_dict(adc_index, ch_index, offset_val)
         elif communication_type == "barcode_comm":
-            if "barcode" not in self._values_to_share_to_server:
+            if "barcodes" not in self._values_to_share_to_server:
                 self._values_to_share_to_server["barcodes"] = dict()
             board_idx = communication["board_idx"]
             if board_idx not in self._values_to_share_to_server["barcodes"]:
-                self._values_to_share_to_server["barcodes"][board_idx] = {
-                    "plate_barcode": None,
-                }
-            if (
+                self._values_to_share_to_server["barcodes"][board_idx] = dict()
+            elif (
                 self._values_to_share_to_server["barcodes"][board_idx]["plate_barcode"]
                 == communication["barcode"]
             ):
                 return
-            valid = communication.get("valid", False)
+            valid = communication.get("valid", None)
+            barcode_status: uuid.UUID
+            if valid is None:
+                barcode_status = BARCODE_UNREADABLE_UUID
+            elif valid:
+                barcode_status = BARCODE_VALID_UUID
+            else:
+                barcode_status = BARCODE_INVALID_UUID
             self._values_to_share_to_server["barcodes"][board_idx] = {
                 "plate_barcode": communication["barcode"],
-                "barcode_status": valid,
+                "barcode_status": barcode_status,
                 "update": True,
             }
 

@@ -224,6 +224,12 @@ def system_status() -> Response:
         status_dict["barcode_status"] = str(
             shared_values_dict["barcodes"][board_idx]["barcode_status"]
         )
+        queue_command_to_main(
+            {
+                "communication_type": "barcode_comm",
+                "read_receipt": 0,
+            }
+        )
 
     response = Response(json.dumps(status_dict), mimetype="application/json")
 
