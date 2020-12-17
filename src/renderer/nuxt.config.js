@@ -6,7 +6,7 @@
 const path = require("path");
 const node_modules_dir = path.join(__dirname, "..", "..", "node_modules");
 module.exports = {
-  mode: "spa", // or 'universal'
+  // mode: "spa", // or 'universal'
   head: {
     title: "Mantarray Software",
     meta: [{ charset: "utf-8" }],

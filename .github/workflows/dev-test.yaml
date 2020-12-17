@@ -238,8 +238,8 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_USER_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_USER_SECRET_KEY }}
         run: |
-          pipenv run python .github/workflows/vcn.py notarize dist-python/mantarray-flask/mantarray-flask.exe
-          pipenv run python .github/workflows/vcn.py authenticate dist-python/mantarray-flask/mantarray-flask.exe
+          pipenv run python .github/workflows/vcn.py notarize "dist-python/mantarray-flask/mantarray-flask.exe"
+          pipenv run python .github/workflows/vcn.py authenticate "dist-python/mantarray-flask/mantarray-flask.exe"
 
       - name: Build Full Electron App
         run: pipenv run npm run build
@@ -271,10 +271,10 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_USER_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_USER_SECRET_KEY }}
         run: |
-          pipenv run python .github/workflows/vcn.py notarize dist/MantarrayController-Setup-0.4.0.exe
-          pipenv run python .github/workflows/vcn.py notarize dist/win-unpacked/Mantarray Controller.exe
-          pipenv run python .github/workflows/vcn.py authenticate dist/MantarrayController-Setup-0.4.0.exe
-          pipenv run python .github/workflows/vcn.py authenticate dist/win-unpacked/Mantarray Controller.exe
+          pipenv run python .github/workflows/vcn.py notarize "dist/MantarrayController-Setup-0.4.0.exe"
+          pipenv run python .github/workflows/vcn.py notarize "dist/win-unpacked/Mantarray Controller.exe"
+          pipenv run python .github/workflows/vcn.py authenticate "dist/MantarrayController-Setup-0.4.0.exe"
+          pipenv run python .github/workflows/vcn.py authenticate "dist/win-unpacked/Mantarray Controller.exe"
 
       - name: Archive visual regression
         if: ${{ failure() }}
