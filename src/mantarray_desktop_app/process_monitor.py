@@ -417,7 +417,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         process_manager = self._process_manager
         shared_values_dict = self._values_to_share_to_server
         processes: Tuple[InfiniteProcess, InfiniteProcess, InfiniteProcess] = (
-            process_manager.get_ok_comm_process(),
+            process_manager.get_instrument_process(),
             process_manager.get_file_writer_process(),
             process_manager.get_data_analyzer_process(),
         )

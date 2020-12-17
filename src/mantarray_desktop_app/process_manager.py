@@ -272,6 +272,16 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             are_stopped = all(p.is_stopped() for p in processes)
         return are_stopped
 
+    def are_subprocess_start_ups_complete(self) -> bool:
+        if not isinstance(  # pylint:disable=isinstance-second-argument-not-valid-type # Eli (12/8/20): pylint issue https://github.com/PyCQA/pylint/issues/3507
+            self._all_processes, Iterable
+        ):
+            raise NotImplementedError("Processes must be created first.")
+        for _ in self._all_processes:
+            pass
+
+        return False
+
 
 def _create_process_manager() -> MantarrayProcessesManager:
     base_path = os.path.join(get_current_file_abs_directory(), os.pardir, os.pardir)

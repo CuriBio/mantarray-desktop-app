@@ -510,6 +510,12 @@ def test_MantarrayProcessesManager__are_processes_stopped__sleeps_for_correct_am
     mocked_sleep.assert_called_once_with(SUBPROCESS_POLL_DELAY_SECONDS)
 
 
+def test_MantarrayProcessesManager__are_subprocess_start_ups_complete__returns_false_if_none_are_started(
+    test_process_manager,
+):
+    assert test_process_manager.are_subprocess_start_ups_complete() is False
+
+
 # def test_get_mantarray_process_manager__spawns_processes_if_not_already_started__but_not_again(
 #     mocker,
 # ):
