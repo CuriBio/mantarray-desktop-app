@@ -3,7 +3,7 @@ fail_fast: false
 repos:
   # Git-related
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v3.3.0 # Use the ref you want to point at
+    rev: v3.4.0 # Use the ref you want to point at
     hooks:
       - id: forbid-new-submodules
   - repo: https://github.com/jumanjihouse/pre-commit-hooks
@@ -18,7 +18,7 @@ repos:
       - id: zimports
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v3.3.0 # Use the ref you want to point at
+    rev: v3.4.0 # Use the ref you want to point at
     hooks:
       # black and docformatter don't do this in docstrings (11/1/19)
       - id: trailing-whitespace
@@ -58,19 +58,19 @@ repos:
       - id: python-safety-dependencies-check
 
   - repo: https://github.com/PyCQA/bandit
-    rev: 1.6.3
+    rev: 1.7.0
     hooks:
       - id: bandit
         exclude: tests*
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v3.3.0 # Use the ref you want to point at
+    rev: v3.4.0 # Use the ref you want to point at
     hooks:
       - id: detect-private-key
 
   # Invalid File Checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v3.3.0 # Use the ref you want to point at
+    rev: v3.4.0 # Use the ref you want to point at
     hooks:
       - id: check-added-large-files
         name: forbid large files in most places

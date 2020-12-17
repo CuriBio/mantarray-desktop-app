@@ -106,3 +106,17 @@ def test_sort_firmware_files__returns_list_sorted_correctly_with_two_digit_numbe
     )
     actual = sort_firmware_files()
     assert actual[-1] == expected
+
+
+def test_sort_firmware_files__returns_list_sorted_correctly_when_directory_contains_gitkeep_like_in_real_folder(
+    mocker,
+):
+    expected = "mantarray_0_2_0.bit"
+    mocker.patch.object(
+        firmware_manager,
+        "listdir",
+        autospec=True,
+        return_value=["mantarray_0_1_99.bit", expected, ".gitkeep"],
+    )
+    actual = sort_firmware_files()
+    assert actual[-1] == expected

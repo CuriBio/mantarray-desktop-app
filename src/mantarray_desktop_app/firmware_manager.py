@@ -37,6 +37,10 @@ def _get_semver_from_firmware_filename(filename: str) -> VersionInfo:
 def sort_firmware_files() -> List[str]:
     firmware_dir = _get_firmware_dir()
     firmware_files = listdir(firmware_dir)
+    if (
+        ".gitkeep" in firmware_files
+    ):  # Eli (12/17/20): remove this file (which is in the real firmware folder) as it makes sorting by semver complicated
+        firmware_files.remove(".gitkeep")
     firmware_files.sort(key=_get_semver_from_firmware_filename)
     return firmware_files
 
