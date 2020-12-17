@@ -227,7 +227,7 @@ def system_status() -> Response:
         queue_command_to_main(
             {
                 "communication_type": "barcode_read_receipt",
-                "board_idx": 0,
+                "board_idx": board_idx,
             }
         )
 

@@ -6,8 +6,6 @@ import struct
 import tempfile
 
 from freezegun import freeze_time
-from mantarray_desktop_app import BARCODE_INVALID_UUID
-from mantarray_desktop_app import BARCODE_UNREADABLE_UUID
 from mantarray_desktop_app import BARCODE_VALID_UUID
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
@@ -17,7 +15,6 @@ from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import get_server_port_number
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
-from mantarray_desktop_app import NO_PLATE_DETECTED_UUID
 from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import queue_utils
@@ -1803,29 +1800,15 @@ def test_send_single_get_status_command__gets_processed(
 
 
 @pytest.mark.slow
-@pytest.mark.parametrize(
-    ",".join(("expected_status", "expected_barcode", "test_description")),
-    [
-        (BARCODE_VALID_UUID, "MA200190000", "correctly returns valid barcode values"),
-        (
-            BARCODE_INVALID_UUID,
-            "M$200190000",
-            "correctly returns invalid barcode values",
-        ),
-        (BARCODE_UNREADABLE_UUID, "", "correctly returns 'barcode unreadable' values"),
-        (NO_PLATE_DETECTED_UUID, "", "correctly returns 'no plate detected' values"),
-    ],
-)
 def test_system_status__returns_correct_plate_barcode_and_status__only_when_barcode_changes(
-    expected_status,
-    expected_barcode,
-    test_description,
     client_and_server_thread_and_shared_values,
     test_monitor,
     test_client,
 ):
     monitor_thread, shared_values_dict, _, _ = test_monitor
 
+    expected_status = BARCODE_VALID_UUID
+    expected_barcode = "MA200190000"
     expected_board_idx = 0
     shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["barcodes"] = {

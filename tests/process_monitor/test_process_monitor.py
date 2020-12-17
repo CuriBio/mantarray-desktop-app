@@ -845,7 +845,7 @@ def test_MantarrayProcessesMonitor__stores_barcode_sent_from_ok_comm__and_no_pre
     expected_board_idx = 0
     test_process_manager.create_processes()
     from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
-        0
+        expected_board_idx
     )
 
     barcode_comm = {
@@ -855,8 +855,9 @@ def test_MantarrayProcessesMonitor__stores_barcode_sent_from_ok_comm__and_no_pre
     }
     if test_valid is not None:
         barcode_comm["valid"] = test_valid
-    from_ok_comm_queue.put(barcode_comm)
-    assert is_queue_eventually_not_empty(from_ok_comm_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        barcode_comm, from_ok_comm_queue
+    )
     invoke_process_run_and_check_errors(monitor_thread)
 
     assert shared_values_dict["barcodes"][expected_board_idx] == {
@@ -895,7 +896,7 @@ def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_ok_comm(
 
     test_process_manager.create_processes()
     from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
-        0
+        expected_board_idx
     )
 
     barcode_comm = {
@@ -905,8 +906,9 @@ def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_ok_comm(
     }
     if test_valid is not None:
         barcode_comm["valid"] = test_valid
-    from_ok_comm_queue.put(barcode_comm)
-    assert is_queue_eventually_not_empty(from_ok_comm_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        barcode_comm, from_ok_comm_queue
+    )
     invoke_process_run_and_check_errors(monitor_thread)
 
     assert shared_values_dict["barcodes"][expected_board_idx] == {
@@ -944,7 +946,7 @@ def test_MantarrayProcessesMonitor__does_not_update_any_values_if_new_barcode_ma
 
     test_process_manager.create_processes()
     from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
-        0
+        expected_board_idx
     )
 
     barcode_comm = {
@@ -954,8 +956,9 @@ def test_MantarrayProcessesMonitor__does_not_update_any_values_if_new_barcode_ma
     }
     if test_valid is not None:
         barcode_comm["valid"] = test_valid
-    from_ok_comm_queue.put(barcode_comm)
-    assert is_queue_eventually_not_empty(from_ok_comm_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        barcode_comm, from_ok_comm_queue
+    )
     invoke_process_run_and_check_errors(monitor_thread)
 
     assert shared_values_dict["barcodes"][expected_board_idx] == expected_dict
