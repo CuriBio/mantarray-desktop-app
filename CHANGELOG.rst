@@ -4,11 +4,11 @@ Changelog for Mantarray Desktop App
 0.4.0 (unreleased)
 ------------------
 
-- Barcode is now read from the physical scanner on the instrument instead of being entered by the user
+- Barcode is now read from the physical scanner on the instrument instead of being entered
+  by the user. Barcodes updates are sent to the GUI in the ``system_status`` route.
 - Added UUID to Log Files.
-- Added Log File UUID and hash sum of computer name to
-  		   metadata of recorded files to make linking them to a specific
-  		   log file and computer easier.
+- Added Log File UUID and hash sum of computer name to metadata of recorded files to make
+  linking them to a specific log file and computer easier.
 - Updated HDF5 File Format Version to 0.4.0
 - Redacted username from file path in log for recording directory and log file path
 
@@ -17,9 +17,11 @@ Changelog for Mantarray Desktop App
   - Disallow 'M1', 'MC', 'MD' as first two characters.
   - Allow 'ME' as first two characters.
 
-- Transferred to GitHub
-- Bumped H5 file version to 0.3.3 to create a new version that is conclusively above 0.3.2/0.3.1 which have odd issues
-- Changed subprocesses to poll queues with a wait timeout of 0.025 seconds instead of using queue.empty(), since .empty() seemed was discovered to be less reliable during testing while transitioning to GitHub
+- Transferred to GitHub.
+- Bumped H5 file version to 0.3.3 to create a new version that is conclusively above
+  0.3.2/0.3.1 which have odd issues.
+- Changed subprocesses to poll queues with a wait timeout of 0.025 seconds instead of using queue.empty(),
+  since .empty() seemed was discovered to be less reliable during testing while transitioning to GitHub
 
 
 0.3.8 (2020-10-12)

@@ -7,7 +7,10 @@ import threading
 import time
 
 from freezegun import freeze_time
+from mantarray_desktop_app import BARCODE_INVALID_UUID
 from mantarray_desktop_app import BARCODE_POLL_PERIOD
+from mantarray_desktop_app import BARCODE_UNREADABLE_UUID
+from mantarray_desktop_app import BARCODE_VALID_UUID
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
@@ -820,3 +823,142 @@ def test_MantarrayProcessesMonitor__sends_two_barcode_poll_commands_to_OKComm_at
     assert mocked_get_dur.call_args_list[1][0][0] == expected_time_1
     assert mocked_get_dur.call_args_list[2][0][0] == expected_time_2
     assert mocked_get_dur.call_args_list[3][0][0] == expected_time_2
+
+
+@pytest.mark.parametrize(
+    "expected_barcode,test_valid,expected_status,test_description",
+    [
+        ("MA200190000", True, BARCODE_VALID_UUID, "stores new valid barcode"),
+        ("M$200190000", False, BARCODE_INVALID_UUID, "stores new invalid barcode"),
+        ("", None, BARCODE_UNREADABLE_UUID, "stores no barcode"),
+    ],
+)
+def test_MantarrayProcessesMonitor__stores_barcode_sent_from_ok_comm__and_no_previously_stored_barcode(
+    expected_barcode,
+    test_valid,
+    expected_status,
+    test_description,
+    test_monitor,
+    test_process_manager,
+):
+    monitor_thread, shared_values_dict, _, _ = test_monitor
+    expected_board_idx = 0
+    test_process_manager.create_processes()
+    from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+        expected_board_idx
+    )
+
+    barcode_comm = {
+        "communication_type": "barcode_comm",
+        "barcode": expected_barcode,
+        "board_idx": expected_board_idx,
+    }
+    if test_valid is not None:
+        barcode_comm["valid"] = test_valid
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        barcode_comm, from_ok_comm_queue
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+
+    assert shared_values_dict["barcodes"][expected_board_idx] == {
+        "plate_barcode": expected_barcode,
+        "barcode_status": expected_status,
+        "frontend_needs_barcode_update": True,
+    }
+
+
+@pytest.mark.parametrize(
+    "expected_barcode,test_valid,expected_status,test_description",
+    [
+        ("MA200190000", True, BARCODE_VALID_UUID, "stores new valid barcode"),
+        ("M$200190000", False, BARCODE_INVALID_UUID, "stores new invalid barcode"),
+        ("", None, BARCODE_UNREADABLE_UUID, "stores no barcode"),
+    ],
+)
+def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_ok_comm(
+    expected_barcode,
+    test_valid,
+    expected_status,
+    test_description,
+    test_monitor,
+    test_process_manager,
+):
+    monitor_thread, shared_values_dict, _, _ = test_monitor
+
+    expected_board_idx = 0
+    shared_values_dict["barcodes"] = {
+        expected_board_idx: {
+            "plate_barcode": "old barcode",
+            "barcode_status": None,
+            "frontend_needs_barcode_update": None,
+        }
+    }
+
+    test_process_manager.create_processes()
+    from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+        expected_board_idx
+    )
+
+    barcode_comm = {
+        "communication_type": "barcode_comm",
+        "barcode": expected_barcode,
+        "board_idx": expected_board_idx,
+    }
+    if test_valid is not None:
+        barcode_comm["valid"] = test_valid
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        barcode_comm, from_ok_comm_queue
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+
+    assert shared_values_dict["barcodes"][expected_board_idx] == {
+        "plate_barcode": expected_barcode,
+        "barcode_status": expected_status,
+        "frontend_needs_barcode_update": True,
+    }
+
+
+@pytest.mark.parametrize(
+    "expected_barcode,test_valid,test_update,test_description",
+    [
+        ("MA200190000", True, False, "stores new valid barcode"),
+        ("M$200190000", False, True, "stores new invalid barcode"),
+        ("", None, False, "stores no barcode"),
+    ],
+)
+def test_MantarrayProcessesMonitor__does_not_update_any_values_if_new_barcode_matches_current_barcode(
+    expected_barcode,
+    test_valid,
+    test_update,
+    test_description,
+    test_monitor,
+    test_process_manager,
+):
+    monitor_thread, shared_values_dict, _, _ = test_monitor
+
+    expected_board_idx = 0
+    expected_dict = {
+        "plate_barcode": expected_barcode,
+        "barcode_status": None,
+        "frontend_needs_barcode_update": test_update,
+    }
+    shared_values_dict["barcodes"] = {expected_board_idx: expected_dict}
+
+    test_process_manager.create_processes()
+    from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+        expected_board_idx
+    )
+
+    barcode_comm = {
+        "communication_type": "barcode_comm",
+        "barcode": expected_barcode,
+        "board_idx": expected_board_idx,
+    }
+    if test_valid is not None:
+        barcode_comm["valid"] = test_valid
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        barcode_comm, from_ok_comm_queue
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+
+    assert shared_values_dict["barcodes"][expected_board_idx] == expected_dict

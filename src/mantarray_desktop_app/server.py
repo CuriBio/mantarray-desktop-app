@@ -202,6 +202,7 @@ def system_status() -> Response:
 
     Can be invoked by: curl http://localhost:4567/system_status
     """
+    board_idx = 0
     shared_values_dict = _get_values_from_process_monitor()
     status = shared_values_dict["system_status"]
     status_dict = {
@@ -213,6 +214,22 @@ def system_status() -> Response:
         ),
         "mantarray_nickname": shared_values_dict.get("mantarray_nickname", ""),
     }
+    if (
+        "barcodes" in shared_values_dict
+        and shared_values_dict["barcodes"][board_idx]["frontend_needs_barcode_update"]
+    ):
+        status_dict["plate_barcode"] = shared_values_dict["barcodes"][board_idx][
+            "plate_barcode"
+        ]
+        status_dict["barcode_status"] = str(
+            shared_values_dict["barcodes"][board_idx]["barcode_status"]
+        )
+        queue_command_to_main(
+            {
+                "communication_type": "barcode_read_receipt",
+                "board_idx": board_idx,
+            }
+        )
 
     response = Response(json.dumps(status_dict), mimetype="application/json")
 
