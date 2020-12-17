@@ -43,6 +43,7 @@ from ..fixtures import fixture_patched_xem_scripts_folder
 from ..fixtures import fixture_test_process_manager
 from ..fixtures import GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from ..fixtures import start_processes_and_wait_for_start_ups_to_complete
 from ..fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
 from ..fixtures_process_monitor import fixture_test_monitor
 from ..fixtures_server import fixture_client_and_server_thread_and_shared_values
@@ -81,7 +82,7 @@ def test_send_single_set_mantarray_nickname_command__gets_processed_and_stores_n
     shared_values_dict = test_process_manager.get_values_to_share_to_server()
     expected_nickname = "Surnom Français"
     ok_process = test_process_manager.get_instrument_process()
-    test_process_manager.start_processes()
+    start_processes_and_wait_for_start_ups_to_complete(test_process_manager)
     port = get_server_port_number()
     confirm_port_in_use(port, timeout=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 
@@ -107,10 +108,6 @@ def test_send_single_set_mantarray_nickname_command__gets_processed_and_stores_n
     comm_from_ok_queue.get(
         timeout=QUEUE_CHECK_TIMEOUT_SECONDS
     )  # pull out the initial boot-up message
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull ok_comm connect to board message
-
     assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
     communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "mantarray_naming"
@@ -132,8 +129,8 @@ def test_send_single_start_calibration_command__gets_processed_and_sets_system_s
     monitor_thread, _, _, _ = test_monitor
     shared_values_dict = test_process_manager.get_values_to_share_to_server()
     expected_script_type = "start_calibration"
+    start_processes_and_wait_for_start_ups_to_complete(test_process_manager)
 
-    test_process_manager.start_processes()
     response = test_client.get("/insert_xem_command_into_queue/initialize_board")
     assert response.status_code == 200
     response = test_client.get("/start_calibration")
@@ -152,7 +149,6 @@ def test_send_single_start_calibration_command__gets_processed_and_sets_system_s
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
@@ -160,9 +156,6 @@ def test_send_single_start_calibration_command__gets_processed_and_sets_system_s
     comm_from_ok_queue.get(
         timeout=QUEUE_CHECK_TIMEOUT_SECONDS
     )  # pull out the initial boot-up message
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull ok_comm connect to board message
     comm_from_ok_queue.get(
         timeout=QUEUE_CHECK_TIMEOUT_SECONDS
     )  # pull initialize board response message
@@ -217,7 +210,6 @@ def test_send_single_initialize_board_command_with_bit_file__gets_processed(
         )
     )
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         board_idx

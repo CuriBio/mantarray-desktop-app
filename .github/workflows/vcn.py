@@ -38,7 +38,9 @@ def _set_vcn_environment_parameters() -> None:
 
 def _run_subprocess(args: List[str]) -> None:
     print(f"About to run with args: {args}")  # allow-print
-    results = subprocess.run(args)  # nosec # B603 shell is false, but input is secure
+    results = subprocess.run(  # nosec # B603 shell is True, but input is secure
+        args, shell=True
+    )
     if results.returncode != 0:
         sys.exit(results.returncode)
 
@@ -50,12 +52,12 @@ def login() -> None:
 
 def notarize(file_path: str) -> None:
     _set_vcn_environment_parameters()
-    _run_subprocess(["vcn.exe", "notarize", file_path, "--silent", "--public"])
+    _run_subprocess(["vcn.exe", "notarize", f'"{file_path}"', "--silent", "--public"])
 
 
 def authenticate(file_path: str) -> None:
     _set_vcn_environment_parameters()
-    _run_subprocess(["vcn.exe", "authenticate", file_path])
+    _run_subprocess(["vcn.exe", "authenticate", f'"{file_path}"'])
 
 
 if __name__ == "__main__":

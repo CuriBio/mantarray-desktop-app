@@ -273,14 +273,23 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         return are_stopped
 
     def are_subprocess_start_ups_complete(self) -> bool:
+        """Check if all subprocesses' start-up events have been set.
+
+        Often useful in unit-testing or other places where the processes
+        should be fully running before attempting the next command.
+        """
         if not isinstance(  # pylint:disable=isinstance-second-argument-not-valid-type # Eli (12/8/20): pylint issue https://github.com/PyCQA/pylint/issues/3507
             self._all_processes, Iterable
         ):
-            raise NotImplementedError("Processes must be created first.")
-        for _ in self._all_processes:
-            pass
+            return False
+        for iter_process in self._all_processes:
+            if isinstance(iter_process, ServerThread):
+                # Eli (12/17/20): skip the ServerThread because there is no clear way to mark the start up complete after launching flask.run()
+                continue
+            if not iter_process.is_start_up_complete():
+                return False
 
-        return False
+        return True
 
 
 def _create_process_manager() -> MantarrayProcessesManager:
