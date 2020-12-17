@@ -39,11 +39,14 @@ def test_system_state_eventually_equals__returns_True_after_system_state_equals_
     # mocker.patch.object(system_utils,'get_api_endpoint',autospec=True,return_value=dummy_api_endpoint) # Eli (11/18/20) mocking so that the ServerThread doesn't need to be started
     dummy_response = Response()
     mocker.patch.object(dummy_response, "json", side_effect=mocked_status_values)
+    mocker.patch.object(
+        system_utils, "sleep", autospec=True
+    )  # mock this to run the test faster
     mocked_get = mocker.patch.object(
         system_utils.requests, "get", autospec=True, return_value=dummy_response
     )
 
-    result = system_state_eventually_equals(expected_state, 1)
+    result = system_state_eventually_equals(expected_state, 2)
     assert result is True
 
     num_calls = len(mocked_status_values)

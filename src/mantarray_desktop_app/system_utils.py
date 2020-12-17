@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Utility functions for interacting with the fully running app."""
 import time
+from time import sleep
 from typing import Optional
 
 import requests
@@ -24,7 +25,7 @@ def system_state_eventually_equals(state_name: str, timeout: int) -> bool:
         )
         if is_desired_state and response.status_code == 200:
             break
-        time.sleep(0.01)  # sleep shortly between relentlessly pinging the server
+        sleep(0.5)  # Don't just relentlessly ping the Flask server
         elapsed_time = time.perf_counter() - start
     return is_desired_state
 
@@ -49,6 +50,6 @@ def wait_for_subprocesses_to_start() -> None:
             ):
                 return
         elapsed_time = time.perf_counter() - start
-        time.sleep(0.25)  # Don't just relentlessly ping the Flask server
+        sleep(0.5)  # Don't just relentlessly ping the Flask server
 
     raise SystemStartUpError()

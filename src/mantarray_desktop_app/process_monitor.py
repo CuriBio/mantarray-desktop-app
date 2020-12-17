@@ -416,12 +416,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
     def _check_subprocess_start_up_statuses(self) -> None:
         process_manager = self._process_manager
         shared_values_dict = self._values_to_share_to_server
-        processes: Tuple[InfiniteProcess, InfiniteProcess, InfiniteProcess] = (
-            process_manager.get_ok_comm_process(),
-            process_manager.get_file_writer_process(),
-            process_manager.get_data_analyzer_process(),
-        )
-        if all(p.is_start_up_complete() for p in processes):
+        if process_manager.are_subprocess_start_ups_complete():
             shared_values_dict["system_status"] = SERVER_READY_STATE
 
     def _add_offset_to_shared_dict(

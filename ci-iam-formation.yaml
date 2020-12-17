@@ -55,6 +55,20 @@ Resources:
                             - "/"
                             - - Ref: "BuildResourcesBucketName"
                               - "*"
+              - Action:
+                  - ssm:GetParameters
+                Effect: Allow
+                Resource:
+                  - Fn::Join:
+                      - "/"
+                      - - "arn:aws:ssm:*:*:parameter/CodeBuild"
+                        - "general"
+                        - "vcn_*"
+              - Action:
+                  - kms:Decrypt
+                Effect: Allow
+                Resource: "arn:aws:kms:*:*:alias/aws/ssm"
+
           PolicyName: "github-ci-access-mantarray-desktop-app"
   TheUserAccessKey:
     Type: AWS::IAM::AccessKey

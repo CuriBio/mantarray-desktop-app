@@ -510,6 +510,44 @@ def test_MantarrayProcessesManager__are_processes_stopped__sleeps_for_correct_am
     mocked_sleep.assert_called_once_with(SUBPROCESS_POLL_DELAY_SECONDS)
 
 
+def test_MantarrayProcessesManager__are_subprocess_start_ups_complete__returns_false_if_none_are_started(
+    test_process_manager,
+):
+    assert test_process_manager.are_subprocess_start_ups_complete() is False
+
+
+def test_MantarrayProcessesManager__are_subprocess_start_ups_complete__returns_false_if_none_are_created():
+    test_manager = MantarrayProcessesManager()
+    assert test_manager.are_subprocess_start_ups_complete() is False
+
+
+def test_MantarrayProcessesManager__are_subprocess_start_ups_complete__returns_true_if_all_except_server_are_started(
+    test_process_manager, mocker
+):
+    for iter_process in (
+        test_process_manager.get_instrument_process(),
+        test_process_manager.get_data_analyzer_process(),
+        test_process_manager.get_file_writer_process(),
+    ):
+        mocker.patch.object(
+            iter_process, "is_start_up_complete", autospec=True, return_value=True
+        )
+    assert test_process_manager.are_subprocess_start_ups_complete() is True
+
+
+def test_MantarrayProcessesManager__are_subprocess_start_ups_complete__returns_false_if_all_except_server_and_file_writer_are_started(
+    test_process_manager, mocker
+):
+    for iter_process in (
+        test_process_manager.get_instrument_process(),
+        test_process_manager.get_data_analyzer_process(),
+    ):
+        mocker.patch.object(
+            iter_process, "is_start_up_complete", autospec=True, return_value=True
+        )
+    assert test_process_manager.are_subprocess_start_ups_complete() is False
+
+
 # def test_get_mantarray_process_manager__spawns_processes_if_not_already_started__but_not_again(
 #     mocker,
 # ):

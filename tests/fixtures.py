@@ -6,6 +6,8 @@ from shutil import copy
 import tempfile
 import threading
 import time
+from time import perf_counter
+from time import sleep
 from typing import Any
 from typing import Dict
 from typing import List
@@ -108,6 +110,22 @@ def fixture_test_process_manager(mocker):
         if not fw.is_alive():
             # Eli (2/10/20): it is important in windows based systems to make sure to close the files before deleting them. be careful about this when running tests in a linux dev environment
             fw.close_all_files()
+
+
+def start_processes_and_wait_for_start_ups_to_complete(
+    test_manager: MantarrayProcessesManager,
+) -> None:
+    timeout_seconds = 12
+    test_manager.start_processes()
+    start_time = perf_counter()
+    while True:
+        sleep(0.5)
+        if test_manager.are_subprocess_start_ups_complete():
+            return
+        if perf_counter() - start_time > timeout_seconds:
+            raise Exception(
+                f"Subprocesses were not started within the timeout of {timeout_seconds} seconds"
+            )
 
 
 @pytest.fixture(scope="function", name="patch_subprocess_joins")
