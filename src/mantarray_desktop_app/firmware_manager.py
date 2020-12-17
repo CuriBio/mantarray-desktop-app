@@ -5,11 +5,15 @@ These should only be called in pyinstaller.spec
 """
 import os
 from os import listdir
+import re
 from typing import List
 from typing import Tuple
 
+from semver import VersionInfo
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import resource_path
+
+SEMVER_REGEX = re.compile(r"mantarray\_(\d+)\_(\d+)_(\d+)\.bit$")
 
 
 def _get_firmware_dir() -> str:
@@ -21,10 +25,20 @@ def _get_firmware_dir() -> str:
     return firmware_path
 
 
+def _get_semver_from_firmware_filename(filename: str) -> VersionInfo:
+    match = SEMVER_REGEX.search(filename)
+    if not match:
+        raise NotImplementedError(
+            f"The following file in the firmware folder did not match the specified format: {filename}"
+        )
+    return VersionInfo.parse(f"{match.group(1)}.{match.group(2)}.{match.group(3)}")
+
+
 def sort_firmware_files() -> List[str]:
     firmware_dir = _get_firmware_dir()
     firmware_files = listdir(firmware_dir)
-    return sorted(firmware_files)
+    firmware_files.sort(key=_get_semver_from_firmware_filename)
+    return firmware_files
 
 
 def get_latest_firmware_name() -> str:

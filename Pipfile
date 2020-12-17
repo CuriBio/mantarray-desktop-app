@@ -35,4 +35,4 @@ labware-domain-models = "==0.2"
 mantarray-file-manager = "==0.4.3"
 mantarray-waveform-analysis = "==0.5.10"
 xem-wrapper = "==0.2.5"
-
+semver = "==2.13.0"

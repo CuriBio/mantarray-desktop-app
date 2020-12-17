@@ -1,7 +1,7 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-0.4.0 (unreleased)
+0.4.0 (12/17/20)
 ------------------
 
 - Barcode is now read from the physical scanner on the instrument instead of being entered
@@ -22,6 +22,7 @@ Changelog for Mantarray Desktop App
   0.3.2/0.3.1 which have odd issues.
 - Changed subprocesses to poll queues with a wait timeout of 0.025 seconds instead of using queue.empty(),
   since .empty() seemed was discovered to be less reliable during testing while transitioning to GitHub
+- Patched bug where firmware file versions were sorted by text instead of by semver
 
 
 0.3.8 (2020-10-12)
