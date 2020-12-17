@@ -216,7 +216,7 @@ def system_status() -> Response:
     }
     if (
         "barcodes" in shared_values_dict
-        and shared_values_dict["barcodes"][board_idx]["update"]
+        and shared_values_dict["barcodes"][board_idx]["frontend_needs_barcode_update"]
     ):
         status_dict["plate_barcode"] = shared_values_dict["barcodes"][board_idx][
             "plate_barcode"
@@ -226,8 +226,8 @@ def system_status() -> Response:
         )
         queue_command_to_main(
             {
-                "communication_type": "barcode_comm",
-                "read_receipt": 0,
+                "communication_type": "barcode_read_receipt",
+                "board_idx": 0,
             }
         )
 

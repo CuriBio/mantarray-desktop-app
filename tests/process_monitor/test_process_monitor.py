@@ -862,7 +862,7 @@ def test_MantarrayProcessesMonitor__stores_barcode_sent_from_ok_comm__and_no_pre
     assert shared_values_dict["barcodes"][expected_board_idx] == {
         "plate_barcode": expected_barcode,
         "barcode_status": expected_status,
-        "update": True,
+        "frontend_needs_barcode_update": True,
     }
 
 
@@ -889,7 +889,7 @@ def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_ok_comm(
         expected_board_idx: {
             "plate_barcode": "old barcode",
             "barcode_status": None,
-            "update": None,
+            "frontend_needs_barcode_update": None,
         }
     }
 
@@ -912,7 +912,7 @@ def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_ok_comm(
     assert shared_values_dict["barcodes"][expected_board_idx] == {
         "plate_barcode": expected_barcode,
         "barcode_status": expected_status,
-        "update": True,
+        "frontend_needs_barcode_update": True,
     }
 
 
@@ -938,7 +938,7 @@ def test_MantarrayProcessesMonitor__does_not_update_any_values_if_new_barcode_ma
     expected_dict = {
         "plate_barcode": expected_barcode,
         "barcode_status": None,
-        "update": test_update,
+        "frontend_needs_barcode_update": test_update,
     }
     shared_values_dict["barcodes"] = {expected_board_idx: expected_dict}
 

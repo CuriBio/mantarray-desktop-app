@@ -1832,7 +1832,7 @@ def test_system_status__returns_correct_plate_barcode_and_status__only_when_barc
         expected_board_idx: {
             "plate_barcode": expected_barcode,
             "barcode_status": expected_status,
-            "update": True,
+            "frontend_needs_barcode_update": True,
         }
     }
 

@@ -192,9 +192,11 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
                 main_to_ok_comm_queue.put(communication)
                 main_to_da_queue.put(communication)
-        elif communication_type == "barcode_comm":
-            board_idx = communication["read_receipt"]
-            self._values_to_share_to_server["barcodes"][board_idx]["update"] = False
+        elif communication_type == "barcode_read_receipt":
+            board_idx = communication["board_idx"]
+            self._values_to_share_to_server["barcodes"][board_idx][
+                "frontend_needs_barcode_update"
+            ] = False
 
     def _put_communication_into_ok_comm_queue(
         self, communication: Dict[str, Any]
@@ -336,7 +338,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             self._values_to_share_to_server["barcodes"][board_idx] = {
                 "plate_barcode": communication["barcode"],
                 "barcode_status": barcode_status,
-                "update": True,
+                "frontend_needs_barcode_update": True,
             }
 
     def _commands_for_each_run_iteration(self) -> None:
