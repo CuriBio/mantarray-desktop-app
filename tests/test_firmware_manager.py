@@ -89,9 +89,7 @@ def test_get_latest_firmware__returns_correct_path_to_latest_firmware_file(mocke
     assert actual == expected_latest_file_path
 
     expected_relative_path = os.path.join("src", "firmware")
-    mocked_path.assert_called_once_with(
-        expected_relative_path, base_path=expected_base_path
-    )
+    mocked_path.assert_called_with(expected_relative_path, base_path=expected_base_path)
 
 
 def test_sort_firmware_files__returns_list_sorted_correctly_with_two_digit_numbers(
@@ -120,3 +118,17 @@ def test_sort_firmware_files__returns_list_sorted_correctly_when_directory_conta
     )
     actual = sort_firmware_files()
     assert actual[-1] == expected
+
+
+def test_get_latest_firmware__returns_correct_file_when_list_has_two_digit_numbers(
+    mocker,
+):
+    expected = "mantarray_2_1_10.bit"
+    mocker.patch.object(
+        firmware_manager,
+        "listdir",
+        autospec=True,
+        return_value=["mantarray_2_1_8.bit", expected],
+    )
+    actual = get_latest_firmware()
+    assert actual.endswith(expected) is True

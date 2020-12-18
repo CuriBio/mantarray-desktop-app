@@ -70,8 +70,7 @@ def get_latest_firmware() -> str:
     This function does not perform any validation of the name of the
     file being returned.
     """
-    firmware_dir = _get_firmware_dir()
-    firmware_files = listdir(firmware_dir)
-    latest_firmware_file = sorted(firmware_files)[-1]
-    latest_firmware_file_path = os.path.join(firmware_dir, latest_firmware_file)
+    firmware_files = sort_firmware_files()
+    latest_firmware_file = firmware_files[-1]
+    latest_firmware_file_path = os.path.join(_get_firmware_dir(), latest_firmware_file)
     return latest_firmware_file_path
