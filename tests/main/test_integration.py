@@ -192,22 +192,11 @@ def test_system_states_and_recording_files_with_file_directory_passed_in_cmd_lin
         assert response.status_code == 200
 
         assert system_state_eventually_equals(INSTRUMENT_INITIALIZING_STATE, 3) is True
-        # time.sleep(0.1) # wait for the status to change
-        # response = requests.get(f"{get_api_endpoint()}system_status")
-        # assert response.status_code == 200
-        # assert response.json()["ui_status_code"] == str(
-        #     SYSTEM_STATUS_UUIDS[INSTRUMENT_INITIALIZING_STATE]
-        # )
         assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 3) is True
 
         response = requests.get(f"{get_api_endpoint()}start_calibration")
         assert response.status_code == 200
-        # response = requests.get(f"{get_api_endpoint()}system_status")
-        # assert response.status_code == 200
         assert system_state_eventually_equals(CALIBRATING_STATE, 3) is True
-        # assert response.json()["ui_status_code"] == str(
-        #     SYSTEM_STATUS_UUIDS[CALIBRATING_STATE]
-        # )
         assert (
             system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME)
             is True
@@ -216,11 +205,6 @@ def test_system_states_and_recording_files_with_file_directory_passed_in_cmd_lin
         response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
         assert response.status_code == 200
         assert system_state_eventually_equals(BUFFERING_STATE, 3) is True
-        # response = requests.get(f"{get_api_endpoint()}system_status")
-        # assert response.status_code == 200
-        # assert response.json()["ui_status_code"] == str(
-        #     SYSTEM_STATUS_UUIDS[BUFFERING_STATE]
-        # )
         assert (
             system_state_eventually_equals(
                 LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME
@@ -236,27 +220,15 @@ def test_system_states_and_recording_files_with_file_directory_passed_in_cmd_lin
         )
         assert response.status_code == 200
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
-        # response = requests.get(f"{get_api_endpoint()}system_status")
-        # assert response.status_code == 200
-        # assert response.json()["ui_status_code"] == str(
-        #     SYSTEM_STATUS_UUIDS[RECORDING_STATE]
-        # )
 
         time.sleep(3)  # Tanner (6/15/20): This allows data to be written to files
 
         response = requests.get(f"{get_api_endpoint()}stop_recording")
         assert response.status_code == 200
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
-        # response = requests.get(f"{get_api_endpoint()}system_status")
-        # assert response.status_code == 200
-        # assert response.json()["ui_status_code"] == str(
-        #     SYSTEM_STATUS_UUIDS[LIVE_VIEW_ACTIVE_STATE]
-        # )
 
         response = requests.get(f"{get_api_endpoint()}stop_managed_acquisition")
         assert response.status_code == 200
-        # response = requests.get(f"{get_api_endpoint()}system_status")
-        # assert response.status_code == 200
         assert (
             system_state_eventually_equals(
                 CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME
@@ -282,7 +254,7 @@ def test_system_states_and_recording_files_with_file_directory_passed_in_cmd_lin
 
 @pytest.mark.slow
 @pytest.mark.timeout(INTEGRATION_TEST_TIMEOUT)
-def test_managed_acquisition_can_be_stopped_and_restarted_with_simulator(
+def test_managed_acquisition_and_recording_can_be_stopped_and_restarted_with_simulator__and_second_set_of_files_contains_waveform_data(
     patched_xem_scripts_folder,
     patched_firmware_folder,
     fully_running_app_from_main_entrypoint,
@@ -430,8 +402,6 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
 
         response = requests.get(f"{get_api_endpoint()}stop_managed_acquisition")
         assert response.status_code == 200
-        # response = requests.get(f"{get_api_endpoint()}system_status")
-        # assert response.status_code == 200
         assert (
             system_state_eventually_equals(
                 CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME
@@ -743,11 +713,6 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
         assert response.status_code == 200
 
         assert system_state_eventually_equals(RECORDING_STATE, 5) is True
-        # response = requests.get(f"{get_api_endpoint()}system_status")
-        # assert response.status_code == 200
-        # assert response.json()["ui_status_code"] == str(
-        #     SYSTEM_STATUS_UUIDS[RECORDING_STATE]
-        # )
 
         time.sleep(3)  # Tanner (6/15/20): This allows data to be written to files
 
