@@ -28,6 +28,7 @@ from mantarray_desktop_app import FIFO_READ_PRODUCER_WELL_AMPLITUDE
 from mantarray_desktop_app import FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
 from mantarray_desktop_app import get_api_endpoint
 from mantarray_desktop_app import get_server_port_number
+from mantarray_desktop_app import get_tissue_dataset_from_file
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import main
@@ -254,7 +255,7 @@ def test_system_states_and_recording_files_with_file_directory_passed_in_cmd_lin
 
 @pytest.mark.slow
 @pytest.mark.timeout(INTEGRATION_TEST_TIMEOUT)
-def test_managed_acquisition_and_recording_can_be_stopped_and_restarted_with_simulator__and_second_set_of_files_contains_waveform_data(
+def test_managed_acquisition_can_be_stopped_and_restarted_with_simulator(
     patched_xem_scripts_folder,
     patched_firmware_folder,
     fully_running_app_from_main_entrypoint,
@@ -324,7 +325,7 @@ def test_managed_acquisition_and_recording_can_be_stopped_and_restarted_with_sim
         year=2020, month=6, day=15, hour=14, minute=19, second=55, microsecond=313309
     )
 )
-def test_system_states_and_recorded_metadata_with_update_to_file_writer_directory(
+def test_system_states_and_recorded_metadata_with_update_to_file_writer_directory__and_files_after_stop_then_restart_recording_contain_waveform_data(
     patched_xem_scripts_folder,
     patched_firmware_folder,
     fully_running_app_from_main_entrypoint,
@@ -384,17 +385,28 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
             )
             is True
         )
-
-        expected_barcode = GENERIC_START_RECORDING_COMMAND[
+        expected_barcode1 = GENERIC_START_RECORDING_COMMAND[
             "metadata_to_copy_onto_main_file_attributes"
         ][PLATE_BARCODE_UUID]
         start_recording_time_index = 960
         response = requests.get(
-            f"{get_api_endpoint()}start_recording?barcode={expected_barcode}&time_index={start_recording_time_index}&is_hardware_test_recording=False"
+            f"{get_api_endpoint()}start_recording?barcode={expected_barcode1}&time_index={start_recording_time_index}&is_hardware_test_recording=False"
         )
         assert response.status_code == 200
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
+        time.sleep(3)  # Tanner (6/15/20): This allows data to be written to files
+        response = requests.get(f"{get_api_endpoint()}stop_recording?time_index=190000")
+        assert response.status_code == 200
+        assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
 
+        expected_barcode2 = (
+            expected_barcode1[:-1] + "2"
+        )  # change last char of default barcode from '1' to '2'
+        response = requests.get(
+            f"{get_api_endpoint()}start_recording?barcode={expected_barcode2}&time_index=200000&is_hardware_test_recording=False"
+        )
+        assert response.status_code == 200
+        assert system_state_eventually_equals(RECORDING_STATE, 3) is True
         time.sleep(3)  # Tanner (6/15/20): This allows data to be written to files
         response = requests.get(f"{get_api_endpoint()}stop_recording")
         assert response.status_code == 200
@@ -417,7 +429,8 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         actual_set_of_files = set(
             os.listdir(
                 os.path.join(
-                    expected_recordings_dir, f"{expected_barcode}__{expected_timestamp}"
+                    expected_recordings_dir,
+                    f"{expected_barcode1}__{expected_timestamp}",
                 )
             )
         )
@@ -426,14 +439,15 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         # Tanner (6/15/20): Processes must be joined to avoid h5 errors with reading files, so clearing queues manually here in order to join
         test_process_manager.hard_stop_and_join_processes()
 
+        # test first recording
         for row_idx in range(4):
             for col_idx in range(6):
                 well_idx = col_idx * 4 + row_idx
                 with h5py.File(
                     os.path.join(
                         expected_recordings_dir,
-                        f"{expected_barcode}__{expected_timestamp}",
-                        f"{expected_barcode}__{expected_timestamp}__{chr(row_idx+65)}{col_idx+1}.h5",
+                        f"{expected_barcode1}__{expected_timestamp}",
+                        f"{expected_barcode1}__{expected_timestamp}__{chr(row_idx+65)}{col_idx+1}.h5",
                     ),
                     "r",
                 ) as this_file:
@@ -553,6 +567,23 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                             "metadata_to_copy_onto_main_file_attributes"
                         ][COMPUTER_NAME_HASH]
                     )
+
+        # test second recording
+        for row_idx in range(4):
+            for col_idx in range(6):
+                with h5py.File(
+                    os.path.join(
+                        expected_recordings_dir,
+                        f"{expected_barcode2}__2020_06_15_141957",
+                        f"{expected_barcode2}__2020_06_15_141957__{chr(row_idx+65)}{col_idx+1}.h5",
+                    ),
+                    "r",
+                ) as this_file:
+                    assert str(START_RECORDING_TIME_INDEX_UUID) in this_file.attrs
+                    assert str(UTC_FIRST_TISSUE_DATA_POINT_UUID) in this_file.attrs
+                    assert str(UTC_FIRST_REF_DATA_POINT_UUID) in this_file.attrs
+                    actual_tissue_data = get_tissue_dataset_from_file(this_file)
+                    assert actual_tissue_data.shape[0] > 0
 
 
 @pytest.mark.slow
