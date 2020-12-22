@@ -1,7 +1,7 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-0.4.0 (12/17/20)
+0.4.0 (2020-12-17)
 ------------------
 
 - Barcode is now read from the physical scanner on the instrument instead of being entered
