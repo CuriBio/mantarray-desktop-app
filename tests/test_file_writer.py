@@ -486,35 +486,45 @@ def test_FileWriterProcess__start_recording__sets_stop_recording_timestamp_to_no
     assert file_writer_process.is_recording() is True
 
 
-def test_FileWriterProcess__stop_recording__sets_stop_recording_timestamp_to_timepoint_in_communication__and_communicates_successful_receipt__and_sets_is_recording_to_false(
+def test_FileWriterProcess__stop_recording_sets_stop_recording_timestamp_to_timepoint_in_communication_and_communicates_successful_receipt_and_sets_is_recording_to_false__and_start_recording_clears_stop_timestamp_and_finalization_statuses(
     four_board_file_writer_process,
 ):
-    # should maybe be replaced by a broader test that a recording can be started and stopped twice successfully...
     (
+        # pylint: disable=duplicate-code
         file_writer_process,
         board_queues,
+        # pylint: disable=duplicate-code
         from_main_queue,
         to_main_queue,
         _,
+        # pylint: disable=duplicate-code
         _,
     ) = four_board_file_writer_process
 
     expected_well_idx = 0
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
-    this_command["timepoint_to_begin_recording_at"] = 0
+    this_command["timepoint_to_begin_recording_at"] = 440000
     this_command["active_well_indices"] = [expected_well_idx]
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_command, from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    from_main_queue.put(this_command)
+    assert (
+        is_queue_eventually_of_size(
+            from_main_queue, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
-    a_data_packet = {
-        "well_index": expected_well_idx,
+    data_packet = {
         "is_reference_sensor": False,
-        "data": np.array([[0], [1]], dtype=np.int32),
+        "well_index": expected_well_idx,
+        "data": np.array([[440000], [0]], dtype=np.int32),
     }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        a_data_packet, board_queues[0][0], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    board_queues[0][0].put(data_packet)
+    assert (
+        is_queue_eventually_of_size(
+            board_queues[0][0], 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
@@ -522,25 +532,62 @@ def test_FileWriterProcess__stop_recording__sets_stop_recording_timestamp_to_tim
 
     assert stop_timestamps[0] is None
 
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        GENERIC_STOP_RECORDING_COMMAND,
-        from_main_queue,
-        timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
+    this_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    this_command["timepoint_to_stop_recording_at"] = 2968000
+    from_main_queue.put(this_command)
+    assert (
+        is_queue_eventually_of_size(
+            from_main_queue, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
-    assert stop_timestamps[0] == 302412 * 125
+    assert stop_timestamps[0] == 2968000
 
-    to_main_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pop off the initial receipt of start command message
-    assert_queue_is_eventually_not_empty(to_main_queue)
-    comm_to_main = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert (
+        is_queue_eventually_of_size(
+            to_main_queue, 2, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
+    to_main_queue.get_nowait()  # pop off the initial receipt of start command message
+    comm_to_main = to_main_queue.get_nowait()
     assert comm_to_main["communication_type"] == "command_receipt"
     assert comm_to_main["command"] == "stop_recording"
-    assert comm_to_main["timepoint_to_stop_recording_at"] == 302412 * 125
+    assert comm_to_main["timepoint_to_stop_recording_at"] == 2968000
 
     assert file_writer_process.is_recording() is False
+
+    data_packet2 = {
+        "is_reference_sensor": False,
+        "well_index": expected_well_idx,
+        "data": np.array([[3760000], [0]], dtype=np.int32),
+    }
+    board_queues[0][0].put(data_packet2)
+    assert (
+        is_queue_eventually_of_size(
+            board_queues[0][0], 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
+    invoke_process_run_and_check_errors(file_writer_process)
+
+    this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
+    this_command["timepoint_to_begin_recording_at"] = 3760000
+    this_command["active_well_indices"] = [expected_well_idx]
+    from_main_queue.put(this_command)
+    assert (
+        is_queue_eventually_of_size(
+            from_main_queue, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        )
+        is True
+    )
+    invoke_process_run_and_check_errors(file_writer_process)
+    assert stop_timestamps[0] is None
+
+    tissue_status, _ = file_writer_process.get_recording_finalization_statuses()
+    assert tissue_status[0][expected_well_idx] is False
 
 
 def test_FileWriterProcess__closes_the_files_and_adds_crc32_checksum_and_sends_communication_to_main_when_all_data_has_been_added_after_recording_stopped(
