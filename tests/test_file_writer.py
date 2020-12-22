@@ -459,7 +459,7 @@ def test_FileWriterProcess__start_recording__sets_stop_recording_timestamp_to_no
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [1, 5]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_command, from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        this_command, from_main_queue
     )
     file_writer_process.get_stop_recording_timestamps()[0] = 2999283
 
@@ -534,7 +534,9 @@ def test_FileWriterProcess__stop_recording_sets_stop_recording_timestamp_to_time
 
     assert stop_timestamps[0] == 2968000
 
-    confirm_queue_is_eventually_of_size(to_main_queue, 2)
+    confirm_queue_is_eventually_of_size(
+        to_main_queue, 2, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    )
     to_main_queue.get_nowait()  # pop off the initial receipt of start command message
     comm_to_main = to_main_queue.get_nowait()
     assert comm_to_main["communication_type"] == "command_receipt"
