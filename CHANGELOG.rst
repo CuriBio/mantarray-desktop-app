@@ -1,7 +1,14 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-0.4.0 (12/17/20)
+
+0.4.1 (unreleased)
+------------------
+- Fixed issue causing recorded files created after stopping and restarting recording
+  to not contain waveform data.
+
+
+0.4.0 (2020-12-17)
 ------------------
 
 - Barcode is now read from the physical scanner on the instrument instead of being entered
@@ -21,8 +28,8 @@ Changelog for Mantarray Desktop App
 - Bumped H5 file version to 0.3.3 to create a new version that is conclusively above
   0.3.2/0.3.1 which have odd issues.
 - Changed subprocesses to poll queues with a wait timeout of 0.025 seconds instead of using queue.empty(),
-  since .empty() seemed was discovered to be less reliable during testing while transitioning to GitHub
-- Patched bug where firmware file versions were sorted by text instead of by semver
+  since .empty() seemed was discovered to be less reliable during testing while transitioning to GitHub.
+- Patched bug where firmware file versions were sorted by text instead of by semver.
 
 
 0.3.8 (2020-10-12)

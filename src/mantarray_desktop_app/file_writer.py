@@ -207,7 +207,6 @@ class FileWriterProcess(InfiniteProcess):
         file_directory: str = "",
         logging_level: int = logging.INFO,
     ):
-
         super().__init__(fatal_error_reporter, logging_level=logging_level)
         self._board_queues = board_queues
         self._from_main_queue = from_main_queue
@@ -262,8 +261,6 @@ class FileWriterProcess(InfiniteProcess):
             this_file.close()
 
     def get_file_directory(self) -> str:
-        # if not self._file_directory:
-        #     raise NotImplementedError("file directory should always be a string")
         return self._file_directory
 
     def get_stop_recording_timestamps(self) -> List[Optional[int]]:
@@ -446,10 +443,10 @@ class FileWriterProcess(InfiniteProcess):
             tissue_status[0][this_well_idx] = False
             reference_status[0][this_well_idx] = False
 
+        self.get_stop_recording_timestamps()[0] = None
         data_packet_buffer = self._data_packet_buffers[0]
         for data_packet in data_packet_buffer:
             self._handle_recording_of_packet(data_packet)
-        self.get_stop_recording_timestamps()[0] = None
 
     def _process_stop_recording_command(self, communication: Dict[str, Any]) -> None:
         self._is_recording = False
