@@ -78,7 +78,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         return self._ok_communication_process
 
     def get_ok_comm_process(self) -> OkCommunicationProcess:
-        # eventually should deprecate and replace with get_instrument_process
+        # TODO Tanner (12/28/20): eventually should deprecate and replace with get_instrument_process
         return self.get_instrument_process()
 
     def get_file_writer_process(self) -> FileWriterProcess:
@@ -262,8 +262,8 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             processes, Iterable
         ):
             raise NotImplementedError("Processes must be created first.")
-        are_stopped = all(p.is_stopped() for p in processes)
 
+        are_stopped = all(p.is_stopped() for p in processes)
         while not are_stopped:
             sleep(SUBPROCESS_POLL_DELAY_SECONDS)
             elapsed_time = perf_counter() - start
