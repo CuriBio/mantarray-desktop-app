@@ -32,6 +32,9 @@ from .constants import RECORDING_STATE
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
+from .exceptions import UnrecognizedMantarrayNamingCommandError
+from .exceptions import UnrecognizedRecordingCommandError
+from .exceptions import UnrecognizedToInstrumentCommandError
 from .process_manager import MantarrayProcessesManager
 from .server import ServerThread
 from .utils import attempt_to_get_recording_directory_from_new_dict
@@ -123,6 +126,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 shared_values_dict["mantarray_serial_number"][0] = communication[
                     "mantarray_serial_number"
                 ]
+            else:
+                raise UnrecognizedMantarrayNamingCommandError(command)
 
             self._put_communication_into_ok_comm_queue(communication)
         elif communication_type == "shutdown":
@@ -152,9 +157,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 process_manager.set_file_directory(new_recording_directory)
             update_shared_dict(shared_values_dict, new_values)
         elif communication_type == "xem_scripts":
-            script_type = communication["script_type"]
-            if script_type == "start_calibration":
-                shared_values_dict["system_status"] = CALIBRATING_STATE
+            # Tanner (12/28/20): start_calibration is the only xem_scripts command that will come from server. This comm type will be removed/replaced in beta 2 so not adding handling for unrecognized command.
+            shared_values_dict["system_status"] = CALIBRATING_STATE
             self._put_communication_into_ok_comm_queue(communication)
         elif communication_type == "recording":
             command = communication["command"]
@@ -176,6 +180,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     shared_values_dict["adc_offsets"] = communication[
                         "metadata_to_copy_onto_main_file_attributes"
                     ]["adc_offsets"]
+            else:
+                raise UnrecognizedRecordingCommandError(command)
             main_to_fw_queue.put(communication)
         elif communication_type == "to_instrument":
             command = communication["command"]
@@ -192,6 +198,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
                 main_to_ok_comm_queue.put(communication)
                 main_to_da_queue.put(communication)
+            else:
+                raise UnrecognizedToInstrumentCommandError(command)
         elif communication_type == "barcode_read_receipt":
             board_idx = communication["board_idx"]
             self._values_to_share_to_server["barcodes"][board_idx][

@@ -12,6 +12,9 @@ from mantarray_desktop_app import process_monitor
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
+from mantarray_desktop_app import UnrecognizedMantarrayNamingCommandError
+from mantarray_desktop_app import UnrecognizedRecordingCommandError
+from mantarray_desktop_app import UnrecognizedToInstrumentCommandError
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
@@ -33,7 +36,7 @@ __fixtures__ = [
 ]
 
 
-def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_nickname_update_by_updating_shared_values_dictionary_and_passing_command_to_ok_comm(
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_nickname_setting_by_setting_shared_values_dictionary_and_passing_command_to_ok_comm(
     test_process_manager, test_monitor
 ):
     monitor_thread, _, _, _ = test_monitor
@@ -68,7 +71,36 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     assert actual_comm == expected_comm
 
 
-def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_serial_number_update_by_updating_shared_values_dictionary_and_passing_command_to_ok_comm(
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_nickname_update_by_updating_shared_values_dictionary(
+    test_process_manager, test_monitor
+):
+    monitor_thread, svd, _, _ = test_monitor
+
+    test_process_manager.create_processes()
+
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+    svd["mantarray_nickname"] = {0: "The Nautilus 1"}
+    expected_nickname = "The Nautilus 2"
+    expected_comm = {
+        "communication_type": "mantarray_naming",
+        "command": "set_mantarray_nickname",
+        "mantarray_nickname": expected_nickname,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        expected_comm, server_to_main_queue
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert is_queue_eventually_empty(server_to_main_queue) is True
+
+    assert (
+        test_process_manager.get_values_to_share_to_server()["mantarray_nickname"][0]
+        == expected_nickname
+    )
+
+
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_serial_number_setting_by_setting_shared_values_dictionary_and_passing_command_to_ok_comm(
     test_process_manager, test_monitor
 ):
     monitor_thread, _, _, _ = test_monitor
@@ -103,6 +135,59 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     confirm_queue_is_eventually_of_size(main_to_ok_comm, 1)
     actual_comm = main_to_ok_comm.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_comm == expected_comm
+
+
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_serial_number_update_by_updating_shared_values_dictionary(
+    test_process_manager, test_monitor
+):
+    monitor_thread, svd, _, _ = test_monitor
+
+    test_process_manager.create_processes()
+
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+    svd["mantarray_serial_number"] = {0: "M02001901"}
+    expected_serial = "M02001902"
+    expected_comm = {
+        "communication_type": "mantarray_naming",
+        "command": "set_mantarray_serial_number",
+        "mantarray_serial_number": expected_serial,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        expected_comm, server_to_main_queue
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert is_queue_eventually_empty(server_to_main_queue) is True
+
+    assert (
+        test_process_manager.get_values_to_share_to_server()["mantarray_serial_number"][
+            0
+        ]
+        == expected_serial
+    )
+
+
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raises_error_if_unrecognized_mantarray_naming_command(
+    test_process_manager, test_monitor
+):
+    monitor_thread, _, _, _ = test_monitor
+
+    test_process_manager.create_processes()
+
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+    expected_command = "bad_command"
+    expected_comm = {
+        "communication_type": "mantarray_naming",
+        "command": expected_command,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        expected_comm, server_to_main_queue
+    )
+    with pytest.raises(UnrecognizedMantarrayNamingCommandError, match=expected_command):
+        invoke_process_run_and_check_errors(monitor_thread)
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_start_calibration_by_updating_shared_values_dictionary_and_passing_command_to_ok_comm(
@@ -162,6 +247,27 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
     # clean up the instrument subprocess to avoid broken pipe errors
     test_process_manager.get_instrument_process().hard_stop()
+
+
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raises_error_if_unrecognized_to_instrument_command(
+    test_process_manager, test_monitor, mocker
+):
+    monitor_thread, _, _, _ = test_monitor
+
+    test_process_manager.create_processes()
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+    expected_command = "bad_command"
+    expected_comm = {
+        "communication_type": "to_instrument",
+        "command": expected_command,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        expected_comm, server_to_main_queue
+    )
+    with pytest.raises(UnrecognizedToInstrumentCommandError, match=expected_command):
+        invoke_process_run_and_check_errors(monitor_thread)
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_start_managed_acquisition__updates_system_status__puts_command_into_ok_comm_and_data_analyzer_queues(
@@ -352,6 +458,35 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         shared_values_dict["adc_offsets"]
         == communication["metadata_to_copy_onto_main_file_attributes"]["adc_offsets"]
     )
+
+
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raises_error_if_unrecognized_recording_command(
+    test_process_manager, test_monitor
+):
+    monitor_thread, _, _, _ = test_monitor
+
+    test_process_manager.create_processes()
+
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+    adc_offsets = dict()
+    for well_idx in range(24):
+        adc_offsets[well_idx] = {
+            "construct": 0,
+            "ref": 0,
+        }
+
+    expected_command = "bad_command"
+    communication = {
+        "communication_type": "recording",
+        "command": expected_command,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        communication, server_to_main_queue
+    )
+    with pytest.raises(UnrecognizedRecordingCommandError, match=expected_command):
+        invoke_process_run_and_check_errors(monitor_thread)
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_shutdown_soft_stop__by_soft_stopping_everything_except_the_server(

@@ -108,6 +108,8 @@ from .exceptions import UnrecognizedCommTypeFromMainToOKCommError
 from .exceptions import UnrecognizedDataFrameFormatNameError
 from .exceptions import UnrecognizedDebugConsoleCommandError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
+from .exceptions import UnrecognizedRecordingCommandError
+from .exceptions import UnrecognizedToInstrumentCommandError
 from .fifo_read_producer import FIFOReadProducer
 from .fifo_read_producer import produce_data
 from .fifo_simulator import RunningFIFOSimulator
@@ -303,4 +305,6 @@ __all__ = [
     "BARCODE_INVALID_UUID",
     "NO_PLATE_DETECTED_UUID",
     "BARCODE_UNREADABLE_UUID",
+    "UnrecognizedRecordingCommandError",
+    "UnrecognizedToInstrumentCommandError",
 ]

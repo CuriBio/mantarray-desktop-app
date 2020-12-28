@@ -78,6 +78,14 @@ class UnrecognizedMantarrayNamingCommandError(Exception):
     pass
 
 
+class UnrecognizedRecordingCommandError(Exception):
+    pass
+
+
+class UnrecognizedToInstrumentCommandError(Exception):
+    pass
+
+
 class ImproperlyFormattedCustomerAccountUUIDError(Exception):
     pass
 
