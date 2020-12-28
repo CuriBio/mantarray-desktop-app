@@ -537,8 +537,10 @@ def test_FileWriterProcess__stop_recording_sets_stop_recording_timestamp_to_time
     confirm_queue_is_eventually_of_size(
         to_main_queue, 2, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
-    to_main_queue.get_nowait()  # pop off the initial receipt of start command message
-    comm_to_main = to_main_queue.get_nowait()
+    to_main_queue.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # pop off the initial receipt of start command message
+    comm_to_main = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert comm_to_main["communication_type"] == "command_receipt"
     assert comm_to_main["command"] == "stop_recording"
     assert comm_to_main["timepoint_to_stop_recording_at"] == 2968000

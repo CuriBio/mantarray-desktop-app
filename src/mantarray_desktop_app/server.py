@@ -202,8 +202,14 @@ def system_status() -> Response:
 
     Can be invoked by: curl http://localhost:4567/system_status
     """
-    board_idx = 0
     shared_values_dict = _get_values_from_process_monitor()
+    if (
+        "expected_software_version" in shared_values_dict
+        and shared_values_dict["expected_software_version"] != CURRENT_SOFTWARE_VERSION
+    ):
+        return Response(status="500 Versions of Electron and Flask EXEs do not match")
+
+    board_idx = 0
     status = shared_values_dict["system_status"]
     status_dict = {
         "ui_status_code": str(SYSTEM_STATUS_UUIDS[status]),
@@ -264,8 +270,7 @@ def set_mantarray_nickname() -> Response:
     """
     nickname = request.args["nickname"]
     if len(nickname.encode("utf-8")) > 23:
-        response = Response(status="400 Nickname exceeds 23 bytes")
-        return response
+        return Response(status="400 Nickname exceeds 23 bytes")
 
     comm_dict = {
         "communication_type": "mantarray_naming",

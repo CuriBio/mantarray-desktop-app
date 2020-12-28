@@ -134,6 +134,11 @@ def main(
         type=str,
         help="allow initial configuration of user settings",
     )
+    parser.add_argument(
+        "--expected-software-version",
+        type=str,
+        help="used to make sure flask server and GUI are the same version",
+    )
     parsed_args = parser.parse_args(command_line_args)
 
     if parsed_args.log_level_debug:
@@ -173,13 +178,17 @@ def main(
         # validate_settings(settings_dict) # TODO (Eli 12/3/20): unit test and add this
         settings_dict = json.loads(decoded_settings)
 
+    if parsed_args.expected_software_version:
+        shared_values_dict[
+            "expected_software_version"
+        ] = parsed_args.expected_software_version
+
     log_file_uuid = settings_dict.get("log_file_uuid", uuid.uuid4())
+    shared_values_dict["log_file_uuid"] = log_file_uuid
 
     computer_name_hash = hashlib.sha512(
         socket.gethostname().encode(encoding="UTF-8")
     ).digest()
-
-    shared_values_dict["log_file_uuid"] = log_file_uuid
     shared_values_dict["computer_name_hash"] = str(computer_name_hash)
 
     msg = f"Log File UUID: {log_file_uuid}"  # TODO Tanner (11/25/20): figure out better way to handle missing log_file_uuid value
