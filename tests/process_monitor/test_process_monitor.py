@@ -18,6 +18,7 @@ from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import MantarrayProcessesMonitor
 from mantarray_desktop_app import ok_comm
 from mantarray_desktop_app import OUTGOING_DATA_BUFFER_SIZE
+from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import process_monitor
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import RunningFIFOSimulator
@@ -683,9 +684,14 @@ def test_MantarrayProcessesMonitor__doesnt_call_boot_up_after_subprocesses_start
 
 
 def test_MantarrayProcessesMonitor__stores_firmware_versions_during_instrument_boot_up(
-    test_monitor, test_process_manager
+    test_monitor, test_process_manager, mocker
 ):
     monitor_thread, shared_values_dict, _, _ = test_monitor
+
+    # Tanner (12/28/20): RunningFIFOSimulator ignores the name of bitfile given, so we can mock this out so it will pass in Cloud9
+    mocker.patch.object(
+        process_manager, "get_latest_firmware", autospec=True, return_value=None
+    )
 
     test_process_manager.create_processes()
 

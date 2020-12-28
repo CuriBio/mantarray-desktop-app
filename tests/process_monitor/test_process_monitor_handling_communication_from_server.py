@@ -228,6 +228,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 ):
     monitor_thread, _, _, _ = test_monitor
 
+    mocker.patch.object(
+        process_manager, "get_latest_firmware", autospec=True, return_value=None
+    )
+
     test_process_manager.create_processes()
     spied_boot_up_instrument = mocker.spy(test_process_manager, "boot_up_instrument")
     server_to_main_queue = (
