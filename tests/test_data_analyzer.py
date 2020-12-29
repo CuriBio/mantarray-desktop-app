@@ -643,7 +643,7 @@ def test_DataAnalyzerProcess__raises_error_with_unrecognized_acquisition_manager
 
     expected_command = "fake_command"
     start_command = {
-        "communication_type": "acquisition_manager",
+        "communication_type": "to_instrument",
         "command": expected_command,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -681,7 +681,7 @@ def test_DataAnalyzerProcess__processes_stop_managed_acquisition_command(
         data_buffer[well_idx]["ref_data"] = [[0, 0, 0], [4, 5, 6]]
 
     stop_command = {
-        "communication_type": "acquisition_manager",
+        "communication_type": "to_instrument",
         "command": "stop_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(

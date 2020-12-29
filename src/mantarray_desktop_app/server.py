@@ -548,7 +548,7 @@ def stop_managed_acquisition() -> Response:
     `curl http://localhost:4567/stop_managed_acquisition`
     """
     comm_dict = {
-        "communication_type": "acquisition_manager",
+        "communication_type": "to_instrument",
         "command": "stop_managed_acquisition",
     }
     server_thread = get_the_server_thread()

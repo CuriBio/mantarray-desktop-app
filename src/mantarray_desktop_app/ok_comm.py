@@ -696,8 +696,8 @@ class OkCommunicationProcess(InfiniteProcess):
             self._handle_debug_console_comm(this_communication)
         elif communication_type == "boot_up_instrument":
             self._boot_up_instrument(this_communication)
-        elif communication_type == "acquisition_manager":
-            self._handle_acquisition_manager_comm(this_communication)
+        elif communication_type == "to_instrument":
+            self._handle_to_instrument_comm(this_communication)
         elif communication_type == "xem_scripts":
             self._handle_xem_scripts_comm(this_communication)
         elif communication_type == "mantarray_naming":
@@ -716,8 +716,6 @@ class OkCommunicationProcess(InfiniteProcess):
                 self._reset_barcode_values()
                 self._barcode_scan_start_time[0] = time.perf_counter()
                 board.clear_barcode_scanner()
-        elif communication_type == "to_instrument":
-            self._handle_acquisition_manager_comm(this_communication)
         else:
             raise UnrecognizedCommTypeFromMainToOKCommError(communication_type)
         if not input_queue.empty():
@@ -845,9 +843,7 @@ class OkCommunicationProcess(InfiniteProcess):
         response_queue = self._board_queues[0][1]
         response_queue.put(this_communication)
 
-    def _handle_acquisition_manager_comm(
-        self, this_communication: Dict[str, Any]
-    ) -> None:
+    def _handle_to_instrument_comm(self, this_communication: Dict[str, Any]) -> None:
         response_queue = self._board_queues[0][1]
         board = self.get_board_connections_list()[0]
         if board is None:

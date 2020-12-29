@@ -103,7 +103,7 @@ def test_OkCommunicationProcess_run__processes_stop_managed_acquisition_command(
     input_queue = board_queues[0][0]
     ok_comm_to_main = board_queues[0][1]
     expected_returned_communication = {
-        "communication_type": "acquisition_manager",
+        "communication_type": "to_instrument",
         "command": "stop_managed_acquisition",
     }
     input_queue.put(copy.deepcopy(expected_returned_communication))
@@ -140,7 +140,7 @@ def test_OkCommunicationProcess_run__raises_error_if_acquisition_manager_command
 
     input_queue = board_queues[0][0]
     expected_returned_communication = {
-        "communication_type": "acquisition_manager",
+        "communication_type": "to_instrument",
         "command": "fake_command",
     }
     input_queue.put(copy.deepcopy(expected_returned_communication))
