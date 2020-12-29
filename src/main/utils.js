@@ -33,7 +33,7 @@ export function generate_flask_command_line_args(electron_store) {
     flask_logs_subfolder
   );
   // Eli (7/15/20): Having quotation marks around the path does not appear to be necessary even with spaces in the path, since it's being passed programatically and not directly through the shell
-  args.push("--log_file_dir=" + flask_logs_full_path + "");
+  args.push("--log-file-dir=" + flask_logs_full_path + "");
   const recording_directory_path = path.join(electron_store_dir, "recordings");
   mkdirp.sync(flask_logs_full_path);
   mkdirp.sync(recording_directory_path);

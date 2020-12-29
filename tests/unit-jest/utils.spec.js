@@ -51,7 +51,7 @@ describe("Given a temporary directory is available", () => {
         const actual_args = generate_flask_command_line_args(store);
         expect(actual_args).toEqual(
           expect.arrayContaining([
-            "--log_file_dir=" +
+            "--log-file-dir=" +
               path.join(path.dirname(store.path), "logs_flask"),
           ])
         );
