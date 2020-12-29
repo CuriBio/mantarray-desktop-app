@@ -267,7 +267,6 @@ def test_send_single_initialize_board_command_without_bit_file__gets_processed(
         )
     )
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         board_idx
@@ -329,7 +328,6 @@ def test_send_single_initialize_board_command_with_reinitialization__gets_proces
         )
     )
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         board_idx
@@ -386,7 +384,6 @@ def test_send_single_activate_trigger_in_command__gets_processed(
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
@@ -661,7 +658,6 @@ def test_send_single_get_serial_number_command__gets_processed(
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
@@ -1016,7 +1012,6 @@ def test_send_single_read_wire_out_command__gets_processed(
         )
     )
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         board_idx
@@ -1136,7 +1131,6 @@ def test_send_single_set_mantarray_serial_number_command__gets_processed_and_sto
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
@@ -1568,7 +1562,6 @@ def test_stop_recording_command__is_received_by_file_writer__with_given_time_ind
     invoke_process_run_and_check_errors(file_writer_process)
 
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     file_writer_to_main = (
         test_process_manager.queue_container().get_communication_queue_from_file_writer_to_main()
