@@ -10,6 +10,7 @@ import uuid
 
 from freezegun import freeze_time
 import h5py
+from labware_domain_models import LabwareDefinition
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
@@ -439,6 +440,8 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         # Tanner (6/15/20): Processes must be joined to avoid h5 errors with reading files, so clearing queues manually here in order to join
         test_process_manager.hard_stop_and_join_processes()
 
+        well_def = LabwareDefinition(row_count=4, column_count=6)
+
         # test first recording
         for row_idx in range(4):
             for col_idx in range(6):
@@ -447,7 +450,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                     os.path.join(
                         expected_recordings_dir,
                         f"{expected_barcode1}__{expected_timestamp}",
-                        f"{expected_barcode1}__{expected_timestamp}__{chr(row_idx+65)}{col_idx+1}.h5",
+                        f"{expected_barcode1}__{expected_timestamp}__{well_def.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
                     ),
                     "r",
                 ) as this_file:
@@ -535,7 +538,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
 
                     assert (
                         this_file_attrs[str(WELL_NAME_UUID)]
-                        == f"{chr(row_idx+65)}{col_idx+1}"
+                        == f"{well_def.get_well_name_from_row_and_column(row_idx, col_idx)}"
                     )
                     assert this_file_attrs["Metadata UUID Descriptions"] == json.dumps(
                         str(METADATA_UUID_DESCRIPTIONS)
@@ -543,9 +546,9 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                     assert this_file_attrs[str(TOTAL_WELL_COUNT_UUID)] == 24
                     assert this_file_attrs[str(WELL_ROW_UUID)] == row_idx
                     assert this_file_attrs[str(WELL_COLUMN_UUID)] == col_idx
-                    assert (
-                        this_file_attrs[str(WELL_INDEX_UUID)] == row_idx + col_idx * 4
-                    )
+                    assert this_file_attrs[
+                        str(WELL_INDEX_UUID)
+                    ] == well_def.get_well_index_from_row_and_column(row_idx, col_idx)
                     assert (
                         this_file_attrs[str(TISSUE_SAMPLING_PERIOD_UUID)]
                         == CONSTRUCT_SENSOR_SAMPLING_PERIOD
@@ -575,7 +578,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                     os.path.join(
                         expected_recordings_dir,
                         f"{expected_barcode2}__2020_06_15_141957",
-                        f"{expected_barcode2}__2020_06_15_141957__{chr(row_idx+65)}{col_idx+1}.h5",
+                        f"{expected_barcode2}__2020_06_15_141957__{well_def.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
                     ),
                     "r",
                 ) as this_file:

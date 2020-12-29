@@ -275,13 +275,14 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         os.listdir(os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}"))
     )
     assert len(actual_set_of_files) == 24
+
+    well_def = LabwareDefinition(row_count=4, column_count=6)
     expected_set_of_files = set()
     for row_idx in range(4):
         for col_idx in range(6):
             expected_set_of_files.add(
-                f"{expected_barcode}__{timestamp_str}__{chr(row_idx+65)}{col_idx+1}.h5"
+                f"{expected_barcode}__{timestamp_str}__{well_def.get_well_name_from_row_and_column(row_idx, col_idx)}.h5"
             )
-
     assert actual_set_of_files == expected_set_of_files
 
     for this_well_idx in range(24):
@@ -290,7 +291,6 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         this_file_being_written_to = open_files[0][this_well_idx]
         assert this_file_being_written_to.swmr_mode is True
 
-    well_def = LabwareDefinition(row_count=4, column_count=6)
     for well_idx in range(24):
         row_idx, col_idx = well_def.get_row_and_column_from_well_index(well_idx)
 
@@ -298,7 +298,7 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
             os.path.join(
                 file_dir,
                 f"{expected_barcode}__{timestamp_str}",
-                f"{expected_barcode}__{timestamp_str}__{chr(row_idx+65)}{col_idx+1}.h5",
+                f"{expected_barcode}__{timestamp_str}__{well_def.get_well_name_from_well_index(well_idx)}.h5",
             ),
             "r",
         )
@@ -372,10 +372,15 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         assert this_file.attrs["Metadata UUID Descriptions"] == json.dumps(
             str(METADATA_UUID_DESCRIPTIONS)
         )
-        assert this_file.attrs[str(WELL_NAME_UUID)] == f"{chr(row_idx+65)}{col_idx+1}"
+        assert (
+            this_file.attrs[str(WELL_NAME_UUID)]
+            == f"{well_def.get_well_name_from_well_index(well_idx)}"
+        )
         assert this_file.attrs[str(WELL_ROW_UUID)] == row_idx
         assert this_file.attrs[str(WELL_COLUMN_UUID)] == col_idx
-        assert this_file.attrs[str(WELL_INDEX_UUID)] == row_idx + col_idx * 4
+        assert this_file.attrs[
+            str(WELL_INDEX_UUID)
+        ] == well_def.get_well_index_from_row_and_column(row_idx, col_idx)
         assert this_file.attrs[str(TOTAL_WELL_COUNT_UUID)] == 24
         assert (
             this_file.attrs[str(REF_SAMPLING_PERIOD_UUID)]
@@ -537,8 +542,10 @@ def test_FileWriterProcess__stop_recording_sets_stop_recording_timestamp_to_time
     confirm_queue_is_eventually_of_size(
         to_main_queue, 2, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
-    to_main_queue.get_nowait()  # pop off the initial receipt of start command message
-    comm_to_main = to_main_queue.get_nowait()
+    to_main_queue.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # pop off the initial receipt of start command message
+    comm_to_main = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert comm_to_main["communication_type"] == "command_receipt"
     assert comm_to_main["command"] == "stop_recording"
     assert comm_to_main["timepoint_to_stop_recording_at"] == 2968000
@@ -1097,14 +1104,11 @@ def test_FileWriterProcess__records_all_requested_data_in_buffer__and_creates_di
     timestamp_str = "2020_02_09_190322"
 
     well_def = LabwareDefinition(row_count=4, column_count=6)
-    expected_row_idx, expected_col_idx = well_def.get_row_and_column_from_well_index(
-        expected_well_idx
-    )
     this_file = h5py.File(
         os.path.join(
             file_dir,
             f"{expected_barcode}__{timestamp_str}",
-            f"{expected_barcode}__{timestamp_str}__{chr(expected_row_idx+65)}{expected_col_idx+1}.h5",
+            f"{expected_barcode}__{timestamp_str}__{well_def.get_well_name_from_well_index(expected_well_idx)}.h5",
         ),
         "r",
     )
@@ -1189,14 +1193,11 @@ def test_FileWriterProcess__deletes_recorded_well_data_after_stop_time(
     timestamp_str = "2020_02_09_190322"
 
     well_def = LabwareDefinition(row_count=4, column_count=6)
-    expected_row_idx, expected_col_idx = well_def.get_row_and_column_from_well_index(
-        expected_well_idx
-    )
     this_file = h5py.File(
         os.path.join(
             file_dir,
             f"{expected_barcode}__{timestamp_str}",
-            f"{expected_barcode}__{timestamp_str}__{chr(expected_row_idx+65)}{expected_col_idx+1}.h5",
+            f"{expected_barcode}__{timestamp_str}__{well_def.get_well_name_from_well_index(expected_well_idx)}.h5",
         ),
         "r",
     )
@@ -1276,14 +1277,11 @@ def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
     timestamp_str = "2020_02_09_190322"
 
     well_def = LabwareDefinition(row_count=4, column_count=6)
-    expected_row_idx, expected_col_idx = well_def.get_row_and_column_from_well_index(
-        expected_well_idx
-    )
     this_file = h5py.File(
         os.path.join(
             file_dir,
             f"{expected_barcode}__{timestamp_str}",
-            f"{expected_barcode}__{timestamp_str}__{chr(expected_row_idx+65)}{expected_col_idx+1}.h5",
+            f"{expected_barcode}__{timestamp_str}__{well_def.get_well_name_from_well_index(expected_well_idx)}.h5",
         ),
         "r",
     )

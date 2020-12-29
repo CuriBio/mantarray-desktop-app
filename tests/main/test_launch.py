@@ -87,7 +87,7 @@ def test_main__handles_base64_command_line_argument_with_padding_issue(mocker):
     main.main(expected_command_line_args)
 
     spied_info_logger.assert_any_call(
-        "Command Line Args: {'debug_test_post_build': True, 'log_level_debug': False, 'skip_mantarray_boot_up': False, 'port_number': None, 'log_file_dir': None}"
+        "Command Line Args: {'debug_test_post_build': True, 'log_level_debug': False, 'skip_mantarray_boot_up': False, 'port_number': None, 'log_file_dir': None, 'expected_software_version': None}"
     )
     for call_args in spied_info_logger.call_args_list:
         # TODO (11/23/20): make this test easier to debug if it fails
@@ -106,7 +106,7 @@ def test_main__logs_command_line_arguments(mocker):
     main_thread.join()
 
     spied_info_logger.assert_any_call(
-        "Command Line Args: {'debug_test_post_build': True, 'log_level_debug': True, 'skip_mantarray_boot_up': False, 'port_number': None, 'log_file_dir': None}"
+        "Command Line Args: {'debug_test_post_build': True, 'log_level_debug': True, 'skip_mantarray_boot_up': False, 'port_number': None, 'log_file_dir': None, 'expected_software_version': None}"
     )
 
     for call_args in spied_info_logger.call_args_list:
@@ -467,4 +467,21 @@ def test_main_can_launch_server_and_processes_and_initial_boot_up_of_ok_comm_pro
 
     mocked_main_info_logger.assert_any_call(
         f"Build timestamp/version: {COMPILED_EXE_BUILD_TIMESTAMP}"
+    )
+
+
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
+@pytest.mark.slow
+def test_main__puts_server_into_error_mode_if_expected_software_version_is_incorrect(
+    fully_running_app_from_main_entrypoint, test_client
+):
+    fully_running_app_from_main_entrypoint(["--expected-software-version=0.0.0"])
+    port = get_server_port_number()
+    confirm_port_in_use(port, timeout=5)
+
+    response = test_client.get("/system_status")
+    assert response.status_code == 500
+    assert (
+        response.status.endswith("Versions of Electron and Flask EXEs do not match")
+        is True
     )
