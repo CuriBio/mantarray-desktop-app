@@ -1,4 +1,4 @@
-minimum_pre_commit_version: "2.9.3"
+minimum_pre_commit_version: 2.9.3
 fail_fast: false
 repos:
   # Git-related
@@ -46,7 +46,7 @@ repos:
 
   - repo: https://github.com/myint/docformatter
     # black seems to be working on formatting docstrings, but use this for now
-    rev: v1.3.1 # pick a git hash / tag to point to
+    rev: v1.4 # pick a git hash / tag to point to
     hooks:
       - id: docformatter
         exclude: (tests*)|(exceptions\.py)|(warnings\.py)
