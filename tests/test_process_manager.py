@@ -344,7 +344,7 @@ def test_MantarrayProcessesManager__passes_logging_level_to_subprocesses():
     manager = MantarrayProcessesManager(logging_level=expected_level)
     manager.create_processes()
     assert manager.get_file_writer_process().get_logging_level() == expected_level
-    assert manager.get_ok_comm_process().get_logging_level() == expected_level
+    assert manager.get_instrument_process().get_logging_level() == expected_level
     assert manager.get_data_analyzer_process().get_logging_level() == expected_level
     assert manager.get_server_thread().get_logging_level() == expected_level
 
@@ -404,7 +404,7 @@ def test_MantarrayProcessesManager__boot_up_instrument__populates_ok_comm_queue_
 def test_MantarrayProcessesManager__are_processes_stopped__waits_correct_amount_of_time_before_returning_false(
     test_process_manager, mocker
 ):
-    okc_process = test_process_manager.get_ok_comm_process()
+    okc_process = test_process_manager.get_instrument_process()
     fw_process = test_process_manager.get_file_writer_process()
     da_process = test_process_manager.get_data_analyzer_process()
     server_thread = test_process_manager.get_server_thread()

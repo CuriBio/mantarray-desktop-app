@@ -192,7 +192,7 @@ def test_MantarrayProcessesMonitor__logs_errors_from_OKComm(
     )
     expected_error = ValueError("something wrong")
     expected_stack_trace = "my stack trace"
-    expected_message = f"Error raised by subprocess {test_process_manager.get_ok_comm_process()}\n{expected_stack_trace}\n{expected_error}"
+    expected_message = f"Error raised by subprocess {test_process_manager.get_instrument_process()}\n{expected_stack_trace}\n{expected_error}"
     ok_comm_error_queue.put((expected_error, expected_stack_trace))
     assert is_queue_eventually_not_empty(ok_comm_error_queue) is True
     invoke_process_run_and_check_errors(monitor_thread)
@@ -279,7 +279,7 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
     mocked_logger = mocker.patch.object(process_monitor.logger, "error", autospec=True)
 
     test_process_manager.create_processes()
-    okc_process = test_process_manager.get_ok_comm_process()
+    okc_process = test_process_manager.get_instrument_process()
     fw_process = test_process_manager.get_file_writer_process()
     da_process = test_process_manager.get_data_analyzer_process()
     server_thread = test_process_manager.get_server_thread()
@@ -351,7 +351,7 @@ def test_MantarrayProcessesMonitor__updates_timestamp_in_shared_values_dict_afte
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     assert is_queue_eventually_not_empty(comm_to_ok_comm) is True
-    ok_comm_process = test_process_manager.get_ok_comm_process()
+    ok_comm_process = test_process_manager.get_instrument_process()
     simulator = FrontPanelSimulator({})
     simulator.initialize_board()
 
@@ -413,7 +413,7 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_server_ready_after_sub
     monitor_thread, shared_values_dict, _, _ = test_monitor
 
     test_process_manager.create_processes()
-    okc_process = test_process_manager.get_ok_comm_process()
+    okc_process = test_process_manager.get_instrument_process()
     fw_process = test_process_manager.get_file_writer_process()
     da_process = test_process_manager.get_data_analyzer_process()
 
@@ -449,7 +449,7 @@ def test_MantarrayProcessesMonitor__does_not_check_start_up_status_after_subproc
     shared_values_dict["system_status"] = expected_system_status
 
     test_process_manager.create_processes()
-    okc_process = test_process_manager.get_ok_comm_process()
+    okc_process = test_process_manager.get_instrument_process()
     fw_process = test_process_manager.get_file_writer_process()
     da_process = test_process_manager.get_data_analyzer_process()
 
@@ -470,7 +470,7 @@ def test_MantarrayProcessesMonitor__sets_in_simulation_mode_to_false_when_connec
     monitor_thread, shared_values_dict, _, _ = test_monitor
 
     test_process_manager.create_processes()
-    ok_comm_process = test_process_manager.get_ok_comm_process()
+    ok_comm_process = test_process_manager.get_instrument_process()
     container = test_process_manager.queue_container()
     ok_comm_to_main_queue = container.get_communication_queue_from_ok_comm_to_main(0)
 
@@ -488,7 +488,7 @@ def test_MantarrayProcessesMonitor__sets_in_simulation_mode_to_true_when_connect
     monitor_thread, shared_values_dict, _, _ = test_monitor
 
     test_process_manager.create_processes()
-    ok_comm_process = test_process_manager.get_ok_comm_process()
+    ok_comm_process = test_process_manager.get_instrument_process()
     ok_comm_to_main_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
     )
@@ -511,7 +511,7 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_needs_calibration_afte
 
     monitor_thread, shared_values_dict, _, _ = test_monitor
     test_process_manager.create_processes()
-    ok_comm_process = test_process_manager.get_ok_comm_process()
+    ok_comm_process = test_process_manager.get_instrument_process()
     simulator = FrontPanelSimulator({})
     simulator.initialize_board()
     ok_comm_process.set_board_connection(0, simulator)
@@ -547,12 +547,12 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_calibrated_after_calib
 
     monitor_thread, shared_values_dict, _, _ = test_monitor
     test_process_manager.create_processes()
-    ok_comm_process = test_process_manager.get_ok_comm_process()
+    ok_comm_process = test_process_manager.get_instrument_process()
     simulator = RunningFIFOSimulator()
     simulator.initialize_board()
     ok_comm_process.set_board_connection(0, simulator)
 
-    ok_comm_process = test_process_manager.get_ok_comm_process()
+    ok_comm_process = test_process_manager.get_instrument_process()
     from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
     )
@@ -581,7 +581,7 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_calibrated_after_manag
     )
 
     test_process_manager.create_processes()
-    ok_comm_process = test_process_manager.get_ok_comm_process()
+    ok_comm_process = test_process_manager.get_instrument_process()
     from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
     )
@@ -615,7 +615,7 @@ def test_MantarrayProcessesMonitor__stores_device_information_after_connection(
     monitor_thread, shared_values_dict, _, _ = test_monitor
 
     test_process_manager.create_processes()
-    ok_comm_process = test_process_manager.get_ok_comm_process()
+    ok_comm_process = test_process_manager.get_instrument_process()
     ok_comm_to_main_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
     )
@@ -695,7 +695,7 @@ def test_MantarrayProcessesMonitor__stores_firmware_versions_during_instrument_b
 
     test_process_manager.create_processes()
 
-    okc_process = test_process_manager.get_ok_comm_process()
+    okc_process = test_process_manager.get_instrument_process()
     to_ok_comm_queue = (
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )

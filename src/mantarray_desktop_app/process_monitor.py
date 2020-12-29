@@ -357,7 +357,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         for iter_error_queue, iter_process in (
             (
                 process_manager.queue_container().get_ok_communication_error_queue(),
-                process_manager.get_ok_comm_process(),
+                process_manager.get_instrument_process(),
             ),
             (
                 process_manager.queue_container().get_file_writer_error_queue(),

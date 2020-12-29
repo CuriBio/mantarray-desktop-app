@@ -559,7 +559,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
     test_process_manager.start_processes()
 
-    okc_process = test_process_manager.get_ok_comm_process()
+    okc_process = test_process_manager.get_instrument_process()
     fw_process = test_process_manager.get_file_writer_process()
     da_process = test_process_manager.get_data_analyzer_process()
     server_thread = test_process_manager.get_server_thread()
@@ -633,7 +633,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 ):
     monitor_thread, _, _, _ = test_monitor
 
-    okc_process = test_process_manager.get_ok_comm_process()
+    okc_process = test_process_manager.get_instrument_process()
     fw_process = test_process_manager.get_file_writer_process()
     da_process = test_process_manager.get_data_analyzer_process()
     server_thread = test_process_manager.get_server_thread()

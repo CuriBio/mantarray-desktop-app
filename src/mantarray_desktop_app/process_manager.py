@@ -77,10 +77,6 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
     def get_instrument_process(self) -> OkCommunicationProcess:
         return self._ok_communication_process
 
-    def get_ok_comm_process(self) -> OkCommunicationProcess:
-        # TODO Tanner (12/28/20): eventually should deprecate and replace with get_instrument_process
-        return self.get_instrument_process()
-
     def get_file_writer_process(self) -> FileWriterProcess:
         return self._file_writer_process
 

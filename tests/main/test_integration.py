@@ -135,9 +135,9 @@ def test_send_xem_scripts_command__gets_processed_in_fully_running_app(
     assert response.status_code == 200
     assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5)
 
-    ok_comm_process = test_process_manager.get_ok_comm_process()
-    ok_comm_process.soft_stop()
-    ok_comm_process.join()
+    instrument_process = test_process_manager.get_instrument_process()
+    instrument_process.soft_stop()
+    instrument_process.join()
 
     expected_gain_value = 16
     assert shared_values_dict["adc_gain"] == expected_gain_value
