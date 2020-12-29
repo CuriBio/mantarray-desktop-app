@@ -837,7 +837,7 @@ class OkCommunicationProcess(InfiniteProcess):
                     f"File name: {bit_file_name}, Version from wire_out value: {main_firmware_version}"
                 )
         this_communication["main_firmware_version"] = main_firmware_version
-        # TODO Tanner (7/15/20): add get_sleep_firmware_version and get_ref_voltage once possible
+        # TODO Tanner (12/29/20): add get_ref_voltage once possible
         this_communication["sleep_firmware_version"] = "0.0.0"
 
         response_queue = self._board_queues[0][1]
