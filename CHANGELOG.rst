@@ -5,7 +5,7 @@ Changelog for Mantarray Desktop App
 0.4.1 (unreleased)
 ------------------
 
-- Added 503 error code from ``system_status`` route if Electron and Flask EXE versions
+- Added 520 error code from ``system_status`` route if Electron and Flask EXE versions
   don't match.
 - Fixed issue causing recorded files created after stopping and restarting recording
   to not contain waveform data.
