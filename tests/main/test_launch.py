@@ -485,7 +485,7 @@ def test_main__puts_server_into_error_mode_if_expected_software_version_is_incor
     confirm_port_in_use(port, timeout=5)
 
     response = test_client.get("/system_status")
-    assert response.status_code == 500
+    assert response.status_code == 503
     assert (
         response.status.endswith("Versions of Electron and Flask EXEs do not match")
         is True
