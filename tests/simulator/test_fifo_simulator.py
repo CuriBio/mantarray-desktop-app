@@ -16,9 +16,9 @@ from xem_wrapper import OpalKellyBoardNotInitializedError
 from xem_wrapper import OpalKellyFileNotFoundError
 from xem_wrapper import PIPE_OUT_FIFO
 
-from .helpers import is_queue_eventually_empty
-from .helpers import is_queue_eventually_not_empty
-from .helpers import is_queue_eventually_of_size
+from ..helpers import is_queue_eventually_empty
+from ..helpers import is_queue_eventually_not_empty
+from ..helpers import is_queue_eventually_of_size
 
 
 @pytest.fixture(scope="function", name="fifo_simulator")

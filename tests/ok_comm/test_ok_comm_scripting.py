@@ -19,10 +19,10 @@ from stdlib_utils import resource_path
 from xem_wrapper import convert_wire_value
 from xem_wrapper import OkHardwareUnsupportedFeatureError
 
-from .fixtures import fixture_test_process_manager
-from .fixtures_ok_comm import fixture_four_board_comm_process
-from .fixtures_process_monitor import fixture_test_monitor
-from .helpers import is_queue_eventually_not_empty
+from ..fixtures import fixture_test_process_manager
+from ..fixtures_ok_comm import fixture_four_board_comm_process
+from ..fixtures_process_monitor import fixture_test_monitor
+from ..helpers import is_queue_eventually_not_empty
 
 __fixtures__ = [
     fixture_test_monitor,
