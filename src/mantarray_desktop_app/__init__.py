@@ -101,8 +101,8 @@ from .exceptions import MultiprocessingNotSetToSpawnError
 from .exceptions import RecordingFolderDoesNotExistError
 from .exceptions import ScriptDoesNotContainEndCommandError
 from .exceptions import SystemStartUpError
-from .exceptions import UnrecognizedAcquisitionManagerCommandError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
+from .exceptions import UnrecognizedCommandToInstrumentError
 from .exceptions import UnrecognizedCommTypeFromMainToDataAnalyzerError
 from .exceptions import UnrecognizedCommTypeFromMainToOKCommError
 from .exceptions import UnrecognizedDataFrameFormatNameError
@@ -204,7 +204,7 @@ __all__ = [
     "InvalidDataTypeFromOkCommError",
     "build_file_writer_objects",
     "UnrecognizedCommTypeFromMainToOKCommError",
-    "UnrecognizedAcquisitionManagerCommandError",
+    "UnrecognizedCommandToInstrumentError",
     "fifo_simulator",
     "RunningFIFOSimulator",
     "AttemptToInitializeFIFOReadsError",

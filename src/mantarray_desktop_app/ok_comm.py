@@ -60,7 +60,7 @@ from .exceptions import InvalidDataFramePeriodError
 from .exceptions import InvalidScriptCommandError
 from .exceptions import MismatchedScriptTypeError
 from .exceptions import ScriptDoesNotContainEndCommandError
-from .exceptions import UnrecognizedAcquisitionManagerCommandError
+from .exceptions import UnrecognizedCommandToInstrumentError
 from .exceptions import UnrecognizedCommTypeFromMainToOKCommError
 from .exceptions import UnrecognizedDataFrameFormatNameError
 from .exceptions import UnrecognizedDebugConsoleCommandError
@@ -859,9 +859,7 @@ class OkCommunicationProcess(InfiniteProcess):
             self._is_managed_acquisition_running[0] = False
             board.stop_acquisition()
         else:
-            raise UnrecognizedAcquisitionManagerCommandError(
-                this_communication["command"]
-            )
+            raise UnrecognizedCommandToInstrumentError(this_communication["command"])
         response_queue.put(this_communication)
 
     def _handle_xem_scripts_comm(self, this_communication: Dict[str, Any]) -> None:

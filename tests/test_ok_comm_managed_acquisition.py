@@ -20,7 +20,7 @@ from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
-from mantarray_desktop_app import UnrecognizedAcquisitionManagerCommandError
+from mantarray_desktop_app import UnrecognizedCommandToInstrumentError
 from mantarray_desktop_app import UnrecognizedDataFrameFormatNameError
 import numpy as np
 import pytest
@@ -126,7 +126,7 @@ def test_OkCommunicationProcess_run__processes_stop_managed_acquisition_command(
     assert board_connections[0].is_spi_running() is False
 
 
-def test_OkCommunicationProcess_run__raises_error_if_acquisition_manager_command_is_invalid(
+def test_OkCommunicationProcess_run__raises_error_if_command_to_instrument_is_invalid(
     four_board_comm_process, mocker
 ):
     mocker.patch(
@@ -150,9 +150,7 @@ def test_OkCommunicationProcess_run__raises_error_if_acquisition_manager_command
         )
         is True
     )
-    with pytest.raises(
-        UnrecognizedAcquisitionManagerCommandError, match="fake_command"
-    ):
+    with pytest.raises(UnrecognizedCommandToInstrumentError, match="fake_command"):
         invoke_process_run_and_check_errors(ok_process)
 
 

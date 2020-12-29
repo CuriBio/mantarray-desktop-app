@@ -32,7 +32,7 @@ from .constants import MILLIVOLTS_PER_VOLT
 from .constants import REF_INDEX_TO_24_WELL_INDEX
 from .constants import REFERENCE_VOLTAGE
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
-from .exceptions import UnrecognizedAcquisitionManagerCommandError
+from .exceptions import UnrecognizedCommandToInstrumentError
 from .exceptions import UnrecognizedCommTypeFromMainToDataAnalyzerError
 
 
@@ -151,9 +151,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                         "ref_data": None,
                     }
             else:
-                raise UnrecognizedAcquisitionManagerCommandError(  # TODO (Eli 11/10/20): probably rename this to something more generic like "command to instrument error"
-                    communication["command"]
-                )
+                raise UnrecognizedCommandToInstrumentError(communication["command"])
             self._comm_to_main_queue.put(communication)
         else:
             raise UnrecognizedCommTypeFromMainToDataAnalyzerError(communication_type)

@@ -25,7 +25,7 @@ from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
-from mantarray_desktop_app import UnrecognizedAcquisitionManagerCommandError
+from mantarray_desktop_app import UnrecognizedCommandToInstrumentError
 from mantarray_desktop_app import UnrecognizedCommTypeFromMainToDataAnalyzerError
 from mantarray_waveform_analysis import BUTTERWORTH_LOWPASS_30_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
@@ -632,7 +632,7 @@ def test_DataAnalyzerProcess__create_outgoing_data__compresses_displacement_data
     )
 
 
-def test_DataAnalyzerProcess__raises_error_with_unrecognized_acquisition_manager_command(
+def test_DataAnalyzerProcess__raises_error_with_unrecognized_command_to_instrument(
     four_board_analyzer_process, mocker
 ):
     mocker.patch(
@@ -650,9 +650,7 @@ def test_DataAnalyzerProcess__raises_error_with_unrecognized_acquisition_manager
         start_command, comm_from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
 
-    with pytest.raises(
-        UnrecognizedAcquisitionManagerCommandError, match=expected_command
-    ):
+    with pytest.raises(UnrecognizedCommandToInstrumentError, match=expected_command):
         invoke_process_run_and_check_errors(p)
 
 
