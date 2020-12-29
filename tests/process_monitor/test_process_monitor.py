@@ -596,7 +596,7 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_calibrated_after_manag
 
     to_ok_comm_queue.put(
         {
-            "communication_type": "acquisition_manager",
+            "communication_type": "to_instrument",
             "command": "stop_managed_acquisition",
         }
     )
