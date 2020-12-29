@@ -149,31 +149,36 @@ CHANNEL_INDEX_TO_24_WELL_INDEX = {  # may be unnecessary
     22: 19,
     23: 18,
 }
-# Eli (12/10/20): having some trouble converting these to immutable dicts as Cython doesn't seem to like it. Could maybe make a mutable copy right before passing to Cython
-REF_INDEX_TO_24_WELL_INDEX = {
-    0: frozenset([0, 1, 4, 5]),
-    1: frozenset([8, 9, 12, 13]),
-    2: frozenset([16, 17, 20, 21]),
-    3: frozenset([2, 3, 6, 7]),
-    4: frozenset([10, 11, 14, 15]),
-    5: frozenset([18, 19, 22, 23]),
-}
-ADC_CH_TO_24_WELL_INDEX = {
-    0: {0: 0, 2: 1, 4: 4, 6: 5},
-    1: {0: 8, 2: 9, 4: 12, 6: 13},
-    2: {0: 16, 2: 17, 4: 20, 6: 21},
-    3: {6: 2, 4: 3, 2: 6, 0: 7},
-    4: {6: 10, 4: 11, 2: 14, 0: 15},
-    5: {6: 18, 4: 19, 2: 22, 0: 23},
-}
-ADC_CH_TO_IS_REF_SENSOR = {
-    0: {0: False, 1: True, 2: False, 3: True, 4: False, 5: True, 6: False, 7: True},
-    1: {0: False, 1: True, 2: False, 3: True, 4: False, 5: True, 6: False, 7: True},
-    2: {0: False, 1: True, 2: False, 3: True, 4: False, 5: True, 6: False, 7: True},
-    3: {0: False, 1: True, 2: False, 3: True, 4: False, 5: True, 6: False, 7: True},
-    4: {0: False, 1: True, 2: False, 3: True, 4: False, 5: True, 6: False, 7: True},
-    5: {0: False, 1: True, 2: False, 3: True, 4: False, 5: True, 6: False, 7: True},
-}
+REF_INDEX_TO_24_WELL_INDEX = immutabledict(
+    {
+        0: frozenset([0, 1, 4, 5]),
+        1: frozenset([8, 9, 12, 13]),
+        2: frozenset([16, 17, 20, 21]),
+        3: frozenset([2, 3, 6, 7]),
+        4: frozenset([10, 11, 14, 15]),
+        5: frozenset([18, 19, 22, 23]),
+    }
+)
+ADC_CH_TO_24_WELL_INDEX = immutabledict(
+    {
+        0: {0: 0, 2: 1, 4: 4, 6: 5},
+        1: {0: 8, 2: 9, 4: 12, 6: 13},
+        2: {0: 16, 2: 17, 4: 20, 6: 21},
+        3: {6: 2, 4: 3, 2: 6, 0: 7},
+        4: {6: 10, 4: 11, 2: 14, 0: 15},
+        5: {6: 18, 4: 19, 2: 22, 0: 23},
+    }
+)
+ADC_CH_TO_IS_REF_SENSOR = immutabledict(
+    {
+        0: {0: False, 1: True, 2: False, 3: True, 4: False, 5: True, 6: False, 7: True},
+        1: {0: False, 1: True, 2: False, 3: True, 4: False, 5: True, 6: False, 7: True},
+        2: {0: False, 1: True, 2: False, 3: True, 4: False, 5: True, 6: False, 7: True},
+        3: {0: False, 1: True, 2: False, 3: True, 4: False, 5: True, 6: False, 7: True},
+        4: {0: False, 1: True, 2: False, 3: True, 4: False, 5: True, 6: False, 7: True},
+        5: {0: False, 1: True, 2: False, 3: True, 4: False, 5: True, 6: False, 7: True},
+    }
+)
 WELL_24_INDEX_TO_ADC_AND_CH_INDEX: Dict[int, Tuple[int, int]] = dict()
 for adc_num in range(6):
     for ch_num in range(0, 8, 2):

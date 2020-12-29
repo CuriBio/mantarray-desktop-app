@@ -10,8 +10,8 @@ from .constants import ADC_CH_TO_24_WELL_INDEX
 from .constants import ADC_CH_TO_IS_REF_SENSOR
 from .constants import RAW_TO_SIGNED_CONVERSION_VALUE
 
-cdef map[int, map[int, int]] ADC_CH_TO_24_WELL_INDEX_C_MAP = ADC_CH_TO_24_WELL_INDEX
-cdef map[int, map[int, bint]] ADC_CH_TO_IS_REF_SENSOR_C_MAP = ADC_CH_TO_IS_REF_SENSOR
+cdef map[int, map[int, int]] ADC_CH_TO_24_WELL_INDEX_C_MAP = dict(ADC_CH_TO_24_WELL_INDEX)
+cdef map[int, map[int, bint]] ADC_CH_TO_IS_REF_SENSOR_C_MAP = dict(ADC_CH_TO_IS_REF_SENSOR)
 cdef int RAW_TO_SIGNED_CONVERSION_VALUE_C_INT = RAW_TO_SIGNED_CONVERSION_VALUE
 
 def parse_sensor_bytes(unsigned char[4] data_bytes) -> Tuple[bool, int, int]:
