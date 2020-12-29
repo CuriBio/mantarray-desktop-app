@@ -142,7 +142,7 @@ def test_DataAnalyzerProcess_commands_for_each_run_iteration__checks_for_calibra
 ):
     calibration_comm = {
         "communication_type": "calibration",
-        "calibration_settings": 1,  # Tanner (2/26/20): add real settings once fleshed out
+        "calibration_settings": 1,  # TODO Tanner (2/26/20): add real settings once fleshed out
     }
 
     p, _, comm_from_main_queue, _, _ = four_board_analyzer_process

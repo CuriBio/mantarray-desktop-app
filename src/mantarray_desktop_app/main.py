@@ -118,14 +118,13 @@ def main(
         action="store_true",
         help="bypasses automatic run of boot_up for hardware testing",
     )
-    # TODO (Eli 11/16/20): fix all Command Line Arguments to be consistently kebab-case
     parser.add_argument(
-        "--port_number",
+        "--port-number",
         type=int,
         help="allow manual setting of server port number",
     )
     parser.add_argument(
-        "--log_file_dir",
+        "--log-file-dir",
         type=str,
         help="allow manual setting of the directory in which log files will be stored",
     )
