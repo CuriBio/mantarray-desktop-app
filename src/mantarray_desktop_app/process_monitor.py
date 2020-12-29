@@ -32,9 +32,9 @@ from .constants import RECORDING_STATE
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
+from .exceptions import UnrecognizedCommandToInstrumentError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
 from .exceptions import UnrecognizedRecordingCommandError
-from .exceptions import UnrecognizedToInstrumentCommandError
 from .process_manager import MantarrayProcessesManager
 from .server import ServerThread
 from .utils import attempt_to_get_recording_directory_from_new_dict
@@ -199,7 +199,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 main_to_ok_comm_queue.put(communication)
                 main_to_da_queue.put(communication)
             else:
-                raise UnrecognizedToInstrumentCommandError(command)
+                raise UnrecognizedCommandToInstrumentError(command)
         elif communication_type == "barcode_read_receipt":
             board_idx = communication["board_idx"]
             self._values_to_share_to_server["barcodes"][board_idx][

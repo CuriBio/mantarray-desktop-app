@@ -12,9 +12,9 @@ from mantarray_desktop_app import process_monitor
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
+from mantarray_desktop_app import UnrecognizedCommandToInstrumentError
 from mantarray_desktop_app import UnrecognizedMantarrayNamingCommandError
 from mantarray_desktop_app import UnrecognizedRecordingCommandError
-from mantarray_desktop_app import UnrecognizedToInstrumentCommandError
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
@@ -270,7 +270,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raise
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         expected_comm, server_to_main_queue
     )
-    with pytest.raises(UnrecognizedToInstrumentCommandError, match=expected_command):
+    with pytest.raises(UnrecognizedCommandToInstrumentError, match=expected_command):
         invoke_process_run_and_check_errors(monitor_thread)
 
 
