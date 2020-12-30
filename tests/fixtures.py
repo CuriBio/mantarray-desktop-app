@@ -13,6 +13,7 @@ from typing import Dict
 from typing import List
 from typing import Optional
 
+from immutabledict import immutabledict
 from mantarray_desktop_app import clear_server_singletons
 from mantarray_desktop_app import DataAnalyzerProcess
 from mantarray_desktop_app import FileWriterProcess
@@ -37,6 +38,13 @@ from stdlib_utils import resource_path
 PATH_TO_CURRENT_FILE = get_current_file_abs_directory()
 QUEUE_CHECK_TIMEOUT_SECONDS = 1.3  # for is_queue_eventually_of_size, is_queue_eventually_not_empty, is_queue_eventually_empty, put_object_into_queue_and_raise_error_if_eventually_still_empty, etc. # Eli (10/28/20) issue encountered where even 0.5 seconds was insufficient, so raising to 1 second # Eli (12/10/20) issue encountered where 1.1 second was not enough, so now 1.2 seconds # Eli (12/15/20): issue in test_ServerThread_start__puts_error_into_queue_if_flask_run_raises_error in Windows Github where 1.2 was not enough, so now 1.3
 GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS = 15
+
+STOP_MANAGED_ACQUISITION_COMMAND = immutabledict(
+    {
+        "communication_type": "to_instrument",
+        "command": "stop_managed_acquisition",
+    }
+)
 
 
 @pytest.fixture(scope="function", name="generic_queue_container")

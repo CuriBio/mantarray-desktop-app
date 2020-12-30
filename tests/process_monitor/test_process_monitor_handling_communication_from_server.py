@@ -74,14 +74,14 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_nickname_update_by_updating_shared_values_dictionary(
     test_process_manager, test_monitor
 ):
-    monitor_thread, svd, _, _ = test_monitor
+    monitor_thread, shared_values_dict, _, _ = test_monitor
 
     test_process_manager.create_processes()
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
-    svd["mantarray_nickname"] = {0: "The Nautilus 1"}
+    shared_values_dict["mantarray_nickname"] = {0: "The Nautilus 1"}
     expected_nickname = "The Nautilus 2"
     expected_comm = {
         "communication_type": "mantarray_naming",

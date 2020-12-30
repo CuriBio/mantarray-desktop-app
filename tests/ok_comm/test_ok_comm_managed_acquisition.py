@@ -37,6 +37,7 @@ from xem_wrapper import PIPE_OUT_FIFO
 
 from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from ..fixtures import STOP_MANAGED_ACQUISITION_COMMAND
 from ..fixtures_ok_comm import fixture_four_board_comm_process
 from ..fixtures_ok_comm import generate_board_and_error_queues
 from ..helpers import is_queue_eventually_empty
@@ -102,10 +103,7 @@ def test_OkCommunicationProcess_run__processes_stop_managed_acquisition_command(
 
     input_queue = board_queues[0][0]
     ok_comm_to_main = board_queues[0][1]
-    expected_returned_communication = {
-        "communication_type": "to_instrument",
-        "command": "stop_managed_acquisition",
-    }
+    expected_returned_communication = STOP_MANAGED_ACQUISITION_COMMAND
     input_queue.put(copy.deepcopy(expected_returned_communication))
     assert (
         is_queue_eventually_of_size(

@@ -44,6 +44,7 @@ from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_sti
 
 from .fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from .fixtures import STOP_MANAGED_ACQUISITION_COMMAND
 from .fixtures_data_analyzer import fixture_four_board_analyzer_process
 
 
@@ -678,12 +679,10 @@ def test_DataAnalyzerProcess__processes_stop_managed_acquisition_command(
         data_buffer[well_idx]["construct_data"] = [[0, 0, 0], [1, 2, 3]]
         data_buffer[well_idx]["ref_data"] = [[0, 0, 0], [4, 5, 6]]
 
-    stop_command = {
-        "communication_type": "to_instrument",
-        "command": "stop_managed_acquisition",
-    }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        stop_command, comm_from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        STOP_MANAGED_ACQUISITION_COMMAND,
+        comm_from_main_queue,
+        timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
     )
 
     invoke_process_run_and_check_errors(p)
