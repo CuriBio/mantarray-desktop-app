@@ -24,6 +24,7 @@ from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATI
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_ok_comm import fixture_patch_connection_to_board
 from ..fixtures_process_monitor import fixture_test_monitor
+from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import is_queue_eventually_empty
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -56,7 +57,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         expected_comm, server_to_main_queue
     )
     invoke_process_run_and_check_errors(monitor_thread)
-    assert is_queue_eventually_empty(server_to_main_queue) is True
+    confirm_queue_is_eventually_empty(server_to_main_queue)
 
     assert (
         test_process_manager.get_values_to_share_to_server()["mantarray_nickname"][0]
@@ -92,7 +93,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         expected_comm, server_to_main_queue
     )
     invoke_process_run_and_check_errors(monitor_thread)
-    assert is_queue_eventually_empty(server_to_main_queue) is True
+    confirm_queue_is_eventually_empty(server_to_main_queue)
 
     assert (
         test_process_manager.get_values_to_share_to_server()["mantarray_nickname"][0]
