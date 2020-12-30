@@ -130,7 +130,7 @@ def test_send_xem_scripts_command__gets_processed_in_fully_running_app(
     )
     assert response.status_code == 200
 
-    # Tanner (12/29/20): Test xem_scripts will run using start up script
+    # Tanner (12/29/20): Test xem_scripts will run using start up script. When this script complete the system will be in calibration_needed state
     expected_script_type = "start_up"
     response = requests.get(
         f"{get_api_endpoint()}xem_scripts?script_type={expected_script_type}"
@@ -138,6 +138,7 @@ def test_send_xem_scripts_command__gets_processed_in_fully_running_app(
     assert response.status_code == 200
     assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5)
 
+    # Tanner (12/30/20): Soft stopping and joining this process in order to make assertions
     instrument_process = test_process_manager.get_instrument_process()
     instrument_process.soft_stop()
     instrument_process.join()
@@ -191,19 +192,22 @@ def test_system_states_and_recording_files_with_file_directory_passed_in_cmd_lin
         wait_for_subprocesses_to_start()
         test_process_manager = app_info["object_access_inside_main"]["process_manager"]
 
+        # Tanner (12/30/20): Make sure we are in server_ready state before sending commands
         response = requests.get(f"{get_api_endpoint()}system_status")
         assert response.status_code == 200
         assert response.json()["ui_status_code"] == str(
             SYSTEM_STATUS_UUIDS[SERVER_READY_STATE]
         )
 
-        # Tanner (12/29/20): Manually boot up
+        # Tanner (12/29/20): Manually boot up in order to start managed_acquisition later
         response = requests.get(f"{get_api_endpoint()}boot_up")
         assert response.status_code == 200
 
+        # Tanner (12/30/20): Boot up will go through these two states before completing
         assert system_state_eventually_equals(INSTRUMENT_INITIALIZING_STATE, 3) is True
         assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 3) is True
 
+        # Tanner (12/30/20): Calibrate instrument in order to start managed_acquisition
         response = requests.get(f"{get_api_endpoint()}start_calibration")
         assert response.status_code == 200
         assert system_state_eventually_equals(CALIBRATING_STATE, 3) is True
@@ -223,6 +227,7 @@ def test_system_states_and_recording_files_with_file_directory_passed_in_cmd_lin
             is True
         )
 
+        # Tanner (12/30/20): Need to start recording in order to test that recorded files are in the correct directory
         expected_barcode = GENERIC_START_RECORDING_COMMAND[
             "metadata_to_copy_onto_main_file_attributes"
         ][PLATE_BARCODE_UUID]
@@ -234,6 +239,7 @@ def test_system_states_and_recording_files_with_file_directory_passed_in_cmd_lin
 
         time.sleep(3)  # Tanner (6/15/20): This allows data to be written to files
 
+        # Tanner (12/30/20): Stop recording to finalize files
         response = requests.get(f"{get_api_endpoint()}stop_recording")
         assert response.status_code == 200
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
@@ -280,6 +286,7 @@ def test_managed_acquisition_can_be_stopped_and_restarted_with_simulator(
 
     assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
 
+    # Tanner (12/30/20): Calibrate instrument in order to start managed_acquisition
     response = requests.get(f"{get_api_endpoint()}start_calibration")
     assert response.status_code == 200
     assert (
@@ -287,6 +294,7 @@ def test_managed_acquisition_can_be_stopped_and_restarted_with_simulator(
     )
 
     # First run
+    # Tanner (12/30/20): Run managed_acquisition until in live_view state. This will confirm that data passed through the system completely
     response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
     assert response.status_code == 200
     assert (
@@ -304,6 +312,7 @@ def test_managed_acquisition_can_be_stopped_and_restarted_with_simulator(
         is True
     )
 
+    # Tanner (12/30/20): Clear available data and double check that the expected amount of data passed through the system
     response = requests.get(f"{get_api_endpoint()}get_available_data")
     assert response.status_code == 200
     response = requests.get(f"{get_api_endpoint()}get_available_data")
@@ -312,6 +321,7 @@ def test_managed_acquisition_can_be_stopped_and_restarted_with_simulator(
     time.sleep(3)  # allow remaining data to pass through subprocesses
 
     # Second run
+    # Tanner (12/30/20): Run managed_acquisition until in live_view state. This will confirm that data passed through the system completely
     response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
     assert response.status_code == 200
     assert (
@@ -329,7 +339,7 @@ def test_managed_acquisition_can_be_stopped_and_restarted_with_simulator(
         is True
     )
 
-    # Tanner (12/29/20): Good to do this at the end of tests to make sure they don't cause problems with other integration tests
+    # Tanner (12/29/20): Good to do this at the end of tests to make sure they don't cause problems with other integration tests. This will also clear available data in Data Analyzer
     test_process_manager.hard_stop_and_join_processes()
 
 
@@ -366,6 +376,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         ][BACKEND_LOG_UUID],
     )
 
+    # Tanner (12/30/20): Skip auto boot-up so we can set the recording directory before boot-up
     app_info = fully_running_app_from_main_entrypoint(["--skip-mantarray-boot-up"])
     wait_for_subprocesses_to_start()
 
@@ -380,11 +391,14 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
             f"{get_api_endpoint()}update_settings?customer_account_uuid=curi&recording_directory={expected_recordings_dir}"
         )
         assert response.status_code == 200
+
+        # Tanner (12/29/20): Manually boot up in order to start managed_acquisition later
         response = requests.get(f"{get_api_endpoint()}boot_up")
         assert response.status_code == 200
         assert system_state_eventually_equals(INSTRUMENT_INITIALIZING_STATE, 5) is True
 
         assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 3) is True
+        # Tanner (12/30/20): Calibrate instrument in order to start managed_acquisition
         response = requests.get(f"{get_api_endpoint()}start_calibration")
         assert response.status_code == 200
         assert system_state_eventually_equals(CALIBRATING_STATE, 3) is True
@@ -399,6 +413,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         assert response.status_code == 200
         assert system_state_eventually_equals(BUFFERING_STATE, 3) is True
 
+        # Tanner (12/30/20): Run managed_acquisition until in live_view state. This will confirm that data passed through the system completely
         assert (
             system_state_eventually_equals(
                 LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME
@@ -409,12 +424,14 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
             "metadata_to_copy_onto_main_file_attributes"
         ][PLATE_BARCODE_UUID]
         start_recording_time_index = 960
+        # Tanner (12/30/20): Start recording with barcode1 to create first set of files. Don't start recording at time index 0 since that data frame is discarded due to bit file issues
         response = requests.get(
             f"{get_api_endpoint()}start_recording?barcode={expected_barcode1}&time_index={start_recording_time_index}&is_hardware_test_recording=False"
         )
         assert response.status_code == 200
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
         time.sleep(3)  # Tanner (6/15/20): This allows data to be written to files
+        # Tanner (12/30/20): End recording at a known timepoint so next recording can start at a known timepoint
         response = requests.get(f"{get_api_endpoint()}stop_recording?time_index=190000")
         assert response.status_code == 200
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
@@ -423,6 +440,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         expected_barcode2 = (
             expected_barcode1[:-1] + "2"
         )  # change last char of default barcode from '1' to '2'
+        # Tanner (12/30/20): Start recording with barcode2 to create second set of files. Use known timpoint a just after end of first set of data
         response = requests.get(
             f"{get_api_endpoint()}start_recording?barcode={expected_barcode2}&time_index=200000&is_hardware_test_recording=False"
         )
@@ -433,6 +451,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         assert response.status_code == 200
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
 
+        # Tanner (12/30/20): Stop managed_acquisition so processes can be stopped
         response = requests.get(f"{get_api_endpoint()}stop_managed_acquisition")
         assert response.status_code == 200
         assert (
@@ -442,6 +461,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
             is True
         )
 
+        # Tanner (12/30/20): stop processes in order to make assertions on recorded data
         test_process_manager.soft_stop_processes()
 
         fw_process = test_process_manager.get_file_writer_process()
@@ -591,7 +611,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                         ][COMPUTER_NAME_HASH]
                     )
 
-        # test second recording (only make sure it contains waveform data)
+        # Tanner (12/30/20): test second recording (only make sure it contains waveform data)
         for row_idx in range(4):
             for col_idx in range(6):
                 with h5py.File(
@@ -620,6 +640,7 @@ def test_full_datapath(
     wait_for_subprocesses_to_start()
     test_process_manager = app_info["object_access_inside_main"]["process_manager"]
 
+    # Tanner (12/30/20): Auto boot-up is done when system reaches calibration_needed state
     assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
 
     # Tanner (12/29/20): Get Data Analyzer's error queue in order to make sure no errors happened
@@ -628,12 +649,14 @@ def test_full_datapath(
     )
     da_out = test_process_manager.queue_container().get_data_analyzer_data_out_queue()
 
+    # Tanner (12/30/20): Start calibration in order to run managed_acquisition
     response = requests.get(f"{get_api_endpoint()}start_calibration")
     assert response.status_code == 200
     assert (
         system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
     )
 
+    # Tanner (12/30/20): start managed_acquisition in order to get data moving through datapath
     acquisition_request = f"{get_api_endpoint()}start_managed_acquisition"
     response = requests.get(acquisition_request)
     assert response.status_code == 200
@@ -645,6 +668,7 @@ def test_full_datapath(
         is True
     )
 
+    # Tanner (12/30/20): stop managed_acquisition now that we have a known amount of data available
     response = requests.get(f"{get_api_endpoint()}stop_managed_acquisition")
     assert response.status_code == 200
     assert (
@@ -653,11 +677,12 @@ def test_full_datapath(
         )
         is True
     )
+    # Tanner (12/30/20): Make sure first set of data is available
     response = requests.get(f"{get_api_endpoint()}get_available_data")
     assert response.status_code == 200
     actual = json.loads(response.text)
     waveform_data_points = actual["waveform_data"]["basic_data"]["waveform_data_points"]
-    # Tanner (12/29/20): One more call to get_available_data to clear the remaining data
+    # Tanner (12/29/20): Make sure second set of data is available and clear the remaining data
     response = requests.get(f"{get_api_endpoint()}get_available_data")
     assert response.status_code == 200
     # Tanner (12/29/20): One more call to get_available_data to assert that no more data is available
@@ -732,6 +757,7 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
     wait_for_subprocesses_to_start()
     test_process_manager = app_info["object_access_inside_main"]["process_manager"]
 
+    # Tanner (12/30/20): Auto boot-up is done when system reaches calibration_needed state
     assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
 
     okc_process = test_process_manager.get_instrument_process()
@@ -746,6 +772,7 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
         )
         assert response.status_code == 200
 
+        # Tanner (12/30/20): Start calibration in order to run managed_acquisition
         response = requests.get(f"{get_api_endpoint()}start_calibration")
         assert response.status_code == 200
         assert system_state_eventually_equals(CALIBRATING_STATE, 5) is True
@@ -755,11 +782,12 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
             is True
         )
 
+        # Tanner (12/30/20): start managed_acquisition in order to start recording
         response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
         assert response.status_code == 200
 
+        # Tanner (12/30/20): managed_acquisition will take system through buffering state and then to live_view active state before recording can start
         assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
-
         assert (
             system_state_eventually_equals(
                 LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME
@@ -774,7 +802,6 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
             f"{get_api_endpoint()}start_recording?barcode={expected_barcode}&is_hardware_test_recording=False"
         )
         assert response.status_code == 200
-
         assert system_state_eventually_equals(RECORDING_STATE, 5) is True
 
         time.sleep(3)  # Tanner (6/15/20): This allows data to be written to files
@@ -784,13 +811,15 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
         assert response.status_code == 200
         # TODO (Eli 12/9/20): have /shutdown wait to return until the other processes have been stopped, or have a separate route to shut down other processes (that also waits)
 
+        # Tanner (12/30/20): Confirming the port is available to make sure that the Flask server has shutdown
         confirm_port_available(get_server_port_number(), timeout=10)
-
+        # Tanner (12/30/20): Double check that the system acknowledges that Flask sever has shutdown
         spied_server_logger.assert_any_call("Flask server successfully shut down.")
 
         # Eli (12/4/20): currently, Flask immediately shuts down and communicates up to ProcessMonitor to start shutting everything else down. So for now need to sleep a bit before attempting to confirm everything else is shut down
         time.sleep(10)
 
+        # Tanner (12/30/20): This is the very last log message before the app is completely shutdown
         spied_logger.assert_any_call("Program exiting")
 
         # Tanner (12/29/20): If these are alive, this means that zombie processes will be created when the compiled desktop app EXE is running, so this assertion helps make sure that that won't happen
