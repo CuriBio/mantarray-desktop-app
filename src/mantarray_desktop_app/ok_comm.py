@@ -71,11 +71,12 @@ from .mantarray_front_panel import MantarrayFrontPanel
 if (
     6 < 9
 ):  # pragma: no cover # protect this from zimports deleting the pylint disable statement
-    from .data_parsing_cy import (  # pylint: disable=import-error # Tanner (8/25/20) unsure why pylint is unable to recognize cython import...
+    from .data_parsing_cy import (  # pylint: disable=import-error # Tanner (8/25/20): unsure why pylint is unable to recognize cython import...
         parse_sensor_bytes,
     )
 
 
+# Tanner (12/30/20): Need to support this function until barcodes are no longer accepted in /start_recording route. Creating a wrapper function `_check_barcode_is_valid` to make the transition easier once this function is removed
 def check_barcode_for_errors(barcode: str) -> str:
     """Return error message if barcode contains an error."""
     if len(barcode) > 11:
@@ -94,6 +95,20 @@ def check_barcode_for_errors(barcode: str) -> str:
     if not barcode[7:].isnumeric():
         return f"Barcode contains nom-numeric string after Julian date: '{barcode[7:]}'"
     return ""
+
+
+def _check_barcode_is_valid(barcode: str) -> bool:
+    error_msg = check_barcode_for_errors(barcode)
+    return error_msg == ""
+
+
+def _trim_barcode(barcode: str) -> str:
+    """Trim the trailing 1 or 2 ASCII NUL (0x00) chars off barcode."""
+    if barcode[11] != chr(0):
+        return barcode
+    if barcode[10] != chr(0):
+        return barcode[:11]
+    return barcode[:10]
 
 
 def _get_formatted_utc_now() -> str:
@@ -747,13 +762,10 @@ class OkCommunicationProcess(InfiniteProcess):
             barcode = board.get_barcode()
             if barcode == CLEARED_BARCODE_VALUE:
                 raise BarcodeScannerNotRespondingError()
-            barcode_11 = barcode[:11]
-            if not check_barcode_for_errors(barcode_11) and barcode[-1] == chr(0):
-                self._send_barcode_to_main(board_idx, barcode_11, True)
-                return
-            barcode_10 = barcode[:10]
-            if not check_barcode_for_errors(barcode_10) and barcode[-2:] == chr(0) * 2:
-                self._send_barcode_to_main(board_idx, barcode_10, True)
+
+            trimmed_barcode = _trim_barcode(barcode)
+            if _check_barcode_is_valid(trimmed_barcode):
+                self._send_barcode_to_main(board_idx, trimmed_barcode, True)
                 return
             if scan_attempt == 1:
                 if barcode == NO_PLATE_DETECTED_BARCODE_VALUE:
