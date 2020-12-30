@@ -605,7 +605,7 @@ def test_send_single_stop_managed_acquisition_command__populates_queues(
     )
     assert is_queue_eventually_of_size(to_ok_comm_queue, 1) is True
     comm_to_ok_comm = to_ok_comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert comm_to_ok_comm["communication_type"] == "acquisition_manager"
+    assert comm_to_ok_comm["communication_type"] == "to_instrument"
     assert comm_to_ok_comm["command"] == "stop_managed_acquisition"
     response_json = response.get_json()
     assert response_json["command"] == "stop_managed_acquisition"
@@ -615,7 +615,7 @@ def test_send_single_stop_managed_acquisition_command__populates_queues(
     )
     assert is_queue_eventually_not_empty(to_file_writer_queue) is True
     comm_to_da = to_file_writer_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert comm_to_da["communication_type"] == "acquisition_manager"
+    assert comm_to_da["communication_type"] == "to_instrument"
     assert comm_to_da["command"] == "stop_managed_acquisition"
     response_json = response.get_json()
     assert response_json["command"] == "stop_managed_acquisition"
@@ -625,7 +625,7 @@ def test_send_single_stop_managed_acquisition_command__populates_queues(
     )
     assert is_queue_eventually_of_size(to_da_queue, 1) is True
     comm_to_da = to_da_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert comm_to_da["communication_type"] == "acquisition_manager"
+    assert comm_to_da["communication_type"] == "to_instrument"
     assert comm_to_da["command"] == "stop_managed_acquisition"
     response_json = response.get_json()
     assert response_json["command"] == "stop_managed_acquisition"

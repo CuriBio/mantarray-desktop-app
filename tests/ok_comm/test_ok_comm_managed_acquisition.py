@@ -20,7 +20,7 @@ from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
-from mantarray_desktop_app import UnrecognizedAcquisitionManagerCommandError
+from mantarray_desktop_app import UnrecognizedCommandToInstrumentError
 from mantarray_desktop_app import UnrecognizedDataFrameFormatNameError
 import numpy as np
 import pytest
@@ -35,13 +35,13 @@ from xem_wrapper import HEADER_MAGIC_NUMBER
 from xem_wrapper import OpalKellyIncorrectHeaderError
 from xem_wrapper import PIPE_OUT_FIFO
 
-from .fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
-from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
-from .fixtures_ok_comm import fixture_four_board_comm_process
-from .fixtures_ok_comm import generate_board_and_error_queues
-from .helpers import is_queue_eventually_empty
-from .helpers import is_queue_eventually_not_empty
-from .helpers import is_queue_eventually_of_size
+from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
+from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from ..fixtures_ok_comm import fixture_four_board_comm_process
+from ..fixtures_ok_comm import generate_board_and_error_queues
+from ..helpers import is_queue_eventually_empty
+from ..helpers import is_queue_eventually_not_empty
+from ..helpers import is_queue_eventually_of_size
 
 __fixtures__ = [
     fixture_four_board_comm_process,
@@ -103,7 +103,7 @@ def test_OkCommunicationProcess_run__processes_stop_managed_acquisition_command(
     input_queue = board_queues[0][0]
     ok_comm_to_main = board_queues[0][1]
     expected_returned_communication = {
-        "communication_type": "acquisition_manager",
+        "communication_type": "to_instrument",
         "command": "stop_managed_acquisition",
     }
     input_queue.put(copy.deepcopy(expected_returned_communication))
@@ -126,7 +126,7 @@ def test_OkCommunicationProcess_run__processes_stop_managed_acquisition_command(
     assert board_connections[0].is_spi_running() is False
 
 
-def test_OkCommunicationProcess_run__raises_error_if_acquisition_manager_command_is_invalid(
+def test_OkCommunicationProcess_run__raises_error_if_command_to_instrument_is_invalid(
     four_board_comm_process, mocker
 ):
     mocker.patch(
@@ -140,7 +140,7 @@ def test_OkCommunicationProcess_run__raises_error_if_acquisition_manager_command
 
     input_queue = board_queues[0][0]
     expected_returned_communication = {
-        "communication_type": "acquisition_manager",
+        "communication_type": "to_instrument",
         "command": "fake_command",
     }
     input_queue.put(copy.deepcopy(expected_returned_communication))
@@ -150,9 +150,7 @@ def test_OkCommunicationProcess_run__raises_error_if_acquisition_manager_command
         )
         is True
     )
-    with pytest.raises(
-        UnrecognizedAcquisitionManagerCommandError, match="fake_command"
-    ):
+    with pytest.raises(UnrecognizedCommandToInstrumentError, match="fake_command"):
         invoke_process_run_and_check_errors(ok_process)
 
 

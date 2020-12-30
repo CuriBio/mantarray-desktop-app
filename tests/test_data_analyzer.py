@@ -25,7 +25,7 @@ from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
-from mantarray_desktop_app import UnrecognizedAcquisitionManagerCommandError
+from mantarray_desktop_app import UnrecognizedCommandToInstrumentError
 from mantarray_desktop_app import UnrecognizedCommTypeFromMainToDataAnalyzerError
 from mantarray_waveform_analysis import BUTTERWORTH_LOWPASS_30_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
@@ -142,7 +142,7 @@ def test_DataAnalyzerProcess_commands_for_each_run_iteration__checks_for_calibra
 ):
     calibration_comm = {
         "communication_type": "calibration",
-        "calibration_settings": 1,  # Tanner (2/26/20): add real settings once fleshed out
+        "calibration_settings": 1,  # TODO Tanner (2/26/20): add real settings once fleshed out
     }
 
     p, _, comm_from_main_queue, _, _ = four_board_analyzer_process
@@ -632,7 +632,7 @@ def test_DataAnalyzerProcess__create_outgoing_data__compresses_displacement_data
     )
 
 
-def test_DataAnalyzerProcess__raises_error_with_unrecognized_acquisition_manager_command(
+def test_DataAnalyzerProcess__raises_error_with_unrecognized_command_to_instrument(
     four_board_analyzer_process, mocker
 ):
     mocker.patch(
@@ -643,16 +643,14 @@ def test_DataAnalyzerProcess__raises_error_with_unrecognized_acquisition_manager
 
     expected_command = "fake_command"
     start_command = {
-        "communication_type": "acquisition_manager",
+        "communication_type": "to_instrument",
         "command": expected_command,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         start_command, comm_from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
 
-    with pytest.raises(
-        UnrecognizedAcquisitionManagerCommandError, match=expected_command
-    ):
+    with pytest.raises(UnrecognizedCommandToInstrumentError, match=expected_command):
         invoke_process_run_and_check_errors(p)
 
 
@@ -681,7 +679,7 @@ def test_DataAnalyzerProcess__processes_stop_managed_acquisition_command(
         data_buffer[well_idx]["ref_data"] = [[0, 0, 0], [4, 5, 6]]
 
     stop_command = {
-        "communication_type": "acquisition_manager",
+        "communication_type": "to_instrument",
         "command": "stop_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(

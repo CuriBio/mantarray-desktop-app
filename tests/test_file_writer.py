@@ -1048,7 +1048,7 @@ def test_FileWriterProcess__clears_data_buffer_when_stop_mananged_acquisition_co
         data_packet_buffer.append(SIMPLE_CONSTRUCT_DATA_FROM_WELL_0)
 
     stop_managed_acquisition_command = {
-        "communication_type": "acquisition_manager",
+        "communication_type": "to_instrument",
         "command": "stop_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(

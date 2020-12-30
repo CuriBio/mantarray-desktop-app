@@ -18,7 +18,7 @@ class UnrecognizedCommTypeFromMainToOKCommError(Exception):
     pass
 
 
-class UnrecognizedAcquisitionManagerCommandError(Exception):
+class UnrecognizedCommandToInstrumentError(Exception):
     pass
 
 
@@ -75,6 +75,10 @@ class SystemStartUpError(Exception):
 
 
 class UnrecognizedMantarrayNamingCommandError(Exception):
+    pass
+
+
+class UnrecognizedRecordingCommandError(Exception):
     pass
 
 

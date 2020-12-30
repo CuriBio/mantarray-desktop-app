@@ -188,7 +188,7 @@ def test_send_single_initialize_board_command_with_bit_file__gets_processed(
 
     simulator = FrontPanelSimulator({})
 
-    ok_process = test_process_manager.get_ok_comm_process()
+    ok_process = test_process_manager.get_instrument_process()
     ok_process.set_board_connection(board_idx, simulator)
 
     test_process_manager.start_processes()
@@ -244,7 +244,7 @@ def test_send_single_initialize_board_command_without_bit_file__gets_processed(
 
     simulator = FrontPanelSimulator({})
 
-    ok_process = test_process_manager.get_ok_comm_process()
+    ok_process = test_process_manager.get_instrument_process()
     ok_process.set_board_connection(board_idx, simulator)
 
     test_process_manager.start_processes()
@@ -267,7 +267,6 @@ def test_send_single_initialize_board_command_without_bit_file__gets_processed(
         )
     )
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         board_idx
@@ -304,7 +303,7 @@ def test_send_single_initialize_board_command_with_reinitialization__gets_proces
     simulator = FrontPanelSimulator({})
     simulator.initialize_board()
 
-    ok_process = test_process_manager.get_ok_comm_process()
+    ok_process = test_process_manager.get_instrument_process()
     ok_process.set_board_connection(board_idx, simulator)
 
     test_process_manager.start_processes()
@@ -329,7 +328,6 @@ def test_send_single_initialize_board_command_with_reinitialization__gets_proces
         )
     )
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         board_idx
@@ -366,7 +364,7 @@ def test_send_single_activate_trigger_in_command__gets_processed(
     simulator = FrontPanelSimulator({})
     simulator.initialize_board()
 
-    ok_process = test_process_manager.get_ok_comm_process()
+    ok_process = test_process_manager.get_instrument_process()
     ok_process.set_board_connection(0, simulator)
 
     test_process_manager.start_processes()
@@ -386,7 +384,6 @@ def test_send_single_activate_trigger_in_command__gets_processed(
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
@@ -465,7 +462,7 @@ def test_send_single_get_num_words_fifo_command__gets_processed(
     simulator = FrontPanelSimulator(queues)
     simulator.initialize_board()
 
-    ok_process = test_process_manager.get_ok_comm_process()
+    ok_process = test_process_manager.get_instrument_process()
     ok_process.set_board_connection(0, simulator)
 
     test_process_manager.start_processes()
@@ -506,7 +503,7 @@ def test_send_single_set_device_id_command__gets_processed(
     test_id = "Mantarray XEM"
     simulator = FrontPanelSimulator({})
 
-    ok_process = test_process_manager.get_ok_comm_process()
+    ok_process = test_process_manager.get_instrument_process()
     ok_process.set_board_connection(0, simulator)
 
     test_process_manager.start_processes()
@@ -550,7 +547,7 @@ def test_send_single_stop_acquisition_command__gets_processed(
     simulator = FrontPanelSimulator({})
     simulator.initialize_board()
     simulator.start_acquisition()
-    ok_process = test_process_manager.get_ok_comm_process()
+    ok_process = test_process_manager.get_instrument_process()
     ok_process.set_board_connection(0, simulator)
 
     test_process_manager.start_processes()
@@ -598,7 +595,7 @@ def test_send_single_start_acquisition_command__gets_processed(
 ):
     simulator = FrontPanelSimulator({})
     simulator.initialize_board()
-    ok_process = test_process_manager.get_ok_comm_process()
+    ok_process = test_process_manager.get_instrument_process()
     ok_process.set_board_connection(0, simulator)
 
     test_process_manager.start_processes()
@@ -645,7 +642,7 @@ def test_send_single_get_serial_number_command__gets_processed(
 ):
     simulator = FrontPanelSimulator({})
 
-    ok_process = test_process_manager.get_ok_comm_process()
+    ok_process = test_process_manager.get_instrument_process()
     ok_process.set_board_connection(0, simulator)
 
     test_process_manager.start_processes()
@@ -661,7 +658,6 @@ def test_send_single_get_serial_number_command__gets_processed(
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
@@ -687,7 +683,7 @@ def test_send_single_get_device_id_command__gets_processed(
     expected_id = "Mantarray XEM"
     simulator.set_device_id(expected_id)
 
-    ok_process = test_process_manager.get_ok_comm_process()
+    ok_process = test_process_manager.get_instrument_process()
     ok_process.set_board_connection(0, simulator)
 
     test_process_manager.start_processes()
@@ -729,7 +725,7 @@ def test_send_single_is_spi_running_command__gets_processed(
 ):
     simulator = FrontPanelSimulator({})
     simulator.initialize_board()
-    ok_process = test_process_manager.get_ok_comm_process()
+    ok_process = test_process_manager.get_instrument_process()
     ok_process.set_board_connection(0, simulator)
 
     test_process_manager.start_processes()
@@ -782,7 +778,7 @@ def test_read_from_fifo_command__is_received_by_ok_comm__with_correct_num_words_
     simulator = FrontPanelSimulator(queues)
     simulator.initialize_board()
     simulator.start_acquisition()
-    ok_process = test_process_manager.get_ok_comm_process()
+    ok_process = test_process_manager.get_instrument_process()
     ok_process.set_board_connection(0, simulator)
     comm_queue = (
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
@@ -836,7 +832,7 @@ def test_send_single_read_from_fifo_command__gets_processed_with_correct_num_wor
     simulator = FrontPanelSimulator(queues)
     simulator.initialize_board()
     simulator.start_acquisition()
-    ok_process = test_process_manager.get_ok_comm_process()
+    ok_process = test_process_manager.get_instrument_process()
     ok_process.set_board_connection(0, simulator)
 
     test_process_manager.start_processes()
@@ -890,7 +886,7 @@ def test_send_single_set_wire_in_command__gets_processed(
     simulator = FrontPanelSimulator({})
     simulator.initialize_board()
 
-    ok_process = test_process_manager.get_ok_comm_process()
+    ok_process = test_process_manager.get_instrument_process()
     ok_process.set_board_connection(0, simulator)
 
     test_process_manager.start_processes()
@@ -994,7 +990,7 @@ def test_send_single_read_wire_out_command__gets_processed(
 
     simulator = FrontPanelSimulator({"wire_outs": {expected_ep_addr: wire_queue}})
     simulator.initialize_board()
-    ok_process = test_process_manager.get_ok_comm_process()
+    ok_process = test_process_manager.get_instrument_process()
     ok_process.set_board_connection(0, simulator)
 
     test_process_manager.start_processes()
@@ -1016,7 +1012,6 @@ def test_send_single_read_wire_out_command__gets_processed(
         )
     )
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         board_idx
@@ -1044,7 +1039,7 @@ def test_send_single_stop_managed_acquisition_command__gets_processed(
     simulator.initialize_board()
     simulator.start_acquisition()
 
-    ok_process = test_process_manager.get_ok_comm_process()
+    ok_process = test_process_manager.get_instrument_process()
     ok_process.set_board_connection(0, simulator)
 
     test_process_manager.start_processes()
@@ -1136,7 +1131,6 @@ def test_send_single_set_mantarray_serial_number_command__gets_processed_and_sto
         test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
     )
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
@@ -1568,7 +1562,6 @@ def test_stop_recording_command__is_received_by_file_writer__with_given_time_ind
     invoke_process_run_and_check_errors(file_writer_process)
 
     confirm_queue_is_eventually_empty(comm_queue)
-    # assert is_queue_eventually_empty(comm_queue) is True
 
     file_writer_to_main = (
         test_process_manager.queue_container().get_communication_queue_from_file_writer_to_main()
@@ -1759,7 +1752,7 @@ def test_send_single_get_status_command__gets_processed(
     }
     simulator = FrontPanelSimulator({})
 
-    ok_process = test_process_manager.get_ok_comm_process()
+    ok_process = test_process_manager.get_instrument_process()
     ok_process.set_board_connection(0, simulator)
 
     test_process_manager.start_processes()

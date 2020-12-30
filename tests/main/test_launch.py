@@ -35,6 +35,7 @@ from stdlib_utils import confirm_port_available
 from stdlib_utils import confirm_port_in_use
 
 from ..fixtures import fixture_fully_running_app_from_main_entrypoint
+from ..fixtures import fixture_patched_firmware_folder
 from ..fixtures import fixture_patched_xem_scripts_folder
 from ..fixtures import fixture_test_process_manager
 from ..fixtures import GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
@@ -46,6 +47,7 @@ __fixtures__ = [
     fixture_test_process_manager,
     fixture_fully_running_app_from_main_entrypoint,
     fixture_patched_xem_scripts_folder,
+    fixture_patched_firmware_folder,
 ]
 
 
@@ -68,7 +70,7 @@ def test_main__stores_and_logs_port_number_from_command_line_arguments(
     spied_info_logger = mocker.spy(main.logger, "info")
 
     expected_port_number = 1234
-    command_line_args = [f"--port_number={expected_port_number}"]
+    command_line_args = [f"--port-number={expected_port_number}"]
     fully_running_app_from_main_entrypoint(command_line_args)
 
     actual = get_server_port_number()
@@ -89,9 +91,8 @@ def test_main__handles_base64_command_line_argument_with_padding_issue(mocker):
     spied_info_logger.assert_any_call(
         "Command Line Args: {'debug_test_post_build': True, 'log_level_debug': False, 'skip_mantarray_boot_up': False, 'port_number': None, 'log_file_dir': None, 'expected_software_version': None}"
     )
-    for call_args in spied_info_logger.call_args_list:
-        # TODO (11/23/20): make this test easier to debug if it fails
-        assert "initial_base64_settings" not in call_args[0]
+    for i, call_args in enumerate(spied_info_logger.call_args_list):
+        assert f"Call #{i}" and "initial_base64_settings" not in call_args[0]
 
 
 def test_main__logs_command_line_arguments(mocker):
@@ -263,7 +264,9 @@ def test_main_can_launch_server_with_no_args_from_entrypoint__default_exe_execut
 @pytest.mark.timeout(20)
 @pytest.mark.slow
 def test_main_entrypoint__correctly_assigns_shared_values_dictionary_to_process_monitor(  # __and_sets_the_process_monitor_singleton(
-    fully_running_app_from_main_entrypoint, patched_xem_scripts_folder
+    fully_running_app_from_main_entrypoint,
+    patched_xem_scripts_folder,
+    patched_firmware_folder,
 ):
     # Eli (11/24/20): removed concept of process monitor singleton...hopfeully doesn't cause problems # Eli (3/11/20): there was a bug where we only passed an empty dict during the constructor of the ProcessMonitor in the main() function. So this test was created specifically to guard against that regression.
     app_info = fully_running_app_from_main_entrypoint([])
@@ -284,6 +287,7 @@ def test_main_entrypoint__correctly_assigns_shared_values_dictionary_to_process_
 @pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 @pytest.mark.slow
 def test_main__calls_boot_up_function_upon_launch(
+    patched_firmware_folder,
     patched_xem_scripts_folder,
     fully_running_app_from_main_entrypoint,
     mocker,
@@ -310,7 +314,7 @@ def test_main__stores_and_logs_directory_for_log_files_from_command_line_argumen
     expected_scrubbed_log_dir = expected_log_dir.replace(
         "Curi Bio", "*" * len("Curi Bio")
     )
-    command_line_args = [f"--log_file_dir={expected_log_dir}"]
+    command_line_args = [f"--log-file-dir={expected_log_dir}"]
     app_info = fully_running_app_from_main_entrypoint(command_line_args)
 
     app_info["mocked_configure_logging"].assert_called_once_with(
@@ -332,7 +336,7 @@ def test_main__stores_and_logs_directory_for_log_files_from_command_line_argumen
 
     expected_log_dir = r"C:\Programs\MantarrayController"
     expected_scrubbed_log_dir = "*" * len(expected_log_dir)
-    command_line_args = [f"--log_file_dir={expected_log_dir}"]
+    command_line_args = [f"--log-file-dir={expected_log_dir}"]
     app_info = fully_running_app_from_main_entrypoint(command_line_args)
 
     app_info["mocked_configure_logging"].assert_called_once_with(
@@ -435,6 +439,7 @@ def test_main_can_launch_server_and_processes_and_initial_boot_up_of_ok_comm_pro
     mocker,
     confirm_monitor_found_no_errors_in_subprocesses,
     fully_running_app_from_main_entrypoint,
+    patched_firmware_folder,
 ):
     mocked_process_monitor_info_logger = mocker.patch.object(
         process_monitor.logger,
@@ -480,7 +485,7 @@ def test_main__puts_server_into_error_mode_if_expected_software_version_is_incor
     confirm_port_in_use(port, timeout=5)
 
     response = test_client.get("/system_status")
-    assert response.status_code == 500
+    assert response.status_code == 520
     assert (
         response.status.endswith("Versions of Electron and Flask EXEs do not match")
         is True

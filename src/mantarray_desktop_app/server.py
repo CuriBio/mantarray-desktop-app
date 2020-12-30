@@ -13,6 +13,7 @@ Custom HTTP Error Codes:
 * 406 - Call to /start_managed_acquisition when Mantarray device does not have a serial number assigned to it
 * 406 - Call to /start_recording before customer_account_uuid and user_account_uuid are set
 * 452 -
+* 520 - Electron and Flask EXE versions don't match
 """
 from __future__ import annotations
 
@@ -207,7 +208,7 @@ def system_status() -> Response:
         "expected_software_version" in shared_values_dict
         and shared_values_dict["expected_software_version"] != CURRENT_SOFTWARE_VERSION
     ):
-        return Response(status="500 Versions of Electron and Flask EXEs do not match")
+        return Response(status="520 Versions of Electron and Flask EXEs do not match")
 
     board_idx = 0
     status = shared_values_dict["system_status"]
@@ -548,7 +549,7 @@ def stop_managed_acquisition() -> Response:
     `curl http://localhost:4567/stop_managed_acquisition`
     """
     comm_dict = {
-        "communication_type": "acquisition_manager",
+        "communication_type": "to_instrument",
         "command": "stop_managed_acquisition",
     }
     server_thread = get_the_server_thread()
