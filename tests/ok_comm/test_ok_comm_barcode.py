@@ -26,7 +26,7 @@ RUN_BARCODE_SCAN_COMMUNICATION = {
     "command": "start_scan",
 }
 
-# Tanner (12/30/20): All barcodes must be twelve characters long
+# Tanner (12/30/20): All barcodes must be twelve characters long due to current wire out sizes in the firmware
 TEST_11_CHAR_BARCODE = RunningFIFOSimulator.default_barcode + chr(0)
 TEST_10_CHAR_BARCODE = RunningFIFOSimulator.default_barcode[:10] + chr(0) * 2
 EXPECTED_11_CHAR_BARCODE = RunningFIFOSimulator.default_barcode
