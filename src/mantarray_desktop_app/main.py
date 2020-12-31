@@ -191,7 +191,7 @@ def main(
     ).digest()
     shared_values_dict["computer_name_hash"] = str(computer_name_hash)
 
-    msg = f"Log File UUID: {log_file_uuid}"  # TODO Tanner (11/25/20): figure out better way to handle missing log_file_uuid value
+    msg = f"Log File UUID: {log_file_uuid}"
     logger.info(msg)
     msg = f"SHA512 digest of Computer Name {str(computer_name_hash)}"
     logger.info(msg)
