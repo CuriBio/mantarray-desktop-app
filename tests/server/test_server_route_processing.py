@@ -806,26 +806,16 @@ def test_read_from_fifo_command__is_received_by_ok_comm__with_correct_num_words_
     assert communication["num_words_to_log"] == test_num_words_to_log
 
 
-# TODO (Eli 12/10/20): It's highly unlikely that slow tests should need to be parametrized--this should probably be set up as unit tests and one single slow integration test
+# Tanner (12/30/20): This test was previously parametrized which is unnecessary since the same parametrization is done in test_OkCommunicationProcess_run__processes_read_from_fifo_debug_console_command in test_ok_comm_debug_console.py
 @pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 @pytest.mark.slow
-@pytest.mark.parametrize(
-    ",".join(("test_num_words_to_log", "test_num_cycles_to_read", "test_description")),
-    [
-        (1, 1, "logs 1 word with one cycle read"),
-        (72, 1, "logs 72 words with one cycle read"),
-        (73, 1, "logs 72 words given 73 num words to log and one cycle read"),
-        (144, 2, "logs 144 words given 144 num words to log and two cycles read"),
-    ],
-)
 def test_send_single_read_from_fifo_command__gets_processed_with_correct_num_words(
-    test_num_words_to_log,
-    test_num_cycles_to_read,
-    test_description,
     test_process_manager,
     test_client,
 ):
+    test_num_words_to_log = 72
     test_bytearray = produce_data(1, 0)
+
     fifo = Queue()
     fifo.put(test_bytearray)
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
