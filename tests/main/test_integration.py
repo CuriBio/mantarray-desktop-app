@@ -93,7 +93,7 @@ from ..fixtures import fixture_patched_xem_scripts_folder
 from ..fixtures import fixture_test_process_manager
 from ..fixtures import GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
 from ..fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
-from ..helpers import is_queue_eventually_empty
+from ..helpers import confirm_queue_is_eventually_empty
 
 __fixtures__ = [
     fixture_fully_running_app_from_main_entrypoint,
@@ -124,13 +124,13 @@ def test_send_xem_scripts_command__gets_processed_in_fully_running_app(
     ]
     monitor_error_queue = test_process_monitor.get_fatal_error_reporter()
 
-    # Tanner (12/29/20): init with no bit file since Cloud9 does not have any real bit files and we are using a simulator
+    # Tanner (12/29/20): init with no bit file since local dev environment does not have any real bit files and we are using a simulator
     response = requests.get(
         f"{get_api_endpoint()}insert_xem_command_into_queue/initialize_board"
     )
     assert response.status_code == 200
 
-    # Tanner (12/29/20): Test xem_scripts will run using start up script. When this script complete the system will be in calibration_needed state
+    # Tanner (12/29/20): Test xem_scripts will run using start up script. When this script completes the system will be in calibration_needed state
     expected_script_type = "start_up"
     response = requests.get(
         f"{get_api_endpoint()}xem_scripts?script_type={expected_script_type}"
@@ -146,7 +146,7 @@ def test_send_xem_scripts_command__gets_processed_in_fully_running_app(
     # Tanner (12/29/20): Easiest way to assert the start up script successfully ran is to assert that shared_values_dict contains the correct value for "adc_gain" and make sure the error queue is empty
     expected_gain_value = 16
     assert shared_values_dict["adc_gain"] == expected_gain_value
-    assert is_queue_eventually_empty(monitor_error_queue) is True
+    confirm_queue_is_eventually_empty(monitor_error_queue)
 
 
 @pytest.mark.slow
@@ -643,10 +643,6 @@ def test_full_datapath(
     # Tanner (12/30/20): Auto boot-up is done when system reaches calibration_needed state
     assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
 
-    # Tanner (12/29/20): Get Data Analyzer's error queue in order to make sure no errors happened
-    da_error_queue = (
-        test_process_manager.queue_container().get_data_analyzer_error_queue()
-    )
     da_out = test_process_manager.queue_container().get_data_analyzer_data_out_queue()
 
     # Tanner (12/30/20): Start calibration in order to run managed_acquisition
@@ -688,7 +684,7 @@ def test_full_datapath(
     # Tanner (12/29/20): One more call to get_available_data to assert that no more data is available
     response = requests.get(f"{get_api_endpoint()}get_available_data")
     assert response.status_code == 204
-    assert is_queue_eventually_empty(da_out) is True
+    confirm_queue_is_eventually_empty(da_out)
 
     # Tanner (12/29/20): create expected data
     test_well_index = 0
@@ -739,8 +735,10 @@ def test_full_datapath(
     )
 
     # Tanner (12/29/20): Good to do this at the end of tests to make sure they don't cause problems with other integration tests
-    test_process_manager.hard_stop_and_join_processes()
-    assert is_queue_eventually_empty(da_error_queue) is True
+    remaining_queue_items = test_process_manager.hard_stop_and_join_processes()
+    # Tanner (12/31/20): Make sure that there were no errors in Data Analyzer
+    da_error_list = remaining_queue_items["data_analyzer_items"]["fatal_error_reporter"]
+    assert len(da_error_list) == 0
 
 
 @pytest.mark.slow

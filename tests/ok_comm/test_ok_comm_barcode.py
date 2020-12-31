@@ -25,10 +25,13 @@ RUN_BARCODE_SCAN_COMMUNICATION = {
     "communication_type": "barcode_comm",
     "command": "start_scan",
 }
+
+# Tanner (12/30/20): All barcodes must be twelve characters long due to current wire out sizes in the firmware
 TEST_11_CHAR_BARCODE = RunningFIFOSimulator.default_barcode + chr(0)
 TEST_10_CHAR_BARCODE = RunningFIFOSimulator.default_barcode[:10] + chr(0) * 2
 EXPECTED_11_CHAR_BARCODE = RunningFIFOSimulator.default_barcode
 EXPECTED_10_CHAR_BARCODE = RunningFIFOSimulator.default_barcode[:10]
+INVALID_BARCODE = RunningFIFOSimulator.default_barcode + "$"
 
 
 def test_OkCommunicationProcess__always_returns_default_barcode_when_connected_to_simulator(
@@ -304,7 +307,7 @@ def test_OkCommunicationProcess__logs_that_no_plate_was_detected_if_barcode_scan
 def test_OkCommunicationProcess__logs_that_invalid_barcode_received_if_barcode_scanner_returns_invalid_barcode__and_clears_barcode_value(
     four_board_comm_process, mocker, test_barcode_simulator
 ):
-    expected_barcode = "invalid"
+    expected_barcode = INVALID_BARCODE
 
     mocker.patch.object(
         ok_comm,
@@ -359,7 +362,7 @@ def test_OkCommunicationProcess__restarts_scan_process_if_valid_barcode_not_dete
     input_queue = board_queues[0][0]
 
     simulator, mocked_get = test_barcode_simulator(
-        [CLEARED_BARCODE_VALUE, "invalid", CLEARED_BARCODE_VALUE]
+        [CLEARED_BARCODE_VALUE, INVALID_BARCODE, CLEARED_BARCODE_VALUE]
     )
     spied_start_scan = mocker.spy(simulator, "start_barcode_scan")
     ok_process.set_board_connection(0, simulator)
@@ -401,7 +404,12 @@ def test_OkCommunicationProcess__sends_correct_values_to_main_for_valid_second_b
     to_main_queue = board_queues[0][1]
 
     simulator, mocked_get = test_barcode_simulator(
-        [CLEARED_BARCODE_VALUE, "invalid", CLEARED_BARCODE_VALUE, TEST_11_CHAR_BARCODE]
+        [
+            CLEARED_BARCODE_VALUE,
+            INVALID_BARCODE,
+            CLEARED_BARCODE_VALUE,
+            TEST_11_CHAR_BARCODE,
+        ]
     )
     ok_process.set_board_connection(0, simulator)
 
@@ -432,7 +440,7 @@ def test_OkCommunicationProcess__sends_correct_values_to_main_for_valid_second_b
 def test_OkCommunicationProcess__sends_correct_values_to_main_for_invalid_second_barcode_read__and_scan_process_ends(
     four_board_comm_process, mocker, test_barcode_simulator
 ):
-    expected_barcode = "M$200190000"
+    expected_barcode = "M$2001900001"
 
     mocker.patch.object(
         ok_comm,
@@ -453,7 +461,12 @@ def test_OkCommunicationProcess__sends_correct_values_to_main_for_invalid_second
     to_main_queue = board_queues[0][1]
 
     simulator, mocked_get = test_barcode_simulator(
-        [CLEARED_BARCODE_VALUE, "invalid", CLEARED_BARCODE_VALUE, expected_barcode],
+        [
+            CLEARED_BARCODE_VALUE,
+            INVALID_BARCODE,
+            CLEARED_BARCODE_VALUE,
+            expected_barcode,
+        ],
     )
     ok_process.set_board_connection(0, simulator)
 
@@ -505,7 +518,7 @@ def test_OkCommunicationProcess__sends_correct_values_to_main_when_no_valid_barc
     simulator, mocked_get = test_barcode_simulator(
         [
             CLEARED_BARCODE_VALUE,
-            "invalid",
+            INVALID_BARCODE,
             CLEARED_BARCODE_VALUE,
             NO_PLATE_DETECTED_BARCODE_VALUE,
         ],
@@ -564,11 +577,11 @@ def test_OkCommunicationProcess__correctly_handles_two_consecutive_full_process_
     simulator, _ = test_barcode_simulator(
         [
             CLEARED_BARCODE_VALUE,
-            "invalid",
+            INVALID_BARCODE,
             CLEARED_BARCODE_VALUE,
             expected_invalid_barcode,
             CLEARED_BARCODE_VALUE,
-            "invalid",
+            INVALID_BARCODE,
             CLEARED_BARCODE_VALUE,
             TEST_10_CHAR_BARCODE,
         ],
