@@ -35,6 +35,7 @@ from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
 import pytest
 from stdlib_utils import confirm_parallelism_is_stopped
+from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import invoke_process_run_and_check_errors
 from xem_wrapper import build_header_magic_number_bytes
@@ -1179,17 +1180,10 @@ def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_
         timeout_seconds=5,
     )
 
-    # TODO Tanner (8/31/20): add drain queue to other tests where applicable
     # drain the queue to avoid broken pipe errors
-    actual_last_queue_item = dict()
-    while True:
-        try:
-            actual_last_queue_item = comm_to_main_queue.get(
-                timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-            )
-        except Empty:
-            break
-
+    # TODO Tanner (12/31/20): Add timeout_secs kwarg to drain_queue in stdlib_utils
+    queue_items = drain_queue(comm_to_main_queue)
+    actual_last_queue_item = queue_items[-1]
     assert (
         actual_last_queue_item["message"]
         == "Board acquisition still running. Stopping acquisition to complete teardown"
