@@ -12,6 +12,7 @@ from typing import Dict
 from typing import Iterable
 from typing import Optional
 from typing import Tuple
+from typing import Union
 
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import resource_path
@@ -249,9 +250,10 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         }
         return process_items
 
-    def are_processes_stopped(self) -> bool:
+    def are_processes_stopped(
+        self, timeout_secs: Union[float, int] = SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
+    ) -> bool:
         """Check if processes are stopped."""
-        # TODO (Eli 11/18/20): consider accepting a kwarg for SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
         start = perf_counter()
         processes = self._all_processes
         if not isinstance(  # pylint:disable=isinstance-second-argument-not-valid-type # Eli (12/8/20): pylint issue https://github.com/PyCQA/pylint/issues/3507
@@ -263,7 +265,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         while not are_stopped:
             sleep(SUBPROCESS_POLL_DELAY_SECONDS)
             elapsed_time = perf_counter() - start
-            if elapsed_time >= SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS:
+            if elapsed_time >= timeout_secs:
                 break
             are_stopped = all(p.is_stopped() for p in processes)
         return are_stopped
