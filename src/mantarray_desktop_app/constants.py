@@ -52,8 +52,6 @@ BARCODE_UNREADABLE_UUID = uuid.UUID("87525976-4c98-4783-a6f2-ae34a89dace6")
 CURI_BIO_ACCOUNT_UUID = uuid.UUID("73f52be0-368c-42d8-a1fd-660d49ba5604")
 CURI_BIO_USER_ACCOUNT_ID = uuid.UUID("455b93eb-c78f-4494-9f73-d3291130f126")
 
-# TODO (Eli 12/8/20): make all potentially mutable constants explicitly immutable (e.g. immutabledicts)
-
 DEFAULT_USER_CONFIG = immutabledict(
     {
         "Customer Account ID": "",
@@ -123,32 +121,34 @@ ADC_OFFSET_DESCRIPTION_TAG = (
 )
 
 CONSTRUCT_SENSORS_PER_REF_SENSOR = 4
-CHANNEL_INDEX_TO_24_WELL_INDEX = {  # may be unnecessary
-    0: 0,
-    1: 1,
-    2: 4,
-    3: 5,
-    4: 8,
-    5: 9,
-    6: 12,
-    7: 13,
-    8: 16,
-    9: 17,
-    10: 20,
-    11: 21,
-    12: 7,
-    13: 6,
-    14: 3,
-    15: 2,
-    16: 15,
-    17: 14,
-    18: 11,
-    19: 10,
-    20: 23,
-    21: 22,
-    22: 19,
-    23: 18,
-}
+CHANNEL_INDEX_TO_24_WELL_INDEX = immutabledict(  # may be unnecessary
+    {
+        0: 0,
+        1: 1,
+        2: 4,
+        3: 5,
+        4: 8,
+        5: 9,
+        6: 12,
+        7: 13,
+        8: 16,
+        9: 17,
+        10: 20,
+        11: 21,
+        12: 7,
+        13: 6,
+        14: 3,
+        15: 2,
+        16: 15,
+        17: 14,
+        18: 11,
+        19: 10,
+        20: 23,
+        21: 22,
+        22: 19,
+        23: 18,
+    }
+)
 REF_INDEX_TO_24_WELL_INDEX = immutabledict(
     {
         0: frozenset([0, 1, 4, 5]),

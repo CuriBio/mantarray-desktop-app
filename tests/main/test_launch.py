@@ -4,6 +4,7 @@ import hashlib
 import json
 import logging
 import multiprocessing
+import os
 import platform
 import socket
 import sys
@@ -81,6 +82,9 @@ def test_main__stores_and_logs_port_number_from_command_line_arguments(
 
 
 def test_main__handles_base64_command_line_argument_with_padding_issue(mocker):
+    # Tanner (12/31/20): Need to mock this since the recording folder passed in --initial-base64-settings does not exist
+    mocker.patch.object(os.path, "isdir", autospec=True, return_value=True)
+
     expected_command_line_args = [
         "--debug-test-post-build",
         "--initial-base64-settings=eyJyZWNvcmRpbmdfZGlyZWN0b3J5IjoiL2hvbWUvdWJ1bnR1Ly5jb25maWcvTWFudGFycmF5Q29udHJvbGxlci9yZWNvcmRpbmdzIn0",
@@ -218,7 +222,10 @@ def test_main__raises_error_if_multiprocessing_start_method_not_spawn(mocker):
 
 @pytest.mark.timeout(15)
 def test_main_configures_process_manager_logging_level__and_standard_logging_level__to_debug_when_command_line_arg_passed(
-    mocker, fully_running_app_from_main_entrypoint, patched_xem_scripts_folder
+    mocker,
+    fully_running_app_from_main_entrypoint,
+    patched_xem_scripts_folder,
+    patched_firmware_folder,
 ):
     app_info = fully_running_app_from_main_entrypoint(["--log-level-debug"])
     mocked_configure_logging = app_info["mocked_configure_logging"]

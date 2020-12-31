@@ -47,8 +47,10 @@ def validate_settings(settings_dict: Dict[str, Any]) -> None:
 
 
 def convert_request_args_to_config_dict(request_args: Dict[str, Any]) -> Dict[str, Any]:
-    """Convert from request/CLI inputs to standard dictionary format."""
-    validate_settings(request_args)
+    """Convert from request/CLI inputs to standard dictionary format.
+
+    Args should be validated before being passed to this function.
+    """
     customer_account_uuid = request_args.get("customer_account_uuid", None)
     user_account_uuid = request_args.get("user_account_uuid", None)
     recording_directory = request_args.get("recording_directory", None)
