@@ -111,26 +111,24 @@ jobs:
           google-chrome --version
           chromedriver --version
 
-      - name: Read package.json # from https://github.com/hypergraph-xyz/desktop/blob/main/.github/workflows/ci.yml
-        if: matrix.IS_DEPLOYMENT_CONFIG == true
-        id: package
-        uses: juliangruber/read-file-action@v1
+      - name: Get Version
+        id: software-version
+        uses: notiz-dev/github-action-json-property@v0.1.0
         with:
-          path: package.json
-      - name: Get App Version
-        if: matrix.IS_DEPLOYMENT_CONFIG == true
-        id: read_app_version
-        uses: gr2m/get-json-paths-action@v1.0.4
+          path: "package.json"
+          prop_path: "version"
+
+      - name: Get Product Name
+        id: product-name
+        uses: notiz-dev/github-action-json-property@v0.1.0
         with:
-          json: ${{ steps.package.outputs.content }}
-          version: "version"
-      - name: Get App Name
-        if: matrix.IS_DEPLOYMENT_CONFIG == true
-        id: productName
-        uses: gr2m/get-json-paths-action@v1.0.4
-        with:
-          json: ${{ steps.package.outputs.content }}
-          productName: "productName"
+          path: "package.json"
+          prop_path: "name"
+
+      - name: Display Extracted Software Version and Product Name
+        run: |
+          echo ${{steps.software-version.outputs.prop}}
+          echo ${{steps.product-name.outputs.prop}}
 
       - name: Install pipenv # no known reason for this specific version of pipenv, just pinning it for good practice
         run: pip install pipenv==2020.8.13
