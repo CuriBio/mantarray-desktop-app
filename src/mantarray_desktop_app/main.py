@@ -196,7 +196,9 @@ def main(
     logger.info(msg)
 
     if parsed_args.debug_test_post_build:
-        print("Successfully opened and closed application.")  # allow-print
+        print(  # allow-print
+            f"Successfully opened and closed application v{CURRENT_SOFTWARE_VERSION}."
+        )
         return
 
     shared_values_dict["system_status"] = SERVER_INITIALIZING_STATE
