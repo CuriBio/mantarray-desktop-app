@@ -33,7 +33,6 @@ jobs:
           - 3.8
           # - 3.9 # Eli (12/10/20): Cython package is giving issues with Python 3.9 currently
         node-version:
-          - 12
           - 14
         include:
           # only enable coverage on the fastest job
