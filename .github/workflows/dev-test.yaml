@@ -130,7 +130,7 @@ jobs:
           echo ${{steps.product-name.outputs.prop}}
 
       - name: Install pipenv # no known reason for this specific version of pipenv, just pinning it for good practice
-        run: pip install pipenv==2020.8.13
+        run: pip install pipenv==2020.11.15
 
       - name: Setup Pipenv
         env:
@@ -212,7 +212,7 @@ jobs:
           ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHTIMESTAMPDURINGBUILD',"$(Get-Date -Format 'yyMMddHHmmss')--$env:build_number") | Set-Content -Path src\mantarray_desktop_app\constants.py
           ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHVERSIONDURINGBUILD',"${{steps.software-version.outputs.prop}}") | Set-Content -Path src\mantarray_desktop_app\constants.py
 
-      - name: Insert the Build Number and Software Version into the code (Windows)
+      - name: Insert the Build Number and Software Version into the code (Linux)
         if: runner.os == 'Linux'
         env:
           build_number: ${{ github.run_number }}
