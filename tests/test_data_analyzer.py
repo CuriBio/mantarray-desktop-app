@@ -52,6 +52,45 @@ __fixtures__ = [
 ]
 
 
+def fill_da_input_data_queue(
+    input_queue,
+    num_seconds,
+):
+    # TODO Tanner (1/4/21): Consider using this function to remove protected-access of _data_buffer
+    for seconds in range(num_seconds):
+        for well in range(24):
+            time_indices = np.arange(
+                seconds * CENTIMILLISECONDS_PER_SECOND,
+                (seconds + 1) * CENTIMILLISECONDS_PER_SECOND,
+                CONSTRUCT_SENSOR_SAMPLING_PERIOD,
+            )
+            tissue_data = 1000 * signal.sawtooth(
+                time_indices / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5
+            )
+            tissue_packet = {
+                "well_index": well,
+                "is_reference_sensor": False,
+                "data": np.array([time_indices, tissue_data], dtype=np.int32),
+            }
+            input_queue.put(tissue_packet)
+        for ref in range(6):
+            time_indices = np.arange(
+                seconds * CENTIMILLISECONDS_PER_SECOND,
+                (seconds + 1) * CENTIMILLISECONDS_PER_SECOND,
+                REFERENCE_SENSOR_SAMPLING_PERIOD,
+            )
+            ref_data = 1000 * signal.sawtooth(
+                time_indices / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5
+            )
+            ref_packet = {
+                "reference_for_wells": REF_INDEX_TO_24_WELL_INDEX[ref],
+                "is_reference_sensor": True,
+                "data": np.array([time_indices, ref_data], dtype=np.int32),
+            }
+            input_queue.put(ref_packet)
+    confirm_queue_is_eventually_of_size(input_queue, num_seconds * (24 + 6))
+
+
 def test_convert_24_bit_code_to_voltage_returns_correct_values_with_numpy_array():
     test_data = np.array(
         [-0x800000, MIDSCALE_CODE - RAW_TO_SIGNED_CONVERSION_VALUE, 0x7FFFFF]
@@ -86,39 +125,7 @@ def test_DataAnalyzerProcess_performance(four_board_analyzer_process):
     invoke_process_run_and_check_errors(p)
 
     num_seconds = 8
-    for seconds in range(num_seconds):
-        for well in range(24):
-            time_indices = np.arange(
-                seconds * CENTIMILLISECONDS_PER_SECOND,
-                (seconds + 1) * CENTIMILLISECONDS_PER_SECOND,
-                CONSTRUCT_SENSOR_SAMPLING_PERIOD,
-            )
-            tissue_data = 1000 * signal.sawtooth(
-                time_indices / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5
-            )
-            tissue_packet = {
-                "well_index": well,
-                "is_reference_sensor": False,
-                "data": np.array([time_indices, tissue_data], dtype=np.int32),
-            }
-            input_queue.put(tissue_packet)
-        for ref in range(6):
-            time_indices = np.arange(
-                seconds * CENTIMILLISECONDS_PER_SECOND,
-                (seconds + 1) * CENTIMILLISECONDS_PER_SECOND,
-                REFERENCE_SENSOR_SAMPLING_PERIOD,
-            )
-            ref_data = 1000 * signal.sawtooth(
-                time_indices / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5
-            )
-            ref_packet = {
-                "reference_for_wells": REF_INDEX_TO_24_WELL_INDEX[ref],
-                "is_reference_sensor": True,
-                "data": np.array([time_indices, ref_data], dtype=np.int32),
-            }
-            input_queue.put(ref_packet)
-    confirm_queue_is_eventually_of_size(input_queue, num_seconds * (24 + 6))
-
+    fill_da_input_data_queue(input_queue, num_seconds)
     start = time.perf_counter_ns()
     invoke_process_run_and_check_errors(p, num_iterations=num_seconds * (24 + 6))
     dur = time.perf_counter_ns() - start
@@ -454,7 +461,6 @@ def test_DataAnalyzerProcess__dumps_all_data_when_buffer_is_full_and_clears_buff
 def test_DataAnalyzerProcess__dump_data_into_queue__sends_message_to_main_indicating_data_is_available__with_info_about_data(
     four_board_analyzer_process,
 ):
-    # TODO Tanner (9/4/20): create DA fixture with full buffer
     p, _, _, comm_to_main_queue, _ = four_board_analyzer_process
 
     dummy_well_data = [
