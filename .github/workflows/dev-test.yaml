@@ -33,7 +33,6 @@ jobs:
           - 3.8
           # - 3.9 # Eli (12/10/20): Cython package is giving issues with Python 3.9 currently
         node-version:
-          - 12
           - 14
         include:
           # only enable coverage on the fastest job
@@ -111,29 +110,27 @@ jobs:
           google-chrome --version
           chromedriver --version
 
-      - name: Read package.json # from https://github.com/hypergraph-xyz/desktop/blob/main/.github/workflows/ci.yml
-        if: matrix.IS_DEPLOYMENT_CONFIG == true
-        id: package
-        uses: juliangruber/read-file-action@v1
+      - name: Get Version
+        id: software-version
+        uses: notiz-dev/github-action-json-property@v0.1.0
         with:
-          path: package.json
-      - name: Get App Version
-        if: matrix.IS_DEPLOYMENT_CONFIG == true
-        id: read_app_version
-        uses: gr2m/get-json-paths-action@v1.0.4
+          path: "package.json"
+          prop_path: "version"
+
+      - name: Get Product Name
+        id: product-name
+        uses: notiz-dev/github-action-json-property@v0.1.0
         with:
-          json: ${{ steps.package.outputs.content }}
-          version: "version"
-      - name: Get App Name
-        if: matrix.IS_DEPLOYMENT_CONFIG == true
-        id: productName
-        uses: gr2m/get-json-paths-action@v1.0.4
-        with:
-          json: ${{ steps.package.outputs.content }}
-          productName: "productName"
+          path: "package.json"
+          prop_path: "name"
+
+      - name: Display Extracted Software Version and Product Name
+        run: |
+          echo ${{steps.software-version.outputs.prop}}
+          echo ${{steps.product-name.outputs.prop}}
 
       - name: Install pipenv # no known reason for this specific version of pipenv, just pinning it for good practice
-        run: pip install pipenv==2020.8.13
+        run: pip install pipenv==2020.11.15
 
       - name: Setup Pipenv
         env:
@@ -206,13 +203,23 @@ jobs:
       - name: Run Jest Tests
         run: npm run test:unit -- --ci
 
-      - name: Insert the Build Number into the code (Windows)
+      - name: Insert the Build Number and Software Version into the code (Windows)
         if: runner.os == 'Windows'
         env:
           build_number: ${{ github.run_number }}
         run: |
           echo $env:build_number
           ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHTIMESTAMPDURINGBUILD',"$(Get-Date -Format 'yyMMddHHmmss')--$env:build_number") | Set-Content -Path src\mantarray_desktop_app\constants.py
+          ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHVERSIONDURINGBUILD',"${{steps.software-version.outputs.prop}}") | Set-Content -Path src\mantarray_desktop_app\constants.py
+
+      - name: Insert the Build Number and Software Version into the code (Linux)
+        if: runner.os == 'Linux'
+        env:
+          build_number: ${{ github.run_number }}
+        run: |
+          echo $build_number
+          sed -i 's/REPLACETHISWITHTIMESTAMPDURINGBUILD/'"$(date +'%y%m%d%H%M%S')"'--$build_number/g' src/mantarray_desktop_app/constants.py
+          sed -i 's/REPLACETHISWITHVERSIONDURINGBUILD/'"${{steps.software-version.outputs.prop}}"'/g' src/mantarray_desktop_app/constants.py
 
       - name: Install Pyinstaller (Windows) and display all packages # Eli (10/21/20): when installed with pipenv during development on Linux, not all the right dependencies are included. Maybe there's a better way to get it into the pipfile, but unsure right now
         if: runner.os == 'Windows'
@@ -271,9 +278,9 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_USER_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_USER_SECRET_KEY }}
         run: |
-          pipenv run python .github/workflows/vcn.py notarize "dist/MantarrayController-Setup-0.4.0.exe"
+          pipenv run python .github/workflows/vcn.py notarize "dist/${{steps.product-name.outputs.prop}}-Setup-${{steps.software-version.outputs.prop}}.exe"
           pipenv run python .github/workflows/vcn.py notarize "dist/win-unpacked/Mantarray Controller.exe"
-          pipenv run python .github/workflows/vcn.py authenticate "dist/MantarrayController-Setup-0.4.0.exe"
+          pipenv run python .github/workflows/vcn.py authenticate "dist/${{steps.product-name.outputs.prop}}-Setup-${{steps.software-version.outputs.prop}}.exe"
           pipenv run python .github/workflows/vcn.py authenticate "dist/win-unpacked/Mantarray Controller.exe"
 
       - name: Archive visual regression
