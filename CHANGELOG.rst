@@ -7,6 +7,7 @@ Changelog for Mantarray Desktop App
 
 - Added 520 error code from ``system_status`` route if Electron and Flask EXE versions
   don't match.
+- Added redaction of username from file path in log message for finalized recording files.
 - Fixed issue causing recorded files created after stopping and restarting recording
   to not contain waveform data.
 
@@ -19,8 +20,9 @@ Changelog for Mantarray Desktop App
 - Added UUID to Log Files.
 - Added Log File UUID and hash sum of computer name to metadata of recorded files to make
   linking them to a specific log file and computer easier.
-- Updated HDF5 File Format Version to 0.4.0
-- Redacted username from file path in log for recording directory and log file path
+- Updated HDF5 File Format Version to 0.4.0.
+- Added redaction of username from file path in log message for recording directory and
+  log file path.
 
 - Added following changes to barcode format:
 

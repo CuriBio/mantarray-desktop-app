@@ -773,6 +773,30 @@ def test_MantarrayProcessesMonitor__scrubs_username_from_bit_file_name_in_boot_u
     assert expected_scrubbed_path in spied_info.call_args[0][0]
 
 
+def test_MantarrayProcessesMonitor__scrubs_username_from_finalized_recording_files_in_log_message(
+    test_monitor, test_process_manager, mocker
+):
+    monitor_thread, _, _, _ = test_monitor
+    spied_info = mocker.spy(process_monitor.logger, "info")
+
+    from_file_writer_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_file_writer_to_main()
+    )
+
+    test_communication = {
+        "communication_type": "file_finalized",
+        "file_path": r"Users\Curi Customer\AppData\Roaming\MantarrayController\recordings\recorded_file.h5",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(test_communication), from_file_writer_queue
+    )
+
+    invoke_process_run_and_check_errors(monitor_thread)
+
+    expected_scrubbed_path = r"Users\*************\AppData\Roaming\MantarrayController\recordings\recorded_file.h5"
+    assert expected_scrubbed_path in spied_info.call_args[0][0]
+
+
 def test_MantarrayProcessesMonitor__sends_two_barcode_poll_commands_to_OKComm_at_correct_time_intervals(
     test_monitor, test_process_manager, mocker
 ):

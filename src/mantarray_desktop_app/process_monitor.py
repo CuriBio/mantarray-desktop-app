@@ -88,8 +88,14 @@ class MantarrayProcessesMonitor(InfiniteThread):
         except queue.Empty:
             return
 
+        if "file_path" in communication:
+            communication["file_path"] = redact_sensitive_info_from_path(
+                communication["file_path"]
+            )
+        msg = f"Communication from the File Writer: {communication}".replace(
+            r"\\", "\\"
+        )
         # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
-        msg = f"Communication from the File Writer: {communication}"
         with self._lock:
             logger.info(msg)
 
