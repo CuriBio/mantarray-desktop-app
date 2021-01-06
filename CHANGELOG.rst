@@ -52,13 +52,6 @@ Changelog for Mantarray Desktop App
 - Added packing of FrontPanel 5.2.2 drivers.
 
 
-0.3.7 (2020-10-09)
-------------------
-
-- Added logging of HTTP error messages.
-- Added packing of FrontPanel 5.2.2 drivers.
-- Converted visual output from V to mV (multiplied by 1000)
-
 0.3.5 (2020-09-14)
 ------------------
 
