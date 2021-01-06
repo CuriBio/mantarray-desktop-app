@@ -106,7 +106,7 @@
     "require-extension-hooks": "0.3.3",
     "require-extension-hooks-babel": "1.0.0",
     "require-extension-hooks-vue": "0.4.2",
-    "sinon": "9.0.1",
+    "sinon": "9.2.2",
     "sinon-helpers": "2.0.3",
     "spectron": "11.1.0",
     "style-loader": "1.2.1",
