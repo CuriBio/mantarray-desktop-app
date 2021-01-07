@@ -7,6 +7,8 @@ Changelog for Mantarray Desktop App
 
 - Added 520 error code from ``system_status`` route if Electron and Flask EXE versions
   don't match.
+- Added ability to override barcode scanner in case of malfunction allowing users to
+  manually enter barcodes.
 - Added redaction of username from file path in log message for finalized recording files.
 - Fixed issue causing recorded files created after stopping and restarting recording
   to not contain waveform data.
