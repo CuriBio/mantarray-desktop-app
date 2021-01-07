@@ -1181,7 +1181,6 @@ def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_
     )
 
     # drain the queue to avoid broken pipe errors
-    # TODO Tanner (12/31/20): Add timeout_secs kwarg to drain_queue in stdlib_utils
     queue_items = drain_queue(comm_to_main_queue)
     actual_last_queue_item = queue_items[-1]
     assert (
