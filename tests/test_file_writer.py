@@ -4,7 +4,6 @@ import json
 import logging
 from multiprocessing import Queue
 import os
-import queue
 from statistics import stdev
 import tempfile
 import time
@@ -63,6 +62,7 @@ from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
 import numpy as np
 import pytest
 from stdlib_utils import confirm_queue_is_eventually_of_size
+from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import is_queue_eventually_empty
@@ -1367,7 +1367,7 @@ def test_FileWriterProcess_hard_stop__calls_close_all_files__when_still_recordin
 
 
 @pytest.mark.slow
-@pytest.mark.timeout(8)
+@pytest.mark.timeout(10)
 def test_FileWriterProcess_teardown_after_loop__can_teardown_process_while_recording__and_log_stop_recording_message(
     running_four_board_file_writer_process,
 ):
@@ -1379,16 +1379,16 @@ def test_FileWriterProcess_teardown_after_loop__can_teardown_process_while_recor
         _,
         _,
     ) = running_four_board_file_writer_process
-    from_main_queue.put(GENERIC_START_RECORDING_COMMAND)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        GENERIC_START_RECORDING_COMMAND, from_main_queue
+    )
+
     fw_process.soft_stop()
     fw_process.join()
 
-    while True:
-        try:
-            actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-        except queue.Empty:
-            break
+    queue_items = drain_queue(to_main_queue)
 
+    actual = queue_items[-1]
     assert (
         actual["message"]
         == "Data is still be written to file. Stopping recording and closing files to complete teardown"
