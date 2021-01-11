@@ -239,7 +239,7 @@ def test_main_configures_process_manager_logging_level__and_standard_logging_lev
 
 
 @pytest.mark.slow
-@pytest.mark.timeout(20)
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS + 5)
 def test_main_configures_process_manager_logging_level__and_standard_logging_level__to_info_by_default(
     mocker, fully_running_app_from_main_entrypoint, patched_xem_scripts_folder
 ):
@@ -268,7 +268,7 @@ def test_main_can_launch_server_with_no_args_from_entrypoint__default_exe_execut
     )  # wait for shutdown to complete
 
 
-@pytest.mark.timeout(20)
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS + 5)
 @pytest.mark.slow
 def test_main_entrypoint__correctly_assigns_shared_values_dictionary_to_process_monitor(  # __and_sets_the_process_monitor_singleton(
     fully_running_app_from_main_entrypoint,
@@ -291,7 +291,7 @@ def test_main_entrypoint__correctly_assigns_shared_values_dictionary_to_process_
     assert "in_simulation_mode" in shared_values_dict
 
 
-@pytest.mark.timeout(20)
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS + 5)
 @pytest.mark.slow
 def test_main__calls_boot_up_function_upon_launch(
     patched_firmware_folder,
