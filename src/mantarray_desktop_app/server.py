@@ -72,6 +72,7 @@ from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import REFERENCE_VOLTAGE
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
+from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SYSTEM_STATUS_UUIDS
 from .constants import VALID_CONFIG_SETTINGS
 from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
@@ -548,10 +549,7 @@ def stop_managed_acquisition() -> Response:
 
     `curl http://localhost:4567/stop_managed_acquisition`
     """
-    comm_dict = {
-        "communication_type": "to_instrument",
-        "command": "stop_managed_acquisition",
-    }
+    comm_dict = STOP_MANAGED_ACQUISITION_COMMUNICATION
     server_thread = get_the_server_thread()
     to_da_queue = (
         server_thread.queue_container().get_communication_queue_from_main_to_data_analyzer()

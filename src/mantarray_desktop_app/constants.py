@@ -192,6 +192,12 @@ START_MANAGED_ACQUISITION_COMMUNICATION = immutabledict(
         "command": "start_managed_acquisition",
     }
 )
+STOP_MANAGED_ACQUISITION_COMMUNICATION = immutabledict(
+    {
+        "communication_type": "to_instrument",
+        "command": "stop_managed_acquisition",
+    }
+)
 
 SERVER_INITIALIZING_STATE = "server_initializing"
 SERVER_READY_STATE = "server_ready"

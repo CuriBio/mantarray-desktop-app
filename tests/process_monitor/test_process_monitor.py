@@ -24,6 +24,7 @@ from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE
+from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app.server import queue_command_to_ok_comm
 import numpy as np
 import pytest
@@ -33,7 +34,6 @@ from xem_wrapper import FrontPanelSimulator
 from ..fixtures import fixture_test_process_manager
 from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
-from ..fixtures import STOP_MANAGED_ACQUISITION_COMMAND
 from ..fixtures_ok_comm import fixture_patch_connection_to_board
 from ..fixtures_process_monitor import fixture_test_monitor
 from ..helpers import confirm_queue_is_eventually_empty
@@ -595,7 +595,7 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_calibrated_after_manag
     simulator.start_acquisition()
     ok_comm_process.set_board_connection(0, simulator)
 
-    to_ok_comm_queue.put(STOP_MANAGED_ACQUISITION_COMMAND)
+    to_ok_comm_queue.put(STOP_MANAGED_ACQUISITION_COMMUNICATION)
     assert is_queue_eventually_not_empty(to_ok_comm_queue) is True
     invoke_process_run_and_check_errors(ok_comm_process)
 

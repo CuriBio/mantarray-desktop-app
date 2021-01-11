@@ -24,6 +24,7 @@ from mantarray_desktop_app import REF_INDEX_TO_24_WELL_INDEX
 from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
+from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
 from mantarray_desktop_app import UnrecognizedCommandToInstrumentError
 from mantarray_desktop_app import UnrecognizedCommTypeFromMainToDataAnalyzerError
@@ -41,7 +42,6 @@ from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_sti
 
 from .fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
-from .fixtures import STOP_MANAGED_ACQUISITION_COMMAND
 from .fixtures_data_analyzer import fixture_four_board_analyzer_process
 from .helpers import confirm_queue_is_eventually_empty
 from .helpers import confirm_queue_is_eventually_of_size
@@ -655,7 +655,7 @@ def test_DataAnalyzerProcess__processes_stop_managed_acquisition_command(
         data_buffer[well_idx]["ref_data"] = [[0, 0, 0], [4, 5, 6]]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        STOP_MANAGED_ACQUISITION_COMMAND,
+        STOP_MANAGED_ACQUISITION_COMMUNICATION,
         comm_from_main_queue,
     )
 
