@@ -93,7 +93,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 communication["file_path"]
             )
         msg = f"Communication from the File Writer: {communication}".replace(
-            r"\\", "\\"
+            r"\\",
+            "\\",  # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
         )
         # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
         with self._lock:
@@ -275,10 +276,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     communication["response"]["bit_file_name"]
                 )
         msg = f"Communication from the OpalKelly Controller: {communication}".replace(
-            r"\\", "\\"
+            r"\\",
+            "\\",  # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
         )
         # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
-        # msg = f"Communication from the OpalKelly Controller: {communication}"
         with self._lock:
             logger.info(msg)
         communication_type = communication["communication_type"]
