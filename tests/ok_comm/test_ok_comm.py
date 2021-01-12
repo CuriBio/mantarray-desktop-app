@@ -3,7 +3,6 @@ import copy
 import logging
 import math
 from multiprocessing import Queue
-from queue import Empty
 import struct
 import time
 
@@ -475,11 +474,7 @@ def test_build_file_writer_objects__returns_correct_values__with_six_channel_for
         np.testing.assert_equal(actual[key]["data"], expected[key]["data"])
 
     # drain the queue to avoid broken pipe errors
-    while True:
-        try:
-            actual_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-        except Empty:
-            break
+    drain_queue(actual_queue)
 
 
 DATA_FROM_JASON = [
@@ -632,11 +627,7 @@ def test_build_file_writer_objects__correctly_parses_a_real_data_cycle_from_jaso
         np.testing.assert_equal(actual[key]["data"], expected_dict[key]["data"])
 
     # drain the queue to avoid broken pipe errors
-    while True:
-        try:
-            logging_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-        except Empty:
-            break
+    drain_queue(logging_queue)
 
 
 def test_OkCommunicationProcess_super_is_called_during_init(mocker):
@@ -1180,8 +1171,13 @@ def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_
         timeout_seconds=5,
     )
 
-    # drain the queue to avoid broken pipe errors
-    queue_items = drain_queue(comm_to_main_queue)
+    # drain the queue to avoid broken pipe errors and get the last item in the queue
+    queue_items = drain_queue(
+        comm_to_main_queue,
+        timeout_secs=(  # TODO Tanner (1/11/21): Change this kwarg to `timeout_seconds` to be consistent with other queue functions in stdlib_utils
+            QUEUE_CHECK_TIMEOUT_SECONDS * 2
+        ),
+    )  # Tanner (1/11/21): This message takes longer too populate than normal so adding a longer timeout here. Unsure why this is the case
     actual_last_queue_item = queue_items[-1]
     assert (
         actual_last_queue_item["message"]
