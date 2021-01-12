@@ -806,7 +806,7 @@ def test_start_recording_command__populates_queue__with_correctly_parsed_set_of_
         "metadata_to_copy_onto_main_file_attributes"
     ][PLATE_BARCODE_UUID]
     response = test_client.get(
-        f"/start_recording?barcode={expected_barcode}&active_well_indices=0,5,8"
+        f"/start_recording?barcode={expected_barcode}&active_well_indices=0,5,8&is_hardware_test_recording=False"
     )
     assert response.status_code == 200
 
@@ -829,6 +829,12 @@ def test_start_recording_command__populates_queue__with_correctly_parsed_set_of_
             "correctly sets value to False with scanned barcode present",
         ),
         (
+            "",
+            "MA200440002",
+            False,
+            "correctly sets value to False after barcode scan fails",
+        ),
+        (
             None,
             "MA200440002",
             False,
@@ -837,7 +843,7 @@ def test_start_recording_command__populates_queue__with_correctly_parsed_set_of_
         ("MA200440001", "MA200440001", True, "correctly sets value to True"),
     ],
 )
-def test_recording_command__correctly_sets_barcode_from_scanner_value(
+def test_start_recording_command__correctly_sets_barcode_from_scanner_value(
     scanned_barcode,
     user_entered_barcode,
     expected_result,
@@ -854,7 +860,9 @@ def test_recording_command__correctly_sets_barcode_from_scanner_value(
             "plate_barcode"
         ] = scanned_barcode
 
-    response = test_client.get(f"/start_recording?barcode={user_entered_barcode}")
+    response = test_client.get(
+        f"/start_recording?barcode={user_entered_barcode}&is_hardware_test_recording=False"
+    )
     assert response.status_code == 200
 
     comm_queue = (
