@@ -10,7 +10,6 @@ import uuid
 
 from freezegun import freeze_time
 import h5py
-from labware_domain_models import LabwareDefinition
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
@@ -93,6 +92,7 @@ from ..fixtures import fixture_patched_firmware_folder
 from ..fixtures import fixture_patched_xem_scripts_folder
 from ..fixtures import fixture_test_process_manager
 from ..fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
+from ..fixtures_file_writer import WELL_DEF_24
 from ..helpers import confirm_queue_is_eventually_empty
 
 __fixtures__ = [
@@ -100,6 +100,7 @@ __fixtures__ = [
     fixture_test_process_manager,
     fixture_patched_xem_scripts_folder,
     fixture_patched_firmware_folder,
+    WELL_DEF_24,
 ]
 LIVE_VIEW_ACTIVE_WAIT_TIME = 150
 CALIBRATED_WAIT_TIME = 10
@@ -480,8 +481,6 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         # Tanner (6/15/20): Processes must be joined to avoid h5 errors with reading files, so hard-stopping before joining
         test_process_manager.hard_stop_and_join_processes()
 
-        well_def = LabwareDefinition(row_count=4, column_count=6)
-
         # test first recording for all data and metadata
         for row_idx in range(4):
             for col_idx in range(6):
@@ -490,7 +489,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                     os.path.join(
                         expected_recordings_dir,
                         f"{expected_barcode1}__{expected_timestamp}",
-                        f"{expected_barcode1}__{expected_timestamp}__{well_def.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
+                        f"{expected_barcode1}__{expected_timestamp}__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
                     ),
                     "r",
                 ) as this_file:
@@ -578,7 +577,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
 
                     assert (
                         this_file_attrs[str(WELL_NAME_UUID)]
-                        == f"{well_def.get_well_name_from_row_and_column(row_idx, col_idx)}"
+                        == f"{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}"
                     )
                     assert this_file_attrs["Metadata UUID Descriptions"] == json.dumps(
                         str(METADATA_UUID_DESCRIPTIONS)
@@ -588,7 +587,9 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                     assert this_file_attrs[str(WELL_COLUMN_UUID)] == col_idx
                     assert this_file_attrs[
                         str(WELL_INDEX_UUID)
-                    ] == well_def.get_well_index_from_row_and_column(row_idx, col_idx)
+                    ] == WELL_DEF_24.get_well_index_from_row_and_column(
+                        row_idx, col_idx
+                    )
                     assert (
                         this_file_attrs[str(TISSUE_SAMPLING_PERIOD_UUID)]
                         == CONSTRUCT_SENSOR_SAMPLING_PERIOD
@@ -623,7 +624,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                     os.path.join(
                         expected_recordings_dir,
                         f"{expected_barcode2}__2020_06_15_141957",
-                        f"{expected_barcode2}__2020_06_15_141957__{well_def.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
+                        f"{expected_barcode2}__2020_06_15_141957__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
                     ),
                     "r",
                 ) as this_file:

@@ -10,7 +10,6 @@ import time
 
 from freezegun import freeze_time
 import h5py
-from labware_domain_models import LabwareDefinition
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
@@ -79,7 +78,9 @@ from .fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
 from .fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from .fixtures_file_writer import GENERIC_TISSUE_DATA_PACKET
 from .fixtures_file_writer import open_the_generic_h5_file
+from .fixtures_file_writer import WELL_DEF_24
 from .helpers import assert_queue_is_eventually_not_empty
+from .helpers import confirm_queue_is_eventually_empty
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 from .parsed_channel_data_packets import SIMPLE_CONSTRUCT_DATA_FROM_WELL_0
 
@@ -87,6 +88,7 @@ from .parsed_channel_data_packets import SIMPLE_CONSTRUCT_DATA_FROM_WELL_0
 __fixtures__ = [
     fixture_four_board_file_writer_process,
     fixture_running_four_board_file_writer_process,
+    WELL_DEF_24,
 ]
 
 
@@ -278,12 +280,11 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
     )
     assert len(actual_set_of_files) == 24
 
-    well_def = LabwareDefinition(row_count=4, column_count=6)
     expected_set_of_files = set()
     for row_idx in range(4):
         for col_idx in range(6):
             expected_set_of_files.add(
-                f"{expected_barcode}__{timestamp_str}__{well_def.get_well_name_from_row_and_column(row_idx, col_idx)}.h5"
+                f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5"
             )
     assert actual_set_of_files == expected_set_of_files
 
@@ -294,13 +295,13 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         assert this_file_being_written_to.swmr_mode is True
 
     for well_idx in range(24):
-        row_idx, col_idx = well_def.get_row_and_column_from_well_index(well_idx)
+        row_idx, col_idx = WELL_DEF_24.get_row_and_column_from_well_index(well_idx)
 
         this_file = h5py.File(
             os.path.join(
                 file_dir,
                 f"{expected_barcode}__{timestamp_str}",
-                f"{expected_barcode}__{timestamp_str}__{well_def.get_well_name_from_well_index(well_idx)}.h5",
+                f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
             ),
             "r",
         )
@@ -376,13 +377,13 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         )
         assert (
             this_file.attrs[str(WELL_NAME_UUID)]
-            == f"{well_def.get_well_name_from_well_index(well_idx)}"
+            == f"{WELL_DEF_24.get_well_name_from_well_index(well_idx)}"
         )
         assert this_file.attrs[str(WELL_ROW_UUID)] == row_idx
         assert this_file.attrs[str(WELL_COLUMN_UUID)] == col_idx
         assert this_file.attrs[
             str(WELL_INDEX_UUID)
-        ] == well_def.get_well_index_from_row_and_column(row_idx, col_idx)
+        ] == WELL_DEF_24.get_well_index_from_row_and_column(row_idx, col_idx)
         assert this_file.attrs[str(TOTAL_WELL_COUNT_UUID)] == 24
         assert (
             this_file.attrs[str(REF_SAMPLING_PERIOD_UUID)]
@@ -1117,12 +1118,11 @@ def test_FileWriterProcess__records_all_requested_data_in_buffer__and_creates_di
     ][PLATE_BARCODE_UUID]
     timestamp_str = "2020_02_09_190322"
 
-    well_def = LabwareDefinition(row_count=4, column_count=6)
     this_file = h5py.File(
         os.path.join(
             file_dir,
             f"{expected_barcode}__{timestamp_str}",
-            f"{expected_barcode}__{timestamp_str}__{well_def.get_well_name_from_well_index(expected_well_idx)}.h5",
+            f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(expected_well_idx)}.h5",
         ),
         "r",
     )
@@ -1206,12 +1206,11 @@ def test_FileWriterProcess__deletes_recorded_well_data_after_stop_time(
     ][PLATE_BARCODE_UUID]
     timestamp_str = "2020_02_09_190322"
 
-    well_def = LabwareDefinition(row_count=4, column_count=6)
     this_file = h5py.File(
         os.path.join(
             file_dir,
             f"{expected_barcode}__{timestamp_str}",
-            f"{expected_barcode}__{timestamp_str}__{well_def.get_well_name_from_well_index(expected_well_idx)}.h5",
+            f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(expected_well_idx)}.h5",
         ),
         "r",
     )
@@ -1290,12 +1289,11 @@ def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
     ][PLATE_BARCODE_UUID]
     timestamp_str = "2020_02_09_190322"
 
-    well_def = LabwareDefinition(row_count=4, column_count=6)
     this_file = h5py.File(
         os.path.join(
             file_dir,
             f"{expected_barcode}__{timestamp_str}",
-            f"{expected_barcode}__{timestamp_str}__{well_def.get_well_name_from_well_index(expected_well_idx)}.h5",
+            f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(expected_well_idx)}.h5",
         ),
         "r",
     )
@@ -1378,6 +1376,78 @@ def test_FileWriterProcess_hard_stop__calls_close_all_files__when_still_recordin
     fw_process.hard_stop()
 
     spied_close_all_files.assert_called_once()
+
+
+def test_FileWriterProcess_hard_stop__closes_all_files_after_stop_recording_before_all_files_are_finalized__and_files_can_be_opened_after_process_stops(
+    four_board_file_writer_process, mocker
+):
+    expected_timestamp = "2020_02_09_190935"
+    expected_barcode = GENERIC_START_RECORDING_COMMAND[
+        "metadata_to_copy_onto_main_file_attributes"
+    ][PLATE_BARCODE_UUID]
+
+    fw_process, board_queues, from_main_queue, _, _, _ = four_board_file_writer_process
+    spied_close_all_files = mocker.spy(fw_process, "close_all_files")
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        update_dir_command = {
+            "command": "update_directory",
+            "new_directory": tmp_dir,
+        }
+        put_object_into_queue_and_raise_error_if_eventually_still_empty(
+            update_dir_command, from_main_queue
+        )
+        invoke_process_run_and_check_errors(fw_process)
+
+        put_object_into_queue_and_raise_error_if_eventually_still_empty(
+            GENERIC_START_RECORDING_COMMAND, from_main_queue
+        )
+        invoke_process_run_and_check_errors(fw_process)
+
+        # fill files with data
+        start_timepoint = GENERIC_START_RECORDING_COMMAND[
+            "timepoint_to_begin_recording_at"
+        ]
+        data = np.array([[start_timepoint], [0]], dtype=np.int32)
+        for i in range(24):
+            tissue_data_packet = {
+                "well_index": i,
+                "is_reference_sensor": False,
+                "data": data,
+            }
+            board_queues[0][0].put(tissue_data_packet)
+        for i in range(6):
+            ref_data_packet = {
+                "reference_for_wells": REF_INDEX_TO_24_WELL_INDEX[i],
+                "is_reference_sensor": True,
+                "data": data,
+            }
+            board_queues[0][0].put(ref_data_packet)
+        confirm_queue_is_eventually_of_size(board_queues[0][0], 30)
+        invoke_process_run_and_check_errors(fw_process, num_iterations=30)
+        confirm_queue_is_eventually_empty(board_queues[0][0])
+
+        stop_recording_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+        put_object_into_queue_and_raise_error_if_eventually_still_empty(
+            stop_recording_command, from_main_queue
+        )
+        invoke_process_run_and_check_errors(fw_process)
+
+        assert spied_close_all_files.call_count == 0  # confirm pre-condition
+        fw_process.hard_stop()
+        spied_close_all_files.assert_called_once()
+
+        # confirm files can be opened and files contains at least one piece of metadata
+        for row_idx in range(4):
+            for col_idx in range(6):
+                with h5py.File(
+                    os.path.join(
+                        tmp_dir,
+                        f"{expected_barcode}__{expected_timestamp}",
+                        f"{expected_barcode}__{expected_timestamp}__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
+                    ),
+                    "r",
+                ) as this_file:
+                    assert str(START_RECORDING_TIME_INDEX_UUID) in this_file.attrs
 
 
 @pytest.mark.slow

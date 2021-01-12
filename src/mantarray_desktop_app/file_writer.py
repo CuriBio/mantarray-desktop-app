@@ -281,7 +281,7 @@ class FileWriterProcess(InfiniteProcess):
             to_main_queue,
             self.get_logging_level(),
         )
-        if self._is_recording:
+        if len(self._open_files[0].keys()) > 0:
             msg = "Data is still be written to file. Stopping recording and closing files to complete teardown"
             put_log_message_into_queue(
                 logging.INFO,

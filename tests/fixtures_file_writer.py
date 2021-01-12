@@ -13,6 +13,7 @@ from typing import Tuple
 import uuid
 
 import h5py
+from labware_domain_models import LabwareDefinition
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
@@ -45,6 +46,8 @@ from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
 import pytest
+
+WELL_DEF_24 = LabwareDefinition(row_count=4, column_count=6)
 
 
 GENERIC_ADC_OFFSET_VALUES: Dict[int, Dict[str, int]] = dict()

@@ -12,6 +12,7 @@ Changelog for Mantarray Desktop App
 - Added redaction of username from file path in log message for finalized recording files.
 - Fixed issue causing recorded files created after stopping and restarting recording
   to not contain waveform data.
+- Fixed issue preventing recorded files from being opened due to H5 flags not being cleared.
 
 
 0.4.0 (2020-12-17)
