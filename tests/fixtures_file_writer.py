@@ -24,6 +24,7 @@ from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
+from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
 from mantarray_file_manager import COMPUTER_NAME_HASH
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
@@ -82,6 +83,7 @@ GENERIC_START_RECORDING_COMMAND: Dict[str, Any] = {
         COMPUTER_NAME_HASH: str(
             hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).digest()
         ),
+        BARCODE_IS_FROM_SCANNER_UUID: True,
     },
     "active_well_indices": set(range(24)),
 }
