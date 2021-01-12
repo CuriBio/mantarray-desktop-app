@@ -272,6 +272,12 @@ class FileWriterProcess(InfiniteProcess):
     def is_recording(self) -> bool:
         return self._is_recording
 
+    def _board_has_open_files(self, board_idx: int) -> bool:
+        return len(self._open_files[board_idx].keys()) > 0
+
+    def _is_finalizing_files_after_recording(self) -> bool:
+        return self._board_has_open_files(0) and not self._is_recording
+
     def _teardown_after_loop(self) -> None:
         to_main_queue = self._to_main_queue
         msg = f"File Writer Process beginning teardown at {_get_formatted_utc_now()}"
@@ -281,7 +287,7 @@ class FileWriterProcess(InfiniteProcess):
             to_main_queue,
             self.get_logging_level(),
         )
-        if len(self._open_files[0].keys()) > 0:
+        if self._board_has_open_files(0):
             msg = "Data is still be written to file. Stopping recording and closing files to complete teardown"
             put_log_message_into_queue(
                 logging.INFO,
@@ -293,7 +299,8 @@ class FileWriterProcess(InfiniteProcess):
         super()._teardown_after_loop()
 
     def _commands_for_each_run_iteration(self) -> None:
-        self._process_next_command_from_main()
+        if not self._is_finalizing_files_after_recording():
+            self._process_next_command_from_main()
         self._process_next_data_packet()
         self._update_data_packet_buffers()
         self._finalize_completed_files()
