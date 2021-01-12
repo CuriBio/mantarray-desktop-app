@@ -39,6 +39,7 @@ from .server import ServerThreadNotInitializedError
 from .utils import convert_request_args_to_config_dict
 from .utils import redact_sensitive_info_from_path
 from .utils import update_shared_dict
+from .utils import validate_settings
 
 
 logger = logging.getLogger(__name__)
@@ -174,8 +175,8 @@ def main(
         decoded_settings = base64.urlsafe_b64decode(
             str(parsed_args.initial_base64_settings) + "==="
         )
-        # validate_settings(settings_dict) # TODO (Eli 12/3/20): unit test and add this
         settings_dict = json.loads(decoded_settings)
+        validate_settings(settings_dict)
 
     if parsed_args.expected_software_version:
         shared_values_dict[
@@ -190,7 +191,7 @@ def main(
     ).digest()
     shared_values_dict["computer_name_hash"] = str(computer_name_hash)
 
-    msg = f"Log File UUID: {log_file_uuid}"  # TODO Tanner (11/25/20): figure out better way to handle missing log_file_uuid value
+    msg = f"Log File UUID: {log_file_uuid}"
     logger.info(msg)
     msg = f"SHA512 digest of Computer Name {str(computer_name_hash)}"
     logger.info(msg)

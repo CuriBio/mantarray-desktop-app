@@ -91,7 +91,6 @@ from ..fixtures import fixture_fully_running_app_from_main_entrypoint
 from ..fixtures import fixture_patched_firmware_folder
 from ..fixtures import fixture_patched_xem_scripts_folder
 from ..fixtures import fixture_test_process_manager
-from ..fixtures import GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
 from ..fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
 from ..helpers import confirm_queue_is_eventually_empty
 
@@ -107,7 +106,7 @@ STOP_MANAGED_ACQUISITION_WAIT_TIME = 40
 INTEGRATION_TEST_TIMEOUT = 720
 
 
-@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
+@pytest.mark.timeout(60)
 @pytest.mark.slow
 def test_send_xem_scripts_command__gets_processed_in_fully_running_app(
     fully_running_app_from_main_entrypoint,

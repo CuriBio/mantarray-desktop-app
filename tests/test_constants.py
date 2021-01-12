@@ -65,6 +65,7 @@ from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import START_BARCODE_SCAN_TRIG_BIT
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import SUBPROCESS_POLL_DELAY_SECONDS
 from mantarray_desktop_app import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
@@ -215,10 +216,14 @@ def test_CURRENT_SOFTWARE_VERSION():
     assert CURRENT_SOFTWARE_VERSION == "REPLACETHISWITHVERSIONDURINGBUILD"
 
 
-def test_START_MANAGED_ACQUISITION_COMMUNICATION():
+def test_managed_acquisition_commands():
     assert START_MANAGED_ACQUISITION_COMMUNICATION == {
         "communication_type": "to_instrument",
         "command": "start_managed_acquisition",
+    }
+    assert STOP_MANAGED_ACQUISITION_COMMUNICATION == {
+        "communication_type": "to_instrument",
+        "command": "stop_managed_acquisition",
     }
 
 

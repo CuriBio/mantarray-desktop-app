@@ -188,11 +188,12 @@ jobs:
 
       - name: Run Python Tests with randomly generated seed
         if: github.event.inputs.randomlyseed == ''
-        timeout-minutes: 30
+        timeout-minutes: 40
         run: pipenv run pytest -svv --cov-report=xml --include-slow-tests --full-ci
 
       - name: Run Python Tests with supplied pytest-randomly seed
         if: github.event.inputs.randomlyseed != ''
+        timeout-minutes: 40
         run: pipenv run pytest -xsvv --cov-report=xml --include-slow-tests --full-ci --randomly-seed=${{ github.event.inputs.randomlyseed }}
 
       - name: Confirm Sphinx Docs build correctly

@@ -4,6 +4,7 @@ import hashlib
 import json
 import logging
 import multiprocessing
+import os
 import platform
 import socket
 import sys
@@ -81,6 +82,9 @@ def test_main__stores_and_logs_port_number_from_command_line_arguments(
 
 
 def test_main__handles_base64_command_line_argument_with_padding_issue(mocker):
+    # Tanner (12/31/20): Need to mock this since the recording folder passed in --initial-base64-settings does not exist
+    mocker.patch.object(os.path, "isdir", autospec=True, return_value=True)
+
     expected_command_line_args = [
         "--debug-test-post-build",
         "--initial-base64-settings=eyJyZWNvcmRpbmdfZGlyZWN0b3J5IjoiL2hvbWUvdWJ1bnR1Ly5jb25maWcvTWFudGFycmF5Q29udHJvbGxlci9yZWNvcmRpbmdzIn0",
@@ -216,9 +220,12 @@ def test_main__raises_error_if_multiprocessing_start_method_not_spawn(mocker):
     mocked_get_start_method.assert_called_once_with(allow_none=True)
 
 
-@pytest.mark.timeout(15)
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 def test_main_configures_process_manager_logging_level__and_standard_logging_level__to_debug_when_command_line_arg_passed(
-    mocker, fully_running_app_from_main_entrypoint, patched_xem_scripts_folder
+    mocker,
+    fully_running_app_from_main_entrypoint,
+    patched_xem_scripts_folder,
+    patched_firmware_folder,
 ):
     app_info = fully_running_app_from_main_entrypoint(["--log-level-debug"])
     mocked_configure_logging = app_info["mocked_configure_logging"]
@@ -232,7 +239,7 @@ def test_main_configures_process_manager_logging_level__and_standard_logging_lev
 
 
 @pytest.mark.slow
-@pytest.mark.timeout(20)
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS + 5)
 def test_main_configures_process_manager_logging_level__and_standard_logging_level__to_info_by_default(
     mocker, fully_running_app_from_main_entrypoint, patched_xem_scripts_folder
 ):
@@ -247,7 +254,7 @@ def test_main_configures_process_manager_logging_level__and_standard_logging_lev
     assert process_manager_logging_level == logging.INFO
 
 
-@pytest.mark.timeout(15)
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 def test_main_can_launch_server_with_no_args_from_entrypoint__default_exe_execution(
     fully_running_app_from_main_entrypoint, patched_xem_scripts_folder
 ):
@@ -261,7 +268,7 @@ def test_main_can_launch_server_with_no_args_from_entrypoint__default_exe_execut
     )  # wait for shutdown to complete
 
 
-@pytest.mark.timeout(20)
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS + 5)
 @pytest.mark.slow
 def test_main_entrypoint__correctly_assigns_shared_values_dictionary_to_process_monitor(  # __and_sets_the_process_monitor_singleton(
     fully_running_app_from_main_entrypoint,
@@ -284,7 +291,7 @@ def test_main_entrypoint__correctly_assigns_shared_values_dictionary_to_process_
     assert "in_simulation_mode" in shared_values_dict
 
 
-@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS + 5)
 @pytest.mark.slow
 def test_main__calls_boot_up_function_upon_launch(
     patched_firmware_folder,
@@ -433,7 +440,7 @@ def test_main__does_not_call_boot_up_function_upon_launch_if_command_line_arg_pa
     spied_boot_up.assert_not_called()
 
 
-@pytest.mark.timeout(15)
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 @freeze_time("2020-07-21 21:51:36.704515")
 def test_main_can_launch_server_and_processes_and_initial_boot_up_of_ok_comm_process_gets_logged__default_exe_execution(
     mocker,

@@ -19,6 +19,7 @@ from mantarray_desktop_app import OkCommunicationProcess
 from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
+from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
 from mantarray_desktop_app import UnrecognizedCommandToInstrumentError
 from mantarray_desktop_app import UnrecognizedDataFrameFormatNameError
@@ -102,10 +103,7 @@ def test_OkCommunicationProcess_run__processes_stop_managed_acquisition_command(
 
     input_queue = board_queues[0][0]
     ok_comm_to_main = board_queues[0][1]
-    expected_returned_communication = {
-        "communication_type": "to_instrument",
-        "command": "stop_managed_acquisition",
-    }
+    expected_returned_communication = STOP_MANAGED_ACQUISITION_COMMUNICATION
     input_queue.put(copy.deepcopy(expected_returned_communication))
     assert (
         is_queue_eventually_of_size(

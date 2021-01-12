@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "d5d69504ed2d6c75acf30e5a189197b70f7479ed3e4a1fd4e96f58d5fb2dd5ab"
+            "sha256": "a32d505375c952fe29fd47083c36d990bf4c968337fb1c17059af3fb6d879cbf"
         },
         "pipfile-spec": 6,
         "requires": {},
@@ -322,11 +322,11 @@
         },
         "stdlib-utils": {
             "hashes": [
-                "sha256:59d23890b64362406730ff3dfdb7b0c4a5cbd0882851422b9336bd893e4a8fa9",
-                "sha256:61dbeebeb3fb83670a0871e1f54dc2e535f3d7468ac9f03a611d466a1a0a4d7b"
+                "sha256:cefb47863e4b839dae3883f29ea63e4b9843c87cd273d35075b76160643902b6",
+                "sha256:6c3f1310dd2190948c111dfff973f6e68be525a76b369092fbd65f35b1dd1a57"
             ],
             "index": "pypi",
-            "version": "==0.3.10"
+            "version": "==0.3.11"
         },
         "typish": {
             "hashes": [
@@ -424,10 +424,10 @@
         },
         "botocore": {
             "hashes": [
-                "sha256:15584a86d6cb1f94ea785e8d3c98faeff8ddd0105356e1c106118d9ac12fa891",
-                "sha256:4989ff6ca4104f641d966f6bb2f3c4207f1a7a8d879b2e21224c7713dd9dc9b8"
+                "sha256:709090ba61bba7dfa831b437d61cb469a85298d8f3ce5b8e12cdf41bd2b2bc61",
+                "sha256:87efa9399a1a61c03d484d720d6f4ef0b76a3039f29953ff819ae0cb25e0e21c"
             ],
-            "version": "==1.19.47"
+            "version": "==1.19.50"
         },
         "certifi": {
             "hashes": [
@@ -504,7 +504,7 @@
                 "sha256:fda29412a66099af6d6de0baa6bd7c52674de177ec2ad2630ca264142d69c6c7",
                 "sha256:ff1330e8bc996570221b450e2d539134baa9465f5cb98aff0e0f73f34172e0ae"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4.0'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4'",
             "version": "==5.3.1"
         },
         "cython": {

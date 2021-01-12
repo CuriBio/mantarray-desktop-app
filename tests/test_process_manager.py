@@ -401,7 +401,7 @@ def test_MantarrayProcessesManager__boot_up_instrument__populates_ok_comm_queue_
     }
 
 
-def test_MantarrayProcessesManager__are_processes_stopped__waits_correct_amount_of_time_before_returning_false(
+def test_MantarrayProcessesManager__are_processes_stopped__waits_correct_amount_of_time_with_default_timeout_before_returning_false(
     test_process_manager, mocker
 ):
     okc_process = test_process_manager.get_instrument_process()
@@ -432,6 +432,50 @@ def test_MantarrayProcessesManager__are_processes_stopped__waits_correct_amount_
     )
 
     assert test_process_manager.are_processes_stopped() is False
+
+    assert mocked_counter.call_count == 5
+    assert mocked_server_is_stopped.call_count == 4
+    assert mocked_okc_is_stopped.call_count == 3
+    assert mocked_fw_is_stopped.call_count == 2
+    assert mocked_da_is_stopped.call_count == 1
+
+
+def test_MantarrayProcessesManager__are_processes_stopped__waits_correct_amount_of_time_with_timeout_kwarg_passed_before_returning_false(
+    test_process_manager, mocker
+):
+    expected_timeout = SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS + 0.5
+
+    okc_process = test_process_manager.get_instrument_process()
+    fw_process = test_process_manager.get_file_writer_process()
+    da_process = test_process_manager.get_data_analyzer_process()
+    server_thread = test_process_manager.get_server_thread()
+    mocked_server_is_stopped = mocker.patch.object(
+        server_thread,
+        "is_stopped",
+        autospec=True,
+        side_effect=[False, True, True, True],
+    )
+    mocked_okc_is_stopped = mocker.patch.object(
+        okc_process, "is_stopped", autospec=True, side_effect=[False, True, True]
+    )
+    mocked_fw_is_stopped = mocker.patch.object(
+        fw_process, "is_stopped", autospec=True, side_effect=[False, True]
+    )
+    mocked_da_is_stopped = mocker.patch.object(
+        da_process, "is_stopped", autospec=True, side_effect=[False]
+    )
+
+    mocked_counter = mocker.patch.object(
+        process_manager,
+        "perf_counter",
+        side_effect=[0, 0, 0, SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS, expected_timeout],
+        autospec=True,
+    )
+
+    assert (
+        test_process_manager.are_processes_stopped(timeout_secs=expected_timeout)
+        is False
+    )
 
     assert mocked_counter.call_count == 5
     assert mocked_server_is_stopped.call_count == 4

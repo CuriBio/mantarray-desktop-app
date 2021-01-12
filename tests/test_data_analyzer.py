@@ -24,6 +24,7 @@ from mantarray_desktop_app import REF_INDEX_TO_24_WELL_INDEX
 from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
+from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
 from mantarray_desktop_app import UnrecognizedCommandToInstrumentError
 from mantarray_desktop_app import UnrecognizedCommTypeFromMainToDataAnalyzerError
@@ -37,14 +38,13 @@ import pytest
 from scipy import signal
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import invoke_process_run_and_check_errors
-from stdlib_utils import is_queue_eventually_empty
-from stdlib_utils import is_queue_eventually_not_empty
-from stdlib_utils import is_queue_eventually_of_size
 from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 from .fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .fixtures_data_analyzer import fixture_four_board_analyzer_process
+from .helpers import confirm_queue_is_eventually_empty
+from .helpers import confirm_queue_is_eventually_of_size
 
 
 __fixtures__ = [
@@ -52,35 +52,12 @@ __fixtures__ = [
 ]
 
 
-def test_convert_24_bit_code_to_voltage_returns_correct_values_with_numpy_array():
-    test_data = np.array(
-        [-0x800000, MIDSCALE_CODE - RAW_TO_SIGNED_CONVERSION_VALUE, 0x7FFFFF]
-    )
-    actual_converted_data = convert_24_bit_codes_to_voltage(test_data)
-
-    expected_data = [
-        -(REFERENCE_VOLTAGE / ADC_GAIN) * MILLIVOLTS_PER_VOLT,
-        0,
-        (REFERENCE_VOLTAGE / ADC_GAIN) * MILLIVOLTS_PER_VOLT,
-    ]
-    np.testing.assert_almost_equal(actual_converted_data, expected_data, decimal=4)
-
-
-@pytest.mark.slow
-def test_DataAnalyzerProcess_performance(four_board_analyzer_process):
-    # Data coming in from File Writer to going back to main (625 Hz)
-    #
-    # mantarray-waveform-analysis v0.3:     4148136512
-    # mantarray-waveform-analysis v0.3.1:   3829136133
-    # mantarray-waveform-analysis v0.4.0:   3323093677
-    # remove concatenate:                   2966678695
-    # 30 Hz Bessel filter:                  2930061808  # Tanner (9/3/20): not intended to speed anything up, just adding this to show it had it didn't have much affect on performance
-    # 30 Hz Butterworth filter:             2935009033  # Tanner (9/10/20): not intended to speed anything up, just adding this to show it had it didn't have much affect on performance
-
-    p, board_queues, _, _, _ = four_board_analyzer_process
-    p._is_managed_acquisition_running = True  # pylint:disable=protected-access
-    input_queue = board_queues[0][0]
-    for seconds in range(8):
+def fill_da_input_data_queue(
+    input_queue,
+    num_seconds,
+):
+    # TODO Tanner (1/4/21): Consider using this function to remove protected-access of _data_buffer
+    for seconds in range(num_seconds):
         for well in range(24):
             time_indices = np.arange(
                 seconds * CENTIMILLISECONDS_PER_SECOND,
@@ -111,17 +88,48 @@ def test_DataAnalyzerProcess_performance(four_board_analyzer_process):
                 "data": np.array([time_indices, ref_data], dtype=np.int32),
             }
             input_queue.put(ref_packet)
+    confirm_queue_is_eventually_of_size(input_queue, num_seconds * (24 + 6))
 
+
+def test_convert_24_bit_code_to_voltage_returns_correct_values_with_numpy_array():
+    test_data = np.array(
+        [-0x800000, MIDSCALE_CODE - RAW_TO_SIGNED_CONVERSION_VALUE, 0x7FFFFF]
+    )
+    actual_converted_data = convert_24_bit_codes_to_voltage(test_data)
+
+    expected_data = [
+        -(REFERENCE_VOLTAGE / ADC_GAIN) * MILLIVOLTS_PER_VOLT,
+        0,
+        (REFERENCE_VOLTAGE / ADC_GAIN) * MILLIVOLTS_PER_VOLT,
+    ]
+    np.testing.assert_almost_equal(actual_converted_data, expected_data, decimal=4)
+
+
+@pytest.mark.slow
+def test_DataAnalyzerProcess_performance(four_board_analyzer_process):
+    # Data coming in from File Writer to going back to main (625 Hz)
+    #
+    # mantarray-waveform-analysis v0.3:     4148136512
+    # mantarray-waveform-analysis v0.3.1:   3829136133
+    # mantarray-waveform-analysis v0.4.0:   3323093677
+    # remove concatenate:                   2966678695
+    # 30 Hz Bessel filter:                  2930061808  # Tanner (9/3/20): not intended to speed anything up, just adding this to show it had it didn't have much affect on performance
+    # 30 Hz Butterworth filter:             2935009033  # Tanner (9/10/20): not intended to speed anything up, just adding this to show it had it didn't have much affect on performance
+
+    p, board_queues, comm_from_main_queue, _, _ = four_board_analyzer_process
+    input_queue = board_queues[0][0]
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
+        comm_from_main_queue,
+    )
+    invoke_process_run_and_check_errors(p)
+
+    num_seconds = 8
+    fill_da_input_data_queue(input_queue, num_seconds)
     start = time.perf_counter_ns()
-    invoke_process_run_and_check_errors(p, num_iterations=8 * (24 + 6))
+    invoke_process_run_and_check_errors(p, num_iterations=num_seconds * (24 + 6))
     dur = time.perf_counter_ns() - start
 
-    assert (
-        is_queue_eventually_not_empty(
-            board_queues[0][1], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
     board_queues[0][1].get(
         timeout=QUEUE_CHECK_TIMEOUT_SECONDS
     )  # Tanner (8/31/20): prevent BrokenPipeError
@@ -180,9 +188,14 @@ def test_DataAnalyzerProcess_commands_for_each_run_iteration__checks_for_calibra
 def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_when_empty(
     test_well_index, test_construct_data, test_description, four_board_analyzer_process
 ):
-    p, board_queues, _, _, _ = four_board_analyzer_process
-    p._is_managed_acquisition_running = True  # pylint:disable=protected-access
+    p, board_queues, comm_from_main_queue, _, _ = four_board_analyzer_process
     incoming_data = board_queues[0][0]
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
+        comm_from_main_queue,
+    )
+    invoke_process_run_and_check_errors(p)
 
     test_construct_dict = {
         "is_reference_sensor": False,
@@ -190,7 +203,7 @@ def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_wh
         "data": test_construct_data,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_construct_dict, incoming_data, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        test_construct_dict, incoming_data
     )
 
     invoke_process_run_and_check_errors(p)
@@ -224,9 +237,14 @@ def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_wh
 def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_when_not_empty(
     test_well_index, test_construct_data, test_description, four_board_analyzer_process
 ):
-    p, board_queues, _, _, _ = four_board_analyzer_process
-    p._is_managed_acquisition_running = True  # pylint:disable=protected-access
+    p, board_queues, comm_from_main_queue, _, _ = four_board_analyzer_process
     incoming_data = board_queues[0][0]
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
+        comm_from_main_queue,
+    )
+    invoke_process_run_and_check_errors(p)
 
     test_construct_dict = {
         "is_reference_sensor": False,
@@ -234,7 +252,7 @@ def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_wh
         "data": test_construct_data,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_construct_dict, incoming_data, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        test_construct_dict, incoming_data
     )
     data_buffer = p._data_buffer  # pylint:disable=protected-access
 
@@ -255,9 +273,14 @@ def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_wh
 def test_DataAnalyzerProcess__correctly_pairs_ascending_order_ref_sensor_data_in_buffer(
     four_board_analyzer_process,
 ):
-    p, board_queues, _, _, _ = four_board_analyzer_process
-    p._is_managed_acquisition_running = True  # pylint:disable=protected-access
+    p, board_queues, comm_from_main_queue, _, _ = four_board_analyzer_process
     incoming_data = board_queues[0][0]
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
+        comm_from_main_queue,
+    )
+    invoke_process_run_and_check_errors(p)
 
     test_ref_data = np.array(
         [
@@ -272,7 +295,7 @@ def test_DataAnalyzerProcess__correctly_pairs_ascending_order_ref_sensor_data_in
         "data": test_ref_data,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_ref_dict, incoming_data, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        test_ref_dict, incoming_data
     )
 
     invoke_process_run_and_check_errors(p)
@@ -291,9 +314,14 @@ def test_DataAnalyzerProcess__correctly_pairs_ascending_order_ref_sensor_data_in
 def test_DataAnalyzerProcess__correctly_pairs_descending_order_ref_sensor_data_in_buffer(
     four_board_analyzer_process,
 ):
-    p, board_queues, _, _, _ = four_board_analyzer_process
-    p._is_managed_acquisition_running = True  # pylint:disable=protected-access
+    p, board_queues, comm_from_main_queue, _, _ = four_board_analyzer_process
     incoming_data = board_queues[0][0]
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
+        comm_from_main_queue,
+    )
+    invoke_process_run_and_check_errors(p)
 
     test_ref_data = np.array(
         [
@@ -308,7 +336,7 @@ def test_DataAnalyzerProcess__correctly_pairs_descending_order_ref_sensor_data_i
         "data": test_ref_data,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_ref_dict, incoming_data, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        test_ref_dict, incoming_data
     )
 
     invoke_process_run_and_check_errors(p)
@@ -403,12 +431,7 @@ def test_DataAnalyzerProcess__dumps_all_data_when_buffer_is_full_and_clears_buff
     invoke_process_run_and_check_errors(p)
 
     actual_json = outgoing_data.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert (
-        is_queue_eventually_empty(
-            outgoing_data, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    confirm_queue_is_eventually_empty(outgoing_data)
 
     actual = json.loads(actual_json)
     waveform_data_points = actual["waveform_data"]["basic_data"]["waveform_data_points"]
@@ -438,7 +461,6 @@ def test_DataAnalyzerProcess__dumps_all_data_when_buffer_is_full_and_clears_buff
 def test_DataAnalyzerProcess__dump_data_into_queue__sends_message_to_main_indicating_data_is_available__with_info_about_data(
     four_board_analyzer_process,
 ):
-    # TODO Tanner (9/4/20): create DA fixture with full buffer
     p, _, _, comm_to_main_queue, _ = four_board_analyzer_process
 
     dummy_well_data = [
@@ -451,12 +473,7 @@ def test_DataAnalyzerProcess__dump_data_into_queue__sends_message_to_main_indica
         "latest_timepoint": dummy_well_data[0][-1],
     }
     p._dump_data_into_queue(dummy_data_dict)  # pylint:disable=protected-access
-    assert (
-        is_queue_eventually_not_empty(
-            comm_to_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    confirm_queue_is_eventually_of_size(comm_to_main_queue, 1)
 
     expected_time = datetime.datetime(2020, 6, 1, 13, 45, 30, 123456).strftime(
         "%Y-%m-%d %H:%M:%S.%f"
@@ -491,82 +508,32 @@ def test_DataAnalyzerProcess__drain_all_queues__drains_all_queues_except_error_q
         for j, queue in enumerate(board):
             queue_item = expected[i][j]
             put_object_into_queue_and_raise_error_if_eventually_still_empty(
-                queue_item, queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+                queue_item, queue
             )
 
     from_main_queue.put(expected_from_main)
     to_main_queue.put(expected_to_main)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        expected_error, error_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        expected_error, error_queue
     )
-    assert (
-        is_queue_eventually_not_empty(
-            from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
-    assert (
-        is_queue_eventually_not_empty(
-            to_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    confirm_queue_is_eventually_of_size(from_main_queue, 1)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
 
     actual = (
         data_analyzer_process._drain_all_queues()  # pylint:disable=protected-access
     )
 
-    assert (
-        is_queue_eventually_not_empty(
-            error_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    confirm_queue_is_eventually_of_size(error_queue, 1)
     actual_error = error_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_error == expected_error
 
-    assert (
-        is_queue_eventually_empty(
-            from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
-    assert (
-        is_queue_eventually_empty(
-            to_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
-    assert (
-        is_queue_eventually_empty(
-            board_queues[3][0], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
-    assert (
-        is_queue_eventually_empty(
-            board_queues[2][0], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
-    assert (
-        is_queue_eventually_empty(
-            board_queues[1][0], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
-    assert (
-        is_queue_eventually_empty(
-            board_queues[0][1], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
-    assert (
-        is_queue_eventually_empty(
-            board_queues[0][0], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    confirm_queue_is_eventually_empty(from_main_queue)
+    confirm_queue_is_eventually_empty(to_main_queue)
+    confirm_queue_is_eventually_empty(board_queues[3][0])
+    confirm_queue_is_eventually_empty(board_queues[2][0])
+    confirm_queue_is_eventually_empty(board_queues[1][0])
+    confirm_queue_is_eventually_empty(board_queues[0][1])
+    confirm_queue_is_eventually_empty(board_queues[0][0])
 
     assert actual["board_0"]["outgoing_data"] == [expected[0][1]]
     assert actual["board_3"]["file_writer_to_data_analyzer"] == [expected[3][0]]
@@ -647,43 +614,49 @@ def test_DataAnalyzerProcess__raises_error_with_unrecognized_command_to_instrume
         "command": expected_command,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        start_command, comm_from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        start_command, comm_from_main_queue
     )
 
     with pytest.raises(UnrecognizedCommandToInstrumentError, match=expected_command):
         invoke_process_run_and_check_errors(p)
 
 
-def test_DataAnalyzerProcess__processes_start_managed_acquisition_command(
+def test_DataAnalyzerProcess__processes_start_managed_acquisition_command__by_draining_outgoing_data_queue(
     four_board_analyzer_process,
 ):
-    p, _, comm_from_main_queue, _, _ = four_board_analyzer_process
+    p, board_queues, comm_from_main_queue, _, _ = four_board_analyzer_process
 
     start_command = get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        start_command, comm_from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        start_command, comm_from_main_queue
     )
 
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        "item", board_queues[0][1]
+    )
     invoke_process_run_and_check_errors(p)
-    assert p._is_managed_acquisition_running is True  # pylint:disable=protected-access
+    confirm_queue_is_eventually_empty(board_queues[0][1])
 
 
 def test_DataAnalyzerProcess__processes_stop_managed_acquisition_command(
     four_board_analyzer_process,
 ):
     p, _, comm_from_main_queue, _, _ = four_board_analyzer_process
-    p._is_managed_acquisition_running = True  # pylint:disable=protected-access
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
+        comm_from_main_queue,
+    )
+    invoke_process_run_and_check_errors(p)
+
     data_buffer = p._data_buffer  # pylint:disable=protected-access
     for well_idx in range(24):
         data_buffer[well_idx]["construct_data"] = [[0, 0, 0], [1, 2, 3]]
         data_buffer[well_idx]["ref_data"] = [[0, 0, 0], [4, 5, 6]]
 
-    stop_command = {
-        "communication_type": "to_instrument",
-        "command": "stop_managed_acquisition",
-    }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        stop_command, comm_from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        STOP_MANAGED_ACQUISITION_COMMUNICATION,
+        comm_from_main_queue,
     )
 
     invoke_process_run_and_check_errors(p)
@@ -708,7 +681,6 @@ def test_DataAnalyzerProcess__raises_error_if_communication_type_is_invalid(
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         invalid_command,
         comm_from_main_queue,
-        timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
     )
 
     with pytest.raises(
@@ -736,12 +708,7 @@ def test_DataAnalyzerProcess__does_not_load_data_to_buffer_if_managed_acquisitio
         "data": np.array([[125, 375], [2, 4]]),
     }
     incoming_data.put(test_ref_dict)
-    assert (
-        is_queue_eventually_of_size(
-            incoming_data, 2, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    confirm_queue_is_eventually_of_size(incoming_data, 2)
 
     invoke_process_run_and_check_errors(p, num_iterations=2)
 
@@ -826,12 +793,9 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_dumping_data(
     invoke_process_run_and_check_errors(
         da_process, num_iterations=expected_num_iterations
     )
-    assert (
-        is_queue_eventually_not_empty(
-            to_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    confirm_queue_is_eventually_of_size(
+        to_main_queue, 2
+    )  # Tanner (1/4/21): log msg is put into queue after waveform data dump
 
     actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     actual = actual["message"]
@@ -871,7 +835,7 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_dumping_data(
     }
 
 
-def test_DataAnalyzerProcess__does_not_metrics_in_first_logging_cycle(
+def test_DataAnalyzerProcess__does_not_include_metrics_in_first_logging_cycle(
     four_board_analyzer_process, mocker
 ):
     mocker.patch.object(Pipeline, "get_compressed_voltage", autospec=True)
@@ -893,12 +857,7 @@ def test_DataAnalyzerProcess__does_not_metrics_in_first_logging_cycle(
     mocker.patch.object(da_process, "_is_buffer_full", return_value=True)
 
     invoke_process_run_and_check_errors(da_process)
-    assert (
-        is_queue_eventually_not_empty(
-            to_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    confirm_queue_is_eventually_of_size(to_main_queue, 2)
     actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     actual = actual["message"]
     assert "percent_use_metrics" not in actual
