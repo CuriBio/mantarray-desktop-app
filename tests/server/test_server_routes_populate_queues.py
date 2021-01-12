@@ -905,7 +905,6 @@ def test_start_recording_command__populates_queue__with_defaults__24_wells__utcn
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
     confirm_queue_is_eventually_of_size(comm_queue, 1)
-    # assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
 
@@ -1019,23 +1018,22 @@ def test_start_recording_command__populates_queue__with_defaults__24_wells__utcn
         ][BACKEND_LOG_UUID]
     )
     assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][COMPUTER_NAME_HASH]
-        == GENERIC_START_RECORDING_COMMAND[
-            "metadata_to_copy_onto_main_file_attributes"
-        ][COMPUTER_NAME_HASH]
-    )
-    assert (
         communication["metadata_to_copy_onto_main_file_attributes"][
             BARCODE_IS_FROM_SCANNER_UUID
         ]
         is True
     )
-
+    assert (  # pylint: disable=duplicate-code
+        communication["metadata_to_copy_onto_main_file_attributes"][COMPUTER_NAME_HASH]
+        == GENERIC_START_RECORDING_COMMAND[
+            "metadata_to_copy_onto_main_file_attributes"
+        ][COMPUTER_NAME_HASH]
+    )
+    assert set(communication["active_well_indices"]) == set(range(24))
     assert (
         communication["timepoint_to_begin_recording_at"]
         == GENERIC_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
     )
-    assert set(communication["active_well_indices"]) == set(range(24))
     response_json = response.get_json()
     assert response_json["command"] == "start_recording"
 

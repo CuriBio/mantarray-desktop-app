@@ -199,7 +199,7 @@ def _check_scanned_barcode_vs_user_value(barcode: str) -> bool:
     board_idx = 0  # board index 0 hardcoded for now
     shared_values_dict = _get_values_from_process_monitor()
     if "barcodes" not in shared_values_dict:
-        # Tanner (1/11/21): Guard against edge case where recording route is called before a scanned barcode is stored since this can take up to 15 seconds
+        # Tanner (1/11/21): Guard against edge case where start_recording route is called before a scanned barcode is stored since this can take up to 15 seconds
         return False
     result: bool = shared_values_dict["barcodes"][board_idx]["plate_barcode"] == barcode
     return result
