@@ -41,6 +41,7 @@ from flask_cors import CORS
 from immutabledict import immutabledict
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
+from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
 from mantarray_file_manager import COMPUTER_NAME_HASH
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
@@ -192,6 +193,16 @@ def _get_timestamp_of_acquisition_sample_index_zero() -> datetime.datetime:  # p
         0
     ]  # board index 0 hardcoded for now
     return timestamp_of_sample_idx_zero
+
+
+def _check_scanned_barcode_vs_user_value(barcode: str) -> bool:
+    board_idx = 0  # board index 0 hardcoded for now
+    shared_values_dict = _get_values_from_process_monitor()
+    if "barcodes" not in shared_values_dict:
+        # Tanner (1/11/21): Guard against edge case where start_recording route is called before a scanned barcode is stored since this can take up to 15 seconds
+        return False
+    result: bool = shared_values_dict["barcodes"][board_idx]["plate_barcode"] == barcode
+    return result
 
 
 @flask_app.route("/system_status", methods=["GET"])
@@ -360,6 +371,8 @@ def start_recording() -> Response:
         active_well_indices: [Optional, default=all 24] CSV of well indices to record from
         time_index: [Optional, int] centimilliseconds since acquisition began to start the recording at. Defaults to when this command is received
     """
+    board_idx = 0
+
     if "barcode" not in request.args:
         response = Response(status="400 Request missing 'barcode' parameter")
         return response
@@ -418,6 +431,8 @@ def start_recording() -> Response:
             time_since_index_0.total_seconds() * CENTIMILLISECONDS_PER_SECOND
         )
 
+    are_barcodes_matching = _check_scanned_barcode_vs_user_value(barcode)
+
     comm_dict: Dict[str, Any] = {
         "communication_type": "recording",
         "command": "start_recording",
@@ -437,19 +452,24 @@ def start_recording() -> Response:
             ],
             SOFTWARE_BUILD_NUMBER_UUID: COMPILED_EXE_BUILD_TIMESTAMP,
             SOFTWARE_RELEASE_VERSION_UUID: CURRENT_SOFTWARE_VERSION,
-            MAIN_FIRMWARE_VERSION_UUID: shared_values_dict["main_firmware_version"][0],
+            MAIN_FIRMWARE_VERSION_UUID: shared_values_dict["main_firmware_version"][
+                board_idx
+            ],
             SLEEP_FIRMWARE_VERSION_UUID: shared_values_dict["sleep_firmware_version"][
-                0
+                board_idx
             ],
-            XEM_SERIAL_NUMBER_UUID: shared_values_dict["xem_serial_number"][0],
+            XEM_SERIAL_NUMBER_UUID: shared_values_dict["xem_serial_number"][board_idx],
             MANTARRAY_SERIAL_NUMBER_UUID: shared_values_dict["mantarray_serial_number"][
-                0
+                board_idx
             ],
-            MANTARRAY_NICKNAME_UUID: shared_values_dict["mantarray_nickname"][0],
+            MANTARRAY_NICKNAME_UUID: shared_values_dict["mantarray_nickname"][
+                board_idx
+            ],
             REFERENCE_VOLTAGE_UUID: REFERENCE_VOLTAGE,
             ADC_GAIN_SETTING_UUID: shared_values_dict["adc_gain"],
             "adc_offsets": adc_offsets,
             PLATE_BARCODE_UUID: barcode,
+            BARCODE_IS_FROM_SCANNER_UUID: are_barcodes_matching,
         },
         "timepoint_to_begin_recording_at": begin_timepoint,
     }

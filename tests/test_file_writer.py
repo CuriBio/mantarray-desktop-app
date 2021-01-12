@@ -36,6 +36,8 @@ from mantarray_desktop_app import UnrecognizedCommandFromMainToFileWriterError
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import ADC_REF_OFFSET_UUID
 from mantarray_file_manager import ADC_TISSUE_OFFSET_UUID
+from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
+from mantarray_file_manager import COMPUTER_NAME_HASH
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
@@ -389,6 +391,18 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         assert (
             this_file.attrs[str(TISSUE_SAMPLING_PERIOD_UUID)]
             == CONSTRUCT_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
+        )
+        assert (
+            this_file.attrs[str(COMPUTER_NAME_HASH)]
+            == GENERIC_START_RECORDING_COMMAND[
+                "metadata_to_copy_onto_main_file_attributes"
+            ][COMPUTER_NAME_HASH]
+        )
+        assert (
+            bool(this_file.attrs[str(BARCODE_IS_FROM_SCANNER_UUID)])
+            is GENERIC_START_RECORDING_COMMAND[
+                "metadata_to_copy_onto_main_file_attributes"
+            ][BARCODE_IS_FROM_SCANNER_UUID]
         )
 
         assert this_file["reference_sensor_readings"].shape == (0,)

@@ -52,6 +52,7 @@ from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import ADC_REF_OFFSET_UUID
 from mantarray_file_manager import ADC_TISSUE_OFFSET_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
+from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
 from mantarray_file_manager import COMPUTER_NAME_HASH
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
@@ -598,16 +599,21 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                         == REFERENCE_SENSOR_SAMPLING_PERIOD
                         * MICROSECONDS_PER_CENTIMILLISECOND
                     )
-                    assert this_file.attrs[str(BACKEND_LOG_UUID)] == str(
+                    assert this_file_attrs[str(BACKEND_LOG_UUID)] == str(
                         GENERIC_START_RECORDING_COMMAND[
                             "metadata_to_copy_onto_main_file_attributes"
                         ][BACKEND_LOG_UUID]
                     )
                     assert (
-                        this_file.attrs[str(COMPUTER_NAME_HASH)]
+                        this_file_attrs[str(COMPUTER_NAME_HASH)]
                         == GENERIC_START_RECORDING_COMMAND[
                             "metadata_to_copy_onto_main_file_attributes"
                         ][COMPUTER_NAME_HASH]
+                    )
+                    # Tanner (1/12/21): The barcode used for testing (which is passed to start_recoring route) is different than the simulator's barcode (the one that is 'scanned' in this test), so this should result to False
+                    assert (
+                        bool(this_file_attrs[str(BARCODE_IS_FROM_SCANNER_UUID)])
+                        is False
                     )
 
         # Tanner (12/30/20): test second recording (only make sure it contains waveform data)
