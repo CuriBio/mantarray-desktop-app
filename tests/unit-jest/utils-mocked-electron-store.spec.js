@@ -38,11 +38,11 @@ describe("create_store", () => {
     tmp_dir_obj.removeCallback();
   });
 
-  test("When called with default arguments, Then a ElectronStore is called with cwd undefined, file name config, and yaml formatting ", async function () {
+  test("When called with default arguments, Then a ElectronStore is called with cwd undefined, file name config, and yaml formatting", async function () {
     // TODO (Eli 7/14/20): test the following also 'and the result of ElectronStore constructor is returned'  currently Jest is just returning mockConstructor
-    let store = create_store();
+    const store = create_store();
     expect(ElectronStore).toHaveBeenCalledTimes(1);
-    expect(ElectronStore).toBeCalledWith(
+    expect(ElectronStore).toHaveBeenCalledWith(
       expect.objectContaining({
         cwd: undefined,
         name: "mantarray_controller_config",
@@ -55,12 +55,12 @@ describe("create_store", () => {
   test("When called with specified arguments, Then a ElectronStore is called with cwd matching file_path and file name matching file_name", async function () {
     const expected_path = "blah/things/places";
     const expected_file_name = "a_config";
-    let store = create_store({
+    const store = create_store({
       file_path: expected_path,
       file_name: expected_file_name,
     });
     expect(ElectronStore).toHaveBeenCalledTimes(1);
-    expect(ElectronStore).toBeCalledWith(
+    expect(ElectronStore).toHaveBeenCalledWith(
       expect.objectContaining({
         cwd: expected_path,
         name: expected_file_name,

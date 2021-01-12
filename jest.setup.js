@@ -35,11 +35,11 @@ const NuxtApp = require(path_to_nuxt_app);
 
 const isDev = process.env.NODE_ENV === "development";
 
-//const nuxt = new NuxtApp(new Logger("Nuxt", "green"));
+// const nuxt = new NuxtApp(new Logger("Nuxt", "green"));
 // ------------------------------
 
 import { Nuxt, Builder } from "nuxt";
-let nuxtConfig = require(path_to_nuxt_config);
+const nuxtConfig = require(path_to_nuxt_config);
 
 // console.log('after imports')
 

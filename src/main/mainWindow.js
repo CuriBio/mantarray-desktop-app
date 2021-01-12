@@ -3,7 +3,7 @@ const { Menu, screen } = require("electron");
 const { centerWindow } = require("electron-util");
 const browser_win_handler_path = path.join(__dirname, "BrowserWinHandler");
 
-//const BrowserWinHandler =require(browser_win_handler_path).BrowserWinHandler;
+// const BrowserWinHandler =require(browser_win_handler_path).BrowserWinHandler;
 import BrowserWinHandler from "./BrowserWinHandler";
 const isDev = process.env.NODE_ENV === "development";
 

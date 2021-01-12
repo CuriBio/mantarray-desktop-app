@@ -42,13 +42,13 @@ import {
 } from "@curi-bio/mantarray-frontend-components";
 
 export default {
-  layout: "default",
   components: {
     ContinuousWaveform,
     XAxisControls,
     YAxisControls,
     RecordingTime,
   },
+  layout: "default",
   created() {
     this.$store.commit("waveform/set_y_axis_zoom_idx", 2);
     this.$store.commit("waveform/set_y_axis_zoom_levels", [

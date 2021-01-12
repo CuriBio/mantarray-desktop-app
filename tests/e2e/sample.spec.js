@@ -65,7 +65,7 @@ function addNuxtCommands(client) {
   // https://github.com/michalzaq12/electron-nuxt/blob/master/template/test/e2e/helpers.js
   async function ready() {
     let output = "";
-    for (var property in this) {
+    for (const property in this) {
       if (property == "waitUntilWindowLoaded") {
         output += property + ": " + this[property] + "; ";
       }
@@ -133,7 +133,7 @@ describe("window opening", () => {
     const path_to_main_js = path.join(__dirname, "..", "..", "dist", "main");
 
     const app = new Application({
-      path: process.env.APPLICATION_PATH, //electronPath,
+      path: process.env.APPLICATION_PATH, // electronPath,
       // args: [path_to_main_js], // should be root directory of repository, containing the main.js file for Electron
       chromeDriverArgs: [
         "--headless",
@@ -161,7 +161,7 @@ describe("window opening", () => {
 
     console.log("about to start the app"); // allow-log
 
-    let the_started_app = await app.start();
+    const the_started_app = await app.start();
 
     // attempt to use webDriverIO (the 'client') to directly set the window size...since other approaches using chromeDriverArgs or webdriverOptions were not working in Windows CodeBuild
     // console.log(the_started_app.client.browser);
@@ -205,14 +205,14 @@ describe("window opening", () => {
       console.log("about to stop app. Platform is windows? " + is_windows); // allow-log
       // adapted from https://stackoverflow.com/questions/51310500/spectron-test-leaves-window-open
       // get the main process PID
-      let pid = await app.mainProcess.pid();
+      const pid = await app.mainProcess.pid();
 
       // close the renderer window using its own js context
       // to get closer to the user action of closing the app
       // you could also use .stop() here
       // let main_process_logs; // = await app.client.getMainProcessLogs()
       // let render_process_logs = await app.client.getRenderProcessLogs();
-      let stopped_app_return_code = await app.stop();
+      const stopped_app_return_code = await app.stop();
 
       // await app.client.execute(() => {
       //     window.close();
@@ -246,7 +246,7 @@ describe("window opening", () => {
       // no error, process is still running, stop it
       app.mainProcess.exit(1);
       // do someting to end the test with error
-      let bad = 6 / 0;
+      const bad = 6 / 0;
     }
   }, 20000);
 
@@ -288,7 +288,7 @@ describe("window opening", () => {
 
     const this_base_screenshot_path = path.join(base_screenshot_path);
 
-    let screenshot_path = path.join(this_base_screenshot_path, "init");
+    const screenshot_path = path.join(this_base_screenshot_path, "init");
     await expect(
       spectron_page_visual_regression(app.browserWindow, screenshot_path)
     ).resolves.toBe(true);

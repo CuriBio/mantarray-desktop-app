@@ -9,7 +9,7 @@ export function create_store({
   file_path = undefined,
   file_name = "mantarray_controller_config",
 } = {}) {
-  let store = new ElectronStore({
+  const store = new ElectronStore({
     cwd: file_path,
     name: file_name,
     fileExtension: "yaml",
@@ -26,7 +26,7 @@ export function create_store({
 
 export function generate_flask_command_line_args(electron_store) {
   const electron_store_dir = path.dirname(electron_store.path);
-  let args = [];
+  const args = [];
   const flask_logs_subfolder = "logs_flask";
   const flask_logs_full_path = path.join(
     electron_store_dir,
@@ -38,9 +38,9 @@ export function generate_flask_command_line_args(electron_store) {
   mkdirp.sync(flask_logs_full_path);
   mkdirp.sync(recording_directory_path);
 
-  let settings_to_supply = { recording_directory: recording_directory_path };
+  const settings_to_supply = { recording_directory: recording_directory_path };
 
-  let customer_account_ids = electron_store.get("customer_account_ids");
+  const customer_account_ids = electron_store.get("customer_account_ids");
   if (customer_account_ids.length > 0) {
     const active_customer_account = customer_account_ids[0];
     settings_to_supply.customer_account_uuid = active_customer_account.uuid;

@@ -71,7 +71,7 @@ describe("Given a temporary directory is available", () => {
         );
       });
       test("Given the store has a customer and user account ID, Then the --initial-base64-settings encoded settings argument contains the current user account and customer account IDs from the store and the recording directory", () => {
-        let id_list = store.get("customer_account_ids");
+        const id_list = store.get("customer_account_ids");
         id_list.push(generic_id_info);
         store.set("customer_account_ids", id_list);
 
@@ -121,7 +121,7 @@ describe("Given a temporary directory is available", () => {
         expect(actual_value).toEqual(0);
       });
       test("When a customer account ID is added, then a new store instance can load it", () => {
-        let id_list = store.get("customer_account_ids");
+        const id_list = store.get("customer_account_ids");
         id_list.push(generic_id_info);
         store.set("customer_account_ids", id_list);
 

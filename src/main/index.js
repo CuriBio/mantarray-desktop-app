@@ -69,7 +69,7 @@ const getPythonScriptPath = () => {
 };
 
 const start_python_subprocess = () => {
-  let command_line_args = generate_flask_command_line_args(store);
+  const command_line_args = generate_flask_command_line_args(store);
   if (isRunningInBundle()) {
     const script = getPythonScriptPath();
     console.log(
@@ -79,13 +79,13 @@ const start_python_subprocess = () => {
         " With command line args: " +
         command_line_args
     );
-    let subpy = require("child_process").execFile(script, command_line_args);
+    const subpy = require("child_process").execFile(script, command_line_args);
   } else {
     const PythonShell = require("python-shell").PythonShell; // Eli (4/15/20) experienced odd error where the compiled exe was not able to load package python-shell...but since it's only actually required in development, just moving it to here
     const options = {
       mode: "text",
       pythonPath: "python3", // In Cloud9, you need to specify python3 to use the installation inside the virtual environment...just Python defaults to system installation
-      //pythonOptions: ['-u'], // get print results in real-time
+      // pythonOptions: ['-u'], // get print results in real-time
       scriptPath: "src",
       args: command_line_args,
     };
@@ -97,8 +97,8 @@ const start_python_subprocess = () => {
         "' with options: " +
         JSON.stringify(options)
     );
-    let pyshell = new PythonShell(py_file_name, options);
-    //PythonShell.run(py_file_name,options)
+    const pyshell = new PythonShell(py_file_name, options);
+    // PythonShell.run(py_file_name,options)
   }
 };
 
@@ -133,7 +133,7 @@ app.on("will-quit", function () {
   // This is a good place to add tests insuring the app is still
   // responsive and all windows are closed.
   console.log("will-quit event being handled"); // allow-log
-  //mainWindow = null;
+  // mainWindow = null;
 
   axios.get(`http://localhost:${flask_port}/shutdown`);
 });
