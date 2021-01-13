@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "38ffe7812ece8b098d17fdbd671bfa51b7a23af4b9e932b2f45739c54f59daa1"
+            "sha256": "86e364a374f7fa8dff40e24b815c0d9c9734969f01c995db7507f2a5c3af508c"
         },
         "pipfile-spec": 6,
         "requires": {},
@@ -144,11 +144,11 @@
         },
         "mantarray-file-manager": {
             "hashes": [
-                "sha256:d2870117179618e7fe2ae260f18af90921ac8bcd072b9531b98f4f4303d37605",
-                "sha256:da9dc77bfb7e3e3ef4946261aa0f8f201a0628bcc68de5614d8d6584dcedd430"
+                "sha256:1d7ab8c690c30e6775c61abfd64c1c87f213bee7e80e3ce5a9ce9fc00119fb50",
+                "sha256:dc2f60a56f249ae1d336d653bdfad7ba7ab77e83d641982767bdb9f6d2559343"
             ],
             "index": "pypi",
-            "version": "==0.4.4"
+            "version": "==0.4.5"
         },
         "mantarray-waveform-analysis": {
             "hashes": [
@@ -424,10 +424,10 @@
         },
         "botocore": {
             "hashes": [
-                "sha256:d8f50e4162012ccfab64c2db4fcc99313d46d57789072251bab56013d66546e2",
-                "sha256:dc5ec23deadbe9327d3c81d03fddf80805c549059baabd80dea605941fe6a221"
+                "sha256:bba883f97c6657df941598150bf8a5a88bb976b7de53ec41ad3e518cfe8931d3",
+                "sha256:edfe213f3b01467605754ba1d46c6ac3b8a4be721fdf879d45c2132a99b4ac49"
             ],
-            "version": "==1.19.52"
+            "version": "==1.19.54"
         },
         "certifi": {
             "hashes": [
@@ -761,11 +761,11 @@
         },
         "pygments": {
             "hashes": [
-                "sha256:ccf3acacf3782cbed4a989426012f1c535c9a90d3a7fc3f16d231b9372d2b716",
-                "sha256:f275b6c0909e5dafd2d6269a656aa90fa58ebf4a74f8fcf9053195d226b24a08"
+                "sha256:bc9591213a8f0e0ca1a5e68a479b4887fdc3e75d0774e5c71c31920c427de435",
+                "sha256:df49d09b498e83c1a73128295860250b0b7edd4c723a32e9bc0d295c7c2ec337"
             ],
             "markers": "python_version >= '3.5'",
-            "version": "==2.7.3"
+            "version": "==2.7.4"
         },
         "pylint": {
             "hashes": [
@@ -1023,11 +1023,11 @@
         },
         "virtualenv": {
             "hashes": [
-                "sha256:205a7577275dd0d9223c730dd498e21a8910600085c3dee97412b041fc4b853b",
-                "sha256:7992b8de87e544a4ab55afc2240bf8388c4e3b5765d03784dad384bfdf9097ee"
+                "sha256:0c111a2236b191422b37fe8c28b8c828ced39aab4bf5627fa5c331aeffb570d9",
+                "sha256:14b34341e742bdca219e10708198e704e8a7064dd32f474fc16aca68ac53a306"
             ],
             "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
-            "version": "==20.3.0"
+            "version": "==20.3.1"
         },
         "wrapt": {
             "hashes": [
