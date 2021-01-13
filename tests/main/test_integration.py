@@ -433,7 +433,10 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
         time.sleep(3)  # Tanner (6/15/20): This allows data to be written to files
         # Tanner (12/30/20): End recording at a known timepoint so next recording can start at a known timepoint
-        response = requests.get(f"{get_api_endpoint()}stop_recording?time_index=190000")
+        expected_stop_index_1 = 190000
+        response = requests.get(
+            f"{get_api_endpoint()}stop_recording?time_index={expected_stop_index_1}"
+        )
         assert response.status_code == 200
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
 
@@ -441,9 +444,10 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         expected_barcode2 = (
             expected_barcode1[:-1] + "2"
         )  # change last char of default barcode from '1' to '2'
-        # Tanner (12/30/20): Start recording with barcode2 to create second set of files. Use known timpoint a just after end of first set of data
+        # Tanner (12/30/20): Start recording with barcode2 to create second set of files. Use known timepoint a just after end of first set of data
+        expected_start_index_2 = expected_stop_index_1 + 1
         response = requests.get(
-            f"{get_api_endpoint()}start_recording?barcode={expected_barcode2}&time_index=200000&is_hardware_test_recording=False"
+            f"{get_api_endpoint()}start_recording?barcode={expected_barcode2}&time_index={expected_start_index_2}&is_hardware_test_recording=False"
         )
         assert response.status_code == 200
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
@@ -629,6 +633,12 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                     "r",
                 ) as this_file:
                     assert str(START_RECORDING_TIME_INDEX_UUID) in this_file.attrs
+                    start_index_2 = this_file.attrs[
+                        str(START_RECORDING_TIME_INDEX_UUID)
+                    ]
+                    assert (  # Tanner (1/13/21): Here we are testing that the 'finalizing' state of File Writer is working correctly by asserting that the second set of recorded files start at the right time index
+                        start_index_2 == expected_start_index_2
+                    )
                     assert str(UTC_FIRST_TISSUE_DATA_POINT_UUID) in this_file.attrs
                     assert str(UTC_FIRST_REF_DATA_POINT_UUID) in this_file.attrs
                     actual_tissue_data = get_tissue_dataset_from_file(this_file)
