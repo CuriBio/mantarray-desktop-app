@@ -24,11 +24,14 @@ import h5py
 from labware_domain_models import LabwareDefinition
 from mantarray_file_manager import ADC_REF_OFFSET_UUID
 from mantarray_file_manager import ADC_TISSUE_OFFSET_UUID
+from mantarray_file_manager import IS_FILE_ORIGINAL_UNTRIMMED_UUID
 from mantarray_file_manager import METADATA_UUID_DESCRIPTIONS
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import REF_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import TOTAL_WELL_COUNT_UUID
+from mantarray_file_manager import TRIMMED_TIME_FROM_ORIGINAL_END_UUID
+from mantarray_file_manager import TRIMMED_TIME_FROM_ORIGINAL_START_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_file_manager import UTC_FIRST_REF_DATA_POINT_UUID
 from mantarray_file_manager import UTC_FIRST_TISSUE_DATA_POINT_UUID
@@ -408,6 +411,9 @@ class FileWriterProcess(InfiniteProcess):
                 CONSTRUCT_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
             )
             this_file.attrs[str(TOTAL_WELL_COUNT_UUID)] = 24
+            this_file.attrs[str(IS_FILE_ORIGINAL_UNTRIMMED_UUID)] = True
+            this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_START_UUID)] = 0
+            this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_END_UUID)] = 0
 
             for this_attr_name, this_attr_value in attrs_to_copy.items():
                 if this_attr_name == "adc_offsets":

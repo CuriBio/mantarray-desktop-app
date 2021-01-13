@@ -55,6 +55,7 @@ from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
 from mantarray_file_manager import COMPUTER_NAME_HASH
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
+from mantarray_file_manager import IS_FILE_ORIGINAL_UNTRIMMED_UUID
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
@@ -68,6 +69,8 @@ from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
 from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
 from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import TOTAL_WELL_COUNT_UUID
+from mantarray_file_manager import TRIMMED_TIME_FROM_ORIGINAL_END_UUID
+from mantarray_file_manager import TRIMMED_TIME_FROM_ORIGINAL_START_UUID
 from mantarray_file_manager import USER_ACCOUNT_ID_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
@@ -585,6 +588,16 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                     )
                     assert this_file_attrs["Metadata UUID Descriptions"] == json.dumps(
                         str(METADATA_UUID_DESCRIPTIONS)
+                    )
+                    assert (
+                        bool(this_file_attrs[str(IS_FILE_ORIGINAL_UNTRIMMED_UUID)])
+                        is True
+                    )
+                    assert (
+                        this_file_attrs[str(TRIMMED_TIME_FROM_ORIGINAL_START_UUID)] == 0
+                    )
+                    assert (
+                        this_file_attrs[str(TRIMMED_TIME_FROM_ORIGINAL_END_UUID)] == 0
                     )
                     assert this_file_attrs[str(TOTAL_WELL_COUNT_UUID)] == 24
                     assert this_file_attrs[str(WELL_ROW_UUID)] == row_idx
