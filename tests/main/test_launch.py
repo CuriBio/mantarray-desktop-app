@@ -411,8 +411,9 @@ def test_main__stores_values_from_command_line_arguments(
             shared_values_dict["log_file_uuid"]
             == "91dbb151-0867-44da-a595-bd303f91927d"
         )
-        assert shared_values_dict["computer_name_hash"] == str(
-            hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).digest()
+        assert (
+            shared_values_dict["computer_name_hash"]
+            == hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).hexdigest()
         )
 
 

@@ -189,12 +189,12 @@ def main(
 
     computer_name_hash = hashlib.sha512(
         socket.gethostname().encode(encoding="UTF-8")
-    ).digest()
-    shared_values_dict["computer_name_hash"] = str(computer_name_hash)
+    ).hexdigest()
+    shared_values_dict["computer_name_hash"] = computer_name_hash
 
     msg = f"Log File UUID: {log_file_uuid}"
     logger.info(msg)
-    msg = f"SHA512 digest of Computer Name {str(computer_name_hash)}"
+    msg = f"SHA512 digest of Computer Name {computer_name_hash}"
     logger.info(msg)
 
     if parsed_args.debug_test_post_build:

@@ -83,9 +83,9 @@ GENERIC_START_RECORDING_COMMAND: Dict[str, Any] = {
         "adc_offsets": GENERIC_ADC_OFFSET_VALUES,
         PLATE_BARCODE_UUID: "MA200440001",
         BACKEND_LOG_UUID: uuid.UUID("9a3d03f2-1f5a-4ecd-b843-0dc9ecde5f67"),
-        COMPUTER_NAME_HASH: str(
-            hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).digest()
-        ),
+        COMPUTER_NAME_HASH: hashlib.sha512(
+            socket.gethostname().encode(encoding="UTF-8")
+        ).hexdigest(),
         BARCODE_IS_FROM_SCANNER_UUID: True,
     },
     "active_well_indices": set(range(24)),
