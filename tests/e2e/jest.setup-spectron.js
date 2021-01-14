@@ -18,7 +18,6 @@ const electron_builder_config_path = path.join(
 );
 const package_path = path.join(__dirname, "..", "..", "package");
 
-const { BUILD_DIR } = require(electron_nuxt_config_path);
 const { DIST_DIR } = require(electron_nuxt_config_path);
 
 const fileContents = fs.readFileSync(electron_builder_config_path, "utf8");

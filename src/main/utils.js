@@ -1,5 +1,4 @@
 const path = require("path");
-const fs = require("fs");
 const mkdirp = require("mkdirp");
 const url_safe_base64 = require("urlsafe-base64");
 import ElectronStore from "./electron_store.js";

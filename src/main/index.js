@@ -70,14 +70,12 @@ const getPythonScriptPath = () => {
 
 const start_python_subprocess = () => {
   const command_line_args = generate_flask_command_line_args(store);
+  console.log("sending command line args: " + command_line_args); // allow-log
   if (isRunningInBundle()) {
     const script = getPythonScriptPath();
     console.log(
       // allow-log
-      "Launching compiled Python EXE at path: " +
-        script +
-        " With command line args: " +
-        command_line_args
+      "Launching compiled Python EXE at path: " + script
     );
     const subpy = require("child_process").execFile(script, command_line_args);
   } else {

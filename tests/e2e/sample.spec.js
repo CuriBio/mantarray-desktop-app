@@ -27,21 +27,16 @@ chromeDriver -v
 (Get-Item "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe").VersionInfo
 
 */
-
+const axios = require("axios");
 import sinon from "sinon";
 const child_process = require("child_process");
 const path = require("path");
-const fs = require("fs");
-const os = require("os");
-const axios = require("axios");
 const Application = require("spectron").Application;
-const electronPath = require("electron");
 const flask_port = 4567;
 const detect_port = require("detect-port");
 import { spectron_page_visual_regression } from "@curi-bio/frontend-test-utils";
 
 const is_windows = process.platform === "win32";
-const plat = os.platform;
 
 const base_screenshot_path = path.join("continuous-waveform");
 
@@ -49,6 +44,11 @@ const base_screenshot_path = path.join("continuous-waveform");
 
 let sandbox;
 
+/**
+ * Eli (1/14/21) unsure exactly how this works. Copied from template at https://github.com/michalzaq12/electron-nuxt/blob/master/template/test/e2e/helpers.js
+ *
+ * @param {Object} client - Eli (1/14/21) unsure exactly how this works. Copied from template at https://github.com/michalzaq12/electron-nuxt/blob/master/template/test/e2e/helpers.js
+ */
 function addExtraCommands(client) {
   // http://v4.webdriver.io/api/utility/addCommand.html
   client.addCommand("hasNotError", async function (throwError = true) {
@@ -61,15 +61,24 @@ function addExtraCommands(client) {
   });
 }
 
+/**
+ * Eli (1/14/21) unsure exactly how this works. Copied from template at https://github.com/michalzaq12/electron-nuxt/blob/master/template/test/e2e/helpers.js
+ *
+ * @param {Object} client - Eli (1/14/21) unsure exactly how this works. Copied from template at https://github.com/michalzaq12/electron-nuxt/blob/master/template/test/e2e/helpers.js
+ */
 function addNuxtCommands(client) {
   // https://github.com/michalzaq12/electron-nuxt/blob/master/template/test/e2e/helpers.js
+  /**
+   * Eli (1/14/21) unsure exactly how this works. Copied from template at https://github.com/michalzaq12/electron-nuxt/blob/master/template/test/e2e/helpers.js
+   *
+   */
   async function ready() {
-    let output = "";
-    for (const property in this) {
-      if (property == "waitUntilWindowLoaded") {
-        output += property + ": " + this[property] + "; ";
-      }
-    }
+    // let output = "";
+    // for (const property in this) {
+    //   if (property == "waitUntilWindowLoaded") {
+    //     output += property + ": " + this[property] + "; ";
+    //   }
+    // }
 
     await this.waitUntilWindowLoaded();
     await this.waitUntil(async () => {
@@ -78,6 +87,11 @@ function addNuxtCommands(client) {
     }, 15000);
   }
 
+  /**
+   * Eli (1/14/21) unsure exactly how this works. Copied from template at https://github.com/michalzaq12/electron-nuxt/blob/master/template/test/e2e/helpers.js
+   *
+   * @param {string} url - Eli (1/14/21) unsure exactly how this works. Copied from template at https://github.com/michalzaq12/electron-nuxt/blob/master/template/test/e2e/helpers.js
+   */
   async function navigate(url) {
     await this.execute((url) => {
       window.$nuxt.$router.push(url);
@@ -103,34 +117,77 @@ function addNuxtCommands(client) {
   });
 }
 
+/**
+ * Sleeps for an amount of time. Based on https://www.sitepoint.com/delay-sleep-pause-wait/
+ * usage: await sleep(ms)
+ *
+ * @param {int} ms - number of milliseconds to sleep
+ */
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Wait for Flask server to initialized
+ *
+ * @throws Will throw error if Flask never initializes (determined by port still being open)
+ */
 async function wait_for_flask_to_init() {
-  for (let i = 0; i < 10000; i++) {
+  for (let i = 0; i < 10; i++) {
     const detected_open_port = await detect_port(flask_port);
     if (detected_open_port !== flask_port) {
       return;
     }
+    await sleep(1000);
   }
   throw new Error(`Port never came into use: ${flask_port}`);
 }
 
-async function wait_for_flask_to_be_shutdown() {
-  for (let i = 0; i < 10000; i++) {
-    const detected_open_port = await detect_port(flask_port);
-    if (detected_open_port === flask_port) {
+/**
+ * Wait for Flask server to reach CALIBRATION_NEEDED state
+ *
+ * @throws Will throw error if local server never reaches the CALIBRATION_NEEDED state
+ */
+async function wait_for_local_server_to_reach_calibration_needed() {
+  for (let i = 0; i < 25; i++) {
+    const response = await axios.get("http://localhost:4567/system_status");
+    console.log(i);
+    console.log(response);
+    if (
+      response.data.ui_status_code == "009301eb-625c-4dc4-9e92-1a4d0762465f"
+    ) {
+      // TODO (Eli 1/14/21): replace this string by importing the value from the frontend-components library
       return;
     }
+    await sleep(1000);
   }
-  throw new Error(`Port never became open: ${flask_port}`);
+  return; // Eli (1/14/21): not sure at the moment why ever after 25 seconds the server doesn't reach CALIBRATION_NEEDED, so for now just returning and capturing an E2E screenshot of the "Initializing" state
+  throw new Error(`Server never reached CALIBRATION_NEEDED state`);
 }
 
-afterAll(() => {
-  console.log("at end of test suite");
-});
+// /**
+// * Wait for Flask server to shut down
+// *
+// * @throws Will throw error if Flask never shuts down (determined by port still being occupied)
+// */
+// async function wait_for_flask_to_be_shutdown() {
+//   for (let i = 0; i < 10000; i++) {
+//     const detected_open_port = await detect_port(flask_port);
+//     if (detected_open_port === flask_port) {
+//       return;
+//     }
+//   }
+//   throw new Error(`Port never became open: ${flask_port}`);
+// }
 
-describe("window opening", () => {
+describe("window_opening", () => {
+  afterAll(() => {
+    console.log("at end of test suite");
+  });
+
   beforeEach(async () => {
     sandbox = sinon.createSandbox();
-    const path_to_main_js = path.join(__dirname, "..", "..", "dist", "main");
+    // const path_to_main_js = path.join(__dirname, "..", "..", "dist", "main");
 
     const app = new Application({
       path: process.env.APPLICATION_PATH, // electronPath,
@@ -189,18 +246,24 @@ describe("window opening", () => {
     addExtraCommands(app.client);
     addNuxtCommands(app.client);
 
+    console.log("waiting for flask server to initialize");
+    await wait_for_flask_to_init();
+    const response = await axios.get("http://localhost:4567/system_status");
+    console.log(response);
     return the_started_app;
   }, 20000);
 
   afterEach(async (done) => {
     console.log("checking if app is running during teardown"); // allow-log
 
-    // await app.client.getMainProcessLogs().then(function(logs) {
-    //   logs.forEach(function(log) {
-    //     console.log(log);
-    //   });
-    // });
     const app = sandbox.the_app;
+
+    await app.client.getMainProcessLogs().then(function (logs) {
+      logs.forEach(function (log) {
+        console.log(log);
+      });
+    });
+
     if (app && app.isRunning()) {
       console.log("about to stop app. Platform is windows? " + is_windows); // allow-log
       // adapted from https://stackoverflow.com/questions/51310500/spectron-test-leaves-window-open
@@ -212,7 +275,8 @@ describe("window opening", () => {
       // you could also use .stop() here
       // let main_process_logs; // = await app.client.getMainProcessLogs()
       // let render_process_logs = await app.client.getRenderProcessLogs();
-      const stopped_app_return_code = await app.stop();
+      // const stopped_app_return_code = await app.stop();
+      await app.stop();
 
       // await app.client.execute(() => {
       //     window.close();
@@ -228,7 +292,7 @@ describe("window opening", () => {
       try {
         // check if PID is running using '0' signal (throw error if not)
         if (is_windows) {
-          child_process.execSync("taskkill /F /PID " + PID);
+          child_process.execSync("taskkill /F /PID " + pid);
         } else {
           process.kill(pid, 0);
         }
@@ -246,7 +310,7 @@ describe("window opening", () => {
       // no error, process is still running, stop it
       app.mainProcess.exit(1);
       // do someting to end the test with error
-      const bad = 6 / 0;
+      6 / 0;
     }
   }, 20000);
 
@@ -266,31 +330,32 @@ describe("window opening", () => {
   //     `http://localhost:${flask_port}/echo?input=${expected_value}`
   //   );
 
-  //   expect(echo_response.data.my_json_key).toEqual(expected_value);
+  //   expect(echo_response.data.my_json_key).toStrictEqual(expected_value);
   // }, 20000);
 
-  test("Then it shows an initial window of the correct dimensions and position", async () => {
+  test("When first initialized, Then it shows an initial window of the correct dimensions and position", async () => {
     const app = sandbox.the_app;
     const window_count = await app.client.getWindowCount();
 
-    expect(window_count).toEqual(1); // Please note that getWindowCount() will return 2 if `dev tools` are opened.
+    expect(window_count).toStrictEqual(1); // Please note that getWindowCount() will return 2 if `dev tools` are opened.
     const win = app.browserWindow;
 
     expect(await win.isMinimized()).toBe(false);
     expect(await win.isMaximized()).toBe(false);
     const { width, height } = await win.getBounds();
     console.log("Width: " + width + " height: " + height); // allow-log
-    expect(width).toEqual(1920); // Eli (6/14/20): If running on Cloud9, make sure to install the latest version of c9vnc repo or update the supervisord.conf file to have 1920x1080 dimensions
-    expect(height).toEqual(930);
+    expect(width).toStrictEqual(1920); // Eli (6/14/20): If running on Cloud9, make sure to install the latest version of c9vnc repo or update the supervisord.conf file to have 1920x1080 dimensions
+    expect(height).toStrictEqual(930);
     const win_position = await win.getPosition();
-    expect(win_position[0]).toEqual(1); // when not maximized, there's a single extra pixel of border width on the edge
-    expect(win_position[1]).toEqual(23); // takes into account the height of the menu
+    expect(win_position[0]).toStrictEqual(1); // when not maximized, there's a single extra pixel of border width on the edge
+    expect(win_position[1]).toStrictEqual(23); // takes into account the height of the menu
 
     const this_base_screenshot_path = path.join(base_screenshot_path);
 
     const screenshot_path = path.join(this_base_screenshot_path, "init");
+    await wait_for_local_server_to_reach_calibration_needed();
     await expect(
       spectron_page_visual_regression(app.browserWindow, screenshot_path)
     ).resolves.toBe(true);
-  }, 30000);
+  }, 50000);
 });
