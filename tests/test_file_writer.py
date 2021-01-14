@@ -529,8 +529,9 @@ def test_FileWriterProcess__stop_recording_sets_stop_recording_timestamp_to_time
     ) = four_board_file_writer_process
 
     expected_well_idx = 0
+    start_timepoint_1 = 440000
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
-    this_command["timepoint_to_begin_recording_at"] = 440000
+    this_command["timepoint_to_begin_recording_at"] = start_timepoint_1
     this_command["active_well_indices"] = [expected_well_idx]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         this_command, from_main_queue
@@ -540,7 +541,7 @@ def test_FileWriterProcess__stop_recording_sets_stop_recording_timestamp_to_time
     data_packet = {
         "is_reference_sensor": False,
         "well_index": expected_well_idx,
-        "data": np.array([[440000], [0]], dtype=np.int32),
+        "data": np.array([[start_timepoint_1], [0]], dtype=np.int32),
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         data_packet, board_queues[0][0]
@@ -551,14 +552,15 @@ def test_FileWriterProcess__stop_recording_sets_stop_recording_timestamp_to_time
 
     assert stop_timestamps[0] is None
 
+    stop_timepoint = 2968000
     this_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
-    this_command["timepoint_to_stop_recording_at"] = 2968000
+    this_command["timepoint_to_stop_recording_at"] = stop_timepoint
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         this_command, from_main_queue
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
-    assert stop_timestamps[0] == 2968000
+    assert stop_timestamps[0] == stop_timepoint
 
     confirm_queue_is_eventually_of_size(
         to_main_queue, 2, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
@@ -569,22 +571,35 @@ def test_FileWriterProcess__stop_recording_sets_stop_recording_timestamp_to_time
     comm_to_main = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert comm_to_main["communication_type"] == "command_receipt"
     assert comm_to_main["command"] == "stop_recording"
-    assert comm_to_main["timepoint_to_stop_recording_at"] == 2968000
+    assert comm_to_main["timepoint_to_stop_recording_at"] == stop_timepoint
 
     assert file_writer_process.is_recording() is False
 
+    timepoint_after_stop = 3000000  # Tanner (1/13/21): This just needs to be any timepoint after the stop timepoint in order to finalize the file
     data_packet2 = {
         "is_reference_sensor": False,
         "well_index": expected_well_idx,
-        "data": np.array([[3760000], [0]], dtype=np.int32),
+        "data": np.array([[timepoint_after_stop], [0]], dtype=np.int32),
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         data_packet2, board_queues[0][0]
     )
     invoke_process_run_and_check_errors(file_writer_process)
+    # Tanner (1/13/21): A reference data packet is also necessary to finalize the file
+    ref_data_packet = {
+        "is_reference_sensor": True,
+        "reference_for_wells": REF_INDEX_TO_24_WELL_INDEX[0],
+        "data": np.array([[timepoint_after_stop], [0]], dtype=np.int32),
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        ref_data_packet, board_queues[0][0]
+    )
+    invoke_process_run_and_check_errors(file_writer_process)
 
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
-    this_command["timepoint_to_begin_recording_at"] = 3760000
+    this_command[
+        "timepoint_to_begin_recording_at"
+    ] = 3760000  # Tanner (1/13/21): This can be any arbitrary timepoint after the timepoint of the last data packet sent
     this_command["active_well_indices"] = [expected_well_idx]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         this_command, from_main_queue
