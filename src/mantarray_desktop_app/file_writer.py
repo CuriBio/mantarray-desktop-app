@@ -24,11 +24,14 @@ import h5py
 from labware_domain_models import LabwareDefinition
 from mantarray_file_manager import ADC_REF_OFFSET_UUID
 from mantarray_file_manager import ADC_TISSUE_OFFSET_UUID
+from mantarray_file_manager import IS_FILE_ORIGINAL_UNTRIMMED_UUID
 from mantarray_file_manager import METADATA_UUID_DESCRIPTIONS
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import REF_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import TOTAL_WELL_COUNT_UUID
+from mantarray_file_manager import TRIMMED_TIME_FROM_ORIGINAL_END_UUID
+from mantarray_file_manager import TRIMMED_TIME_FROM_ORIGINAL_START_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_file_manager import UTC_FIRST_REF_DATA_POINT_UUID
 from mantarray_file_manager import UTC_FIRST_TISSUE_DATA_POINT_UUID
@@ -272,6 +275,12 @@ class FileWriterProcess(InfiniteProcess):
     def is_recording(self) -> bool:
         return self._is_recording
 
+    def _board_has_open_files(self, board_idx: int) -> bool:
+        return len(self._open_files[board_idx].keys()) > 0
+
+    def _is_finalizing_files_after_recording(self) -> bool:
+        return self._board_has_open_files(0) and not self._is_recording
+
     def _teardown_after_loop(self) -> None:
         to_main_queue = self._to_main_queue
         msg = f"File Writer Process beginning teardown at {_get_formatted_utc_now()}"
@@ -281,7 +290,7 @@ class FileWriterProcess(InfiniteProcess):
             to_main_queue,
             self.get_logging_level(),
         )
-        if self._is_recording:
+        if self._board_has_open_files(0):
             msg = "Data is still be written to file. Stopping recording and closing files to complete teardown"
             put_log_message_into_queue(
                 logging.INFO,
@@ -293,7 +302,8 @@ class FileWriterProcess(InfiniteProcess):
         super()._teardown_after_loop()
 
     def _commands_for_each_run_iteration(self) -> None:
-        self._process_next_command_from_main()
+        if not self._is_finalizing_files_after_recording():
+            self._process_next_command_from_main()
         self._process_next_data_packet()
         self._update_data_packet_buffers()
         self._finalize_completed_files()
@@ -401,6 +411,9 @@ class FileWriterProcess(InfiniteProcess):
                 CONSTRUCT_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
             )
             this_file.attrs[str(TOTAL_WELL_COUNT_UUID)] = 24
+            this_file.attrs[str(IS_FILE_ORIGINAL_UNTRIMMED_UUID)] = True
+            this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_START_UUID)] = 0
+            this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_END_UUID)] = 0
 
             for this_attr_name, this_attr_value in attrs_to_copy.items():
                 if this_attr_name == "adc_offsets":

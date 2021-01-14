@@ -10,7 +10,6 @@ import time
 
 from freezegun import freeze_time
 import h5py
-from labware_domain_models import LabwareDefinition
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
@@ -40,6 +39,7 @@ from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
 from mantarray_file_manager import COMPUTER_NAME_HASH
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
+from mantarray_file_manager import IS_FILE_ORIGINAL_UNTRIMMED_UUID
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
@@ -53,6 +53,8 @@ from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
 from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
 from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import TOTAL_WELL_COUNT_UUID
+from mantarray_file_manager import TRIMMED_TIME_FROM_ORIGINAL_END_UUID
+from mantarray_file_manager import TRIMMED_TIME_FROM_ORIGINAL_START_UUID
 from mantarray_file_manager import USER_ACCOUNT_ID_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
@@ -79,7 +81,9 @@ from .fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
 from .fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from .fixtures_file_writer import GENERIC_TISSUE_DATA_PACKET
 from .fixtures_file_writer import open_the_generic_h5_file
+from .fixtures_file_writer import WELL_DEF_24
 from .helpers import assert_queue_is_eventually_not_empty
+from .helpers import confirm_queue_is_eventually_empty
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 from .parsed_channel_data_packets import SIMPLE_CONSTRUCT_DATA_FROM_WELL_0
 
@@ -87,6 +91,7 @@ from .parsed_channel_data_packets import SIMPLE_CONSTRUCT_DATA_FROM_WELL_0
 __fixtures__ = [
     fixture_four_board_file_writer_process,
     fixture_running_four_board_file_writer_process,
+    WELL_DEF_24,
 ]
 
 
@@ -278,12 +283,11 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
     )
     assert len(actual_set_of_files) == 24
 
-    well_def = LabwareDefinition(row_count=4, column_count=6)
     expected_set_of_files = set()
     for row_idx in range(4):
         for col_idx in range(6):
             expected_set_of_files.add(
-                f"{expected_barcode}__{timestamp_str}__{well_def.get_well_name_from_row_and_column(row_idx, col_idx)}.h5"
+                f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5"
             )
     assert actual_set_of_files == expected_set_of_files
 
@@ -294,13 +298,13 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         assert this_file_being_written_to.swmr_mode is True
 
     for well_idx in range(24):
-        row_idx, col_idx = well_def.get_row_and_column_from_well_index(well_idx)
+        row_idx, col_idx = WELL_DEF_24.get_row_and_column_from_well_index(well_idx)
 
         this_file = h5py.File(
             os.path.join(
                 file_dir,
                 f"{expected_barcode}__{timestamp_str}",
-                f"{expected_barcode}__{timestamp_str}__{well_def.get_well_name_from_well_index(well_idx)}.h5",
+                f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
             ),
             "r",
         )
@@ -376,14 +380,17 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         )
         assert (
             this_file.attrs[str(WELL_NAME_UUID)]
-            == f"{well_def.get_well_name_from_well_index(well_idx)}"
+            == f"{WELL_DEF_24.get_well_name_from_well_index(well_idx)}"
         )
         assert this_file.attrs[str(WELL_ROW_UUID)] == row_idx
         assert this_file.attrs[str(WELL_COLUMN_UUID)] == col_idx
         assert this_file.attrs[
             str(WELL_INDEX_UUID)
-        ] == well_def.get_well_index_from_row_and_column(row_idx, col_idx)
+        ] == WELL_DEF_24.get_well_index_from_row_and_column(row_idx, col_idx)
         assert this_file.attrs[str(TOTAL_WELL_COUNT_UUID)] == 24
+        assert bool(this_file.attrs[str(IS_FILE_ORIGINAL_UNTRIMMED_UUID)]) is True
+        assert this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_START_UUID)] == 0
+        assert this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_END_UUID)] == 0
         assert (
             this_file.attrs[str(REF_SAMPLING_PERIOD_UUID)]
             == REFERENCE_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
@@ -522,8 +529,9 @@ def test_FileWriterProcess__stop_recording_sets_stop_recording_timestamp_to_time
     ) = four_board_file_writer_process
 
     expected_well_idx = 0
+    start_timepoint_1 = 440000
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
-    this_command["timepoint_to_begin_recording_at"] = 440000
+    this_command["timepoint_to_begin_recording_at"] = start_timepoint_1
     this_command["active_well_indices"] = [expected_well_idx]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         this_command, from_main_queue
@@ -533,7 +541,7 @@ def test_FileWriterProcess__stop_recording_sets_stop_recording_timestamp_to_time
     data_packet = {
         "is_reference_sensor": False,
         "well_index": expected_well_idx,
-        "data": np.array([[440000], [0]], dtype=np.int32),
+        "data": np.array([[start_timepoint_1], [0]], dtype=np.int32),
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         data_packet, board_queues[0][0]
@@ -544,14 +552,15 @@ def test_FileWriterProcess__stop_recording_sets_stop_recording_timestamp_to_time
 
     assert stop_timestamps[0] is None
 
+    stop_timepoint = 2968000
     this_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
-    this_command["timepoint_to_stop_recording_at"] = 2968000
+    this_command["timepoint_to_stop_recording_at"] = stop_timepoint
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         this_command, from_main_queue
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
-    assert stop_timestamps[0] == 2968000
+    assert stop_timestamps[0] == stop_timepoint
 
     confirm_queue_is_eventually_of_size(
         to_main_queue, 2, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
@@ -562,22 +571,35 @@ def test_FileWriterProcess__stop_recording_sets_stop_recording_timestamp_to_time
     comm_to_main = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert comm_to_main["communication_type"] == "command_receipt"
     assert comm_to_main["command"] == "stop_recording"
-    assert comm_to_main["timepoint_to_stop_recording_at"] == 2968000
+    assert comm_to_main["timepoint_to_stop_recording_at"] == stop_timepoint
 
     assert file_writer_process.is_recording() is False
 
+    timepoint_after_stop = 3000000  # Tanner (1/13/21): This just needs to be any timepoint after the stop timepoint in order to finalize the file
     data_packet2 = {
         "is_reference_sensor": False,
         "well_index": expected_well_idx,
-        "data": np.array([[3760000], [0]], dtype=np.int32),
+        "data": np.array([[timepoint_after_stop], [0]], dtype=np.int32),
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         data_packet2, board_queues[0][0]
     )
     invoke_process_run_and_check_errors(file_writer_process)
+    # Tanner (1/13/21): A reference data packet is also necessary to finalize the file
+    ref_data_packet = {
+        "is_reference_sensor": True,
+        "reference_for_wells": REF_INDEX_TO_24_WELL_INDEX[0],
+        "data": np.array([[timepoint_after_stop], [0]], dtype=np.int32),
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        ref_data_packet, board_queues[0][0]
+    )
+    invoke_process_run_and_check_errors(file_writer_process)
 
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
-    this_command["timepoint_to_begin_recording_at"] = 3760000
+    this_command[
+        "timepoint_to_begin_recording_at"
+    ] = 3760000  # Tanner (1/13/21): This can be any arbitrary timepoint after the timepoint of the last data packet sent
     this_command["active_well_indices"] = [expected_well_idx]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         this_command, from_main_queue
@@ -1117,12 +1139,11 @@ def test_FileWriterProcess__records_all_requested_data_in_buffer__and_creates_di
     ][PLATE_BARCODE_UUID]
     timestamp_str = "2020_02_09_190322"
 
-    well_def = LabwareDefinition(row_count=4, column_count=6)
     this_file = h5py.File(
         os.path.join(
             file_dir,
             f"{expected_barcode}__{timestamp_str}",
-            f"{expected_barcode}__{timestamp_str}__{well_def.get_well_name_from_well_index(expected_well_idx)}.h5",
+            f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(expected_well_idx)}.h5",
         ),
         "r",
     )
@@ -1206,12 +1227,11 @@ def test_FileWriterProcess__deletes_recorded_well_data_after_stop_time(
     ][PLATE_BARCODE_UUID]
     timestamp_str = "2020_02_09_190322"
 
-    well_def = LabwareDefinition(row_count=4, column_count=6)
     this_file = h5py.File(
         os.path.join(
             file_dir,
             f"{expected_barcode}__{timestamp_str}",
-            f"{expected_barcode}__{timestamp_str}__{well_def.get_well_name_from_well_index(expected_well_idx)}.h5",
+            f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(expected_well_idx)}.h5",
         ),
         "r",
     )
@@ -1290,12 +1310,11 @@ def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
     ][PLATE_BARCODE_UUID]
     timestamp_str = "2020_02_09_190322"
 
-    well_def = LabwareDefinition(row_count=4, column_count=6)
     this_file = h5py.File(
         os.path.join(
             file_dir,
             f"{expected_barcode}__{timestamp_str}",
-            f"{expected_barcode}__{timestamp_str}__{well_def.get_well_name_from_well_index(expected_well_idx)}.h5",
+            f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(expected_well_idx)}.h5",
         ),
         "r",
     )
@@ -1378,6 +1397,152 @@ def test_FileWriterProcess_hard_stop__calls_close_all_files__when_still_recordin
     fw_process.hard_stop()
 
     spied_close_all_files.assert_called_once()
+
+
+def test_FileWriterProcess_hard_stop__closes_all_files_after_stop_recording_before_all_files_are_finalized__and_files_can_be_opened_after_process_stops(
+    four_board_file_writer_process, mocker
+):
+    expected_timestamp = "2020_02_09_190935"
+    expected_barcode = GENERIC_START_RECORDING_COMMAND[
+        "metadata_to_copy_onto_main_file_attributes"
+    ][PLATE_BARCODE_UUID]
+
+    (
+        fw_process,
+        board_queues,
+        from_main_queue,
+        _,
+        _,
+        tmp_dir,
+    ) = four_board_file_writer_process
+    spied_close_all_files = mocker.spy(fw_process, "close_all_files")
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        GENERIC_START_RECORDING_COMMAND, from_main_queue
+    )
+    invoke_process_run_and_check_errors(fw_process)
+
+    # fill files with data
+    start_timepoint = GENERIC_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
+    data = np.array([[start_timepoint], [0]], dtype=np.int32)
+    for i in range(24):
+        tissue_data_packet = {
+            "well_index": i,
+            "is_reference_sensor": False,
+            "data": data,
+        }
+        board_queues[0][0].put(tissue_data_packet)
+    for i in range(6):
+        ref_data_packet = {
+            "reference_for_wells": REF_INDEX_TO_24_WELL_INDEX[i],
+            "is_reference_sensor": True,
+            "data": data,
+        }
+        board_queues[0][0].put(ref_data_packet)
+    confirm_queue_is_eventually_of_size(board_queues[0][0], 30)
+    invoke_process_run_and_check_errors(fw_process, num_iterations=30)
+    confirm_queue_is_eventually_empty(board_queues[0][0])
+
+    stop_recording_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        stop_recording_command, from_main_queue
+    )
+    invoke_process_run_and_check_errors(fw_process)
+
+    assert spied_close_all_files.call_count == 0  # confirm pre-condition
+    fw_process.hard_stop()
+    spied_close_all_files.assert_called_once()
+
+    # confirm files can be opened and files contains at least one piece of metadata
+    for row_idx in range(4):
+        for col_idx in range(6):
+            with h5py.File(
+                os.path.join(
+                    tmp_dir,
+                    f"{expected_barcode}__{expected_timestamp}",
+                    f"{expected_barcode}__{expected_timestamp}__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
+                ),
+                "r",
+            ) as this_file:
+                assert str(START_RECORDING_TIME_INDEX_UUID) in this_file.attrs
+
+
+def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_files_after_stop_recording(
+    four_board_file_writer_process, mocker
+):
+    fw_process, board_queues, from_main_queue, _, _, _ = four_board_file_writer_process
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        GENERIC_START_RECORDING_COMMAND, from_main_queue
+    )
+    invoke_process_run_and_check_errors(fw_process)
+
+    # fill files with data
+    start_timepoint = GENERIC_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
+    first_data = np.array([[start_timepoint], [0]], dtype=np.int32)
+    for i in range(24):
+        tissue_data_packet = {
+            "well_index": i,
+            "is_reference_sensor": False,
+            "data": first_data,
+        }
+        board_queues[0][0].put(tissue_data_packet)
+    for i in range(6):
+        ref_data_packet = {
+            "reference_for_wells": REF_INDEX_TO_24_WELL_INDEX[i],
+            "is_reference_sensor": True,
+            "data": first_data,
+        }
+        board_queues[0][0].put(ref_data_packet)
+    confirm_queue_is_eventually_of_size(board_queues[0][0], 30)
+    invoke_process_run_and_check_errors(fw_process, num_iterations=30)
+    confirm_queue_is_eventually_empty(board_queues[0][0])
+
+    stop_recording_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        stop_recording_command, from_main_queue
+    )
+    invoke_process_run_and_check_errors(fw_process)
+
+    # check that command is ignored # Tanner (1/12/21): no particular reason this command needs to be update_directory, but it's easy to test if this gets processed
+    expected_new_dir = "dummy_dir"
+    update_dir_command = {
+        "command": "update_directory",
+        "new_directory": expected_new_dir,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        update_dir_command, from_main_queue
+    )
+    invoke_process_run_and_check_errors(fw_process)
+    confirm_queue_is_eventually_of_size(from_main_queue, 1)
+
+    # add data past stop point so files will be finalized
+    stop_timepoint = GENERIC_STOP_RECORDING_COMMAND["timepoint_to_stop_recording_at"]
+    last_data = np.array([[stop_timepoint], [0]], dtype=np.int32)
+    for i in range(24):
+        final_tissue_data_packet = {
+            "well_index": i,
+            "is_reference_sensor": False,
+            "data": last_data,
+        }
+        board_queues[0][0].put(final_tissue_data_packet)
+    for i in range(6):
+        final_ref_data_packet = {
+            "reference_for_wells": REF_INDEX_TO_24_WELL_INDEX[i],
+            "is_reference_sensor": True,
+            "data": last_data,
+        }
+        board_queues[0][0].put(final_ref_data_packet)
+    confirm_queue_is_eventually_of_size(board_queues[0][0], 30)
+    invoke_process_run_and_check_errors(fw_process, num_iterations=30)
+    confirm_queue_is_eventually_empty(board_queues[0][0])
+    # check command is still ignored
+    confirm_queue_is_eventually_of_size(from_main_queue, 1)
+
+    # now all files should be finalized, confirm command is now processed
+    invoke_process_run_and_check_errors(fw_process)
+    confirm_queue_is_eventually_empty(from_main_queue)
+    assert fw_process.get_file_directory() == expected_new_dir
 
 
 @pytest.mark.slow

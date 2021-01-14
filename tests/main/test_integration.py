@@ -10,7 +10,6 @@ import uuid
 
 from freezegun import freeze_time
 import h5py
-from labware_domain_models import LabwareDefinition
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
@@ -56,6 +55,7 @@ from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
 from mantarray_file_manager import COMPUTER_NAME_HASH
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
+from mantarray_file_manager import IS_FILE_ORIGINAL_UNTRIMMED_UUID
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
@@ -69,6 +69,8 @@ from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
 from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
 from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import TOTAL_WELL_COUNT_UUID
+from mantarray_file_manager import TRIMMED_TIME_FROM_ORIGINAL_END_UUID
+from mantarray_file_manager import TRIMMED_TIME_FROM_ORIGINAL_START_UUID
 from mantarray_file_manager import USER_ACCOUNT_ID_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
@@ -93,6 +95,7 @@ from ..fixtures import fixture_patched_firmware_folder
 from ..fixtures import fixture_patched_xem_scripts_folder
 from ..fixtures import fixture_test_process_manager
 from ..fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
+from ..fixtures_file_writer import WELL_DEF_24
 from ..helpers import confirm_queue_is_eventually_empty
 
 __fixtures__ = [
@@ -100,6 +103,7 @@ __fixtures__ = [
     fixture_test_process_manager,
     fixture_patched_xem_scripts_folder,
     fixture_patched_firmware_folder,
+    WELL_DEF_24,
 ]
 LIVE_VIEW_ACTIVE_WAIT_TIME = 150
 CALIBRATED_WAIT_TIME = 10
@@ -432,7 +436,10 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
         time.sleep(3)  # Tanner (6/15/20): This allows data to be written to files
         # Tanner (12/30/20): End recording at a known timepoint so next recording can start at a known timepoint
-        response = requests.get(f"{get_api_endpoint()}stop_recording?time_index=190000")
+        expected_stop_index_1 = 190000
+        response = requests.get(
+            f"{get_api_endpoint()}stop_recording?time_index={expected_stop_index_1}"
+        )
         assert response.status_code == 200
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
 
@@ -440,9 +447,10 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         expected_barcode2 = (
             expected_barcode1[:-1] + "2"
         )  # change last char of default barcode from '1' to '2'
-        # Tanner (12/30/20): Start recording with barcode2 to create second set of files. Use known timpoint a just after end of first set of data
+        # Tanner (12/30/20): Start recording with barcode2 to create second set of files. Use known timepoint a just after end of first set of data
+        expected_start_index_2 = expected_stop_index_1 + 1
         response = requests.get(
-            f"{get_api_endpoint()}start_recording?barcode={expected_barcode2}&time_index=200000&is_hardware_test_recording=False"
+            f"{get_api_endpoint()}start_recording?barcode={expected_barcode2}&time_index={expected_start_index_2}&is_hardware_test_recording=False"
         )
         assert response.status_code == 200
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
@@ -480,8 +488,6 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         # Tanner (6/15/20): Processes must be joined to avoid h5 errors with reading files, so hard-stopping before joining
         test_process_manager.hard_stop_and_join_processes()
 
-        well_def = LabwareDefinition(row_count=4, column_count=6)
-
         # test first recording for all data and metadata
         for row_idx in range(4):
             for col_idx in range(6):
@@ -490,7 +496,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                     os.path.join(
                         expected_recordings_dir,
                         f"{expected_barcode1}__{expected_timestamp}",
-                        f"{expected_barcode1}__{expected_timestamp}__{well_def.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
+                        f"{expected_barcode1}__{expected_timestamp}__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
                     ),
                     "r",
                 ) as this_file:
@@ -578,17 +584,29 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
 
                     assert (
                         this_file_attrs[str(WELL_NAME_UUID)]
-                        == f"{well_def.get_well_name_from_row_and_column(row_idx, col_idx)}"
+                        == f"{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}"
                     )
                     assert this_file_attrs["Metadata UUID Descriptions"] == json.dumps(
                         str(METADATA_UUID_DESCRIPTIONS)
+                    )
+                    assert (
+                        bool(this_file_attrs[str(IS_FILE_ORIGINAL_UNTRIMMED_UUID)])
+                        is True
+                    )
+                    assert (
+                        this_file_attrs[str(TRIMMED_TIME_FROM_ORIGINAL_START_UUID)] == 0
+                    )
+                    assert (
+                        this_file_attrs[str(TRIMMED_TIME_FROM_ORIGINAL_END_UUID)] == 0
                     )
                     assert this_file_attrs[str(TOTAL_WELL_COUNT_UUID)] == 24
                     assert this_file_attrs[str(WELL_ROW_UUID)] == row_idx
                     assert this_file_attrs[str(WELL_COLUMN_UUID)] == col_idx
                     assert this_file_attrs[
                         str(WELL_INDEX_UUID)
-                    ] == well_def.get_well_index_from_row_and_column(row_idx, col_idx)
+                    ] == WELL_DEF_24.get_well_index_from_row_and_column(
+                        row_idx, col_idx
+                    )
                     assert (
                         this_file_attrs[str(TISSUE_SAMPLING_PERIOD_UUID)]
                         == CONSTRUCT_SENSOR_SAMPLING_PERIOD
@@ -623,11 +641,17 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                     os.path.join(
                         expected_recordings_dir,
                         f"{expected_barcode2}__2020_06_15_141957",
-                        f"{expected_barcode2}__2020_06_15_141957__{well_def.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
+                        f"{expected_barcode2}__2020_06_15_141957__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
                     ),
                     "r",
                 ) as this_file:
                     assert str(START_RECORDING_TIME_INDEX_UUID) in this_file.attrs
+                    start_index_2 = this_file.attrs[
+                        str(START_RECORDING_TIME_INDEX_UUID)
+                    ]
+                    assert (  # Tanner (1/13/21): Here we are testing that the 'finalizing' state of File Writer is working correctly by asserting that the second set of recorded files start at the right time index
+                        start_index_2 == expected_start_index_2
+                    )
                     assert str(UTC_FIRST_TISSUE_DATA_POINT_UUID) in this_file.attrs
                     assert str(UTC_FIRST_REF_DATA_POINT_UUID) in this_file.attrs
                     actual_tissue_data = get_tissue_dataset_from_file(this_file)

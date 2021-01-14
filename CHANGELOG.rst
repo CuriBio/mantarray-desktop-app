@@ -10,8 +10,18 @@ Changelog for Mantarray Desktop App
 - Added ability to override barcode scanner in case of malfunction allowing users to
   manually enter barcodes.
 - Added redaction of username from file path in log message for finalized recording files.
+- Added the following metadata values to H5 files:
+
+  - Flag indicating whether or not this file is 'fresh' from the desktop app
+    and has not has its original data trimmed.
+  - Number of centimilliseconds trimmed off the beginning the original data.
+  - Number of centimilliseconds trimmed off the end the original data.
+
 - Fixed issue causing recorded files created after stopping and restarting recording
   to not contain waveform data.
+- Fixed issue caused by closing app just after stopping recording which prevented
+  recorded files from being opened due to H5 flags not being cleared.
+- Updated HDF5 File Format Version to 0.4.1.
 
 
 0.4.0 (2020-12-17)
@@ -22,7 +32,6 @@ Changelog for Mantarray Desktop App
 - Added UUID to Log Files.
 - Added Log File UUID and hash sum of computer name to metadata of recorded files to make
   linking them to a specific log file and computer easier.
-- Updated HDF5 File Format Version to 0.4.0.
 - Added redaction of username from file path in log message for recording directory and
   log file path.
 
@@ -32,6 +41,7 @@ Changelog for Mantarray Desktop App
   - Allow 'ME' as first two characters.
 
 - Transferred to GitHub.
+- Updated HDF5 File Format Version to 0.4.0.
 - Bumped H5 file version to 0.3.3 to create a new version that is conclusively above
   0.3.2/0.3.1 which have odd issues.
 - Changed subprocesses to poll queues with a wait timeout of 0.025 seconds instead of using queue.empty(),
