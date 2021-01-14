@@ -116,6 +116,8 @@ def test_main__redacts_log_file_dir_from_log_message_of_command_line_args(mocker
         expected_msg = "Command Line Args: {'debug_test_post_build': True, 'log_level_debug': False, 'skip_mantarray_boot_up': False, 'port_number': None, 'log_file_dir': '"
         expected_msg += redacted_log_file_dir
         expected_msg += "', 'expected_software_version': None}"
+        print(expected_msg)  # allow-print
+        print(spied_info_logger.call_args_list)  # allow-print
         spied_info_logger.assert_any_call(expected_msg)
 
 
