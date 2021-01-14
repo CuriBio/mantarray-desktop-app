@@ -151,8 +151,8 @@ async function wait_for_flask_to_init() {
 async function wait_for_local_server_to_reach_calibration_needed() {
   for (let i = 0; i < 25; i++) {
     const response = await axios.get("http://localhost:4567/system_status");
-    console.log(i);
-    console.log(response);
+    console.log(i); // allow-log
+    console.log(response); // allow-log
     if (
       response.data.ui_status_code == "009301eb-625c-4dc4-9e92-1a4d0762465f"
     ) {
@@ -248,8 +248,6 @@ describe("window_opening", () => {
 
     console.log("waiting for flask server to initialize");
     await wait_for_flask_to_init();
-    const response = await axios.get("http://localhost:4567/system_status");
-    console.log(response);
     return the_started_app;
   }, 20000);
 
