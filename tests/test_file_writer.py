@@ -91,7 +91,6 @@ from .parsed_channel_data_packets import SIMPLE_CONSTRUCT_DATA_FROM_WELL_0
 __fixtures__ = [
     fixture_four_board_file_writer_process,
     fixture_running_four_board_file_writer_process,
-    WELL_DEF_24,
 ]
 
 

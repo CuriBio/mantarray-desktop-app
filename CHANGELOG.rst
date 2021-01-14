@@ -13,7 +13,7 @@ Changelog for Mantarray Desktop App
 - Added the following metadata values to H5 files:
 
   - Flag indicating whether or not this file is 'fresh' from the desktop app
-    and has not has its original data trimmed.
+    and has not had its original data trimmed.
   - Number of centimilliseconds trimmed off the beginning the original data.
   - Number of centimilliseconds trimmed off the end the original data.
 
