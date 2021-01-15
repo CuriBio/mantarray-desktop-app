@@ -10,7 +10,7 @@ const path_to_resources_provider = path.join(
   "resources-path-provider"
 );
 
-const path_to_config = path.join(path_to_electron_nuxt, "config");
+// const path_to_config = path.join(path_to_electron_nuxt, "config");
 
 const path_to_nuxt_config = path.join(
   path_to_electron_nuxt,
@@ -24,7 +24,8 @@ const path_to_nuxt_config = path.join(
 //   "NuxtApp"
 // );
 
-const resourcesPath = require(path_to_resources_provider);
+// const resourcesPath = require(path_to_resources_provider);
+require(path_to_resources_provider);
 // const {
 //   DIST_DIR,
 //   MAIN_PROCESS_DIR,

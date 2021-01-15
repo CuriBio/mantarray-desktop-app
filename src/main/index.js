@@ -21,6 +21,8 @@ const {
 global.__resources = undefined; // eslint-disable-line no-underscore-dangle
 // noinspection BadExpressionStatementJS
 INCLUDE_RESOURCES_PATH; // eslint-disable-line no-unused-expressions
+// Eli (1/15/21): this code is straight from the template, so unclear what would happen if it was changed and how `__resources` may or may not be being injected into this somehow
+// eslint-disable-next-line no-undef
 if (__resources === undefined)
   console.error("[Main-process]: Resources path is undefined");
 

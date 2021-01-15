@@ -6,6 +6,7 @@
     <div class="div__grid-of-waveforms">
       <div
         v-for="waveform_index in Array(6).keys()"
+        :key="waveform_index"
         :style="
           'position: absolute; top: ' +
           (waveform_index % 2) * 422 +

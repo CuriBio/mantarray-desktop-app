@@ -4,6 +4,14 @@ const url_safe_base64 = require("urlsafe-base64");
 import ElectronStore from "./electron_store.js";
 const yaml = require("js-yaml");
 
+/**
+ * Creates an ElectronStore. This is a wrapper function to help optionally define file paths for easier testing
+ *
+ * @param {string} file_path - where to create the store (this will default to somewhere in the User folder if left undefined)
+ * @param {string} file_name - what to use as the file name
+ *
+ * @return {Object} the ElectronStore object
+ */
 export function create_store({
   file_path = undefined,
   file_name = "mantarray_controller_config",
@@ -23,6 +31,13 @@ export function create_store({
   return store;
 }
 
+/**
+ * Generate the command line arguments to pass to the local server as it is initialized. This also creates the necessary directories if they don't exist to hold the log files and recordings...although (Eli 1/15/21) unclear why the server doesn't do that itself...
+ *
+ * @param {Object} electron_store - the ElectronStore object
+ *
+ * @return {Array} a list of command line arguments
+ */
 export function generate_flask_command_line_args(electron_store) {
   const electron_store_dir = path.dirname(electron_store.path);
   const args = [];

@@ -1,7 +1,7 @@
 import path from "path";
-const { Menu, screen } = require("electron");
+const { Menu } = require("electron");
 const { centerWindow } = require("electron-util");
-const browser_win_handler_path = path.join(__dirname, "BrowserWinHandler");
+// const browser_win_handler_path = path.join(__dirname, "BrowserWinHandler");
 
 // const BrowserWinHandler =require(browser_win_handler_path).BrowserWinHandler;
 import BrowserWinHandler from "./BrowserWinHandler";
