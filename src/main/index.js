@@ -1,5 +1,5 @@
 /* globals INCLUDE_RESOURCES_PATH */
-import { app, Screen } from "electron";
+import { app } from "electron";
 
 /* Eli added */
 // import './style.scss'
@@ -14,9 +14,7 @@ const {
   create_store,
   generate_flask_command_line_args,
 } = require("./utils.js");
-const ElectronStore = require("electron-store");
-const yaml = require("js-yaml");
-const mkdirp = require("mkdirp");
+// const ElectronStore = require("electron-store");
 /**
  * Set `__resources` path to resources files in renderer process
  */
@@ -77,7 +75,8 @@ const start_python_subprocess = () => {
       // allow-log
       "Launching compiled Python EXE at path: " + script
     );
-    const subpy = require("child_process").execFile(script, command_line_args);
+    // const subpy = require("child_process").execFile(script, command_line_args);
+    require("child_process").execFile(script, command_line_args);
   } else {
     const PythonShell = require("python-shell").PythonShell; // Eli (4/15/20) experienced odd error where the compiled exe was not able to load package python-shell...but since it's only actually required in development, just moving it to here
     const options = {
@@ -95,7 +94,8 @@ const start_python_subprocess = () => {
         "' with options: " +
         JSON.stringify(options)
     );
-    const pyshell = new PythonShell(py_file_name, options);
+    // const pyshell = new PythonShell(py_file_name, options);
+    new PythonShell(py_file_name, options);
     // PythonShell.run(py_file_name,options)
   }
 };
@@ -121,7 +121,7 @@ app.on("window-all-closed", function () {
   console.log("window-all-closed event being handled"); // allow-log
   if (process.platform !== "darwin") app.quit();
 });
-let win_handler = null;
+// let win_handler = null;
 app.on("ready", () => {
   console.log("ready in index.js");
 });
@@ -136,4 +136,5 @@ app.on("will-quit", function () {
   axios.get(`http://localhost:${flask_port}/shutdown`);
 });
 
-win_handler = require("./mainWindow");
+// win_handler = require("./mainWindow");
+require("./mainWindow");
