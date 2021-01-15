@@ -27,6 +27,7 @@ from mantarray_desktop_app import MantarrayProcessesManager
 from mantarray_desktop_app import MantarrayProcessesMonitor
 from mantarray_desktop_app import MultiprocessingNotSetToSpawnError
 from mantarray_desktop_app import process_monitor
+from mantarray_desktop_app import redact_sensitive_info_from_path
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import system_state_eventually_equals
 from mantarray_desktop_app import wait_for_subprocesses_to_start
@@ -99,6 +100,21 @@ def test_main__handles_base64_command_line_argument_with_padding_issue(mocker):
         assert f"Call #{i}" and "initial_base64_settings" not in call_args[0]
 
 
+def test_main__redacts_log_file_dir_from_log_message_of_command_line_args(mocker):
+    with tempfile.TemporaryDirectory() as expected_log_file_dir:
+        spied_info_logger = mocker.spy(main.logger, "info")
+        main.main(
+            [
+                "--debug-test-post-build",
+                f"--log-file-dir={expected_log_file_dir}",
+            ]
+        )
+
+        redacted_log_file_dir = redact_sensitive_info_from_path(expected_log_file_dir)
+        expected_msg = f"Command Line Args: {{'debug_test_post_build': True, 'log_level_debug': False, 'skip_mantarray_boot_up': False, 'port_number': None, 'log_file_dir': '{redacted_log_file_dir}', 'expected_software_version': None}}"  # Tanner (1/14/21): Double curly braces escape formatting in f-strings, although Cloud9's syntax highlighter does not seem to recognize this
+        spied_info_logger.assert_any_call(expected_msg)
+
+
 def test_main__logs_command_line_arguments(mocker):
     expected_command_line_args = ["--debug-test-post-build", "--log-level-debug"]
     spied_info_logger = mocker.spy(main.logger, "info")
@@ -153,10 +169,10 @@ def test_main__logs_system_info__and_software_version_at_very_start(
 
     expected_name_hash = hashlib.sha512(
         socket.gethostname().encode(encoding="UTF-8")
-    ).digest()
+    ).hexdigest()
     spied_info_logger.assert_any_call(f"Log File UUID: {expected_uuid}")
     spied_info_logger.assert_any_call(
-        f"SHA512 digest of Computer Name {str(expected_name_hash)}"
+        f"SHA512 digest of Computer Name {expected_name_hash}"
     )
     spied_info_logger.assert_any_call(
         f"Mantarray Controller v{CURRENT_SOFTWARE_VERSION} started"
@@ -391,8 +407,9 @@ def test_main__stores_values_from_command_line_arguments(
             shared_values_dict["log_file_uuid"]
             == "91dbb151-0867-44da-a595-bd303f91927d"
         )
-        assert shared_values_dict["computer_name_hash"] == str(
-            hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).digest()
+        assert (
+            shared_values_dict["computer_name_hash"]
+            == hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).hexdigest()
         )
 
 

@@ -103,7 +103,6 @@ __fixtures__ = [
     fixture_test_process_manager,
     fixture_patched_xem_scripts_folder,
     fixture_patched_firmware_folder,
-    WELL_DEF_24,
 ]
 LIVE_VIEW_ACTIVE_WAIT_TIME = 150
 CALIBRATED_WAIT_TIME = 10
