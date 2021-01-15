@@ -111,13 +111,7 @@ def test_main__redacts_log_file_dir_from_log_message_of_command_line_args(mocker
         )
 
         redacted_log_file_dir = redact_sensitive_info_from_path(expected_log_file_dir)
-        # Eli (1/14/21): weird things happened when trying to use f-string in Windows CI, so trying something more old school
-        # expected_msg=f"Command Line Args: {{'debug_test_post_build': True, 'log_level_debug': False, 'skip_mantarray_boot_up': False, 'port_number': None, 'log_file_dir': '{redacted_log_file_dir}', 'expected_software_version': None}}" # Tanner (1/14/21): Double curly braces escape formatting in f-strings, although Cloud9's syntax highlighter does not seem to recognize this
-        expected_msg = "Command Line Args: {'debug_test_post_build': True, 'log_level_debug': False, 'skip_mantarray_boot_up': False, 'port_number': None, 'log_file_dir': '"
-        expected_msg += redacted_log_file_dir
-        expected_msg += "', 'expected_software_version': None}"
-        print(expected_msg)  # allow-print
-        print(spied_info_logger.call_args_list)  # allow-print
+        expected_msg = f"Command Line Args: {{'debug_test_post_build': True, 'log_level_debug': False, 'skip_mantarray_boot_up': False, 'port_number': None, 'log_file_dir': '{redacted_log_file_dir}', 'expected_software_version': None}}"  # Tanner (1/14/21): Double curly braces escape formatting in f-strings, although Cloud9's syntax highlighter does not seem to recognize this
         spied_info_logger.assert_any_call(expected_msg)
 
 
