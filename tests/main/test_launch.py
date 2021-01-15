@@ -175,10 +175,10 @@ def test_main__logs_system_info__and_software_version_at_very_start(
 
     expected_name_hash = hashlib.sha512(
         socket.gethostname().encode(encoding="UTF-8")
-    ).digest()
+    ).hexdigest()
     spied_info_logger.assert_any_call(f"Log File UUID: {expected_uuid}")
     spied_info_logger.assert_any_call(
-        f"SHA512 digest of Computer Name {str(expected_name_hash)}"
+        f"SHA512 digest of Computer Name {expected_name_hash}"
     )
     spied_info_logger.assert_any_call(
         f"Mantarray Controller v{CURRENT_SOFTWARE_VERSION} started"
