@@ -5,6 +5,34 @@ import ElectronStore from "./electron_store.js";
 const yaml = require("js-yaml");
 
 /**
+ * Depending on whether Electron is running, get the application version from package.json or from the Electron process itself
+ *
+ * @return {string} the semantic version
+ */
+const get_current_app_version = function () {
+  return "0.4.1";
+  // Eli (1/15/21) - can't figure out how to get it working dynamically
+  // try {
+  //   const {electron_app} = require("electron").remote;
+  // }
+  // catch (err) {
+  //   if(err instanceof TypeError){
+  //       // Electron is not actually running, so get the version from package.json
+  //       console.log('Attempting to read the version from package.json') // allow-log
+  //       const path_to_package_json=path.join(__dirname,'..','..','package.json')
+  //       const package_info=require(path_to_package_json)
+  //       return package_info.version
+  //   }
+  //   else {
+  //     console.log( // allow-log
+  //       'Something other than TypeError detected when trying to require electron.remote: ' + err)
+  //     throw err
+  //   }
+  // }
+  // return electron_app.getVersion()
+};
+
+/**
  * Creates an ElectronStore. This is a wrapper function to help optionally define file paths for easier testing
  *
  * @param {string} file_path - where to create the store (this will default to somewhere in the User folder if left undefined)
@@ -12,7 +40,7 @@ const yaml = require("js-yaml");
  *
  * @return {Object} the ElectronStore object
  */
-export function create_store({
+const create_store = function ({
   file_path = undefined,
   file_name = "mantarray_controller_config",
 } = {}) {
@@ -29,7 +57,7 @@ export function create_store({
     },
   });
   return store;
-}
+};
 
 /**
  * Generate the command line arguments to pass to the local server as it is initialized. This also creates the necessary directories if they don't exist to hold the log files and recordings...although (Eli 1/15/21) unclear why the server doesn't do that itself...
@@ -38,7 +66,7 @@ export function create_store({
  *
  * @return {Array} a list of command line arguments
  */
-export function generate_flask_command_line_args(electron_store) {
+const generate_flask_command_line_args = function (electron_store) {
   const electron_store_dir = path.dirname(electron_store.path);
   const args = [];
   const flask_logs_subfolder = "logs_flask";
@@ -48,6 +76,9 @@ export function generate_flask_command_line_args(electron_store) {
   );
   // Eli (7/15/20): Having quotation marks around the path does not appear to be necessary even with spaces in the path, since it's being passed programatically and not directly through the shell
   args.push("--log-file-dir=" + flask_logs_full_path + "");
+  args.push(
+    "--expected-software-version=" + export_functions.get_current_app_version()
+  );
   const recording_directory_path = path.join(electron_store_dir, "recordings");
   mkdirp.sync(flask_logs_full_path);
   mkdirp.sync(recording_directory_path);
@@ -74,5 +105,14 @@ export function generate_flask_command_line_args(electron_store) {
   if (settings_to_supply_json_str !== "{}") {
     args.push("--initial-base64-settings=" + settings_to_supply_encoded);
   }
+
   return args;
-}
+};
+
+// Eli (1/15/21): making spying/mocking with Jest easier. https://medium.com/@DavideRama/mock-spy-exported-functions-within-a-single-module-in-jest-cdf2b61af642
+const export_functions = {
+  generate_flask_command_line_args,
+  create_store,
+  get_current_app_version,
+};
+export default export_functions;

@@ -3,10 +3,14 @@ const fs = require("fs");
 const tmp = require("tmp");
 tmp.setGracefulCleanup(); // Eli (7/13/20): According to the docs, this is supposed to enforce automatic deletion of the folders at the end of running the process, but it does not appear to be working. Manual cleanup seems to be required.
 const url_safe_base64 = require("urlsafe-base64");
-const {
-  create_store,
-  generate_flask_command_line_args,
-} = require("@/main/utils.js");
+// import create_store,generate_flask_command_line_args,get_current_app_version from "@/main/utils.js";
+// const {
+//   create_store,
+//   generate_flask_command_line_args,get_current_app_version
+// } = require("@/main/utils.js");
+
+// import default as main_utils from "@/main/utils.js" // Eli (1/15/21): helping to be able to spy on functions within utils. https://stackoverflow.com/questions/49457451/jest-spyon-a-function-not-class-or-object-type
+import main_utils from "@/main/utils.js"; // Eli (1/15/21): helping to be able to spy on functions within utils. https://stackoverflow.com/questions/49457451/jest-spyon-a-function-not-class-or-object-type
 
 const sinon = require("sinon");
 // const sinon_helpers = require("sinon-helpers");
@@ -45,10 +49,12 @@ describe("utils.js", () => {
     describe("generate_flask_command_line_args", () => {
       describe("Given an ElectronStore has been created in a temporary absolute path", () => {
         beforeEach(() => {
-          store = create_store({ file_path: tmp_dir_name });
+          store = main_utils.create_store({ file_path: tmp_dir_name });
         });
         test("When the function is invoked, Then the log file directory argument is set to the folder containing the store", () => {
-          const actual_args = generate_flask_command_line_args(store);
+          const actual_args = main_utils.generate_flask_command_line_args(
+            store
+          );
           expect(actual_args).toStrictEqual(
             expect.arrayContaining([
               "--log-file-dir=" +
@@ -56,8 +62,29 @@ describe("utils.js", () => {
             ])
           );
         });
+        test("When the function is invoked, Then the expected-software-version argument is set to the value returned by get_current_app_version", () => {
+          const actual_args = main_utils.generate_flask_command_line_args(
+            store
+          );
+
+          // const spied_get_current_app_version = jest.spyOn(
+          //   main_utils,
+          //   "get_current_app_version"
+          // );
+          expect(actual_args).toStrictEqual(
+            expect.arrayContaining([
+              "--expected-software-version=" +
+                // Eli (1/15/21) can't figure out how to get the spy set up correctly
+                // spied_get_current_app_version.mock.results[0].value,
+                "0.4.1",
+            ])
+          );
+        });
+
         test("When the function is invoked, Then the returned --initial-base64-settings encoded settings argument is supplied only containing the recording directory (since no ID exists in the store)", () => {
-          const actual_args = generate_flask_command_line_args(store);
+          const actual_args = main_utils.generate_flask_command_line_args(
+            store
+          );
           const json_str = JSON.stringify({
             recording_directory: path.join(tmp_dir_name, "recordings"),
           });
@@ -75,7 +102,9 @@ describe("utils.js", () => {
           id_list.push(generic_id_info);
           store.set("customer_account_ids", id_list);
 
-          const actual_args = generate_flask_command_line_args(store);
+          const actual_args = main_utils.generate_flask_command_line_args(
+            store
+          );
           const json_str = JSON.stringify({
             recording_directory: path.join(tmp_dir_name, "recordings"),
             customer_account_uuid: "14b9294a-9efb-47dd-a06e-8247e982e196",
@@ -91,7 +120,7 @@ describe("utils.js", () => {
           );
         });
         test("When the function is invoked, Then subfolders are created for logs and recordings", () => {
-          generate_flask_command_line_args(store);
+          main_utils.generate_flask_command_line_args(store);
           expect(fs.existsSync(path.join(tmp_dir_name, "logs_flask"))).toBe(
             true
           );
@@ -102,10 +131,26 @@ describe("utils.js", () => {
       });
     });
 
+    describe("get_current_app_version", () => {
+      test("Given that Electron is not actually running (because this is just a unit test), When the function is called, Then it returns the current version of Electron", () => {
+        const path_to_package_json = path.join(
+          __dirname,
+          "..",
+          "..",
+          "package.json"
+        );
+        const package_info = require(path_to_package_json);
+        const expected = package_info.version;
+        const actual = main_utils.get_current_app_version();
+
+        expect(actual).toStrictEqual(expected);
+      });
+    });
+
     describe("create_store", () => {
       describe("Given create_store is called with a temporary absolute path", () => {
         beforeEach(() => {
-          store = create_store({ file_path: tmp_dir_name });
+          store = main_utils.create_store({ file_path: tmp_dir_name });
         });
 
         test("When a value is set in the store, Then it can be retrieved using get", () => {
@@ -128,7 +173,9 @@ describe("utils.js", () => {
           id_list.push(generic_id_info);
           store.set("customer_account_ids", id_list);
 
-          const new_store = create_store({ file_path: tmp_dir_name });
+          const new_store = main_utils.create_store({
+            file_path: tmp_dir_name,
+          });
           const actual_id_info = new_store.get("customer_account_ids")[0];
 
           expect(actual_id_info).toStrictEqual(generic_id_info);

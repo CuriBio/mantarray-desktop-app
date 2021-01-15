@@ -85,6 +85,7 @@ from .ok_comm import check_mantarray_serial_number
 from .queue_container import MantarrayQueueContainer
 from .queue_utils import _drain_queue
 from .utils import convert_request_args_to_config_dict
+from .utils import get_current_software_version
 from .utils import validate_settings
 
 logger = logging.getLogger(__name__)
@@ -218,7 +219,8 @@ def system_status() -> Response:
     shared_values_dict = _get_values_from_process_monitor()
     if (
         "expected_software_version" in shared_values_dict
-        and shared_values_dict["expected_software_version"] != CURRENT_SOFTWARE_VERSION
+        and shared_values_dict["expected_software_version"]
+        != get_current_software_version()
     ):
         return Response(status="520 Versions of Electron and Flask EXEs do not match")
 

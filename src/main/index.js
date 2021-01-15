@@ -10,10 +10,14 @@ import { app } from "electron";
 const path = require("path");
 const fs = require("fs");
 const axios = require("axios");
-const {
-  create_store,
-  generate_flask_command_line_args,
-} = require("./utils.js");
+// const {
+//   create_store,
+//   generate_flask_command_line_args,
+// } = require("./utils.js");
+import main_utils from "./utils.js"; // Eli (1/15/21): helping to be able to spy on functions within utils. https://stackoverflow.com/questions/49457451/jest-spyon-a-function-not-class-or-object-type
+const create_store = main_utils.create_store;
+const generate_flask_command_line_args =
+  main_utils.generate_flask_command_line_args;
 // const ElectronStore = require("electron-store");
 /**
  * Set `__resources` path to resources files in renderer process
@@ -69,6 +73,10 @@ const getPythonScriptPath = () => {
 };
 
 const start_python_subprocess = () => {
+  console.log(
+    // allow-log
+    "About to generate command line arguments to use when booting up server"
+  );
   const command_line_args = generate_flask_command_line_args(store);
   console.log("sending command line args: " + command_line_args); // allow-log
   if (isRunningInBundle()) {

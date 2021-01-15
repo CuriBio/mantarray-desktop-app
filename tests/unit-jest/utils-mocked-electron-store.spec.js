@@ -1,8 +1,10 @@
 const tmp = require("tmp");
 const yaml = require("js-yaml");
 tmp.setGracefulCleanup(); // Eli (7/13/20): According to the docs, this is supposed to enforce automatic deletion of the folders at the end of running the process, but it does not appear to be working. Manual cleanup seems to be required.
-const { create_store } = require("@/main/utils.js");
+// const { create_store } = require("@/main/utils.js");
 import ElectronStore from "@/main/electron_store";
+
+import main_utils from "@/main/utils.js"; // Eli (1/15/21): helping to be able to spy on functions within utils. https://stackoverflow.com/questions/49457451/jest-spyon-a-function-not-class-or-object-type
 
 const mock_electron_store = "bob";
 
@@ -39,7 +41,7 @@ describe("electron_store", () => {
 
     test("When called with default arguments, Then a ElectronStore is called with cwd undefined, file name config, and yaml formatting", async function () {
       // TODO (Eli 7/14/20): test the following also 'and the result of ElectronStore constructor is returned'  currently Jest is just returning mockConstructor
-      create_store();
+      main_utils.create_store();
       expect(ElectronStore).toHaveBeenCalledTimes(1);
       expect(ElectronStore).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -54,7 +56,7 @@ describe("electron_store", () => {
     test("When called with specified arguments, Then a ElectronStore is called with cwd matching file_path and file name matching file_name", async function () {
       const expected_path = "blah/things/places";
       const expected_file_name = "a_config";
-      create_store({
+      main_utils.create_store({
         file_path: expected_path,
         file_name: expected_file_name,
       });
