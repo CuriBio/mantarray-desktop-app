@@ -18,11 +18,10 @@ const electron_builder_config_path = path.join(
 );
 const package_path = path.join(__dirname, "..", "..", "package");
 
-const { BUILD_DIR } = require(electron_nuxt_config_path);
 const { DIST_DIR } = require(electron_nuxt_config_path);
 
-let fileContents = fs.readFileSync(electron_builder_config_path, "utf8");
-let builder_config_data = yaml.safeLoad(fileContents);
+const fileContents = fs.readFileSync(electron_builder_config_path, "utf8");
+const builder_config_data = yaml.safeLoad(fileContents);
 
 const product_name = builder_config_data.productName;
 

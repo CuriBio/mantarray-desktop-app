@@ -32,7 +32,7 @@ export default class BrowserWinHandler {
 
   _create() {
     // In order to get display size to match in windows: https://stackoverflow.com/questions/59385237/electron-window-dimensions-vs-screen-resolution
-    let scale_factor = screen.getPrimaryDisplay().scaleFactor;
+    const scale_factor = screen.getPrimaryDisplay().scaleFactor;
     console.log("Screen size scale factor: " + scale_factor); // allow-log
     const { width, height } = screen.getPrimaryDisplay().workAreaSize;
     console.log("Sceen work area width " + width + " height " + height); // allow-log
@@ -84,7 +84,7 @@ export default class BrowserWinHandler {
 
   /**
    *
-   * @returns {Promise<BrowserWindow>}
+   * @return {Promise<BrowserWindow>}
    */
   created() {
     return new Promise((resolve) => {

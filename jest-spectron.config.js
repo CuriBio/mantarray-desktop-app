@@ -3,9 +3,9 @@ module.exports = {
   moduleNameMapper: {
     // we can use "@/components/item.vue" to access components in a simpler way
     "^@/(.*)$": "<rootDir>/src/$1",
-    "^@/(.*)$": "<rootDir>/$1",
+    // "^@/(.*)$": "<rootDir>/$1",
     // the 'create-api' alias is defined in webpack, so we need to define it for jest too
-    //'^create-api$': '<rootDir>/src/api/create-api-client.js',
+    // '^create-api$': '<rootDir>/src/api/create-api-client.js',
   },
   modulePathIgnorePatterns: ["<rootDir>/dist"],
   // the files Jest should seach for

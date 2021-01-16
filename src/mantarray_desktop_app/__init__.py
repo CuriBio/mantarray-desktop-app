@@ -146,6 +146,7 @@ from .server import get_the_server_thread
 from .server import ServerThread
 from .system_utils import system_state_eventually_equals
 from .system_utils import wait_for_subprocesses_to_start
+from .utils import get_current_software_version
 from .utils import redact_sensitive_info_from_path
 
 if (
@@ -307,4 +308,5 @@ __all__ = [
     "BARCODE_UNREADABLE_UUID",
     "UnrecognizedRecordingCommandError",
     "UnrecognizedCommandToInstrumentError",
+    "get_current_software_version",
 ]

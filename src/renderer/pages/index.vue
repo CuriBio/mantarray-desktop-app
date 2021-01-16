@@ -6,6 +6,7 @@
     <div class="div__grid-of-waveforms">
       <div
         v-for="waveform_index in Array(6).keys()"
+        :key="waveform_index"
         :style="
           'position: absolute; top: ' +
           (waveform_index % 2) * 422 +
@@ -42,13 +43,13 @@ import {
 } from "@curi-bio/mantarray-frontend-components";
 
 export default {
-  layout: "default",
   components: {
     ContinuousWaveform,
     XAxisControls,
     YAxisControls,
     RecordingTime,
   },
+  layout: "default",
   created() {
     this.$store.commit("waveform/set_y_axis_zoom_idx", 2);
     this.$store.commit("waveform/set_y_axis_zoom_levels", [

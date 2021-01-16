@@ -51,7 +51,7 @@ export default {
     return {
       // package_version: module.exports.version,
       package_version: electron_app.getVersion(), // Eli (7/13/20): This only displays the application version when running from a built application---otherwise it displays the version of Electron that is installed
-      current_year: "2020", // new Date().getFullYear(),
+      current_year: "2021", // new Date().getFullYear(),
     };
   },
 };

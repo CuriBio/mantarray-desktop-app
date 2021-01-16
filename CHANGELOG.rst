@@ -2,7 +2,7 @@ Changelog for Mantarray Desktop App
 ===================================
 
 
-0.4.1 (unreleased)
+0.4.1 (2020-01-15)
 ------------------
 
 - Added 520 error code from ``system_status`` route if Electron and Flask EXE versions
@@ -22,6 +22,7 @@ Changelog for Mantarray Desktop App
 - Fixed issue caused by closing app just after stopping recording which prevented
   recorded files from being opened due to H5 flags not being cleared.
 - Updated HDF5 File Format Version to 0.4.1.
+- Updated xem_start_calibration script to v8
 
 
 0.4.0 (2020-12-17)

@@ -1,5 +1,5 @@
 /* globals INCLUDE_RESOURCES_PATH */
-import { app, Screen } from "electron";
+import { app } from "electron";
 
 /* Eli added */
 // import './style.scss'
@@ -10,19 +10,23 @@ import { app, Screen } from "electron";
 const path = require("path");
 const fs = require("fs");
 const axios = require("axios");
-const {
-  create_store,
-  generate_flask_command_line_args,
-} = require("./utils.js");
-const ElectronStore = require("electron-store");
-const yaml = require("js-yaml");
-const mkdirp = require("mkdirp");
+// const {
+//   create_store,
+//   generate_flask_command_line_args,
+// } = require("./utils.js");
+import main_utils from "./utils.js"; // Eli (1/15/21): helping to be able to spy on functions within utils. https://stackoverflow.com/questions/49457451/jest-spyon-a-function-not-class-or-object-type
+const create_store = main_utils.create_store;
+const generate_flask_command_line_args =
+  main_utils.generate_flask_command_line_args;
+// const ElectronStore = require("electron-store");
 /**
  * Set `__resources` path to resources files in renderer process
  */
 global.__resources = undefined; // eslint-disable-line no-underscore-dangle
 // noinspection BadExpressionStatementJS
 INCLUDE_RESOURCES_PATH; // eslint-disable-line no-unused-expressions
+// Eli (1/15/21): this code is straight from the template, so unclear what would happen if it was changed and how `__resources` may or may not be being injected into this somehow
+// eslint-disable-next-line no-undef
 if (__resources === undefined)
   console.error("[Main-process]: Resources path is undefined");
 
@@ -69,23 +73,26 @@ const getPythonScriptPath = () => {
 };
 
 const start_python_subprocess = () => {
-  let command_line_args = generate_flask_command_line_args(store);
+  console.log(
+    // allow-log
+    "About to generate command line arguments to use when booting up server"
+  );
+  const command_line_args = generate_flask_command_line_args(store);
+  console.log("sending command line args: " + command_line_args); // allow-log
   if (isRunningInBundle()) {
     const script = getPythonScriptPath();
     console.log(
       // allow-log
-      "Launching compiled Python EXE at path: " +
-        script +
-        " With command line args: " +
-        command_line_args
+      "Launching compiled Python EXE at path: " + script
     );
-    let subpy = require("child_process").execFile(script, command_line_args);
+    // const subpy = require("child_process").execFile(script, command_line_args);
+    require("child_process").execFile(script, command_line_args);
   } else {
     const PythonShell = require("python-shell").PythonShell; // Eli (4/15/20) experienced odd error where the compiled exe was not able to load package python-shell...but since it's only actually required in development, just moving it to here
     const options = {
       mode: "text",
       pythonPath: "python3", // In Cloud9, you need to specify python3 to use the installation inside the virtual environment...just Python defaults to system installation
-      //pythonOptions: ['-u'], // get print results in real-time
+      // pythonOptions: ['-u'], // get print results in real-time
       scriptPath: "src",
       args: command_line_args,
     };
@@ -97,8 +104,9 @@ const start_python_subprocess = () => {
         "' with options: " +
         JSON.stringify(options)
     );
-    let pyshell = new PythonShell(py_file_name, options);
-    //PythonShell.run(py_file_name,options)
+    // const pyshell = new PythonShell(py_file_name, options);
+    new PythonShell(py_file_name, options);
+    // PythonShell.run(py_file_name,options)
   }
 };
 
@@ -123,7 +131,7 @@ app.on("window-all-closed", function () {
   console.log("window-all-closed event being handled"); // allow-log
   if (process.platform !== "darwin") app.quit();
 });
-let win_handler = null;
+// let win_handler = null;
 app.on("ready", () => {
   console.log("ready in index.js");
 });
@@ -133,9 +141,10 @@ app.on("will-quit", function () {
   // This is a good place to add tests insuring the app is still
   // responsive and all windows are closed.
   console.log("will-quit event being handled"); // allow-log
-  //mainWindow = null;
+  // mainWindow = null;
 
   axios.get(`http://localhost:${flask_port}/shutdown`);
 });
 
-win_handler = require("./mainWindow");
+// win_handler = require("./mainWindow");
+require("./mainWindow");

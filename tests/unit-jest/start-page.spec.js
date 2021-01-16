@@ -20,24 +20,23 @@ let NuxtStore;
 let store;
 let mocked_axios;
 const propsData = {};
-beforeAll(async () => {
-  // note the store will mutate across tests, so make sure to re-create it in beforeEach
-  const storePath = `${process.env.buildDir}/store.js`;
-  NuxtStore = await import(storePath);
-});
 
-beforeEach(async () => {
-  store = await NuxtStore.createStore();
-  mocked_axios = new MockAxiosAdapter(axios);
-});
-afterEach(async () => {
-  // clean up any pinging that was started
-  store.commit("flask/stop_status_pinging");
-  wrapper.destroy();
-  mocked_axios.restore();
-});
-
-describe("Start Page", () => {
+describe("StartPage", () => {
+  beforeAll(async () => {
+    // note the store will mutate across tests, so make sure to re-create it in beforeEach
+    const storePath = `${process.env.buildDir}/store.js`;
+    NuxtStore = await import(storePath);
+  });
+  beforeEach(async () => {
+    store = await NuxtStore.createStore();
+    mocked_axios = new MockAxiosAdapter(axios);
+  });
+  afterEach(async () => {
+    // clean up any pinging that was started
+    store.commit("flask/stop_status_pinging");
+    wrapper.destroy();
+    mocked_axios.restore();
+  });
   describe("Given /system_status is mocked to respond with 200 and state CALIBRATION_NEEDED", () => {
     beforeEach(() => {
       mocked_axios.onGet(system_status_regexp).reply(200, {
@@ -45,17 +44,17 @@ describe("Start Page", () => {
         in_simulation_mode: true,
       });
     });
-    test("When mounted, Waveform components should exist", async () => {
+    test("When mounted, Then Waveform components should exist", async () => {
       wrapper = mount(StartPage, { propsData, store, localVue });
       expect(wrapper.findComponent(Waveform).exists()).toBe(true);
     });
 
     test("When mounted, Then status pinging gets started", async () => {
       // confirm pre-condition
-      expect(store.state.flask.status_ping_interval_id).toBe(null);
+      expect(store.state.flask.status_ping_interval_id).toBeNull();
       wrapper = shallowMount(StartPage, { propsData, store, localVue });
       await wait_for_expect(() => {
-        expect(store.state.flask.status_ping_interval_id).not.toBe(null);
+        expect(store.state.flask.status_ping_interval_id).not.toBeNull();
       });
     });
   });
