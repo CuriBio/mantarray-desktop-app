@@ -344,7 +344,7 @@ def test_MantarrayProcessesManager__passes_logging_level_to_subprocesses():
     manager = MantarrayProcessesManager(logging_level=expected_level)
     manager.create_processes()
     assert manager.get_file_writer_process().get_logging_level() == expected_level
-    assert manager.get_ok_comm_process().get_logging_level() == expected_level
+    assert manager.get_instrument_process().get_logging_level() == expected_level
     assert manager.get_data_analyzer_process().get_logging_level() == expected_level
     assert manager.get_server_thread().get_logging_level() == expected_level
 
@@ -401,12 +401,10 @@ def test_MantarrayProcessesManager__boot_up_instrument__populates_ok_comm_queue_
     }
 
 
-# @pytest.mark.slow
-def test_MantarrayProcessesManager__are_processes_stopped__waits_correct_amount_of_time_before_returning_false(
+def test_MantarrayProcessesManager__are_processes_stopped__waits_correct_amount_of_time_with_default_timeout_before_returning_false(
     test_process_manager, mocker
 ):
-    # test_process_manager.create_processes()
-    okc_process = test_process_manager.get_ok_comm_process()
+    okc_process = test_process_manager.get_instrument_process()
     fw_process = test_process_manager.get_file_writer_process()
     da_process = test_process_manager.get_data_analyzer_process()
     server_thread = test_process_manager.get_server_thread()
@@ -432,9 +430,52 @@ def test_MantarrayProcessesManager__are_processes_stopped__waits_correct_amount_
         side_effect=[0, 0, 0, 0, SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS],
         autospec=True,
     )
-    # mocker.patch.object(time, "sleep", autospec=True)
 
     assert test_process_manager.are_processes_stopped() is False
+
+    assert mocked_counter.call_count == 5
+    assert mocked_server_is_stopped.call_count == 4
+    assert mocked_okc_is_stopped.call_count == 3
+    assert mocked_fw_is_stopped.call_count == 2
+    assert mocked_da_is_stopped.call_count == 1
+
+
+def test_MantarrayProcessesManager__are_processes_stopped__waits_correct_amount_of_time_with_timeout_kwarg_passed_before_returning_false(
+    test_process_manager, mocker
+):
+    expected_timeout = SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS + 0.5
+
+    okc_process = test_process_manager.get_instrument_process()
+    fw_process = test_process_manager.get_file_writer_process()
+    da_process = test_process_manager.get_data_analyzer_process()
+    server_thread = test_process_manager.get_server_thread()
+    mocked_server_is_stopped = mocker.patch.object(
+        server_thread,
+        "is_stopped",
+        autospec=True,
+        side_effect=[False, True, True, True],
+    )
+    mocked_okc_is_stopped = mocker.patch.object(
+        okc_process, "is_stopped", autospec=True, side_effect=[False, True, True]
+    )
+    mocked_fw_is_stopped = mocker.patch.object(
+        fw_process, "is_stopped", autospec=True, side_effect=[False, True]
+    )
+    mocked_da_is_stopped = mocker.patch.object(
+        da_process, "is_stopped", autospec=True, side_effect=[False]
+    )
+
+    mocked_counter = mocker.patch.object(
+        process_manager,
+        "perf_counter",
+        side_effect=[0, 0, 0, SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS, expected_timeout],
+        autospec=True,
+    )
+
+    assert (
+        test_process_manager.are_processes_stopped(timeout_secs=expected_timeout)
+        is False
+    )
 
     assert mocked_counter.call_count == 5
     assert mocked_server_is_stopped.call_count == 4
@@ -492,6 +533,37 @@ def test_MantarrayProcessesManager__are_processes_stopped__returns_true_if_stop_
     assert (
         mocked_counter.call_count == 2
     )  # ensure it was activated once inside the loop
+
+
+def test_MantarrayProcessesManager__are_processes_stopped__returns_true_if_stop_occurs_before_polling(
+    test_process_manager, mocker
+):
+    test_process_manager.create_processes()
+    instrument_process = test_process_manager.get_instrument_process()
+    da_process = test_process_manager.get_data_analyzer_process()
+    fw_process = test_process_manager.get_file_writer_process()
+    server_thread = test_process_manager.get_server_thread()
+    mocked_server_is_stopped = mocker.patch.object(
+        server_thread,
+        "is_stopped",
+        autospec=True,
+        return_value=True,
+    )
+    mocked_instrument_is_stopped = mocker.patch.object(
+        instrument_process, "is_stopped", autospec=True, return_value=True
+    )
+    mocked_fw_is_stopped = mocker.patch.object(
+        fw_process, "is_stopped", autospec=True, return_value=True
+    )
+    mocked_da_is_stopped = mocker.patch.object(
+        da_process, "is_stopped", autospec=True, return_value=True
+    )
+    assert test_process_manager.are_processes_stopped() is True
+
+    assert mocked_server_is_stopped.call_count == 1
+    assert mocked_instrument_is_stopped.call_count == 1
+    assert mocked_fw_is_stopped.call_count == 1
+    assert mocked_da_is_stopped.call_count == 1
 
 
 def test_MantarrayProcessesManager__are_processes_stopped__sleeps_for_correct_amount_of_time_each_cycle_of_checking_subprocess_status(

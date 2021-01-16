@@ -13,6 +13,7 @@ from typing import Tuple
 import uuid
 
 import h5py
+from labware_domain_models import LabwareDefinition
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
@@ -24,6 +25,7 @@ from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
+from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
 from mantarray_file_manager import COMPUTER_NAME_HASH
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
@@ -44,6 +46,8 @@ from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
 import pytest
+
+WELL_DEF_24 = LabwareDefinition(row_count=4, column_count=6)
 
 
 GENERIC_ADC_OFFSET_VALUES: Dict[int, Dict[str, int]] = dict()
@@ -79,9 +83,10 @@ GENERIC_START_RECORDING_COMMAND: Dict[str, Any] = {
         "adc_offsets": GENERIC_ADC_OFFSET_VALUES,
         PLATE_BARCODE_UUID: "MA200440001",
         BACKEND_LOG_UUID: uuid.UUID("9a3d03f2-1f5a-4ecd-b843-0dc9ecde5f67"),
-        COMPUTER_NAME_HASH: str(
-            hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).digest()
-        ),
+        COMPUTER_NAME_HASH: hashlib.sha512(
+            socket.gethostname().encode(encoding="UTF-8")
+        ).hexdigest(),
+        BARCODE_IS_FROM_SCANNER_UUID: True,
     },
     "active_well_indices": set(range(24)),
 }

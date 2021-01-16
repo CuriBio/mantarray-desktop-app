@@ -12,10 +12,10 @@ from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 from xem_wrapper import FrontPanelSimulator
 from xem_wrapper import PIPE_OUT_FIFO
 
-from .fixtures import fixture_patched_firmware_folder
-from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
-from .fixtures_ok_comm import fixture_running_process_with_simulated_board
-from .helpers import is_queue_eventually_not_empty
+from ..fixtures import fixture_patched_firmware_folder
+from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from ..fixtures_ok_comm import fixture_running_process_with_simulated_board
+from ..helpers import is_queue_eventually_not_empty
 
 __fixtures__ = [
     fixture_running_process_with_simulated_board,

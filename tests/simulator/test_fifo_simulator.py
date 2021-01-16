@@ -16,9 +16,9 @@ from xem_wrapper import OpalKellyBoardNotInitializedError
 from xem_wrapper import OpalKellyFileNotFoundError
 from xem_wrapper import PIPE_OUT_FIFO
 
-from .helpers import is_queue_eventually_empty
-from .helpers import is_queue_eventually_not_empty
-from .helpers import is_queue_eventually_of_size
+from ..helpers import is_queue_eventually_empty
+from ..helpers import is_queue_eventually_not_empty
+from ..helpers import is_queue_eventually_of_size
 
 
 @pytest.fixture(scope="function", name="fifo_simulator")
@@ -35,9 +35,7 @@ def test_RunningFIFOSimulator__class_attributes():
     assert RunningFIFOSimulator.default_mantarray_serial_number == "M02001900"
     assert RunningFIFOSimulator.default_mantarray_nickname == "Mantarray Simulator"
     assert RunningFIFOSimulator.default_firmware_version == "0.0.0"
-    assert (
-        RunningFIFOSimulator.default_barcode == "MA200190000"
-    )  # TODO Tanner (12/9/20): change this to "MA190190000" once merged with new barcode format code
+    assert RunningFIFOSimulator.default_barcode == "MA190190000"
 
 
 def test_RunningFIFOSimulator__super_is_called_during_init(mocker):

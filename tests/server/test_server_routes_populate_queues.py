@@ -9,6 +9,7 @@ from mantarray_desktop_app import server
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
+from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
 from mantarray_file_manager import COMPUTER_NAME_HASH
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
@@ -26,6 +27,7 @@ from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
 from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
+import pytest
 
 from ..fixtures import fixture_generic_queue_container
 from ..fixtures import fixture_test_process_manager
@@ -605,7 +607,7 @@ def test_send_single_stop_managed_acquisition_command__populates_queues(
     )
     assert is_queue_eventually_of_size(to_ok_comm_queue, 1) is True
     comm_to_ok_comm = to_ok_comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert comm_to_ok_comm["communication_type"] == "acquisition_manager"
+    assert comm_to_ok_comm["communication_type"] == "to_instrument"
     assert comm_to_ok_comm["command"] == "stop_managed_acquisition"
     response_json = response.get_json()
     assert response_json["command"] == "stop_managed_acquisition"
@@ -615,7 +617,7 @@ def test_send_single_stop_managed_acquisition_command__populates_queues(
     )
     assert is_queue_eventually_not_empty(to_file_writer_queue) is True
     comm_to_da = to_file_writer_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert comm_to_da["communication_type"] == "acquisition_manager"
+    assert comm_to_da["communication_type"] == "to_instrument"
     assert comm_to_da["command"] == "stop_managed_acquisition"
     response_json = response.get_json()
     assert response_json["command"] == "stop_managed_acquisition"
@@ -625,7 +627,7 @@ def test_send_single_stop_managed_acquisition_command__populates_queues(
     )
     assert is_queue_eventually_of_size(to_da_queue, 1) is True
     comm_to_da = to_da_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert comm_to_da["communication_type"] == "acquisition_manager"
+    assert comm_to_da["communication_type"] == "to_instrument"
     assert comm_to_da["command"] == "stop_managed_acquisition"
     response_json = response.get_json()
     assert response_json["command"] == "stop_managed_acquisition"
@@ -811,12 +813,64 @@ def test_start_recording_command__populates_queue__with_correctly_parsed_set_of_
     comm_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
-    confirm_queue_is_eventually_of_size(
-        comm_queue, 1
-    )  # assert is_queue_eventually_not_empty(comm_queue) is True
+    confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
     assert set(communication["active_well_indices"]) == set([0, 8, 5])
+
+
+@pytest.mark.parametrize(
+    "scanned_barcode,user_entered_barcode,expected_result,test_description",
+    [
+        (
+            "MA200440001",
+            "MA200440002",
+            False,
+            "correctly sets value to False with scanned barcode present",
+        ),
+        (
+            "",
+            "MA200440002",
+            False,
+            "correctly sets value to False after barcode scan fails",
+        ),
+        (
+            None,
+            "MA200440002",
+            False,
+            "correctly sets value to False without scanned barcode present",
+        ),
+        ("MA200440001", "MA200440001", True, "correctly sets value to True"),
+    ],
+)
+def test_start_recording_command__correctly_sets_barcode_from_scanner_value(
+    scanned_barcode,
+    user_entered_barcode,
+    expected_result,
+    test_description,
+    generic_start_recording_info_in_shared_dict,
+    test_process_manager,
+    test_client,
+):
+    board_idx = 0
+    if scanned_barcode is None:
+        del generic_start_recording_info_in_shared_dict["barcodes"]
+    else:
+        generic_start_recording_info_in_shared_dict["barcodes"][board_idx][
+            "plate_barcode"
+        ] = scanned_barcode
+
+    response = test_client.get(
+        f"/start_recording?barcode={user_entered_barcode}&is_hardware_test_recording=False"
+    )
+    assert response.status_code == 200
+
+    comm_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+    confirm_queue_is_eventually_of_size(comm_queue, 1)
+    communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["command"] == "start_recording"
 
 
 @freeze_time(
@@ -859,7 +913,6 @@ def test_start_recording_command__populates_queue__with_defaults__24_wells__utcn
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
     confirm_queue_is_eventually_of_size(comm_queue, 1)
-    # assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
 
@@ -973,17 +1026,22 @@ def test_start_recording_command__populates_queue__with_defaults__24_wells__utcn
         ][BACKEND_LOG_UUID]
     )
     assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][
+            BARCODE_IS_FROM_SCANNER_UUID
+        ]
+        is True
+    )
+    assert (  # pylint: disable=duplicate-code
         communication["metadata_to_copy_onto_main_file_attributes"][COMPUTER_NAME_HASH]
         == GENERIC_START_RECORDING_COMMAND[
             "metadata_to_copy_onto_main_file_attributes"
         ][COMPUTER_NAME_HASH]
     )
-
+    assert set(communication["active_well_indices"]) == set(range(24))
     assert (
         communication["timepoint_to_begin_recording_at"]
         == GENERIC_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
     )
-    assert set(communication["active_well_indices"]) == set(range(24))
     response_json = response.get_json()
     assert response_json["command"] == "start_recording"
 

@@ -61,10 +61,6 @@ def test_exe_can_access_xem_script_and_firmware_folders():
     )
     port = get_server_port_number()
     confirm_port_in_use(port, timeout=10)
-    # except PortNotInUseError as e:
-    #     print(f"\nSubprocess STDOUT: {sub_process.stdout.read()}")  # allow-print
-    #     print(f"\nSubprocess STDERR: {sub_process.stderr.read()}")  # allow-print
-    #     raise e
     wait_for_subprocesses_to_start()
     assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 30) is True
 
@@ -76,7 +72,7 @@ def test_exe_can_access_xem_script_and_firmware_folders():
     response = requests.get(f"{get_api_endpoint()}shutdown")
     assert response.status_code == 200
 
-    time.sleep(5)  # wait for everything to fully shut down
+    time.sleep(7)  # wait for everything to fully shut down
 
     # assert that the subprocesses closed with an exit code of 0 (no error)
     assert sub_process.poll() == 0

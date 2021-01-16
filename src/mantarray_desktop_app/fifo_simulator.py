@@ -39,7 +39,7 @@ class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
     default_mantarray_serial_number = "M02001900"
     default_mantarray_nickname = "Mantarray Simulator"
     default_firmware_version = "0.0.0"
-    default_barcode = "MA200190000"  # TODO Tanner (12/9/20): change this to "MA190190000" once merged with new barcode format code
+    default_barcode = "MA190190000"
 
     def __init__(
         self, simulated_response_queues: Optional[Dict[str, Any]] = None

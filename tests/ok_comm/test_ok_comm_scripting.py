@@ -19,10 +19,10 @@ from stdlib_utils import resource_path
 from xem_wrapper import convert_wire_value
 from xem_wrapper import OkHardwareUnsupportedFeatureError
 
-from .fixtures import fixture_test_process_manager
-from .fixtures_ok_comm import fixture_four_board_comm_process
-from .fixtures_process_monitor import fixture_test_monitor
-from .helpers import is_queue_eventually_not_empty
+from ..fixtures import fixture_test_process_manager
+from ..fixtures_ok_comm import fixture_four_board_comm_process
+from ..fixtures_process_monitor import fixture_test_monitor
+from ..helpers import is_queue_eventually_not_empty
 
 __fixtures__ = [
     fixture_test_monitor,
@@ -99,7 +99,7 @@ def test_parse_scripting_log__calls_resource_path_correctly(mocker):
 
     expected_base_path = os.path.normcase(
         os.path.join(
-            os.path.dirname(get_current_file_abs_directory()),
+            os.path.dirname(os.path.dirname(get_current_file_abs_directory())),
             "src",
             "mantarray_desktop_app",
             os.pardir,
@@ -179,7 +179,7 @@ def test_parse_scripting_log__correctly_parses_and_returns_commands_from_xem_tes
 
 def test_all_xem_scripts_are_present_and_parse_without_error():
     script_dir = os.path.join(
-        get_current_file_abs_directory(), os.pardir, "src", "xem_scripts"
+        get_current_file_abs_directory(), os.pardir, os.pardir, "src", "xem_scripts"
     )
     script_list = list()
     for file in os.listdir(script_dir):
@@ -230,7 +230,7 @@ def test_gain_value_is_parsed_and_saved_when_running_start_up_script(
 
     monitor_thread, shared_values_dict, _, _ = test_monitor
     test_process_manager.create_processes()
-    ok_comm_process = test_process_manager.get_ok_comm_process()
+    ok_comm_process = test_process_manager.get_instrument_process()
     from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
     )
@@ -302,7 +302,7 @@ def test_offset_values_are_parsed_and_saved_when_running_start_calibration_scrip
 
     monitor_thread, shared_values_dict, _, _ = test_monitor
     test_process_manager.create_processes()
-    ok_comm_process = test_process_manager.get_ok_comm_process()
+    ok_comm_process = test_process_manager.get_instrument_process()
     from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
     )

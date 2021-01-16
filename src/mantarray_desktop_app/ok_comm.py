@@ -60,7 +60,7 @@ from .exceptions import InvalidDataFramePeriodError
 from .exceptions import InvalidScriptCommandError
 from .exceptions import MismatchedScriptTypeError
 from .exceptions import ScriptDoesNotContainEndCommandError
-from .exceptions import UnrecognizedAcquisitionManagerCommandError
+from .exceptions import UnrecognizedCommandToInstrumentError
 from .exceptions import UnrecognizedCommTypeFromMainToOKCommError
 from .exceptions import UnrecognizedDataFrameFormatNameError
 from .exceptions import UnrecognizedDebugConsoleCommandError
@@ -71,11 +71,12 @@ from .mantarray_front_panel import MantarrayFrontPanel
 if (
     6 < 9
 ):  # pragma: no cover # protect this from zimports deleting the pylint disable statement
-    from .data_parsing_cy import (  # pylint: disable=import-error # Tanner (8/25/20) unsure why pylint is unable to recognize cython import...
+    from .data_parsing_cy import (  # pylint: disable=import-error # Tanner (8/25/20): unsure why pylint is unable to recognize cython import...
         parse_sensor_bytes,
     )
 
 
+# Tanner (12/30/20): Need to support this function until barcodes are no longer accepted in /start_recording route. Creating a wrapper function `_check_barcode_is_valid` to make the transition easier once this function is removed
 def check_barcode_for_errors(barcode: str) -> str:
     """Return error message if barcode contains an error."""
     if len(barcode) > 11:
@@ -94,6 +95,20 @@ def check_barcode_for_errors(barcode: str) -> str:
     if not barcode[7:].isnumeric():
         return f"Barcode contains nom-numeric string after Julian date: '{barcode[7:]}'"
     return ""
+
+
+def _check_barcode_is_valid(barcode: str) -> bool:
+    error_msg = check_barcode_for_errors(barcode)
+    return error_msg == ""
+
+
+def _trim_barcode(barcode: str) -> str:
+    """Trim the trailing 1 or 2 ASCII NUL (0x00) chars off barcode."""
+    if barcode[11] != chr(0):
+        return barcode
+    if barcode[10] != chr(0):
+        return barcode[:11]
+    return barcode[:10]
 
 
 def _get_formatted_utc_now() -> str:
@@ -696,8 +711,8 @@ class OkCommunicationProcess(InfiniteProcess):
             self._handle_debug_console_comm(this_communication)
         elif communication_type == "boot_up_instrument":
             self._boot_up_instrument(this_communication)
-        elif communication_type == "acquisition_manager":
-            self._handle_acquisition_manager_comm(this_communication)
+        elif communication_type == "to_instrument":
+            self._handle_to_instrument_comm(this_communication)
         elif communication_type == "xem_scripts":
             self._handle_xem_scripts_comm(this_communication)
         elif communication_type == "mantarray_naming":
@@ -716,8 +731,6 @@ class OkCommunicationProcess(InfiniteProcess):
                 self._reset_barcode_values()
                 self._barcode_scan_start_time[0] = time.perf_counter()
                 board.clear_barcode_scanner()
-        elif communication_type == "to_instrument":
-            self._handle_acquisition_manager_comm(this_communication)
         else:
             raise UnrecognizedCommTypeFromMainToOKCommError(communication_type)
         if not input_queue.empty():
@@ -749,13 +762,10 @@ class OkCommunicationProcess(InfiniteProcess):
             barcode = board.get_barcode()
             if barcode == CLEARED_BARCODE_VALUE:
                 raise BarcodeScannerNotRespondingError()
-            barcode_11 = barcode[:11]
-            if not check_barcode_for_errors(barcode_11) and barcode[-1] == chr(0):
-                self._send_barcode_to_main(board_idx, barcode_11, True)
-                return
-            barcode_10 = barcode[:10]
-            if not check_barcode_for_errors(barcode_10) and barcode[-2:] == chr(0) * 2:
-                self._send_barcode_to_main(board_idx, barcode_10, True)
+
+            trimmed_barcode = _trim_barcode(barcode)
+            if _check_barcode_is_valid(trimmed_barcode):
+                self._send_barcode_to_main(board_idx, trimmed_barcode, True)
                 return
             if scan_attempt == 1:
                 if barcode == NO_PLATE_DETECTED_BARCODE_VALUE:
@@ -839,15 +849,13 @@ class OkCommunicationProcess(InfiniteProcess):
                     f"File name: {bit_file_name}, Version from wire_out value: {main_firmware_version}"
                 )
         this_communication["main_firmware_version"] = main_firmware_version
-        # TODO Tanner (7/15/20): add get_sleep_firmware_version and get_ref_voltage once possible
+        # TODO Tanner (12/29/20): add get_ref_voltage once possible
         this_communication["sleep_firmware_version"] = "0.0.0"
 
         response_queue = self._board_queues[0][1]
         response_queue.put(this_communication)
 
-    def _handle_acquisition_manager_comm(
-        self, this_communication: Dict[str, Any]
-    ) -> None:
+    def _handle_to_instrument_comm(self, this_communication: Dict[str, Any]) -> None:
         response_queue = self._board_queues[0][1]
         board = self.get_board_connections_list()[0]
         if board is None:
@@ -863,9 +871,7 @@ class OkCommunicationProcess(InfiniteProcess):
             self._is_managed_acquisition_running[0] = False
             board.stop_acquisition()
         else:
-            raise UnrecognizedAcquisitionManagerCommandError(
-                this_communication["command"]
-            )
+            raise UnrecognizedCommandToInstrumentError(this_communication["command"])
         response_queue.put(this_communication)
 
     def _handle_xem_scripts_comm(self, this_communication: Dict[str, Any]) -> None:

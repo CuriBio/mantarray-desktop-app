@@ -39,6 +39,7 @@ from .server import ServerThreadNotInitializedError
 from .utils import convert_request_args_to_config_dict
 from .utils import redact_sensitive_info_from_path
 from .utils import update_shared_dict
+from .utils import validate_settings
 
 
 logger = logging.getLogger(__name__)
@@ -118,14 +119,13 @@ def main(
         action="store_true",
         help="bypasses automatic run of boot_up for hardware testing",
     )
-    # TODO (Eli 11/16/20): fix all Command Line Arguments to be consistently kebab-case
     parser.add_argument(
-        "--port_number",
+        "--port-number",
         type=int,
         help="allow manual setting of server port number",
     )
     parser.add_argument(
-        "--log_file_dir",
+        "--log-file-dir",
         type=str,
         help="allow manual setting of the directory in which log files will be stored",
     )
@@ -133,6 +133,11 @@ def main(
         "--initial-base64-settings",
         type=str,
         help="allow initial configuration of user settings",
+    )
+    parser.add_argument(
+        "--expected-software-version",
+        type=str,
+        help="used to make sure flask server and GUI are the same version",
     )
     parsed_args = parser.parse_args(command_line_args)
 
@@ -144,6 +149,7 @@ def main(
         log_file_prefix="mantarray_log",
         log_level=log_level,
     )
+    scrubbed_path_to_log_folder = redact_sensitive_info_from_path(path_to_log_folder)
 
     msg = f"Mantarray Controller v{CURRENT_SOFTWARE_VERSION} started"
     logger.info(msg)
@@ -151,9 +157,13 @@ def main(
     logger.info(msg)
     parsed_args_dict = copy.deepcopy(vars(parsed_args))
     del parsed_args_dict["initial_base64_settings"]
-    msg = f"Command Line Args: {parsed_args_dict}"
+    # Tanner (1/14/21): parsed_args_dict is only used to log the command line args at the moment, so log_file_dir can just be replaced here without affecting anything that actually needs the original value
+    parsed_args_dict["log_file_dir"] = scrubbed_path_to_log_folder
+    msg = f"Command Line Args: {parsed_args_dict}".replace(
+        r"\\",
+        "\\",
+    )  # Tanner (1/14/21): Unsure why the back slashes are duplicated when converting the dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
     logger.info(msg)
-    scrubbed_path_to_log_folder = redact_sensitive_info_from_path(path_to_log_folder)
     msg = f"Using directory for log files: {scrubbed_path_to_log_folder}"
     logger.info(msg)
 
@@ -161,34 +171,39 @@ def main(
     if multiprocessing_start_method != "spawn":
         raise MultiprocessingNotSetToSpawnError(multiprocessing_start_method)
 
-    decoded_settings: bytes
     shared_values_dict: Dict[str, Any] = dict()
     settings_dict: Dict[str, Any] = dict()
 
     if parsed_args.initial_base64_settings:
         # Eli (7/15/20): Moved this ahead of the exit for debug_test_post_build so that it could be easily unit tested. The equals signs are adding padding..apparently a quirk in python https://stackoverflow.com/questions/2941995/python-ignore-incorrect-padding-error-when-base64-decoding
-        decoded_settings = base64.urlsafe_b64decode(
+        decoded_settings: bytes = base64.urlsafe_b64decode(
             str(parsed_args.initial_base64_settings) + "==="
         )
-        # validate_settings(settings_dict) # TODO (Eli 12/3/20): unit test and add this
         settings_dict = json.loads(decoded_settings)
+        validate_settings(settings_dict)
+
+    if parsed_args.expected_software_version:
+        shared_values_dict[
+            "expected_software_version"
+        ] = parsed_args.expected_software_version
 
     log_file_uuid = settings_dict.get("log_file_uuid", uuid.uuid4())
+    shared_values_dict["log_file_uuid"] = log_file_uuid
 
     computer_name_hash = hashlib.sha512(
         socket.gethostname().encode(encoding="UTF-8")
-    ).digest()
+    ).hexdigest()
+    shared_values_dict["computer_name_hash"] = computer_name_hash
 
-    shared_values_dict["log_file_uuid"] = log_file_uuid
-    shared_values_dict["computer_name_hash"] = str(computer_name_hash)
-
-    msg = f"Log File UUID: {log_file_uuid}"  # TODO Tanner (11/25/20): figure out better way to handle missing log_file_uuid value
+    msg = f"Log File UUID: {log_file_uuid}"
     logger.info(msg)
-    msg = f"SHA512 digest of Computer Name {str(computer_name_hash)}"
+    msg = f"SHA512 digest of Computer Name {computer_name_hash}"
     logger.info(msg)
 
     if parsed_args.debug_test_post_build:
-        print("Successfully opened and closed application.")  # allow-print
+        print(  # allow-print
+            f"Successfully opened and closed application v{CURRENT_SOFTWARE_VERSION}."
+        )
         return
 
     shared_values_dict["system_status"] = SERVER_INITIALIZING_STATE

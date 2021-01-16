@@ -2,6 +2,7 @@
 """Misc utility functions."""
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
@@ -12,9 +13,12 @@ from typing import Optional
 from flatten_dict import flatten
 from flatten_dict import unflatten
 from immutable_data_validation import is_uuid
+from stdlib_utils import get_current_file_abs_directory
+from stdlib_utils import is_frozen_as_exe
 
 from .constants import CURI_BIO_ACCOUNT_UUID
 from .constants import CURI_BIO_USER_ACCOUNT_ID
+from .constants import CURRENT_SOFTWARE_VERSION
 from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
 from .exceptions import ImproperlyFormattedUserAccountUUIDError
 from .exceptions import RecordingFolderDoesNotExistError
@@ -47,8 +51,10 @@ def validate_settings(settings_dict: Dict[str, Any]) -> None:
 
 
 def convert_request_args_to_config_dict(request_args: Dict[str, Any]) -> Dict[str, Any]:
-    """Convert from request/CLI inputs to standard dictionary format."""
-    validate_settings(request_args)
+    """Convert from request/CLI inputs to standard dictionary format.
+
+    Args should be validated before being passed to this function.
+    """
     customer_account_uuid = request_args.get("customer_account_uuid", None)
     user_account_uuid = request_args.get("user_account_uuid", None)
     recording_directory = request_args.get("recording_directory", None)
@@ -112,3 +118,24 @@ def redact_sensitive_info_from_path(file_path: Optional[str]) -> Optional[str]:
     scrubbed_path += "*" * len(split_path[2])
     scrubbed_path += split_path[3] + split_path[4]
     return scrubbed_path
+
+
+def get_current_software_version() -> str:
+    """Return the current software version.
+
+    Returns the constant if running in a bundle. Otherwise reads it from
+    package.json
+    """
+    if is_frozen_as_exe():
+        return CURRENT_SOFTWARE_VERSION
+    path_to_package_json = os.path.join(
+        get_current_file_abs_directory(), os.pardir, os.pardir, "package.json"
+    )
+    with open(path_to_package_json) as in_file:
+        parsed_json = json.load(in_file)
+        version = parsed_json["version"]
+        if not isinstance(version, str):
+            raise NotImplementedError(
+                f"The version in package.json should always be a string. It was: {version}"
+            )
+        return version

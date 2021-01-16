@@ -10,7 +10,7 @@ const path_to_resources_provider = path.join(
   "resources-path-provider"
 );
 
-const path_to_config = path.join(path_to_electron_nuxt, "config");
+// const path_to_config = path.join(path_to_electron_nuxt, "config");
 
 const path_to_nuxt_config = path.join(
   path_to_electron_nuxt,
@@ -18,28 +18,29 @@ const path_to_nuxt_config = path.join(
   "nuxt.config"
 );
 
-const path_to_nuxt_app = path.join(
-  path_to_electron_nuxt,
-  "renderer",
-  "NuxtApp"
-);
+// const path_to_nuxt_app = path.join(
+//   path_to_electron_nuxt,
+//   "renderer",
+//   "NuxtApp"
+// );
 
-const resourcesPath = require(path_to_resources_provider);
-const {
-  DIST_DIR,
-  MAIN_PROCESS_DIR,
-  SERVER_HOST,
-  SERVER_PORT,
-} = require(path_to_config);
-const NuxtApp = require(path_to_nuxt_app);
+// const resourcesPath = require(path_to_resources_provider);
+require(path_to_resources_provider);
+// const {
+//   DIST_DIR,
+//   MAIN_PROCESS_DIR,
+//   SERVER_HOST,
+//   SERVER_PORT,
+// } = require(path_to_config);
+// const NuxtApp = require(path_to_nuxt_app);
 
-const isDev = process.env.NODE_ENV === "development";
+// const isDev = process.env.NODE_ENV === "development";
 
-//const nuxt = new NuxtApp(new Logger("Nuxt", "green"));
+// const nuxt = new NuxtApp(new Logger("Nuxt", "green"));
 // ------------------------------
 
 import { Nuxt, Builder } from "nuxt";
-let nuxtConfig = require(path_to_nuxt_config);
+const nuxtConfig = require(path_to_nuxt_config);
 
 // console.log('after imports')
 

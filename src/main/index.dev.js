@@ -1,17 +1,17 @@
-import { app, Menu, MenuItem } from "electron";
+import { app } from "electron";
 import electronDebug from "electron-debug";
 import fs from "fs";
 import path from "path";
 
-const electron_config_path = path.join(
-  __dirname,
-  "..",
-  "..",
-  ".electron-nuxt",
-  "config"
-);
+// const electron_config_path = path.join(
+//   __dirname,
+//   "..",
+//   "..",
+//   ".electron-nuxt",
+//   "config"
+// );
 
-const main_window_path = path.resolve("./mainWindow");
+// const main_window_path = path.resolve("./mainWindow");
 
 process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = "true";
 

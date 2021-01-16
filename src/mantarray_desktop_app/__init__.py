@@ -75,6 +75,7 @@ from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
 from .constants import START_BARCODE_SCAN_TRIG_BIT
 from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
+from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SUBPROCESS_POLL_DELAY_SECONDS
 from .constants import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from .constants import SYSTEM_STATUS_UUIDS
@@ -101,13 +102,14 @@ from .exceptions import MultiprocessingNotSetToSpawnError
 from .exceptions import RecordingFolderDoesNotExistError
 from .exceptions import ScriptDoesNotContainEndCommandError
 from .exceptions import SystemStartUpError
-from .exceptions import UnrecognizedAcquisitionManagerCommandError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
+from .exceptions import UnrecognizedCommandToInstrumentError
 from .exceptions import UnrecognizedCommTypeFromMainToDataAnalyzerError
 from .exceptions import UnrecognizedCommTypeFromMainToOKCommError
 from .exceptions import UnrecognizedDataFrameFormatNameError
 from .exceptions import UnrecognizedDebugConsoleCommandError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
+from .exceptions import UnrecognizedRecordingCommandError
 from .fifo_read_producer import FIFOReadProducer
 from .fifo_read_producer import produce_data
 from .fifo_simulator import RunningFIFOSimulator
@@ -144,6 +146,7 @@ from .server import get_the_server_thread
 from .server import ServerThread
 from .system_utils import system_state_eventually_equals
 from .system_utils import wait_for_subprocesses_to_start
+from .utils import get_current_software_version
 from .utils import redact_sensitive_info_from_path
 
 if (
@@ -193,6 +196,7 @@ __all__ = [
     "CURRENT_HDF5_FILE_FORMAT_VERSION",
     "CURRENT_SOFTWARE_VERSION",
     "START_MANAGED_ACQUISITION_COMMUNICATION",
+    "STOP_MANAGED_ACQUISITION_COMMUNICATION",
     "parse_adc_metadata_byte",
     "MIDSCALE_CODE",
     "REFERENCE_VOLTAGE",
@@ -202,7 +206,6 @@ __all__ = [
     "InvalidDataTypeFromOkCommError",
     "build_file_writer_objects",
     "UnrecognizedCommTypeFromMainToOKCommError",
-    "UnrecognizedAcquisitionManagerCommandError",
     "fifo_simulator",
     "RunningFIFOSimulator",
     "AttemptToInitializeFIFOReadsError",
@@ -303,4 +306,7 @@ __all__ = [
     "BARCODE_INVALID_UUID",
     "NO_PLATE_DETECTED_UUID",
     "BARCODE_UNREADABLE_UUID",
+    "UnrecognizedRecordingCommandError",
+    "UnrecognizedCommandToInstrumentError",
+    "get_current_software_version",
 ]

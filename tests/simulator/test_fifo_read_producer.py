@@ -24,9 +24,9 @@ from stdlib_utils import invoke_process_run_and_check_errors
 from xem_wrapper import build_header_magic_number_bytes
 from xem_wrapper import HEADER_MAGIC_NUMBER
 
-from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
-from .helpers import is_queue_eventually_empty
-from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
+from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from ..helpers import is_queue_eventually_empty
+from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 
 def test_FIFOReadProducer__super_is_called_during_init(mocker):

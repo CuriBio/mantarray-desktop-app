@@ -39,7 +39,7 @@ def wait_for_subprocesses_to_start() -> None:
     start = time.perf_counter()
     elapsed_time = 0.0
     response: Optional[Response]
-    while elapsed_time < 10.0:
+    while elapsed_time < 10:
         try:
             response = requests.get(f"{get_api_endpoint()}system_status")
         except requests.exceptions.ConnectionError:
@@ -50,6 +50,8 @@ def wait_for_subprocesses_to_start() -> None:
             ):
                 return
         elapsed_time = time.perf_counter() - start
-        sleep(0.5)  # Don't just relentlessly ping the Flask server
+        sleep(
+            0.75
+        )  # Don't just relentlessly ping the Flask server # Eli (1/4/21): 0.5 seconds of sleep still resulted in server errors sporadically, so raised it to 0.75 seconds
 
     raise SystemStartUpError()

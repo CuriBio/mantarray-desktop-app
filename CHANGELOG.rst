@@ -1,7 +1,31 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-0.4.0 (12/17/20)
+
+0.4.1 (2020-01-15)
+------------------
+
+- Added 520 error code from ``system_status`` route if Electron and Flask EXE versions
+  don't match.
+- Added ability to override barcode scanner in case of malfunction allowing users to
+  manually enter barcodes.
+- Added redaction of username from file path in log message for finalized recording files.
+- Added the following metadata values to H5 files:
+
+  - Flag indicating whether or not this file is 'fresh' from the desktop app
+    and has not had its original data trimmed.
+  - Number of centimilliseconds trimmed off the beginning the original data.
+  - Number of centimilliseconds trimmed off the end the original data.
+
+- Fixed issue causing recorded files created after stopping and restarting recording
+  to not contain waveform data.
+- Fixed issue caused by closing app just after stopping recording which prevented
+  recorded files from being opened due to H5 flags not being cleared.
+- Updated HDF5 File Format Version to 0.4.1.
+- Updated xem_start_calibration script to v8
+
+
+0.4.0 (2020-12-17)
 ------------------
 
 - Barcode is now read from the physical scanner on the instrument instead of being entered
@@ -9,8 +33,8 @@ Changelog for Mantarray Desktop App
 - Added UUID to Log Files.
 - Added Log File UUID and hash sum of computer name to metadata of recorded files to make
   linking them to a specific log file and computer easier.
-- Updated HDF5 File Format Version to 0.4.0
-- Redacted username from file path in log for recording directory and log file path
+- Added redaction of username from file path in log message for recording directory and
+  log file path.
 
 - Added following changes to barcode format:
 
@@ -18,11 +42,12 @@ Changelog for Mantarray Desktop App
   - Allow 'ME' as first two characters.
 
 - Transferred to GitHub.
+- Updated HDF5 File Format Version to 0.4.0.
 - Bumped H5 file version to 0.3.3 to create a new version that is conclusively above
   0.3.2/0.3.1 which have odd issues.
 - Changed subprocesses to poll queues with a wait timeout of 0.025 seconds instead of using queue.empty(),
-  since .empty() seemed was discovered to be less reliable during testing while transitioning to GitHub
-- Patched bug where firmware file versions were sorted by text instead of by semver
+  since .empty() seemed was discovered to be less reliable during testing while transitioning to GitHub.
+- Patched bug where firmware file versions were sorted by text instead of by semver.
 
 
 0.3.8 (2020-10-12)
@@ -39,13 +64,6 @@ Changelog for Mantarray Desktop App
 - Added logging of HTTP error messages.
 - Added packing of FrontPanel 5.2.2 drivers.
 
-
-0.3.7 (2020-10-09)
-------------------
-
-- Added logging of HTTP error messages.
-- Added packing of FrontPanel 5.2.2 drivers.
-- Converted visual output from V to mV (multiplied by 1000)
 
 0.3.5 (2020-09-14)
 ------------------

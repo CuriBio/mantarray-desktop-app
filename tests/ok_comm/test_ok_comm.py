@@ -3,7 +3,6 @@ import copy
 import logging
 import math
 from multiprocessing import Queue
-from queue import Empty
 import struct
 import time
 
@@ -35,6 +34,7 @@ from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
 import pytest
 from stdlib_utils import confirm_parallelism_is_stopped
+from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import invoke_process_run_and_check_errors
 from xem_wrapper import build_header_magic_number_bytes
@@ -45,15 +45,15 @@ from xem_wrapper import HEADER_MAGIC_NUMBER
 from xem_wrapper import okCFrontPanel
 from xem_wrapper import OpalKellyIncorrectHeaderError
 
-from .fixtures import fixture_patched_firmware_folder
-from .fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
-from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
-from .fixtures_ok_comm import fixture_four_board_comm_process
-from .fixtures_ok_comm import fixture_patch_connection_to_board
-from .fixtures_ok_comm import fixture_running_process_with_simulated_board
-from .helpers import is_queue_eventually_empty
-from .helpers import is_queue_eventually_not_empty
-from .helpers import is_queue_eventually_of_size
+from ..fixtures import fixture_patched_firmware_folder
+from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
+from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from ..fixtures_ok_comm import fixture_four_board_comm_process
+from ..fixtures_ok_comm import fixture_patch_connection_to_board
+from ..fixtures_ok_comm import fixture_running_process_with_simulated_board
+from ..helpers import is_queue_eventually_empty
+from ..helpers import is_queue_eventually_not_empty
+from ..helpers import is_queue_eventually_of_size
 
 __fixtures__ = [
     fixture_four_board_comm_process,
@@ -474,11 +474,7 @@ def test_build_file_writer_objects__returns_correct_values__with_six_channel_for
         np.testing.assert_equal(actual[key]["data"], expected[key]["data"])
 
     # drain the queue to avoid broken pipe errors
-    while True:
-        try:
-            actual_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-        except Empty:
-            break
+    drain_queue(actual_queue)
 
 
 DATA_FROM_JASON = [
@@ -631,11 +627,7 @@ def test_build_file_writer_objects__correctly_parses_a_real_data_cycle_from_jaso
         np.testing.assert_equal(actual[key]["data"], expected_dict[key]["data"])
 
     # drain the queue to avoid broken pipe errors
-    while True:
-        try:
-            logging_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-        except Empty:
-            break
+    drain_queue(logging_queue)
 
 
 def test_OkCommunicationProcess_super_is_called_during_init(mocker):
@@ -1179,17 +1171,14 @@ def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_
         timeout_seconds=5,
     )
 
-    # TODO Tanner (8/31/20): add drain queue to other tests where applicable
-    # drain the queue to avoid broken pipe errors
-    actual_last_queue_item = dict()
-    while True:
-        try:
-            actual_last_queue_item = comm_to_main_queue.get(
-                timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-            )
-        except Empty:
-            break
-
+    # drain the queue to avoid broken pipe errors and get the last item in the queue
+    queue_items = drain_queue(
+        comm_to_main_queue,
+        timeout_secs=(  # TODO Tanner (1/11/21): Change this kwarg to `timeout_seconds` to be consistent with other queue functions in stdlib_utils
+            QUEUE_CHECK_TIMEOUT_SECONDS * 2
+        ),
+    )  # Tanner (1/11/21): This message takes longer too populate than normal so adding a longer timeout here. Unsure why this is the case
+    actual_last_queue_item = queue_items[-1]
     assert (
         actual_last_queue_item["message"]
         == "Board acquisition still running. Stopping acquisition to complete teardown"

@@ -32,6 +32,9 @@ from .constants import RECORDING_STATE
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
+from .exceptions import UnrecognizedCommandToInstrumentError
+from .exceptions import UnrecognizedMantarrayNamingCommandError
+from .exceptions import UnrecognizedRecordingCommandError
 from .process_manager import MantarrayProcessesManager
 from .server import ServerThread
 from .utils import attempt_to_get_recording_directory_from_new_dict
@@ -85,8 +88,15 @@ class MantarrayProcessesMonitor(InfiniteThread):
         except queue.Empty:
             return
 
+        if "file_path" in communication:
+            communication["file_path"] = redact_sensitive_info_from_path(
+                communication["file_path"]
+            )
+        msg = f"Communication from the File Writer: {communication}".replace(
+            r"\\",
+            "\\",  # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
+        )
         # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
-        msg = f"Communication from the File Writer: {communication}"
         with self._lock:
             logger.info(msg)
 
@@ -123,6 +133,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 shared_values_dict["mantarray_serial_number"][0] = communication[
                     "mantarray_serial_number"
                 ]
+            else:
+                raise UnrecognizedMantarrayNamingCommandError(command)
 
             self._put_communication_into_ok_comm_queue(communication)
         elif communication_type == "shutdown":
@@ -152,9 +164,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 process_manager.set_file_directory(new_recording_directory)
             update_shared_dict(shared_values_dict, new_values)
         elif communication_type == "xem_scripts":
-            script_type = communication["script_type"]
-            if script_type == "start_calibration":
-                shared_values_dict["system_status"] = CALIBRATING_STATE
+            # Tanner (12/28/20): start_calibration is the only xem_scripts command that will come from server. This comm type will be removed/replaced in beta 2 so not adding handling for unrecognized command.
+            shared_values_dict["system_status"] = CALIBRATING_STATE
             self._put_communication_into_ok_comm_queue(communication)
         elif communication_type == "recording":
             command = communication["command"]
@@ -176,6 +187,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     shared_values_dict["adc_offsets"] = communication[
                         "metadata_to_copy_onto_main_file_attributes"
                     ]["adc_offsets"]
+            else:
+                raise UnrecognizedRecordingCommandError(command)
             main_to_fw_queue.put(communication)
         elif communication_type == "to_instrument":
             command = communication["command"]
@@ -192,6 +205,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
                 main_to_ok_comm_queue.put(communication)
                 main_to_da_queue.put(communication)
+            else:
+                raise UnrecognizedCommandToInstrumentError(command)
         elif communication_type == "barcode_read_receipt":
             board_idx = communication["board_idx"]
             self._values_to_share_to_server["barcodes"][board_idx][
@@ -261,10 +276,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     communication["response"]["bit_file_name"]
                 )
         msg = f"Communication from the OpalKelly Controller: {communication}".replace(
-            r"\\", "\\"
+            r"\\",
+            "\\",  # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
         )
         # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
-        # msg = f"Communication from the OpalKelly Controller: {communication}"
         with self._lock:
             logger.info(msg)
         communication_type = communication["communication_type"]
@@ -349,7 +364,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         for iter_error_queue, iter_process in (
             (
                 process_manager.queue_container().get_ok_communication_error_queue(),
-                process_manager.get_ok_comm_process(),
+                process_manager.get_instrument_process(),
             ),
             (
                 process_manager.queue_container().get_file_writer_error_queue(),

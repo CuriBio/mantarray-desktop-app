@@ -18,11 +18,11 @@ from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 
-CURRENT_SOFTWARE_VERSION = "0.4.0"
+CURRENT_SOFTWARE_VERSION = "REPLACETHISWITHVERSIONDURINGBUILD"
 
 COMPILED_EXE_BUILD_TIMESTAMP = "REPLACETHISWITHTIMESTAMPDURINGBUILD"
 
-CURRENT_HDF5_FILE_FORMAT_VERSION = "0.4.0"
+CURRENT_HDF5_FILE_FORMAT_VERSION = "0.4.1"
 
 DEFAULT_SERVER_PORT_NUMBER = 4567
 
@@ -51,8 +51,6 @@ BARCODE_UNREADABLE_UUID = uuid.UUID("87525976-4c98-4783-a6f2-ae34a89dace6")
 
 CURI_BIO_ACCOUNT_UUID = uuid.UUID("73f52be0-368c-42d8-a1fd-660d49ba5604")
 CURI_BIO_USER_ACCOUNT_ID = uuid.UUID("455b93eb-c78f-4494-9f73-d3291130f126")
-
-# TODO (Eli 12/8/20): make all potentially mutable constants explicitly immutable (e.g. immutabledicts)
 
 DEFAULT_USER_CONFIG = immutabledict(
     {
@@ -123,57 +121,64 @@ ADC_OFFSET_DESCRIPTION_TAG = (
 )
 
 CONSTRUCT_SENSORS_PER_REF_SENSOR = 4
-CHANNEL_INDEX_TO_24_WELL_INDEX = {  # may be unnecessary
-    0: 0,
-    1: 1,
-    2: 4,
-    3: 5,
-    4: 8,
-    5: 9,
-    6: 12,
-    7: 13,
-    8: 16,
-    9: 17,
-    10: 20,
-    11: 21,
-    12: 7,
-    13: 6,
-    14: 3,
-    15: 2,
-    16: 15,
-    17: 14,
-    18: 11,
-    19: 10,
-    20: 23,
-    21: 22,
-    22: 19,
-    23: 18,
-}
-# Eli (12/10/20): having some trouble converting these to immutable dicts as Cython doesn't seem to like it. Could maybe make a mutable copy right before passing to Cython
-REF_INDEX_TO_24_WELL_INDEX = {
-    0: frozenset([0, 1, 4, 5]),
-    1: frozenset([8, 9, 12, 13]),
-    2: frozenset([16, 17, 20, 21]),
-    3: frozenset([2, 3, 6, 7]),
-    4: frozenset([10, 11, 14, 15]),
-    5: frozenset([18, 19, 22, 23]),
-}
-ADC_CH_TO_24_WELL_INDEX = {
-    0: {0: 0, 2: 1, 4: 4, 6: 5},
-    1: {0: 8, 2: 9, 4: 12, 6: 13},
-    2: {0: 16, 2: 17, 4: 20, 6: 21},
-    3: {6: 2, 4: 3, 2: 6, 0: 7},
-    4: {6: 10, 4: 11, 2: 14, 0: 15},
-    5: {6: 18, 4: 19, 2: 22, 0: 23},
-}
-ADC_CH_TO_IS_REF_SENSOR = {
-    0: {0: False, 1: True, 2: False, 3: True, 4: False, 5: True, 6: False, 7: True},
-    1: {0: False, 1: True, 2: False, 3: True, 4: False, 5: True, 6: False, 7: True},
-    2: {0: False, 1: True, 2: False, 3: True, 4: False, 5: True, 6: False, 7: True},
-    3: {0: False, 1: True, 2: False, 3: True, 4: False, 5: True, 6: False, 7: True},
-    4: {0: False, 1: True, 2: False, 3: True, 4: False, 5: True, 6: False, 7: True},
-    5: {0: False, 1: True, 2: False, 3: True, 4: False, 5: True, 6: False, 7: True},
-}
+CHANNEL_INDEX_TO_24_WELL_INDEX = immutabledict(  # may be unnecessary
+    {
+        0: 0,
+        1: 1,
+        2: 4,
+        3: 5,
+        4: 8,
+        5: 9,
+        6: 12,
+        7: 13,
+        8: 16,
+        9: 17,
+        10: 20,
+        11: 21,
+        12: 7,
+        13: 6,
+        14: 3,
+        15: 2,
+        16: 15,
+        17: 14,
+        18: 11,
+        19: 10,
+        20: 23,
+        21: 22,
+        22: 19,
+        23: 18,
+    }
+)
+REF_INDEX_TO_24_WELL_INDEX = immutabledict(
+    {
+        0: frozenset([0, 1, 4, 5]),
+        1: frozenset([8, 9, 12, 13]),
+        2: frozenset([16, 17, 20, 21]),
+        3: frozenset([2, 3, 6, 7]),
+        4: frozenset([10, 11, 14, 15]),
+        5: frozenset([18, 19, 22, 23]),
+    }
+)
+ADC_CH_TO_24_WELL_INDEX = immutabledict(
+    {
+        0: {0: 0, 2: 1, 4: 4, 6: 5},
+        1: {0: 8, 2: 9, 4: 12, 6: 13},
+        2: {0: 16, 2: 17, 4: 20, 6: 21},
+        3: {6: 2, 4: 3, 2: 6, 0: 7},
+        4: {6: 10, 4: 11, 2: 14, 0: 15},
+        5: {6: 18, 4: 19, 2: 22, 0: 23},
+    }
+)
+ADC_CH_TO_IS_REF_SENSOR = immutabledict(
+    {
+        0: {0: False, 1: True, 2: False, 3: True, 4: False, 5: True, 6: False, 7: True},
+        1: {0: False, 1: True, 2: False, 3: True, 4: False, 5: True, 6: False, 7: True},
+        2: {0: False, 1: True, 2: False, 3: True, 4: False, 5: True, 6: False, 7: True},
+        3: {0: False, 1: True, 2: False, 3: True, 4: False, 5: True, 6: False, 7: True},
+        4: {0: False, 1: True, 2: False, 3: True, 4: False, 5: True, 6: False, 7: True},
+        5: {0: False, 1: True, 2: False, 3: True, 4: False, 5: True, 6: False, 7: True},
+    }
+)
 WELL_24_INDEX_TO_ADC_AND_CH_INDEX: Dict[int, Tuple[int, int]] = dict()
 for adc_num in range(6):
     for ch_num in range(0, 8, 2):
@@ -185,6 +190,12 @@ START_MANAGED_ACQUISITION_COMMUNICATION = immutabledict(
     {
         "communication_type": "to_instrument",
         "command": "start_managed_acquisition",
+    }
+)
+STOP_MANAGED_ACQUISITION_COMMUNICATION = immutabledict(
+    {
+        "communication_type": "to_instrument",
+        "command": "stop_managed_acquisition",
     }
 )
 

@@ -24,11 +24,14 @@ import h5py
 from labware_domain_models import LabwareDefinition
 from mantarray_file_manager import ADC_REF_OFFSET_UUID
 from mantarray_file_manager import ADC_TISSUE_OFFSET_UUID
+from mantarray_file_manager import IS_FILE_ORIGINAL_UNTRIMMED_UUID
 from mantarray_file_manager import METADATA_UUID_DESCRIPTIONS
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import REF_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import TOTAL_WELL_COUNT_UUID
+from mantarray_file_manager import TRIMMED_TIME_FROM_ORIGINAL_END_UUID
+from mantarray_file_manager import TRIMMED_TIME_FROM_ORIGINAL_START_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_file_manager import UTC_FIRST_REF_DATA_POINT_UUID
 from mantarray_file_manager import UTC_FIRST_TISSUE_DATA_POINT_UUID
@@ -207,7 +210,6 @@ class FileWriterProcess(InfiniteProcess):
         file_directory: str = "",
         logging_level: int = logging.INFO,
     ):
-
         super().__init__(fatal_error_reporter, logging_level=logging_level)
         self._board_queues = board_queues
         self._from_main_queue = from_main_queue
@@ -262,8 +264,6 @@ class FileWriterProcess(InfiniteProcess):
             this_file.close()
 
     def get_file_directory(self) -> str:
-        # if not self._file_directory:
-        #     raise NotImplementedError("file directory should always be a string")
         return self._file_directory
 
     def get_stop_recording_timestamps(self) -> List[Optional[int]]:
@@ -275,6 +275,12 @@ class FileWriterProcess(InfiniteProcess):
     def is_recording(self) -> bool:
         return self._is_recording
 
+    def _board_has_open_files(self, board_idx: int) -> bool:
+        return len(self._open_files[board_idx].keys()) > 0
+
+    def _is_finalizing_files_after_recording(self) -> bool:
+        return self._board_has_open_files(0) and not self._is_recording
+
     def _teardown_after_loop(self) -> None:
         to_main_queue = self._to_main_queue
         msg = f"File Writer Process beginning teardown at {_get_formatted_utc_now()}"
@@ -284,7 +290,7 @@ class FileWriterProcess(InfiniteProcess):
             to_main_queue,
             self.get_logging_level(),
         )
-        if self._is_recording:
+        if self._board_has_open_files(0):
             msg = "Data is still be written to file. Stopping recording and closing files to complete teardown"
             put_log_message_into_queue(
                 logging.INFO,
@@ -296,7 +302,8 @@ class FileWriterProcess(InfiniteProcess):
         super()._teardown_after_loop()
 
     def _commands_for_each_run_iteration(self) -> None:
-        self._process_next_command_from_main()
+        if not self._is_finalizing_files_after_recording():
+            self._process_next_command_from_main()
         self._process_next_data_packet()
         self._update_data_packet_buffers()
         self._finalize_completed_files()
@@ -404,6 +411,9 @@ class FileWriterProcess(InfiniteProcess):
                 CONSTRUCT_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
             )
             this_file.attrs[str(TOTAL_WELL_COUNT_UUID)] = 24
+            this_file.attrs[str(IS_FILE_ORIGINAL_UNTRIMMED_UUID)] = True
+            this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_START_UUID)] = 0
+            this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_END_UUID)] = 0
 
             for this_attr_name, this_attr_value in attrs_to_copy.items():
                 if this_attr_name == "adc_offsets":
@@ -446,10 +456,10 @@ class FileWriterProcess(InfiniteProcess):
             tissue_status[0][this_well_idx] = False
             reference_status[0][this_well_idx] = False
 
+        self.get_stop_recording_timestamps()[0] = None
         data_packet_buffer = self._data_packet_buffers[0]
         for data_packet in data_packet_buffer:
             self._handle_recording_of_packet(data_packet)
-        self.get_stop_recording_timestamps()[0] = None
 
     def _process_stop_recording_command(self, communication: Dict[str, Any]) -> None:
         self._is_recording = False
