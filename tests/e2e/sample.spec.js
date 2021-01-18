@@ -153,7 +153,7 @@ async function wait_for_flask_to_init() {
  * @throws Will throw error if local server never reaches the CALIBRATION_NEEDED state
  */
 async function wait_for_local_server_to_reach_calibration_needed() {
-  for (let i = 0; i < 25; i++) {
+  for (let i = 0; i < 80 / 2; i++) {
     const response = await axios.get("http://localhost:4567/system_status");
     console.log(i); // allow-log
     console.log(response); // allow-log
@@ -163,26 +163,26 @@ async function wait_for_local_server_to_reach_calibration_needed() {
       // TODO (Eli 1/14/21): replace this string by importing the value from the frontend-components library
       return;
     }
-    await sleep(1000);
+    await sleep(2000);
   }
   // Eli (1/14/21): not sure at the moment why ever after 25 seconds the server doesn't reach CALIBRATION_NEEDED, so for now just returning and capturing an E2E screenshot of the "Initializing" state
   // throw new Error(`Server never reached CALIBRATION_NEEDED state`);
 }
 
-// /**
-// * Wait for Flask server to shut down
-// *
-// * @throws Will throw error if Flask never shuts down (determined by port still being occupied)
-// */
-// async function wait_for_flask_to_be_shutdown() {
-//   for (let i = 0; i < 10000; i++) {
-//     const detected_open_port = await detect_port(flask_port);
-//     if (detected_open_port === flask_port) {
-//       return;
-//     }
-//   }
-//   throw new Error(`Port never became open: ${flask_port}`);
-// }
+/**
+ * Wait for Flask server to shut down
+ *
+ * @throws Will throw error if Flask never shuts down (determined by port still being occupied)
+ */
+async function wait_for_flask_to_be_shutdown() {
+  for (let i = 0; i < 10000; i++) {
+    const detected_open_port = await detect_port(flask_port);
+    if (detected_open_port === flask_port) {
+      return;
+    }
+  }
+  throw new Error(`Port never became open: ${flask_port}`);
+}
 
 describe("window_opening", () => {
   afterAll(() => {
@@ -286,7 +286,16 @@ describe("window_opening", () => {
       //     window.close();
       // });
       // main_process_logs = await app.client.getMainProcessLogs();
-      // await wait_for_flask_to_be_shutdown()
+      try {
+        const shutdown_response = await axios.get(
+          "http://localhost:4567/shutdown"
+        ); // Eli (1/18/21): `app.stop()` apparently isn't triggering the call to shutdown Flask, so manually doing it here
+        console.log("Shutdown response: " + shutdown_response); // allow-log
+      } catch (e) {
+        console.log("Error attempting to call shutdown route: " + e); // allow-log
+      }
+
+      await wait_for_flask_to_be_shutdown();
 
       console.log("app should be closed. Was ProcessID: " + pid); // allow-log
       // here, the app should be closed
@@ -361,5 +370,5 @@ describe("window_opening", () => {
     await expect(
       spectron_page_visual_regression(app.browserWindow, screenshot_path)
     ).resolves.toBe(true);
-  }, 50000);
+  }, 90000);
 });
