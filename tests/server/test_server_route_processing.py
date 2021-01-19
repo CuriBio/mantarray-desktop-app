@@ -21,6 +21,7 @@ from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import server
 from mantarray_desktop_app import utils
+from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
@@ -1842,3 +1843,52 @@ def test_after_request__redacts_mantarray_nicknames_from_system_status_log_messa
         spied_server_logger.call_args_list[0][0][0]
     )
     assert logged_json["mantarray_nickname"] == expected_logged_dict
+
+
+def test_after_request__redacts_mantarray_nickname_from_set_mantarray_nickname_log_message(
+    test_client, mocker
+):
+    spied_server_logger = mocker.spy(server.logger, "info")
+
+    expected_nickname = "A New Nickname"
+    response = test_client.get(f"/set_mantarray_nickname?nickname={expected_nickname}")
+    assert response.status_code == 200
+    response_json = response.get_json()
+    assert response_json["mantarray_nickname"] == expected_nickname
+
+    expected_redaction = "*" * len(expected_nickname)
+    logged_json = convert_after_request_log_msg_to_json(
+        spied_server_logger.call_args_list[0][0][0]
+    )
+    assert logged_json["mantarray_nickname"] == expected_redaction
+
+
+def test_after_request__redacts_mantarray_nicknames_from_start_recording_log_message(
+    test_client, mocker, generic_start_recording_info_in_shared_dict
+):
+    board_idx = 0
+    spied_server_logger = mocker.spy(server.logger, "info")
+
+    expected_nickname = generic_start_recording_info_in_shared_dict[
+        "mantarray_nickname"
+    ][board_idx]
+    response = test_client.get("/start_recording?barcode=MA200440001")
+    assert response.status_code == 200
+    response_json = response.get_json()
+    assert (
+        response_json["metadata_to_copy_onto_main_file_attributes"][
+            str(MANTARRAY_NICKNAME_UUID)
+        ]
+        == expected_nickname
+    )
+
+    expected_redaction = "*" * len(expected_nickname)
+    logged_json = convert_after_request_log_msg_to_json(
+        spied_server_logger.call_args_list[0][0][0]
+    )
+    assert (
+        logged_json["metadata_to_copy_onto_main_file_attributes"][
+            str(MANTARRAY_NICKNAME_UUID)
+        ]
+        == expected_redaction
+    )

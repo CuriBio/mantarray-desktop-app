@@ -976,6 +976,17 @@ def after_request(response: Response) -> Response:
         mantarray_nicknames = response_json.get("mantarray_nickname", {})
         for board in mantarray_nicknames:
             mantarray_nicknames[board] = "*" * len(mantarray_nicknames[board])
+    elif "set_mantarray_nickname" in rule.rule:
+        response_json["mantarray_nickname"] = "*" * len(
+            response_json["mantarray_nickname"]
+        )
+    elif "start_recording" in rule.rule:
+        mantarray_nickname = response_json[
+            "metadata_to_copy_onto_main_file_attributes"
+        ][str(MANTARRAY_NICKNAME_UUID)]
+        response_json["metadata_to_copy_onto_main_file_attributes"][
+            str(MANTARRAY_NICKNAME_UUID)
+        ] = "*" * len(mantarray_nickname)
 
     msg = "Response to HTTP Request in next log entry: "
     if response.status_code == 200:
