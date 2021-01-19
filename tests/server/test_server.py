@@ -215,7 +215,7 @@ def test_ServerThread__get_values_from_process_monitor__acquires_lock_and_return
     initial_dict = {"some key here": "some other value"}
     lock = threading.Lock()
     # Eli (11/3/20): still unable to test if lock was acquired.
-    #   https://stackoverflow.com/questions/60187817/mocking-python-thread-locking  (no responses to question as of 11/3/20)
+    #   https://stackoverflow.com/questions/60187817/mocking-python-thread-locking  (no responses to question as of 1/19/21)
     #   https://stackoverflow.com/questions/11836436/how-to-mock-a-readonly-property-with-mock/11843806
     #   https://stackoverflow.com/questions/28850070/python-mocking-a-context-manager
     # mocked_lock_aquire=mocker.patch.object(lock,'acquire',new_callable=mocker.PropertyMock)
@@ -278,7 +278,6 @@ def test_server_queue_command_to_main_puts_in_a_copy_of_the_dict(
 def test_server_queue_command_to_ok_comm_puts_in_a_mutable_version_of_the_dict(
     server_thread,
 ):
-
     test_dict = immutabledict({"al": "gore"})
     server.queue_command_to_ok_comm(test_dict)
     to_instrument_queue = (

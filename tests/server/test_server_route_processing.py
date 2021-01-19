@@ -19,6 +19,7 @@ from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import RunningFIFOSimulator
+from mantarray_desktop_app import server
 from mantarray_desktop_app import utils
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
@@ -53,6 +54,7 @@ from ..fixtures_server import fixture_test_client
 from ..helpers import assert_queue_is_eventually_not_empty
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
+from ..helpers import convert_after_request_log_msg_to_json
 from ..helpers import is_queue_eventually_not_empty
 from ..helpers import is_queue_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -1815,3 +1817,28 @@ def test_system_status__returns_no_plate_barcode_and_status_when_none_present(
     response_json = response.get_json()
     assert "barcode_status" not in response_json
     assert "plate_barcode" not in response_json
+
+
+def test_after_request__redacts_mantarray_nicknames_from_system_status_log_message(
+    test_monitor, test_client, mocker
+):
+    _, shared_values_dict, _, _ = test_monitor
+    expected_nickname_1 = "Test Nickname 1"
+    expected_nickname_2 = "Other Nickname"
+    expected_nickname_dict = {"0": expected_nickname_1, "1": expected_nickname_2}
+    shared_values_dict["mantarray_nickname"] = expected_nickname_dict
+
+    spied_server_logger = mocker.spy(server.logger, "info")
+
+    response = test_client.get("/system_status")
+    assert response.status_code == 200
+    response_json = response.get_json()
+    assert response_json["mantarray_nickname"] == expected_nickname_dict
+
+    expected_redaction_1 = "*" * len(expected_nickname_1)
+    expected_redaction_2 = "*" * len(expected_nickname_2)
+    expected_logged_dict = {"0": expected_redaction_1, "1": expected_redaction_2}
+    logged_json = convert_after_request_log_msg_to_json(
+        spied_server_logger.call_args_list[0][0][0]
+    )
+    assert logged_json["mantarray_nickname"] == expected_logged_dict

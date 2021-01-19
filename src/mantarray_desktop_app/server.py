@@ -972,10 +972,15 @@ def after_request(response: Response) -> Response:
         response = Response(status="404 Route not implemented")
     elif "get_available_data" in rule.rule and response.status_code == 200:
         del response_json["waveform_data"]["basic_data"]
+    elif "system_status" in rule.rule:
+        mantarray_nicknames = response_json.get("mantarray_nickname", {})
+        for board in mantarray_nicknames:
+            mantarray_nicknames[board] = "*" * len(mantarray_nicknames[board])
 
     msg = "Response to HTTP Request in next log entry: "
     if response.status_code == 200:
-        msg += f"{response_json}"
+        # Tanner (1/19/21): using json.dumps instead of an f-string here allows us to perform better testing of our log messages by loading the json string to a python dict
+        msg += json.dumps(response_json)
     else:
         msg += response.status
     logger.info(msg)
