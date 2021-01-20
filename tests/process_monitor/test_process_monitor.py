@@ -126,7 +126,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_file_writer(
     )
 
 
-def test_MantarrayProcessesMonitor__logs_messages_from_server(
+def test_MantarrayProcessesMonitor__logs_messages_from_server__and_redacts_mantarray_nickname(
     mocker, test_process_manager, test_monitor
 ):
     monitor_thread, _, _, _ = test_monitor
@@ -134,20 +134,24 @@ def test_MantarrayProcessesMonitor__logs_messages_from_server(
     mocked_logger = mocker.patch.object(process_monitor.logger, "info", autospec=True)
 
     test_process_manager.create_processes()
-
     to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
-    expected_comm = {
+
+    test_nickname = "The Nautilus"
+    test_comm = {
         "communication_type": "mantarray_naming",
         "command": "set_mantarray_nickname",
-        "mantarray_nickname": "The Nautilus",
+        "mantarray_nickname": test_nickname,
     }
-
-    to_main_queue.put(expected_comm)
-    assert is_queue_eventually_not_empty(to_main_queue) is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_comm, to_main_queue
+    )
     invoke_process_run_and_check_errors(monitor_thread)
-    assert is_queue_eventually_empty(to_main_queue) is True
+    confirm_queue_is_eventually_empty(to_main_queue)
+
+    expected_comm = copy.deepcopy(test_comm)
+    expected_comm["mantarray_nickname"] = "*" * len(test_nickname)
     mocked_logger.assert_called_once_with(
         f"Communication from the Server: {expected_comm}"
     )
@@ -988,3 +992,68 @@ def test_MantarrayProcessesMonitor__does_not_update_any_values_if_new_barcode_ma
     invoke_process_run_and_check_errors(monitor_thread)
 
     assert shared_values_dict["barcodes"][expected_board_idx] == expected_dict
+
+
+def test_MantarrayProcessesMonitor__redacts_mantarray_nickname_from_logged_mantarray_naming_ok_comm_messages(
+    mocker, test_process_manager, test_monitor
+):
+    monitor_thread, _, _, _ = test_monitor
+
+    mocked_logger = mocker.patch.object(process_monitor.logger, "info", autospec=True)
+
+    test_process_manager.create_processes()
+    ok_comm_to_main = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+        0
+    )
+
+    test_nickname = "MyMantarray"
+    test_comm = {
+        "communication_type": "mantarray_naming",
+        "command": "set_mantarray_nickname",
+        "mantarray_nickname": test_nickname,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_comm, ok_comm_to_main
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    confirm_queue_is_eventually_empty(ok_comm_to_main)
+
+    expected_comm = copy.deepcopy(test_comm)
+    expected_comm["mantarray_nickname"] = "*" * len(test_nickname)
+    mocked_logger.assert_called_once_with(
+        f"Communication from the OpalKelly Controller: {expected_comm}"
+    )
+
+
+def test_MantarrayProcessesMonitor__redacts_mantarray_nickname_from_logged_board_connection_status_change_ok_comm_messages(
+    mocker, test_process_manager, test_monitor
+):
+    monitor_thread, _, _, _ = test_monitor
+
+    mocked_logger = mocker.patch.object(process_monitor.logger, "info", autospec=True)
+
+    test_process_manager.create_processes()
+    ok_comm_to_main = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+        0
+    )
+
+    test_nickname = "MyOtherMantarray"
+    test_comm = {
+        "communication_type": "board_connection_status_change",
+        "board_index": 0,
+        "is_connected": True,
+        "mantarray_serial_number": RunningFIFOSimulator.default_mantarray_serial_number,
+        "xem_serial_number": RunningFIFOSimulator.default_xem_serial_number,
+        "mantarray_nickname": test_nickname,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_comm, ok_comm_to_main
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    confirm_queue_is_eventually_empty(ok_comm_to_main)
+
+    expected_comm = copy.deepcopy(test_comm)
+    expected_comm["mantarray_nickname"] = "*" * len(test_nickname)
+    mocked_logger.assert_called_once_with(
+        f"Communication from the OpalKelly Controller: {expected_comm}"
+    )

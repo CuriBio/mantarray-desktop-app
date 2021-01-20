@@ -2,6 +2,7 @@
 """Docstring."""
 from __future__ import annotations
 
+import copy
 import logging
 import queue
 import threading
@@ -112,8 +113,15 @@ class MantarrayProcessesMonitor(InfiniteThread):
         except queue.Empty:
             return
 
+        msg: str
+        if "mantarray_nickname" in communication:
+            # Tanner (1/20/21): items in communication dict are used after this log message is generated, so need to creat a copy of the dict when redacting info
+            comm_copy = copy.deepcopy(communication)
+            comm_copy["mantarray_nickname"] = "*" * len(comm_copy["mantarray_nickname"])
+            msg = f"Communication from the Server: {comm_copy}"
+        else:
+            msg = f"Communication from the Server: {communication}"
         # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
-        msg = f"Communication from the Server: {communication}"
         with self._lock:
             logger.info(msg)
 
@@ -261,6 +269,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             )
         except queue.Empty:
             return
+
         if "bit_file_name" in communication:
             communication["bit_file_name"] = redact_sensitive_info_from_path(
                 communication["bit_file_name"]
@@ -275,10 +284,18 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 ] = redact_sensitive_info_from_path(
                     communication["response"]["bit_file_name"]
                 )
-        msg = f"Communication from the OpalKelly Controller: {communication}".replace(
-            r"\\",
-            "\\",  # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
-        )
+
+        msg: str
+        if "mantarray_nickname" in communication:
+            # Tanner (1/20/21): items in communication dict are used after this log message is generated, so need to creat a copy of the dict when redacting info
+            comm_copy = copy.deepcopy(communication)
+            comm_copy["mantarray_nickname"] = "*" * len(comm_copy["mantarray_nickname"])
+            msg = f"Communication from the OpalKelly Controller: {comm_copy}"
+        else:
+            msg = f"Communication from the OpalKelly Controller: {communication}".replace(
+                r"\\",
+                "\\",  # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
+            )
         # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
         with self._lock:
             logger.info(msg)
