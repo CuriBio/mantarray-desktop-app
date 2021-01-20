@@ -18,6 +18,7 @@ from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import RECORDING_STATE
+from mantarray_desktop_app import redact_sensitive_info_from_path
 from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import server
 from mantarray_desktop_app import utils
@@ -1365,7 +1366,7 @@ def test_send_single_start_managed_acquisition_command__sets_system_status_to_bu
     test_process_manager.hard_stop_and_join_processes()
 
 
-def test_update_settings__stores_values_in_shared_values_dict__and_recordings_folder_in_file_writer_and_process_manager__and_logs_recording_folder(
+def test_update_settings__stores_values_in_shared_values_dict__and_recordings_folder_in_file_writer_and_process_manager__and_logs_recording_folder_with_sensitive_info_redacted(
     test_process_manager, test_client, test_monitor, mocker
 ):
     monitor_thread, _, _, _ = test_monitor
@@ -1397,8 +1398,11 @@ def test_update_settings__stores_values_in_shared_values_dict__and_recordings_fo
         )
         assert test_process_manager.get_file_directory() == expected_recordings_dir
 
+        scrubbed_recordings_dir = redact_sensitive_info_from_path(
+            expected_recordings_dir
+        )
         spied_utils_logger.assert_any_call(
-            f"Using directory for recording files: {expected_recordings_dir}"
+            f"Using directory for recording files: {scrubbed_recordings_dir}"
         )
 
     queue_from_main_to_file_writer = (
