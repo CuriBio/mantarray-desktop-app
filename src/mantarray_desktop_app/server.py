@@ -971,23 +971,24 @@ def after_request(response: Response) -> Response:
     response_json = response.get_json()
     if rule is None:
         response = Response(status="404 Route not implemented")
-    elif "get_available_data" in rule.rule and response.status_code == 200:
-        del response_json["waveform_data"]["basic_data"]
-    elif "system_status" in rule.rule:
-        mantarray_nicknames = response_json.get("mantarray_nickname", {})
-        for board in mantarray_nicknames:
-            mantarray_nicknames[board] = "*" * len(mantarray_nicknames[board])
-    elif "set_mantarray_nickname" in rule.rule:
-        response_json["mantarray_nickname"] = "*" * len(
-            response_json["mantarray_nickname"]
-        )
-    elif "start_recording" in rule.rule:
-        mantarray_nickname = response_json[
-            "metadata_to_copy_onto_main_file_attributes"
-        ][str(MANTARRAY_NICKNAME_UUID)]
-        response_json["metadata_to_copy_onto_main_file_attributes"][
-            str(MANTARRAY_NICKNAME_UUID)
-        ] = "*" * len(mantarray_nickname)
+    elif response.status_code == 200:
+        if "get_available_data" in rule.rule:
+            del response_json["waveform_data"]["basic_data"]
+        if "system_status" in rule.rule:
+            mantarray_nicknames = response_json.get("mantarray_nickname", {})
+            for board in mantarray_nicknames:
+                mantarray_nicknames[board] = "*" * len(mantarray_nicknames[board])
+        if "set_mantarray_nickname" in rule.rule:
+            response_json["mantarray_nickname"] = "*" * len(
+                response_json["mantarray_nickname"]
+            )
+        if "start_recording" in rule.rule:
+            mantarray_nickname = response_json[
+                "metadata_to_copy_onto_main_file_attributes"
+            ][str(MANTARRAY_NICKNAME_UUID)]
+            response_json["metadata_to_copy_onto_main_file_attributes"][
+                str(MANTARRAY_NICKNAME_UUID)
+            ] = "*" * len(mantarray_nickname)
 
     msg = "Response to HTTP Request in next log entry: "
     if response.status_code == 200:
