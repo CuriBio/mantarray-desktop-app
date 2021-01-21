@@ -80,6 +80,8 @@ from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
 from .exceptions import ImproperlyFormattedUserAccountUUIDError
 from .exceptions import LocalServerPortAlreadyInUseError
 from .exceptions import RecordingFolderDoesNotExistError
+from .exceptions import ServerThreadNotInitializedError
+from .exceptions import ServerThreadSingletonAlreadySetError
 from .ok_comm import check_barcode_for_errors
 from .ok_comm import check_mantarray_serial_number
 from .queue_container import MantarrayQueueContainer
@@ -98,18 +100,14 @@ flask_app = Flask(  # pylint: disable=invalid-name # yes, this is intentionally 
 )
 CORS(flask_app)
 
-_the_server_thread: Optional[
+_the_server_thread: Optional[  # pylint: disable=invalid-name # Eli (11/3/20) yes, this is intentionally a singleton, not a constant. This is the current best guess at how to allow Flask routes to access some info they need
     "ServerThread"
-]  # pylint: disable=invalid-name # Eli (11/3/20) yes, this is intentionally a singleton, not a constant. This is the current best guess at how to allow Flask routes to access some info they need
+] = None
 
 
 def clear_the_server_thread() -> None:
-    global _the_server_thread  # pylint:disable=global-statement # Eli (12/8/20) this is deliberately setting a module-level singleton
+    global _the_server_thread  # pylint:disable=global-statement,invalid-name # Eli (12/8/20) this is deliberately setting a module-level singleton
     _the_server_thread = None
-
-
-class ServerThreadNotInitializedError(Exception):
-    pass
 
 
 def get_the_server_thread() -> "ServerThread":
@@ -141,7 +139,7 @@ def get_server_address_components() -> Tuple[str, str, int]:
         "http",
         "127.0.0.1",
         port_number,
-    )  # get_server_port_number()
+    )
 
 
 def get_api_endpoint() -> str:
@@ -1018,6 +1016,10 @@ class ServerThread(InfiniteThread):
         logging_level: int = logging.INFO,
         lock: Optional[threading.Lock] = None,
     ) -> None:
+        global _the_server_thread  # pylint:disable=global-statement,invalid-name # Eli (1/21/21): deliberately using a module-level singleton
+        if _the_server_thread is not None:
+            raise ServerThreadSingletonAlreadySetError()  # server__does_not_modify_log_message_for_route_not_containing_sensitive_info_in_p
+        # nd_single_activate_trigger_in_command__gets_proce
         if lock is None:
             lock = threading.Lock()
 
@@ -1028,7 +1030,7 @@ class ServerThread(InfiniteThread):
         self._logging_level = logging_level
         if values_from_process_monitor is None:
             values_from_process_monitor = dict()
-        global _the_server_thread  # pylint:disable=global-statement # Eli (10/30/20): deliberately using a module-level singleton
+
         _the_server_thread = self
         self._values_from_process_monitor = values_from_process_monitor
 
@@ -1088,7 +1090,6 @@ class ServerThread(InfiniteThread):
             message = "Server has been successfully shutdown."
         except requests.exceptions.ConnectionError:
             message = f"Server was not running on {http_route} during shutdown attempt."
-
         put_log_message_into_queue(
             logging.INFO,
             message,
@@ -1097,10 +1098,18 @@ class ServerThread(InfiniteThread):
         )
 
     def stop(self) -> None:
+        """Stop the thread.
+
+        Because there is no actual infinite loop running here, the
+        super().stop() needs to be called to activate the right events
+        being set.
+        """
         self._shutdown_server()
+        self._teardown_after_loop()
+        super().stop()
 
     def soft_stop(self) -> None:
-        self._shutdown_server()
+        self.stop()
 
     def get_data_analyzer_data_out_queue(
         self,
@@ -1118,3 +1127,7 @@ class ServerThread(InfiniteThread):
             self.get_data_analyzer_data_out_queue()
         )
         return queue_items
+
+    def _teardown_after_loop(self) -> None:
+        clear_the_server_thread()
+        super()._teardown_after_loop()

@@ -12,7 +12,10 @@ from mantarray_desktop_app import LocalServerPortAlreadyInUseError
 from mantarray_desktop_app import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from mantarray_desktop_app import server
 from mantarray_desktop_app import ServerThread
+from mantarray_desktop_app import ServerThreadNotInitializedError
+from mantarray_desktop_app import ServerThreadSingletonAlreadySetError
 import pytest
+from stdlib_utils import confirm_parallelism_is_stopped
 from stdlib_utils import confirm_port_available
 
 from ..fixtures import fixture_generic_queue_container
@@ -42,6 +45,28 @@ def test_ServerThread__init__calls_super(mocker, generic_queue_container):
     assert mocked_super_init.call_count == 1
 
     _clean_up_server_thread(st, to_main_queue, error_queue)
+
+
+def test_ServerThread__Given_the_server_thread_module_singleton_is_not_None__When_the_ServerThread_is_instantiated__Then_it_raises_an_error(
+    generic_queue_container,
+):
+    error_queue = Queue()
+    to_main_queue = Queue()
+    st_1 = ServerThread(to_main_queue, error_queue, generic_queue_container)
+
+    with pytest.raises(ServerThreadSingletonAlreadySetError):
+        ServerThread(to_main_queue, error_queue, generic_queue_container)
+
+    _clean_up_server_thread(st_1, to_main_queue, error_queue)
+    # create_a_server_thread()
+    # # actual_st_before=get_the_server_thread()
+    # # # confirm the pre-condition
+    # # assert actual_st_before==st
+
+    # # del st
+    # return
+    # with pytest.raises(ServerThreadNotInitializedError):
+    #     get_the_server_thread()
 
 
 def test_ServerThread__init__sets_the_module_singleton_of_the_thread_to_new_instance(
@@ -114,6 +139,37 @@ def test_ServerThread_start__puts_error_into_queue_if_port_in_use(
     )
     e, _ = error_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
     assert isinstance(e, LocalServerPortAlreadyInUseError)
+
+
+@pytest.mark.timeout(
+    5
+)  # the test hangs in the current implementation (using _teardown_after_loop) if the super()._teardown_after_loop isn't called, so the timeout confirms that it was implemented correctly
+def test_ServerThread__Given_the_server_thread_is_running__When_it_is_hard_stopped__Then_the_module_level_singleton_is_cleared(
+    running_server_thread,
+):
+    # since the current implementation uses _teardown_after_l
+    st, _, _ = running_server_thread
+    # confirm the pre-condition
+    assert get_the_server_thread() == st
+    st.hard_stop()
+    with pytest.raises(ServerThreadNotInitializedError):
+        get_the_server_thread()
+
+
+@pytest.mark.timeout(
+    5
+)  # the test hangs in the current implementation (using _teardown_after_loop) if the super()._teardown_after_loop isn't called, so the timeout confirms that it was implemented correctly
+def test_ServerThread__Given_the_server_thread_is_running__When_it_is_soft_stopped__Then_the_module_level_singleton_is_cleared(
+    running_server_thread,
+):
+    # since the current implementation uses _teardown_after_l
+    st, _, _ = running_server_thread
+    # confirm the pre-condition
+    assert get_the_server_thread() == st
+    st.soft_stop()
+    confirm_parallelism_is_stopped(st, timeout_seconds=1)
+    with pytest.raises(ServerThreadNotInitializedError):
+        get_the_server_thread()
 
 
 class DummyException(Exception):
