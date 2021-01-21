@@ -84,6 +84,7 @@ from .ok_comm import check_barcode_for_errors
 from .ok_comm import check_mantarray_serial_number
 from .queue_container import MantarrayQueueContainer
 from .queue_utils import _drain_queue
+from .request_handler import MantarrayRequestHandler
 from .utils import convert_request_args_to_config_dict
 from .utils import get_current_software_version
 from .utils import validate_settings
@@ -1070,7 +1071,9 @@ class ServerThread(InfiniteThread):
         try:
             _, host, _ = get_server_address_components()
             self.check_port()
-            flask_app.run(host=host, port=self._port)
+            flask_app.run(
+                host=host, port=self._port, request_handler=MantarrayRequestHandler
+            )
             # Note (Eli 1/14/20) it appears with the current method of using werkzeug.server.shutdown that nothing after this line will ever be executed. somehow the program exists before returning from app.run
         except Exception as e:  # pylint: disable=broad-except # The deliberate goal of this is to catch everything and put it into the error queue
             print_exception(e, "0d6e8031-6653-47d7-8490-8c28f92494c3")

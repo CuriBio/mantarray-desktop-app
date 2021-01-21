@@ -12,6 +12,7 @@ from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
+from mantarray_desktop_app import get_api_endpoint
 from mantarray_desktop_app import get_server_port_number
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
@@ -27,10 +28,12 @@ from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import pytest
+import requests
 from stdlib_utils import confirm_parallelism_is_stopped
 from stdlib_utils import confirm_port_in_use
 from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
+import werkzeug._internal as werkzeug_internal
 from xem_wrapper import DATA_FRAME_SIZE_WORDS
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 from xem_wrapper import FrontPanelSimulator
@@ -51,6 +54,7 @@ from ..fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
 from ..fixtures_process_monitor import fixture_test_monitor
 from ..fixtures_server import fixture_client_and_server_thread_and_shared_values
 from ..fixtures_server import fixture_generic_start_recording_info_in_shared_dict
+from ..fixtures_server import fixture_running_server_thread
 from ..fixtures_server import fixture_server_thread
 from ..fixtures_server import fixture_test_client
 from ..helpers import assert_queue_is_eventually_not_empty
@@ -74,6 +78,7 @@ __fixtures__ = [
     fixture_patched_xem_scripts_folder,
     fixture_patch_print,
     fixture_generic_start_recording_info_in_shared_dict,
+    fixture_running_server_thread,
 ]
 
 
@@ -1896,3 +1901,37 @@ def test_after_request__redacts_mantarray_nicknames_from_start_recording_log_mes
         ]
         == expected_redaction
     )
+
+
+def test_server__redacts_nickname_parameter_from_set_mantarray_nickname_route(
+    running_server_thread, mocker
+):
+    spied_werkzeug_logger_info = mocker.spy(
+        werkzeug_internal._logger,  # pylint: disable=protected-access  # Tanner (1/20/21): need to access this private variable to assert the log message is correct
+        "info",
+    )
+
+    test_nickname = "Secret Mantarray Name"
+    response = requests.get(
+        f"{get_api_endpoint()}set_mantarray_nickname?nickname={test_nickname}"
+    )
+    assert response.status_code == 200
+
+    redacted_nickname = "*" * len(test_nickname)
+    expected_message = f"set_mantarray_nickname?nickname={redacted_nickname}"
+    assert expected_message in spied_werkzeug_logger_info.call_args_list[0][0][1]
+
+
+def test_server__does_not_modify_log_message_for_route_not_containing_sensitive_info_in_params(
+    running_server_thread, mocker
+):
+    spied_werkzeug_logger_info = mocker.spy(
+        werkzeug_internal._logger,  # pylint: disable=protected-access  # Tanner (1/20/21): need to access this private variable to assert the log message is correct
+        "info",
+    )
+
+    expected_route_call = "insert_xem_command_into_queue/set_mantarray_serial_number?serial_number=M02001900"
+    response = requests.get(f"{get_api_endpoint()}{expected_route_call}")
+    assert response.status_code == 200
+
+    assert expected_route_call in spied_werkzeug_logger_info.call_args_list[0][0][1]
