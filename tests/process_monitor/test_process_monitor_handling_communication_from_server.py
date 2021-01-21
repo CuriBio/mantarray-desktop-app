@@ -563,7 +563,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     mocked_hard_stop_and_join.assert_called_once()
 
 
-@pytest.mark.timeout(10)
+@pytest.mark.timeout(13)
 @pytest.mark.slow
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_shutdown_hard_stop__by_soft_stop_then_checking_if_processes_are_stopped_for_desired_time_and_then_finally_hard_stop_and_join_all_processes(
     test_process_manager, test_monitor, mocker

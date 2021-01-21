@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import datetime
+import json
 
 from freezegun import freeze_time
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
@@ -530,7 +531,7 @@ def test_send_single_read_wire_out_command__populates_queue__and_logs_response(
     assert response_json["ep_addr"] == expected_ep_addr
     assert response_json["suppress_error"] is True
     mocked_logger.assert_called_once_with(
-        f"Response to HTTP Request in next log entry: {response.get_json()}"
+        f"Response to HTTP Request in next log entry: {json.dumps(response_json)}"
     )
 
 
