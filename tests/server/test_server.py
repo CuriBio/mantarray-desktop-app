@@ -38,8 +38,10 @@ def test_ServerThread__init__calls_super(mocker, generic_queue_container):
     error_queue = Queue()
     to_main_queue = Queue()
     mocked_super_init = mocker.spy(Thread, "__init__")
-    ServerThread(to_main_queue, error_queue, generic_queue_container)
+    st = ServerThread(to_main_queue, error_queue, generic_queue_container)
     assert mocked_super_init.call_count == 1
+
+    _clean_up_server_thread(st, to_main_queue, error_queue)
 
 
 def test_ServerThread__init__sets_the_module_singleton_of_the_thread_to_new_instance(

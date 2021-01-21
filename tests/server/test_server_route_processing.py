@@ -1855,8 +1855,9 @@ def test_after_request__redacts_mantarray_nicknames_from_system_status_log_messa
 
 
 def test_after_request__redacts_mantarray_nickname_from_set_mantarray_nickname_log_message(
-    test_client, mocker
+    client_and_server_thread_and_shared_values, mocker
 ):
+    test_client, _, _ = client_and_server_thread_and_shared_values
     spied_server_logger = mocker.spy(server.logger, "info")
 
     expected_nickname = "A New Nickname"
