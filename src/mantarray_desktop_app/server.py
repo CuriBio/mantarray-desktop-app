@@ -1018,8 +1018,8 @@ class ServerThread(InfiniteThread):
     ) -> None:
         global _the_server_thread  # pylint:disable=global-statement,invalid-name # Eli (1/21/21): deliberately using a module-level singleton
         if _the_server_thread is not None:
-            raise ServerThreadSingletonAlreadySetError()  # server__does_not_modify_log_message_for_route_not_containing_sensitive_info_in_p
-        # nd_single_activate_trigger_in_command__gets_proce
+            raise ServerThreadSingletonAlreadySetError()
+
         if lock is None:
             lock = threading.Lock()
 

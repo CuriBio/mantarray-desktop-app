@@ -1578,8 +1578,6 @@ def test_start_recording__returns_error_code_and_message_if_called_with_is_hardw
 ):
     monitor_thread, _, _, _ = test_monitor
 
-    test_process_manager.create_processes()
-
     response = test_client.get(
         "/start_recording?barcode=MA200440001&is_hardware_test_recording=True"
     )
@@ -1816,10 +1814,9 @@ def test_system_status__returns_correct_plate_barcode_and_status__only_when_barc
 
 
 def test_system_status__returns_no_plate_barcode_and_status_when_none_present(
-    client_and_server_thread_and_shared_values, test_monitor, test_client
+    client_and_server_thread_and_shared_values, test_client
 ):
-    _, shared_values_dict, _, _ = test_monitor
-
+    _, _, shared_values_dict = client_and_server_thread_and_shared_values
     shared_values_dict["system_status"] = CALIBRATED_STATE
 
     response = test_client.get("/system_status")
@@ -1855,11 +1852,10 @@ def test_after_request__redacts_mantarray_nicknames_from_system_status_log_messa
 
 
 def test_after_request__redacts_mantarray_nickname_from_set_mantarray_nickname_log_message(
-    # client_and_server_thread_and_shared_values,
-    test_client,
+    client_and_server_thread_and_shared_values,
     mocker,
 ):
-    # test_client, _, _ = client_and_server_thread_and_shared_values
+    test_client, _, _ = client_and_server_thread_and_shared_values
     # pytest tests/server/test_server_route_processing.py --include-slow-tests -xvv --randomly-seed=3185259035
     spied_server_logger = mocker.spy(server.logger, "info")
 

@@ -58,15 +58,6 @@ def test_ServerThread__Given_the_server_thread_module_singleton_is_not_None__Whe
         ServerThread(to_main_queue, error_queue, generic_queue_container)
 
     _clean_up_server_thread(st_1, to_main_queue, error_queue)
-    # create_a_server_thread()
-    # # actual_st_before=get_the_server_thread()
-    # # # confirm the pre-condition
-    # # assert actual_st_before==st
-
-    # # del st
-    # return
-    # with pytest.raises(ServerThreadNotInitializedError):
-    #     get_the_server_thread()
 
 
 def test_ServerThread__init__sets_the_module_singleton_of_the_thread_to_new_instance(
@@ -77,6 +68,10 @@ def test_ServerThread__init__sets_the_module_singleton_of_the_thread_to_new_inst
     st = ServerThread(to_main_queue, error_queue, generic_queue_container)
     value_after_first_server_init = get_the_server_thread()
 
+    _clean_up_server_thread(
+        st, to_main_queue, error_queue
+    )  # need to clear the module level singleton before attempting to set it again
+
     error_queue_2 = Queue()
     to_main_queue_2 = Queue()
     st_2 = ServerThread(to_main_queue_2, error_queue_2, generic_queue_container)
@@ -85,7 +80,7 @@ def test_ServerThread__init__sets_the_module_singleton_of_the_thread_to_new_inst
     assert value_after_second_server_init != value_after_first_server_init
 
     # clean up
-    _clean_up_server_thread(st, to_main_queue, error_queue)
+
     _clean_up_server_thread(st_2, to_main_queue_2, error_queue_2)
 
 
