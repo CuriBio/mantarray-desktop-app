@@ -229,7 +229,7 @@ def test_gain_value_is_parsed_and_saved_when_running_start_up_script(
     )
 
     monitor_thread, shared_values_dict, _, _ = test_monitor
-    test_process_manager.create_processes()
+
     ok_comm_process = test_process_manager.get_instrument_process()
     from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
@@ -301,7 +301,7 @@ def test_offset_values_are_parsed_and_saved_when_running_start_calibration_scrip
     )
 
     monitor_thread, shared_values_dict, _, _ = test_monitor
-    test_process_manager.create_processes()
+
     ok_comm_process = test_process_manager.get_instrument_process()
     from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
         0
