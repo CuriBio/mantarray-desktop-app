@@ -30,7 +30,7 @@ if USE_CYTHON:
 
 setup(
     name="mantarray_desktop_app",
-    version="0.4.0",
+    # Eli (1/25/21): the version is now obtained from package.json during CI as the single source of truth
     description="Windows Desktop App for viewing and recording data from a Mantarray Instrument.",
     url="https://github.com/curibio/mantarray-desktop-app",
     author="Curi Bio",
@@ -38,6 +38,5 @@ setup(
     license="MIT",
     packages=find_packages("src"),
     package_dir={"": "src"},
-    install_requires=[],
     ext_modules=extensions,
 )
