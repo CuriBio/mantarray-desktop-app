@@ -61,7 +61,6 @@
     "@xpda-dev/electron-builder": "0.1.1",
     "@xpda-dev/electron-launcher": "0.1.1",
     "@xpda-dev/webpack-step": "0.1.2",
-    "autoprefixer": "9.8.6",
     "axios-mock-adapter": "1.18.1",
     "babel-core": "7.0.0-bridge.0",
     "babel-eslint": "10.1.0",
@@ -116,9 +115,6 @@
     "vue-eslint-parser": "7.0.0",
     "vue-jest": "3.0.7",
     "wait-for-expect": "3.0.2",
-    "watchpack": "1.7.2",
-    "webdriverio": "5.22.4",
-    "webpack": "4.44.2",
-    "webpack-node-externals": "1.7.2"
+    "watchpack": "1.7.2"
   }
 }
