@@ -1148,7 +1148,7 @@ def test_OkCommunicationProcess_teardown_after_loop__puts_teardown_log_message_i
 
 
 @pytest.mark.slow
-@pytest.mark.timeout(8)
+@pytest.mark.timeout(11)
 def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_acquisition_is_running_with_simulator__and_log_stop_acquistion_message(
     running_process_with_simulated_board,
     mocker,
