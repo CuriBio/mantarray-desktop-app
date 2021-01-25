@@ -381,11 +381,9 @@ def test_route_error_message_is_logged(mocker, test_client):
 
 
 def test_start_recording__returns_no_error_message_with_multiple_hardware_test_recordings(
-    client_and_server_thread_and_shared_values,
+    test_client,
     generic_start_recording_info_in_shared_dict,
 ):
-    test_client, _, _ = client_and_server_thread_and_shared_values
-
     response = test_client.get(
         "/start_recording?barcode=MA200440001&is_hardware_test_recording=True"
     )
@@ -427,7 +425,7 @@ def test_start_recording__returns_error_code_and_message_if_barcode_is_not_given
 
 
 @pytest.mark.parametrize(
-    "test_barcode,expected_error_message,test_description",
+    ",".join(("test_barcode", "expected_error_message", "test_description")),
     [
         (
             "MA1234567890",
