@@ -551,10 +551,9 @@ def test_start_recording__allows_years_other_than_20_in_barcode(
 def test_start_recording__allows_correct_barcode_headers(
     test_barcode,
     test_description,
-    client_and_server_thread_and_shared_values,
+    test_client,
     generic_start_recording_info_in_shared_dict,
 ):
-    test_client, _, _ = client_and_server_thread_and_shared_values
     response = test_client.get(f"/start_recording?barcode={test_barcode}")
     assert response.status_code == 200
 

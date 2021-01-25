@@ -1781,7 +1781,7 @@ def test_send_single_get_status_command__gets_processed(
 
 @pytest.mark.slow
 def test_system_status__returns_correct_plate_barcode_and_status__only_when_barcode_changes(
-    client_and_server_thread_and_shared_values,
+    # client_and_server_thread_and_shared_values,
     test_monitor,
     test_client,
 ):
