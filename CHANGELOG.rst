@@ -2,6 +2,18 @@ Changelog for Mantarray Desktop App
 ===================================
 
 
+0.4.2 (unreleased)
+------------------
+
+- Added the following redactions from log messages:
+
+  - Mantarray nickname.
+  - Recording directory path.
+  - Log file path in command line args.
+
+- Changed SHA512 output format from raw bytes to a hex value.
+
+
 0.4.1 (2020-01-15)
 ------------------
 
@@ -9,7 +21,7 @@ Changelog for Mantarray Desktop App
   don't match.
 - Added ability to override barcode scanner in case of malfunction allowing users to
   manually enter barcodes.
-- Added redaction of username from file path in log message for finalized recording files.
+- Added redaction of username from file path in log messages for finalized recording files.
 - Added the following metadata values to H5 files:
 
   - Flag indicating whether or not this file is 'fresh' from the desktop app
@@ -22,7 +34,7 @@ Changelog for Mantarray Desktop App
 - Fixed issue caused by closing app just after stopping recording which prevented
   recorded files from being opened due to H5 flags not being cleared.
 - Updated HDF5 File Format Version to 0.4.1.
-- Updated xem_start_calibration script to v8
+- Updated xem_start_calibration script to v8.
 
 
 0.4.0 (2020-12-17)

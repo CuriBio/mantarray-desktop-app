@@ -101,6 +101,8 @@ from .exceptions import MismatchedScriptTypeError
 from .exceptions import MultiprocessingNotSetToSpawnError
 from .exceptions import RecordingFolderDoesNotExistError
 from .exceptions import ScriptDoesNotContainEndCommandError
+from .exceptions import ServerThreadNotInitializedError
+from .exceptions import ServerThreadSingletonAlreadySetError
 from .exceptions import SystemStartUpError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
 from .exceptions import UnrecognizedCommandToInstrumentError
@@ -309,4 +311,6 @@ __all__ = [
     "UnrecognizedRecordingCommandError",
     "UnrecognizedCommandToInstrumentError",
     "get_current_software_version",
+    "ServerThreadNotInitializedError",
+    "ServerThreadSingletonAlreadySetError",
 ]

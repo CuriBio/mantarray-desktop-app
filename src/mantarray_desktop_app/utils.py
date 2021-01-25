@@ -103,7 +103,10 @@ def update_shared_dict(
     ] = attempt_to_get_recording_directory_from_new_dict(new_info_dict)
 
     if new_recording_directory is not None:
-        msg = f"Using directory for recording files: {new_recording_directory}"
+        scrubbed_recordings_dir = redact_sensitive_info_from_path(
+            new_recording_directory
+        )
+        msg = f"Using directory for recording files: {scrubbed_recordings_dir}"
         logger.info(msg)
 
 

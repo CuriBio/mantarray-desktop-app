@@ -14,6 +14,7 @@ from typing import List
 from typing import Optional
 
 from mantarray_desktop_app import clear_server_singletons
+from mantarray_desktop_app import clear_the_server_thread
 from mantarray_desktop_app import DataAnalyzerProcess
 from mantarray_desktop_app import FileWriterProcess
 from mantarray_desktop_app import get_api_endpoint
@@ -110,6 +111,9 @@ def fixture_test_process_manager(mocker):
         if not fw.is_alive():
             # Eli (2/10/20): it is important in windows based systems to make sure to close the files before deleting them. be careful about this when running tests in a linux dev environment
             fw.close_all_files()
+
+    # clean up the server singleton
+    clear_the_server_thread()
 
 
 def start_processes_and_wait_for_start_ups_to_complete(

@@ -6,6 +6,7 @@ from mantarray_desktop_app import main
 from mantarray_desktop_app import ServerThread
 
 from ..fixtures import fixture_generic_queue_container
+from ..fixtures_server import _clean_up_server_thread
 
 __fixtures__ = [
     fixture_generic_queue_container,
@@ -34,8 +35,10 @@ def test_get_server_port_number__returns_port_number_from_server_if_instantiated
         generic_queue_container.get_communication_queue_from_server_to_main()
     )
     expected_port = 4321
-    ServerThread(
+    st = ServerThread(
         to_main_queue, error_queue, generic_queue_container, port=expected_port
     )
 
     assert get_server_port_number() == expected_port
+
+    _clean_up_server_thread(st, to_main_queue, error_queue)

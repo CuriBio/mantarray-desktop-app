@@ -12,7 +12,10 @@ from mantarray_desktop_app import LocalServerPortAlreadyInUseError
 from mantarray_desktop_app import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from mantarray_desktop_app import server
 from mantarray_desktop_app import ServerThread
+from mantarray_desktop_app import ServerThreadNotInitializedError
+from mantarray_desktop_app import ServerThreadSingletonAlreadySetError
 import pytest
+from stdlib_utils import confirm_parallelism_is_stopped
 from stdlib_utils import confirm_port_available
 
 from ..fixtures import fixture_generic_queue_container
@@ -38,8 +41,23 @@ def test_ServerThread__init__calls_super(mocker, generic_queue_container):
     error_queue = Queue()
     to_main_queue = Queue()
     mocked_super_init = mocker.spy(Thread, "__init__")
-    ServerThread(to_main_queue, error_queue, generic_queue_container)
+    st = ServerThread(to_main_queue, error_queue, generic_queue_container)
     assert mocked_super_init.call_count == 1
+
+    _clean_up_server_thread(st, to_main_queue, error_queue)
+
+
+def test_ServerThread__Given_the_server_thread_module_singleton_is_not_None__When_the_ServerThread_is_instantiated__Then_it_raises_an_error(
+    generic_queue_container,
+):
+    error_queue = Queue()
+    to_main_queue = Queue()
+    st_1 = ServerThread(to_main_queue, error_queue, generic_queue_container)
+
+    with pytest.raises(ServerThreadSingletonAlreadySetError):
+        ServerThread(to_main_queue, error_queue, generic_queue_container)
+
+    _clean_up_server_thread(st_1, to_main_queue, error_queue)
 
 
 def test_ServerThread__init__sets_the_module_singleton_of_the_thread_to_new_instance(
@@ -50,6 +68,10 @@ def test_ServerThread__init__sets_the_module_singleton_of_the_thread_to_new_inst
     st = ServerThread(to_main_queue, error_queue, generic_queue_container)
     value_after_first_server_init = get_the_server_thread()
 
+    _clean_up_server_thread(
+        st, to_main_queue, error_queue
+    )  # need to clear the module level singleton before attempting to set it again
+
     error_queue_2 = Queue()
     to_main_queue_2 = Queue()
     st_2 = ServerThread(to_main_queue_2, error_queue_2, generic_queue_container)
@@ -58,7 +80,7 @@ def test_ServerThread__init__sets_the_module_singleton_of_the_thread_to_new_inst
     assert value_after_second_server_init != value_after_first_server_init
 
     # clean up
-    _clean_up_server_thread(st, to_main_queue, error_queue)
+
     _clean_up_server_thread(st_2, to_main_queue_2, error_queue_2)
 
 
@@ -112,6 +134,36 @@ def test_ServerThread_start__puts_error_into_queue_if_port_in_use(
     )
     e, _ = error_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
     assert isinstance(e, LocalServerPortAlreadyInUseError)
+
+
+@pytest.mark.timeout(
+    10
+)  # the test hangs in the current implementation (using _teardown_after_loop) if the super()._teardown_after_loop isn't called, so the timeout confirms that it was implemented correctly
+def test_ServerThread__Given_the_server_thread_is_running__When_it_is_hard_stopped__Then_the_module_level_singleton_is_cleared(
+    running_server_thread,
+):
+    # since the current implementation uses _teardown_after_l
+    st, _, _ = running_server_thread
+    # confirm the pre-condition
+    assert get_the_server_thread() == st
+    st.hard_stop()
+    with pytest.raises(ServerThreadNotInitializedError):
+        get_the_server_thread()
+
+
+@pytest.mark.timeout(
+    10
+)  # the test hangs in the current implementation (using _teardown_after_loop) if the super()._teardown_after_loop isn't called, so the timeout confirms that it was implemented correctly
+def test_ServerThread__Given_the_server_thread_is_running__When_it_is_soft_stopped__Then_the_module_level_singleton_is_cleared(
+    running_server_thread,
+):
+    st, _, _ = running_server_thread
+    # confirm the pre-condition
+    assert get_the_server_thread() == st
+    st.soft_stop()
+    confirm_parallelism_is_stopped(st, timeout_seconds=1)
+    with pytest.raises(ServerThreadNotInitializedError):
+        get_the_server_thread()
 
 
 class DummyException(Exception):
@@ -215,7 +267,7 @@ def test_ServerThread__get_values_from_process_monitor__acquires_lock_and_return
     initial_dict = {"some key here": "some other value"}
     lock = threading.Lock()
     # Eli (11/3/20): still unable to test if lock was acquired.
-    #   https://stackoverflow.com/questions/60187817/mocking-python-thread-locking  (no responses to question as of 11/3/20)
+    #   https://stackoverflow.com/questions/60187817/mocking-python-thread-locking  (no responses to question as of 1/19/21)
     #   https://stackoverflow.com/questions/11836436/how-to-mock-a-readonly-property-with-mock/11843806
     #   https://stackoverflow.com/questions/28850070/python-mocking-a-context-manager
     # mocked_lock_aquire=mocker.patch.object(lock,'acquire',new_callable=mocker.PropertyMock)
@@ -278,7 +330,6 @@ def test_server_queue_command_to_main_puts_in_a_copy_of_the_dict(
 def test_server_queue_command_to_ok_comm_puts_in_a_mutable_version_of_the_dict(
     server_thread,
 ):
-
     test_dict = immutabledict({"al": "gore"})
     server.queue_command_to_ok_comm(test_dict)
     to_instrument_queue = (

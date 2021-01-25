@@ -80,10 +80,13 @@ from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
 from .exceptions import ImproperlyFormattedUserAccountUUIDError
 from .exceptions import LocalServerPortAlreadyInUseError
 from .exceptions import RecordingFolderDoesNotExistError
+from .exceptions import ServerThreadNotInitializedError
+from .exceptions import ServerThreadSingletonAlreadySetError
 from .ok_comm import check_barcode_for_errors
 from .ok_comm import check_mantarray_serial_number
 from .queue_container import MantarrayQueueContainer
 from .queue_utils import _drain_queue
+from .request_handler import MantarrayRequestHandler
 from .utils import convert_request_args_to_config_dict
 from .utils import get_current_software_version
 from .utils import validate_settings
@@ -97,18 +100,14 @@ flask_app = Flask(  # pylint: disable=invalid-name # yes, this is intentionally 
 )
 CORS(flask_app)
 
-_the_server_thread: Optional[
+_the_server_thread: Optional[  # pylint: disable=invalid-name # Eli (11/3/20) yes, this is intentionally a singleton, not a constant. This is the current best guess at how to allow Flask routes to access some info they need
     "ServerThread"
-]  # pylint: disable=invalid-name # Eli (11/3/20) yes, this is intentionally a singleton, not a constant. This is the current best guess at how to allow Flask routes to access some info they need
+] = None
 
 
 def clear_the_server_thread() -> None:
-    global _the_server_thread  # pylint:disable=global-statement # Eli (12/8/20) this is deliberately setting a module-level singleton
+    global _the_server_thread  # pylint:disable=global-statement,invalid-name # Eli (12/8/20) this is deliberately setting a module-level singleton
     _the_server_thread = None
-
-
-class ServerThreadNotInitializedError(Exception):
-    pass
 
 
 def get_the_server_thread() -> "ServerThread":
@@ -140,7 +139,7 @@ def get_server_address_components() -> Tuple[str, str, int]:
         "http",
         "127.0.0.1",
         port_number,
-    )  # get_server_port_number()
+    )
 
 
 def get_api_endpoint() -> str:
@@ -970,12 +969,29 @@ def after_request(response: Response) -> Response:
     response_json = response.get_json()
     if rule is None:
         response = Response(status="404 Route not implemented")
-    elif "get_available_data" in rule.rule and response.status_code == 200:
-        del response_json["waveform_data"]["basic_data"]
+    elif response.status_code == 200:
+        if "get_available_data" in rule.rule:
+            del response_json["waveform_data"]["basic_data"]
+        if "system_status" in rule.rule:
+            mantarray_nicknames = response_json.get("mantarray_nickname", {})
+            for board in mantarray_nicknames:
+                mantarray_nicknames[board] = "*" * len(mantarray_nicknames[board])
+        if "set_mantarray_nickname" in rule.rule:
+            response_json["mantarray_nickname"] = "*" * len(
+                response_json["mantarray_nickname"]
+            )
+        if "start_recording" in rule.rule:
+            mantarray_nickname = response_json[
+                "metadata_to_copy_onto_main_file_attributes"
+            ][str(MANTARRAY_NICKNAME_UUID)]
+            response_json["metadata_to_copy_onto_main_file_attributes"][
+                str(MANTARRAY_NICKNAME_UUID)
+            ] = "*" * len(mantarray_nickname)
 
     msg = "Response to HTTP Request in next log entry: "
     if response.status_code == 200:
-        msg += f"{response_json}"
+        # Tanner (1/19/21): using json.dumps instead of an f-string here allows us to perform better testing of our log messages by loading the json string to a python dict
+        msg += json.dumps(response_json)
     else:
         msg += response.status
     logger.info(msg)
@@ -1000,6 +1016,10 @@ class ServerThread(InfiniteThread):
         logging_level: int = logging.INFO,
         lock: Optional[threading.Lock] = None,
     ) -> None:
+        global _the_server_thread  # pylint:disable=global-statement,invalid-name # Eli (1/21/21): deliberately using a module-level singleton
+        if _the_server_thread is not None:
+            raise ServerThreadSingletonAlreadySetError()
+
         if lock is None:
             lock = threading.Lock()
 
@@ -1010,7 +1030,7 @@ class ServerThread(InfiniteThread):
         self._logging_level = logging_level
         if values_from_process_monitor is None:
             values_from_process_monitor = dict()
-        global _the_server_thread  # pylint:disable=global-statement # Eli (10/30/20): deliberately using a module-level singleton
+
         _the_server_thread = self
         self._values_from_process_monitor = values_from_process_monitor
 
@@ -1054,7 +1074,9 @@ class ServerThread(InfiniteThread):
         try:
             _, host, _ = get_server_address_components()
             self.check_port()
-            flask_app.run(host=host, port=self._port)
+            flask_app.run(
+                host=host, port=self._port, request_handler=MantarrayRequestHandler
+            )
             # Note (Eli 1/14/20) it appears with the current method of using werkzeug.server.shutdown that nothing after this line will ever be executed. somehow the program exists before returning from app.run
         except Exception as e:  # pylint: disable=broad-except # The deliberate goal of this is to catch everything and put it into the error queue
             print_exception(e, "0d6e8031-6653-47d7-8490-8c28f92494c3")
@@ -1068,7 +1090,6 @@ class ServerThread(InfiniteThread):
             message = "Server has been successfully shutdown."
         except requests.exceptions.ConnectionError:
             message = f"Server was not running on {http_route} during shutdown attempt."
-
         put_log_message_into_queue(
             logging.INFO,
             message,
@@ -1077,10 +1098,18 @@ class ServerThread(InfiniteThread):
         )
 
     def stop(self) -> None:
+        """Stop the thread.
+
+        Because there is no actual infinite loop running here, the
+        super().stop() needs to be called to activate the right events
+        being set.
+        """
         self._shutdown_server()
+        self._teardown_after_loop()
+        super().stop()
 
     def soft_stop(self) -> None:
-        self._shutdown_server()
+        self.stop()
 
     def get_data_analyzer_data_out_queue(
         self,
@@ -1098,3 +1127,7 @@ class ServerThread(InfiniteThread):
             self.get_data_analyzer_data_out_queue()
         )
         return queue_items
+
+    def _teardown_after_loop(self) -> None:
+        clear_the_server_thread()
+        super()._teardown_after_loop()

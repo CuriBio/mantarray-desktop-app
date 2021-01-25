@@ -42,8 +42,6 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 ):
     monitor_thread, _, _, _ = test_monitor
 
-    test_process_manager.create_processes()
-
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
@@ -77,8 +75,6 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 ):
     monitor_thread, shared_values_dict, _, _ = test_monitor
 
-    test_process_manager.create_processes()
-
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
@@ -105,8 +101,6 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager, test_monitor
 ):
     monitor_thread, _, _, _ = test_monitor
-
-    test_process_manager.create_processes()
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -143,8 +137,6 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 ):
     monitor_thread, svd, _, _ = test_monitor
 
-    test_process_manager.create_processes()
-
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
@@ -178,8 +170,6 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raise
 
     monitor_thread, _, _, _ = test_monitor
 
-    test_process_manager.create_processes()
-
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
@@ -199,8 +189,6 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager, test_monitor
 ):
     monitor_thread, _, _, _ = test_monitor
-
-    test_process_manager.create_processes()
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -237,7 +225,6 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         process_manager, "get_latest_firmware", autospec=True, return_value=None
     )
 
-    test_process_manager.create_processes()
     spied_boot_up_instrument = mocker.spy(test_process_manager, "boot_up_instrument")
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -267,7 +254,6 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raise
 
     monitor_thread, _, _, _ = test_monitor
 
-    test_process_manager.create_processes()
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
@@ -288,7 +274,6 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 ):
     monitor_thread, _, _, _ = test_monitor
 
-    test_process_manager.create_processes()
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
@@ -325,8 +310,6 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 ):
     monitor_thread, _, _, _ = test_monitor
 
-    test_process_manager.create_processes()
-
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
@@ -358,7 +341,6 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager, test_monitor
 ):
     monitor_thread, _, _, _ = test_monitor
-    test_process_manager.create_processes()
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -392,8 +374,6 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager, test_monitor
 ):
     monitor_thread, _, _, _ = test_monitor
-
-    test_process_manager.create_processes()
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -431,8 +411,6 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager, test_monitor
 ):
     monitor_thread, _, _, _ = test_monitor
-
-    test_process_manager.create_processes()
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -482,8 +460,6 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raise
 
     monitor_thread, _, _, _ = test_monitor
 
-    test_process_manager.create_processes()
-
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
@@ -511,7 +487,6 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 ):
     monitor_thread, _, _, _ = test_monitor
 
-    test_process_manager.create_processes()
     mocked_soft_stop_processes_except_server = mocker.patch.object(
         test_process_manager, "soft_stop_processes_except_server", autospec=True
     )  # Eli (11/17/20): mocking instead of spying because processes can't be joined unless they were actaully started, and we're just doing a create_processes here
@@ -538,7 +513,6 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 ):
     monitor_thread, _, _, _ = test_monitor
 
-    test_process_manager.create_processes()
     mocked_are_processes_stopped = mocker.patch.object(
         test_process_manager, "are_processes_stopped", autospec=True
     )  # Eli (11/17/20): mocking instead of spying because processes can't be joined unless they were actaully started, and we're just doing a create_processes here
@@ -563,7 +537,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     mocked_hard_stop_and_join.assert_called_once()
 
 
-@pytest.mark.timeout(10)
+@pytest.mark.timeout(13)
 @pytest.mark.slow
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_shutdown_hard_stop__by_soft_stop_then_checking_if_processes_are_stopped_for_desired_time_and_then_finally_hard_stop_and_join_all_processes(
     test_process_manager, test_monitor, mocker
