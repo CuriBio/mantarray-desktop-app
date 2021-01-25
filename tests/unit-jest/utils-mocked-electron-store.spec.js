@@ -48,8 +48,8 @@ describe("electron_store", () => {
           cwd: undefined,
           name: "mantarray_controller_config",
           fileExtension: "yaml",
-          serialize: yaml.safeDump,
-          deserialize: yaml.safeLoad,
+          serialize: yaml.dump,
+          deserialize: yaml.load,
         })
       );
     });

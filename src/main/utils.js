@@ -48,8 +48,8 @@ const create_store = function ({
     cwd: file_path,
     name: file_name,
     fileExtension: "yaml",
-    serialize: yaml.safeDump,
-    deserialize: yaml.safeLoad,
+    serialize: yaml.dump,
+    deserialize: yaml.load,
     defaults: {
       customer_account_ids: [],
       active_customer_account_index: 0,
