@@ -1175,9 +1175,9 @@ def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_
     queue_items = drain_queue(
         comm_to_main_queue,
         timeout_secs=(  # TODO Tanner (1/11/21): Change this kwarg to `timeout_seconds` to be consistent with other queue functions in stdlib_utils
-            QUEUE_CHECK_TIMEOUT_SECONDS * 2
+            QUEUE_CHECK_TIMEOUT_SECONDS * 3
         ),
-    )  # Tanner (1/11/21): This message takes longer too populate than normal so adding a longer timeout here. Unsure why this is the case
+    )  # Tanner (1/11/21): This message takes longer to populate than normal so adding a longer timeout here. Unsure why this is the case # Tanner (1/24/21): This test is still failing sporadically in CI, so increasing to QUEUE_CHECK_TIMEOUT_SECONDS * 3
     actual_last_queue_item = queue_items[-1]
     assert (
         actual_last_queue_item["message"]
