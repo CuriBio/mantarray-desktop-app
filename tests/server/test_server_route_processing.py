@@ -118,7 +118,7 @@ def test_send_single_set_mantarray_nickname_command__gets_processed_and_stores_n
     test_process_manager.hard_stop_and_join_processes()
 
 
-@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS * 1.5)
 @pytest.mark.slow
 def test_send_single_start_calibration_command__gets_processed_and_sets_system_status_to_calibrating(
     patched_short_calibration_script,
