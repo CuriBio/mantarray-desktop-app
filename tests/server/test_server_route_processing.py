@@ -1857,7 +1857,6 @@ def test_after_request__redacts_mantarray_nickname_from_set_mantarray_nickname_l
     mocker,
 ):
     test_client, _, _ = client_and_server_thread_and_shared_values
-    # pytest tests/server/test_server_route_processing.py --include-slow-tests -xvv --randomly-seed=3185259035
     spied_server_logger = mocker.spy(server.logger, "info")
 
     expected_nickname = "A New Nickname"

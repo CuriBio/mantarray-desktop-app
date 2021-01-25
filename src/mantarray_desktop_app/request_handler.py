@@ -34,6 +34,6 @@ class MantarrayRequestHandler(WSGIRequestHandler):
 
         _log(
             type_,
-            f"{self.address_string()} - - [{self.log_date_time_string()}] {message}\n",  # type: ignore  # Tanner (1/21/20): mypy is complaining that `address_string` is untyped
+            f"{self.address_string()} - - {message}\n",  # type: ignore  # Tanner (1/21/20): mypy is complaining that `address_string` is untyped
             *args,
         )
