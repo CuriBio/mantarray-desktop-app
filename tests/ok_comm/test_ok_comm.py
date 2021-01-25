@@ -51,6 +51,7 @@ from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_ok_comm import fixture_four_board_comm_process
 from ..fixtures_ok_comm import fixture_patch_connection_to_board
 from ..fixtures_ok_comm import fixture_running_process_with_simulated_board
+from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import is_queue_eventually_empty
 from ..helpers import is_queue_eventually_not_empty
 from ..helpers import is_queue_eventually_of_size
@@ -1165,6 +1166,9 @@ def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_
         }
     )
     input_queue.put(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
+    confirm_queue_is_eventually_of_size(
+        comm_to_main_queue, 2, timeout_seconds=4
+    )  # Tanner (1/24/21): Since ok_comm is running here, it is more difficult to assert something has populated input_queue, but nothing will clear the items in the queue back to main so we can assert that the returned messages show up before soft_stopping. The timeout is much larger than normal since data must pass through the entire process and populate the queue back to main.
     ok_process.soft_stop()
     confirm_parallelism_is_stopped(
         ok_process,
@@ -1175,10 +1179,12 @@ def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_
     queue_items = drain_queue(
         comm_to_main_queue,
         timeout_secs=(  # TODO Tanner (1/11/21): Change this kwarg to `timeout_seconds` to be consistent with other queue functions in stdlib_utils
-            QUEUE_CHECK_TIMEOUT_SECONDS * 3
+            QUEUE_CHECK_TIMEOUT_SECONDS
         ),
-    )  # Tanner (1/11/21): This message takes longer to populate than normal so adding a longer timeout here. Unsure why this is the case # Tanner (1/24/21): This test is still failing sporadically in CI, so increasing to QUEUE_CHECK_TIMEOUT_SECONDS * 3
+    )
     actual_last_queue_item = queue_items[-1]
+    # print(actual_last_queue_item)
+    assert "message" in actual_last_queue_item
     assert (
         actual_last_queue_item["message"]
         == "Board acquisition still running. Stopping acquisition to complete teardown"
