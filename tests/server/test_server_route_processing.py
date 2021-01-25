@@ -4,6 +4,7 @@ from multiprocessing import Queue
 import os
 import struct
 import tempfile
+import time
 
 from freezegun import freeze_time
 from mantarray_desktop_app import BARCODE_VALID_UUID
@@ -1933,5 +1934,7 @@ def test_server__does_not_modify_log_message_for_route_not_containing_sensitive_
     expected_route_call = "insert_xem_command_into_queue/set_mantarray_serial_number?serial_number=M02001900"
     response = requests.get(f"{get_api_endpoint()}{expected_route_call}")
     assert response.status_code == 200
-
+    time.sleep(
+        0.1
+    )  # Eli (1/25/21) it appears sometimes it can take a non-zero amount of time after the status code occurs for the werkzeug to make the log entry. There was a case where it only had 'http' in the entry when the assertion was made. https://github.com/CuriBio/mantarray-desktop-app/runs/1762884429?check_suite_focus=true
     assert expected_route_call in spied_werkzeug_logger_info.call_args_list[0][0][1]
