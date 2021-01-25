@@ -152,12 +152,11 @@ def test_ServerThread__Given_the_server_thread_is_running__When_it_is_hard_stopp
 
 
 @pytest.mark.timeout(
-    5
+    10
 )  # the test hangs in the current implementation (using _teardown_after_loop) if the super()._teardown_after_loop isn't called, so the timeout confirms that it was implemented correctly
 def test_ServerThread__Given_the_server_thread_is_running__When_it_is_soft_stopped__Then_the_module_level_singleton_is_cleared(
     running_server_thread,
 ):
-    # since the current implementation uses _teardown_after_l
     st, _, _ = running_server_thread
     # confirm the pre-condition
     assert get_the_server_thread() == st
