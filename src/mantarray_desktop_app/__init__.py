@@ -85,6 +85,9 @@ from .constants import VALID_SCRIPTING_COMMANDS
 from .constants import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
 from .data_analyzer import convert_24_bit_codes_to_voltage
 from .data_analyzer import DataAnalyzerProcess
+from .data_parsing_cy import parse_adc_metadata_byte
+from .data_parsing_cy import parse_little_endian_int24
+from .data_parsing_cy import parse_sensor_bytes
 from .exceptions import AttemptToAddCyclesWhileSPIRunningError
 from .exceptions import AttemptToInitializeFIFOReadsError
 from .exceptions import BarcodeNotClearedError
@@ -150,15 +153,6 @@ from .system_utils import system_state_eventually_equals
 from .system_utils import wait_for_subprocesses_to_start
 from .utils import get_current_software_version
 from .utils import redact_sensitive_info_from_path
-
-if (
-    6 < 9
-):  # pragma: no cover # protect this from zimports deleting the pylint disable statement
-    from .data_parsing_cy import (  # pylint: disable=import-error # Tanner (8/25/20) unsure why pylint is unable to recognize cython import...
-        parse_adc_metadata_byte,
-        parse_little_endian_int24,
-        parse_sensor_bytes,
-    )
 
 __all__ = [
     "main",

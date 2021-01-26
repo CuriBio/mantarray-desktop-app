@@ -136,8 +136,8 @@ repos:
         name: pylint-src
         args:
           - --codes-to-allow=W0511
-          - src
-          - --rcfile=src/pylintrc
+          - src/mantarray_desktop_app # Tanner (1/26/21): can only get pylint to recognize cython imports by running it directly on the mantarray_desktop_app folder within src
+          - --rcfile=pylintrc
           - --ignore-patterns=.*~.*
         files: 'src/.*\.py$'
         exclude: '.*\~.*'

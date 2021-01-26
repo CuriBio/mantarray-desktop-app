@@ -52,6 +52,7 @@ from .constants import REF_INDEX_TO_24_WELL_INDEX
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import TIMESTEP_CONVERSION_FACTOR
 from .constants import VALID_SCRIPTING_COMMANDS
+from .data_parsing_cy import parse_sensor_bytes
 from .exceptions import BarcodeNotClearedError
 from .exceptions import BarcodeScannerNotRespondingError
 from .exceptions import FirmwareFileNameDoesNotMatchWireOutVersionError
@@ -67,13 +68,6 @@ from .exceptions import UnrecognizedDebugConsoleCommandError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
 from .fifo_simulator import RunningFIFOSimulator
 from .mantarray_front_panel import MantarrayFrontPanel
-
-if (
-    6 < 9
-):  # pragma: no cover # protect this from zimports deleting the pylint disable statement
-    from .data_parsing_cy import (  # pylint: disable=import-error # Tanner (8/25/20): unsure why pylint is unable to recognize cython import...
-        parse_sensor_bytes,
-    )
 
 
 # Tanner (12/30/20): Need to support this function until barcodes are no longer accepted in /start_recording route. Creating a wrapper function `_check_barcode_is_valid` to make the transition easier once this function is removed
