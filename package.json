@@ -41,7 +41,7 @@
     "js-yaml": "~4.0.0",
     "mkdirp": "~1.0.4",
     "urlsafe-base64": "^1.0.0",
-    "vue-axios": "2.1.5",
+    "vue-axios": "3.2.2",
     "yargs": "16.2.0"
   },
   "devDependencies": {
