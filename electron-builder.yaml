@@ -1,5 +1,6 @@
 # https://www.electron.build/configuration/configuration#configuration
 productName: "Mantarray Controller"
+publish: "never"
 appId: "CuriBio.Mantarray.Controller"
 asar: true
 # readonly: true
