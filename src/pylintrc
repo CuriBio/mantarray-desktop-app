@@ -28,7 +28,7 @@ unsafe-load-any-extension=no
 # A comma-separated list of package or module names from where C extensions may
 # be loaded. Extensions are loading into the active Python interpreter and may
 # run arbitrary code
-extension-pkg-whitelist=PyQt5  # pylint does not load C extensions, so PyQt needs to be whitelisted
+extension-pkg-whitelist=mantarray_desktop_app.data_parsing_cy  # pylint does not load C extensions, so data_parsing_cy need to be whitelisted
 
 
 [MESSAGES CONTROL]
