@@ -15,7 +15,7 @@
   "license": "MIT",
   "main": "./dist/main/index.js",
   "scripts": {
-    "prepare": "pre-commit install && npx npm-merge-driver install",
+    "prepare": "pre-commit install",
     "dev": "node ./node_modules/@curi-bio/frontend-test-utils/src/check_engines.js && cross-env-shell NODE_ENV=development node .electron-nuxt/index.js",
     "test:unit": "node ./node_modules/@curi-bio/frontend-test-utils/src/check_engines.js && cross-env-shell NODE_ENV=test jest -c jest.config.js",
     "test:e2e": "node ./node_modules/@curi-bio/frontend-test-utils/src/check_engines.js && cross-env-shell NODE_ENV=production node .electron-nuxt/index.js && cross-env-shell NODE_ENV=test jest -c jest-spectron.config.js",
@@ -47,9 +47,8 @@
   "devDependencies": {
     "@curi-bio/frontend-test-utils": "~0.1.2",
     "@fortawesome/fontawesome-free": "~5.15.2",
-    "@nuxtjs/eslint-config": "1.1.2",
-    "@nuxtjs/vuetify": "1.11.0",
-    "@types/webdriverio": "4.13.3",
+    "@nuxtjs/eslint-config": "~5.0.0",
+    "@nuxtjs/vuetify": "~1.11.3",
     "@vue/test-utils": "~1.1.2",
     "@xpda-dev/core": "~0.1.5",
     "@xpda-dev/electron-builder": "~0.2.1",
@@ -80,7 +79,6 @@
     "jest-serializer-vue": "~2.0.2",
     "jest-sinon": "1.0.3",
     "jest-transform-stub": "~2.0.0",
-    "npm-merge-driver": "2.3.6",
     "nuxt": "~2.14.12",
     "organize-imports-cli": "0.8.0",
     "prettier-plugin-organize-imports": "1.0.3",
@@ -95,6 +93,7 @@
     "vue-devtools": "~5.1.3",
     "vue-eslint-parser": "~7.4.1",
     "vue-jest": "~3.0.7",
+    "npm-merge-driver-install": "~1.1.1",
     "wait-for-expect": "^3.0.2"
   }
 }
