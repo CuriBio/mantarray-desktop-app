@@ -21,7 +21,7 @@ const package_path = path.join(__dirname, "..", "..", "package");
 const { DIST_DIR } = require(electron_nuxt_config_path);
 
 const fileContents = fs.readFileSync(electron_builder_config_path, "utf8");
-const builder_config_data = yaml.safeLoad(fileContents);
+const builder_config_data = yaml.load(fileContents);
 
 const product_name = builder_config_data.productName;
 

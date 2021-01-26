@@ -27,7 +27,6 @@ jobs:
           - "ubuntu-18.04"
           - "ubuntu-20.04"
           - "windows-2019"
-          - "windows-2016"
         python-version:
           - 3.7
           - 3.8
@@ -40,7 +39,7 @@ jobs:
             python-version: "3.8"
             node-version: "14"
             IS_FASTEST_JOB: true
-          - os: "windows-2016" # TODO (Eli (12/11/20): There are some weird issues with the Cython compilied libraries not importing correctly in Windows 2019 that need to be figured out
+          - os: "windows-2019"
             python-version: "3.8"
             node-version: "14"
             IS_DEPLOYMENT_CONFIG: true
