@@ -35,7 +35,7 @@ let builder_config_path;
 builder_config_path = path.join(__dirname, "..", "electron-builder.yaml");
 
 const builder = new ElectronBuilder({
-  cliOptions: {
+  processArgv: {
     config: builder_config_path,
     publish: "never", // Eli (10/21/20): temporarily disable all publishing during transition to GitHub
   },
