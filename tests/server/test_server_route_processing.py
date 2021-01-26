@@ -1919,6 +1919,9 @@ def test_server__redacts_nickname_parameter_from_set_mantarray_nickname_route(
 
     redacted_nickname = "*" * len(test_nickname)
     expected_message = f"set_mantarray_nickname?nickname={redacted_nickname}"
+    print(  # allow-print # Tanner (1/25/21): This test is failing for a very weird reason. Printing here to see the entire call args next time it fails
+        spied_werkzeug_logger_info.call_args_list
+    )
     assert expected_message in spied_werkzeug_logger_info.call_args_list[0][0][1]
 
 

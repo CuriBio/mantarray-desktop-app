@@ -216,15 +216,11 @@ def test_FileWriterProcess_soft_stop_not_allowed_if_command_from_main_still_in_q
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [1]
     from_main_queue.put(this_command)
-    from_main_queue.put(this_command)
-    assert (
-        is_queue_eventually_of_size(
-            from_main_queue, 2, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    from_main_queue.put(copy.deepcopy(this_command))
+    confirm_queue_is_eventually_of_size(from_main_queue, 2)
     file_writer_process.soft_stop()
     invoke_process_run_and_check_errors(file_writer_process)
+    confirm_queue_is_eventually_of_size(from_main_queue, 1)
     assert file_writer_process.is_stopped() is False
 
 

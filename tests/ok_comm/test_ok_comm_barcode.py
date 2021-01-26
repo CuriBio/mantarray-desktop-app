@@ -127,6 +127,10 @@ def test_OkCommunicationProcess__waits_appropriate_amount_of_time_after_clearing
 def test_OkCommunicationProcess__raises_error_if_barcode_buffer_not_cleared_after_sending_clear_command__and_doesnt_start_scan(
     four_board_comm_process, mocker, test_barcode_simulator
 ):
+    mocker.patch(
+        "builtins.print", autospec=True
+    )  # don't print all the error messages to console
+
     expected_barcode = "not clear"
 
     mocker.patch.object(
@@ -241,6 +245,10 @@ def test_OkCommunicationProcess__sends_message_to_main_if_valid_barcode_received
 def test_OkCommunicationProcess__raises_error_if_barcode_scanner_does_not_respond(
     four_board_comm_process, mocker, test_barcode_simulator
 ):
+    mocker.patch(
+        "builtins.print", autospec=True
+    )  # don't print all the error messages to console
+
     expected_barcode = CLEARED_BARCODE_VALUE
 
     mocker.patch.object(
