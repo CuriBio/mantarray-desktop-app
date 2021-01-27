@@ -10,3 +10,13 @@
 .. image:: https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white
    :target: https://github.com/pre-commit/pre-commit
    :alt: pre-commit
+
+NodeJS Dependencies:
+
+.. image:: https://david-dm.org/CuriBio/mantarray-desktop-app/status.svg
+   :target: https://david-dm.org/CuriBio/mantarray-desktop-app
+   :alt: NodeDevDependency Status
+
+.. image:: https://david-dm.org/CuriBio/mantarray-desktop-app/dev-status.svg
+   :target: https://david-dm.org/CuriBio/mantarray-desktop-app?type=dev
+   :alt: NodeDependency Status

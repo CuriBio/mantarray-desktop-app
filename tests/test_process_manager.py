@@ -1,12 +1,10 @@
 # -*- coding: utf-8 -*-
 import logging
-import os
 from unittest.mock import ANY
 
 from mantarray_desktop_app import clear_the_server_thread
 from mantarray_desktop_app import DataAnalyzerProcess
 from mantarray_desktop_app import FileWriterProcess
-from mantarray_desktop_app import get_mantarray_process_manager
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import MantarrayProcessesManager
 from mantarray_desktop_app import OkCommunicationProcess
@@ -15,8 +13,6 @@ from mantarray_desktop_app import ServerThread
 from mantarray_desktop_app import SUBPROCESS_POLL_DELAY_SECONDS
 from mantarray_desktop_app import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 import pytest
-from stdlib_utils import get_current_file_abs_directory
-from stdlib_utils import resource_path
 
 from .fixtures import fixture_patch_subprocess_is_stopped_to_false
 from .fixtures import fixture_patched_firmware_folder
@@ -358,24 +354,6 @@ def test_MantarrayProcessesManager__passes_logging_level_to_subprocesses():
     clear_the_server_thread()
 
 
-def test_get_mantarray_process_manager__returns_process_monitor_with_correct_recordings_file_directory():
-    process_manager_path = os.path.join(
-        os.path.dirname(get_current_file_abs_directory()),
-        "src",
-        "mantarray_desktop_app",
-    )
-    base_path = os.path.join(process_manager_path, os.pardir, os.pardir)
-    base_path = os.path.normcase(base_path)
-    relative_path = "recordings"
-    expected_recordings_path = resource_path(relative_path, base_path=base_path)
-
-    actual_manager = get_mantarray_process_manager()
-    assert (
-        actual_manager._file_directory  # pylint: disable=protected-access
-        == expected_recordings_path
-    )
-
-
 def test_MantarrayProcessesManager__boot_up_instrument__populates_ok_comm_queue__and_sets_system_status(
     generic_manager, patched_firmware_folder
 ):
@@ -628,14 +606,3 @@ def test_MantarrayProcessesManager__are_subprocess_start_ups_complete__returns_f
             iter_process, "is_start_up_complete", autospec=True, return_value=True
         )
     assert test_process_manager.are_subprocess_start_ups_complete() is False
-
-
-# def test_get_mantarray_process_manager__spawns_processes_if_not_already_started__but_not_again(
-#     mocker,
-# ):
-#     mocked_spawn = mocker.spy(MantarrayProcessesManager, "spawn_processes")
-#     manager = get_mantarray_process_manager()
-#     assert mocked_spawn.call_count == 1
-#     manager = get_mantarray_process_manager()
-#     assert mocked_spawn.call_count == 1
-#     manager.stop_processes()

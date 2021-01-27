@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import copy
 import logging
-import os
 from time import perf_counter
 from time import sleep
 from typing import Any
@@ -13,9 +12,6 @@ from typing import Iterable
 from typing import Optional
 from typing import Tuple
 from typing import Union
-
-from stdlib_utils import get_current_file_abs_directory
-from stdlib_utils import resource_path
 
 from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import INSTRUMENT_INITIALIZING_STATE
@@ -288,19 +284,3 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
                 return False
 
         return True
-
-
-def _create_process_manager() -> MantarrayProcessesManager:
-    base_path = os.path.join(get_current_file_abs_directory(), os.pardir, os.pardir)
-    relative_path = "recordings"
-    file_dir = resource_path(relative_path, base_path=base_path)
-    return MantarrayProcessesManager(file_directory=file_dir)
-
-
-the_manager = (  # pylint: disable=invalid-name # this is a singleton
-    _create_process_manager()
-)
-
-
-def get_mantarray_process_manager() -> MantarrayProcessesManager:
-    return the_manager

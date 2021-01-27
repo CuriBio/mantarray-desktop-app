@@ -137,7 +137,6 @@ from .ok_comm import parse_data_frame
 from .ok_comm import parse_gain
 from .ok_comm import parse_scripting_log
 from .ok_comm import parse_scripting_log_line
-from .process_manager import get_mantarray_process_manager
 from .process_manager import MantarrayProcessesManager
 from .process_monitor import MantarrayProcessesMonitor
 from .queue_container import MantarrayQueueContainer
@@ -172,7 +171,6 @@ __all__ = [
     "get_server_port_number",
     "process_manager",
     "MantarrayProcessesManager",
-    "get_mantarray_process_manager",
     "MantarrayProcessesMonitor",
     "get_api_endpoint",
     "MAX_POSSIBLE_CONNECTED_BOARDS",
