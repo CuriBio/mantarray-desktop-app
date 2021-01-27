@@ -67,6 +67,7 @@ from .exceptions import UnrecognizedDebugConsoleCommandError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
 from .fifo_simulator import RunningFIFOSimulator
 from .mantarray_front_panel import MantarrayFrontPanel
+from .utils import _trim_barcode
 
 if (
     6 < 9
@@ -100,15 +101,6 @@ def check_barcode_for_errors(barcode: str) -> str:
 def _check_barcode_is_valid(barcode: str) -> bool:
     error_msg = check_barcode_for_errors(barcode)
     return error_msg == ""
-
-
-def _trim_barcode(barcode: str) -> str:
-    """Trim the trailing 1 or 2 ASCII NUL (0x00) chars off barcode."""
-    if barcode[11] != chr(0):
-        return barcode
-    if barcode[10] != chr(0):
-        return barcode[:11]
-    return barcode[:10]
 
 
 def _get_formatted_utc_now() -> str:
