@@ -863,6 +863,9 @@ def test_MantarrayProcessesMonitor__stores_barcode_sent_from_ok_comm__and_no_pre
     }
     if test_valid is not None:
         barcode_comm["valid"] = test_valid
+    if test_valid is False:
+        # specifically want test_valid to be False here, not None since invalid barcodes have trailing `\x00`
+        barcode_comm["barcode"] += chr(0)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         barcode_comm, from_ok_comm_queue
     )
@@ -878,9 +881,9 @@ def test_MantarrayProcessesMonitor__stores_barcode_sent_from_ok_comm__and_no_pre
 @pytest.mark.parametrize(
     "expected_barcode,test_valid,expected_status,test_description",
     [
-        ("MA200190000", True, BARCODE_VALID_UUID, "stores new valid barcode"),
-        ("M$200190000", False, BARCODE_INVALID_UUID, "stores new invalid barcode"),
-        ("", None, BARCODE_UNREADABLE_UUID, "stores no barcode"),
+        ("MA200190000", True, BARCODE_VALID_UUID, "updates to new valid barcode"),
+        ("M$200190000", False, BARCODE_INVALID_UUID, "updates to new invalid barcode"),
+        ("", None, BARCODE_UNREADABLE_UUID, "updates to no barcode"),
     ],
 )
 def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_ok_comm(
@@ -913,6 +916,9 @@ def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_ok_comm(
     }
     if test_valid is not None:
         barcode_comm["valid"] = test_valid
+    if test_valid is False:
+        # specifically want test_valid to be False here, not None since invalid barcodes have trailing `\x00`
+        barcode_comm["barcode"] += chr(0)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         barcode_comm, from_ok_comm_queue
     )
@@ -928,9 +934,9 @@ def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_ok_comm(
 @pytest.mark.parametrize(
     "expected_barcode,test_valid,test_update,test_description",
     [
-        ("MA200190000", True, False, "stores new valid barcode"),
-        ("M$200190000", False, True, "stores new invalid barcode"),
-        ("", None, False, "stores no barcode"),
+        ("MA200190000", True, False, "does not update to current valid barcode"),
+        ("M$200190000", False, True, "does not update to current invalid barcode"),
+        ("", None, False, "does not update to current empty barcode"),
     ],
 )
 def test_MantarrayProcessesMonitor__does_not_update_any_values_if_new_barcode_matches_current_barcode(
@@ -962,12 +968,42 @@ def test_MantarrayProcessesMonitor__does_not_update_any_values_if_new_barcode_ma
     }
     if test_valid is not None:
         barcode_comm["valid"] = test_valid
+    if test_valid is False:
+        # specifically want test_valid to be False here, not None since invalid barcodes have trailing `\x00`
+        barcode_comm["barcode"] += chr(0)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         barcode_comm, from_ok_comm_queue
     )
     invoke_process_run_and_check_errors(monitor_thread)
 
     assert shared_values_dict["barcodes"][expected_board_idx] == expected_dict
+
+
+def test_MantarrayProcessesMonitor__trims_barcode_string_before_storing_in_shared_values_dict(
+    test_monitor, test_process_manager
+):
+    monitor_thread, shared_values_dict, _, _ = test_monitor
+
+    expected_board_idx = 0
+    from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+        expected_board_idx
+    )
+
+    expected_barcode = "M020090048"
+    barcode_comm = {
+        "communication_type": "barcode_comm",
+        "barcode": expected_barcode + chr(0) * 2,
+        "board_idx": expected_board_idx,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        barcode_comm, from_ok_comm_queue
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+
+    assert (
+        shared_values_dict["barcodes"][expected_board_idx]["plate_barcode"]
+        == expected_barcode
+    )
 
 
 def test_MantarrayProcessesMonitor__redacts_mantarray_nickname_from_logged_mantarray_naming_ok_comm_messages(

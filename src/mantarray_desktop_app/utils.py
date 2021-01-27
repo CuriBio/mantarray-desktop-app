@@ -142,3 +142,12 @@ def get_current_software_version() -> str:
                 f"The version in package.json should always be a string. It was: {version}"
             )
         return version
+
+
+def _trim_barcode(barcode: str) -> str:
+    """Trim the trailing 1 or 2 ASCII NUL (0x00) chars off barcode."""
+    if barcode[11] != chr(0):
+        return barcode
+    if barcode[10] != chr(0):
+        return barcode[:11]
+    return barcode[:10]

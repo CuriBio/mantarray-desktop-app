@@ -38,6 +38,7 @@ from .exceptions import UnrecognizedMantarrayNamingCommandError
 from .exceptions import UnrecognizedRecordingCommandError
 from .process_manager import MantarrayProcessesManager
 from .server import ServerThread
+from .utils import _trim_barcode
 from .utils import attempt_to_get_recording_directory_from_new_dict
 from .utils import redact_sensitive_info_from_path
 from .utils import update_shared_dict
@@ -349,6 +350,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 offset_val = communication["wire_out_value"]
                 self._add_offset_to_shared_dict(adc_index, ch_index, offset_val)
         elif communication_type == "barcode_comm":
+            barcode = communication["barcode"]
+            if len(barcode) == 12:
+                # Tanner (1/27/21): invalid barcodes will be sent untrimmed from ok_comm so the full string is logged, so trimming them here in order to always send trimmed barcodes to GUI.
+                barcode = _trim_barcode(barcode)
             if "barcodes" not in self._values_to_share_to_server:
                 self._values_to_share_to_server["barcodes"] = dict()
             board_idx = communication["board_idx"]
@@ -356,7 +361,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._values_to_share_to_server["barcodes"][board_idx] = dict()
             elif (
                 self._values_to_share_to_server["barcodes"][board_idx]["plate_barcode"]
-                == communication["barcode"]
+                == barcode
             ):
                 return
             valid = communication.get("valid", None)
@@ -368,7 +373,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             else:
                 barcode_status = BARCODE_INVALID_UUID
             self._values_to_share_to_server["barcodes"][board_idx] = {
-                "plate_barcode": communication["barcode"],
+                "plate_barcode": barcode,
                 "barcode_status": barcode_status,
                 "frontend_needs_barcode_update": True,
             }
