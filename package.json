@@ -1,6 +1,6 @@
 {
   "name": "MantarrayController",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Desktop application for controlling the Mantarray instrument.",
   "author": {
     "name": "Curi Bio",
@@ -30,7 +30,7 @@
     "node": ">=14.15.1"
   },
   "dependencies": {
-    "@curi-bio/mantarray-frontend-components": "0.1.11",
+    "@curi-bio/mantarray-frontend-components": "0.1.12",
     "@electron/remote": "~1.0.2",
     "axios": "~0.21.1",
     "current-script-polyfill": "~1.0.0",

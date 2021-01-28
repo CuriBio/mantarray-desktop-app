@@ -10,7 +10,7 @@ const yaml = require("js-yaml");
  * @return {string} the semantic version
  */
 const get_current_app_version = function () {
-  return "0.4.1";
+  return "0.4.2";
   // Eli (1/15/21) - can't figure out how to get it working dynamically
   // try {
   //   const {electron_app} = require("electron").remote;
