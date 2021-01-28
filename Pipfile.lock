@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "5721ea32722141e7820de3b82306819c8d00459f6c41ceff81d2d2c72a87df19"
+            "sha256": "22e9ffa0edb9b29a1649f5deb6522d40bc3f76bbfa77c8691a5d83094046d534"
         },
         "pipfile-spec": 6,
         "requires": {},
@@ -97,11 +97,11 @@
         },
         "immutabledict": {
             "hashes": [
-                "sha256:0341ee9cc84cb318fe06aa25c89d27e2564463924063d3f5e976fd0fa207849a",
-                "sha256:f201ad8a07a6dbbbd0c0328ebcc8a46ea4ccc766a8e1dba418ba8233cf220fa5"
+                "sha256:1e6bb628eb158d32caf961bed5bb283f9e57201b50f48cd5063175612f0f3efd",
+                "sha256:9ba015dc189af8aac5921248af18a06d76a1d026e362f917a8e9ee29e8de5133"
             ],
             "index": "pypi",
-            "version": "==1.1.0"
+            "version": "==1.2.0"
         },
         "importlib-metadata": {
             "hashes": [
@@ -339,7 +339,7 @@
                 "sha256:56f6dc65d86c2e5b8f04f22acedd33af2c233edc1082fe4d24fd3996bd19d0fe",
                 "sha256:f9395cad9a30cb9864fa0c0d18a84daead1eb8807774f4e09f588f89b7dc77d8"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3' and python_version < '4.0'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3' and python_version < '4'",
             "version": "==1.5.0"
         },
         "werkzeug": {
@@ -504,7 +504,7 @@
                 "sha256:fbb17c0d0822684b7d6c09915677a32319f16ff1115df5ec05bdcaaee40b35f3",
                 "sha256:fff1f3a586246110f34dc762098b5afd2de88de507559e63553d7da643053786"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4.0'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4'",
             "version": "==5.4"
         },
         "cython": {
@@ -628,7 +628,7 @@
                 "sha256:c729845434366216d320e936b8ad6f9d681aab72dc7cbc2d51bedc3582f3ad1e",
                 "sha256:fff4f0c04e1825522ce6949973e83110a6e907750cd92d128b0d14aaaadbffdc"
             ],
-            "markers": "python_version >= '3.6' and python_version < '4.0'",
+            "markers": "python_version >= '3.6' and python_version < '4'",
             "version": "==5.7.0"
         },
         "jinja2": {
