@@ -1158,6 +1158,7 @@ def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_
     input_queue = board_queues[0][0]
     comm_to_main_queue = board_queues[0][1]
 
+    ok_process.pause()  # pause so it can be asserted that both commands populate ok_comm's input queue
     input_queue.put(
         {
             "communication_type": "debug_console",
@@ -1166,7 +1167,6 @@ def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_
         }
     )
     input_queue.put(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
-    ok_process.pause()  # pause so it can be asserted that both commands populate ok_comm's input queue
     confirm_queue_is_eventually_of_size(input_queue, 2)
     ok_process.unpause()
     ok_process.soft_stop()
