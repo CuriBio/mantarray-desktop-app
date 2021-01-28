@@ -103,7 +103,10 @@ def update_shared_dict(
     ] = attempt_to_get_recording_directory_from_new_dict(new_info_dict)
 
     if new_recording_directory is not None:
-        msg = f"Using directory for recording files: {new_recording_directory}"
+        scrubbed_recordings_dir = redact_sensitive_info_from_path(
+            new_recording_directory
+        )
+        msg = f"Using directory for recording files: {scrubbed_recordings_dir}"
         logger.info(msg)
 
 
@@ -139,3 +142,12 @@ def get_current_software_version() -> str:
                 f"The version in package.json should always be a string. It was: {version}"
             )
         return version
+
+
+def _trim_barcode(barcode: str) -> str:
+    """Trim the trailing 1 or 2 ASCII NUL (0x00) chars off barcode."""
+    if barcode[11] != chr(0):
+        return barcode
+    if barcode[10] != chr(0):
+        return barcode[:11]
+    return barcode[:10]

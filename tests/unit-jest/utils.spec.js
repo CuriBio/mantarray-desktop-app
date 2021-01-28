@@ -76,7 +76,7 @@ describe("utils.js", () => {
               "--expected-software-version=" +
                 // Eli (1/15/21) can't figure out how to get the spy set up correctly
                 // spied_get_current_app_version.mock.results[0].value,
-                "0.4.1",
+                "0.4.2",
             ])
           );
         });

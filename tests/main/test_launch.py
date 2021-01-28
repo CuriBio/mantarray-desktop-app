@@ -457,7 +457,7 @@ def test_main__does_not_call_boot_up_function_upon_launch_if_command_line_arg_pa
     spied_boot_up.assert_not_called()
 
 
-@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS * 1.5)
 @freeze_time("2020-07-21 21:51:36.704515")
 def test_main_can_launch_server_and_processes_and_initial_boot_up_of_ok_comm_process_gets_logged__default_exe_execution(
     mocker,

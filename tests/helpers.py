@@ -5,6 +5,9 @@ https://docs.pytest.org/en/stable/writing_plugins.html
 """
 from __future__ import annotations
 
+import json
+from typing import Any
+from typing import Dict
 from typing import Union
 
 import stdlib_utils
@@ -102,3 +105,9 @@ def assert_queue_is_eventually_empty(
         )
         is True
     )
+
+
+def convert_after_request_log_msg_to_json(log_msg: str) -> Dict[Any, Any]:
+    trimmed_log_msg = log_msg[log_msg.index("{") :].replace("'", '"')
+    logged_json: Dict[Any, Any] = json.loads(trimmed_log_msg)
+    return logged_json

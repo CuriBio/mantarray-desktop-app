@@ -103,7 +103,7 @@ def fixture_generic_start_recording_info_in_shared_dict(
     test_monitor,
 ):
     _, shared_values_dict, _, _ = test_monitor
-    # _,_, shared_values_dict=client_and_server_thread_and_shared_values
+
     board_idx = 0
     timestamp = GENERIC_START_RECORDING_COMMAND[
         "metadata_to_copy_onto_main_file_attributes"

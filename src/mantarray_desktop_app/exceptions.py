@@ -104,3 +104,11 @@ class BarcodeNotClearedError(Exception):
 
 class BarcodeScannerNotRespondingError(Exception):
     pass
+
+
+class ServerThreadNotInitializedError(Exception):
+    pass
+
+
+class ServerThreadSingletonAlreadySetError(Exception):
+    """Helps ensure that test cases clean up after themselves."""

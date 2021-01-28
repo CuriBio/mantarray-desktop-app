@@ -80,30 +80,33 @@ def test_system_status__returns_in_simulator_mode_False_as_default_value(
         ("M02002000", None, "correctly returns serial number and None"),
     ],
 )
-def test_system_status__returns_correct_serial_number_and_nickname_with_empty_string_as_default(
+def test_system_status__returns_correct_serial_number_and_nickname_in_dict_with_empty_string_as_default(
     expected_serial,
     expected_nickname,
     test_description,
     client_and_server_thread_and_shared_values,
 ):
+    board_idx = 0
     test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
     shared_values_dict["system_status"] = SERVER_READY_STATE
 
     if expected_serial:
-        shared_values_dict["mantarray_serial_number"] = expected_serial
+        shared_values_dict["mantarray_serial_number"] = {board_idx: expected_serial}
     if expected_nickname:
-        shared_values_dict["mantarray_nickname"] = expected_nickname
+        shared_values_dict["mantarray_nickname"] = {board_idx: expected_nickname}
 
     response = test_client.get("/system_status")
     assert response.status_code == 200
 
     response_json = response.get_json()
     if expected_serial:
-        assert response_json["mantarray_serial_number"] == expected_serial
+        assert (
+            response_json["mantarray_serial_number"][str(board_idx)] == expected_serial
+        )
     else:
         assert response_json["mantarray_serial_number"] == ""
     if expected_nickname:
-        assert response_json["mantarray_nickname"] == expected_nickname
+        assert response_json["mantarray_nickname"][str(board_idx)] == expected_nickname
     else:
         assert response_json["mantarray_nickname"] == ""
 
@@ -378,11 +381,9 @@ def test_route_error_message_is_logged(mocker, test_client):
 
 
 def test_start_recording__returns_no_error_message_with_multiple_hardware_test_recordings(
-    client_and_server_thread_and_shared_values,
+    test_client,
     generic_start_recording_info_in_shared_dict,
 ):
-    test_client, _, _ = client_and_server_thread_and_shared_values
-
     response = test_client.get(
         "/start_recording?barcode=MA200440001&is_hardware_test_recording=True"
     )
@@ -424,7 +425,7 @@ def test_start_recording__returns_error_code_and_message_if_barcode_is_not_given
 
 
 @pytest.mark.parametrize(
-    "test_barcode,expected_error_message,test_description",
+    ",".join(("test_barcode", "expected_error_message", "test_description")),
     [
         (
             "MA1234567890",
@@ -494,7 +495,10 @@ def test_start_recording__returns_error_code_and_message_if_barcode_is_not_given
     ],
 )
 def test_start_recording__returns_error_code_and_message_if_barcode_is_invalid(
-    test_client, test_barcode, expected_error_message, test_description
+    test_client,
+    test_barcode,
+    expected_error_message,
+    test_description,
 ):
     response = test_client.get(f"/start_recording?barcode={test_barcode}")
     assert response.status_code == 400
@@ -545,10 +549,9 @@ def test_start_recording__allows_years_other_than_20_in_barcode(
 def test_start_recording__allows_correct_barcode_headers(
     test_barcode,
     test_description,
-    client_and_server_thread_and_shared_values,
+    test_client,
     generic_start_recording_info_in_shared_dict,
 ):
-    test_client, _, _ = client_and_server_thread_and_shared_values
     response = test_client.get(f"/start_recording?barcode={test_barcode}")
     assert response.status_code == 200
 

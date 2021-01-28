@@ -4,6 +4,7 @@ from multiprocessing import Queue
 import os
 import struct
 import tempfile
+import time
 
 from freezegun import freeze_time
 from mantarray_desktop_app import BARCODE_VALID_UUID
@@ -12,22 +13,28 @@ from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
+from mantarray_desktop_app import get_api_endpoint
 from mantarray_desktop_app import get_server_port_number
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import RECORDING_STATE
+from mantarray_desktop_app import redact_sensitive_info_from_path
 from mantarray_desktop_app import RunningFIFOSimulator
+from mantarray_desktop_app import server
 from mantarray_desktop_app import utils
+from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import pytest
+import requests
 from stdlib_utils import confirm_parallelism_is_stopped
 from stdlib_utils import confirm_port_in_use
 from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
+import werkzeug._internal as werkzeug_internal
 from xem_wrapper import DATA_FRAME_SIZE_WORDS
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 from xem_wrapper import FrontPanelSimulator
@@ -48,11 +55,13 @@ from ..fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
 from ..fixtures_process_monitor import fixture_test_monitor
 from ..fixtures_server import fixture_client_and_server_thread_and_shared_values
 from ..fixtures_server import fixture_generic_start_recording_info_in_shared_dict
+from ..fixtures_server import fixture_running_server_thread
 from ..fixtures_server import fixture_server_thread
 from ..fixtures_server import fixture_test_client
 from ..helpers import assert_queue_is_eventually_not_empty
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
+from ..helpers import convert_after_request_log_msg_to_json
 from ..helpers import is_queue_eventually_not_empty
 from ..helpers import is_queue_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -70,6 +79,7 @@ __fixtures__ = [
     fixture_patched_xem_scripts_folder,
     fixture_patch_print,
     fixture_generic_start_recording_info_in_shared_dict,
+    fixture_running_server_thread,
 ]
 
 
@@ -118,7 +128,7 @@ def test_send_single_set_mantarray_nickname_command__gets_processed_and_stores_n
     test_process_manager.hard_stop_and_join_processes()
 
 
-@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS * 1.5)
 @pytest.mark.slow
 def test_send_single_start_calibration_command__gets_processed_and_sets_system_status_to_calibrating(
     patched_short_calibration_script,
@@ -1362,7 +1372,7 @@ def test_send_single_start_managed_acquisition_command__sets_system_status_to_bu
     test_process_manager.hard_stop_and_join_processes()
 
 
-def test_update_settings__stores_values_in_shared_values_dict__and_recordings_folder_in_file_writer_and_process_manager__and_logs_recording_folder(
+def test_update_settings__stores_values_in_shared_values_dict__and_recordings_folder_in_file_writer_and_process_manager__and_logs_recording_folder_with_sensitive_info_redacted(
     test_process_manager, test_client, test_monitor, mocker
 ):
     monitor_thread, _, _, _ = test_monitor
@@ -1394,8 +1404,11 @@ def test_update_settings__stores_values_in_shared_values_dict__and_recordings_fo
         )
         assert test_process_manager.get_file_directory() == expected_recordings_dir
 
+        scrubbed_recordings_dir = redact_sensitive_info_from_path(
+            expected_recordings_dir
+        )
         spied_utils_logger.assert_any_call(
-            f"Using directory for recording files: {expected_recordings_dir}"
+            f"Using directory for recording files: {scrubbed_recordings_dir}"
         )
 
     queue_from_main_to_file_writer = (
@@ -1565,8 +1578,6 @@ def test_start_recording__returns_error_code_and_message_if_called_with_is_hardw
     generic_start_recording_info_in_shared_dict,
 ):
     monitor_thread, _, _, _ = test_monitor
-
-    test_process_manager.create_processes()
 
     response = test_client.get(
         "/start_recording?barcode=MA200440001&is_hardware_test_recording=True"
@@ -1771,7 +1782,7 @@ def test_send_single_get_status_command__gets_processed(
 
 @pytest.mark.slow
 def test_system_status__returns_correct_plate_barcode_and_status__only_when_barcode_changes(
-    client_and_server_thread_and_shared_values,
+    # client_and_server_thread_and_shared_values,
     test_monitor,
     test_client,
 ):
@@ -1804,10 +1815,9 @@ def test_system_status__returns_correct_plate_barcode_and_status__only_when_barc
 
 
 def test_system_status__returns_no_plate_barcode_and_status_when_none_present(
-    client_and_server_thread_and_shared_values, test_monitor, test_client
+    client_and_server_thread_and_shared_values, test_client
 ):
-    _, shared_values_dict, _, _ = test_monitor
-
+    _, _, shared_values_dict = client_and_server_thread_and_shared_values
     shared_values_dict["system_status"] = CALIBRATED_STATE
 
     response = test_client.get("/system_status")
@@ -1815,3 +1825,118 @@ def test_system_status__returns_no_plate_barcode_and_status_when_none_present(
     response_json = response.get_json()
     assert "barcode_status" not in response_json
     assert "plate_barcode" not in response_json
+
+
+def test_after_request__redacts_mantarray_nicknames_from_system_status_log_message(
+    test_monitor, test_client, mocker
+):
+    _, shared_values_dict, _, _ = test_monitor
+    expected_nickname_1 = "Test Nickname 1"
+    expected_nickname_2 = "Other Nickname"
+    expected_nickname_dict = {"0": expected_nickname_1, "1": expected_nickname_2}
+    shared_values_dict["mantarray_nickname"] = expected_nickname_dict
+
+    spied_server_logger = mocker.spy(server.logger, "info")
+
+    response = test_client.get("/system_status")
+    assert response.status_code == 200
+    response_json = response.get_json()
+    assert response_json["mantarray_nickname"] == expected_nickname_dict
+
+    expected_redaction_1 = "*" * len(expected_nickname_1)
+    expected_redaction_2 = "*" * len(expected_nickname_2)
+    expected_logged_dict = {"0": expected_redaction_1, "1": expected_redaction_2}
+    logged_json = convert_after_request_log_msg_to_json(
+        spied_server_logger.call_args_list[0][0][0]
+    )
+    assert logged_json["mantarray_nickname"] == expected_logged_dict
+
+
+def test_after_request__redacts_mantarray_nickname_from_set_mantarray_nickname_log_message(
+    client_and_server_thread_and_shared_values,
+    mocker,
+):
+    test_client, _, _ = client_and_server_thread_and_shared_values
+    spied_server_logger = mocker.spy(server.logger, "info")
+
+    expected_nickname = "A New Nickname"
+    response = test_client.get(f"/set_mantarray_nickname?nickname={expected_nickname}")
+    assert response.status_code == 200
+    response_json = response.get_json()
+    assert response_json["mantarray_nickname"] == expected_nickname
+
+    expected_redaction = "*" * len(expected_nickname)
+    logged_json = convert_after_request_log_msg_to_json(
+        spied_server_logger.call_args_list[0][0][0]
+    )
+    assert logged_json["mantarray_nickname"] == expected_redaction
+
+
+def test_after_request__redacts_mantarray_nicknames_from_start_recording_log_message(
+    test_client, mocker, generic_start_recording_info_in_shared_dict
+):
+    board_idx = 0
+    spied_server_logger = mocker.spy(server.logger, "info")
+
+    expected_nickname = generic_start_recording_info_in_shared_dict[
+        "mantarray_nickname"
+    ][board_idx]
+    response = test_client.get("/start_recording?barcode=MA200440001")
+    assert response.status_code == 200
+    response_json = response.get_json()
+    assert (
+        response_json["metadata_to_copy_onto_main_file_attributes"][
+            str(MANTARRAY_NICKNAME_UUID)
+        ]
+        == expected_nickname
+    )
+
+    expected_redaction = "*" * len(expected_nickname)
+    logged_json = convert_after_request_log_msg_to_json(
+        spied_server_logger.call_args_list[0][0][0]
+    )
+    assert (
+        logged_json["metadata_to_copy_onto_main_file_attributes"][
+            str(MANTARRAY_NICKNAME_UUID)
+        ]
+        == expected_redaction
+    )
+
+
+def test_server__redacts_nickname_parameter_from_set_mantarray_nickname_route(
+    running_server_thread, mocker
+):
+    spied_werkzeug_logger_info = mocker.spy(
+        werkzeug_internal._logger,  # pylint: disable=protected-access  # Tanner (1/20/21): need to access this private variable to assert the log message is correct
+        "info",
+    )
+
+    test_nickname = "Secret Mantarray Name"
+    response = requests.get(
+        f"{get_api_endpoint()}set_mantarray_nickname?nickname={test_nickname}"
+    )
+    assert response.status_code == 200
+
+    redacted_nickname = "*" * len(test_nickname)
+    expected_message = f"set_mantarray_nickname?nickname={redacted_nickname}"
+    print(  # allow-print # Tanner (1/25/21): This test is failing for a very weird reason. Printing here to see the entire call args next time it fails
+        spied_werkzeug_logger_info.call_args_list
+    )
+    assert expected_message in spied_werkzeug_logger_info.call_args_list[0][0][1]
+
+
+def test_server__does_not_modify_log_message_for_route_not_containing_sensitive_info_in_params(
+    running_server_thread, mocker
+):
+    spied_werkzeug_logger_info = mocker.spy(
+        werkzeug_internal._logger,  # pylint: disable=protected-access  # Tanner (1/20/21): need to access this private variable to assert the log message is correct
+        "info",
+    )
+
+    expected_route_call = "insert_xem_command_into_queue/set_mantarray_serial_number?serial_number=M02001900"
+    response = requests.get(f"{get_api_endpoint()}{expected_route_call}")
+    assert response.status_code == 200
+    time.sleep(
+        0.1
+    )  # Eli (1/25/21) it appears sometimes it can take a non-zero amount of time after the status code occurs for the werkzeug to make the log entry. There was a case where it only had 'http' in the entry when the assertion was made. https://github.com/CuriBio/mantarray-desktop-app/runs/1762884429?check_suite_focus=true
+    assert expected_route_call in spied_werkzeug_logger_info.call_args_list[0][0][1]
