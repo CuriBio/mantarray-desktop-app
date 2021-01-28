@@ -1906,8 +1906,9 @@ def test_after_request__redacts_mantarray_nicknames_from_start_recording_log_mes
 def test_server__redacts_nickname_parameter_from_set_mantarray_nickname_route(
     running_server_thread, mocker
 ):
-    # Tanner (1/27/21): calling this dummy route so werkzeug will have to instantiate its logger to log the route called. An issue has occured where werkzeug_internal._logger was still None when trying to spy it
-    requests.get(f"{get_api_endpoint()}dummy_route")
+    # Tanner (1/27/21): calling this route so werkzeug will have to instantiate its logger to log the route called. An issue has occured where werkzeug_internal._logger was still None when trying to spy it
+    response = requests.get(f"{get_api_endpoint()}health_check")
+    assert response.status_code == 200
 
     spied_werkzeug_logger_info = mocker.spy(
         werkzeug_internal._logger,  # pylint: disable=protected-access  # Tanner (1/20/21): need to access this private variable to assert the log message is correct
@@ -1931,8 +1932,9 @@ def test_server__redacts_nickname_parameter_from_set_mantarray_nickname_route(
 def test_server__does_not_modify_log_message_for_route_not_containing_sensitive_info_in_params(
     running_server_thread, mocker
 ):
-    # Tanner (1/27/21): calling this dummy route so werkzeug will have to instantiate its logger to log the route called. An issue has occured where werkzeug_internal._logger was still None when trying to spy it
-    requests.get(f"{get_api_endpoint()}dummy_route")
+    # Tanner (1/27/21): calling this route so werkzeug will have to instantiate its logger to log the route called. An issue has occured where werkzeug_internal._logger was still None when trying to spy it
+    response = requests.get(f"{get_api_endpoint()}health_check")
+    assert response.status_code == 200
 
     spied_werkzeug_logger_info = mocker.spy(
         werkzeug_internal._logger,  # pylint: disable=protected-access  # Tanner (1/20/21): need to access this private variable to assert the log message is correct
