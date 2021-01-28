@@ -962,6 +962,12 @@ def shutdown() -> Response:
     return response
 
 
+@flask_app.route("/health_check", methods=["GET"])
+def health_check() -> Response:
+    # curl http://localhost:4567/health_check
+    return Response(status=200)
+
+
 @flask_app.after_request
 def after_request(response: Response) -> Response:
     """Log request and handle any necessary response clean up."""

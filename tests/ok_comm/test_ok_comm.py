@@ -1148,7 +1148,7 @@ def test_OkCommunicationProcess_teardown_after_loop__puts_teardown_log_message_i
 
 
 @pytest.mark.slow
-@pytest.mark.timeout(11)
+@pytest.mark.timeout(10)
 def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_acquisition_is_running_with_simulator__and_log_stop_acquistion_message(
     running_process_with_simulated_board,
     mocker,
@@ -1158,6 +1158,7 @@ def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_
     input_queue = board_queues[0][0]
     comm_to_main_queue = board_queues[0][1]
 
+    ok_process.pause()  # pause so it can be asserted that both commands populate ok_comm's input queue
     input_queue.put(
         {
             "communication_type": "debug_console",
@@ -1166,9 +1167,8 @@ def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_
         }
     )
     input_queue.put(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
-    confirm_queue_is_eventually_of_size(
-        comm_to_main_queue, 2, timeout_seconds=4
-    )  # Tanner (1/24/21): Since ok_comm is running here, it is more difficult to assert something has populated input_queue, but nothing will clear the items in the queue back to main so we can assert that the returned messages show up before soft_stopping. The timeout is much larger than normal since data must pass through the entire process and populate the queue back to main.
+    confirm_queue_is_eventually_of_size(input_queue, 2)
+    ok_process.unpause()
     ok_process.soft_stop()
     confirm_parallelism_is_stopped(
         ok_process,
