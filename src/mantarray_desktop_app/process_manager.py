@@ -247,7 +247,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         return process_items
 
     def are_processes_stopped(
-        self, timeout_secs: Union[float, int] = SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
+        self, timeout_seconds: Union[float, int] = SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
     ) -> bool:
         """Check if processes are stopped."""
         start = perf_counter()
@@ -261,7 +261,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         while not are_stopped:
             sleep(SUBPROCESS_POLL_DELAY_SECONDS)
             elapsed_time = perf_counter() - start
-            if elapsed_time >= timeout_secs:
+            if elapsed_time >= timeout_seconds:
                 break
             are_stopped = all(p.is_stopped() for p in processes)
         return are_stopped

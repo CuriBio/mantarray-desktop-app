@@ -460,7 +460,7 @@ def test_MantarrayProcessesManager__are_processes_stopped__waits_correct_amount_
     )
 
     assert (
-        test_process_manager.are_processes_stopped(timeout_secs=expected_timeout)
+        test_process_manager.are_processes_stopped(timeout_seconds=expected_timeout)
         is False
     )
 
