@@ -486,7 +486,7 @@ class FileWriterProcess(InfiniteProcess):
     def _process_next_command_from_main(self) -> None:
         input_queue = self._from_main_queue
         try:
-            communication = input_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
+            communication = input_queue.get_nowait()
         except queue.Empty:
             return
 
