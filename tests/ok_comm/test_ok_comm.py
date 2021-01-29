@@ -1168,7 +1168,7 @@ def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_
     )
     input_queue.put(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
     confirm_queue_is_eventually_of_size(input_queue, 2)
-    ok_process.unpause()
+    ok_process.resume()
     ok_process.soft_stop()
     confirm_parallelism_is_stopped(
         ok_process,
@@ -1178,9 +1178,7 @@ def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_
     # drain the queue to avoid broken pipe errors and get the last item in the queue
     queue_items = drain_queue(
         comm_to_main_queue,
-        timeout_secs=(  # TODO Tanner (1/11/21): Change this kwarg to `timeout_seconds` to be consistent with other queue functions in stdlib_utils
-            QUEUE_CHECK_TIMEOUT_SECONDS
-        ),
+        timeout_seconds=(QUEUE_CHECK_TIMEOUT_SECONDS),
     )
     actual_last_queue_item = queue_items[-1]
     # print(actual_last_queue_item)
