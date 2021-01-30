@@ -1148,7 +1148,7 @@ def test_OkCommunicationProcess_teardown_after_loop__puts_teardown_log_message_i
 
 
 @pytest.mark.slow
-@pytest.mark.timeout(10)
+@pytest.mark.timeout(15)
 def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_acquisition_is_running_with_simulator__and_log_stop_acquistion_message(
     running_process_with_simulated_board,
     mocker,
@@ -1175,13 +1175,14 @@ def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_
         timeout_seconds=5,
     )
 
+    # Tanner (1/29/21): even though it's confirmed that the process has stopped, items still may not be in the queue. Currently, this test will populate the queue with 4 items. Could maybe make a more robust method confirming an item with a certain feature is eventually in the queue.
+    confirm_queue_is_eventually_of_size(comm_to_main_queue, 4, timeout_seconds=5)
     # drain the queue to avoid broken pipe errors and get the last item in the queue
     queue_items = drain_queue(
         comm_to_main_queue,
-        timeout_seconds=(QUEUE_CHECK_TIMEOUT_SECONDS),
+        timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
     )
     actual_last_queue_item = queue_items[-1]
-    # print(actual_last_queue_item)
     assert "message" in actual_last_queue_item
     assert (
         actual_last_queue_item["message"]
