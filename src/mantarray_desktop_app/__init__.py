@@ -128,6 +128,7 @@ from .main import clear_server_singletons
 from .main import get_server_port_number
 from .mantarray_front_panel import MantarrayFrontPanel
 from .mantarray_front_panel import MantarrayFrontPanelMixIn
+from .mc_simulator import MantarrayMCSimulator
 from .ok_comm import build_file_writer_objects
 from .ok_comm import check_barcode_for_errors
 from .ok_comm import check_mantarray_serial_number
@@ -311,4 +312,5 @@ __all__ = [
     "get_current_software_version",
     "ServerThreadNotInitializedError",
     "ServerThreadSingletonAlreadySetError",
+    "MantarrayMCSimulator",
 ]
