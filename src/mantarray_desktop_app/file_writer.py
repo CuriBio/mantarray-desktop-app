@@ -40,7 +40,7 @@ from mantarray_file_manager import WELL_INDEX_UUID
 from mantarray_file_manager import WELL_NAME_UUID
 from mantarray_file_manager import WELL_ROW_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
-import numpy as np
+from nptyping import NDArray
 from stdlib_utils import compute_crc32_and_write_to_file_head
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
@@ -91,8 +91,10 @@ def get_reference_dataset_from_file(
 
 
 def get_data_slice_within_timepoints(
-    time_value_arr: np.array, min_timepoint: int, max_timepoint: Optional[int] = None
-) -> Tuple[np.array, int, int]:
+    time_value_arr: NDArray[(2, Any), int],
+    min_timepoint: int,
+    max_timepoint: Optional[int] = None,
+) -> Tuple[NDArray[(2, Any), int], int, int]:
     """Get just the section of data that is relevant.
 
     It is assumed that at least some of this data will be relevant.

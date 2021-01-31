@@ -242,9 +242,9 @@ def parse_data_frame(data_bytes: bytearray, data_format_name: str) -> Dict[int, 
     if not check_header(data_bytes[:8]):
         raise OpalKellyIncorrectHeaderError()
 
+    formatted_data: Dict[int, Any] = dict()
     if data_format_name == "two_channels_32_bit__single_sample_index__with_reference":
         sample_index = convert_sample_idx(data_bytes[8:12])
-        formatted_data = dict()
         ints = struct.unpack("<4L", data_bytes[12:])
         formatted_data[0] = np.zeros((1, 3), dtype=np.int32)
         formatted_data[0][0] = [sample_index, ints[1], ints[0]]
@@ -254,7 +254,6 @@ def parse_data_frame(data_bytes: bytearray, data_format_name: str) -> Dict[int, 
         return formatted_data
     if data_format_name == "six_channels_32_bit__single_sample_index":
         sample_index = convert_sample_idx(data_bytes[8:12]) * TIMESTEP_CONVERSION_FACTOR
-        formatted_data = dict()
         for byte_idx in range(6):
             # setup indices
             start_byte_idx = 12 + byte_idx * 4
