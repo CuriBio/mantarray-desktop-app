@@ -20,18 +20,12 @@ class MantarrayMCSimulator(InfiniteProcess):
 
     def __init__(
         self,
-        input_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+        input_queue: Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
+        output_queue: Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
+        fatal_error_reporter: Queue[  # pylint: disable=unsubscriptable-object
             Dict[str, Any]
         ],
-        output_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-            Dict[str, Any]
-        ],
-        fatal_error_reporter: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-            Dict[str, Any]
-        ],
-        testing_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-            Dict[str, Any]
-        ],
+        testing_queue: Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
         logging_level: int = logging.INFO,
     ) -> None:
         super().__init__(fatal_error_reporter, logging_level=logging_level)

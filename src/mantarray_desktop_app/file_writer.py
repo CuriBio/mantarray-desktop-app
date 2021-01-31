@@ -170,11 +170,6 @@ def _drain_queue(
     return queue_items
 
 
-# MPQueueOfCommunicationsType = Queue[  # pylint: disable=unsubscriptable-object
-#     Dict[str, Any]
-# ]
-
-
 # pylint: disable=too-many-instance-attributes
 class FileWriterProcess(InfiniteProcess):
     """Process that writes data to disk.
