@@ -1118,12 +1118,13 @@ def test_OkCommunicationProcess_create_connections_to_all_available_boards__hand
 
 def test_OkCommunicationProcess_teardown_after_loop__sets_teardown_complete_event(
     four_board_comm_process,
-    mocker,
 ):
     ok_process, _, _ = four_board_comm_process
 
     ok_process.soft_stop()
-    ok_process.run(perform_setup_before_loop=False, num_iterations=1)
+    invoke_process_run_and_check_errors(
+        ok_process, num_iterations=1, perform_teardown_after_loop=True
+    )
 
     assert ok_process.is_teardown_complete() is True
 
@@ -1131,13 +1132,14 @@ def test_OkCommunicationProcess_teardown_after_loop__sets_teardown_complete_even
 @freeze_time("2020-07-20 11:57:11.123456")
 def test_OkCommunicationProcess_teardown_after_loop__puts_teardown_log_message_into_queue(
     four_board_comm_process,
-    mocker,
 ):
     ok_process, board_queues, _ = four_board_comm_process
     comm_to_main_queue = board_queues[0][1]
 
     ok_process.soft_stop()
-    ok_process.run(perform_setup_before_loop=False, num_iterations=1)
+    invoke_process_run_and_check_errors(
+        ok_process, num_iterations=1, perform_teardown_after_loop=True
+    )
     assert is_queue_eventually_not_empty(comm_to_main_queue)
 
     actual = comm_to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -1148,8 +1150,8 @@ def test_OkCommunicationProcess_teardown_after_loop__puts_teardown_log_message_i
 
 
 @pytest.mark.slow
-@pytest.mark.timeout(15)
-def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_acquisition_is_running_with_simulator__and_log_stop_acquistion_message(
+@pytest.mark.timeout(10)
+def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_acquisition_is_running_with_simulator(
     running_process_with_simulated_board,
     mocker,
 ):
@@ -1175,9 +1177,40 @@ def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_
         timeout_seconds=5,
     )
 
-    # Tanner (1/29/21): even though it's confirmed that the process has stopped, items still may not be in the queue. Currently, this test will populate the queue with 4 items. Could maybe make a more robust method confirming an item with a certain feature is eventually in the queue.
-    confirm_queue_is_eventually_of_size(comm_to_main_queue, 4, timeout_seconds=5)
-    # drain the queue to avoid broken pipe errors and get the last item in the queue
+    # drain the queue to avoid broken pipe errors
+    drain_queue(
+        comm_to_main_queue,
+        timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
+    )
+    ok_process.join()
+
+
+def test_OkCommunicationProcess_teardown_after_loop__logs_message_indicating_acquisition_is_still_running(
+    four_board_comm_process,
+    mocker,
+):
+    ok_process, board_queues, _ = four_board_comm_process
+    comm_to_main_queue = board_queues[0][1]
+    input_queue = board_queues[0][0]
+
+    simulator = RunningFIFOSimulator()
+    ok_process.set_board_connection(0, simulator)
+
+    input_queue.put(
+        {
+            "communication_type": "debug_console",
+            "command": "initialize_board",
+            "bit_file_name": None,
+        }
+    )
+    input_queue.put(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
+    confirm_queue_is_eventually_of_size(input_queue, 2)
+    invoke_process_run_and_check_errors(
+        ok_process, num_iterations=2, perform_teardown_after_loop=True
+    )
+
+    confirm_queue_is_eventually_of_size(comm_to_main_queue, 4)
+    # get the last item in the queue
     queue_items = drain_queue(
         comm_to_main_queue,
         timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
@@ -1188,8 +1221,6 @@ def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_
         actual_last_queue_item["message"]
         == "Board acquisition still running. Stopping acquisition to complete teardown"
     )
-
-    ok_process.join()
 
 
 def test_OkCommunicationProcess_boot_up_instrument__with_real_board__raises_error_if_firmware_version_does_not_match_file_name(
