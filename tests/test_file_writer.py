@@ -65,12 +65,9 @@ from mantarray_file_manager import WELL_ROW_UUID
 from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
 import numpy as np
 import pytest
-from stdlib_utils import confirm_queue_is_eventually_of_size
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import invoke_process_run_and_check_errors
-from stdlib_utils import is_queue_eventually_empty
-from stdlib_utils import is_queue_eventually_of_size
 from stdlib_utils import validate_file_head_crc32
 
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
@@ -84,6 +81,9 @@ from .fixtures_file_writer import open_the_generic_h5_file
 from .fixtures_file_writer import WELL_DEF_24
 from .helpers import assert_queue_is_eventually_not_empty
 from .helpers import confirm_queue_is_eventually_empty
+from .helpers import confirm_queue_is_eventually_of_size
+from .helpers import is_queue_eventually_empty
+from .helpers import is_queue_eventually_of_size
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 from .parsed_channel_data_packets import SIMPLE_CONSTRUCT_DATA_FROM_WELL_0
 
@@ -137,12 +137,9 @@ def test_FileWriterProcess_soft_stop_not_allowed_if_incoming_data_still_in_queue
         SIMPLE_CONSTRUCT_DATA_FROM_WELL_0,
         board_queues[0][0],
     )
-    assert (
-        is_queue_eventually_of_size(
-            board_queues[0][0], 2, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+
+    confirm_queue_is_eventually_of_size(board_queues[0][0], 2)
+
     file_writer_process.soft_stop()
     invoke_process_run_and_check_errors(file_writer_process)
     assert file_writer_process.is_stopped() is False
@@ -218,6 +215,9 @@ def test_FileWriterProcess_soft_stop_not_allowed_if_command_from_main_still_in_q
     from_main_queue.put(this_command)
     from_main_queue.put(copy.deepcopy(this_command))
     confirm_queue_is_eventually_of_size(from_main_queue, 2)
+    time.sleep(
+        QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # Eli (2/1/21): Even though the queue has been confirmed to be of size 2 in the above line, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
     file_writer_process.soft_stop()
     invoke_process_run_and_check_errors(file_writer_process)
     confirm_queue_is_eventually_of_size(from_main_queue, 1)
@@ -948,12 +948,7 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_when_recording(
             "data": np.zeros((2, num_points)),
         }
         board_queues[0][0].put(ref_packet)
-    assert (
-        is_queue_eventually_of_size(
-            board_queues[0][0], 30, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    confirm_queue_is_eventually_of_size(board_queues[0][0], 30)
     expected_recording_durations = list(range(30))
     perf_counter_vals = [
         0 if i % 2 == 0 else expected_recording_durations[i // 2] for i in range(60)
