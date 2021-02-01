@@ -79,7 +79,6 @@ from .fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from .fixtures_file_writer import GENERIC_TISSUE_DATA_PACKET
 from .fixtures_file_writer import open_the_generic_h5_file
 from .fixtures_file_writer import WELL_DEF_24
-from .helpers import assert_queue_is_eventually_not_empty
 from .helpers import confirm_queue_is_eventually_empty
 from .helpers import confirm_queue_is_eventually_of_size
 from .helpers import is_queue_eventually_empty
@@ -189,7 +188,8 @@ def test_FileWriterProcess__raises_error_if_unrecognized_command_from_main(
         from_main_queue,
     )
     file_writer_process.run(num_iterations=1)
-    assert_queue_is_eventually_not_empty(error_queue)
+    confirm_queue_is_eventually_of_size(error_queue, 1)
+
     raised_error, _ = error_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert (
         isinstance(raised_error, UnrecognizedCommandFromMainToFileWriterError) is True
@@ -450,7 +450,7 @@ def test_FileWriterProcess__only_creates_file_indices_specified__when_receiving_
         ]
     )
     assert actual_set_of_files == expected_set_of_files
-    assert_queue_is_eventually_not_empty(to_main_queue)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
     comm_to_main = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert comm_to_main["communication_type"] == "command_receipt"
     assert comm_to_main["command"] == "start_recording"
@@ -732,12 +732,11 @@ def test_FileWriterProcess__closes_the_files_and_adds_crc32_checksum_and_sends_c
     to_main_queue.get(
         timeout=QUEUE_CHECK_TIMEOUT_SECONDS
     )  # pop off the initial receipt of stop command message
-    assert_queue_is_eventually_not_empty(to_main_queue)
 
+    confirm_queue_is_eventually_of_size(to_main_queue, 2)
     first_comm_to_main = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert first_comm_to_main["communication_type"] == "file_finalized"
     assert "_A2" in first_comm_to_main["file_path"]
-    assert_queue_is_eventually_not_empty(to_main_queue)
 
     second_comm_to_main = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert second_comm_to_main["communication_type"] == "file_finalized"
@@ -778,7 +777,7 @@ def test_FileWriterProcess__drain_all_queues__drains_all_queues_except_error_que
 
     actual = file_writer_process._drain_all_queues()  # pylint:disable=protected-access
 
-    assert_queue_is_eventually_not_empty(error_queue)
+    confirm_queue_is_eventually_of_size(error_queue, 1)
     actual_error = error_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_error == expected_error
 
@@ -859,7 +858,7 @@ def test_FileWriterProcess__logs_performance_metrics_after_appropriate_number_of
     invoke_process_run_and_check_errors(
         file_writer_process, num_iterations=FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
     )
-    assert_queue_is_eventually_not_empty(to_main_queue)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
     actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     actual = actual["message"]
 
@@ -895,7 +894,7 @@ def test_FileWriterProcess__does_not_log_percent_use_metrics_in_first_logging_cy
     invoke_process_run_and_check_errors(
         file_writer_process, num_iterations=FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
     )
-    assert_queue_is_eventually_not_empty(to_main_queue)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
 
     actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     actual = actual["message"]
@@ -1341,7 +1340,7 @@ def test_FileWriterProcess_teardown_after_loop__puts_teardown_log_message_into_q
 
     fw_process.soft_stop()
     fw_process.run(perform_setup_before_loop=False, num_iterations=1)
-    assert_queue_is_eventually_not_empty(to_main_queue)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
 
     actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert (
