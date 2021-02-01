@@ -1166,6 +1166,10 @@ def test_FileWriterProcess__deletes_recorded_well_data_after_stop_time(
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         start_recording_command, comm_from_main_queue
     )
+    time.sleep(
+        QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # Eli (2/1/21): Even though the queue size has been confirmed in the above line, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
+
     invoke_process_run_and_check_errors(file_writer_process)
 
     expected_timepoint = 100
@@ -1190,11 +1194,13 @@ def test_FileWriterProcess__deletes_recorded_well_data_after_stop_time(
             ),
         }
         ok_board_queues[0][0].put(data_packet)
-    assert is_queue_eventually_of_size(
+    confirm_queue_is_eventually_of_size(
         ok_board_queues[0][0],
         expected_remaining_packets_recorded + dummy_packets,
-        timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
     )
+    # time.sleep(
+    #     QUEUE_CHECK_TIMEOUT_SECONDS
+    # )  # Eli (2/1/21): Even though the queue size has been confirmed in the above line, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
     invoke_process_run_and_check_errors(
         file_writer_process,
         num_iterations=(expected_remaining_packets_recorded + dummy_packets),
@@ -1203,13 +1209,14 @@ def test_FileWriterProcess__deletes_recorded_well_data_after_stop_time(
     stop_recording_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
     stop_recording_command["timepoint_to_stop_recording_at"] = expected_timepoint
     # ensure queue is empty before putting something else in
-    assert is_queue_eventually_empty(
-        comm_from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    confirm_queue_is_eventually_empty(comm_from_main_queue)
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        stop_recording_command, comm_from_main_queue
     )
-    comm_from_main_queue.put(stop_recording_command)
-    assert is_queue_eventually_of_size(
-        comm_from_main_queue, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-    )
+    time.sleep(
+        QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # Eli (2/1/21): Even though the queue size has been confirmed in the above line, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
     invoke_process_run_and_check_errors(file_writer_process)
 
     expected_barcode = start_recording_command[
