@@ -53,7 +53,6 @@ from .constants import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from .constants import ROUND_ROBIN_PERIOD
-from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .exceptions import InvalidDataTypeFromOkCommError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
 
@@ -627,7 +626,7 @@ class FileWriterProcess(InfiniteProcess):
         """
         input_queue = self._board_queues[0][0]
         try:
-            data_packet = input_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
+            data_packet = input_queue.get_nowait()
         except queue.Empty:
             return
 
