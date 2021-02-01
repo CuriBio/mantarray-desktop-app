@@ -1194,9 +1194,6 @@ def test_FileWriterProcess__deletes_recorded_well_data_after_stop_time(
         ok_board_queues[0][0],
         expected_remaining_packets_recorded + dummy_packets,
     )
-    # time.sleep(
-    #     QUEUE_CHECK_TIMEOUT_SECONDS
-    # )  # Eli (2/1/21): Even though the queue size has been confirmed in the above line, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
     invoke_process_run_and_check_errors(
         file_writer_process,
         num_iterations=(expected_remaining_packets_recorded + dummy_packets),
