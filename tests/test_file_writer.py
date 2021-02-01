@@ -1535,6 +1535,9 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_files_af
         }
         board_queues[0][0].put(final_ref_data_packet)
     confirm_queue_is_eventually_of_size(board_queues[0][0], 30)
+    time.sleep(
+        QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # Eli (2/1/21): Even though the queue size has been confirmed in the above line, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
     invoke_process_run_and_check_errors(fw_process, num_iterations=30)
     confirm_queue_is_eventually_empty(board_queues[0][0])
     # check command is still ignored
