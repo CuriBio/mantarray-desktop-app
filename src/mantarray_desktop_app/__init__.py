@@ -312,5 +312,6 @@ __all__ = [
     "get_current_software_version",
     "ServerThreadNotInitializedError",
     "ServerThreadSingletonAlreadySetError",
+    "mc_simulator",
     "MantarrayMCSimulator",
 ]
