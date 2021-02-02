@@ -12,6 +12,8 @@ from typing import Dict
 from stdlib_utils import InfiniteProcess
 
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
+from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 
 
 def _get_dur_since_last_status_beacon(last_time: float) -> float:
@@ -49,8 +51,10 @@ class MantarrayMCSimulator(InfiniteProcess):
         return self.get_dur_since_init().to_bytes(8, "little")
 
     def _send_status_beacon(self) -> None:
-        # TODO make constant
-        status_beacon = b"CURI BIO" + self._get_timestamp_bytes() + b"\x00\x04"
+        status_beacon = SERIAL_COMM_MAGIC_WORD_BYTES
+        status_beacon += self._get_timestamp_bytes()
+        status_beacon += b"\x00\x00\x04"
+        status_beacon += bytes(4)
         self._output_queue.put(status_beacon)
         self._time_of_last_status_beacon = time.perf_counter()
 
@@ -59,8 +63,7 @@ class MantarrayMCSimulator(InfiniteProcess):
 
     def _handle_status_beacon(self) -> None:
         dur = _get_dur_since_last_status_beacon(self._time_of_last_status_beacon)
-        # TODO make constant
-        if dur >= 5:
+        if dur >= SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS:
             self._send_status_beacon()
 
     def read(self) -> bytes:
@@ -68,10 +71,9 @@ class MantarrayMCSimulator(InfiniteProcess):
             next_packet = self._output_queue.get(
                 timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
             )
+            return next_packet
         except queue.Empty:
             return bytes(0)
 
-        return next_packet
-
-    def write(self, input_item: Any) -> None:
+    def write(self, input_item: bytes) -> None:
         self._input_queue.put(input_item)

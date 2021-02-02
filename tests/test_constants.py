@@ -61,6 +61,8 @@ from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
+from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import START_BARCODE_SCAN_TRIG_BIT
@@ -296,3 +298,8 @@ def test_shutdown_values():
 
 def test_parallelism_config():
     assert SECONDS_TO_WAIT_WHEN_POLLING_QUEUES == 0.02
+
+
+def test_serial_comm():
+    assert SERIAL_COMM_MAGIC_WORD_BYTES == b"CURI BIO"
+    assert SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS == 5

@@ -71,6 +71,8 @@ from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from .constants import REFERENCE_VOLTAGE
 from .constants import ROUND_ROBIN_PERIOD
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
+from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
 from .constants import START_BARCODE_SCAN_TRIG_BIT
@@ -314,4 +316,6 @@ __all__ = [
     "ServerThreadSingletonAlreadySetError",
     "mc_simulator",
     "MantarrayMCSimulator",
+    "SERIAL_COMM_MAGIC_WORD_BYTES",
+    "SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS",
 ]
