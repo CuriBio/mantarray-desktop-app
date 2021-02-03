@@ -114,6 +114,7 @@ from .exceptions import UnrecognizedDataFrameFormatNameError
 from .exceptions import UnrecognizedDebugConsoleCommandError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
 from .exceptions import UnrecognizedRecordingCommandError
+from .exceptions import UnrecognizedSimulatorTestCommandError
 from .fifo_read_producer import FIFOReadProducer
 from .fifo_read_producer import produce_data
 from .fifo_simulator import RunningFIFOSimulator
@@ -318,4 +319,5 @@ __all__ = [
     "MantarrayMCSimulator",
     "SERIAL_COMM_MAGIC_WORD_BYTES",
     "SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS",
+    "UnrecognizedSimulatorTestCommandError",
 ]
