@@ -55,7 +55,7 @@ class MantarrayMCSimulator(InfiniteProcess):
         return time.perf_counter_ns() - self._init_time
 
     def _get_timestamp_bytes(self) -> bytes:
-        return self.get_dur_since_init().to_bytes(8, "little")
+        return self.get_dur_since_init().to_bytes(8, byteorder="little")
 
     def _send_status_beacon(self, truncate: bool = False) -> None:
         self._time_of_last_status_beacon = time.perf_counter()

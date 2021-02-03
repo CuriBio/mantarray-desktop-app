@@ -15,6 +15,7 @@ from stdlib_utils import invoke_process_run_and_check_errors
 
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .fixtures_mc_simulator import fixture_mantarray_mc_simulator
+from .fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from .helpers import confirm_queue_is_eventually_empty
 from .helpers import confirm_queue_is_eventually_of_size
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -22,6 +23,7 @@ from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_e
 
 __fixtures__ = [
     fixture_mantarray_mc_simulator,
+    fixture_mantarray_mc_simulator_no_beacon,
 ]
 
 
@@ -70,26 +72,25 @@ def test_MantarrayMCSimulator__correctly_stores_time_since_initialized(
     assert simulator.get_dur_since_init() == expected_dur_since_init
 
 
-def test_MantarrayMCSimulator_read__gets_next_item_from_output_queue(
-    mantarray_mc_simulator,
+def test_MantarrayMCSimulator_read__gets_next_available_bytes(
+    mantarray_mc_simulator_no_beacon,
 ):
-    _, output_queue, _, _, simulator = mantarray_mc_simulator
-    simulator.read()  # clear initial status beacon
-    confirm_queue_is_eventually_empty(output_queue)
+    _, _, _, testing_queue, simulator = mantarray_mc_simulator_no_beacon
 
-    expected_item = "expected_item"
+    expected_bytes = b"expected_item"
+    test_item = {"command": "add_read_bytes", "read_bytes": expected_bytes}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        expected_item, output_queue
+        test_item, testing_queue
     )
-    actual_item = simulator.read(len(expected_item))
-    assert actual_item == expected_item
+    invoke_process_run_and_check_errors(simulator)
+    actual_item = simulator.read(size=len(expected_bytes))
+    assert actual_item == expected_bytes
 
 
 def test_MantarrayMCSimulator_read__returns_empty_bytes_if_output_queue_is_empty(
     mantarray_mc_simulator,
 ):
     _, _, _, _, simulator = mantarray_mc_simulator
-    simulator.read()  # clear initial status beacon
     actual_item = simulator.read(10)
     expected_item = bytes(0)
     assert actual_item == expected_item
@@ -183,27 +184,6 @@ def test_MantarrayMCSimulator__puts_status_beacon_into_output_queue_every_5_seco
     assert output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_beacon_2
 
 
-def test_MantarrayMCSimulator__allows_reads_to_be_set_through_test_queue(
-    mantarray_mc_simulator,
-):
-    _, output_queue, _, testing_queue, simulator = mantarray_mc_simulator
-
-    # remove boot up beacon
-    invoke_process_run_and_check_errors(simulator)
-    confirm_queue_is_eventually_of_size(output_queue, 1)
-    output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-
-    expected_bytes = b"test_item"
-    test_item = {"command": "add_read_bytes", "read_bytes": expected_bytes}
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_item, testing_queue
-    )
-    invoke_process_run_and_check_errors(simulator)
-    confirm_queue_is_eventually_of_size(output_queue, 1)
-    actual = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert expected_bytes == actual
-
-
 def test_MantarrayMCSimulator__raises_error_if_unrecognized_test_command_is_received(
     mantarray_mc_simulator,
 ):
@@ -285,10 +265,9 @@ def test_MantarrayMCSimulator__handles_reads_of_size_less_than_next_packet_in_qu
     # Tanner (2/2/20): this try/finally block ensures that the simulator is stopped even if the test fails. Problems can arise from processes not being stopped after tests complete
     try:
         simulator.start()
-        confirm_queue_is_eventually_empty(  # Tanner (2/2/21): Adding a large timeout here to avoid sporadic failures in CI (windows did not like a 5 second timeout)
-            testing_queue, timeout_seconds=10
-        )
+        confirm_queue_is_eventually_empty(testing_queue, timeout_seconds=5)
         # remove boot up beacon
+        # TODO
         output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
         read_len_1 = 3
