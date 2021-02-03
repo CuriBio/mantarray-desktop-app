@@ -23,7 +23,6 @@ from typing import Union
 import numpy as np
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import get_formatted_stack_trace
-from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
 from stdlib_utils import resource_path
 from stdlib_utils import safe_get
@@ -34,7 +33,6 @@ from xem_wrapper import DATA_FRAME_SIZE_WORDS
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 from xem_wrapper import FrontPanelBase
 from xem_wrapper import FrontPanelSimulator
-from xem_wrapper import okCFrontPanel
 from xem_wrapper import OpalKellyIncorrectHeaderError
 from xem_wrapper import OpalKellyNoDeviceFoundError
 from xem_wrapper import open_board
@@ -66,6 +64,7 @@ from .exceptions import UnrecognizedDataFrameFormatNameError
 from .exceptions import UnrecognizedDebugConsoleCommandError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
 from .fifo_simulator import RunningFIFOSimulator
+from .instrument_comm import InstrumentCommProcess
 from .mantarray_front_panel import MantarrayFrontPanel
 from .utils import _trim_barcode
 
@@ -487,7 +486,7 @@ def _drain_queue(
 
 
 # pylint: disable=too-many-instance-attributes
-class OkCommunicationProcess(InfiniteProcess):
+class OkCommunicationProcess(InstrumentCommProcess):
     """Process that controls communication with the OpalKelly Board(s).
 
     Args:
@@ -512,14 +511,11 @@ class OkCommunicationProcess(InfiniteProcess):
         suppress_setup_communication_to_main: bool = False,
         logging_level: int = logging.INFO,
     ):
-        # pylint-disable: duplicate-code # needed for the type definition of the board_queues
-        super().__init__(fatal_error_reporter, logging_level=logging_level)
-        self._board_queues = board_queues
-        self._board_connections: List[Union[None, okCFrontPanel]] = [None] * len(
-            self._board_queues
-        )
-        self._suppress_setup_communication_to_main = (
-            suppress_setup_communication_to_main
+        super().__init__(
+            board_queues,
+            fatal_error_reporter,
+            suppress_setup_communication_to_main,
+            logging_level,
         )
         self._data_frame_format = "six_channels_32_bit__single_sample_index"
         self._time_of_last_fifo_read: List[Union[None, datetime.datetime]] = [
@@ -540,18 +536,6 @@ class OkCommunicationProcess(InfiniteProcess):
             None,
         ]
         self._is_barcode_cleared = [False, False]
-
-    def hard_stop(self, timeout: Optional[float] = None) -> Dict[str, Any]:
-        return_value: Dict[str, Any] = super().hard_stop(timeout=timeout)
-        board_connections = self.get_board_connections_list()
-        for iter_board in board_connections:
-            if iter_board is not None:
-                iter_board.hard_stop(timeout=timeout)
-        return return_value
-
-    def determine_how_many_boards_are_connected(self) -> int:
-        # pylint: disable=no-self-use # currently a place holder just being mocked
-        return 1  # place holder for linting
 
     def create_connections_to_all_available_boards(self) -> None:
         """Create initial connections to boards.
@@ -588,9 +572,6 @@ class OkCommunicationProcess(InfiniteProcess):
     def set_board_connection(self, board_idx: int, front_panel: FrontPanelBase) -> None:
         board_connections = self.get_board_connections_list()
         board_connections[board_idx] = front_panel
-
-    def get_board_connections_list(self) -> List[Union[None, okCFrontPanel]]:
-        return self._board_connections
 
     def _setup_before_loop(self) -> None:
         msg = {
