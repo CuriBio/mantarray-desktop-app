@@ -18,6 +18,7 @@ def fixture_mantarray_mc_simulator():
 
     yield input_queue, output_queue, error_queue, testing_queue, mc_simulator
 
+    # drain queues to avoid BrokenPipeErrors
     drain_queue(input_queue)
     drain_queue(output_queue)
     drain_queue(error_queue)
