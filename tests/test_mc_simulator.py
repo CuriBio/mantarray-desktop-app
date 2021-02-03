@@ -285,7 +285,9 @@ def test_MantarrayMCSimulator__handles_reads_of_size_less_than_next_packet_in_qu
     # Tanner (2/2/20): this try/finally block ensures that the simulator is stopped even if the test fails. Problems can arise from processes not being stopped after tests complete
     try:
         simulator.start()
-        confirm_queue_is_eventually_empty(testing_queue, timeout_seconds=5)
+        confirm_queue_is_eventually_empty(  # Tanner (2/2/21): Adding a large timeout here to avoid sporadic failures in CI (windows did not like a 5 second timeout)
+            testing_queue, timeout_seconds=10
+        )
         # remove boot up beacon
         output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
