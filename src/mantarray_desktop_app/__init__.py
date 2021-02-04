@@ -60,6 +60,7 @@ from .constants import MAX_POSSIBLE_CONNECTED_BOARDS
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MIDSCALE_CODE
 from .constants import MILLIVOLTS_PER_VOLT
+from .constants import NANOSECONDS_PER_CENTIMILLISECOND
 from .constants import NO_PLATE_DETECTED_BARCODE_VALUE
 from .constants import NO_PLATE_DETECTED_UUID
 from .constants import OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
@@ -320,4 +321,5 @@ __all__ = [
     "SERIAL_COMM_MAGIC_WORD_BYTES",
     "SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS",
     "UnrecognizedSimulatorTestCommandError",
+    "NANOSECONDS_PER_CENTIMILLISECOND",
 ]

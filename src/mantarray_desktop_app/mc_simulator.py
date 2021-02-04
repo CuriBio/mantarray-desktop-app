@@ -16,13 +16,14 @@ from zlib import crc32
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 
+from .constants import NANOSECONDS_PER_CENTIMILLISECOND
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .exceptions import UnrecognizedSimulatorTestCommandError
 
 
-def _get_dur_since_last_status_beacon(last_time: float) -> float:
+def _get_secs_since_last_status_beacon(last_time: float) -> float:
     return perf_counter() - last_time
 
 
@@ -42,7 +43,9 @@ class MantarrayMCSimulator(InfiniteProcess):
 
     def __init__(
         self,
-        input_queue: Queue[bytes],  # pylint: disable=unsubscriptable-object
+        input_queue: Queue[
+            bytes
+        ],  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
         output_queue: Queue[bytes],  # pylint: disable=unsubscriptable-object
         fatal_error_reporter: Queue[  # pylint: disable=unsubscriptable-object
             Dict[str, Any]
@@ -54,51 +57,52 @@ class MantarrayMCSimulator(InfiniteProcess):
         self._output_queue = output_queue
         self._input_queue = input_queue
         self._testing_queue = testing_queue
-        self._init_time: Optional[int] = None
-        self._time_of_last_status_beacon: Optional[float] = None
+        self._init_time_ns: Optional[int] = None
+        self._time_of_last_status_beacon_secs: Optional[float] = None
         self._leftover_read_bytes: Optional[bytes] = None
 
     def _setup_before_loop(self) -> None:
-        # Tanner (2/2/21): Comparing perf_counter_ns values in a new process to those in the parent process have unexpected behavior in windows, so storing the initialization time after the process has been created in order to avoid issues
-        self._init_time = perf_counter_ns()
+        # Tanner (2/2/21): Comparing perf_counter_ns values in a subprocess to those in the parent process have unexpected behavior in windows, so storing the initialization time after the process has been created in order to avoid issues
+        self._init_time_ns = perf_counter_ns()
 
-    def get_dur_since_init(self) -> int:
-        if self._init_time is None:
+    def get_cms_since_init(self) -> int:
+        if self._init_time_ns is None:
             return 0
-        dur = perf_counter_ns() - self._init_time
-        print("dur_since_init:", dur)  # allow-print
-        return dur
+        ns_since_init = perf_counter_ns() - self._init_time_ns
+        return ns_since_init // NANOSECONDS_PER_CENTIMILLISECOND
 
-    def _get_timestamp_bytes(self) -> bytes:
-        return self.get_dur_since_init().to_bytes(8, byteorder="little")
+    def _get_cms_timestamp_bytes(self) -> bytes:
+        return self.get_cms_since_init().to_bytes(8, byteorder="little")
 
     def _send_status_beacon(self, truncate: bool = False) -> None:
-        self._time_of_last_status_beacon = perf_counter()
-        packet_length_info = b"\x0e\x00"
+        self._time_of_last_status_beacon_secs = perf_counter()
+        num_bytes_in_content = b"\x0e\x00"
         module_id = b"\x00"
         packet_type = b"\x00"
 
         status_beacon = SERIAL_COMM_MAGIC_WORD_BYTES
-        status_beacon += packet_length_info
-        status_beacon += self._get_timestamp_bytes()
+        status_beacon += num_bytes_in_content
+        status_beacon += self._get_cms_timestamp_bytes()
         status_beacon += module_id
         status_beacon += packet_type
         status_beacon += _get_checksum_bytes(status_beacon)
         if truncate:
             trunc_index = random.randint(0, 10)  # nosec
             status_beacon = status_beacon[trunc_index:]
-        self._output_queue.put(status_beacon)
+        self._output_queue.put_nowait(status_beacon)
 
     def _commands_for_each_run_iteration(self) -> None:
         self._handle_status_beacon()
         self._handle_test_comm()
 
     def _handle_status_beacon(self) -> None:
-        if self._time_of_last_status_beacon is None:
+        if self._time_of_last_status_beacon_secs is None:
             self._send_status_beacon(truncate=True)
             return
-        dur = _get_dur_since_last_status_beacon(self._time_of_last_status_beacon)
-        if dur >= SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS:
+        seconds_elapsed = _get_secs_since_last_status_beacon(
+            self._time_of_last_status_beacon_secs
+        )
+        if seconds_elapsed >= SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS:
             self._send_status_beacon()
 
     def _handle_test_comm(self) -> None:
@@ -109,7 +113,7 @@ class MantarrayMCSimulator(InfiniteProcess):
 
         command = test_comm["command"]
         if command == "add_read_bytes":
-            self._output_queue.put(test_comm["read_bytes"])
+            self._output_queue.put_nowait(test_comm["read_bytes"])
         else:
             raise UnrecognizedSimulatorTestCommandError(command)
 
@@ -118,7 +122,7 @@ class MantarrayMCSimulator(InfiniteProcess):
         empty = False
         try:
             next_packet = self._output_queue.get(
-                timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES  # TODO add timeout ?
+                timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES  # TODO move timeout to be a value set in __init__
             )
         except queue.Empty:
             if self._leftover_read_bytes is None:
@@ -138,7 +142,7 @@ class MantarrayMCSimulator(InfiniteProcess):
         return next_packet
 
     def write(self, input_item: bytes) -> None:
-        self._input_queue.put(input_item)
+        self._input_queue.put_nowait(input_item)
 
     def _drain_all_queues(self) -> Dict[str, Any]:
         queue_items = {

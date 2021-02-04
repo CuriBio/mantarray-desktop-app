@@ -67,6 +67,7 @@ ROUND_ROBIN_PERIOD = DATA_FRAME_PERIOD * DATA_FRAMES_PER_ROUND_ROBIN
 TIMESTEP_CONVERSION_FACTOR = 5  # Mantarray firmware represents time indices in units of 5 cms, so we must multiply sample index from hardware by this conversion factor to get value in cms
 
 MICROSECONDS_PER_CENTIMILLISECOND = 10
+NANOSECONDS_PER_CENTIMILLISECOND = 10 ** 4
 
 FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE = 0xFFFFFFFF
 FIFO_READ_PRODUCER_CYCLES_PER_ITERATION = (

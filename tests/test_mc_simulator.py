@@ -6,6 +6,7 @@ from zlib import crc32
 
 from mantarray_desktop_app import MantarrayMCSimulator
 from mantarray_desktop_app import mc_simulator
+from mantarray_desktop_app import NANOSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import UnrecognizedSimulatorTestCommandError
@@ -29,6 +30,10 @@ __fixtures__ = [
 ]
 
 STATUS_BEACON_SIZE_BYTES = 24
+# TODO move these somewhere
+STATUS_BEACON_PACKET_LENGTH_INFO = b"\x0e\x00"
+STATUS_BEACON_MODULE_ID = b"\x00"
+STATUS_BEACON_PACKET_TYPE = b"\x00"
 
 
 def convert_to_data_packet(data_bytes: bytes) -> bytes:
@@ -121,12 +126,14 @@ def test_MantarrayMCSimulator__correctly_stores_time_since_initialized__in_setup
     )
 
     # before setup
-    assert simulator.get_dur_since_init() == 0
+    assert simulator.get_cms_since_init() == 0
 
     invoke_process_run_and_check_errors(simulator, perform_setup_before_loop=True)
     # after setup
-    expected_dur_since_init = expected_poll_time - expected_init_time
-    assert simulator.get_dur_since_init() == expected_dur_since_init
+    expected_dur_since_init = (
+        expected_poll_time - expected_init_time
+    ) // NANOSECONDS_PER_CENTIMILLISECOND
+    assert simulator.get_cms_since_init() == expected_dur_since_init
 
 
 def test_MantarrayMCSimulator_read__gets_next_available_bytes(
@@ -171,13 +178,18 @@ def test_MantarrayMCSimulator__makes_status_beacon_available_to_read_on_first_it
     spied_randint = mocker.spy(random, "randint")
 
     _, _, _, _, simulator = mantarray_mc_simulator
-    mocker.patch.object(simulator, "get_dur_since_init", autospec=True, return_value=0)
+    mocker.patch.object(simulator, "get_cms_since_init", autospec=True, return_value=0)
 
     invoke_process_run_and_check_errors(simulator)
     spied_randint.assert_called_once_with(0, 10)
 
+    timestamp_bytes = bytes(8)
     expected_initial_beacon = convert_to_data_packet(
-        SERIAL_COMM_MAGIC_WORD_BYTES + b"\x0e\x00" + bytes(8) + b"\x00\x00"
+        SERIAL_COMM_MAGIC_WORD_BYTES
+        + STATUS_BEACON_PACKET_LENGTH_INFO
+        + timestamp_bytes
+        + STATUS_BEACON_MODULE_ID
+        + STATUS_BEACON_PACKET_TYPE
     )
     actual = simulator.read(
         size=len(expected_initial_beacon[spied_randint.spy_return :])
@@ -196,11 +208,11 @@ def test_MantarrayMCSimulator__makes_status_beacon_available_to_read_every_5_sec
         CENTIMILLISECONDS_PER_SECOND * SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS * 2 + 1,
     ]
     mocker.patch.object(
-        simulator, "get_dur_since_init", autospec=True, side_effect=expected_durs
+        simulator, "get_cms_since_init", autospec=True, side_effect=expected_durs
     )
     mocker.patch.object(
         mc_simulator,
-        "_get_dur_since_last_status_beacon",
+        "_get_secs_since_last_status_beacon",
         autospec=True,
         side_effect=[
             1,
@@ -219,9 +231,10 @@ def test_MantarrayMCSimulator__makes_status_beacon_available_to_read_every_5_sec
     invoke_process_run_and_check_errors(simulator)
     expected_beacon_1 = convert_to_data_packet(
         SERIAL_COMM_MAGIC_WORD_BYTES
-        + b"\x0e\x00"
+        + STATUS_BEACON_PACKET_LENGTH_INFO
         + expected_durs[1].to_bytes(8, "little")
-        + b"\x00\x00"
+        + STATUS_BEACON_MODULE_ID
+        + STATUS_BEACON_PACKET_TYPE
     )
     assert simulator.read(size=len(expected_beacon_1)) == expected_beacon_1
     # 4 seconds since prev beacon
@@ -230,16 +243,21 @@ def test_MantarrayMCSimulator__makes_status_beacon_available_to_read_every_5_sec
     invoke_process_run_and_check_errors(simulator)
     expected_beacon_2 = convert_to_data_packet(
         SERIAL_COMM_MAGIC_WORD_BYTES
-        + b"\x0e\x00"
+        + STATUS_BEACON_PACKET_LENGTH_INFO
         + expected_durs[2].to_bytes(8, "little")
-        + b"\x00\x00"
+        + STATUS_BEACON_MODULE_ID
+        + STATUS_BEACON_PACKET_TYPE
     )
     assert simulator.read(size=len(expected_beacon_2)) == expected_beacon_2
 
 
 def test_MantarrayMCSimulator__raises_error_if_unrecognized_test_command_is_received(
-    mantarray_mc_simulator,
+    mantarray_mc_simulator, mocker
 ):
+    mocker.patch(
+        "builtins.print", autospec=True
+    )  # don't print the error message to console
+
     _, _, _, testing_queue, simulator = mantarray_mc_simulator
 
     expected_command = "bad_command"

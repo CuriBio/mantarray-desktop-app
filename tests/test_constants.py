@@ -50,6 +50,7 @@ from mantarray_desktop_app import MAX_POSSIBLE_CONNECTED_BOARDS
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import MIDSCALE_CODE
 from mantarray_desktop_app import MILLIVOLTS_PER_VOLT
+from mantarray_desktop_app import NANOSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import NO_PLATE_DETECTED_BARCODE_VALUE
 from mantarray_desktop_app import NO_PLATE_DETECTED_UUID
 from mantarray_desktop_app import OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
@@ -140,6 +141,7 @@ def test_hardware_time_constants():
     assert CONSTRUCT_SENSOR_SAMPLING_PERIOD == ROUND_ROBIN_PERIOD
     assert TIMESTEP_CONVERSION_FACTOR == 5
     assert MICROSECONDS_PER_CENTIMILLISECOND == 10
+    assert NANOSECONDS_PER_CENTIMILLISECOND == 10 ** 4
 
 
 def test_adc_reading_constants():
