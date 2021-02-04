@@ -87,7 +87,9 @@ class MantarrayMCSimulator(InfiniteProcess):
         status_beacon += packet_type
         status_beacon += _get_checksum_bytes(status_beacon)
         if truncate:
-            trunc_index = random.randint(0, 10)  # nosec
+            trunc_index = random.randint(  # nosec B311 # Tanner (2/4/21): Bandit blacklisted this psuedo-random generator for security/cryptographic reasons which do not apply to the desktop app.
+                0, 10
+            )
             status_beacon = status_beacon[trunc_index:]
         self._output_queue.put_nowait(status_beacon)
 
