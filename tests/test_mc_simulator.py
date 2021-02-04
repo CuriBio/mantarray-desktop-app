@@ -105,26 +105,26 @@ def test_MantarrayMCSimulator_hard_stop__clears_all_queues_and_returns_lists_of_
     confirm_queue_is_eventually_empty(testing_queue)
 
 
-def test_MantarrayMCSimulator__correctly_stores_time_since_initialized(
+def test_MantarrayMCSimulator__correctly_stores_time_since_initialized__in_setup_before_loop(
     mocker,
+    mantarray_mc_simulator_no_beacon,
 ):
+    _, _, _, _, simulator = mantarray_mc_simulator_no_beacon
+
     expected_init_time = 15796649135715
     expected_poll_time = 15880317595302
     mocker.patch.object(  # Tanner (2/1/21): mocking perf_counter is generally a bad idea but can't think of any other way to test this
         mc_simulator,
         "perf_counter_ns",
         autospec=True,
-        side_effect=[0, expected_init_time, expected_poll_time],
+        side_effect=[expected_init_time, expected_poll_time],
     )
 
-    input_queue = Queue()
-    output_queue = Queue()
-    error_queue = Queue()
-    testing_queue = Queue()
-    simulator = MantarrayMCSimulator(
-        input_queue, output_queue, error_queue, testing_queue
-    )
+    # before setup
+    assert simulator.get_dur_since_init() == 0
 
+    invoke_process_run_and_check_errors(simulator, perform_setup_before_loop=True)
+    # after setup
     expected_dur_since_init = expected_poll_time - expected_init_time
     assert simulator.get_dur_since_init() == expected_dur_since_init
 

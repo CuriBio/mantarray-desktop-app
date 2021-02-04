@@ -54,12 +54,17 @@ class MantarrayMCSimulator(InfiniteProcess):
         self._output_queue = output_queue
         self._input_queue = input_queue
         self._testing_queue = testing_queue
-        perf_counter_ns()  # Tanner (2/2/21): It seems the first call to perf_counter_ns in a new process has unexpected behavior in windows, so calling it once before saving the value to avoid issues
-        self._init_time = perf_counter_ns()
+        self._init_time: Optional[int] = None
         self._time_of_last_status_beacon: Optional[float] = None
         self._leftover_read_bytes: Optional[bytes] = None
 
+    def _setup_before_loop(self) -> None:
+        # Tanner (2/2/21): Comparing perf_counter_ns values in a new process to those in the parent process have unexpected behavior in windows, so storing the initialization time after the process has been created in order to avoid issues
+        self._init_time = perf_counter_ns()
+
     def get_dur_since_init(self) -> int:
+        if self._init_time is None:
+            return 0
         dur = perf_counter_ns() - self._init_time
         print("dur_since_init:", dur)  # allow-print
         return dur
