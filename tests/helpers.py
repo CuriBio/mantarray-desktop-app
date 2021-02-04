@@ -57,7 +57,7 @@ def confirm_queue_is_eventually_of_size(
     stdlib_c_q_is_e_of_s(the_queue, size, timeout_seconds=timeout_seconds)
 
 
-def handle_putting_multiple_objects_into_queue(
+def handle_putting_multiple_objects_into_empty_queue(
     objs: List[object],
     the_queue: UnionOfThreadingAndMultiprocessingQueue,
     timeout_seconds: Union[float, int] = QUEUE_CHECK_TIMEOUT_SECONDS,

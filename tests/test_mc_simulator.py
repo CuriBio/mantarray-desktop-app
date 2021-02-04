@@ -2,6 +2,7 @@
 import logging
 from multiprocessing import Queue
 import random
+from zlib import crc32
 
 from mantarray_desktop_app import MantarrayMCSimulator
 from mantarray_desktop_app import mc_simulator
@@ -18,7 +19,7 @@ from .fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from .fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from .helpers import confirm_queue_is_eventually_empty
 from .helpers import confirm_queue_is_eventually_of_size
-from .helpers import handle_putting_multiple_objects_into_queue
+from .helpers import handle_putting_multiple_objects_into_empty_queue
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 
@@ -27,7 +28,11 @@ __fixtures__ = [
     fixture_mantarray_mc_simulator_no_beacon,
 ]
 
-STATUS_BEACON_SIZE_BYTES = 1  # TODO
+STATUS_BEACON_SIZE_BYTES = 24
+
+
+def convert_to_data_packet(data_bytes: bytes) -> bytes:
+    return data_bytes + crc32(data_bytes).to_bytes(4, byteorder="little")
 
 
 def test_MantarrayMCSimulator__super_is_called_during_init__with_default_logging_value(
@@ -171,18 +176,19 @@ def test_MantarrayMCSimulator__makes_status_beacon_available_to_read_on_first_it
     invoke_process_run_and_check_errors(simulator)
     spied_randint.assert_called_once_with(0, 10)
 
-    expected_initial_beacon = (
-        SERIAL_COMM_MAGIC_WORD_BYTES + bytes(8) + b"\x00\x00\x04" + bytes(4)
+    expected_initial_beacon = convert_to_data_packet(
+        SERIAL_COMM_MAGIC_WORD_BYTES + b"\x0e\x00" + bytes(8) + b"\x00\x00"
     )
-    # TODO
-    actual = simulator.read(size=len(expected_initial_beacon))
+    actual = simulator.read(
+        size=len(expected_initial_beacon[spied_randint.spy_return :])
+    )
     assert actual == expected_initial_beacon[spied_randint.spy_return :]
 
 
 def test_MantarrayMCSimulator__makes_status_beacon_available_to_read_every_5_seconds__and_includes_correct_timestamp(
     mantarray_mc_simulator, mocker
 ):
-    _, output_queue, _, _, simulator = mantarray_mc_simulator
+    _, _, _, _, simulator = mantarray_mc_simulator
 
     expected_durs = [
         0,
@@ -204,33 +210,30 @@ def test_MantarrayMCSimulator__makes_status_beacon_available_to_read_every_5_sec
         ],
     )
 
-    # TODO
     # remove boot up beacon
     invoke_process_run_and_check_errors(simulator)
-    output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    simulator.read(size=STATUS_BEACON_SIZE_BYTES)
     # 1 second since prev beacon
     invoke_process_run_and_check_errors(simulator)
     # 5 seconds since prev beacon
     invoke_process_run_and_check_errors(simulator)
-    expected_beacon_1 = (
+    expected_beacon_1 = convert_to_data_packet(
         SERIAL_COMM_MAGIC_WORD_BYTES
+        + b"\x0e\x00"
         + expected_durs[1].to_bytes(8, "little")
-        + b"\x00\x00\x04"
-        + bytes(4)
+        + b"\x00\x00"
     )
-    # TODO
     assert simulator.read(size=len(expected_beacon_1)) == expected_beacon_1
     # 4 seconds since prev beacon
     invoke_process_run_and_check_errors(simulator)
     # 6 seconds since prev beacon
     invoke_process_run_and_check_errors(simulator)
-    expected_beacon_2 = (
+    expected_beacon_2 = convert_to_data_packet(
         SERIAL_COMM_MAGIC_WORD_BYTES
+        + b"\x0e\x00"
         + expected_durs[2].to_bytes(8, "little")
-        + b"\x00\x00\x04"
-        + bytes(4)
+        + b"\x00\x00"
     )
-    # TODO
     assert simulator.read(size=len(expected_beacon_2)) == expected_beacon_2
 
 
@@ -261,7 +264,7 @@ def test_MantarrayMCSimulator__handles_reads_of_size_less_than_next_packet_in_qu
         {"command": "add_read_bytes", "read_bytes": item_1},
         {"command": "add_read_bytes", "read_bytes": item_2},
     ]
-    handle_putting_multiple_objects_into_queue(test_items, testing_queue)
+    handle_putting_multiple_objects_into_empty_queue(test_items, testing_queue)
     invoke_process_run_and_check_errors(simulator, 2)
     confirm_queue_is_eventually_empty(testing_queue)
 
@@ -311,7 +314,7 @@ def test_MantarrayMCSimulator__handles_reads_of_size_less_than_next_packet_in_qu
 def test_MantarrayMCSimulator__handles_reads_of_size_less_than_next_packet_in_queue__when_simulator_is_running(
     mantarray_mc_simulator,
 ):
-    _, output_queue, _, testing_queue, simulator = mantarray_mc_simulator
+    _, _, _, testing_queue, simulator = mantarray_mc_simulator
 
     test_item_1 = b"12345"
     test_item_2 = b"67890"
@@ -319,15 +322,14 @@ def test_MantarrayMCSimulator__handles_reads_of_size_less_than_next_packet_in_qu
         {"command": "add_read_bytes", "read_bytes": test_item_1},
         {"command": "add_read_bytes", "read_bytes": test_item_2},
     ]
-    handle_putting_multiple_objects_into_queue(test_items, testing_queue)
+    handle_putting_multiple_objects_into_empty_queue(test_items, testing_queue)
 
     # Tanner (2/2/20): this try/finally block ensures that the simulator is stopped even if the test fails. Problems can arise from processes not being stopped after tests complete
     try:
         simulator.start()
         confirm_queue_is_eventually_empty(testing_queue, timeout_seconds=5)
         # remove boot up beacon
-        # TODO
-        output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+        simulator.read(size=STATUS_BEACON_SIZE_BYTES)
 
         read_len_1 = 3
         read_1 = simulator.read(size=read_len_1)

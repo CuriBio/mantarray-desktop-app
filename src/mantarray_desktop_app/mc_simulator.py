@@ -11,6 +11,7 @@ from time import perf_counter_ns
 from typing import Any
 from typing import Dict
 from typing import Optional
+from zlib import crc32
 
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
@@ -23,6 +24,10 @@ from .exceptions import UnrecognizedSimulatorTestCommandError
 
 def _get_dur_since_last_status_beacon(last_time: float) -> float:
     return perf_counter() - last_time
+
+
+def _get_checksum_bytes(packet: bytes) -> bytes:
+    return crc32(packet).to_bytes(4, byteorder="little")
 
 
 class MantarrayMCSimulator(InfiniteProcess):
@@ -49,7 +54,7 @@ class MantarrayMCSimulator(InfiniteProcess):
         self._output_queue = output_queue
         self._input_queue = input_queue
         self._testing_queue = testing_queue
-        perf_counter_ns()  # Tanner (2/2/21): It seems the first call to perf_counter_ns has unexpected behavior in windows, so calling it here to avoid issues
+        perf_counter_ns()  # Tanner (2/2/21): It seems the first call to perf_counter_ns in a new process has unexpected behavior in windows, so calling it once before saving the value to avoid issues
         self._init_time = perf_counter_ns()
         self._time_of_last_status_beacon: Optional[float] = None
         self._leftover_read_bytes: Optional[bytes] = None
@@ -64,10 +69,16 @@ class MantarrayMCSimulator(InfiniteProcess):
 
     def _send_status_beacon(self, truncate: bool = False) -> None:
         self._time_of_last_status_beacon = perf_counter()
+        packet_length_info = b"\x0e\x00"
+        module_id = b"\x00"
+        packet_type = b"\x00"
+
         status_beacon = SERIAL_COMM_MAGIC_WORD_BYTES
+        status_beacon += packet_length_info
         status_beacon += self._get_timestamp_bytes()
-        status_beacon += b"\x00\x00\x04"
-        status_beacon += bytes(4)
+        status_beacon += module_id
+        status_beacon += packet_type
+        status_beacon += _get_checksum_bytes(status_beacon)
         if truncate:
             trunc_index = random.randint(0, 10)  # nosec
             status_beacon = status_beacon[trunc_index:]
