@@ -11,13 +11,13 @@ from time import perf_counter_ns
 from typing import Any
 from typing import Dict
 from typing import Optional
+from typing import Union
 from zlib import crc32
 
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 
 from .constants import NANOSECONDS_PER_CENTIMILLISECOND
-from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .exceptions import UnrecognizedSimulatorTestCommandError
@@ -39,6 +39,7 @@ class MantarrayMCSimulator(InfiniteProcess):
         output_queue: queue bytes sent from the simulator using the `read` method
         fatal_error_reporter: a queue to report fatal errors back to the main process
         testing_queue: queue used to send commands to the simulator. Should only be used in unit tests
+        read_timeout_seconds: number of seconds to wait until read is of desired size before returning how ever many bytes have been read. Timeout should be set to 0 unless a non-zero value is necessary for unit testing
     """
 
     def __init__(
@@ -52,6 +53,7 @@ class MantarrayMCSimulator(InfiniteProcess):
         ],
         testing_queue: Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
         logging_level: int = logging.INFO,
+        read_timeout_seconds: Union[int, float] = 0,
     ) -> None:
         super().__init__(fatal_error_reporter, logging_level=logging_level)
         self._output_queue = output_queue
@@ -60,6 +62,7 @@ class MantarrayMCSimulator(InfiniteProcess):
         self._init_time_ns: Optional[int] = None
         self._time_of_last_status_beacon_secs: Optional[float] = None
         self._leftover_read_bytes: Optional[bytes] = None
+        self._read_timeout_seconds = read_timeout_seconds
 
     def _setup_before_loop(self) -> None:
         # Tanner (2/2/21): Comparing perf_counter_ns values in a subprocess to those in the parent process have unexpected behavior in windows, so storing the initialization time after the process has been created in order to avoid issues
@@ -121,27 +124,27 @@ class MantarrayMCSimulator(InfiniteProcess):
 
     def read(self, size: int = 1) -> bytes:
         """Read the given number of bytes from the simulator."""
-        empty = False
-        try:
-            next_packet = self._output_queue.get(
-                timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES  # TODO move timeout to be a value set in __init__
-            )
-        except queue.Empty:
-            if self._leftover_read_bytes is None:
-                return bytes(0)
-            empty = True
-
+        # first check leftover bytes from last read
+        read_bytes = bytes(0)
         if self._leftover_read_bytes is not None:
-            if empty:
-                next_packet = self._leftover_read_bytes
-            else:
-                next_packet = self._leftover_read_bytes + next_packet
+            read_bytes = self._leftover_read_bytes
             self._leftover_read_bytes = None
-        if len(next_packet) > size:
-            size_diff = len(next_packet) - size
-            self._leftover_read_bytes = next_packet[-size_diff:]
-            next_packet = next_packet[:-size_diff]
-        return next_packet
+        # try to get bytes until either timeout occurs or given size is reached or exceeded
+        start = perf_counter()
+        read_dur_secs = 0.0
+        while len(read_bytes) < size and read_dur_secs < self._read_timeout_seconds:
+            read_dur_secs = perf_counter() - start
+            try:
+                next_bytes = self._output_queue.get_nowait()
+                read_bytes += next_bytes
+            except queue.Empty:
+                continue
+        # if this read exceeds given size then store extra bytes for the next read
+        if len(read_bytes) > size:
+            size_diff = len(read_bytes) - size
+            self._leftover_read_bytes = read_bytes[-size_diff:]
+            read_bytes = read_bytes[:-size_diff]
+        return read_bytes
 
     def write(self, input_item: bytes) -> None:
         self._input_queue.put_nowait(input_item)

@@ -30,7 +30,6 @@ __fixtures__ = [
 ]
 
 STATUS_BEACON_SIZE_BYTES = 24
-# TODO move these somewhere
 STATUS_BEACON_PACKET_LENGTH_INFO = b"\x0e\x00"
 STATUS_BEACON_MODULE_ID = b"\x00"
 STATUS_BEACON_PACKET_TYPE = b"\x00"
@@ -330,9 +329,9 @@ def test_MantarrayMCSimulator__handles_reads_of_size_less_than_next_packet_in_qu
 
 @pytest.mark.slow
 def test_MantarrayMCSimulator__handles_reads_of_size_less_than_next_packet_in_queue__when_simulator_is_running(
-    mantarray_mc_simulator,
+    mantarray_mc_simulator_no_beacon,
 ):
-    _, _, _, testing_queue, simulator = mantarray_mc_simulator
+    _, _, _, testing_queue, simulator = mantarray_mc_simulator_no_beacon
 
     test_item_1 = b"12345"
     test_item_2 = b"67890"
@@ -346,8 +345,6 @@ def test_MantarrayMCSimulator__handles_reads_of_size_less_than_next_packet_in_qu
     try:
         simulator.start()
         confirm_queue_is_eventually_empty(testing_queue, timeout_seconds=5)
-        # remove boot up beacon
-        simulator.read(size=STATUS_BEACON_SIZE_BYTES)
 
         read_len_1 = 3
         read_1 = simulator.read(size=read_len_1)
@@ -359,3 +356,61 @@ def test_MantarrayMCSimulator__handles_reads_of_size_less_than_next_packet_in_qu
     finally:
         simulator.hard_stop()
         simulator.join()
+
+
+def test_MantarrayMCSimulator__handles_reads_of_size_greater_than_next_packet_in_queue__when_queue_is_not_empty(
+    mantarray_mc_simulator_no_beacon,
+):
+    _, _, _, testing_queue, simulator = mantarray_mc_simulator_no_beacon
+
+    test_size_diff = 2
+    item_1 = b"item_one"
+    item_2 = b"second_item"
+
+    test_items = [
+        {"command": "add_read_bytes", "read_bytes": item_1},
+        {"command": "add_read_bytes", "read_bytes": item_2},
+    ]
+    handle_putting_multiple_objects_into_empty_queue(test_items, testing_queue)
+    invoke_process_run_and_check_errors(simulator, 2)
+    confirm_queue_is_eventually_empty(testing_queue)
+
+    expected_1 = item_1 + item_2[:test_size_diff]
+    actual_1 = simulator.read(size=len(item_1) + test_size_diff)
+    assert actual_1 == expected_1
+
+    expected_2 = item_2[test_size_diff:]
+    actual_2 = simulator.read(
+        size=len(expected_2) + 1
+    )  # reading one more byte than are present
+    assert actual_2 == expected_2
+
+    expected_3 = bytes(0)
+    actual_3 = simulator.read(
+        size=10
+    )  # reading arbitrarily greater number of bytes than are present
+    assert actual_3 == expected_3
+
+
+def test_MantarrayMCSimulator__handles_reads_of_size_greater_than_next_packet_in_queue__when_queue_is_empty(
+    mantarray_mc_simulator_no_beacon,
+):
+    _, _, _, testing_queue, simulator = mantarray_mc_simulator_no_beacon
+
+    test_item = b"the_item"
+    test_dict = {"command": "add_read_bytes", "read_bytes": test_item}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_dict, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator)
+
+    expected_1 = test_item
+    actual_1 = simulator.read(
+        size=len(test_item) + 3
+    )  # reading arbitrarily greater number of bytes than are present
+    assert actual_1 == expected_1
+
+    actual_2 = simulator.read(
+        size=1
+    )  # reading arbitrarily greater number of bytes than are present
+    assert actual_2 == bytes(0)
