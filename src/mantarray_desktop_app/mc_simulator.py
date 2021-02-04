@@ -49,6 +49,7 @@ class MantarrayMCSimulator(InfiniteProcess):
         self._output_queue = output_queue
         self._input_queue = input_queue
         self._testing_queue = testing_queue
+        perf_counter_ns()  # Tanner (2/2/21): It seems the first call to perf_counter_ns has unexpected behavior in windows, so calling it here to avoid issues
         self._init_time = perf_counter_ns()
         self._time_of_last_status_beacon: Optional[float] = None
         self._leftover_read_bytes: Optional[bytes] = None

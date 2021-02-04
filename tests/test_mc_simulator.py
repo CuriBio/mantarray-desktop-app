@@ -109,7 +109,7 @@ def test_MantarrayMCSimulator__correctly_stores_time_since_initialized(
         mc_simulator,
         "perf_counter_ns",
         autospec=True,
-        side_effect=[expected_init_time, expected_poll_time],
+        side_effect=[0, expected_init_time, expected_poll_time],
     )
 
     input_queue = Queue()
