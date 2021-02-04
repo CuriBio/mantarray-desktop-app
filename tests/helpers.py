@@ -6,8 +6,10 @@ https://docs.pytest.org/en/stable/writing_plugins.html
 from __future__ import annotations
 
 import json
+from time import perf_counter
 from typing import Any
 from typing import Dict
+from typing import List
 from typing import Union
 
 import stdlib_utils
@@ -16,9 +18,12 @@ from stdlib_utils import confirm_queue_is_eventually_of_size as stdlib_c_q_is_e_
 from stdlib_utils import is_queue_eventually_empty as stdlib_is_queue_eventually_empty
 from stdlib_utils import is_queue_eventually_not_empty as stdlib_is_queue_ena
 from stdlib_utils import is_queue_eventually_of_size as stdlib_is_queue_eos
+from stdlib_utils import QueueStillEmptyError
 from stdlib_utils import UnionOfThreadingAndMultiprocessingQueue
 
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+
+QUEUE_EMPTY_CHECK_TIMEOUT_SECONDS = 0.2
 
 
 def put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -50,6 +55,22 @@ def confirm_queue_is_eventually_of_size(
     timeout_seconds: Union[float, int] = QUEUE_CHECK_TIMEOUT_SECONDS,
 ) -> None:
     stdlib_c_q_is_e_of_s(the_queue, size, timeout_seconds=timeout_seconds)
+
+
+def handle_putting_multiple_objects_into_queue(
+    objs: List[object],
+    the_queue: UnionOfThreadingAndMultiprocessingQueue,
+    timeout_seconds: Union[float, int] = QUEUE_CHECK_TIMEOUT_SECONDS,
+) -> None:
+    for next_obj in objs:
+        the_queue.put(next_obj)
+    confirm_queue_is_eventually_of_size(the_queue, len(objs))
+    start = perf_counter()
+    while perf_counter() - start < QUEUE_EMPTY_CHECK_TIMEOUT_SECONDS:
+        if not the_queue.empty():
+            return
+
+    raise QueueStillEmptyError()
 
 
 def confirm_queue_is_eventually_empty(

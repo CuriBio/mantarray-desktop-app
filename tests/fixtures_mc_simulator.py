@@ -28,6 +28,6 @@ def fixture_mantarray_mc_simulator_no_beacon(mocker):
         input_queue, output_queue, error_queue, testing_queue
     )
 
-    mocker.patch.object(simulator, "_send_status_beacon", autospec=True)
+    mocker.patch.object(simulator, "_handle_status_beacon", autospec=True)
 
     yield input_queue, output_queue, error_queue, testing_queue, simulator

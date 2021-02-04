@@ -6,11 +6,13 @@ import logging
 from multiprocessing import Queue
 import queue
 import random
-import time
+from time import perf_counter
+from time import perf_counter_ns
 from typing import Any
 from typing import Dict
 from typing import Optional
 
+from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
@@ -20,7 +22,7 @@ from .exceptions import UnrecognizedSimulatorTestCommandError
 
 
 def _get_dur_since_last_status_beacon(last_time: float) -> float:
-    return time.perf_counter() - last_time
+    return perf_counter() - last_time
 
 
 class MantarrayMCSimulator(InfiniteProcess):
@@ -47,18 +49,20 @@ class MantarrayMCSimulator(InfiniteProcess):
         self._output_queue = output_queue
         self._input_queue = input_queue
         self._testing_queue = testing_queue
-        self._init_time = time.perf_counter_ns()
+        self._init_time = perf_counter_ns()
         self._time_of_last_status_beacon: Optional[float] = None
         self._leftover_read_bytes: Optional[bytes] = None
 
     def get_dur_since_init(self) -> int:
-        return time.perf_counter_ns() - self._init_time
+        dur = perf_counter_ns() - self._init_time
+        print("dur_since_init:", dur)  # allow-print
+        return dur
 
     def _get_timestamp_bytes(self) -> bytes:
         return self.get_dur_since_init().to_bytes(8, byteorder="little")
 
     def _send_status_beacon(self, truncate: bool = False) -> None:
-        self._time_of_last_status_beacon = time.perf_counter()
+        self._time_of_last_status_beacon = perf_counter()
         status_beacon = SERIAL_COMM_MAGIC_WORD_BYTES
         status_beacon += self._get_timestamp_bytes()
         status_beacon += b"\x00\x00\x04"
@@ -97,7 +101,7 @@ class MantarrayMCSimulator(InfiniteProcess):
         empty = False
         try:
             next_packet = self._output_queue.get(
-                timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+                timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES  # TODO add timeout ?
             )
         except queue.Empty:
             if self._leftover_read_bytes is None:
@@ -118,3 +122,11 @@ class MantarrayMCSimulator(InfiniteProcess):
 
     def write(self, input_item: bytes) -> None:
         self._input_queue.put(input_item)
+
+    def _drain_all_queues(self) -> Dict[str, Any]:
+        queue_items = {
+            "input_queue": drain_queue(self._input_queue),
+            "output_queue": drain_queue(self._output_queue),
+            "testing_queue": drain_queue(self._testing_queue),
+        }
+        return queue_items
