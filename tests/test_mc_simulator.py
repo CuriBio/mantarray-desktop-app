@@ -329,9 +329,13 @@ def test_MantarrayMCSimulator__handles_reads_of_size_less_than_next_packet_in_qu
 
 @pytest.mark.slow
 def test_MantarrayMCSimulator__handles_reads_of_size_less_than_next_packet_in_queue__when_simulator_is_running(
-    mantarray_mc_simulator_no_beacon,
+    mantarray_mc_simulator,
 ):
-    _, _, _, testing_queue, simulator = mantarray_mc_simulator_no_beacon
+    _, _, _, testing_queue, simulator = mantarray_mc_simulator
+
+    # remove boot up beacon
+    invoke_process_run_and_check_errors(simulator)
+    simulator.read(size=STATUS_BEACON_SIZE_BYTES)
 
     test_item_1 = b"12345"
     test_item_2 = b"67890"
