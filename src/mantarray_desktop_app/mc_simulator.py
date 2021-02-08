@@ -6,6 +6,7 @@ import logging
 from multiprocessing import Queue
 import queue
 import random
+import time
 from time import perf_counter
 from time import perf_counter_ns
 from typing import Any
@@ -16,6 +17,7 @@ from zlib import crc32
 
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
+from stdlib_utils import SECONDS_TO_SLEEP_BETWEEN_CHECKING_QUEUE_SIZE
 
 from .constants import NANOSECONDS_PER_CENTIMILLISECOND
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
@@ -29,6 +31,12 @@ def _get_secs_since_last_status_beacon(last_time: float) -> float:
 
 def _get_checksum_bytes(packet: bytes) -> bytes:
     return crc32(packet).to_bytes(4, byteorder="little")
+
+
+def _get_packet_length_bytes(packet: bytes) -> bytes:
+    # add 4 for checksum at end of packet
+    packet_length = len(packet) + 4
+    return packet_length.to_bytes(2, byteorder="little")
 
 
 class MantarrayMCSimulator(InfiniteProcess):
@@ -79,19 +87,26 @@ class MantarrayMCSimulator(InfiniteProcess):
 
     def _send_status_beacon(self, truncate: bool = False) -> None:
         self._time_of_last_status_beacon_secs = perf_counter()
-        num_bytes_in_content = b"\x0e\x00"
+
         module_id = b"\x00"
         packet_type = b"\x00"
+        packet_info = self._get_cms_timestamp_bytes()
+        packet_info += module_id
+        packet_info += packet_type
+        num_bytes_in_content = _get_packet_length_bytes(packet_info)
 
         status_beacon = SERIAL_COMM_MAGIC_WORD_BYTES
         status_beacon += num_bytes_in_content
-        status_beacon += self._get_cms_timestamp_bytes()
-        status_beacon += module_id
-        status_beacon += packet_type
+        status_beacon += packet_info
         status_beacon += _get_checksum_bytes(status_beacon)
         if truncate:
-            trunc_index = random.randint(  # nosec B311 # Tanner (2/4/21): Bandit blacklisted this psuedo-random generator for security/cryptographic reasons which do not apply to the desktop app.
-                0, 10
+            trunc_end = (
+                int.from_bytes(num_bytes_in_content, byteorder="little")
+                + len(SERIAL_COMM_MAGIC_WORD_BYTES)
+                - 1
+            )
+            trunc_index = random.randint(  # nosec B311 # Tanner (2/4/21): Bandit blacklisted this psuedo-random generator for cryptographic security reasons that do not apply to the desktop app.
+                0, trunc_end
             )
             status_beacon = status_beacon[trunc_index:]
         self._output_queue.put_nowait(status_beacon)
@@ -138,7 +153,8 @@ class MantarrayMCSimulator(InfiniteProcess):
                 next_bytes = self._output_queue.get_nowait()
                 read_bytes += next_bytes
             except queue.Empty:
-                continue
+                pass
+            time.sleep(SECONDS_TO_SLEEP_BETWEEN_CHECKING_QUEUE_SIZE)
         # if this read exceeds given size then store extra bytes for the next read
         if len(read_bytes) > size:
             size_diff = len(read_bytes) - size

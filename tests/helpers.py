@@ -6,6 +6,7 @@ https://docs.pytest.org/en/stable/writing_plugins.html
 from __future__ import annotations
 
 import json
+import time
 from time import perf_counter
 from typing import Any
 from typing import Dict
@@ -19,6 +20,7 @@ from stdlib_utils import is_queue_eventually_empty as stdlib_is_queue_eventually
 from stdlib_utils import is_queue_eventually_not_empty as stdlib_is_queue_ena
 from stdlib_utils import is_queue_eventually_of_size as stdlib_is_queue_eos
 from stdlib_utils import QueueStillEmptyError
+from stdlib_utils import SECONDS_TO_SLEEP_BETWEEN_CHECKING_QUEUE_SIZE
 from stdlib_utils import UnionOfThreadingAndMultiprocessingQueue
 
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
@@ -69,6 +71,7 @@ def handle_putting_multiple_objects_into_empty_queue(
     while perf_counter() - start < QUEUE_EMPTY_CHECK_TIMEOUT_SECONDS:
         if not the_queue.empty():
             return
+        time.sleep(SECONDS_TO_SLEEP_BETWEEN_CHECKING_QUEUE_SIZE)
 
     raise QueueStillEmptyError()
 

@@ -35,7 +35,7 @@ STATUS_BEACON_MODULE_ID = b"\x00"
 STATUS_BEACON_PACKET_TYPE = b"\x00"
 
 
-def convert_to_data_packet(data_bytes: bytes) -> bytes:
+def append_checksum_to_data_packet(data_bytes: bytes) -> bytes:
     return data_bytes + crc32(data_bytes).to_bytes(4, byteorder="little")
 
 
@@ -71,12 +71,12 @@ def test_MantarrayMCSimulator_hard_stop__clears_all_queues_and_returns_lists_of_
         "command": "add_read_bytes",
         "read_bytes": b"first test bytes",
     }
-    testing_queue.put(test_testing_queue_item_1)
+    testing_queue.put_nowait(test_testing_queue_item_1)
     test_testing_queue_item_2 = {
         "command": "add_read_bytes",
         "read_bytes": b"second test bytes",
     }
-    testing_queue.put(test_testing_queue_item_2)
+    testing_queue.put_nowait(test_testing_queue_item_2)
     confirm_queue_is_eventually_of_size(testing_queue, 2)
 
     test_input_item = b"some more bytes"
@@ -117,7 +117,7 @@ def test_MantarrayMCSimulator__correctly_stores_time_since_initialized__in_setup
 
     expected_init_time = 15796649135715
     expected_poll_time = 15880317595302
-    mocker.patch.object(  # Tanner (2/1/21): mocking perf_counter is generally a bad idea but can't think of any other way to test this
+    mocker.patch.object(
         mc_simulator,
         "perf_counter_ns",
         autospec=True,
@@ -154,7 +154,7 @@ def test_MantarrayMCSimulator_read__returns_empty_bytes_if_no_bytes_to_read(
     mantarray_mc_simulator,
 ):
     _, _, _, _, simulator = mantarray_mc_simulator
-    actual_item = simulator.read(size=10)
+    actual_item = simulator.read(size=1)
     expected_item = bytes(0)
     assert actual_item == expected_item
 
@@ -177,13 +177,20 @@ def test_MantarrayMCSimulator__makes_status_beacon_available_to_read_on_first_it
     spied_randint = mocker.spy(random, "randint")
 
     _, _, _, _, simulator = mantarray_mc_simulator
-    mocker.patch.object(simulator, "get_cms_since_init", autospec=True, return_value=0)
+
+    expected_cms_since_init = 0
+    mocker.patch.object(
+        simulator,
+        "get_cms_since_init",
+        autospec=True,
+        return_value=expected_cms_since_init,
+    )
 
     invoke_process_run_and_check_errors(simulator)
-    spied_randint.assert_called_once_with(0, 10)
+    spied_randint.assert_called_once_with(0, 21)  # 1 less byte than in status beacon
 
-    timestamp_bytes = bytes(8)
-    expected_initial_beacon = convert_to_data_packet(
+    timestamp_bytes = expected_cms_since_init.to_bytes(8, byteorder="little")
+    expected_initial_beacon = append_checksum_to_data_packet(
         SERIAL_COMM_MAGIC_WORD_BYTES
         + STATUS_BEACON_PACKET_LENGTH_INFO
         + timestamp_bytes
@@ -228,7 +235,7 @@ def test_MantarrayMCSimulator__makes_status_beacon_available_to_read_every_5_sec
     invoke_process_run_and_check_errors(simulator)
     # 5 seconds since prev beacon
     invoke_process_run_and_check_errors(simulator)
-    expected_beacon_1 = convert_to_data_packet(
+    expected_beacon_1 = append_checksum_to_data_packet(
         SERIAL_COMM_MAGIC_WORD_BYTES
         + STATUS_BEACON_PACKET_LENGTH_INFO
         + expected_durs[1].to_bytes(8, "little")
@@ -240,7 +247,7 @@ def test_MantarrayMCSimulator__makes_status_beacon_available_to_read_every_5_sec
     invoke_process_run_and_check_errors(simulator)
     # 6 seconds since prev beacon
     invoke_process_run_and_check_errors(simulator)
-    expected_beacon_2 = convert_to_data_packet(
+    expected_beacon_2 = append_checksum_to_data_packet(
         SERIAL_COMM_MAGIC_WORD_BYTES
         + STATUS_BEACON_PACKET_LENGTH_INFO
         + expected_durs[2].to_bytes(8, "little")
@@ -348,7 +355,9 @@ def test_MantarrayMCSimulator__handles_reads_of_size_less_than_next_packet_in_qu
     # Tanner (2/2/20): this try/finally block ensures that the simulator is stopped even if the test fails. Problems can arise from processes not being stopped after tests complete
     try:
         simulator.start()
-        confirm_queue_is_eventually_empty(testing_queue, timeout_seconds=5)
+        confirm_queue_is_eventually_empty(  # Tanner (2/7/21): Using 5 second timeout here to give sufficient time to make sure testing_queue is emptied
+            testing_queue, timeout_seconds=5
+        )
 
         read_len_1 = 3
         read_1 = simulator.read(size=read_len_1)
@@ -384,15 +393,11 @@ def test_MantarrayMCSimulator__handles_reads_of_size_greater_than_next_packet_in
     assert actual_1 == expected_1
 
     expected_2 = item_2[test_size_diff:]
-    actual_2 = simulator.read(
-        size=len(expected_2) + 1
-    )  # reading one more byte than are present
+    actual_2 = simulator.read(size=len(expected_2) + 1)
     assert actual_2 == expected_2
 
     expected_3 = bytes(0)
-    actual_3 = simulator.read(
-        size=10
-    )  # reading arbitrarily greater number of bytes than are present
+    actual_3 = simulator.read(size=1)
     assert actual_3 == expected_3
 
 
@@ -409,12 +414,8 @@ def test_MantarrayMCSimulator__handles_reads_of_size_greater_than_next_packet_in
     invoke_process_run_and_check_errors(simulator)
 
     expected_1 = test_item
-    actual_1 = simulator.read(
-        size=len(test_item) + 3
-    )  # reading arbitrarily greater number of bytes than are present
+    actual_1 = simulator.read(size=len(test_item) + 1)
     assert actual_1 == expected_1
 
-    actual_2 = simulator.read(
-        size=1
-    )  # reading arbitrarily greater number of bytes than are present
+    actual_2 = simulator.read(size=1)
     assert actual_2 == bytes(0)
