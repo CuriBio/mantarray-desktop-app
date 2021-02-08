@@ -82,6 +82,10 @@ class UnrecognizedRecordingCommandError(Exception):
     pass
 
 
+class UnrecognizedSimulatorTestCommandError(Exception):
+    pass
+
+
 class ImproperlyFormattedCustomerAccountUUIDError(Exception):
     pass
 

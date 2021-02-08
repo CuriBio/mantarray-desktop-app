@@ -60,6 +60,7 @@ from .constants import MAX_POSSIBLE_CONNECTED_BOARDS
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MIDSCALE_CODE
 from .constants import MILLIVOLTS_PER_VOLT
+from .constants import NANOSECONDS_PER_CENTIMILLISECOND
 from .constants import NO_PLATE_DETECTED_BARCODE_VALUE
 from .constants import NO_PLATE_DETECTED_UUID
 from .constants import OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
@@ -71,6 +72,8 @@ from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from .constants import REFERENCE_VOLTAGE
 from .constants import ROUND_ROBIN_PERIOD
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
+from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
 from .constants import START_BARCODE_SCAN_TRIG_BIT
@@ -112,6 +115,7 @@ from .exceptions import UnrecognizedDataFrameFormatNameError
 from .exceptions import UnrecognizedDebugConsoleCommandError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
 from .exceptions import UnrecognizedRecordingCommandError
+from .exceptions import UnrecognizedSimulatorTestCommandError
 from .fifo_read_producer import FIFOReadProducer
 from .fifo_read_producer import produce_data
 from .fifo_simulator import RunningFIFOSimulator
@@ -128,6 +132,7 @@ from .main import clear_server_singletons
 from .main import get_server_port_number
 from .mantarray_front_panel import MantarrayFrontPanel
 from .mantarray_front_panel import MantarrayFrontPanelMixIn
+from .mc_simulator import MantarrayMCSimulator
 from .ok_comm import build_file_writer_objects
 from .ok_comm import check_barcode_for_errors
 from .ok_comm import check_mantarray_serial_number
@@ -311,4 +316,10 @@ __all__ = [
     "get_current_software_version",
     "ServerThreadNotInitializedError",
     "ServerThreadSingletonAlreadySetError",
+    "mc_simulator",
+    "MantarrayMCSimulator",
+    "SERIAL_COMM_MAGIC_WORD_BYTES",
+    "SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS",
+    "UnrecognizedSimulatorTestCommandError",
+    "NANOSECONDS_PER_CENTIMILLISECOND",
 ]
