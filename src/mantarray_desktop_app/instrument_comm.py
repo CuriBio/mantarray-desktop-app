@@ -13,6 +13,7 @@ from typing import Tuple
 from typing import Union
 
 from stdlib_utils import InfiniteProcess
+from xem_wrapper import FrontPanelBase
 from xem_wrapper import okCFrontPanel
 
 
@@ -69,6 +70,10 @@ class InstrumentCommProcess(InfiniteProcess, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def create_connections_to_all_available_boards(self) -> None:
         pass
+
+    def set_board_connection(self, board_idx: int, front_panel: FrontPanelBase) -> None:
+        board_connections = self.get_board_connections_list()
+        board_connections[board_idx] = front_panel
 
     def get_board_connections_list(self) -> List[Union[None, okCFrontPanel]]:
         return self._board_connections

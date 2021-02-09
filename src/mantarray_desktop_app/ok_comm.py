@@ -569,10 +569,6 @@ class OkCommunicationProcess(InstrumentCommProcess):
                 msg["mantarray_nickname"] = device_id
             comm_to_main_queue.put(msg)
 
-    def set_board_connection(self, board_idx: int, front_panel: FrontPanelBase) -> None:
-        board_connections = self.get_board_connections_list()
-        board_connections[board_idx] = front_panel
-
     def _setup_before_loop(self) -> None:
         msg = {
             "communication_type": "log",
