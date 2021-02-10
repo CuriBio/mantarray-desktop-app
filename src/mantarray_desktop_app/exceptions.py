@@ -14,7 +14,7 @@ class UnrecognizedDebugConsoleCommandError(Exception):
     pass
 
 
-class UnrecognizedCommTypeFromMainToOKCommError(Exception):
+class UnrecognizedCommTypeFromMainToInstrumentError(Exception):
     pass
 
 
@@ -116,3 +116,7 @@ class ServerThreadNotInitializedError(Exception):
 
 class ServerThreadSingletonAlreadySetError(Exception):
     """Helps ensure that test cases clean up after themselves."""
+
+
+class InstrumentCommIncorrectHeaderError(Exception):
+    pass

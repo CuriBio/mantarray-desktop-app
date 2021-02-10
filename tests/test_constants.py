@@ -44,6 +44,7 @@ from mantarray_desktop_app import FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
 from mantarray_desktop_app import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
 from mantarray_desktop_app import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import FIRMWARE_VERSION_WIRE_OUT_ADDRESS
+from mantarray_desktop_app import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import MAX_POSSIBLE_CONNECTED_BOARDS
@@ -53,7 +54,6 @@ from mantarray_desktop_app import MILLIVOLTS_PER_VOLT
 from mantarray_desktop_app import NANOSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import NO_PLATE_DETECTED_BARCODE_VALUE
 from mantarray_desktop_app import NO_PLATE_DETECTED_UUID
-from mantarray_desktop_app import OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import OUTGOING_DATA_BUFFER_SIZE
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
 from mantarray_desktop_app import RECORDING_STATE
@@ -254,7 +254,7 @@ def test_buffer_size_constants():
 
 
 def test_performance_logging_constants():
-    assert OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES == 20
+    assert INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES == 20
     assert FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES == 2000
 
 

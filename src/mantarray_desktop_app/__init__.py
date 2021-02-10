@@ -54,6 +54,7 @@ from .constants import FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
 from .constants import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
 from .constants import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import FIRMWARE_VERSION_WIRE_OUT_ADDRESS
+from .constants import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
 from .constants import MAX_POSSIBLE_CONNECTED_BOARDS
@@ -63,7 +64,6 @@ from .constants import MILLIVOLTS_PER_VOLT
 from .constants import NANOSECONDS_PER_CENTIMILLISECOND
 from .constants import NO_PLATE_DETECTED_BARCODE_VALUE
 from .constants import NO_PLATE_DETECTED_UUID
-from .constants import OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import OUTGOING_DATA_BUFFER_SIZE
 from .constants import RAW_TO_SIGNED_CONVERSION_VALUE
 from .constants import RECORDING_STATE
@@ -96,6 +96,7 @@ from .exceptions import FirmwareFileNameDoesNotMatchWireOutVersionError
 from .exceptions import FirstManagedReadLessThanOneRoundRobinError
 from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
 from .exceptions import ImproperlyFormattedUserAccountUUIDError
+from .exceptions import InstrumentCommIncorrectHeaderError
 from .exceptions import InvalidDataFramePeriodError
 from .exceptions import InvalidDataTypeFromOkCommError
 from .exceptions import InvalidScriptCommandError
@@ -110,7 +111,7 @@ from .exceptions import SystemStartUpError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
 from .exceptions import UnrecognizedCommandToInstrumentError
 from .exceptions import UnrecognizedCommTypeFromMainToDataAnalyzerError
-from .exceptions import UnrecognizedCommTypeFromMainToOKCommError
+from .exceptions import UnrecognizedCommTypeFromMainToInstrumentError
 from .exceptions import UnrecognizedDataFrameFormatNameError
 from .exceptions import UnrecognizedDebugConsoleCommandError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
@@ -211,7 +212,7 @@ __all__ = [
     "FileWriterProcess",
     "InvalidDataTypeFromOkCommError",
     "build_file_writer_objects",
-    "UnrecognizedCommTypeFromMainToOKCommError",
+    "UnrecognizedCommTypeFromMainToInstrumentError",
     "fifo_simulator",
     "RunningFIFOSimulator",
     "AttemptToInitializeFIFOReadsError",
@@ -236,7 +237,7 @@ __all__ = [
     "DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS",
     "FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE",
     "RAW_TO_SIGNED_CONVERSION_VALUE",
-    "OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES",
+    "INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES",
     "SYSTEM_STATUS_UUIDS",
     "DEFAULT_USER_CONFIG",
     "firmware_manager",
@@ -324,4 +325,5 @@ __all__ = [
     "UnrecognizedSimulatorTestCommandError",
     "NANOSECONDS_PER_CENTIMILLISECOND",
     "InstrumentCommProcess",
+    "InstrumentCommIncorrectHeaderError",
 ]

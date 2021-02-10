@@ -33,7 +33,6 @@ from xem_wrapper import DATA_FRAME_SIZE_WORDS
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 from xem_wrapper import FrontPanelBase
 from xem_wrapper import FrontPanelSimulator
-from xem_wrapper import OpalKellyIncorrectHeaderError
 from xem_wrapper import OpalKellyNoDeviceFoundError
 from xem_wrapper import open_board
 
@@ -44,8 +43,8 @@ from .constants import CALIBRATED_STATE
 from .constants import CALIBRATION_NEEDED_STATE
 from .constants import CLEARED_BARCODE_VALUE
 from .constants import DATA_FRAME_PERIOD
+from .constants import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import NO_PLATE_DETECTED_BARCODE_VALUE
-from .constants import OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import REF_INDEX_TO_24_WELL_INDEX
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import TIMESTEP_CONVERSION_FACTOR
@@ -54,12 +53,13 @@ from .exceptions import BarcodeNotClearedError
 from .exceptions import BarcodeScannerNotRespondingError
 from .exceptions import FirmwareFileNameDoesNotMatchWireOutVersionError
 from .exceptions import FirstManagedReadLessThanOneRoundRobinError
+from .exceptions import InstrumentCommIncorrectHeaderError
 from .exceptions import InvalidDataFramePeriodError
 from .exceptions import InvalidScriptCommandError
 from .exceptions import MismatchedScriptTypeError
 from .exceptions import ScriptDoesNotContainEndCommandError
 from .exceptions import UnrecognizedCommandToInstrumentError
-from .exceptions import UnrecognizedCommTypeFromMainToOKCommError
+from .exceptions import UnrecognizedCommTypeFromMainToInstrumentError
 from .exceptions import UnrecognizedDataFrameFormatNameError
 from .exceptions import UnrecognizedDebugConsoleCommandError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
@@ -239,7 +239,7 @@ def parse_data_frame(data_bytes: bytearray, data_format_name: str) -> Dict[int, 
         A dictionary where the key is the channel index
     """
     if not check_header(data_bytes[:8]):
-        raise OpalKellyIncorrectHeaderError()
+        raise InstrumentCommIncorrectHeaderError()
 
     formatted_data: Dict[int, Any] = dict()
     if data_format_name == "two_channels_32_bit__single_sample_index__with_reference":
@@ -643,7 +643,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
 
                 if (
                     self._reads_since_last_logging[0]
-                    >= OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
+                    >= INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
                 ):
                     self._handle_performance_logging()
                     self._reads_since_last_logging[0] = 0
@@ -700,7 +700,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
                 self._barcode_scan_start_time[0] = time.perf_counter()
                 board.clear_barcode_scanner()
         else:
-            raise UnrecognizedCommTypeFromMainToOKCommError(communication_type)
+            raise UnrecognizedCommTypeFromMainToInstrumentError(communication_type)
         if not input_queue.empty():
             self._process_can_be_soft_stopped = False
 
