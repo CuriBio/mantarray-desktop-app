@@ -2,6 +2,7 @@
 import logging
 from multiprocessing import Queue
 import random
+import time
 from zlib import crc32
 
 from mantarray_desktop_app import MantarrayMCSimulator
@@ -29,9 +30,10 @@ __fixtures__ = [
     fixture_mantarray_mc_simulator_no_beacon,
 ]
 
-STATUS_BEACON_SIZE_BYTES = 24
+STATUS_BEACON_SIZE_BYTES = 28
+HANDSHAKE_RESPONSE_SIZE_BYTES = 28
 STATUS_BEACON_PACKET_LENGTH_INFO = (18).to_bytes(2, byteorder="little")
-STATUS_BEACON_MODULE_ID = b"\x00"
+MAIN_MODULE_ID = b"\x00"
 STATUS_BEACON_PACKET_TYPE = b"\x00"
 DEFAULT_SIMULATOR_STATUS_CODE = bytes(4)
 
@@ -192,7 +194,7 @@ def test_MantarrayMCSimulator__makes_status_beacon_available_to_read_on_first_it
         SERIAL_COMM_MAGIC_WORD_BYTES
         + STATUS_BEACON_PACKET_LENGTH_INFO
         + timestamp_bytes
-        + STATUS_BEACON_MODULE_ID
+        + MAIN_MODULE_ID
         + STATUS_BEACON_PACKET_TYPE
         + DEFAULT_SIMULATOR_STATUS_CODE
     )
@@ -243,7 +245,7 @@ def test_MantarrayMCSimulator__makes_status_beacon_available_to_read_every_5_sec
         SERIAL_COMM_MAGIC_WORD_BYTES
         + STATUS_BEACON_PACKET_LENGTH_INFO
         + expected_durs[1].to_bytes(8, "little")
-        + STATUS_BEACON_MODULE_ID
+        + MAIN_MODULE_ID
         + STATUS_BEACON_PACKET_TYPE
         + DEFAULT_SIMULATOR_STATUS_CODE
     )
@@ -256,7 +258,7 @@ def test_MantarrayMCSimulator__makes_status_beacon_available_to_read_every_5_sec
         SERIAL_COMM_MAGIC_WORD_BYTES
         + STATUS_BEACON_PACKET_LENGTH_INFO
         + expected_durs[2].to_bytes(8, "little")
-        + STATUS_BEACON_MODULE_ID
+        + MAIN_MODULE_ID
         + STATUS_BEACON_PACKET_TYPE
         + DEFAULT_SIMULATOR_STATUS_CODE
     )
@@ -425,3 +427,69 @@ def test_MantarrayMCSimulator__handles_reads_of_size_greater_than_next_packet_in
 
     actual_2 = simulator.read(size=1)
     assert actual_2 == bytes(0)
+
+
+def test_MantarrayMCSimulator__responds_to_handshake__when_checksum_is_correct(
+    mantarray_mc_simulator_no_beacon, mocker
+):
+    _, _, _, _, simulator = mantarray_mc_simulator_no_beacon
+
+    spied_get_cms_since_init = mocker.spy(simulator, "get_cms_since_init")
+
+    test_handshake = append_checksum_to_data_packet(
+        SERIAL_COMM_MAGIC_WORD_BYTES + bytes(8) + MAIN_MODULE_ID + bytes([4]) + bytes(2)
+    )
+    simulator.write(test_handshake)
+    time.sleep(QUEUE_CHECK_TIMEOUT_SECONDS)  # let input queue get populated
+
+    invoke_process_run_and_check_errors(simulator)
+    actual = simulator.read(size=HANDSHAKE_RESPONSE_SIZE_BYTES)
+
+    expected_timestamp_bytes = (spied_get_cms_since_init.spy_return).to_bytes(
+        8, byteorder="little"
+    )
+    expected_handshake_response = append_checksum_to_data_packet(
+        SERIAL_COMM_MAGIC_WORD_BYTES
+        + STATUS_BEACON_PACKET_LENGTH_INFO
+        + expected_timestamp_bytes
+        + MAIN_MODULE_ID
+        + bytes([4])
+        + DEFAULT_SIMULATOR_STATUS_CODE
+    )
+    assert actual == expected_handshake_response
+
+
+def test_MantarrayMCSimulator__responds_to_handshake__when_checksum_is_incorrect(
+    mantarray_mc_simulator_no_beacon, mocker
+):
+    _, _, _, _, simulator = mantarray_mc_simulator_no_beacon
+
+    spied_get_cms_since_init = mocker.spy(simulator, "get_cms_since_init")
+
+    test_handshake = (
+        SERIAL_COMM_MAGIC_WORD_BYTES
+        + bytes(8)
+        + MAIN_MODULE_ID
+        + bytes([4])
+        + bytes(2)
+        + bytes(4)
+    )
+    simulator.write(test_handshake)
+    time.sleep(QUEUE_CHECK_TIMEOUT_SECONDS)  # let input queue get populated
+
+    invoke_process_run_and_check_errors(simulator)
+    read_size = len(test_handshake) + 16
+    actual = simulator.read(size=read_size)
+
+    expected_timestamp_bytes = (spied_get_cms_since_init.spy_return).to_bytes(
+        8, byteorder="little"
+    )
+    expected_handshake_response = append_checksum_to_data_packet(
+        SERIAL_COMM_MAGIC_WORD_BYTES
+        + b"\x1e\x00"
+        + expected_timestamp_bytes
+        + MAIN_MODULE_ID
+        + bytes([255])
+        + test_handshake[8:]
+    )
+    assert actual == expected_handshake_response

@@ -86,11 +86,26 @@ class MantarrayMCSimulator(InfiniteProcess):
     def _get_cms_timestamp_bytes(self) -> bytes:
         return self.get_cms_since_init().to_bytes(8, byteorder="little")
 
+    def _send_checksum_failure_response(self, packet: bytes) -> None:
+        module_id = bytes([0])
+        packet_type = bytes([255])
+        packet_info = self._get_cms_timestamp_bytes()
+        packet_info += module_id
+        packet_info += packet_type
+        packet_info += packet[8:]
+        num_bytes_in_content = _get_packet_length_bytes(packet_info)
+
+        handshake_response = SERIAL_COMM_MAGIC_WORD_BYTES
+        handshake_response += num_bytes_in_content
+        handshake_response += packet_info
+        handshake_response += _get_checksum_bytes(handshake_response)
+        self._output_queue.put_nowait(handshake_response)
+
     def _send_status_beacon(self, truncate: bool = False) -> None:
         self._time_of_last_status_beacon_secs = perf_counter()
 
-        module_id = b"\x00"
-        packet_type = b"\x00"
+        module_id = bytes([0])
+        packet_type = bytes([0])
         packet_info = self._get_cms_timestamp_bytes()
         packet_info += module_id
         packet_info += packet_type
@@ -113,9 +128,39 @@ class MantarrayMCSimulator(InfiniteProcess):
             status_beacon = status_beacon[trunc_index:]
         self._output_queue.put_nowait(status_beacon)
 
+    def _send_handshake_response(self) -> None:
+        module_id = bytes([0])
+        packet_type = bytes([4])
+        packet_info = self._get_cms_timestamp_bytes()
+        packet_info += module_id
+        packet_info += packet_type
+        packet_info += self._status_code_bits
+        num_bytes_in_content = _get_packet_length_bytes(packet_info)
+
+        handshake_response = SERIAL_COMM_MAGIC_WORD_BYTES
+        handshake_response += num_bytes_in_content
+        handshake_response += packet_info
+        handshake_response += _get_checksum_bytes(handshake_response)
+        self._output_queue.put_nowait(handshake_response)
+
     def _commands_for_each_run_iteration(self) -> None:
+        self._handle_comm_from_pc()
         self._handle_status_beacon()
         self._handle_test_comm()
+
+    def _handle_comm_from_pc(self) -> None:
+        try:
+            comm_from_pc = self._input_queue.get_nowait()
+        except queue.Empty:
+            return
+        if comm_from_pc[16] == 0:
+            if comm_from_pc[17] == 4:
+                expected_checksum = crc32(comm_from_pc[:-4])
+                actual_checksum = int.from_bytes(comm_from_pc[-4:], byteorder="little")
+                if actual_checksum == expected_checksum:
+                    self._send_handshake_response()
+                    return
+                self._send_checksum_failure_response(comm_from_pc)
 
     def _handle_status_beacon(self) -> None:
         if self._time_of_last_status_beacon_secs is None:
