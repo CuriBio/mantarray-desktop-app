@@ -30,9 +30,10 @@ __fixtures__ = [
 ]
 
 STATUS_BEACON_SIZE_BYTES = 24
-STATUS_BEACON_PACKET_LENGTH_INFO = b"\x0e\x00"
+STATUS_BEACON_PACKET_LENGTH_INFO = (18).to_bytes(2, byteorder="little")
 STATUS_BEACON_MODULE_ID = b"\x00"
 STATUS_BEACON_PACKET_TYPE = b"\x00"
+DEFAULT_SIMULATOR_STATUS_CODE = bytes(4)
 
 
 def append_checksum_to_data_packet(data_bytes: bytes) -> bytes:
@@ -186,9 +187,6 @@ def test_MantarrayMCSimulator__makes_status_beacon_available_to_read_on_first_it
         return_value=expected_cms_since_init,
     )
 
-    invoke_process_run_and_check_errors(simulator)
-    spied_randint.assert_called_once_with(0, 21)  # 1 less byte than in status beacon
-
     timestamp_bytes = expected_cms_since_init.to_bytes(8, byteorder="little")
     expected_initial_beacon = append_checksum_to_data_packet(
         SERIAL_COMM_MAGIC_WORD_BYTES
@@ -196,7 +194,13 @@ def test_MantarrayMCSimulator__makes_status_beacon_available_to_read_on_first_it
         + timestamp_bytes
         + STATUS_BEACON_MODULE_ID
         + STATUS_BEACON_PACKET_TYPE
+        + DEFAULT_SIMULATOR_STATUS_CODE
     )
+    expected_randint_upper_bound = len(expected_initial_beacon) - 1
+
+    invoke_process_run_and_check_errors(simulator)
+    spied_randint.assert_called_once_with(0, expected_randint_upper_bound)
+
     actual = simulator.read(
         size=len(expected_initial_beacon[spied_randint.spy_return :])
     )
@@ -241,6 +245,7 @@ def test_MantarrayMCSimulator__makes_status_beacon_available_to_read_every_5_sec
         + expected_durs[1].to_bytes(8, "little")
         + STATUS_BEACON_MODULE_ID
         + STATUS_BEACON_PACKET_TYPE
+        + DEFAULT_SIMULATOR_STATUS_CODE
     )
     assert simulator.read(size=len(expected_beacon_1)) == expected_beacon_1
     # 4 seconds since prev beacon
@@ -253,6 +258,7 @@ def test_MantarrayMCSimulator__makes_status_beacon_available_to_read_every_5_sec
         + expected_durs[2].to_bytes(8, "little")
         + STATUS_BEACON_MODULE_ID
         + STATUS_BEACON_PACKET_TYPE
+        + DEFAULT_SIMULATOR_STATUS_CODE
     )
     assert simulator.read(size=len(expected_beacon_2)) == expected_beacon_2
 

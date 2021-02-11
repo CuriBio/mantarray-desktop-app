@@ -71,6 +71,7 @@ class MantarrayMCSimulator(InfiniteProcess):
         self._time_of_last_status_beacon_secs: Optional[float] = None
         self._leftover_read_bytes: Optional[bytes] = None
         self._read_timeout_seconds = read_timeout_seconds
+        self._status_code_bits = bytes(4)
 
     def _setup_before_loop(self) -> None:
         # Tanner (2/2/21): Comparing perf_counter_ns values in a subprocess to those in the parent process have unexpected behavior in windows, so storing the initialization time after the process has been created in order to avoid issues
@@ -93,6 +94,7 @@ class MantarrayMCSimulator(InfiniteProcess):
         packet_info = self._get_cms_timestamp_bytes()
         packet_info += module_id
         packet_info += packet_type
+        packet_info += self._status_code_bits
         num_bytes_in_content = _get_packet_length_bytes(packet_info)
 
         status_beacon = SERIAL_COMM_MAGIC_WORD_BYTES
@@ -103,7 +105,7 @@ class MantarrayMCSimulator(InfiniteProcess):
             trunc_end = (
                 int.from_bytes(num_bytes_in_content, byteorder="little")
                 + len(SERIAL_COMM_MAGIC_WORD_BYTES)
-                - 1
+                + 1
             )
             trunc_index = random.randint(  # nosec B311 # Tanner (2/4/21): Bandit blacklisted this psuedo-random generator for cryptographic security reasons that do not apply to the desktop app.
                 0, trunc_end
