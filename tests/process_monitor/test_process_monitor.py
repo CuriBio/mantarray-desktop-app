@@ -56,7 +56,7 @@ def test_MantarrayProcessesMonitor__init__calls_super(mocker, test_process_manag
     assert mocked_super_init.call_count == 1
 
 
-@pytest.mark.timeout(10)
+@pytest.mark.timeout(12)
 def test_MantarrayProcessesMonitor__soft_stop_calls_manager_soft_stop_and_join(
     test_monitor, test_process_manager, mocker
 ):
