@@ -69,9 +69,7 @@ class InstrumentCommProcess(InfiniteProcess, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def create_connections_to_all_available_boards(self) -> None:
-        raise NotImplementedError(
-            "Subclasses of InstrumentCommProcess should define this method"
-        )
+        pass
 
     def set_board_connection(self, board_idx: int, front_panel: FrontPanelBase) -> None:
         board_connections = self.get_board_connections_list()
