@@ -15,6 +15,7 @@ from mantarray_desktop_app import FIFO_READ_PRODUCER_SAWTOOTH_PERIOD
 from mantarray_desktop_app import FIFO_READ_PRODUCER_WELL_AMPLITUDE
 from mantarray_desktop_app import FirstManagedReadLessThanOneRoundRobinError
 from mantarray_desktop_app import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
+from mantarray_desktop_app import InstrumentCommIncorrectHeaderError
 from mantarray_desktop_app import OkCommunicationProcess
 from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
@@ -33,7 +34,6 @@ from xem_wrapper import DATA_FRAME_SIZE_WORDS
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 from xem_wrapper import FrontPanelSimulator
 from xem_wrapper import HEADER_MAGIC_NUMBER
-from xem_wrapper import OpalKellyIncorrectHeaderError
 from xem_wrapper import PIPE_OUT_FIFO
 
 from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
@@ -409,7 +409,7 @@ def test_OkCommunicationProcess_managed_acquisition_handles_ignoring_first_data_
             bytearray(
                 [1] * DATA_FRAME_SIZE_WORDS * DATA_FRAMES_PER_ROUND_ROBIN * 4 * 3
             ),
-            OpalKellyIncorrectHeaderError,
+            InstrumentCommIncorrectHeaderError,
             True,
             "handles error correctly when no errors parsing into words",
         ),
@@ -525,7 +525,7 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
         is True
     )
     error_msg = comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert "OpalKellyIncorrectHeaderError" in error_msg["message"]
+    assert "InstrumentCommIncorrectHeaderError" in error_msg["message"]
 
     if is_read_convertable:
         assert (
@@ -771,7 +771,7 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
         is True
     )
     error_msg = comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert "OpalKellyIncorrectHeaderError" in error_msg["message"]
+    assert "InstrumentCommIncorrectHeaderError" in error_msg["message"]
 
     for _ in range(2):
         assert (
