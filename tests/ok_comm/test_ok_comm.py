@@ -12,6 +12,7 @@ from mantarray_desktop_app import build_file_writer_objects
 from mantarray_desktop_app import check_mantarray_serial_number
 from mantarray_desktop_app import DATA_FRAME_PERIOD
 from mantarray_desktop_app import FirmwareFileNameDoesNotMatchWireOutVersionError
+from mantarray_desktop_app import InstrumentCommIncorrectHeaderError
 from mantarray_desktop_app import InvalidDataFramePeriodError
 from mantarray_desktop_app import MantarrayFrontPanel
 from mantarray_desktop_app import ok_comm
@@ -27,7 +28,7 @@ from mantarray_desktop_app import REF_INDEX_TO_24_WELL_INDEX
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
-from mantarray_desktop_app import UnrecognizedCommTypeFromMainToOKCommError
+from mantarray_desktop_app import UnrecognizedCommTypeFromMainToInstrumentError
 from mantarray_desktop_app import UnrecognizedDataFrameFormatNameError
 from mantarray_desktop_app import UnrecognizedMantarrayNamingCommandError
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
@@ -43,7 +44,6 @@ from xem_wrapper import FrontPanel
 from xem_wrapper import FrontPanelSimulator
 from xem_wrapper import HEADER_MAGIC_NUMBER
 from xem_wrapper import okCFrontPanel
-from xem_wrapper import OpalKellyIncorrectHeaderError
 
 from ..fixtures import fixture_patched_firmware_folder
 from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
@@ -70,7 +70,7 @@ def fixture_patch_check_header(mocker):
 
 
 def test_parse_data_frame__raises_error_if_magic_number_incorrect():
-    with pytest.raises(OpalKellyIncorrectHeaderError):
+    with pytest.raises(InstrumentCommIncorrectHeaderError):
         parse_data_frame(bytearray([0, 0, 0, 0, 0, 0, 0, 0]), "any")
 
 
@@ -709,7 +709,7 @@ def test_OkCommunicationProcess_run__raises_error_if_communication_type_is_inval
     input_queue.put(copy.deepcopy(expected_returned_communication))
     assert is_queue_eventually_not_empty(input_queue) is True
     with pytest.raises(
-        UnrecognizedCommTypeFromMainToOKCommError, match="fake_comm_type"
+        UnrecognizedCommTypeFromMainToInstrumentError, match="fake_comm_type"
     ):
         invoke_process_run_and_check_errors(ok_process)
 

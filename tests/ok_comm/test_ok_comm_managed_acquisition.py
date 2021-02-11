@@ -14,7 +14,8 @@ from mantarray_desktop_app import FIFO_READ_PRODUCER_DATA_OFFSET
 from mantarray_desktop_app import FIFO_READ_PRODUCER_SAWTOOTH_PERIOD
 from mantarray_desktop_app import FIFO_READ_PRODUCER_WELL_AMPLITUDE
 from mantarray_desktop_app import FirstManagedReadLessThanOneRoundRobinError
-from mantarray_desktop_app import OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
+from mantarray_desktop_app import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
+from mantarray_desktop_app import InstrumentCommIncorrectHeaderError
 from mantarray_desktop_app import OkCommunicationProcess
 from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
@@ -33,7 +34,6 @@ from xem_wrapper import DATA_FRAME_SIZE_WORDS
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 from xem_wrapper import FrontPanelSimulator
 from xem_wrapper import HEADER_MAGIC_NUMBER
-from xem_wrapper import OpalKellyIncorrectHeaderError
 from xem_wrapper import PIPE_OUT_FIFO
 
 from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
@@ -409,7 +409,7 @@ def test_OkCommunicationProcess_managed_acquisition_handles_ignoring_first_data_
             bytearray(
                 [1] * DATA_FRAME_SIZE_WORDS * DATA_FRAMES_PER_ROUND_ROBIN * 4 * 3
             ),
-            OpalKellyIncorrectHeaderError,
+            InstrumentCommIncorrectHeaderError,
             True,
             "handles error correctly when no errors parsing into words",
         ),
@@ -525,7 +525,7 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
         is True
     )
     error_msg = comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert "OpalKellyIncorrectHeaderError" in error_msg["message"]
+    assert "InstrumentCommIncorrectHeaderError" in error_msg["message"]
 
     if is_read_convertable:
         assert (
@@ -771,7 +771,7 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
         is True
     )
     error_msg = comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert "OpalKellyIncorrectHeaderError" in error_msg["message"]
+    assert "InstrumentCommIncorrectHeaderError" in error_msg["message"]
 
     for _ in range(2):
         assert (
@@ -876,21 +876,27 @@ def test_OkCommunicationProcess_managed_acquisition_logs_performance_metrics_aft
         1 - expected_idle_time / (expected_stop_timepoint - expected_start_timepoint)
     )
     expected_percent_use_values = [40.1, 67.8, expected_latest_percent_use]
-    expected_longest_iterations = list(range(OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES - 1))
+    expected_longest_iterations = list(
+        range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES - 1)
+    )
 
     test_data_parse_dur_values = [
-        0 for _ in range(OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES * 2)
+        0 for _ in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES * 2)
     ]
-    test_read_dur_values = [0 for _ in range(OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES * 2)]
-    for i in range(1, OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES * 2, 2):
+    test_read_dur_values = [
+        0 for _ in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES * 2)
+    ]
+    for i in range(1, INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES * 2, 2):
         test_data_parse_dur_values[i] = i
         test_read_dur_values[i] = i // 2 + 1
-    test_acquisition_values = [20 for _ in range(OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)]
-    for i in range(1, OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES):
+    test_acquisition_values = [
+        20 for _ in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)
+    ]
+    for i in range(1, INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES):
         test_acquisition_values[i] = test_acquisition_values[i - 1] + 10 * (i + 1)
 
     perf_counter_vals = list()
-    for i in range(0, OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES * 2, 2):
+    for i in range(0, INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES * 2, 2):
         perf_counter_vals.append(test_read_dur_values[i])
         perf_counter_vals.append(test_read_dur_values[i + 1])
         perf_counter_vals.append(test_data_parse_dur_values[i])
@@ -927,7 +933,8 @@ def test_OkCommunicationProcess_managed_acquisition_logs_performance_metrics_aft
     )
 
     test_fifo_reads = [
-        produce_data(i + 2, 0) for i in range(OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)
+        produce_data(i + 2, 0)
+        for i in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)
     ]
     fifo = Queue()
     for read in test_fifo_reads:
@@ -935,7 +942,7 @@ def test_OkCommunicationProcess_managed_acquisition_logs_performance_metrics_aft
     assert (
         is_queue_eventually_of_size(
             fifo,
-            OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES,
+            INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES,
             timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
         )
         is True
@@ -955,7 +962,7 @@ def test_OkCommunicationProcess_managed_acquisition_logs_performance_metrics_aft
     )
 
     invoke_process_run_and_check_errors(
-        ok_process, num_iterations=OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
+        ok_process, num_iterations=INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
     )
 
     assert (
@@ -973,13 +980,13 @@ def test_OkCommunicationProcess_managed_acquisition_logs_performance_metrics_aft
 
     expected_num_bytes = [len(read) for read in test_fifo_reads]
     expected_parsing_dur_values = [
-        i * 2 + 1 for i in range(OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)
+        i * 2 + 1 for i in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)
     ]
     expected_read_dur_values = [
-        i + 1 for i in range(OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)
+        i + 1 for i in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)
     ]
     expected_acquisition_values = [
-        10 * (i + 1) for i in range(OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)
+        10 * (i + 1) for i in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)
     ]
     assert actual["communication_type"] == "performance_metrics"
     assert "idle_iteration_time_ns" not in actual
@@ -1052,12 +1059,12 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_percent_use_met
     )
 
     fifo = Queue()
-    for _ in range(OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES):
+    for _ in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES):
         fifo.put(produce_data(2, 0))
     assert (
         is_queue_eventually_of_size(
             fifo,
-            OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES,
+            INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES,
             timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
         )
         is True
@@ -1077,7 +1084,7 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_percent_use_met
     )
 
     invoke_process_run_and_check_errors(
-        ok_process, num_iterations=OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
+        ok_process, num_iterations=INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
     )
 
     assert (

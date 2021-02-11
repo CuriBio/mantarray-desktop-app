@@ -23,7 +23,6 @@ from typing import Union
 import numpy as np
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import get_formatted_stack_trace
-from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
 from stdlib_utils import resource_path
 from stdlib_utils import safe_get
@@ -34,8 +33,6 @@ from xem_wrapper import DATA_FRAME_SIZE_WORDS
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 from xem_wrapper import FrontPanelBase
 from xem_wrapper import FrontPanelSimulator
-from xem_wrapper import okCFrontPanel
-from xem_wrapper import OpalKellyIncorrectHeaderError
 from xem_wrapper import OpalKellyNoDeviceFoundError
 from xem_wrapper import open_board
 
@@ -46,8 +43,8 @@ from .constants import CALIBRATED_STATE
 from .constants import CALIBRATION_NEEDED_STATE
 from .constants import CLEARED_BARCODE_VALUE
 from .constants import DATA_FRAME_PERIOD
+from .constants import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import NO_PLATE_DETECTED_BARCODE_VALUE
-from .constants import OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import REF_INDEX_TO_24_WELL_INDEX
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import TIMESTEP_CONVERSION_FACTOR
@@ -56,16 +53,18 @@ from .exceptions import BarcodeNotClearedError
 from .exceptions import BarcodeScannerNotRespondingError
 from .exceptions import FirmwareFileNameDoesNotMatchWireOutVersionError
 from .exceptions import FirstManagedReadLessThanOneRoundRobinError
+from .exceptions import InstrumentCommIncorrectHeaderError
 from .exceptions import InvalidDataFramePeriodError
 from .exceptions import InvalidScriptCommandError
 from .exceptions import MismatchedScriptTypeError
 from .exceptions import ScriptDoesNotContainEndCommandError
 from .exceptions import UnrecognizedCommandToInstrumentError
-from .exceptions import UnrecognizedCommTypeFromMainToOKCommError
+from .exceptions import UnrecognizedCommTypeFromMainToInstrumentError
 from .exceptions import UnrecognizedDataFrameFormatNameError
 from .exceptions import UnrecognizedDebugConsoleCommandError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
 from .fifo_simulator import RunningFIFOSimulator
+from .instrument_comm import InstrumentCommProcess
 from .mantarray_front_panel import MantarrayFrontPanel
 from .utils import _trim_barcode
 
@@ -240,7 +239,7 @@ def parse_data_frame(data_bytes: bytearray, data_format_name: str) -> Dict[int, 
         A dictionary where the key is the channel index
     """
     if not check_header(data_bytes[:8]):
-        raise OpalKellyIncorrectHeaderError()
+        raise InstrumentCommIncorrectHeaderError()
 
     formatted_data: Dict[int, Any] = dict()
     if data_format_name == "two_channels_32_bit__single_sample_index__with_reference":
@@ -487,7 +486,7 @@ def _drain_queue(
 
 
 # pylint: disable=too-many-instance-attributes
-class OkCommunicationProcess(InfiniteProcess):
+class OkCommunicationProcess(InstrumentCommProcess):
     """Process that controls communication with the OpalKelly Board(s).
 
     Args:
@@ -512,14 +511,11 @@ class OkCommunicationProcess(InfiniteProcess):
         suppress_setup_communication_to_main: bool = False,
         logging_level: int = logging.INFO,
     ):
-        # pylint-disable: duplicate-code # needed for the type definition of the board_queues
-        super().__init__(fatal_error_reporter, logging_level=logging_level)
-        self._board_queues = board_queues
-        self._board_connections: List[Union[None, okCFrontPanel]] = [None] * len(
-            self._board_queues
-        )
-        self._suppress_setup_communication_to_main = (
-            suppress_setup_communication_to_main
+        super().__init__(
+            board_queues,
+            fatal_error_reporter,
+            suppress_setup_communication_to_main,
+            logging_level,
         )
         self._data_frame_format = "six_channels_32_bit__single_sample_index"
         self._time_of_last_fifo_read: List[Union[None, datetime.datetime]] = [
@@ -540,18 +536,6 @@ class OkCommunicationProcess(InfiniteProcess):
             None,
         ]
         self._is_barcode_cleared = [False, False]
-
-    def hard_stop(self, timeout: Optional[float] = None) -> Dict[str, Any]:
-        return_value: Dict[str, Any] = super().hard_stop(timeout=timeout)
-        board_connections = self.get_board_connections_list()
-        for iter_board in board_connections:
-            if iter_board is not None:
-                iter_board.hard_stop(timeout=timeout)
-        return return_value
-
-    def determine_how_many_boards_are_connected(self) -> int:
-        # pylint: disable=no-self-use # currently a place holder just being mocked
-        return 1  # place holder for linting
 
     def create_connections_to_all_available_boards(self) -> None:
         """Create initial connections to boards.
@@ -584,13 +568,6 @@ class OkCommunicationProcess(InfiniteProcess):
                 msg["mantarray_serial_number"] = ""
                 msg["mantarray_nickname"] = device_id
             comm_to_main_queue.put(msg)
-
-    def set_board_connection(self, board_idx: int, front_panel: FrontPanelBase) -> None:
-        board_connections = self.get_board_connections_list()
-        board_connections[board_idx] = front_panel
-
-    def get_board_connections_list(self) -> List[Union[None, okCFrontPanel]]:
-        return self._board_connections
 
     def _setup_before_loop(self) -> None:
         msg = {
@@ -666,7 +643,7 @@ class OkCommunicationProcess(InfiniteProcess):
 
                 if (
                     self._reads_since_last_logging[0]
-                    >= OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
+                    >= INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
                 ):
                     self._handle_performance_logging()
                     self._reads_since_last_logging[0] = 0
@@ -723,7 +700,7 @@ class OkCommunicationProcess(InfiniteProcess):
                 self._barcode_scan_start_time[0] = time.perf_counter()
                 board.clear_barcode_scanner()
         else:
-            raise UnrecognizedCommTypeFromMainToOKCommError(communication_type)
+            raise UnrecognizedCommTypeFromMainToInstrumentError(communication_type)
         if not input_queue.empty():
             self._process_can_be_soft_stopped = False
 
