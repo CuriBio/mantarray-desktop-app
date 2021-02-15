@@ -15,7 +15,7 @@ pytest-pylint = "==0.18.0"
 pytest-mock = "==3.5.1"
 pytest-timeout = "==1.4.2"
 pytest-profiling = "==1.7.0"
-freezegun = "==1.0.0"
+freezegun = "==1.1.0"
 cython = "==0.29.21"
 atomicwrites = "==1.4.0"
 
