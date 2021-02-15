@@ -15,15 +15,15 @@ pytest-pylint = "==0.18.0"
 pytest-mock = "==3.5.1"
 pytest-timeout = "==1.4.2"
 pytest-profiling = "==1.7.0"
-freezegun = "==1.1.0"
+freezegun = "==1.0.0"
 cython = "==0.29.21"
 atomicwrites = "==1.4.0"
 
 [packages]
 flask = "==1.1.2"
 flask-cors = "==3.0.9"
-numpy = "==1.20.1" # Eli (12/11/20) there's currently a problem with 1.19.4 that doesn't show up in the WindowsServer Github Images, only locally https://developercommunity.visualstudio.com/content/problem/1207405/fmod-after-an-update-to-windows-2004-is-causing-a.html
-scipy = "==1.6.0" # Eli (1/4/21) there's currently a problem with 1.6.0 where it isn't getting bundled correctly by pyinstaller. May be possible to debug, but didn't attempt in detail
+numpy = "==1.20.1"
+scipy = "==1.6.0"
 nptyping = "==1.4.0"
 h5py = "==3.1.0"
 immutabledict = "==1.2.0"
