@@ -54,6 +54,7 @@ a = Analysis(  # type: ignore # noqa: F821     the 'Analysis' object is special 
     hiddenimports=[
         "xem_wrapper._windows._ok",
         "scipy.special.cython_special",
+        "scipy.spatial.transform._rotation_groups",  # Eli (2/15/21): issue with scipy 1.6.0 https://github.com/scipy/scipy/issues/13378
         "flatten_dict",
     ],
     hookspath=[os.path.join(get_current_file_abs_directory(), "hooks")],
