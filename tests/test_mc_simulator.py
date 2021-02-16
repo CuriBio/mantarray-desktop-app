@@ -39,13 +39,32 @@ __fixtures__ = [
 
 STATUS_BEACON_SIZE_BYTES = 28
 HANDSHAKE_RESPONSE_SIZE_BYTES = 28
-STATUS_BEACON_PACKET_LENGTH_INFO = (18).to_bytes(2, byteorder="little")
-HANDSHAKE_PACKET_LENGTH_INFO = (14).to_bytes(2, byteorder="little")
 DEFAULT_SIMULATOR_STATUS_CODE = bytes(4)
+TIMESTAMP_LENGTH_BYTES = 8
+CHECKSUM_LENGTH_BYTES = 4
 
 
 def append_checksum_to_data_packet(data_bytes: bytes) -> bytes:
-    return data_bytes + crc32(data_bytes).to_bytes(4, byteorder="little")
+    return data_bytes + crc32(data_bytes).to_bytes(
+        CHECKSUM_LENGTH_BYTES, byteorder="little"
+    )
+
+
+def create_data_packet(
+    timestamp: int,
+    module_id: int,
+    packet_type: int,
+    packet_data: bytes,
+) -> bytes:
+    packet_body = timestamp.to_bytes(TIMESTAMP_LENGTH_BYTES, byteorder="little")
+    packet_body += bytes([module_id, packet_type])
+    packet_body += packet_data
+    packet_length = len(packet_body) + CHECKSUM_LENGTH_BYTES
+
+    data_packet = SERIAL_COMM_MAGIC_WORD_BYTES
+    data_packet += packet_length.to_bytes(2, byteorder="little")
+    data_packet += packet_body
+    return append_checksum_to_data_packet(data_packet)
 
 
 def test_MantarrayMCSimulator__super_is_called_during_init__with_default_logging_value(
@@ -195,15 +214,11 @@ def test_MantarrayMCSimulator__makes_status_beacon_available_to_read_on_first_it
         return_value=expected_cms_since_init,
     )
 
-    timestamp_bytes = expected_cms_since_init.to_bytes(8, byteorder="little")
-    # TODO make this into a more robust method (auto calculate the packet length and add magic word)
-    expected_initial_beacon = append_checksum_to_data_packet(
-        SERIAL_COMM_MAGIC_WORD_BYTES
-        + STATUS_BEACON_PACKET_LENGTH_INFO
-        + timestamp_bytes
-        + bytes([SERIAL_COMM_MAIN_MODULE_ID])
-        + bytes([SERIAL_COMM_STATUS_BEACON_PACKET_TYPE])
-        + DEFAULT_SIMULATOR_STATUS_CODE
+    expected_initial_beacon = create_data_packet(
+        expected_cms_since_init,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
+        DEFAULT_SIMULATOR_STATUS_CODE,
     )
     expected_randint_upper_bound = len(expected_initial_beacon) - 1
 
@@ -248,26 +263,22 @@ def test_MantarrayMCSimulator__makes_status_beacon_available_to_read_every_5_sec
     invoke_process_run_and_check_errors(simulator)
     # 5 seconds since prev beacon
     invoke_process_run_and_check_errors(simulator)
-    expected_beacon_1 = append_checksum_to_data_packet(
-        SERIAL_COMM_MAGIC_WORD_BYTES
-        + STATUS_BEACON_PACKET_LENGTH_INFO
-        + expected_durs[1].to_bytes(8, "little")
-        + bytes([SERIAL_COMM_MAIN_MODULE_ID])
-        + bytes([SERIAL_COMM_STATUS_BEACON_PACKET_TYPE])
-        + DEFAULT_SIMULATOR_STATUS_CODE
+    expected_beacon_1 = create_data_packet(
+        expected_durs[1],
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
+        DEFAULT_SIMULATOR_STATUS_CODE,
     )
     assert simulator.read(size=len(expected_beacon_1)) == expected_beacon_1
     # 4 seconds since prev beacon
     invoke_process_run_and_check_errors(simulator)
     # 6 seconds since prev beacon
     invoke_process_run_and_check_errors(simulator)
-    expected_beacon_2 = append_checksum_to_data_packet(
-        SERIAL_COMM_MAGIC_WORD_BYTES
-        + STATUS_BEACON_PACKET_LENGTH_INFO
-        + expected_durs[2].to_bytes(8, "little")
-        + bytes([SERIAL_COMM_MAIN_MODULE_ID])
-        + bytes([SERIAL_COMM_STATUS_BEACON_PACKET_TYPE])
-        + DEFAULT_SIMULATOR_STATUS_CODE
+    expected_beacon_2 = create_data_packet(
+        expected_durs[2],
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
+        DEFAULT_SIMULATOR_STATUS_CODE,
     )
     assert simulator.read(size=len(expected_beacon_2)) == expected_beacon_2
 
@@ -445,13 +456,14 @@ def test_MantarrayMCSimulator__raises_error_if_unrecognized_module_id_sent_from_
 
     _, _, _, _, simulator = mantarray_mc_simulator_no_beacon
 
+    dummy_timestamp = 0
+    dummy_packet_type = 1
     test_module_id = 254
-    test_handshake = append_checksum_to_data_packet(
-        SERIAL_COMM_MAGIC_WORD_BYTES
-        + (14).to_bytes(2, byteorder="little")
-        + bytes(8)
-        + bytes([test_module_id])
-        + bytes([1])
+    test_handshake = create_data_packet(
+        dummy_timestamp,
+        test_module_id,
+        dummy_packet_type,
+        DEFAULT_SIMULATOR_STATUS_CODE,
     )
 
     simulator.write(test_handshake)
@@ -470,13 +482,13 @@ def test_MantarrayMCSimulator__raises_error_if_unrecognized_packet_type_sent_fro
 
     _, _, _, _, simulator = mantarray_mc_simulator_no_beacon
 
+    dummy_timestamp = 0
     test_packet_type = 254
-    test_handshake = append_checksum_to_data_packet(
-        SERIAL_COMM_MAGIC_WORD_BYTES
-        + (14).to_bytes(2, byteorder="little")
-        + bytes(8)
-        + bytes([SERIAL_COMM_MAIN_MODULE_ID])
-        + bytes([test_packet_type])
+    test_handshake = create_data_packet(
+        dummy_timestamp,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        test_packet_type,
+        DEFAULT_SIMULATOR_STATUS_CODE,
     )
 
     simulator.write(test_handshake)
@@ -495,29 +507,25 @@ def test_MantarrayMCSimulator__responds_to_handshake__when_checksum_is_correct(
 
     spied_get_cms_since_init = mocker.spy(simulator, "get_cms_since_init")
 
-    test_handshake = append_checksum_to_data_packet(
-        SERIAL_COMM_MAGIC_WORD_BYTES
-        + HANDSHAKE_PACKET_LENGTH_INFO
-        + bytes(8)
-        + bytes([SERIAL_COMM_MAIN_MODULE_ID])
-        + bytes([SERIAL_COMM_HANDSHAKE_PACKET_TYPE])
+    dummy_timestamp = 0
+    test_handshake = create_data_packet(
+        dummy_timestamp,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
+        bytes(0),
     )
+
     simulator.write(test_handshake)
     time.sleep(QUEUE_CHECK_TIMEOUT_SECONDS)  # let input queue get populated
 
     invoke_process_run_and_check_errors(simulator)
     actual = simulator.read(size=HANDSHAKE_RESPONSE_SIZE_BYTES)
 
-    expected_timestamp_bytes = (spied_get_cms_since_init.spy_return).to_bytes(
-        8, byteorder="little"
-    )
-    expected_handshake_response = append_checksum_to_data_packet(
-        SERIAL_COMM_MAGIC_WORD_BYTES
-        + STATUS_BEACON_PACKET_LENGTH_INFO
-        + expected_timestamp_bytes
-        + bytes([SERIAL_COMM_MAIN_MODULE_ID])
-        + bytes([SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE])
-        + DEFAULT_SIMULATOR_STATUS_CODE
+    expected_handshake_response = create_data_packet(
+        spied_get_cms_since_init.spy_return,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+        DEFAULT_SIMULATOR_STATUS_CODE,
     )
     assert actual == expected_handshake_response
 
@@ -529,31 +537,27 @@ def test_MantarrayMCSimulator__responds_to_handshake__when_checksum_is_incorrect
 
     spied_get_cms_since_init = mocker.spy(simulator, "get_cms_since_init")
 
+    dummy_timestamp_bytes = bytes(TIMESTAMP_LENGTH_BYTES)
+    dummy_checksum_bytes = bytes(CHECKSUM_LENGTH_BYTES)
+    handshake_packet_length = 14
     test_handshake = (
         SERIAL_COMM_MAGIC_WORD_BYTES
-        + HANDSHAKE_PACKET_LENGTH_INFO
-        + bytes(8)
+        + handshake_packet_length.to_bytes(2, byteorder="little")
+        + dummy_timestamp_bytes
         + bytes([SERIAL_COMM_MAIN_MODULE_ID])
         + bytes([SERIAL_COMM_HANDSHAKE_PACKET_TYPE])
-        + bytes(4)
+        + dummy_checksum_bytes
     )
     simulator.write(test_handshake)
     time.sleep(QUEUE_CHECK_TIMEOUT_SECONDS)  # let input queue get populated
 
     invoke_process_run_and_check_errors(simulator)
-    read_size = len(test_handshake) + 16
-    actual = simulator.read(size=read_size)
 
-    expected_timestamp_bytes = (spied_get_cms_since_init.spy_return).to_bytes(
-        8, byteorder="little"
+    expected_handshake_response = create_data_packet(
+        spied_get_cms_since_init.spy_return,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE,
+        test_handshake[len(SERIAL_COMM_MAGIC_WORD_BYTES) :],
     )
-    expected_packet_body_length = len(test_handshake) + 6
-    expected_handshake_response = append_checksum_to_data_packet(
-        SERIAL_COMM_MAGIC_WORD_BYTES
-        + expected_packet_body_length.to_bytes(2, byteorder="little")
-        + expected_timestamp_bytes
-        + bytes([SERIAL_COMM_MAIN_MODULE_ID])
-        + bytes([SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE])
-        + test_handshake[8:]
-    )
+    actual = simulator.read(size=len(expected_handshake_response))
     assert actual == expected_handshake_response
