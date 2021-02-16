@@ -230,6 +230,16 @@ SUBPROCESS_POLL_DELAY_SECONDS = 0.025
 
 SECONDS_TO_WAIT_WHEN_POLLING_QUEUES = 0.02  # Due to the unreliablity of the .empty() .qsize() methods in queues, switched to a .get(timeout=) approach for polling the queues in the subprocesses.  Eli (10/26/20): 0.01 seconds was still causing sporadic failures in Linux CI in Github, so bumped to 0.02 seconds.
 
+# Serial Communication Values
+SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS = 5
 
 SERIAL_COMM_MAGIC_WORD_BYTES = b"CURI BIO"
-SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS = 5
+
+SERIAL_COMM_MODULE_ID_INDEX = 18
+SERIAL_COMM_PACKET_TYPE_INDEX = 19
+
+SERIAL_COMM_MAIN_MODULE_ID = 0
+SERIAL_COMM_STATUS_BEACON_PACKET_TYPE = 0
+SERIAL_COMM_HANDSHAKE_PACKET_TYPE = 4
+SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE = 4
+SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE = 255

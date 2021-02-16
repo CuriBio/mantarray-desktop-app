@@ -20,8 +20,17 @@ from stdlib_utils import InfiniteProcess
 from stdlib_utils import SECONDS_TO_SLEEP_BETWEEN_CHECKING_QUEUE_SIZE
 
 from .constants import NANOSECONDS_PER_CENTIMILLISECOND
+from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
+from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
+from .constants import SERIAL_COMM_MAIN_MODULE_ID
+from .constants import SERIAL_COMM_MODULE_ID_INDEX
+from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
+from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+from .exceptions import UnrecognizedSerialCommModuleIdError
+from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .exceptions import UnrecognizedSimulatorTestCommandError
 
 
@@ -86,36 +95,22 @@ class MantarrayMCSimulator(InfiniteProcess):
     def _get_cms_timestamp_bytes(self) -> bytes:
         return self.get_cms_since_init().to_bytes(8, byteorder="little")
 
-    def _send_checksum_failure_response(self, packet: bytes) -> None:
-        module_id = bytes([0])
-        packet_type = bytes([255])
-        packet_info = self._get_cms_timestamp_bytes()
-        packet_info += module_id
-        packet_info += packet_type
-        packet_info += packet[8:]
-        num_bytes_in_content = _get_packet_length_bytes(packet_info)
+    def _send_data_packet(
+        self,
+        module_id: int,
+        packet_type: int,
+        data_to_send: bytes,
+        truncate: bool = False,
+    ) -> None:
+        packet_body = self._get_cms_timestamp_bytes()
+        packet_body += bytes([module_id, packet_type])
+        packet_body += data_to_send
+        num_bytes_in_content = _get_packet_length_bytes(packet_body)
 
-        handshake_response = SERIAL_COMM_MAGIC_WORD_BYTES
-        handshake_response += num_bytes_in_content
-        handshake_response += packet_info
-        handshake_response += _get_checksum_bytes(handshake_response)
-        self._output_queue.put_nowait(handshake_response)
-
-    def _send_status_beacon(self, truncate: bool = False) -> None:
-        self._time_of_last_status_beacon_secs = perf_counter()
-
-        module_id = bytes([0])
-        packet_type = bytes([0])
-        packet_info = self._get_cms_timestamp_bytes()
-        packet_info += module_id
-        packet_info += packet_type
-        packet_info += self._status_code_bits
-        num_bytes_in_content = _get_packet_length_bytes(packet_info)
-
-        status_beacon = SERIAL_COMM_MAGIC_WORD_BYTES
-        status_beacon += num_bytes_in_content
-        status_beacon += packet_info
-        status_beacon += _get_checksum_bytes(status_beacon)
+        data_packet = SERIAL_COMM_MAGIC_WORD_BYTES
+        data_packet += num_bytes_in_content
+        data_packet += packet_body
+        data_packet += _get_checksum_bytes(data_packet)
         if truncate:
             trunc_end = (
                 int.from_bytes(num_bytes_in_content, byteorder="little")
@@ -125,23 +120,8 @@ class MantarrayMCSimulator(InfiniteProcess):
             trunc_index = random.randint(  # nosec B311 # Tanner (2/4/21): Bandit blacklisted this psuedo-random generator for cryptographic security reasons that do not apply to the desktop app.
                 0, trunc_end
             )
-            status_beacon = status_beacon[trunc_index:]
-        self._output_queue.put_nowait(status_beacon)
-
-    def _send_handshake_response(self) -> None:
-        module_id = bytes([0])
-        packet_type = bytes([4])
-        packet_info = self._get_cms_timestamp_bytes()
-        packet_info += module_id
-        packet_info += packet_type
-        packet_info += self._status_code_bits
-        num_bytes_in_content = _get_packet_length_bytes(packet_info)
-
-        handshake_response = SERIAL_COMM_MAGIC_WORD_BYTES
-        handshake_response += num_bytes_in_content
-        handshake_response += packet_info
-        handshake_response += _get_checksum_bytes(handshake_response)
-        self._output_queue.put_nowait(handshake_response)
+            data_packet = data_packet[trunc_index:]
+        self._output_queue.put_nowait(data_packet)
 
     def _commands_for_each_run_iteration(self) -> None:
         self._handle_comm_from_pc()
@@ -153,14 +133,34 @@ class MantarrayMCSimulator(InfiniteProcess):
             comm_from_pc = self._input_queue.get_nowait()
         except queue.Empty:
             return
-        if comm_from_pc[16] == 0:
-            if comm_from_pc[17] == 4:
+
+        module_id = comm_from_pc[SERIAL_COMM_MODULE_ID_INDEX]
+        packet_type = comm_from_pc[SERIAL_COMM_PACKET_TYPE_INDEX]
+        if module_id == SERIAL_COMM_MAIN_MODULE_ID:
+            if packet_type == SERIAL_COMM_HANDSHAKE_PACKET_TYPE:
                 expected_checksum = crc32(comm_from_pc[:-4])
                 actual_checksum = int.from_bytes(comm_from_pc[-4:], byteorder="little")
                 if actual_checksum == expected_checksum:
-                    self._send_handshake_response()
+                    self._send_data_packet(
+                        SERIAL_COMM_MAIN_MODULE_ID,
+                        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+                        self._status_code_bits,
+                    )
                     return
-                self._send_checksum_failure_response(comm_from_pc)
+                # remove magic word before returning message to PC
+                magic_word_len = len(SERIAL_COMM_MAGIC_WORD_BYTES)
+                trimmed_comm_from_pc = comm_from_pc[magic_word_len:]
+                self._send_data_packet(
+                    SERIAL_COMM_MAIN_MODULE_ID,
+                    SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE,
+                    trimmed_comm_from_pc,
+                )
+            else:
+                raise UnrecognizedSerialCommPacketTypeError(
+                    f"Packet Type ID: {packet_type} is not defined for Module ID: {module_id}"
+                )
+        else:
+            raise UnrecognizedSerialCommModuleIdError(module_id)
 
     def _handle_status_beacon(self) -> None:
         if self._time_of_last_status_beacon_secs is None:
@@ -170,7 +170,16 @@ class MantarrayMCSimulator(InfiniteProcess):
             self._time_of_last_status_beacon_secs
         )
         if seconds_elapsed >= SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS:
-            self._send_status_beacon()
+            self._send_status_beacon(truncate=False)
+
+    def _send_status_beacon(self, truncate: bool = False) -> None:
+        self._time_of_last_status_beacon_secs = perf_counter()
+        self._send_data_packet(
+            SERIAL_COMM_MAIN_MODULE_ID,
+            SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
+            self._status_code_bits,
+            truncate,
+        )
 
     def _handle_test_comm(self) -> None:
         try:

@@ -8,8 +8,15 @@ from zlib import crc32
 from mantarray_desktop_app import MantarrayMCSimulator
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import NANOSECONDS_PER_CENTIMILLISECOND
+from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
+from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
+from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+from mantarray_desktop_app import UnrecognizedSerialCommModuleIdError
+from mantarray_desktop_app import UnrecognizedSerialCommPacketTypeError
 from mantarray_desktop_app import UnrecognizedSimulatorTestCommandError
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import pytest
@@ -33,8 +40,7 @@ __fixtures__ = [
 STATUS_BEACON_SIZE_BYTES = 28
 HANDSHAKE_RESPONSE_SIZE_BYTES = 28
 STATUS_BEACON_PACKET_LENGTH_INFO = (18).to_bytes(2, byteorder="little")
-MAIN_MODULE_ID = b"\x00"
-STATUS_BEACON_PACKET_TYPE = b"\x00"
+HANDSHAKE_PACKET_LENGTH_INFO = (14).to_bytes(2, byteorder="little")
 DEFAULT_SIMULATOR_STATUS_CODE = bytes(4)
 
 
@@ -190,12 +196,13 @@ def test_MantarrayMCSimulator__makes_status_beacon_available_to_read_on_first_it
     )
 
     timestamp_bytes = expected_cms_since_init.to_bytes(8, byteorder="little")
+    # TODO make this into a more robust method (auto calculate the packet length and add magic word)
     expected_initial_beacon = append_checksum_to_data_packet(
         SERIAL_COMM_MAGIC_WORD_BYTES
         + STATUS_BEACON_PACKET_LENGTH_INFO
         + timestamp_bytes
-        + MAIN_MODULE_ID
-        + STATUS_BEACON_PACKET_TYPE
+        + bytes([SERIAL_COMM_MAIN_MODULE_ID])
+        + bytes([SERIAL_COMM_STATUS_BEACON_PACKET_TYPE])
         + DEFAULT_SIMULATOR_STATUS_CODE
     )
     expected_randint_upper_bound = len(expected_initial_beacon) - 1
@@ -245,8 +252,8 @@ def test_MantarrayMCSimulator__makes_status_beacon_available_to_read_every_5_sec
         SERIAL_COMM_MAGIC_WORD_BYTES
         + STATUS_BEACON_PACKET_LENGTH_INFO
         + expected_durs[1].to_bytes(8, "little")
-        + MAIN_MODULE_ID
-        + STATUS_BEACON_PACKET_TYPE
+        + bytes([SERIAL_COMM_MAIN_MODULE_ID])
+        + bytes([SERIAL_COMM_STATUS_BEACON_PACKET_TYPE])
         + DEFAULT_SIMULATOR_STATUS_CODE
     )
     assert simulator.read(size=len(expected_beacon_1)) == expected_beacon_1
@@ -258,8 +265,8 @@ def test_MantarrayMCSimulator__makes_status_beacon_available_to_read_every_5_sec
         SERIAL_COMM_MAGIC_WORD_BYTES
         + STATUS_BEACON_PACKET_LENGTH_INFO
         + expected_durs[2].to_bytes(8, "little")
-        + MAIN_MODULE_ID
-        + STATUS_BEACON_PACKET_TYPE
+        + bytes([SERIAL_COMM_MAIN_MODULE_ID])
+        + bytes([SERIAL_COMM_STATUS_BEACON_PACKET_TYPE])
         + DEFAULT_SIMULATOR_STATUS_CODE
     )
     assert simulator.read(size=len(expected_beacon_2)) == expected_beacon_2
@@ -429,6 +436,58 @@ def test_MantarrayMCSimulator__handles_reads_of_size_greater_than_next_packet_in
     assert actual_2 == bytes(0)
 
 
+def test_MantarrayMCSimulator__raises_error_if_unrecognized_module_id_sent_from_pc(
+    mantarray_mc_simulator_no_beacon, mocker
+):
+    mocker.patch(
+        "builtins.print", autospec=True
+    )  # don't print all the error messages to console
+
+    _, _, _, _, simulator = mantarray_mc_simulator_no_beacon
+
+    test_module_id = 254
+    test_handshake = append_checksum_to_data_packet(
+        SERIAL_COMM_MAGIC_WORD_BYTES
+        + (14).to_bytes(2, byteorder="little")
+        + bytes(8)
+        + bytes([test_module_id])
+        + bytes([1])
+    )
+
+    simulator.write(test_handshake)
+    time.sleep(QUEUE_CHECK_TIMEOUT_SECONDS)  # let input queue get populated
+
+    with pytest.raises(UnrecognizedSerialCommModuleIdError, match=str(test_module_id)):
+        invoke_process_run_and_check_errors(simulator)
+
+
+def test_MantarrayMCSimulator__raises_error_if_unrecognized_packet_type_sent_from_pc(
+    mantarray_mc_simulator_no_beacon, mocker
+):
+    mocker.patch(
+        "builtins.print", autospec=True
+    )  # don't print all the error messages to console
+
+    _, _, _, _, simulator = mantarray_mc_simulator_no_beacon
+
+    test_packet_type = 254
+    test_handshake = append_checksum_to_data_packet(
+        SERIAL_COMM_MAGIC_WORD_BYTES
+        + (14).to_bytes(2, byteorder="little")
+        + bytes(8)
+        + bytes([SERIAL_COMM_MAIN_MODULE_ID])
+        + bytes([test_packet_type])
+    )
+
+    simulator.write(test_handshake)
+    time.sleep(QUEUE_CHECK_TIMEOUT_SECONDS)  # let input queue get populated
+
+    with pytest.raises(UnrecognizedSerialCommPacketTypeError) as exc_info:
+        invoke_process_run_and_check_errors(simulator)
+    assert str(SERIAL_COMM_MAIN_MODULE_ID) in str(exc_info.value)
+    assert str(test_packet_type) in str(exc_info.value)
+
+
 def test_MantarrayMCSimulator__responds_to_handshake__when_checksum_is_correct(
     mantarray_mc_simulator_no_beacon, mocker
 ):
@@ -437,7 +496,11 @@ def test_MantarrayMCSimulator__responds_to_handshake__when_checksum_is_correct(
     spied_get_cms_since_init = mocker.spy(simulator, "get_cms_since_init")
 
     test_handshake = append_checksum_to_data_packet(
-        SERIAL_COMM_MAGIC_WORD_BYTES + bytes(8) + MAIN_MODULE_ID + bytes([4]) + bytes(2)
+        SERIAL_COMM_MAGIC_WORD_BYTES
+        + HANDSHAKE_PACKET_LENGTH_INFO
+        + bytes(8)
+        + bytes([SERIAL_COMM_MAIN_MODULE_ID])
+        + bytes([SERIAL_COMM_HANDSHAKE_PACKET_TYPE])
     )
     simulator.write(test_handshake)
     time.sleep(QUEUE_CHECK_TIMEOUT_SECONDS)  # let input queue get populated
@@ -452,8 +515,8 @@ def test_MantarrayMCSimulator__responds_to_handshake__when_checksum_is_correct(
         SERIAL_COMM_MAGIC_WORD_BYTES
         + STATUS_BEACON_PACKET_LENGTH_INFO
         + expected_timestamp_bytes
-        + MAIN_MODULE_ID
-        + bytes([4])
+        + bytes([SERIAL_COMM_MAIN_MODULE_ID])
+        + bytes([SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE])
         + DEFAULT_SIMULATOR_STATUS_CODE
     )
     assert actual == expected_handshake_response
@@ -468,10 +531,10 @@ def test_MantarrayMCSimulator__responds_to_handshake__when_checksum_is_incorrect
 
     test_handshake = (
         SERIAL_COMM_MAGIC_WORD_BYTES
+        + HANDSHAKE_PACKET_LENGTH_INFO
         + bytes(8)
-        + MAIN_MODULE_ID
-        + bytes([4])
-        + bytes(2)
+        + bytes([SERIAL_COMM_MAIN_MODULE_ID])
+        + bytes([SERIAL_COMM_HANDSHAKE_PACKET_TYPE])
         + bytes(4)
     )
     simulator.write(test_handshake)
@@ -484,12 +547,13 @@ def test_MantarrayMCSimulator__responds_to_handshake__when_checksum_is_incorrect
     expected_timestamp_bytes = (spied_get_cms_since_init.spy_return).to_bytes(
         8, byteorder="little"
     )
+    expected_packet_body_length = len(test_handshake) + 6
     expected_handshake_response = append_checksum_to_data_packet(
         SERIAL_COMM_MAGIC_WORD_BYTES
-        + b"\x1e\x00"
+        + expected_packet_body_length.to_bytes(2, byteorder="little")
         + expected_timestamp_bytes
-        + MAIN_MODULE_ID
-        + bytes([255])
+        + bytes([SERIAL_COMM_MAIN_MODULE_ID])
+        + bytes([SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE])
         + test_handshake[8:]
     )
     assert actual == expected_handshake_response
