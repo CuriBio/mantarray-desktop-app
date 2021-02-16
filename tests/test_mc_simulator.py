@@ -561,3 +561,38 @@ def test_MantarrayMCSimulator__responds_to_handshake__when_checksum_is_incorrect
     )
     actual = simulator.read(size=len(expected_handshake_response))
     assert actual == expected_handshake_response
+
+
+def test_MantarrayMCSimulator__allows_status_bits_to_be_set_through_testing_queue_commands(
+    mantarray_mc_simulator_no_beacon,
+):
+    _, _, _, testing_queue, simulator = mantarray_mc_simulator_no_beacon
+
+    expected_status_code_bits = bytes([4, 13, 7, 0])
+    test_command = {
+        "command": "set_status_code_bits",
+        "status_code_bits": expected_status_code_bits,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_command, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator)
+
+    dummy_timestamp = 0
+    test_handshake = create_data_packet(
+        dummy_timestamp,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
+        bytes(0),
+    )
+
+    simulator.write(test_handshake)
+    time.sleep(QUEUE_CHECK_TIMEOUT_SECONDS)  # let input queue get populated
+
+    invoke_process_run_and_check_errors(simulator)
+    handshake_response = simulator.read(size=HANDSHAKE_RESPONSE_SIZE_BYTES)
+
+    status_code_end = len(handshake_response) - CHECKSUM_LENGTH_BYTES
+    status_code_start = status_code_end - len(expected_status_code_bits)
+    actual_status_code_bits = handshake_response[status_code_start:status_code_end]
+    assert actual_status_code_bits == expected_status_code_bits
