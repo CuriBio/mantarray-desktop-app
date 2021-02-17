@@ -120,3 +120,11 @@ class ServerThreadSingletonAlreadySetError(Exception):
 
 class InstrumentCommIncorrectHeaderError(Exception):
     pass
+
+
+class UnrecognizedSerialCommModuleIdError(Exception):
+    pass
+
+
+class UnrecognizedSerialCommPacketTypeError(Exception):
+    pass

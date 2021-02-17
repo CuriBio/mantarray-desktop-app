@@ -6,6 +6,7 @@ from . import fifo_simulator
 from . import file_writer
 from . import firmware_manager
 from . import main
+from . import mc_simulator
 from . import ok_comm
 from . import process_manager
 from . import process_monitor
@@ -72,7 +73,14 @@ from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from .constants import REFERENCE_VOLTAGE
 from .constants import ROUND_ROBIN_PERIOD
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
+from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
+from .constants import SERIAL_COMM_MAIN_MODULE_ID
+from .constants import SERIAL_COMM_MODULE_ID_INDEX
+from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
+from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
@@ -116,6 +124,8 @@ from .exceptions import UnrecognizedDataFrameFormatNameError
 from .exceptions import UnrecognizedDebugConsoleCommandError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
 from .exceptions import UnrecognizedRecordingCommandError
+from .exceptions import UnrecognizedSerialCommModuleIdError
+from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .exceptions import UnrecognizedSimulatorTestCommandError
 from .fifo_read_producer import FIFOReadProducer
 from .fifo_read_producer import produce_data
@@ -326,4 +336,13 @@ __all__ = [
     "NANOSECONDS_PER_CENTIMILLISECOND",
     "InstrumentCommProcess",
     "InstrumentCommIncorrectHeaderError",
+    "SERIAL_COMM_STATUS_BEACON_PACKET_TYPE",
+    "SERIAL_COMM_MAIN_MODULE_ID",
+    "SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE",
+    "SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE",
+    "SERIAL_COMM_HANDSHAKE_PACKET_TYPE",
+    "SERIAL_COMM_MODULE_ID_INDEX",
+    "SERIAL_COMM_PACKET_TYPE_INDEX",
+    "UnrecognizedSerialCommModuleIdError",
+    "UnrecognizedSerialCommPacketTypeError",
 ]

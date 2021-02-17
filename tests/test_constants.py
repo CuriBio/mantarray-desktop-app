@@ -62,7 +62,14 @@ from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
+from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
+from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_INDEX
+from mantarray_desktop_app import SERIAL_COMM_PACKET_TYPE_INDEX
+from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE
@@ -305,3 +312,12 @@ def test_parallelism_config():
 def test_serial_comm():
     assert SERIAL_COMM_MAGIC_WORD_BYTES == b"CURI BIO"
     assert SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS == 5
+
+    assert SERIAL_COMM_MODULE_ID_INDEX == 18
+    assert SERIAL_COMM_PACKET_TYPE_INDEX == 19
+
+    assert SERIAL_COMM_MAIN_MODULE_ID == 0
+    assert SERIAL_COMM_STATUS_BEACON_PACKET_TYPE == 0
+    assert SERIAL_COMM_HANDSHAKE_PACKET_TYPE == 4
+    assert SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE == 4
+    assert SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE == 255
