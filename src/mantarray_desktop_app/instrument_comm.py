@@ -12,9 +12,24 @@ from typing import Optional
 from typing import Tuple
 from typing import Union
 
+from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from xem_wrapper import FrontPanelBase
 from xem_wrapper import okCFrontPanel
+
+
+def _drain_board_queues(
+    board: Tuple[
+        Queue[Any],  # pylint: disable=unsubscriptable-object
+        Queue[Any],  # pylint: disable=unsubscriptable-object
+        Queue[Any],  # pylint: disable=unsubscriptable-object
+    ],
+) -> Dict[str, List[Any]]:
+    board_dict = dict()
+    board_dict["main_to_instrument_comm"] = drain_queue(board[0])
+    board_dict["instrument_comm_to_main"] = drain_queue(board[1])
+    board_dict["instrument_comm_to_file_writer"] = drain_queue(board[2])
+    return board_dict
 
 
 class InstrumentCommProcess(InfiniteProcess, metaclass=abc.ABCMeta):
@@ -42,8 +57,8 @@ class InstrumentCommProcess(InfiniteProcess, metaclass=abc.ABCMeta):
         fatal_error_reporter: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
             Tuple[Exception, str]
         ],
-        # pylint: disable=duplicate-code
         suppress_setup_communication_to_main: bool = False,
+        # pylint: disable=duplicate-code
         logging_level: int = logging.INFO,
     ):
         super().__init__(fatal_error_reporter, logging_level=logging_level)
@@ -77,3 +92,9 @@ class InstrumentCommProcess(InfiniteProcess, metaclass=abc.ABCMeta):
 
     def get_board_connections_list(self) -> List[Union[None, okCFrontPanel]]:
         return self._board_connections
+
+    def _drain_all_queues(self) -> Dict[str, Any]:
+        queue_items = dict()
+        for i, board in enumerate(self._board_queues):
+            queue_items[f"board_{i}"] = _drain_board_queues(board)
+        return queue_items

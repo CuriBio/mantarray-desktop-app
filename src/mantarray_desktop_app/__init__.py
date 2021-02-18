@@ -146,6 +146,7 @@ from .main import clear_server_singletons
 from .main import get_server_port_number
 from .mantarray_front_panel import MantarrayFrontPanel
 from .mantarray_front_panel import MantarrayFrontPanelMixIn
+from .mc_comm import McCommunicationProcess
 from .mc_simulator import create_data_packet
 from .mc_simulator import MantarrayMCSimulator
 from .ok_comm import build_file_writer_objects
@@ -349,6 +350,7 @@ __all__ = [
     "SERIAL_COMM_PACKET_TYPE_INDEX",
     "UnrecognizedSerialCommModuleIdError",
     "UnrecognizedSerialCommPacketTypeError",
+    "McCommunicationProcess",
     "SERIAL_COMM_CHECKSUM_LENGTH_BYTES",
     "SERIAL_COMM_TIMESTAMP_LENGTH_BYTES",
 ]

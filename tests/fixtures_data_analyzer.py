@@ -18,6 +18,7 @@ def fixture_four_board_analyzer_process():
                 Queue(),
                 Queue(),
             )
+            # pylint: disable=duplicate-code
             for _ in range(num_boards)
         )
     )
