@@ -21,6 +21,7 @@ from stdlib_utils import SECONDS_TO_SLEEP_BETWEEN_CHECKING_QUEUE_SIZE
 
 from .constants import NANOSECONDS_PER_CENTIMILLISECOND
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
+from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
@@ -29,9 +30,13 @@ from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .exceptions import UnrecognizedSerialCommModuleIdError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .exceptions import UnrecognizedSimulatorTestCommandError
+
+
+MAGIC_WORD_LEN = len(SERIAL_COMM_MAGIC_WORD_BYTES)
 
 
 def _get_secs_since_last_status_beacon(last_time: float) -> float:
@@ -39,13 +44,34 @@ def _get_secs_since_last_status_beacon(last_time: float) -> float:
 
 
 def _get_checksum_bytes(packet: bytes) -> bytes:
-    return crc32(packet).to_bytes(4, byteorder="little")
+    return crc32(packet).to_bytes(SERIAL_COMM_CHECKSUM_LENGTH_BYTES, byteorder="little")
 
 
 def _get_packet_length_bytes(packet: bytes) -> bytes:
     # add 4 for checksum at end of packet
-    packet_length = len(packet) + 4
+    packet_length = len(packet) + SERIAL_COMM_CHECKSUM_LENGTH_BYTES
     return packet_length.to_bytes(2, byteorder="little")
+
+
+def create_data_packet(
+    timestamp: int,
+    module_id: int,
+    packet_type: int,
+    packet_data: bytes,
+) -> bytes:
+    """Create a data packet to send to the PC."""
+    packet_body = timestamp.to_bytes(
+        SERIAL_COMM_TIMESTAMP_LENGTH_BYTES, byteorder="little"
+    )
+    packet_body += bytes([module_id, packet_type])
+    packet_body += packet_data
+    packet_length = len(packet_body) + SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+
+    data_packet = SERIAL_COMM_MAGIC_WORD_BYTES
+    data_packet += packet_length.to_bytes(2, byteorder="little")
+    data_packet += packet_body
+    data_packet += _get_checksum_bytes(data_packet)
+    return data_packet
 
 
 class MantarrayMCSimulator(InfiniteProcess):
@@ -92,9 +118,6 @@ class MantarrayMCSimulator(InfiniteProcess):
         ns_since_init = perf_counter_ns() - self._init_time_ns
         return ns_since_init // NANOSECONDS_PER_CENTIMILLISECOND
 
-    def _get_cms_timestamp_bytes(self) -> bytes:
-        return self.get_cms_since_init().to_bytes(8, byteorder="little")
-
     def _send_data_packet(
         self,
         module_id: int,
@@ -102,31 +125,20 @@ class MantarrayMCSimulator(InfiniteProcess):
         data_to_send: bytes,
         truncate: bool = False,
     ) -> None:
-        packet_body = self._get_cms_timestamp_bytes()
-        packet_body += bytes([module_id, packet_type])
-        packet_body += data_to_send
-        num_bytes_in_content = _get_packet_length_bytes(packet_body)
-
-        data_packet = SERIAL_COMM_MAGIC_WORD_BYTES
-        data_packet += num_bytes_in_content
-        data_packet += packet_body
-        data_packet += _get_checksum_bytes(data_packet)
+        data_packet = create_data_packet(
+            self.get_cms_since_init(), module_id, packet_type, data_to_send
+        )
         if truncate:
-            trunc_end = (
-                int.from_bytes(num_bytes_in_content, byteorder="little")
-                + len(SERIAL_COMM_MAGIC_WORD_BYTES)
-                + 1
-            )
             trunc_index = random.randint(  # nosec B311 # Tanner (2/4/21): Bandit blacklisted this psuedo-random generator for cryptographic security reasons that do not apply to the desktop app.
-                0, trunc_end
+                0, len(data_packet) - 1
             )
             data_packet = data_packet[trunc_index:]
         self._output_queue.put_nowait(data_packet)
 
     def _commands_for_each_run_iteration(self) -> None:
+        self._handle_test_comm()
         self._handle_comm_from_pc()
         self._handle_status_beacon()
-        self._handle_test_comm()
 
     def _handle_comm_from_pc(self) -> None:
         try:
@@ -138,8 +150,13 @@ class MantarrayMCSimulator(InfiniteProcess):
         packet_type = comm_from_pc[SERIAL_COMM_PACKET_TYPE_INDEX]
         if module_id == SERIAL_COMM_MAIN_MODULE_ID:
             if packet_type == SERIAL_COMM_HANDSHAKE_PACKET_TYPE:
-                expected_checksum = crc32(comm_from_pc[:-4])
-                actual_checksum = int.from_bytes(comm_from_pc[-4:], byteorder="little")
+                expected_checksum = crc32(
+                    comm_from_pc[:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
+                )
+                actual_checksum = int.from_bytes(
+                    comm_from_pc[-SERIAL_COMM_CHECKSUM_LENGTH_BYTES:],
+                    byteorder="little",
+                )
                 if actual_checksum == expected_checksum:
                     self._send_data_packet(
                         SERIAL_COMM_MAIN_MODULE_ID,
@@ -148,8 +165,7 @@ class MantarrayMCSimulator(InfiniteProcess):
                     )
                     return
                 # remove magic word before returning message to PC
-                magic_word_len = len(SERIAL_COMM_MAGIC_WORD_BYTES)
-                trimmed_comm_from_pc = comm_from_pc[magic_word_len:]
+                trimmed_comm_from_pc = comm_from_pc[MAGIC_WORD_LEN:]
                 self._send_data_packet(
                     SERIAL_COMM_MAIN_MODULE_ID,
                     SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE,

@@ -74,6 +74,7 @@ from .constants import REFERENCE_VOLTAGE
 from .constants import ROUND_ROBIN_PERIOD
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
+from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
@@ -82,6 +83,7 @@ from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
 from .constants import START_BARCODE_SCAN_TRIG_BIT
@@ -144,6 +146,7 @@ from .main import clear_server_singletons
 from .main import get_server_port_number
 from .mantarray_front_panel import MantarrayFrontPanel
 from .mantarray_front_panel import MantarrayFrontPanelMixIn
+from .mc_simulator import create_data_packet
 from .mc_simulator import MantarrayMCSimulator
 from .ok_comm import build_file_writer_objects
 from .ok_comm import check_barcode_for_errors
@@ -330,6 +333,7 @@ __all__ = [
     "ServerThreadSingletonAlreadySetError",
     "mc_simulator",
     "MantarrayMCSimulator",
+    "create_data_packet",
     "SERIAL_COMM_MAGIC_WORD_BYTES",
     "SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS",
     "UnrecognizedSimulatorTestCommandError",
@@ -345,4 +349,6 @@ __all__ = [
     "SERIAL_COMM_PACKET_TYPE_INDEX",
     "UnrecognizedSerialCommModuleIdError",
     "UnrecognizedSerialCommPacketTypeError",
+    "SERIAL_COMM_CHECKSUM_LENGTH_BYTES",
+    "SERIAL_COMM_TIMESTAMP_LENGTH_BYTES",
 ]
