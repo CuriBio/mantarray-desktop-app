@@ -2,7 +2,6 @@
 import logging
 from multiprocessing import Queue
 import random
-import time
 from zlib import crc32
 
 from mantarray_desktop_app import create_data_packet
@@ -471,7 +470,6 @@ def test_MantarrayMCSimulator__raises_error_if_unrecognized_module_id_sent_from_
     )
 
     simulator.write(test_handshake)
-    time.sleep(QUEUE_CHECK_TIMEOUT_SECONDS)  # let input queue get populated
 
     with pytest.raises(UnrecognizedSerialCommModuleIdError, match=str(test_module_id)):
         invoke_process_run_and_check_errors(simulator)
@@ -496,7 +494,6 @@ def test_MantarrayMCSimulator__raises_error_if_unrecognized_packet_type_sent_fro
     )
 
     simulator.write(test_handshake)
-    time.sleep(QUEUE_CHECK_TIMEOUT_SECONDS)  # let input queue get populated
 
     with pytest.raises(UnrecognizedSerialCommPacketTypeError) as exc_info:
         invoke_process_run_and_check_errors(simulator)
@@ -520,7 +517,6 @@ def test_MantarrayMCSimulator__responds_to_handshake__when_checksum_is_correct(
     )
 
     simulator.write(test_handshake)
-    time.sleep(QUEUE_CHECK_TIMEOUT_SECONDS)  # let input queue get populated
 
     invoke_process_run_and_check_errors(simulator)
     actual = simulator.read(size=HANDSHAKE_RESPONSE_SIZE_BYTES)
@@ -553,7 +549,6 @@ def test_MantarrayMCSimulator__responds_to_handshake__when_checksum_is_incorrect
         + dummy_checksum_bytes
     )
     simulator.write(test_handshake)
-    time.sleep(QUEUE_CHECK_TIMEOUT_SECONDS)  # let input queue get populated
 
     invoke_process_run_and_check_errors(simulator)
 
@@ -591,7 +586,6 @@ def test_MantarrayMCSimulator__allows_status_bits_to_be_set_through_testing_queu
     )
 
     simulator.write(test_handshake)
-    time.sleep(QUEUE_CHECK_TIMEOUT_SECONDS)  # let input queue get populated
 
     invoke_process_run_and_check_errors(simulator)
     handshake_response = simulator.read(size=HANDSHAKE_RESPONSE_SIZE_BYTES)

@@ -19,6 +19,7 @@ def fixture_mantarray_mc_simulator():
         error_queue,
         testing_queue,
         read_timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
+        sleep_after_write_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
     )
 
     yield input_queue, output_queue, error_queue, testing_queue, simulator
@@ -42,6 +43,7 @@ def fixture_mantarray_mc_simulator_no_beacon(mocker):
         error_queue,
         testing_queue,
         read_timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
+        sleep_after_write_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
     )
 
     yield input_queue, output_queue, error_queue, testing_queue, simulator
