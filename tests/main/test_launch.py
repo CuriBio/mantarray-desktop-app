@@ -94,7 +94,7 @@ def test_main__handles_base64_command_line_argument_with_padding_issue(mocker):
     main.main(expected_command_line_args)
 
     spied_info_logger.assert_any_call(
-        "Command Line Args: {'debug_test_post_build': True, 'log_level_debug': False, 'skip_mantarray_boot_up': False, 'port_number': None, 'log_file_dir': None, 'expected_software_version': None}"
+        "Command Line Args: {'debug_test_post_build': True, 'log_level_debug': False, 'skip_mantarray_boot_up': False, 'port_number': None, 'log_file_dir': None, 'expected_software_version': None, 'no_load_firmware': False}"
     )
     for i, call_args in enumerate(spied_info_logger.call_args_list):
         assert f"Call #{i}" and "initial_base64_settings" not in call_args[0]
@@ -111,7 +111,7 @@ def test_main__redacts_log_file_dir_from_log_message_of_command_line_args(mocker
         )
 
         redacted_log_file_dir = redact_sensitive_info_from_path(expected_log_file_dir)
-        expected_msg = f"Command Line Args: {{'debug_test_post_build': True, 'log_level_debug': False, 'skip_mantarray_boot_up': False, 'port_number': None, 'log_file_dir': '{redacted_log_file_dir}', 'expected_software_version': None}}"  # Tanner (1/14/21): Double curly braces escape formatting in f-strings, although Cloud9's syntax highlighter does not seem to recognize this
+        expected_msg = f"Command Line Args: {{'debug_test_post_build': True, 'log_level_debug': False, 'skip_mantarray_boot_up': False, 'port_number': None, 'log_file_dir': '{redacted_log_file_dir}', 'expected_software_version': None, 'no_load_firmware': False}}"  # Tanner (1/14/21): Double curly braces escape formatting in f-strings, although Cloud9's syntax highlighter does not seem to recognize this
         spied_info_logger.assert_any_call(expected_msg)
 
 
@@ -127,7 +127,7 @@ def test_main__logs_command_line_arguments(mocker):
     main_thread.join()
 
     spied_info_logger.assert_any_call(
-        "Command Line Args: {'debug_test_post_build': True, 'log_level_debug': True, 'skip_mantarray_boot_up': False, 'port_number': None, 'log_file_dir': None, 'expected_software_version': None}"
+        "Command Line Args: {'debug_test_post_build': True, 'log_level_debug': True, 'skip_mantarray_boot_up': False, 'port_number': None, 'log_file_dir': None, 'expected_software_version': None, 'no_load_firmware': False}"
     )
 
     for call_args in spied_info_logger.call_args_list:
@@ -514,3 +514,15 @@ def test_main__puts_server_into_error_mode_if_expected_software_version_is_incor
         response.status.endswith("Versions of Electron and Flask EXEs do not match")
         is True
     )
+
+
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS + 5)
+@pytest.mark.slow
+def test_main__boots_up_instrument_without_a_bitfile_when_using_a_simulator__when_given_no_load_firmware_cmd_line_arg(
+    fully_running_app_from_main_entrypoint, test_client
+):
+    fully_running_app_from_main_entrypoint(["--no-load-firmware"])
+    port = get_server_port_number()
+    confirm_port_in_use(port, timeout=5)
+    wait_for_subprocesses_to_start()
+    assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
