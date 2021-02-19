@@ -151,17 +151,19 @@ def _get_values_from_process_monitor() -> Dict[str, Any]:
     return get_the_server_thread().get_values_from_process_monitor()
 
 
-def queue_command_to_ok_comm(comm_dict: Dict[str, Any]) -> Response:
+def queue_command_to_instrument_comm(comm_dict: Dict[str, Any]) -> Response:
     """Queue command to send to XEM and return response.
 
     This is used by the test suite, so is not designated as private in
     order to make pylint happier.
     """
-    to_ok_comm_queue = (
-        get_the_server_thread().queue_container().get_communication_to_ok_comm_queue(0)
+    to_instrument_comm_queue = (
+        get_the_server_thread()
+        .queue_container()
+        .get_communication_to_instrument_comm_queue(0)
     )
     comm_dict = dict(comm_dict)  # make a mutable version to pass into ok_comm
-    to_ok_comm_queue.put(comm_dict)
+    to_instrument_comm_queue.put(comm_dict)
     response = Response(json.dumps(comm_dict), mimetype="application/json")
 
     return response
@@ -581,7 +583,7 @@ def stop_managed_acquisition() -> Response:
     )
     to_file_writer_queue.put(comm_dict)
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
     return response
 
 
@@ -637,7 +639,7 @@ def queue_initialize_board() -> Response:
         "suppress_error": True,
     }
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 
@@ -658,7 +660,7 @@ def queue_activate_trigger_in() -> Response:
         "suppress_error": True,
     }
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 
@@ -679,7 +681,7 @@ def queue_comm_delay() -> Response:
         "suppress_error": True,
     }
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 
@@ -714,7 +716,7 @@ def queue_get_num_words_fifo() -> Response:
         "suppress_error": True,
     }
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 
@@ -737,7 +739,7 @@ def queue_set_device_id() -> Response:
         "suppress_error": True,
     }
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 
@@ -754,7 +756,7 @@ def queue_stop_acquisition() -> Response:
         "suppress_error": True,
     }
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 
@@ -771,7 +773,7 @@ def queue_start_acquisition() -> Response:
         "suppress_error": True,
     }
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 
@@ -788,7 +790,7 @@ def queue_get_serial_number() -> Response:
         "suppress_error": True,
     }
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 
@@ -805,7 +807,7 @@ def queue_get_device_id() -> Response:
         "suppress_error": True,
     }
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 
@@ -822,7 +824,7 @@ def queue_is_spi_running() -> Response:
         "suppress_error": True,
     }
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 
@@ -841,7 +843,7 @@ def queue_read_from_fifo() -> Response:
         "suppress_error": True,
     }
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 
@@ -864,7 +866,7 @@ def queue_set_wire_in() -> Response:
         "suppress_error": True,
     }
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 
@@ -878,7 +880,7 @@ def run_xem_script() -> Response:
     script_type = request.args["script_type"]
     comm_dict = {"communication_type": "xem_scripts", "script_type": script_type}
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 
@@ -902,7 +904,7 @@ def queue_read_wire_out() -> Response:
     if description is not None:
         comm_dict["description"] = description
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 
@@ -921,7 +923,7 @@ def queue_get_status() -> Response:
         "suppress_error": True,
     }
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 

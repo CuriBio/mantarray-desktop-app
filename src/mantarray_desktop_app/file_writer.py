@@ -154,7 +154,7 @@ def _drain_board_queues(
     ],
 ) -> Dict[str, List[Any]]:
     board_dict = dict()
-    board_dict["ok_comm_to_file_writer"] = _drain_queue(board[0])
+    board_dict["instrument_comm_to_file_writer"] = _drain_queue(board[0])
     board_dict["file_writer_to_data_analyzer"] = _drain_queue(board[1])
     return board_dict
 

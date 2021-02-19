@@ -17,10 +17,10 @@ class MantarrayQueueContainer:
         self,
     ) -> None:
         # pylint:disable=duplicate-code # needed for the type definition of the board_queues
-        self._ok_communication_error_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+        self._instrument_communication_error_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
             Tuple[Exception, str]
         ] = Queue()
-        self._ok_comm_board_queues: Tuple[  # pylint-disable: duplicate-code
+        self._instrument_comm_board_queues: Tuple[  # pylint-disable: duplicate-code
             Tuple[
                 Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
                     Dict[str, Any]
@@ -66,7 +66,7 @@ class MantarrayQueueContainer:
         ] = tuple(
             [
                 (
-                    self._ok_comm_board_queues[0][2],
+                    self._instrument_comm_board_queues[0][2],
                     Queue(),
                 )
             ]
@@ -116,14 +116,14 @@ class MantarrayQueueContainer:
     ]:
         return self._from_main_to_file_writer_queue
 
-    def get_communication_to_ok_comm_queue(
+    def get_communication_to_instrument_comm_queue(
         self, board_idx: int
     ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
         Dict[str, Any]
     ]:
-        return self._ok_comm_board_queues[board_idx][0]
+        return self._instrument_comm_board_queues[board_idx][0]
 
-    def get_ok_comm_board_queues(
+    def get_instrument_comm_board_queues(
         self,
     ) -> Tuple[  # pylint-disable: duplicate-code
         Tuple[
@@ -140,7 +140,7 @@ class MantarrayQueueContainer:
         ...,
     ]:
         """Return all board queues for Instrument subprocess."""
-        return self._ok_comm_board_queues
+        return self._instrument_comm_board_queues
 
     def get_file_writer_board_queues(  # pylint: disable=duplicate-code # Eli (12/8/20): I can't figure out how to use mypy type aliases correctly...but the type definitions are triggering duplicate code warnings
         self,
@@ -175,12 +175,12 @@ class MantarrayQueueContainer:
         """Return all board queues for Data Analyzer subprocess."""
         return self._data_analyzer_board_queues
 
-    def get_communication_queue_from_ok_comm_to_main(
+    def get_communication_queue_from_instrument_comm_to_main(
         self, board_idx: int
     ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
         Dict[str, Any]
     ]:
-        return self._ok_comm_board_queues[board_idx][1]
+        return self._instrument_comm_board_queues[board_idx][1]
 
     def get_communication_queue_from_server_to_main(
         self,
@@ -210,12 +210,12 @@ class MantarrayQueueContainer:
     ]:
         return self._server_error_queue
 
-    def get_ok_communication_error_queue(
+    def get_instrument_communication_error_queue(
         self,
     ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
         Tuple[Exception, str]
     ]:
-        return self._ok_communication_error_queue
+        return self._instrument_communication_error_queue
 
     def get_communication_queue_from_data_analyzer_to_main(
         self,
@@ -247,7 +247,7 @@ class MantarrayQueueContainer:
 
     # def _create_queues(self) -> None:
     #     """Create all the queues and assign to the instance variables."""
-    #     self._ok_communication_error_queue = Queue()
+    #     self._instrument_communication_error_queue = Queue()
     #     ok_board_queues: Tuple[  # pylint-disable: duplicate-code
     #         Tuple[
     #             Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
@@ -262,7 +262,7 @@ class MantarrayQueueContainer:
     #         ],  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
     #         ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
     #     ] = tuple([(Queue(), Queue(), Queue(),)] * 1)
-    #     self._ok_comm_board_queues = ok_board_queues
+    #     self._instrument_comm_board_queues = ok_board_queues
 
     #     self._from_file_writer_to_main_queue = Queue()
     #     self._file_writer_error_queue = Queue()

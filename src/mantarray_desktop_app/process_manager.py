@@ -36,7 +36,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
     ) -> None:
         self._queue_container: MantarrayQueueContainer
 
-        self._ok_communication_process: OkCommunicationProcess
+        self._instrument_communication_process: OkCommunicationProcess
         self._logging_level: int
         if values_to_share_to_server is None:
             values_to_share_to_server = dict()
@@ -72,7 +72,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         return self._logging_level
 
     def get_instrument_process(self) -> OkCommunicationProcess:
-        return self._ok_communication_process
+        return self._instrument_communication_process
 
     def get_file_writer_process(self) -> FileWriterProcess:
         return self._file_writer_process
@@ -99,9 +99,9 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             ),
         )
 
-        self._ok_communication_process = OkCommunicationProcess(
-            queue_container.get_ok_comm_board_queues(),
-            queue_container.get_ok_communication_error_queue(),
+        self._instrument_communication_process = OkCommunicationProcess(
+            queue_container.get_instrument_comm_board_queues(),
+            queue_container.get_instrument_communication_error_queue(),
             logging_level=self._logging_level,
         )
 
@@ -124,7 +124,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
 
         self._all_processes = (
             self._server_thread,
-            self._ok_communication_process,
+            self._instrument_communication_process,
             self._file_writer_process,
             self._data_analyzer_process,
         )
@@ -154,7 +154,9 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         bit_file_name = None
         if not skip_load_firmware_file:
             bit_file_name = get_latest_firmware()
-        to_ok_comm_queue = self.queue_container().get_communication_to_ok_comm_queue(0)
+        to_instrument_comm_queue = (
+            self.queue_container().get_communication_to_instrument_comm_queue(0)
+        )
 
         self.get_values_to_share_to_server()[
             "system_status"
@@ -166,13 +168,13 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             "suppress_error": False,
             "allow_board_reinitialization": False,
         }
-        to_ok_comm_queue.put(boot_up_dict)
+        to_instrument_comm_queue.put(boot_up_dict)
 
         start_up_dict = {
             "communication_type": "xem_scripts",
             "script_type": "start_up",
         }
-        to_ok_comm_queue.put(start_up_dict)
+        to_instrument_comm_queue.put(start_up_dict)
 
         response_dict = {
             "boot_up_instrument": copy.deepcopy(boot_up_dict),
@@ -204,12 +206,12 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
 
     def hard_stop_processes(self) -> Dict[str, Any]:
         """Immediately stop subprocesses."""
-        ok_comm_items = self._ok_communication_process.hard_stop()
+        instrument_comm_items = self._instrument_communication_process.hard_stop()
         file_writer_items = self._file_writer_process.hard_stop()
         data_analyzer_items = self._data_analyzer_process.hard_stop()
         server_items = self._server_thread.hard_stop()
         process_items = {
-            "ok_comm_items": ok_comm_items,
+            "instrument_comm_items": instrument_comm_items,
             "file_writer_items": file_writer_items,
             "data_analyzer_items": data_analyzer_items,
             "server_items": server_items,
@@ -234,8 +236,8 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
 
     def hard_stop_and_join_processes(self) -> Dict[str, Any]:
         """Hard stop all processes and return contents of their queues."""
-        ok_comm_items = self._ok_communication_process.hard_stop()
-        self._ok_communication_process.join()
+        instrument_comm_items = self._instrument_communication_process.hard_stop()
+        self._instrument_communication_process.join()
         file_writer_items = self._file_writer_process.hard_stop()
         self._file_writer_process.join()
         data_analyzer_items = self._data_analyzer_process.hard_stop()
@@ -243,7 +245,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         server_items = self._server_thread.hard_stop()
         self._server_thread.join()
         process_items = {
-            "ok_comm_items": ok_comm_items,
+            "instrument_comm_items": instrument_comm_items,
             "file_writer_items": file_writer_items,
             "data_analyzer_items": data_analyzer_items,
             "server_items": server_items,

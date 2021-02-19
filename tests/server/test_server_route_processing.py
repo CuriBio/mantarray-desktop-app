@@ -107,12 +107,12 @@ def test_send_single_set_mantarray_nickname_command__gets_processed_and_stores_n
     )
 
     assert shared_values_dict["mantarray_nickname"][0] == expected_nickname
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
     comm_from_ok_queue.get(
@@ -155,12 +155,12 @@ def test_send_single_start_calibration_command__gets_processed_and_sets_system_s
         timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
     )
 
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
     comm_from_ok_queue.get(
@@ -214,14 +214,12 @@ def test_send_single_initialize_board_command_with_bit_file__gets_processed(
     confirm_parallelism_is_stopped(
         ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
     )
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(
-            board_idx
-        )
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        board_idx
     )
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         board_idx
     )
     comm_from_ok_queue.get(
@@ -271,14 +269,12 @@ def test_send_single_initialize_board_command_without_bit_file__gets_processed(
         timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
     )
 
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(
-            board_idx
-        )
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        board_idx
     )
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         board_idx
     )
     comm_from_ok_queue.get(
@@ -332,14 +328,12 @@ def test_send_single_initialize_board_command_with_reinitialization__gets_proces
         timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
     )
 
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(
-            board_idx
-        )
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        board_idx
     )
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         board_idx
     )
     comm_from_ok_queue.get(
@@ -390,12 +384,12 @@ def test_send_single_activate_trigger_in_command__gets_processed(
         timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
     )
 
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
     comm_from_ok_queue.get(
@@ -432,12 +426,12 @@ def test_send_single_comm_delay_command__gets_processed(
         timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
     )
 
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
     comm_from_ok_queue.get(
@@ -484,12 +478,12 @@ def test_send_single_get_num_words_fifo_command__gets_processed(
     confirm_parallelism_is_stopped(
         ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
     )
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
     comm_from_ok_queue.get(
@@ -528,12 +522,12 @@ def test_send_single_set_device_id_command__gets_processed(
         ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
     )
 
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
     comm_from_ok_queue.get(
@@ -573,12 +567,12 @@ def test_send_single_stop_acquisition_command__gets_processed(
         timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
     )
 
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
     comm_from_ok_queue.get(
@@ -620,12 +614,12 @@ def test_send_single_start_acquisition_command__gets_processed(
         ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
     )
 
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
     comm_from_ok_queue.get(
@@ -664,12 +658,12 @@ def test_send_single_get_serial_number_command__gets_processed(
     confirm_parallelism_is_stopped(
         ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
     )
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
     comm_from_ok_queue.get(
@@ -707,12 +701,12 @@ def test_send_single_get_device_id_command__gets_processed(
         timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
     )
 
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
     comm_from_ok_queue.get(
@@ -748,13 +742,13 @@ def test_send_single_is_spi_running_command__gets_processed(
         ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
     )
 
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
 
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
     comm_from_ok_queue.get(
@@ -790,8 +784,8 @@ def test_read_from_fifo_command__is_received_by_ok_comm__with_correct_num_words_
     simulator.start_acquisition()
     ok_process = test_process_manager.get_instrument_process()
     ok_process.set_board_connection(0, simulator)
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
 
     response = test_client.get(
@@ -806,12 +800,12 @@ def test_read_from_fifo_command__is_received_by_ok_comm__with_correct_num_words_
 
     confirm_queue_is_eventually_empty(comm_queue)
 
-    ok_comm_to_main = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    instrument_comm_to_main = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
-    assert is_queue_eventually_not_empty(ok_comm_to_main) is True
+    assert is_queue_eventually_not_empty(instrument_comm_to_main) is True
 
-    communication = ok_comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    communication = instrument_comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "read_from_fifo"
     assert communication["num_words_to_log"] == test_num_words_to_log
 
@@ -847,12 +841,12 @@ def test_send_single_read_from_fifo_command__gets_processed_with_correct_num_wor
         ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
     )
 
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
     comm_from_ok_queue.get(
@@ -900,12 +894,12 @@ def test_send_single_set_wire_in_command__gets_processed(
     confirm_parallelism_is_stopped(
         ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
     )
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
     comm_from_ok_queue.get(
@@ -942,12 +936,12 @@ def test_send_xem_scripts_command__gets_processed(
         ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
     )
 
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
     comm_from_ok_queue.get(
@@ -1006,14 +1000,12 @@ def test_send_single_read_wire_out_command__gets_processed(
         ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
     )
 
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(
-            board_idx
-        )
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        board_idx
     )
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         board_idx
     )
     comm_from_ok_queue.get(
@@ -1060,10 +1052,10 @@ def test_send_single_stop_managed_acquisition_command__gets_processed(
         timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
     )
 
-    to_ok_comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    to_instrument_comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
-    confirm_queue_is_eventually_empty(to_ok_comm_queue)
+    confirm_queue_is_eventually_empty(to_instrument_comm_queue)
 
     to_file_writer_queue = (
         test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
@@ -1075,7 +1067,7 @@ def test_send_single_stop_managed_acquisition_command__gets_processed(
     )
     confirm_queue_is_eventually_empty(to_da_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
     comm_from_ok_queue.get(
@@ -1127,12 +1119,12 @@ def test_send_single_set_mantarray_serial_number_command__gets_processed_and_sto
 
     assert shared_values_dict["mantarray_serial_number"][0] == expected_serial_number
 
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
     comm_from_ok_queue.get(
@@ -1178,8 +1170,8 @@ def test_send_single_boot_up_command__gets_processed_and_sets_system_status_to_i
     confirm_queue_is_eventually_of_size(server_to_main, 1)
 
     instrument_process = test_process_manager.get_instrument_process()
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
     instrument_process.pause()  # pause so that it can be confirmed that an item gets put into the Instrument Process' queue
     invoke_process_run_and_check_errors(monitor_thread)
@@ -1195,7 +1187,7 @@ def test_send_single_boot_up_command__gets_processed_and_sets_system_status_to_i
     )
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
     comm_from_ok_queue.get(
@@ -1240,8 +1232,8 @@ def test_send_single_boot_up_command__populates_ok_comm_error_queue_if_bit_file_
     invoke_process_run_and_check_errors(monitor_thread)
     shared_values_dict = test_process_manager.get_values_to_share_to_server()
     assert shared_values_dict["system_status"] == INSTRUMENT_INITIALIZING_STATE
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
     assert is_queue_eventually_not_empty(comm_queue) is True
 
@@ -1262,7 +1254,7 @@ def test_send_single_boot_up_command__populates_ok_comm_error_queue_if_bit_file_
     assert isinstance(actual_exception, OpalKellyFileNotFoundError) is True
     assert "fake.bit" in str(actual_exception)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
     comm_from_ok_queue.get(
@@ -1329,8 +1321,8 @@ def test_send_single_start_managed_acquisition_command__sets_system_status_to_bu
     )
     confirm_queue_is_eventually_empty(instrument_error_queue)
 
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
     confirm_queue_is_eventually_empty(comm_queue)
 
@@ -1341,7 +1333,7 @@ def test_send_single_start_managed_acquisition_command__sets_system_status_to_bu
 
     confirm_queue_is_eventually_empty(outgoing_data_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
     comm_from_ok_queue.get(
@@ -1759,12 +1751,12 @@ def test_send_single_get_status_command__gets_processed(
     confirm_parallelism_is_stopped(
         ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
     )
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
     comm_from_ok_queue.get(
