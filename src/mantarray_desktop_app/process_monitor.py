@@ -70,11 +70,13 @@ class MantarrayProcessesMonitor(InfiniteThread):
         ],  # pylint: disable=unsubscriptable-object
         the_lock: threading.Lock,
         boot_up_after_processes_start: bool = False,
+        skip_load_firmware_file: bool = False,
     ) -> None:
         super().__init__(fatal_error_reporter, lock=the_lock)
         self._values_to_share_to_server = values_to_share_to_server
         self._process_manager = process_manager
         self._boot_up_after_processes_start = boot_up_after_processes_start
+        self._skip_load_firmware_file = skip_load_firmware_file
         self._data_dump_buffer_size = 0
         self._last_barcode_clear_time: Optional[float] = None
 
@@ -421,7 +423,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
             self._values_to_share_to_server[
                 "system_status"
             ] = INSTRUMENT_INITIALIZING_STATE
-            process_manager.boot_up_instrument()
+            process_manager.boot_up_instrument(
+                skip_load_firmware_file=self._skip_load_firmware_file
+            )
 
         self._check_and_handle_ok_comm_to_main_queue()
         self._check_and_handle_file_writer_to_main_queue()

@@ -159,7 +159,7 @@ def test_send_xem_scripts_command__gets_processed_in_fully_running_app(
         year=2020, month=7, day=16, hour=14, minute=19, second=55, microsecond=313309
     )
 )
-def test_system_states_and_recording_files_with_file_directory_passed_in_cmd_line_args(
+def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_line_args__and_skip_mantarray_boot_up_flag(
     patched_xem_scripts_folder,
     patched_firmware_folder,
     fully_running_app_from_main_entrypoint,
@@ -202,7 +202,7 @@ def test_system_states_and_recording_files_with_file_directory_passed_in_cmd_lin
             SYSTEM_STATUS_UUIDS[SERVER_READY_STATE]
         )
 
-        # Tanner (12/29/20): Manually boot up in order to start managed_acquisition later
+        # Tanner (12/29/20): Manually boot up in order to start managed_acquisition and recording later
         response = requests.get(f"{get_api_endpoint()}boot_up")
         assert response.status_code == 200
 
@@ -668,7 +668,7 @@ def test_full_datapath(
     wait_for_subprocesses_to_start()
     test_process_manager = app_info["object_access_inside_main"]["process_manager"]
 
-    # Tanner (12/30/20): Auto boot-up is done when system reaches calibration_needed state
+    # Tanner (12/30/20): Auto boot-up is completed when system reaches calibration_needed state
     assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
 
     da_out = test_process_manager.queue_container().get_data_analyzer_data_out_queue()
@@ -783,7 +783,7 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
     wait_for_subprocesses_to_start()
     test_process_manager = app_info["object_access_inside_main"]["process_manager"]
 
-    # Tanner (12/30/20): Auto boot-up is done when system reaches calibration_needed state
+    # Tanner (12/30/20): Auto boot-up is completed when system reaches calibration_needed state
     assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
 
     okc_process = test_process_manager.get_instrument_process()

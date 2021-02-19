@@ -2,19 +2,21 @@
 import logging
 from multiprocessing import Queue
 import random
-import time
 from zlib import crc32
 
+from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import MantarrayMCSimulator
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import NANOSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import UnrecognizedSerialCommModuleIdError
 from mantarray_desktop_app import UnrecognizedSerialCommPacketTypeError
 from mantarray_desktop_app import UnrecognizedSimulatorTestCommandError
@@ -40,31 +42,32 @@ __fixtures__ = [
 STATUS_BEACON_SIZE_BYTES = 28
 HANDSHAKE_RESPONSE_SIZE_BYTES = 28
 DEFAULT_SIMULATOR_STATUS_CODE = bytes(4)
-TIMESTAMP_LENGTH_BYTES = 8
-CHECKSUM_LENGTH_BYTES = 4
 
 
-def append_checksum_to_data_packet(data_bytes: bytes) -> bytes:
-    return data_bytes + crc32(data_bytes).to_bytes(
-        CHECKSUM_LENGTH_BYTES, byteorder="little"
+def test_create_data_packet__creates_data_packet_bytes_correctly():
+    test_timestamp = 100
+    test_module_id = 0
+    test_packet_type = 1
+    test_data = bytes([1, 5, 3])
+
+    expected_data_packet_bytes = SERIAL_COMM_MAGIC_WORD_BYTES
+    expected_data_packet_bytes += (17).to_bytes(2, byteorder="little")
+    expected_data_packet_bytes += test_timestamp.to_bytes(
+        SERIAL_COMM_TIMESTAMP_LENGTH_BYTES, byteorder="little"
+    )
+    expected_data_packet_bytes += bytes([test_module_id, test_packet_type])
+    expected_data_packet_bytes += test_data
+    expected_data_packet_bytes += crc32(expected_data_packet_bytes).to_bytes(
+        SERIAL_COMM_CHECKSUM_LENGTH_BYTES, byteorder="little"
     )
 
-
-def create_data_packet(
-    timestamp: int,
-    module_id: int,
-    packet_type: int,
-    packet_data: bytes,
-) -> bytes:
-    packet_body = timestamp.to_bytes(TIMESTAMP_LENGTH_BYTES, byteorder="little")
-    packet_body += bytes([module_id, packet_type])
-    packet_body += packet_data
-    packet_length = len(packet_body) + CHECKSUM_LENGTH_BYTES
-
-    data_packet = SERIAL_COMM_MAGIC_WORD_BYTES
-    data_packet += packet_length.to_bytes(2, byteorder="little")
-    data_packet += packet_body
-    return append_checksum_to_data_packet(data_packet)
+    actual = create_data_packet(
+        test_timestamp,
+        test_module_id,
+        test_packet_type,
+        test_data,
+    )
+    assert actual == expected_data_packet_bytes
 
 
 def test_MantarrayMCSimulator__super_is_called_during_init__with_default_logging_value(
@@ -187,16 +190,27 @@ def test_MantarrayMCSimulator_read__returns_empty_bytes_if_no_bytes_to_read(
     assert actual_item == expected_item
 
 
-def test_MantarrayMCSimulator_write__puts_object_into_input_queue(
-    mantarray_mc_simulator,
+def test_MantarrayMCSimulator_write__puts_object_into_input_queue__with_no_sleep_after_write(
+    mocker,
 ):
-    input_queue, _, _, _, simulator = mantarray_mc_simulator
+    spied_sleep = mocker.spy(mc_simulator.time, "sleep")
+
+    input_queue = Queue()
+    output_queue = Queue()
+    error_queue = Queue()
+    testing_queue = Queue()
+    simulator = MantarrayMCSimulator(
+        input_queue, output_queue, error_queue, testing_queue
+    )
+
     test_item = b"input_item"
     simulator.write(test_item)
     confirm_queue_is_eventually_of_size(input_queue, 1)
     # Tanner (1/28/21): removing item from queue to avoid BrokenPipeError
     actual_item = input_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_item == test_item
+
+    spied_sleep.assert_not_called()
 
 
 def test_MantarrayMCSimulator__makes_status_beacon_available_to_read_on_first_iteration__with_random_truncation(
@@ -467,7 +481,6 @@ def test_MantarrayMCSimulator__raises_error_if_unrecognized_module_id_sent_from_
     )
 
     simulator.write(test_handshake)
-    time.sleep(QUEUE_CHECK_TIMEOUT_SECONDS)  # let input queue get populated
 
     with pytest.raises(UnrecognizedSerialCommModuleIdError, match=str(test_module_id)):
         invoke_process_run_and_check_errors(simulator)
@@ -492,7 +505,6 @@ def test_MantarrayMCSimulator__raises_error_if_unrecognized_packet_type_sent_fro
     )
 
     simulator.write(test_handshake)
-    time.sleep(QUEUE_CHECK_TIMEOUT_SECONDS)  # let input queue get populated
 
     with pytest.raises(UnrecognizedSerialCommPacketTypeError) as exc_info:
         invoke_process_run_and_check_errors(simulator)
@@ -516,7 +528,6 @@ def test_MantarrayMCSimulator__responds_to_handshake__when_checksum_is_correct(
     )
 
     simulator.write(test_handshake)
-    time.sleep(QUEUE_CHECK_TIMEOUT_SECONDS)  # let input queue get populated
 
     invoke_process_run_and_check_errors(simulator)
     actual = simulator.read(size=HANDSHAKE_RESPONSE_SIZE_BYTES)
@@ -537,8 +548,8 @@ def test_MantarrayMCSimulator__responds_to_handshake__when_checksum_is_incorrect
 
     spied_get_cms_since_init = mocker.spy(simulator, "get_cms_since_init")
 
-    dummy_timestamp_bytes = bytes(TIMESTAMP_LENGTH_BYTES)
-    dummy_checksum_bytes = bytes(CHECKSUM_LENGTH_BYTES)
+    dummy_timestamp_bytes = bytes(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES)
+    dummy_checksum_bytes = bytes(SERIAL_COMM_CHECKSUM_LENGTH_BYTES)
     handshake_packet_length = 14
     test_handshake = (
         SERIAL_COMM_MAGIC_WORD_BYTES
@@ -549,7 +560,6 @@ def test_MantarrayMCSimulator__responds_to_handshake__when_checksum_is_incorrect
         + dummy_checksum_bytes
     )
     simulator.write(test_handshake)
-    time.sleep(QUEUE_CHECK_TIMEOUT_SECONDS)  # let input queue get populated
 
     invoke_process_run_and_check_errors(simulator)
 
@@ -587,12 +597,11 @@ def test_MantarrayMCSimulator__allows_status_bits_to_be_set_through_testing_queu
     )
 
     simulator.write(test_handshake)
-    time.sleep(QUEUE_CHECK_TIMEOUT_SECONDS)  # let input queue get populated
 
     invoke_process_run_and_check_errors(simulator)
     handshake_response = simulator.read(size=HANDSHAKE_RESPONSE_SIZE_BYTES)
 
-    status_code_end = len(handshake_response) - CHECKSUM_LENGTH_BYTES
+    status_code_end = len(handshake_response) - SERIAL_COMM_CHECKSUM_LENGTH_BYTES
     status_code_start = status_code_end - len(expected_status_code_bits)
     actual_status_code_bits = handshake_response[status_code_start:status_code_end]
     assert actual_status_code_bits == expected_status_code_bits
