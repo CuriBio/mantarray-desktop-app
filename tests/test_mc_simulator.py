@@ -190,7 +190,11 @@ def test_MantarrayMCSimulator_read__returns_empty_bytes_if_no_bytes_to_read(
     assert actual_item == expected_item
 
 
-def test_MantarrayMCSimulator_write__puts_object_into_input_queue__with_no_sleep_after_write():
+def test_MantarrayMCSimulator_write__puts_object_into_input_queue__with_no_sleep_after_write(
+    mocker,
+):
+    spied_sleep = mocker.spy(mc_simulator.time, "sleep")
+
     input_queue = Queue()
     output_queue = Queue()
     error_queue = Queue()
@@ -205,6 +209,8 @@ def test_MantarrayMCSimulator_write__puts_object_into_input_queue__with_no_sleep
     # Tanner (1/28/21): removing item from queue to avoid BrokenPipeError
     actual_item = input_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_item == test_item
+
+    spied_sleep.assert_not_called()
 
 
 def test_MantarrayMCSimulator__makes_status_beacon_available_to_read_on_first_iteration__with_random_truncation(
