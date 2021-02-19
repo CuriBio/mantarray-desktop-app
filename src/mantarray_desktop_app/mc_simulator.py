@@ -47,12 +47,6 @@ def _get_checksum_bytes(packet: bytes) -> bytes:
     return crc32(packet).to_bytes(SERIAL_COMM_CHECKSUM_LENGTH_BYTES, byteorder="little")
 
 
-def _get_packet_length_bytes(packet: bytes) -> bytes:
-    # add 4 for checksum at end of packet
-    packet_length = len(packet) + SERIAL_COMM_CHECKSUM_LENGTH_BYTES
-    return packet_length.to_bytes(2, byteorder="little")
-
-
 def create_data_packet(
     timestamp: int,
     module_id: int,

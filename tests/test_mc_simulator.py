@@ -190,10 +190,15 @@ def test_MantarrayMCSimulator_read__returns_empty_bytes_if_no_bytes_to_read(
     assert actual_item == expected_item
 
 
-def test_MantarrayMCSimulator_write__puts_object_into_input_queue(
-    mantarray_mc_simulator,
-):
-    input_queue, _, _, _, simulator = mantarray_mc_simulator
+def test_MantarrayMCSimulator_write__puts_object_into_input_queue__with_no_sleep_after_write():
+    input_queue = Queue()
+    output_queue = Queue()
+    error_queue = Queue()
+    testing_queue = Queue()
+    simulator = MantarrayMCSimulator(
+        input_queue, output_queue, error_queue, testing_queue
+    )
+
     test_item = b"input_item"
     simulator.write(test_item)
     confirm_queue_is_eventually_of_size(input_queue, 1)
