@@ -176,7 +176,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_data_analyzer(
     )
 
 
-def test_MantarrayProcessesMonitor__logs_errors_from_OKComm(
+def test_MantarrayProcessesMonitor__logs_errors_from_InstrumentCommProcess(
     mocker, test_process_manager, test_monitor
 ):
     monitor_thread, _, _, _ = test_monitor
@@ -185,16 +185,16 @@ def test_MantarrayProcessesMonitor__logs_errors_from_OKComm(
 
     test_process_manager.start_processes()
 
-    ok_comm_error_queue = (
-        test_process_manager.queue_container().get_ok_communication_error_queue()
+    instrument_comm_error_queue = (
+        test_process_manager.queue_container().get_instrument_communication_error_queue()
     )
     expected_error = ValueError("something wrong")
     expected_stack_trace = "my stack trace"
     expected_message = f"Error raised by subprocess {test_process_manager.get_instrument_process()}\n{expected_stack_trace}\n{expected_error}"
-    ok_comm_error_queue.put((expected_error, expected_stack_trace))
-    assert is_queue_eventually_not_empty(ok_comm_error_queue) is True
+    instrument_comm_error_queue.put((expected_error, expected_stack_trace))
+    assert is_queue_eventually_not_empty(instrument_comm_error_queue) is True
     invoke_process_run_and_check_errors(monitor_thread)
-    assert is_queue_eventually_empty(ok_comm_error_queue) is True
+    assert is_queue_eventually_empty(instrument_comm_error_queue) is True
     mocked_logger.assert_any_call(expected_message)
 
 

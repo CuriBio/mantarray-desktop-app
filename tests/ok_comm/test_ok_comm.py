@@ -902,12 +902,12 @@ def test_OkCommunicationProcess__hard_stop__drains_all_queues_and_returns__all_i
     assert is_queue_eventually_empty(board_queues[2][0]) is True
     assert is_queue_eventually_empty(board_queues[3][0]) is True
 
-    assert actual["board_0"]["main_to_ok_comm"] == [expected[0][0]]
-    assert expected[0][1] in actual["board_0"]["ok_comm_to_main"]
-    assert actual["board_0"]["ok_comm_to_file_writer"] == [expected[0][2]]
-    assert actual["board_1"]["main_to_ok_comm"] == [expected[1][0]]
-    assert actual["board_2"]["main_to_ok_comm"] == [expected[2][0]]
-    assert actual["board_3"]["main_to_ok_comm"] == [expected[3][0]]
+    assert actual["board_0"]["main_to_instrument_comm"] == [expected[0][0]]
+    assert expected[0][1] in actual["board_0"]["instrument_comm_to_main"]
+    assert actual["board_0"]["instrument_comm_to_file_writer"] == [expected[0][2]]
+    assert actual["board_1"]["main_to_instrument_comm"] == [expected[1][0]]
+    assert actual["board_2"]["main_to_instrument_comm"] == [expected[2][0]]
+    assert actual["board_3"]["main_to_instrument_comm"] == [expected[3][0]]
 
 
 @pytest.mark.parametrize(

@@ -101,7 +101,7 @@ def test_MantarrayProcessesManager__soft_stop_processes_except_server__calls_sof
 def test_MantarrayProcessesManager__hard_stop_processes__calls_hard_stop_on_all_processes_and_returns_process_queue_items(
     mocker, generic_manager
 ):
-    expected_ok_comm_items = {"ok_comm_queue": ["ok_item"]}
+    expected_ok_comm_items = {"instrument_comm_queue": ["instrument_item"]}
     expected_file_writer_items = {"file_writer_queue": ["fw_item"]}
     expected_da_items = {"data_analyzer_queue": ["da_item"]}
     expected_server_items = {"to_main": ["server_item"]}
@@ -126,7 +126,7 @@ def test_MantarrayProcessesManager__hard_stop_processes__calls_hard_stop_on_all_
     mocked_data_analyzer_hard_stop.assert_called_once()
     mocked_server_hard_stop.assert_called_once()
 
-    assert actual["ok_comm_items"] == expected_ok_comm_items
+    assert actual["instrument_comm_items"] == expected_ok_comm_items
     assert actual["file_writer_items"] == expected_file_writer_items
     assert actual["data_analyzer_items"] == expected_da_items
     assert actual["server_items"] == expected_server_items
@@ -310,7 +310,7 @@ def test_MantarrayProcessesManager__hard_stop_and_join_processes__hard_stops_pro
 
     assert (
         expected_ok_comm_item
-        in actual["ok_comm_items"]["board_0"]["instrument_comm_to_main"]
+        in actual["instrument_comm_items"]["board_0"]["instrument_comm_to_main"]
     )
     assert (
         expected_file_writer_item

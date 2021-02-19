@@ -1245,7 +1245,7 @@ def test_send_single_boot_up_command__populates_ok_comm_error_queue_if_bit_file_
     assert is_queue_eventually_not_empty(comm_queue) is True
 
     ok_comm_error_queue = (
-        test_process_manager.queue_container().get_ok_communication_error_queue()
+        test_process_manager.queue_container().get_instrument_communication_error_queue()
     )
     assert is_queue_eventually_not_empty(ok_comm_error_queue) is True
 
@@ -1317,7 +1317,7 @@ def test_send_single_start_managed_acquisition_command__sets_system_status_to_bu
     )
 
     instrument_error_queue = (
-        test_process_manager.queue_container().get_ok_communication_error_queue()
+        test_process_manager.queue_container().get_instrument_communication_error_queue()
     )
     confirm_queue_is_eventually_empty(instrument_error_queue)
 
