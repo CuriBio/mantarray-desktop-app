@@ -37,7 +37,7 @@ __fixtures__ = [
 ]
 
 
-def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_nickname_setting_by_setting_shared_values_dictionary_and_passing_command_to_ok_comm(
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_nickname_setting_by_setting_shared_values_dictionary_and_passing_command_to_instrument_comm(
     test_process_manager, test_monitor
 ):
     monitor_thread, _, _, _ = test_monitor
@@ -62,11 +62,11 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         == expected_nickname
     )
 
-    main_to_ok_comm = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    main_to_instrument_comm = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
-    confirm_queue_is_eventually_of_size(main_to_ok_comm, 1)
-    actual_comm = main_to_ok_comm.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    confirm_queue_is_eventually_of_size(main_to_instrument_comm, 1)
+    actual_comm = main_to_instrument_comm.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_comm == expected_comm
 
 
@@ -97,7 +97,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     )
 
 
-def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_serial_number_setting_by_setting_shared_values_dictionary_and_passing_command_to_ok_comm(
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_serial_number_setting_by_setting_shared_values_dictionary_and_passing_command_to_instrument_comm(
     test_process_manager, test_monitor
 ):
     monitor_thread, _, _, _ = test_monitor
@@ -124,11 +124,11 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         == expected_serial
     )
 
-    main_to_ok_comm = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    main_to_instrument_comm = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
-    confirm_queue_is_eventually_of_size(main_to_ok_comm, 1)
-    actual_comm = main_to_ok_comm.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    confirm_queue_is_eventually_of_size(main_to_instrument_comm, 1)
+    actual_comm = main_to_instrument_comm.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_comm == expected_comm
 
 
@@ -185,7 +185,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raise
         invoke_process_run_and_check_errors(monitor_thread)
 
 
-def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_start_calibration_by_updating_shared_values_dictionary_and_passing_command_to_ok_comm(
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_start_calibration_by_updating_shared_values_dictionary_and_passing_command_to_instrument_comm(
     test_process_manager, test_monitor
 ):
     monitor_thread, _, _, _ = test_monitor
@@ -208,11 +208,11 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         == CALIBRATING_STATE
     )
 
-    main_to_ok_comm = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    main_to_instrument_comm = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
-    confirm_queue_is_eventually_of_size(main_to_ok_comm, 1)
-    actual_comm = main_to_ok_comm.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    confirm_queue_is_eventually_of_size(main_to_instrument_comm, 1)
+    actual_comm = main_to_instrument_comm.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_comm == expected_comm
 
 
@@ -269,7 +269,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raise
         invoke_process_run_and_check_errors(monitor_thread)
 
 
-def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_start_managed_acquisition__updates_system_status__puts_command_into_ok_comm_and_data_analyzer_queues(
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_start_managed_acquisition__updates_system_status__puts_command_into_instrument_comm_and_data_analyzer_queues(
     test_process_manager, test_monitor
 ):
     monitor_thread, _, _, _ = test_monitor
@@ -287,11 +287,11 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     shared_values_dict = test_process_manager.get_values_to_share_to_server()
     assert shared_values_dict["system_status"] == BUFFERING_STATE
 
-    main_to_ok_comm = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    main_to_instrument_comm = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
-    confirm_queue_is_eventually_of_size(main_to_ok_comm, 1)
-    actual_comm = main_to_ok_comm.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    confirm_queue_is_eventually_of_size(main_to_instrument_comm, 1)
+    actual_comm = main_to_instrument_comm.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_comm == START_MANAGED_ACQUISITION_COMMUNICATION
 
     main_to_da = (

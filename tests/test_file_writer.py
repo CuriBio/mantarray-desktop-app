@@ -147,7 +147,7 @@ def test_FileWriterProcess_soft_stop_not_allowed_if_incoming_data_still_in_queue
     assert file_writer_process.is_stopped() is False
 
 
-def test_FileWriterProcess__raises_error_if_not_a_dict_is_passed_through_the_queue_for_board_0_from_ok_comm(
+def test_FileWriterProcess__raises_error_if_not_a_dict_is_passed_through_the_queue_for_board_0_from_instrument_comm(
     four_board_file_writer_process, mocker
 ):
     mocker.patch(
@@ -802,11 +802,11 @@ def test_FileWriterProcess__drain_all_queues__drains_all_queues_except_error_que
             ),
         ) == (iter_queue_idx, True)
 
-    assert actual["board_0"]["ok_comm_to_file_writer"] == [expected[0][0]]
+    assert actual["board_0"]["instrument_comm_to_file_writer"] == [expected[0][0]]
     assert actual["board_0"]["file_writer_to_data_analyzer"] == [expected[0][1]]
-    assert actual["board_1"]["ok_comm_to_file_writer"] == [expected[1][0]]
-    assert actual["board_2"]["ok_comm_to_file_writer"] == [expected[2][0]]
-    assert actual["board_3"]["ok_comm_to_file_writer"] == [expected[3][0]]
+    assert actual["board_1"]["instrument_comm_to_file_writer"] == [expected[1][0]]
+    assert actual["board_2"]["instrument_comm_to_file_writer"] == [expected[2][0]]
+    assert actual["board_3"]["instrument_comm_to_file_writer"] == [expected[3][0]]
     assert actual["from_main_to_file_writer"] == [expected_from_main]
     assert actual["from_file_writer_to_main"] == [expected_to_main]
 

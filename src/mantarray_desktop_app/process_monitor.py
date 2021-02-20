@@ -147,7 +147,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             else:
                 raise UnrecognizedMantarrayNamingCommandError(command)
 
-            self._put_communication_into_ok_comm_queue(communication)
+            self._put_communication_into_instrument_comm_queue(communication)
         elif communication_type == "shutdown":
             command = communication["command"]
             if command == "soft_stop":
@@ -177,7 +177,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         elif communication_type == "xem_scripts":
             # Tanner (12/28/20): start_calibration is the only xem_scripts command that will come from server. This comm type will be removed/replaced in beta 2 so not adding handling for unrecognized command.
             shared_values_dict["system_status"] = CALIBRATING_STATE
-            self._put_communication_into_ok_comm_queue(communication)
+            self._put_communication_into_instrument_comm_queue(communication)
         elif communication_type == "recording":
             command = communication["command"]
             main_to_fw_queue = (
@@ -207,14 +207,14 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._process_manager.boot_up_instrument()
             elif command == "start_managed_acquisition":
                 shared_values_dict["system_status"] = BUFFERING_STATE
-                main_to_ok_comm_queue = self._process_manager.queue_container().get_communication_to_ok_comm_queue(
+                main_to_instrument_comm_queue = self._process_manager.queue_container().get_communication_to_instrument_comm_queue(
                     0
                 )
                 main_to_da_queue = (
                     self._process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
                 )
 
-                main_to_ok_comm_queue.put(communication)
+                main_to_instrument_comm_queue.put(communication)
                 main_to_da_queue.put(communication)
             else:
                 raise UnrecognizedCommandToInstrumentError(command)
@@ -224,15 +224,13 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 "frontend_needs_barcode_update"
             ] = False
 
-    def _put_communication_into_ok_comm_queue(
+    def _put_communication_into_instrument_comm_queue(
         self, communication: Dict[str, Any]
     ) -> None:
-        main_to_ok_comm_queue = (
-            self._process_manager.queue_container().get_communication_to_ok_comm_queue(
-                0
-            )
+        main_to_instrument_comm_queue = self._process_manager.queue_container().get_communication_to_instrument_comm_queue(
+            0
         )
-        main_to_ok_comm_queue.put(communication)
+        main_to_instrument_comm_queue.put(communication)
 
     def _check_and_handle_data_analyzer_to_main_queue(self) -> None:
         process_manager = self._process_manager
@@ -261,13 +259,13 @@ class MantarrayProcessesMonitor(InfiniteThread):
                         "system_status"
                     ] = LIVE_VIEW_ACTIVE_STATE
 
-    def _check_and_handle_ok_comm_to_main_queue(self) -> None:
+    def _check_and_handle_instrument_comm_to_main_queue(self) -> None:
         process_manager = self._process_manager
-        ok_comm_to_main = process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+        instrument_comm_to_main = process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
             0
         )
         try:
-            communication = ok_comm_to_main.get(
+            communication = instrument_comm_to_main.get(
                 timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
             )
         except queue.Empty:
@@ -387,7 +385,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         # any potential errors should be handled first
         for iter_error_queue, iter_process in (
             (
-                process_manager.queue_container().get_ok_communication_error_queue(),
+                process_manager.queue_container().get_instrument_communication_error_queue(),
                 process_manager.get_instrument_process(),
             ),
             (
@@ -427,15 +425,13 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 skip_load_firmware_file=self._skip_load_firmware_file
             )
 
-        self._check_and_handle_ok_comm_to_main_queue()
+        self._check_and_handle_instrument_comm_to_main_queue()
         self._check_and_handle_file_writer_to_main_queue()
         self._check_and_handle_data_analyzer_to_main_queue()
         self._check_and_handle_server_to_main_queue()
 
-        to_ok_comm = (
-            self._process_manager.queue_container().get_communication_to_ok_comm_queue(
-                0
-            )
+        to_instrument_comm = self._process_manager.queue_container().get_communication_to_instrument_comm_queue(
+            0
         )
 
         if self._last_barcode_clear_time is None:
@@ -444,14 +440,14 @@ class MantarrayProcessesMonitor(InfiniteThread):
             _get_dur_since_last_barcode_clear(self._last_barcode_clear_time)
             >= BARCODE_POLL_PERIOD
         ):
-            to_ok_comm = (
-                process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+            to_instrument_comm = process_manager.queue_container().get_communication_to_instrument_comm_queue(
+                0
             )
             barcode_poll_comm = {
                 "communication_type": "barcode_comm",
                 "command": "start_scan",
             }
-            to_ok_comm.put(barcode_poll_comm)
+            to_instrument_comm.put(barcode_poll_comm)
             self._last_barcode_clear_time = _get_barcode_clear_time()
 
     def _check_subprocess_start_up_statuses(self) -> None:
