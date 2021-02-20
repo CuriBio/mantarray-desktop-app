@@ -33,7 +33,7 @@ def _drain_board_queues(
 
 
 class InstrumentCommProcess(InfiniteProcess, metaclass=abc.ABCMeta):
-    """Process that controls communication with the Mantarrays Instruments.
+    """Process that controls communication with Mantarray instruments.
 
     Args:
         board_queues: A tuple (the max number of instrument board connections should be pre-defined, so not a mutable list) of tuples of 3 queues. The first queue is for input/communication from the main thread to this sub process, second queue is for communication from this process back to the main thread. Third queue is for streaming communication (largely fo raw data) to the process that controls writing to disk.

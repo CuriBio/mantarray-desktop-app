@@ -51,4 +51,4 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._new_var = None
 
     def create_connections_to_all_available_boards(self) -> None:
-        pass  # Tanner (12/18/21): adding this as a placeholder for now to override abstract method
+        raise NotImplementedError()  # Tanner (12/18/21): adding this as a placeholder for now to override abstract method. This method will be defined and the NotImplementedError removed before this class is instantied in any source code
