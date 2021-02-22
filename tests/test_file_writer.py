@@ -186,6 +186,7 @@ def test_FileWriterProcess__raises_error_if_unrecognized_command_from_main(
         error_queue,
         _,
     ) = four_board_file_writer_process
+    # pylint: disable=duplicate-code
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"command": "do the hokey pokey"},
         from_main_queue,
