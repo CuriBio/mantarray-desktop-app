@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "0afd4c072d25eba6af61844aa32c673ab35a19949183d612aa838df865c8b9f9"
+            "sha256": "7bcc4f7e712694111c8824eb934cc582531c14cb55a75686bed4c7ceb7e610fe"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -160,11 +160,11 @@
         },
         "mantarray-file-manager": {
             "hashes": [
-                "sha256:1d7ab8c690c30e6775c61abfd64c1c87f213bee7e80e3ce5a9ce9fc00119fb50",
-                "sha256:dc2f60a56f249ae1d336d653bdfad7ba7ab77e83d641982767bdb9f6d2559343"
+                "sha256:583b3f906300a4945e9645b3c81f8ae33ce1338517eaab63afb0cbce9722c4d2",
+                "sha256:da845fe610c6ba82aba93fa2701492656dccdfdc2167c28017754893526e8cfc"
             ],
             "index": "pypi",
-            "version": "==0.4.5"
+            "version": "==0.4.6"
         },
         "mantarray-waveform-analysis": {
             "hashes": [
