@@ -77,7 +77,6 @@ class MantarrayMCSimulator(InfiniteProcess):
         fatal_error_reporter: a queue to report fatal errors back to the main process
         testing_queue: queue used to send commands to the simulator. Should only be used in unit tests
         read_timeout_seconds: number of seconds to wait until read is of desired size before returning how ever many bytes have been read. Timeout should be set to 0 unless a non-zero value is necessary for unit testing
-        sleep_after_write_seconds: number of seconds to sleep after writing data to the simulator. This should always be None except when necessary for unit testing
     """
 
     def __init__(
@@ -92,7 +91,6 @@ class MantarrayMCSimulator(InfiniteProcess):
         testing_queue: Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
         logging_level: int = logging.INFO,
         read_timeout_seconds: Union[int, float] = 0,
-        sleep_after_write_seconds: Optional[Union[int, float]] = None,
     ) -> None:
         super().__init__(fatal_error_reporter, logging_level=logging_level)
         self._output_queue = output_queue
@@ -102,7 +100,6 @@ class MantarrayMCSimulator(InfiniteProcess):
         self._time_of_last_status_beacon_secs: Optional[float] = None
         self._leftover_read_bytes: Optional[bytes] = None
         self._read_timeout_seconds = read_timeout_seconds
-        self._sleep_after_write_seconds = sleep_after_write_seconds
         self._status_code_bits = bytes(4)
 
     def _setup_before_loop(self) -> None:
@@ -235,8 +232,6 @@ class MantarrayMCSimulator(InfiniteProcess):
 
     def write(self, input_item: bytes) -> None:
         self._input_queue.put_nowait(input_item)
-        if self._sleep_after_write_seconds is not None:
-            time.sleep(self._sleep_after_write_seconds)
 
     def _drain_all_queues(self) -> Dict[str, Any]:
         queue_items = {
