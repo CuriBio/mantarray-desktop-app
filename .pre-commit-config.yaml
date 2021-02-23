@@ -139,6 +139,7 @@ repos:
           - src
           - --rcfile=src/pylintrc
           - --ignore-patterns=.*~.*
+          - --jobs 0
         files: 'src/.*\.py$'
         exclude: '.*\~.*'
         verbose: true
@@ -149,6 +150,7 @@ repos:
           - tests
           - --rcfile=tests/pylintrc
           - --ignore-patterns=.*~.*
+          - --jobs 0
         files: 'tests/.*\.py$'
         exclude: '.*\~.*'
         verbose: true

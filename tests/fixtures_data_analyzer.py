@@ -13,13 +13,13 @@ def fixture_four_board_analyzer_process():
     error_queue = Queue()
 
     board_queues = tuple(
-        [
+        (
             (
                 Queue(),
                 Queue(),
             )
             for _ in range(num_boards)
-        ]
+        )
     )
     p = DataAnalyzerProcess(
         board_queues,

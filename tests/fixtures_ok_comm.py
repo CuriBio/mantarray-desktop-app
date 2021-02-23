@@ -27,14 +27,14 @@ def generate_board_and_error_queues(num_boards: int = 4):
         ],  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
         ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
     ] = tuple(
-        [
+        (
             (
                 Queue(),
                 Queue(),
                 Queue(),
             )
             for _ in range(num_boards)
-        ]
+        )
     )
     return board_queues, error_queue
 

@@ -46,6 +46,7 @@ def test_FileWriterProcess__passes_data_packet_through_to_output_queue(
         _,
         _,
         error_queue,
+        # pylint: disable=duplicate-code
         _,
     ) = four_board_file_writer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -78,6 +79,7 @@ def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_if_the_
         file_writer_process,
         board_queues,
         from_main_queue,
+        # pylint: disable=duplicate-code
         _,
         _,
         file_dir,

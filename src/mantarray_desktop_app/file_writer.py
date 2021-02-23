@@ -76,15 +76,15 @@ def _get_formatted_utc_now() -> str:
 
 
 def get_tissue_dataset_from_file(
-    the_file: h5py._hl.files.File,  # pylint: disable=protected-access # WTF pylint...this is a type definition
-) -> h5py._hl.dataset.Dataset:  # pylint: disable=protected-access # WTF pylint...this is a type definition
+    the_file: h5py.File,
+) -> h5py.Dataset:
     """Return the dataset for tissue sensor data from the H5 file object."""
     return the_file["tissue_sensor_readings"]
 
 
 def get_reference_dataset_from_file(
-    the_file: h5py._hl.files.File,  # pylint: disable=protected-access # WTF pylint...this is a type definition
-) -> h5py._hl.dataset.Dataset:  # pylint: disable=protected-access # WTF pylint...this is a type definition
+    the_file: h5py.File,
+) -> h5py.Dataset:
     """Return the dataset for reference sensor data from the H5 file object."""
     return the_file["reference_sensor_readings"]
 
