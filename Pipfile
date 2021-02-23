@@ -17,7 +17,7 @@ pytest-profiling = "==1.7.0"
 pytest-pylint = "==0.18.0"
 pytest-randomly = "==3.5.0"
 pytest-timeout = "==1.4.2"
-sphinx = "==3.5.0"
+sphinx = "==3.5.1"
 
 [packages]
 astroid = "==2.4.2"
@@ -37,3 +37,6 @@ secrets-manager = "==0.4"
 semver = "==2.13.0"
 stdlib-utils = "==0.4.2"
 xem-wrapper = "==0.2.5"
+
+[requires]
+python_version = "3.8"
