@@ -17,6 +17,8 @@ from stdlib_utils import InfiniteProcess
 from xem_wrapper import FrontPanelBase
 from xem_wrapper import okCFrontPanel
 
+from .mc_simulator import MantarrayMCSimulator
+
 
 def _drain_board_queues(
     board: Tuple[
@@ -63,9 +65,9 @@ class InstrumentCommProcess(InfiniteProcess, metaclass=abc.ABCMeta):
     ):
         super().__init__(fatal_error_reporter, logging_level=logging_level)
         self._board_queues = board_queues
-        self._board_connections: List[Union[None, okCFrontPanel]] = [None] * len(
-            self._board_queues
-        )
+        self._board_connections: List[
+            Union[None, okCFrontPanel, MantarrayMCSimulator]
+        ] = [None] * len(self._board_queues)
         self._suppress_setup_communication_to_main = (
             suppress_setup_communication_to_main
         )
@@ -86,11 +88,15 @@ class InstrumentCommProcess(InfiniteProcess, metaclass=abc.ABCMeta):
     def create_connections_to_all_available_boards(self) -> None:
         pass
 
-    def set_board_connection(self, board_idx: int, front_panel: FrontPanelBase) -> None:
+    def set_board_connection(
+        self, board_idx: int, board: Union[FrontPanelBase, MantarrayMCSimulator]
+    ) -> None:
         board_connections = self.get_board_connections_list()
-        board_connections[board_idx] = front_panel
+        board_connections[board_idx] = board
 
-    def get_board_connections_list(self) -> List[Union[None, okCFrontPanel]]:
+    def get_board_connections_list(
+        self,
+    ) -> List[Union[None, okCFrontPanel, MantarrayMCSimulator]]:
         return self._board_connections
 
     def _drain_all_queues(self) -> Dict[str, Any]:
