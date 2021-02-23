@@ -115,6 +115,7 @@ from .exceptions import MismatchedScriptTypeError
 from .exceptions import MultiprocessingNotSetToSpawnError
 from .exceptions import RecordingFolderDoesNotExistError
 from .exceptions import ScriptDoesNotContainEndCommandError
+from .exceptions import SerialCommPacketRegistrationTimoutError
 from .exceptions import ServerThreadNotInitializedError
 from .exceptions import ServerThreadSingletonAlreadySetError
 from .exceptions import SystemStartUpError
@@ -353,4 +354,5 @@ __all__ = [
     "McCommunicationProcess",
     "SERIAL_COMM_CHECKSUM_LENGTH_BYTES",
     "SERIAL_COMM_TIMESTAMP_LENGTH_BYTES",
+    "SerialCommPacketRegistrationTimoutError",
 ]

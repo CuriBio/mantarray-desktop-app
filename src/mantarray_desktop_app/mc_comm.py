@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import logging
 from multiprocessing import Queue
+from time import sleep
 from typing import Any
 from typing import Dict
 from typing import List
 from typing import Tuple
 
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
+from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+from .exceptions import SerialCommPacketRegistrationTimoutError
 from .instrument_comm import InstrumentCommProcess
 
 
@@ -69,7 +72,24 @@ class McCommunicationProcess(InstrumentCommProcess):
         board = self._board_connections[board_idx]
         if board is None:
             return
+
         magic_word_test_bytes = board.read(size=8)
+        magic_word_test_bytes_len = len(magic_word_test_bytes)
+        if magic_word_test_bytes_len < len(SERIAL_COMM_MAGIC_WORD_BYTES):
+            # check for more bytes once every second for up to number of seconds in status beacon period
+            for _ in range(SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS):
+                num_bytes_remaining = (
+                    len(SERIAL_COMM_MAGIC_WORD_BYTES) - magic_word_test_bytes_len
+                )
+                next_bytes = board.read(size=num_bytes_remaining)
+                magic_word_test_bytes += next_bytes
+                magic_word_test_bytes_len = len(magic_word_test_bytes)
+                if magic_word_test_bytes_len == len(SERIAL_COMM_MAGIC_WORD_BYTES):
+                    break
+                sleep(1)
+            else:
+                # if the entire period has passed and no more bytes are available an error has occured with the Mantarray that is considered fatal
+                raise SerialCommPacketRegistrationTimoutError()
         while magic_word_test_bytes != SERIAL_COMM_MAGIC_WORD_BYTES:
             next_byte = board.read(size=1)
             magic_word_test_bytes = magic_word_test_bytes[1:] + next_byte
