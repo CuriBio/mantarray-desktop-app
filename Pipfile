@@ -37,3 +37,6 @@ secrets-manager = "==0.4"
 semver = "==2.13.0"
 stdlib-utils = "==0.4.2"
 xem-wrapper = "==0.2.5"
+
+[requires]
+python_version = "3.8"
