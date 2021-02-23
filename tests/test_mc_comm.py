@@ -85,7 +85,7 @@ def test_McCommunicationProcess_set_board_connection__sets_connect_to_mc_simulat
     assert actual[3] is None
 
 
-def test_McCommunicationProcess_sync_with_serial_comm__syncs_with_magic_word_in_serial_comm_from_board__when_first_packet_is_truncated_to_more_than_8_bytes(
+def test_McCommunicationProcess_register_magic_word__registers_magic_word_in_serial_comm_from_board__when_first_packet_is_truncated_to_more_than_8_bytes(
     four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
 ):
     mc_process = four_board_mc_comm_process[0]
@@ -94,7 +94,7 @@ def test_McCommunicationProcess_sync_with_serial_comm__syncs_with_magic_word_in_
 
     board_idx = 0
     invoke_process_run_and_check_errors(mc_process)
-    assert mc_process.is_synced_with_serial_comm(board_idx) is False
+    assert mc_process.is_registered_with_serial_comm(board_idx) is False
 
     mc_process.set_board_connection(board_idx, simulator)
     test_bytes = SERIAL_COMM_MAGIC_WORD_BYTES[3:] + bytes(8)
@@ -111,12 +111,12 @@ def test_McCommunicationProcess_sync_with_serial_comm__syncs_with_magic_word_in_
     invoke_process_run_and_check_errors(simulator)
 
     invoke_process_run_and_check_errors(mc_process)
-    assert mc_process.is_synced_with_serial_comm(board_idx) is True
+    assert mc_process.is_registered_with_serial_comm(board_idx) is True
     # make sure no errors in next iteration
     invoke_process_run_and_check_errors(mc_process)
 
 
-def test_McCommunicationProcess_sync_with_serial_comm__syncs_with_magic_word_in_serial_comm_from_board__when_first_packet_is_not_truncated(
+def test_McCommunicationProcess_register_magic_word__registers_magic_word_in_serial_comm_from_board__when_first_packet_is_not_truncated(
     four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
 ):
     mc_process = four_board_mc_comm_process[0]
@@ -125,7 +125,7 @@ def test_McCommunicationProcess_sync_with_serial_comm__syncs_with_magic_word_in_
 
     board_idx = 0
     invoke_process_run_and_check_errors(mc_process)
-    assert mc_process.is_synced_with_serial_comm(board_idx) is False
+    assert mc_process.is_registered_with_serial_comm(board_idx) is False
 
     mc_process.set_board_connection(board_idx, simulator)
     test_bytes = create_data_packet(
@@ -141,12 +141,12 @@ def test_McCommunicationProcess_sync_with_serial_comm__syncs_with_magic_word_in_
     invoke_process_run_and_check_errors(simulator)
 
     invoke_process_run_and_check_errors(mc_process)
-    assert mc_process.is_synced_with_serial_comm(board_idx) is True
+    assert mc_process.is_registered_with_serial_comm(board_idx) is True
     # make sure no errors in next iteration
     invoke_process_run_and_check_errors(mc_process)
 
 
-def test_McCommunicationProcess_sync_with_serial_comm__syncs_with_magic_word_in_serial_comm_from_board__when_first_packet_is_truncated_to_less_than_8_bytes__and_calls_read_with_correct_size__and_calls_sleep_correctly(
+def test_McCommunicationProcess_register_magic_word__registers_with_magic_word_in_serial_comm_from_board__when_first_packet_is_truncated_to_less_than_8_bytes__and_calls_read_with_correct_size__and_calls_sleep_correctly(
     four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
 ):
     # mock sleep to speed up the test
@@ -170,11 +170,11 @@ def test_McCommunicationProcess_sync_with_serial_comm__syncs_with_magic_word_in_
 
     board_idx = 0
     invoke_process_run_and_check_errors(mc_process)
-    assert mc_process.is_synced_with_serial_comm(board_idx) is False
+    assert mc_process.is_registered_with_serial_comm(board_idx) is False
 
     mc_process.set_board_connection(board_idx, simulator)
     invoke_process_run_and_check_errors(mc_process)
-    assert mc_process.is_synced_with_serial_comm(board_idx) is True
+    assert mc_process.is_registered_with_serial_comm(board_idx) is True
 
     # Assert it reads once initially then once per second until status beacon period is reached (a new packet should be available by then)
     assert (
@@ -196,7 +196,7 @@ def test_McCommunicationProcess_sync_with_serial_comm__syncs_with_magic_word_in_
         )
 
 
-def test_McCommunicationProcess_sync_with_serial_comm__raises_error_if_less_than_8_bytes_available_after_status_beacon_period_has_elapsed(
+def test_McCommunicationProcess_register_magic_word__raises_error_if_less_than_8_bytes_available_after_status_beacon_period_has_elapsed(
     four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
 ):
     # mock sleep to speed up the test
@@ -207,7 +207,7 @@ def test_McCommunicationProcess_sync_with_serial_comm__raises_error_if_less_than
 
     # need to mock read here to have better control over the reads going into McComm
     test_read_values = [
-        SERIAL_COMM_MAGIC_WORD_BYTES[:4],
+        SERIAL_COMM_MAGIC_WORD_BYTES[:-1],
         bytes(0),
         bytes(0),
         bytes(0),
@@ -218,7 +218,7 @@ def test_McCommunicationProcess_sync_with_serial_comm__raises_error_if_less_than
 
     board_idx = 0
     invoke_process_run_and_check_errors(mc_process)
-    assert mc_process.is_synced_with_serial_comm(board_idx) is False
+    assert mc_process.is_registered_with_serial_comm(board_idx) is False
 
     mc_process.set_board_connection(board_idx, simulator)
     with pytest.raises(SerialCommPacketRegistrationTimoutError):

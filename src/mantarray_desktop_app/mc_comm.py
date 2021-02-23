@@ -53,22 +53,24 @@ class McCommunicationProcess(InstrumentCommProcess):
             suppress_setup_communication_to_main,
             logging_level,
         )
-        self._is_synced_with_serial_comm: List[bool] = [False] * len(self._board_queues)
+        self._is_registered_with_serial_comm: List[bool] = [False] * len(
+            self._board_queues
+        )
 
-    def is_synced_with_serial_comm(self, board_idx: int) -> bool:
+    def is_registered_with_serial_comm(self, board_idx: int) -> bool:
         """Mainly for use in testing."""
-        is_synced: bool = self._is_synced_with_serial_comm[board_idx]
-        return is_synced
+        is_registered: bool = self._is_registered_with_serial_comm[board_idx]
+        return is_registered
 
     def create_connections_to_all_available_boards(self) -> None:
         raise NotImplementedError()  # Tanner (12/18/21): adding this as a placeholder for now to override abstract method. This method will be defined and the NotImplementedError removed before this class is instantied in any source code
 
     def _commands_for_each_run_iteration(self) -> None:
         board_idx = 0
-        if not self._is_synced_with_serial_comm[board_idx]:
-            self._sync_with_serial_comm(board_idx)
+        if not self._is_registered_with_serial_comm[board_idx]:
+            self._register_magic_word(board_idx)
 
-    def _sync_with_serial_comm(self, board_idx: int) -> None:
+    def _register_magic_word(self, board_idx: int) -> None:
         board = self._board_connections[board_idx]
         if board is None:
             return
@@ -93,4 +95,4 @@ class McCommunicationProcess(InstrumentCommProcess):
         while magic_word_test_bytes != SERIAL_COMM_MAGIC_WORD_BYTES:
             next_byte = board.read(size=1)
             magic_word_test_bytes = magic_word_test_bytes[1:] + next_byte
-        self._is_synced_with_serial_comm[board_idx] = True
+        self._is_registered_with_serial_comm[board_idx] = True
