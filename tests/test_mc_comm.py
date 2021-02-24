@@ -199,6 +199,10 @@ def test_McCommunicationProcess_register_magic_word__registers_with_magic_word_i
 def test_McCommunicationProcess_register_magic_word__raises_error_if_less_than_8_bytes_available_after_status_beacon_period_has_elapsed(
     four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
 ):
+    mocker.patch(
+        "builtins.print", autospec=True
+    )  # don't print all the error messages to console
+
     # mock sleep to speed up the test
     mocker.patch.object(mc_comm, "sleep", autospec=True)
 
