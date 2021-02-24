@@ -39,6 +39,11 @@ class MantarrayMCSimulatorSleepAfterWrite(MantarrayMCSimulator):
         if self._sleep_after_write_seconds is not None:
             time.sleep(self._sleep_after_write_seconds)
 
+    def start(self) -> None:
+        raise NotImplementedError(
+            "This class is only for unit tests not requiring a running process"
+        )
+
 
 @pytest.fixture(scope="function", name="mantarray_mc_simulator")
 def fixture_mantarray_mc_simulator():
@@ -66,6 +71,11 @@ class MantarrayMCSimulatorNoBeacons(MantarrayMCSimulatorSleepAfterWrite):
     def _send_status_beacon(self, truncate=False) -> None:
         self._time_of_last_status_beacon_secs = time.perf_counter()
         self._output_queue.put_nowait(bytes(0))
+
+    def start(self) -> None:
+        raise NotImplementedError(
+            "This class is only for unit tests not requiring a running process"
+        )
 
 
 @pytest.fixture(scope="function", name="mantarray_mc_simulator_no_beacon")
