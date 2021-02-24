@@ -1,6 +1,9 @@
 # dependencies
 node_modules
 
+src/firmware/*.bit
+src/drivers/*.exe
+
 # CI caches
 .npm_cache/
 .precommit_cache/
@@ -29,6 +32,7 @@ coverage-report-pytest
 .mypy_cache/
 .coverage
 .coverage.*
+coverage.xml
 
 # test profiling
 prof/
