@@ -143,9 +143,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         self.create_processes()
         self.start_processes()
 
-    def boot_up_instrument(
-        self, skip_load_firmware_file: bool = False
-    ) -> Dict[str, Any]:
+    def boot_up_instrument(self, load_firmware_file: bool = True) -> Dict[str, Any]:
         """Boot up the Mantarray instrument.
 
         It is assumed that 'bit_file_name' will be a path to a real .bit
@@ -153,7 +151,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         'mantarray_#_#_#.bit'
         """
         bit_file_name = None
-        if not skip_load_firmware_file:
+        if load_firmware_file:
             bit_file_name = get_latest_firmware()
         to_instrument_comm_queue = (
             self.queue_container().get_communication_to_instrument_comm_queue(0)
