@@ -67,26 +67,28 @@ class McCommunicationProcess(InstrumentCommProcess):
 
     def _commands_for_each_run_iteration(self) -> None:
         board_idx = 0
-        if not self._is_registered_with_serial_comm[board_idx]:
+        if (
+            not self._is_registered_with_serial_comm[board_idx]
+            and self._board_connections[board_idx] is not None
+        ):
             self._register_magic_word(board_idx)
 
     def _register_magic_word(self, board_idx: int) -> None:
         board = self._board_connections[board_idx]
         if board is None:
-            return
+            raise NotImplementedError("board should never be None here")
 
-        magic_word_test_bytes = board.read(size=8)
+        magic_word_len = len(SERIAL_COMM_MAGIC_WORD_BYTES)
+        magic_word_test_bytes = board.read(size=magic_word_len)
         magic_word_test_bytes_len = len(magic_word_test_bytes)
-        if magic_word_test_bytes_len < len(SERIAL_COMM_MAGIC_WORD_BYTES):
+        if magic_word_test_bytes_len < magic_word_len:
             # check for more bytes once every second for up to number of seconds in status beacon period
             for _ in range(SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS):
-                num_bytes_remaining = (
-                    len(SERIAL_COMM_MAGIC_WORD_BYTES) - magic_word_test_bytes_len
-                )
+                num_bytes_remaining = magic_word_len - magic_word_test_bytes_len
                 next_bytes = board.read(size=num_bytes_remaining)
                 magic_word_test_bytes += next_bytes
                 magic_word_test_bytes_len = len(magic_word_test_bytes)
-                if magic_word_test_bytes_len == len(SERIAL_COMM_MAGIC_WORD_BYTES):
+                if magic_word_test_bytes_len == magic_word_len:
                     break
                 sleep(1)
             else:

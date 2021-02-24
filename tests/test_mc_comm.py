@@ -56,12 +56,14 @@ def test_McCommunicationProcess_hard_stop__clears_all_queues_and_returns_lists_o
     actual = mc_process.hard_stop()
     assert actual["fatal_error_reporter"] == [expected_error]
 
+    # Assert arbitrarily that most queues are empty
     confirm_queue_is_eventually_empty(board_queues[1][0])
     confirm_queue_is_eventually_empty(board_queues[2][0])
     confirm_queue_is_eventually_empty(board_queues[3][0])
     confirm_queue_is_eventually_empty(board_queues[0][0])
     confirm_queue_is_eventually_empty(board_queues[0][2])
 
+    # Assert arbitrarily that most queue items are correct
     assert actual["board_1"]["main_to_instrument_comm"] == [expected[1][0]]
     assert actual["board_2"]["main_to_instrument_comm"] == [expected[2][0]]
     assert actual["board_3"]["main_to_instrument_comm"] == [expected[3][0]]
@@ -93,10 +95,8 @@ def test_McCommunicationProcess_register_magic_word__registers_magic_word_in_ser
     simulator = mantarray_mc_simulator_no_beacon[4]
 
     board_idx = 0
-    invoke_process_run_and_check_errors(mc_process)
-    assert mc_process.is_registered_with_serial_comm(board_idx) is False
-
     mc_process.set_board_connection(board_idx, simulator)
+    assert mc_process.is_registered_with_serial_comm(board_idx) is False
     test_bytes = SERIAL_COMM_MAGIC_WORD_BYTES[3:] + bytes(8)
     test_bytes += create_data_packet(
         0,
@@ -124,10 +124,8 @@ def test_McCommunicationProcess_register_magic_word__registers_magic_word_in_ser
     simulator = mantarray_mc_simulator_no_beacon[4]
 
     board_idx = 0
-    invoke_process_run_and_check_errors(mc_process)
-    assert mc_process.is_registered_with_serial_comm(board_idx) is False
-
     mc_process.set_board_connection(board_idx, simulator)
+    assert mc_process.is_registered_with_serial_comm(board_idx) is False
     test_bytes = create_data_packet(
         0,
         SERIAL_COMM_MAIN_MODULE_ID,
@@ -155,24 +153,20 @@ def test_McCommunicationProcess_register_magic_word__registers_with_magic_word_i
     mc_process = four_board_mc_comm_process[0]
     simulator = mantarray_mc_simulator_no_beacon[4]
 
+    # Arbitrarily slice the magic word across multiple reads and add empty reads to simulate no bytes being available to read
+    test_read_values = [SERIAL_COMM_MAGIC_WORD_BYTES[:4]]
+    test_read_values.extend(
+        [bytes(0) for _ in range(SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS - 1)]
+    )
+    test_read_values.append(SERIAL_COMM_MAGIC_WORD_BYTES[4:])
     # need to mock read here to have better control over the reads going into McComm
-    test_read_values = [
-        SERIAL_COMM_MAGIC_WORD_BYTES[:4],
-        bytes(0),
-        bytes(0),
-        bytes(0),
-        bytes(0),
-        SERIAL_COMM_MAGIC_WORD_BYTES[4:],
-    ]
     mocked_read = mocker.patch.object(
         simulator, "read", autospec=True, side_effect=test_read_values
     )
 
     board_idx = 0
-    invoke_process_run_and_check_errors(mc_process)
-    assert mc_process.is_registered_with_serial_comm(board_idx) is False
-
     mc_process.set_board_connection(board_idx, simulator)
+    assert mc_process.is_registered_with_serial_comm(board_idx) is False
     invoke_process_run_and_check_errors(mc_process)
     assert mc_process.is_registered_with_serial_comm(board_idx) is True
 
@@ -209,21 +203,15 @@ def test_McCommunicationProcess_register_magic_word__raises_error_if_less_than_8
     mc_process = four_board_mc_comm_process[0]
     simulator = mantarray_mc_simulator_no_beacon[4]
 
+    # Arbitrarily slice the magic word in first read and add empty reads to simulate no bytes being available to read
+    test_read_values = [SERIAL_COMM_MAGIC_WORD_BYTES[:-1]]
+    test_read_values.extend(
+        [bytes(0) for _ in range(SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS)]
+    )
     # need to mock read here to have better control over the reads going into McComm
-    test_read_values = [
-        SERIAL_COMM_MAGIC_WORD_BYTES[:-1],
-        bytes(0),
-        bytes(0),
-        bytes(0),
-        bytes(0),
-        bytes(0),
-    ]
     mocker.patch.object(simulator, "read", autospec=True, side_effect=test_read_values)
 
     board_idx = 0
-    invoke_process_run_and_check_errors(mc_process)
-    assert mc_process.is_registered_with_serial_comm(board_idx) is False
-
     mc_process.set_board_connection(board_idx, simulator)
     with pytest.raises(SerialCommPacketRegistrationTimoutError):
         invoke_process_run_and_check_errors(mc_process)

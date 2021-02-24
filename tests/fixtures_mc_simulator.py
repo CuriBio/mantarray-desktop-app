@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import logging
 from multiprocessing import Queue
 import time
 
@@ -11,26 +10,20 @@ from stdlib_utils import QUEUE_CHECK_TIMEOUT_SECONDS
 class MantarrayMcSimulatorSleepAfterWrite(MantarrayMcSimulator):
     """Subclass is specifically for unit tests.
 
+    This subclass allows for a sleep to be performed after writing to the simulator which is useful in unit testing but not desired behavior when this Process is running
+
     It should not be used in integration level tests.
     """
 
     def __init__(
         self,
-        input_queue,
-        output_queue,
-        fatal_error_reporter,
-        testing_queue,
-        logging_level=logging.INFO,
-        read_timeout_seconds=0,
+        *args,
         sleep_after_write_seconds=None,
+        **kwargs,
     ):
         super().__init__(
-            input_queue,
-            output_queue,
-            fatal_error_reporter,
-            testing_queue,
-            logging_level,
-            read_timeout_seconds,
+            *args,
+            **kwargs,
         )
         self._sleep_after_write_seconds = sleep_after_write_seconds
 
