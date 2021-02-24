@@ -20,7 +20,7 @@ pytest-timeout = "==1.4.2"
 sphinx = "==3.5.1"
 
 [packages]
-astroid = "==2.4.2"
+astroid = "==2.5"
 flask = "==1.1.2"
 flask-cors = "==3.0.9"
 flatten-dict = "==0.3.0"
