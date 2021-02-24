@@ -89,6 +89,8 @@ const start_python_subprocess = () => {
     require("child_process").execFile(script, command_line_args);
   } else {
     const PythonShell = require("python-shell").PythonShell; // Eli (4/15/20) experienced odd error where the compiled exe was not able to load package python-shell...but since it's only actually required in development, just moving it to here
+    command_line_args.push("--no-load-firmware"); // TODO (Eli 2/24/21): use the `yargs` package to accept this as a command line argument to the Electron app so that it can be passed appropriately and with more control than everytime the python source code is run (which is based on the assumption that anytime source code is tested it's running locally in a dev environment and the bit file isn't available)
+    console.log("sending command line args: " + command_line_args); // allow-log
     const options = {
       mode: "text",
       pythonPath: "python3", // In Cloud9, you need to specify python3 to use the installation inside the virtual environment...just Python defaults to system installation

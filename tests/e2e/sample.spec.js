@@ -166,7 +166,7 @@ async function wait_for_local_server_to_reach_calibration_needed() {
     await sleep(2000);
   }
   // Eli (1/14/21): not sure at the moment why ever after 25 seconds the server doesn't reach CALIBRATION_NEEDED, so for now just returning and capturing an E2E screenshot of the "Initializing" state
-  // throw new Error(`Server never reached CALIBRATION_NEEDED state`);
+  throw new Error(`Server never reached CALIBRATION_NEEDED state`);
 }
 
 /**
