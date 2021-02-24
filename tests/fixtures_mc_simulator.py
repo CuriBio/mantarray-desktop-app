@@ -79,7 +79,7 @@ class MantarrayMCSimulatorNoBeacons(MantarrayMCSimulatorSleepAfterWrite):
 
 
 @pytest.fixture(scope="function", name="mantarray_mc_simulator_no_beacon")
-def fixture_mantarray_mc_simulator_no_beacon(mocker):
+def fixture_mantarray_mc_simulator_no_beacon():
     """Fixture is specifically for unit tests.
 
     It should not be used in integration level tests.
@@ -98,3 +98,23 @@ def fixture_mantarray_mc_simulator_no_beacon(mocker):
     )
 
     yield input_queue, output_queue, error_queue, testing_queue, simulator
+
+
+@pytest.fixture(scope="function", name="runnable_mantarray_mc_simulator")
+def fixture_runnable_mantarray_mc_simulator():
+    testing_queue = Queue()
+    error_queue = Queue()
+    input_queue = Queue()
+    output_queue = Queue()
+    simulator = MantarrayMCSimulator(
+        input_queue,
+        output_queue,
+        error_queue,
+        testing_queue,
+        read_timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
+    )
+
+    yield input_queue, output_queue, error_queue, testing_queue, simulator
+
+    simulator.hard_stop()
+    simulator.join()

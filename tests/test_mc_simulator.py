@@ -28,6 +28,7 @@ from stdlib_utils import invoke_process_run_and_check_errors
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from .fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
+from .fixtures_mc_simulator import fixture_runnable_mantarray_mc_simulator
 from .helpers import confirm_queue_is_eventually_empty
 from .helpers import confirm_queue_is_eventually_of_size
 from .helpers import handle_putting_multiple_objects_into_empty_queue
@@ -37,6 +38,7 @@ from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_e
 __fixtures__ = [
     fixture_mantarray_mc_simulator,
     fixture_mantarray_mc_simulator_no_beacon,
+    fixture_runnable_mantarray_mc_simulator,
 ]
 
 STATUS_BEACON_SIZE_BYTES = 28
@@ -376,9 +378,9 @@ def test_MantarrayMCSimulator__handles_reads_of_size_less_than_next_packet_in_qu
 
 @pytest.mark.slow
 def test_MantarrayMCSimulator__handles_reads_of_size_less_than_next_packet_in_queue__when_simulator_is_running(
-    mantarray_mc_simulator,
+    runnable_mantarray_mc_simulator,
 ):
-    _, _, _, testing_queue, simulator = mantarray_mc_simulator
+    _, _, _, testing_queue, simulator = runnable_mantarray_mc_simulator
 
     # remove boot up beacon
     invoke_process_run_and_check_errors(simulator)
@@ -390,25 +392,20 @@ def test_MantarrayMCSimulator__handles_reads_of_size_less_than_next_packet_in_qu
         {"command": "add_read_bytes", "read_bytes": test_item_1},
         {"command": "add_read_bytes", "read_bytes": test_item_2},
     ]
+
     handle_putting_multiple_objects_into_empty_queue(test_items, testing_queue)
+    simulator.start()
+    confirm_queue_is_eventually_empty(  # Tanner (2/7/21): Using 5 second timeout here to give sufficient time to make sure testing_queue is emptied
+        testing_queue, timeout_seconds=5
+    )
 
-    # Tanner (2/2/20): this try/finally block ensures that the simulator is stopped even if the test fails. Problems can arise from processes not being stopped after tests complete
-    try:
-        simulator.start()
-        confirm_queue_is_eventually_empty(  # Tanner (2/7/21): Using 5 second timeout here to give sufficient time to make sure testing_queue is emptied
-            testing_queue, timeout_seconds=5
-        )
-
-        read_len_1 = 3
-        read_1 = simulator.read(size=read_len_1)
-        assert read_1 == test_item_1[:read_len_1]
-        # read remaining bytes
-        read_len_2 = len(test_item_1) + len(test_item_2) - read_len_1
-        read_2 = simulator.read(size=read_len_2)
-        assert read_2 == test_item_1[read_len_1:] + test_item_2
-    finally:
-        simulator.hard_stop()
-        simulator.join()
+    read_len_1 = 3
+    read_1 = simulator.read(size=read_len_1)
+    assert read_1 == test_item_1[:read_len_1]
+    # read remaining bytes
+    read_len_2 = len(test_item_1) + len(test_item_2) - read_len_1
+    read_2 = simulator.read(size=read_len_2)
+    assert read_2 == test_item_1[read_len_1:] + test_item_2
 
 
 def test_MantarrayMCSimulator__handles_reads_of_size_greater_than_next_packet_in_queue__when_queue_is_not_empty(
