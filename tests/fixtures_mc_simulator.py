@@ -3,12 +3,12 @@ import logging
 from multiprocessing import Queue
 import time
 
-from mantarray_desktop_app import MantarrayMCSimulator
+from mantarray_desktop_app import MantarrayMcSimulator
 import pytest
 from stdlib_utils import QUEUE_CHECK_TIMEOUT_SECONDS
 
 
-class MantarrayMCSimulatorSleepAfterWrite(MantarrayMCSimulator):
+class MantarrayMcSimulatorSleepAfterWrite(MantarrayMcSimulator):
     """Subclass is specifically for unit tests.
 
     It should not be used in integration level tests.
@@ -55,7 +55,7 @@ def fixture_mantarray_mc_simulator():
     testing_queue = Queue()
     output_queue = Queue()
     error_queue = Queue()
-    simulator = MantarrayMCSimulatorSleepAfterWrite(
+    simulator = MantarrayMcSimulatorSleepAfterWrite(
         input_queue,
         output_queue,
         error_queue,
@@ -67,7 +67,7 @@ def fixture_mantarray_mc_simulator():
     yield input_queue, output_queue, error_queue, testing_queue, simulator
 
 
-class MantarrayMCSimulatorNoBeacons(MantarrayMCSimulatorSleepAfterWrite):
+class MantarrayMcSimulatorNoBeacons(MantarrayMcSimulatorSleepAfterWrite):
     def _send_status_beacon(self, truncate=False) -> None:
         self._time_of_last_status_beacon_secs = time.perf_counter()
         self._output_queue.put_nowait(bytes(0))
@@ -88,7 +88,7 @@ def fixture_mantarray_mc_simulator_no_beacon():
     input_queue = Queue()
     output_queue = Queue()
     error_queue = Queue()
-    simulator = MantarrayMCSimulatorNoBeacons(
+    simulator = MantarrayMcSimulatorNoBeacons(
         input_queue,
         output_queue,
         error_queue,
@@ -106,7 +106,7 @@ def fixture_runnable_mantarray_mc_simulator():
     error_queue = Queue()
     input_queue = Queue()
     output_queue = Queue()
-    simulator = MantarrayMCSimulator(
+    simulator = MantarrayMcSimulator(
         input_queue,
         output_queue,
         error_queue,

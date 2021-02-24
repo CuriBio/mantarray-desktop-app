@@ -149,7 +149,7 @@ from .mantarray_front_panel import MantarrayFrontPanel
 from .mantarray_front_panel import MantarrayFrontPanelMixIn
 from .mc_comm import McCommunicationProcess
 from .mc_simulator import create_data_packet
-from .mc_simulator import MantarrayMCSimulator
+from .mc_simulator import MantarrayMcSimulator
 from .ok_comm import build_file_writer_objects
 from .ok_comm import check_barcode_for_errors
 from .ok_comm import check_mantarray_serial_number
@@ -334,7 +334,7 @@ __all__ = [
     "ServerThreadNotInitializedError",
     "ServerThreadSingletonAlreadySetError",
     "mc_simulator",
-    "MantarrayMCSimulator",
+    "MantarrayMcSimulator",
     "create_data_packet",
     "SERIAL_COMM_MAGIC_WORD_BYTES",
     "SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS",

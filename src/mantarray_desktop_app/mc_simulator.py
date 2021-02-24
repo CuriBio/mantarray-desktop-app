@@ -68,7 +68,7 @@ def create_data_packet(
     return data_packet
 
 
-class MantarrayMCSimulator(InfiniteProcess):
+class MantarrayMcSimulator(InfiniteProcess):
     """Simulate a running Mantarray instrument with Microcontroller.
 
     Args:
