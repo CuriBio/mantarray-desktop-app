@@ -11,7 +11,10 @@ from typing import List
 from typing import Tuple
 
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
+from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+from .exceptions import SerialCommPacketRegistrationReadEmptyError
+from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
 from .exceptions import SerialCommPacketRegistrationTimoutError
 from .instrument_comm import InstrumentCommProcess
 
@@ -94,7 +97,13 @@ class McCommunicationProcess(InstrumentCommProcess):
             else:
                 # if the entire period has passed and no more bytes are available an error has occured with the Mantarray that is considered fatal
                 raise SerialCommPacketRegistrationTimoutError()
+        num_bytes_checked = 0
         while magic_word_test_bytes != SERIAL_COMM_MAGIC_WORD_BYTES:
             next_byte = board.read(size=1)
+            if len(next_byte) == 0:
+                raise SerialCommPacketRegistrationReadEmptyError()
             magic_word_test_bytes = magic_word_test_bytes[1:] + next_byte
+            num_bytes_checked += 1
+            if num_bytes_checked > SERIAL_COMM_MAX_PACKET_LENGTH_BYTES:
+                raise SerialCommPacketRegistrationSearchExhaustedError()
         self._is_registered_with_serial_comm[board_idx] = True

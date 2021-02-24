@@ -132,3 +132,11 @@ class UnrecognizedSerialCommPacketTypeError(Exception):
 
 class SerialCommPacketRegistrationTimoutError(Exception):
     pass
+
+
+class SerialCommPacketRegistrationReadEmptyError(Exception):
+    pass
+
+
+class SerialCommPacketRegistrationSearchExhaustedError(Exception):
+    pass

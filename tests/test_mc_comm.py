@@ -7,8 +7,11 @@ from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import McCommunicationProcess
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
+from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+from mantarray_desktop_app import SerialCommPacketRegistrationReadEmptyError
+from mantarray_desktop_app import SerialCommPacketRegistrationSearchExhaustedError
 from mantarray_desktop_app import SerialCommPacketRegistrationTimoutError
 import pytest
 from stdlib_utils import InfiniteProcess
@@ -214,4 +217,55 @@ def test_McCommunicationProcess_register_magic_word__raises_error_if_less_than_8
     board_idx = 0
     mc_process.set_board_connection(board_idx, simulator)
     with pytest.raises(SerialCommPacketRegistrationTimoutError):
+        invoke_process_run_and_check_errors(mc_process)
+
+
+def test_McCommunicationProcess_register_magic_word__raises_error_if_reading_next_byte_results_in_empty_read(
+    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
+):
+    mocker.patch(
+        "builtins.print", autospec=True
+    )  # don't print all the error messages to console
+
+    # mock sleep to speed up the test
+    mocker.patch.object(mc_comm, "sleep", autospec=True)
+
+    mc_process = four_board_mc_comm_process[0]
+    simulator = mantarray_mc_simulator_no_beacon[4]
+
+    # Add arbitrary first 8 bytes and then empty read to raise error
+    test_read_values = [bytes(8), bytes(0)]
+    # need to mock read here to have better control over the reads going into McComm
+    mocker.patch.object(simulator, "read", autospec=True, side_effect=test_read_values)
+
+    board_idx = 0
+    mc_process.set_board_connection(board_idx, simulator)
+    with pytest.raises(SerialCommPacketRegistrationReadEmptyError):
+        invoke_process_run_and_check_errors(mc_process)
+
+
+def test_McCommunicationProcess_register_magic_word__raises_error_if_search_exceeds_max_packet_length(
+    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
+):
+    mocker.patch(
+        "builtins.print", autospec=True
+    )  # don't print all the error messages to console
+
+    # mock sleep to speed up the test
+    mocker.patch.object(mc_comm, "sleep", autospec=True)
+
+    mc_process = four_board_mc_comm_process[0]
+    simulator = mantarray_mc_simulator_no_beacon[4]
+
+    # Add arbitrary first 8 bytes and then enough arbitrary bytes to reach a max size data packet length to raise error
+    test_read_values = [bytes(8)]
+    test_read_values.extend(
+        [bytes(1) for _ in range(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES + 1)]
+    )
+    # need to mock read here to have better control over the reads going into McComm
+    mocker.patch.object(simulator, "read", autospec=True, side_effect=test_read_values)
+
+    board_idx = 0
+    mc_process.set_board_connection(board_idx, simulator)
+    with pytest.raises(SerialCommPacketRegistrationSearchExhaustedError):
         invoke_process_run_and_check_errors(mc_process)

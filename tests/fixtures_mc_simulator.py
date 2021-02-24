@@ -66,6 +66,7 @@ class MantarrayMcSimulatorNoBeacons(MantarrayMcSimulatorSleepAfterWrite):
         self._output_queue.put_nowait(bytes(0))
 
     def start(self) -> None:
+        # Tanner (2/24/21): Need to explicitly redefine this method since pylint considers this implementation to be abstract
         raise NotImplementedError(
             "This class is only for unit tests not requiring a running process"
         )
