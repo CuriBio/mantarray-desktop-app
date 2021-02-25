@@ -1,11 +1,6 @@
 # -*- coding: utf-8 -*-
 
 
-from multiprocessing import Queue
-from typing import Any
-from typing import Dict
-from typing import Tuple
-
 from mantarray_desktop_app import ok_comm
 from mantarray_desktop_app import OkCommunicationProcess
 from mantarray_desktop_app import RunningFIFOSimulator
@@ -13,30 +8,7 @@ import pytest
 from xem_wrapper import FrontPanelSimulator
 from xem_wrapper import okCFrontPanel
 
-
-def generate_board_and_error_queues(num_boards: int = 4):
-    error_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Tuple[Exception, str]
-    ] = Queue()
-
-    board_queues: Tuple[  # pylint-disable: duplicate-code
-        Tuple[
-            Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
-            Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
-            Queue[Any],  # pylint: disable=unsubscriptable-object
-        ],  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-        ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-    ] = tuple(
-        (
-            (
-                Queue(),
-                Queue(),
-                Queue(),
-            )
-            for _ in range(num_boards)
-        )
-    )
-    return board_queues, error_queue
+from .fixtures import generate_board_and_error_queues
 
 
 @pytest.fixture(scope="function", name="patch_connection_to_board")

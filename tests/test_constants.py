@@ -68,6 +68,7 @@ from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
+from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_INDEX
 from mantarray_desktop_app import SERIAL_COMM_PACKET_TYPE_INDEX
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
@@ -317,6 +318,7 @@ def test_serial_comm():
     assert SERIAL_COMM_MAGIC_WORD_BYTES == b"CURI BIO"
     assert SERIAL_COMM_TIMESTAMP_LENGTH_BYTES == 8
     assert SERIAL_COMM_CHECKSUM_LENGTH_BYTES == 4
+    assert SERIAL_COMM_MAX_PACKET_LENGTH_BYTES == 65546
 
     assert SERIAL_COMM_MODULE_ID_INDEX == 18
     assert SERIAL_COMM_PACKET_TYPE_INDEX == 19

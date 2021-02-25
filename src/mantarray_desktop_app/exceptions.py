@@ -128,3 +128,15 @@ class UnrecognizedSerialCommModuleIdError(Exception):
 
 class UnrecognizedSerialCommPacketTypeError(Exception):
     pass
+
+
+class SerialCommPacketRegistrationTimoutError(Exception):
+    pass
+
+
+class SerialCommPacketRegistrationReadEmptyError(Exception):
+    pass
+
+
+class SerialCommPacketRegistrationSearchExhaustedError(Exception):
+    pass

@@ -25,7 +25,6 @@ from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import get_formatted_stack_trace
 from stdlib_utils import put_log_message_into_queue
 from stdlib_utils import resource_path
-from stdlib_utils import safe_get
 from xem_wrapper import check_header
 from xem_wrapper import convert_sample_idx
 from xem_wrapper import convert_wire_value
@@ -458,31 +457,6 @@ def check_mantarray_serial_number(serial_number: str) -> str:
     if int(serial_number[4:7]) < 1 or int(serial_number[4:7]) > 366:
         return f"Serial Number contains invalid Julian date: '{serial_number[4:7]}'"
     return ""
-
-
-def _drain_board_queues(
-    board: Tuple[
-        Queue[Any],  # pylint: disable=unsubscriptable-object
-        Queue[Any],  # pylint: disable=unsubscriptable-object
-        Queue[Any],  # pylint: disable=unsubscriptable-object
-    ],
-) -> Dict[str, List[Any]]:
-    board_dict = dict()
-    board_dict["main_to_instrument_comm"] = _drain_queue(board[0])
-    board_dict["instrument_comm_to_main"] = _drain_queue(board[1])
-    board_dict["instrument_comm_to_file_writer"] = _drain_queue(board[2])
-    return board_dict
-
-
-def _drain_queue(
-    ok_comm_queue: Queue[Any],  # pylint: disable=unsubscriptable-object
-) -> List[Any]:
-    queue_items = list()
-    item = safe_get(ok_comm_queue)
-    while item is not None:
-        queue_items.append(item)
-        item = safe_get(ok_comm_queue)
-    return queue_items
 
 
 # pylint: disable=too-many-instance-attributes
@@ -1104,9 +1078,3 @@ class OkCommunicationProcess(InstrumentCommProcess):
             self._board_queues[0][1],
             self.get_logging_level(),
         )
-
-    def _drain_all_queues(self) -> Dict[str, Any]:
-        queue_items = dict()
-        for i, board in enumerate(self._board_queues):
-            queue_items[f"board_{i}"] = _drain_board_queues(board)
-        return queue_items

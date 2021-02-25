@@ -235,7 +235,7 @@ def main(
     process_manager.spawn_processes()
 
     boot_up_after_processes_start = not parsed_args.skip_mantarray_boot_up
-    skip_load_firmware_file = parsed_args.no_load_firmware
+    load_firmware_file = not parsed_args.no_load_firmware
 
     the_lock = threading.Lock()
     process_monitor_error_queue: Queue[  # pylint: disable=unsubscriptable-object
@@ -248,7 +248,7 @@ def main(
         process_monitor_error_queue,
         the_lock,
         boot_up_after_processes_start=boot_up_after_processes_start,
-        skip_load_firmware_file=skip_load_firmware_file,
+        load_firmware_file=load_firmware_file,
     )
 
     object_access_for_testing["process_monitor"] = process_monitor_thread

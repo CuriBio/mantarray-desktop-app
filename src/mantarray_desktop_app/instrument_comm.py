@@ -13,12 +13,41 @@ from typing import Tuple
 from typing import Union
 
 from stdlib_utils import InfiniteProcess
+from stdlib_utils import safe_get
 from xem_wrapper import FrontPanelBase
 from xem_wrapper import okCFrontPanel
 
+from .mc_simulator import MantarrayMcSimulator
+
+
+def _drain_board_queues(
+    board: Tuple[
+        Queue[Any],  # pylint: disable=unsubscriptable-object
+        Queue[Any],  # pylint: disable=unsubscriptable-object
+        Queue[Any],  # pylint: disable=unsubscriptable-object
+    ],
+) -> Dict[str, List[Any]]:
+    board_dict = dict()
+    board_dict["main_to_instrument_comm"] = _drain_queue(board[0])
+    board_dict["instrument_comm_to_main"] = _drain_queue(board[1])
+    board_dict["instrument_comm_to_file_writer"] = _drain_queue(board[2])
+    return board_dict
+
+
+def _drain_queue(
+    instrument_comm_queue: Queue[Any],  # pylint: disable=unsubscriptable-object
+) -> List[Any]:
+    # Tanner (2/24/21): Investigate why replacing this with the stdlib_utils function causes issues in integration tests
+    queue_items = list()
+    item = safe_get(instrument_comm_queue)
+    while item is not None:
+        queue_items.append(item)
+        item = safe_get(instrument_comm_queue)
+    return queue_items
+
 
 class InstrumentCommProcess(InfiniteProcess, metaclass=abc.ABCMeta):
-    """Process that controls communication with the Mantarrays Instruments.
+    """Process that controls communication with Mantarray instruments.
 
     Args:
         board_queues: A tuple (the max number of instrument board connections should be pre-defined, so not a mutable list) of tuples of 3 queues. The first queue is for input/communication from the main thread to this sub process, second queue is for communication from this process back to the main thread. Third queue is for streaming communication (largely fo raw data) to the process that controls writing to disk.
@@ -42,15 +71,15 @@ class InstrumentCommProcess(InfiniteProcess, metaclass=abc.ABCMeta):
         fatal_error_reporter: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
             Tuple[Exception, str]
         ],
-        # pylint: disable=duplicate-code
         suppress_setup_communication_to_main: bool = False,
+        # pylint: disable=duplicate-code
         logging_level: int = logging.INFO,
     ):
         super().__init__(fatal_error_reporter, logging_level=logging_level)
         self._board_queues = board_queues
-        self._board_connections: List[Union[None, okCFrontPanel]] = [None] * len(
-            self._board_queues
-        )
+        self._board_connections: List[
+            Union[None, okCFrontPanel, MantarrayMcSimulator]
+        ] = [None] * len(self._board_queues)
         self._suppress_setup_communication_to_main = (
             suppress_setup_communication_to_main
         )
@@ -71,9 +100,19 @@ class InstrumentCommProcess(InfiniteProcess, metaclass=abc.ABCMeta):
     def create_connections_to_all_available_boards(self) -> None:
         pass
 
-    def set_board_connection(self, board_idx: int, front_panel: FrontPanelBase) -> None:
+    def set_board_connection(
+        self, board_idx: int, board: Union[FrontPanelBase, MantarrayMcSimulator]
+    ) -> None:
         board_connections = self.get_board_connections_list()
-        board_connections[board_idx] = front_panel
+        board_connections[board_idx] = board
 
-    def get_board_connections_list(self) -> List[Union[None, okCFrontPanel]]:
+    def get_board_connections_list(
+        self,
+    ) -> List[Union[None, okCFrontPanel, MantarrayMcSimulator]]:
         return self._board_connections
+
+    def _drain_all_queues(self) -> Dict[str, Any]:
+        queue_items = dict()
+        for i, board in enumerate(self._board_queues):
+            queue_items[f"board_{i}"] = _drain_board_queues(board)
+        return queue_items

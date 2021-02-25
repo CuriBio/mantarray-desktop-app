@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 
+from multiprocessing import Queue
 import os
 from shutil import copy
 import tempfile
@@ -12,6 +13,7 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
+from typing import Tuple
 
 from mantarray_desktop_app import clear_server_singletons
 from mantarray_desktop_app import clear_the_server_thread
@@ -38,6 +40,31 @@ from stdlib_utils import resource_path
 PATH_TO_CURRENT_FILE = get_current_file_abs_directory()
 QUEUE_CHECK_TIMEOUT_SECONDS = 1.3  # for is_queue_eventually_of_size, is_queue_eventually_not_empty, is_queue_eventually_empty, put_object_into_queue_and_raise_error_if_eventually_still_empty, etc. # Eli (10/28/20) issue encountered where even 0.5 seconds was insufficient, so raising to 1 second # Eli (12/10/20) issue encountered where 1.1 second was not enough, so now 1.2 seconds # Eli (12/15/20): issue in test_ServerThread_start__puts_error_into_queue_if_flask_run_raises_error in Windows Github where 1.2 was not enough, so now 1.3
 GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS = 15
+
+
+def generate_board_and_error_queues(num_boards: int = 4):
+    error_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+        Tuple[Exception, str]
+    ] = Queue()
+
+    board_queues: Tuple[  # pylint-disable: duplicate-code
+        Tuple[
+            Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
+            Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
+            Queue[Any],  # pylint: disable=unsubscriptable-object
+        ],  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
+        ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
+    ] = tuple(
+        (
+            (
+                Queue(),
+                Queue(),
+                Queue(),
+            )
+            for _ in range(num_boards)
+        )
+    )
+    return board_queues, error_queue
 
 
 @pytest.fixture(scope="function", name="generic_queue_container")

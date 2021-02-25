@@ -79,6 +79,7 @@ from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
+from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
@@ -115,6 +116,9 @@ from .exceptions import MismatchedScriptTypeError
 from .exceptions import MultiprocessingNotSetToSpawnError
 from .exceptions import RecordingFolderDoesNotExistError
 from .exceptions import ScriptDoesNotContainEndCommandError
+from .exceptions import SerialCommPacketRegistrationReadEmptyError
+from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
+from .exceptions import SerialCommPacketRegistrationTimoutError
 from .exceptions import ServerThreadNotInitializedError
 from .exceptions import ServerThreadSingletonAlreadySetError
 from .exceptions import SystemStartUpError
@@ -146,8 +150,9 @@ from .main import clear_server_singletons
 from .main import get_server_port_number
 from .mantarray_front_panel import MantarrayFrontPanel
 from .mantarray_front_panel import MantarrayFrontPanelMixIn
+from .mc_comm import McCommunicationProcess
 from .mc_simulator import create_data_packet
-from .mc_simulator import MantarrayMCSimulator
+from .mc_simulator import MantarrayMcSimulator
 from .ok_comm import build_file_writer_objects
 from .ok_comm import check_barcode_for_errors
 from .ok_comm import check_mantarray_serial_number
@@ -332,7 +337,7 @@ __all__ = [
     "ServerThreadNotInitializedError",
     "ServerThreadSingletonAlreadySetError",
     "mc_simulator",
-    "MantarrayMCSimulator",
+    "MantarrayMcSimulator",
     "create_data_packet",
     "SERIAL_COMM_MAGIC_WORD_BYTES",
     "SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS",
@@ -349,6 +354,11 @@ __all__ = [
     "SERIAL_COMM_PACKET_TYPE_INDEX",
     "UnrecognizedSerialCommModuleIdError",
     "UnrecognizedSerialCommPacketTypeError",
+    "McCommunicationProcess",
     "SERIAL_COMM_CHECKSUM_LENGTH_BYTES",
     "SERIAL_COMM_TIMESTAMP_LENGTH_BYTES",
+    "SerialCommPacketRegistrationTimoutError",
+    "SerialCommPacketRegistrationReadEmptyError",
+    "SERIAL_COMM_MAX_PACKET_LENGTH_BYTES",
+    "SerialCommPacketRegistrationSearchExhaustedError",
 ]

@@ -20,6 +20,7 @@ from .constants import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from .data_analyzer import DataAnalyzerProcess
 from .file_writer import FileWriterProcess
 from .firmware_manager import get_latest_firmware
+from .instrument_comm import InstrumentCommProcess
 from .ok_comm import OkCommunicationProcess
 from .queue_container import MantarrayQueueContainer
 from .server import ServerThread
@@ -36,7 +37,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
     ) -> None:
         self._queue_container: MantarrayQueueContainer
 
-        self._instrument_communication_process: OkCommunicationProcess
+        self._instrument_communication_process: InstrumentCommProcess
         self._logging_level: int
         if values_to_share_to_server is None:
             values_to_share_to_server = dict()
@@ -48,7 +49,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         self._data_analyzer_process: DataAnalyzerProcess
 
         self._all_processes = Tuple[
-            ServerThread, OkCommunicationProcess, FileWriterProcess, DataAnalyzerProcess
+            ServerThread, InstrumentCommProcess, FileWriterProcess, DataAnalyzerProcess
         ]  # server takes longest to start, so have that first
 
         self.set_logging_level(logging_level)
@@ -71,7 +72,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
     def get_logging_level(self) -> int:
         return self._logging_level
 
-    def get_instrument_process(self) -> OkCommunicationProcess:
+    def get_instrument_process(self) -> InstrumentCommProcess:
         return self._instrument_communication_process
 
     def get_file_writer_process(self) -> FileWriterProcess:
@@ -142,9 +143,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         self.create_processes()
         self.start_processes()
 
-    def boot_up_instrument(
-        self, skip_load_firmware_file: bool = False
-    ) -> Dict[str, Any]:
+    def boot_up_instrument(self, load_firmware_file: bool = True) -> Dict[str, Any]:
         """Boot up the Mantarray instrument.
 
         It is assumed that 'bit_file_name' will be a path to a real .bit
@@ -152,7 +151,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         'mantarray_#_#_#.bit'
         """
         bit_file_name = None
-        if not skip_load_firmware_file:
+        if load_firmware_file:
             bit_file_name = get_latest_firmware()
         to_instrument_comm_queue = (
             self.queue_container().get_communication_to_instrument_comm_queue(0)
