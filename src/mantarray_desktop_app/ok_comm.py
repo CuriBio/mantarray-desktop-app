@@ -469,28 +469,8 @@ class OkCommunicationProcess(InstrumentCommProcess):
         suppress_setup_communication_to_main: if set to true (often during unit testing), messages during the _setup_before_loop will not be put into the queue to communicate back to the main process
     """
 
-    def __init__(
-        self,
-        board_queues: Tuple[  # pylint-disable: duplicate-code
-            Tuple[
-                Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
-                Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
-                Queue[Any],  # pylint: disable=unsubscriptable-object
-            ],  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-            ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-        ],
-        fatal_error_reporter: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-            Tuple[Exception, str]
-        ],
-        suppress_setup_communication_to_main: bool = False,
-        logging_level: int = logging.INFO,
-    ):
-        super().__init__(
-            board_queues,
-            fatal_error_reporter,
-            suppress_setup_communication_to_main,
-            logging_level,
-        )
+    def __init__(self, *args: Any, **kwargs: Any):
+        super().__init__(*args, **kwargs)
         self._data_frame_format = "six_channels_32_bit__single_sample_index"
         self._time_of_last_fifo_read: List[Union[None, datetime.datetime]] = [
             None

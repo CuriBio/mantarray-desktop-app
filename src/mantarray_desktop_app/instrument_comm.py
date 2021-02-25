@@ -56,18 +56,15 @@ class InstrumentCommProcess(InfiniteProcess, metaclass=abc.ABCMeta):
     """
 
     def __init__(
-        # pylint: disable=duplicate-code
         self,
         board_queues: Tuple[
             Tuple[
                 Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
                 Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
-                # pylint: disable=duplicate-code
                 Queue[Any],  # pylint: disable=unsubscriptable-object
             ],  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
             ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
         ],
-        # pylint: disable=duplicate-code
         fatal_error_reporter: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
             Tuple[Exception, str]
         ],
