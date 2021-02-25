@@ -57,7 +57,14 @@ def fixture_mantarray_mc_simulator():
         sleep_after_write_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
     )
 
-    yield input_queue, output_queue, error_queue, testing_queue, simulator
+    items_dict = {
+        "input_queue": input_queue,
+        "output_queue": output_queue,
+        "error_queue": error_queue,
+        "testing_queue": testing_queue,
+        "simulator": simulator,
+    }
+    yield items_dict
 
 
 class MantarrayMcSimulatorNoBeacons(MantarrayMcSimulatorSleepAfterWrite):
@@ -91,7 +98,14 @@ def fixture_mantarray_mc_simulator_no_beacon():
         sleep_after_write_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
     )
 
-    yield input_queue, output_queue, error_queue, testing_queue, simulator
+    items_dict = {
+        "input_queue": input_queue,
+        "output_queue": output_queue,
+        "error_queue": error_queue,
+        "testing_queue": testing_queue,
+        "simulator": simulator,
+    }
+    yield items_dict
 
 
 @pytest.fixture(scope="function", name="runnable_mantarray_mc_simulator")
@@ -108,7 +122,14 @@ def fixture_runnable_mantarray_mc_simulator():
         read_timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
     )
 
-    yield input_queue, output_queue, error_queue, testing_queue, simulator
+    items_dict = {
+        "input_queue": input_queue,
+        "output_queue": output_queue,
+        "error_queue": error_queue,
+        "testing_queue": testing_queue,
+        "simulator": simulator,
+    }
+    yield items_dict
 
     simulator.hard_stop()
     simulator.join()
