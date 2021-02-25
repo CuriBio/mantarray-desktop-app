@@ -22,7 +22,7 @@ sphinx = "==3.5.1"
 [packages]
 astroid = "==2.4.2"  # astroid 2.5.0 was causing issues with pylint, so pinning it to 2.4.2 until the issue is resolved in a new version
 flask = "==1.1.2"
-flask-cors = "==3.0.9"
+flask-cors = "==3.0.10"
 flatten-dict = "==0.3.0"
 h5py = "==3.1.0"
 immutabledict = "==1.2.0"
