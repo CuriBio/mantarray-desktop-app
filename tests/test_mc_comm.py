@@ -79,7 +79,7 @@ def test_McCommunicationProcess_set_board_connection__sets_connect_to_mc_simulat
     four_board_mc_comm_process, mantarray_mc_simulator
 ):
     mc_process = four_board_mc_comm_process["mc_process"]
-    simulator = mantarray_mc_simulator[4]
+    simulator = mantarray_mc_simulator["simulator"]
 
     mc_process.set_board_connection(1, simulator)
     actual = mc_process.get_board_connections_list()
@@ -94,8 +94,8 @@ def test_McCommunicationProcess_register_magic_word__registers_magic_word_in_ser
     four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
 ):
     mc_process = four_board_mc_comm_process["mc_process"]
-    testing_queue = mantarray_mc_simulator_no_beacon[3]
-    simulator = mantarray_mc_simulator_no_beacon[4]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     board_idx = 0
     mc_process.set_board_connection(board_idx, simulator)
@@ -123,8 +123,8 @@ def test_McCommunicationProcess_register_magic_word__registers_magic_word_in_ser
     four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
 ):
     mc_process = four_board_mc_comm_process["mc_process"]
-    testing_queue = mantarray_mc_simulator_no_beacon[3]
-    simulator = mantarray_mc_simulator_no_beacon[4]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     board_idx = 0
     mc_process.set_board_connection(board_idx, simulator)
@@ -154,7 +154,7 @@ def test_McCommunicationProcess_register_magic_word__registers_with_magic_word_i
     mocked_sleep = mocker.patch.object(mc_comm, "sleep", autospec=True)
 
     mc_process = four_board_mc_comm_process["mc_process"]
-    simulator = mantarray_mc_simulator_no_beacon[4]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     # Arbitrarily slice the magic word across multiple reads and add empty reads to simulate no bytes being available to read
     test_read_values = [SERIAL_COMM_MAGIC_WORD_BYTES[:4]]
@@ -204,7 +204,7 @@ def test_McCommunicationProcess_register_magic_word__raises_error_if_less_than_8
     mocker.patch.object(mc_comm, "sleep", autospec=True)
 
     mc_process = four_board_mc_comm_process["mc_process"]
-    simulator = mantarray_mc_simulator_no_beacon[4]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     # Arbitrarily slice the magic word in first read and add empty reads to simulate no bytes being available to read
     test_read_values = [SERIAL_COMM_MAGIC_WORD_BYTES[:-1]]
@@ -231,7 +231,7 @@ def test_McCommunicationProcess_register_magic_word__raises_error_if_reading_nex
     mocker.patch.object(mc_comm, "sleep", autospec=True)
 
     mc_process = four_board_mc_comm_process["mc_process"]
-    simulator = mantarray_mc_simulator_no_beacon[4]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     # Add arbitrary first 8 bytes and then empty read to raise error
     test_read_values = [bytes(8), bytes(0)]
@@ -255,7 +255,7 @@ def test_McCommunicationProcess_register_magic_word__raises_error_if_search_exce
     mocker.patch.object(mc_comm, "sleep", autospec=True)
 
     mc_process = four_board_mc_comm_process["mc_process"]
-    simulator = mantarray_mc_simulator_no_beacon[4]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     # Add arbitrary first 8 bytes and then enough arbitrary bytes to reach a max size data packet length to raise error
     test_read_values = [bytes(8)]

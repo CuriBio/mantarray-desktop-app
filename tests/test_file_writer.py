@@ -126,10 +126,9 @@ def test_FileWriterProcess_super_is_called_during_init(mocker):
 def test_FileWriterProcess_soft_stop_not_allowed_if_incoming_data_still_in_queue_for_board_0(
     four_board_file_writer_process,
 ):
-    # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
-    # fmt: off
-    file_writer_process, board_queues, _, _, _, _, = four_board_file_writer_process
-    # fmt: on
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    board_queues = four_board_file_writer_process["board_queues"]
+
     # The first communication will be processed, but if there is a second one in the queue then the soft stop should be disabled
     board_queues[0][0].put(SIMPLE_CONSTRUCT_DATA_FROM_WELL_0)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -153,14 +152,9 @@ def test_FileWriterProcess__raises_error_if_not_a_dict_is_passed_through_the_que
     mocker.patch(
         "builtins.print", autospec=True
     )  # don't print all the error messages to console
-    (
-        file_writer_process,
-        board_queues,
-        _,
-        _,
-        _,
-        _,
-    ) = four_board_file_writer_process
+
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    board_queues = four_board_file_writer_process["board_queues"]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         "a string is not a dictionary",
         board_queues[0][0],
@@ -178,15 +172,10 @@ def test_FileWriterProcess__raises_error_if_unrecognized_command_from_main(
     mocker.patch(
         "builtins.print", autospec=True
     )  # don't print all the error messages to console
-    (
-        file_writer_process,
-        _,
-        from_main_queue,
-        _,
-        error_queue,
-        _,
-    ) = four_board_file_writer_process
-    # pylint: disable=duplicate-code
+
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    error_queue = four_board_file_writer_process["error_queue"]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"command": "do the hokey pokey"},
         from_main_queue,
@@ -205,14 +194,9 @@ def test_FileWriterProcess__raises_error_if_unrecognized_command_from_main(
 def test_FileWriterProcess_soft_stop_not_allowed_if_command_from_main_still_in_queue(
     four_board_file_writer_process,
 ):
-    (
-        file_writer_process,
-        _,
-        from_main_queue,
-        _,
-        _,
-        _,
-    ) = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
     # The first communication will be processed, but if there is a second one in the queue then the soft stop should be disabled
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [1]
@@ -229,14 +213,8 @@ def test_FileWriterProcess_soft_stop_not_allowed_if_command_from_main_still_in_q
 
 
 def test_FileWriterProcess__close_all_files(four_board_file_writer_process, mocker):
-    (
-        file_writer_process,
-        _,
-        from_main_queue,
-        _,
-        _,
-        _,
-    ) = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
 
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [3, 18]
@@ -258,14 +236,9 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
     four_board_file_writer_process,
 ):
     # Creating 24 files takes a few seconds, so also test that all the metadata and other things are set during this single test
-    (
-        file_writer_process,
-        _,
-        from_main_queue,
-        _,
-        _,
-        file_dir,
-    ) = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    file_dir = four_board_file_writer_process["file_dir"]
 
     timestamp_str = "2020_02_09_190935"
     expected_barcode = GENERIC_START_RECORDING_COMMAND[
@@ -421,14 +394,10 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
 def test_FileWriterProcess__only_creates_file_indices_specified__when_receiving_communication_to_start_recording__and_reports_command_receipt_to_main(
     four_board_file_writer_process, mocker
 ):
-    (
-        file_writer_process,
-        _,
-        from_main_queue,
-        to_main_queue,
-        _,
-        file_dir,
-    ) = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
+    file_dir = four_board_file_writer_process["file_dir"]
 
     spied_abspath = mocker.spy(os.path, "abspath")
 
@@ -471,15 +440,8 @@ def test_FileWriterProcess__only_creates_file_indices_specified__when_receiving_
 def test_FileWriterProcess__start_recording__sets_stop_recording_timestamp_to_none__and_tissue_and_reference_finalization_status_to_false__and_is_recording_to_true(
     four_board_file_writer_process,
 ):
-    # should maybe be replaced by a broader test that a recording can be started and stopped twice successfully...
-    (
-        file_writer_process,
-        _,
-        from_main_queue,
-        _,
-        _,
-        _,
-    ) = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
 
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [1, 5]
@@ -515,17 +477,10 @@ def test_FileWriterProcess__start_recording__sets_stop_recording_timestamp_to_no
 def test_FileWriterProcess__stop_recording_sets_stop_recording_timestamp_to_timepoint_in_communication_and_communicates_successful_receipt_and_sets_is_recording_to_false__and_start_recording_clears_stop_timestamp_and_finalization_statuses(
     four_board_file_writer_process,
 ):
-    (
-        # pylint: disable=duplicate-code
-        file_writer_process,
-        board_queues,
-        # pylint: disable=duplicate-code
-        from_main_queue,
-        to_main_queue,
-        _,
-        # pylint: disable=duplicate-code
-        _,
-    ) = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    board_queues = four_board_file_writer_process["board_queues"]
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
 
     expected_well_idx = 0
     start_timepoint_1 = 440000
@@ -613,14 +568,11 @@ def test_FileWriterProcess__stop_recording_sets_stop_recording_timestamp_to_time
 def test_FileWriterProcess__closes_the_files_and_adds_crc32_checksum_and_sends_communication_to_main_when_all_data_has_been_added_after_recording_stopped(
     four_board_file_writer_process, mocker
 ):
-    (
-        file_writer_process,
-        board_queues,
-        from_main_queue,
-        to_main_queue,
-        _,
-        file_dir,
-    ) = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    board_queues = four_board_file_writer_process["board_queues"]
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    file_dir = four_board_file_writer_process["file_dir"]
 
     spied_h5_close = mocker.spy(
         h5py._hl.files.File,  # pylint:disable=protected-access # this is the only known (Eli 2/27/20) way to access the appropriate type definition
@@ -755,14 +707,11 @@ def test_FileWriterProcess__drain_all_queues__drains_all_queues_except_error_que
     expected_from_main = "from_main"
     expected_to_main = "to_main"
 
-    (
-        file_writer_process,
-        board_queues,
-        from_main_queue,
-        to_main_queue,
-        error_queue,
-        _,
-    ) = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    board_queues = four_board_file_writer_process["board_queues"]
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    error_queue = four_board_file_writer_process["error_queue"]
     for i, board in enumerate(board_queues):
         for j, iter_queue in enumerate(board):
             item = expected[i][j]
@@ -816,7 +765,8 @@ def test_FileWriterProcess__drain_all_queues__drains_all_queues_except_error_que
 def test_FileWriterProcess__logs_performance_metrics_after_appropriate_number_of_run_cycles(
     four_board_file_writer_process, mocker
 ):
-    file_writer_process, _, _, to_main_queue, _, _ = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
 
     expected_iteration_dur = 0.001 * 10 ** 9
     expected_idle_time = (
@@ -890,7 +840,9 @@ def test_FileWriterProcess__logs_performance_metrics_after_appropriate_number_of
 def test_FileWriterProcess__does_not_log_percent_use_metrics_in_first_logging_cycle(
     four_board_file_writer_process,
 ):
-    file_writer_process, _, _, to_main_queue, _, _ = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
+
     file_writer_process._minimum_iteration_duration_seconds = (  # pylint: disable=protected-access
         0
     )
@@ -908,14 +860,11 @@ def test_FileWriterProcess__does_not_log_percent_use_metrics_in_first_logging_cy
 def test_FileWriterProcess__logs_metrics_of_data_recording_when_recording(
     four_board_file_writer_process, mocker
 ):
-    (
-        file_writer_process,
-        board_queues,
-        from_main_queue,
-        to_main_queue,
-        _,
-        _,
-    ) = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    board_queues = four_board_file_writer_process["board_queues"]
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
     file_writer_process._minimum_iteration_duration_seconds = (  # pylint: disable=protected-access
         0
     )
@@ -985,10 +934,8 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_when_recording(
 def test_FileWriterProcess__begins_building_data_buffer_when_managed_acquisition_starts(
     four_board_file_writer_process,
 ):
-    # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
-    # fmt: off
-    file_writer_process, board_queues, _, _, _, _, = four_board_file_writer_process
-    # fmt: on
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    board_queues = four_board_file_writer_process["board_queues"]
 
     expected_num_items = 3
     for _ in range(expected_num_items):
@@ -1011,10 +958,8 @@ def test_FileWriterProcess__begins_building_data_buffer_when_managed_acquisition
 def test_FileWriterProcess__removes_packets_from_data_buffer_that_are_older_than_buffer_memory_size(
     four_board_file_writer_process,
 ):
-    # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
-    # fmt: off
-    file_writer_process, board_queues, _, _, _, _, = four_board_file_writer_process
-    # fmt: on
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    board_queues = four_board_file_writer_process["board_queues"]
 
     new_packet = {
         "is_reference_sensor": False,
@@ -1054,14 +999,8 @@ def test_FileWriterProcess__removes_packets_from_data_buffer_that_are_older_than
 def test_FileWriterProcess__clears_data_buffer_when_stop_mananged_acquisition_command_is_received(
     four_board_file_writer_process,
 ):
-    (
-        file_writer_process,
-        _,
-        from_main_queue,
-        _,
-        _,
-        _,
-    ) = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
 
     # Eli (12/10/20): the new version of black is forcing the pylint note to be moved away from the relevant line
     # fmt: off
@@ -1085,14 +1024,9 @@ def test_FileWriterProcess__clears_data_buffer_when_stop_mananged_acquisition_co
 def test_FileWriterProcess__records_all_requested_data_in_buffer__and_creates_dict_of_latest_data_timepoints_for_open_files__when_start_recording_command_is_received(
     four_board_file_writer_process,
 ):
-    (
-        file_writer_process,
-        _,
-        from_main_queue,
-        _,
-        _,
-        file_dir,
-    ) = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    file_dir = four_board_file_writer_process["file_dir"]
 
     # Eli (12/10/20): the new version of black is forcing the pylint note to be moved away from the relevant line
     # fmt: off
@@ -1147,14 +1081,10 @@ def test_FileWriterProcess__records_all_requested_data_in_buffer__and_creates_di
 def test_FileWriterProcess__deletes_recorded_well_data_after_stop_time(
     four_board_file_writer_process,
 ):
-    (
-        file_writer_process,
-        ok_board_queues,
-        comm_from_main_queue,
-        _,
-        _,
-        file_dir,
-    ) = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    instrument_board_queues = four_board_file_writer_process["board_queues"]
+    comm_from_main_queue = four_board_file_writer_process["from_main_queue"]
+    file_dir = four_board_file_writer_process["file_dir"]
 
     expected_well_idx = 0
     start_recording_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
@@ -1179,7 +1109,7 @@ def test_FileWriterProcess__deletes_recorded_well_data_after_stop_time(
             "well_index": expected_well_idx,
             "data": np.array([[i], [i]], dtype=np.int32),
         }
-        ok_board_queues[0][0].put(data_packet)
+        instrument_board_queues[0][0].put(data_packet)
     dummy_packets = 2
     for i in range(dummy_packets):
         data_packet = {
@@ -1190,9 +1120,9 @@ def test_FileWriterProcess__deletes_recorded_well_data_after_stop_time(
                 dtype=np.int32,
             ),
         }
-        ok_board_queues[0][0].put(data_packet)
+        instrument_board_queues[0][0].put(data_packet)
     confirm_queue_is_eventually_of_size(
-        ok_board_queues[0][0],
+        instrument_board_queues[0][0],
         expected_remaining_packets_recorded + dummy_packets,
     )
     invoke_process_run_and_check_errors(
@@ -1235,14 +1165,10 @@ def test_FileWriterProcess__deletes_recorded_well_data_after_stop_time(
 def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
     four_board_file_writer_process,
 ):
-    (
-        file_writer_process,
-        ok_board_queues,
-        comm_from_main_queue,
-        _,
-        _,
-        file_dir,
-    ) = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    instrument_board_queues = four_board_file_writer_process["board_queues"]
+    comm_from_main_queue = four_board_file_writer_process["from_main_queue"]
+    file_dir = four_board_file_writer_process["file_dir"]
 
     expected_well_idx = 0
     start_recording_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
@@ -1263,7 +1189,7 @@ def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
             "reference_for_wells": set([0, 1, 4, 5]),
             "data": np.array([[i], [i]], dtype=np.int32),
         }
-        ok_board_queues[0][0].put(data_packet)
+        instrument_board_queues[0][0].put(data_packet)
     dummy_packets = 2
     for i in range(dummy_packets):
         data_packet = {
@@ -1274,9 +1200,9 @@ def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
                 dtype=np.int32,
             ),
         }
-        ok_board_queues[0][0].put(data_packet)
+        instrument_board_queues[0][0].put(data_packet)
     assert is_queue_eventually_of_size(
-        ok_board_queues[0][0],
+        instrument_board_queues[0][0],
         expected_remaining_packets_recorded + dummy_packets,
         timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
     )
@@ -1319,7 +1245,7 @@ def test_FileWriterProcess_teardown_after_loop__sets_teardown_complete_event(
     four_board_file_writer_process,
     mocker,
 ):
-    fw_process, _, _, _, _, _ = four_board_file_writer_process
+    fw_process = four_board_file_writer_process["fw_process"]
 
     fw_process.soft_stop()
     fw_process.run(perform_setup_before_loop=False, num_iterations=1)
@@ -1331,7 +1257,8 @@ def test_FileWriterProcess_teardown_after_loop__sets_teardown_complete_event(
 def test_FileWriterProcess_teardown_after_loop__puts_teardown_log_message_into_queue(
     four_board_file_writer_process,
 ):
-    fw_process, _, _, to_main_queue, _, _ = four_board_file_writer_process
+    fw_process = four_board_file_writer_process["fw_process"]
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
 
     fw_process.soft_stop()
     fw_process.run(perform_setup_before_loop=False, num_iterations=1)
@@ -1347,7 +1274,8 @@ def test_FileWriterProcess_teardown_after_loop__puts_teardown_log_message_into_q
 def test_FileWriterProcess_teardown_after_loop__does_not_call_close_all_files__when_not_recording(
     four_board_file_writer_process, mocker
 ):
-    fw_process, _, _, _, _, _ = four_board_file_writer_process
+    fw_process = four_board_file_writer_process["fw_process"]
+
     spied_close_all_files = mocker.spy(fw_process, "close_all_files")
 
     fw_process.soft_stop()
@@ -1359,7 +1287,9 @@ def test_FileWriterProcess_teardown_after_loop__does_not_call_close_all_files__w
 def test_FileWriterProcess_teardown_after_loop__calls_close_all_files__when_still_recording(
     four_board_file_writer_process, mocker
 ):
-    fw_process, _, from_main_queue, _, _, _ = four_board_file_writer_process
+    fw_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
     spied_close_all_files = mocker.spy(fw_process, "close_all_files")
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         GENERIC_START_RECORDING_COMMAND, from_main_queue
@@ -1374,7 +1304,9 @@ def test_FileWriterProcess_teardown_after_loop__calls_close_all_files__when_stil
 def test_FileWriterProcess_hard_stop__calls_close_all_files__when_still_recording(
     four_board_file_writer_process, mocker
 ):
-    fw_process, _, from_main_queue, _, _, _ = four_board_file_writer_process
+    fw_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
     spied_close_all_files = mocker.spy(fw_process, "close_all_files")
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         GENERIC_START_RECORDING_COMMAND, from_main_queue
@@ -1398,14 +1330,11 @@ def test_FileWriterProcess_hard_stop__closes_all_files_after_stop_recording_befo
         "metadata_to_copy_onto_main_file_attributes"
     ][PLATE_BARCODE_UUID]
 
-    (
-        fw_process,
-        board_queues,
-        from_main_queue,
-        _,
-        _,
-        tmp_dir,
-    ) = four_board_file_writer_process
+    fw_process = four_board_file_writer_process["fw_process"]
+    board_queues = four_board_file_writer_process["board_queues"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    tmp_dir = four_board_file_writer_process["file_dir"]
+
     spied_close_all_files = mocker.spy(fw_process, "close_all_files")
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -1465,7 +1394,9 @@ def test_FileWriterProcess_hard_stop__closes_all_files_after_stop_recording_befo
 def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_files_after_stop_recording(
     four_board_file_writer_process, mocker
 ):
-    fw_process, board_queues, from_main_queue, _, _, _ = four_board_file_writer_process
+    fw_process = four_board_file_writer_process["fw_process"]
+    board_queues = four_board_file_writer_process["board_queues"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         GENERIC_START_RECORDING_COMMAND, from_main_queue
@@ -1552,14 +1483,10 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_files_af
 def test_FileWriterProcess_teardown_after_loop__can_teardown_process_while_recording__and_log_stop_recording_message(
     running_four_board_file_writer_process,
 ):
-    (
-        fw_process,
-        _,
-        from_main_queue,
-        to_main_queue,
-        _,
-        _,
-    ) = running_four_board_file_writer_process
+    fw_process = running_four_board_file_writer_process["fw_process"]
+    to_main_queue = running_four_board_file_writer_process["to_main_queue"]
+    from_main_queue = running_four_board_file_writer_process["from_main_queue"]
+
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         GENERIC_START_RECORDING_COMMAND, from_main_queue
     )

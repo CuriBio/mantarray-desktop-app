@@ -2,13 +2,9 @@
 """Process controlling communication with Mantarray Microcontroller."""
 from __future__ import annotations
 
-import logging
-from multiprocessing import Queue
 from time import sleep
 from typing import Any
-from typing import Dict
 from typing import List
-from typing import Tuple
 
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
@@ -28,34 +24,8 @@ class McCommunicationProcess(InstrumentCommProcess):
         suppress_setup_communication_to_main: if set to true (often during unit tests), messages during the _setup_before_loop will not be put into the queue to communicate back to the main process
     """
 
-    def __init__(
-        self,
-        # pylint: disable=duplicate-code
-        board_queues: Tuple[  # pylint-disable: duplicate-code
-            Tuple[
-                Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
-                Queue[  # pylint: disable=unsubscriptable-object
-                    Dict[str, Any]
-                ],  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-                Queue[Any],  # pylint: disable=unsubscriptable-object
-            ],  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-            ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-            # pylint: disable=duplicate-code
-        ],
-        fatal_error_reporter: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-            Tuple[Exception, str]
-        ],
-        # pylint: disable=duplicate-code
-        suppress_setup_communication_to_main: bool = False,
-        logging_level: int = logging.INFO,
-    ):
-        # pylint: disable=duplicate-code
-        super().__init__(
-            board_queues,
-            fatal_error_reporter,  # pylint: disable=duplicate-code
-            suppress_setup_communication_to_main,
-            logging_level,
-        )
+    def __init__(self, *args: Any, **kwargs: Any):
+        super().__init__(*args, **kwargs)
         self._is_registered_with_serial_comm: List[bool] = [False] * len(
             self._board_queues
         )

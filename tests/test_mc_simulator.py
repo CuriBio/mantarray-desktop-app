@@ -98,7 +98,7 @@ def test_MantarrayMcSimulator_hard_stop__clears_all_queues_and_returns_lists_of_
         error_queue,
         testing_queue,
         simulator,
-    ) = mantarray_mc_simulator_no_beacon
+    ) = mantarray_mc_simulator_no_beacon.values()
 
     test_testing_queue_item_1 = {
         "command": "add_read_bytes",
@@ -146,7 +146,7 @@ def test_MantarrayMcSimulator__correctly_stores_time_since_initialized__in_setup
     mocker,
     mantarray_mc_simulator_no_beacon,
 ):
-    _, _, _, _, simulator = mantarray_mc_simulator_no_beacon
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     expected_init_time = 15796649135715
     expected_poll_time = 15880317595302
@@ -171,7 +171,8 @@ def test_MantarrayMcSimulator__correctly_stores_time_since_initialized__in_setup
 def test_MantarrayMcSimulator_read__gets_next_available_bytes(
     mantarray_mc_simulator_no_beacon,
 ):
-    _, _, _, testing_queue, simulator = mantarray_mc_simulator_no_beacon
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
     expected_bytes = b"expected_item"
     test_item = {"command": "add_read_bytes", "read_bytes": expected_bytes}
@@ -186,7 +187,7 @@ def test_MantarrayMcSimulator_read__gets_next_available_bytes(
 def test_MantarrayMcSimulator_read__returns_empty_bytes_if_no_bytes_to_read(
     mantarray_mc_simulator,
 ):
-    _, _, _, _, simulator = mantarray_mc_simulator
+    simulator = mantarray_mc_simulator["simulator"]
     actual_item = simulator.read(size=1)
     expected_item = bytes(0)
     assert actual_item == expected_item
@@ -220,7 +221,7 @@ def test_MantarrayMcSimulator__makes_status_beacon_available_to_read_on_first_it
 ):
     spied_randint = mocker.spy(random, "randint")
 
-    _, _, _, _, simulator = mantarray_mc_simulator
+    simulator = mantarray_mc_simulator["simulator"]
 
     expected_cms_since_init = 0
     mocker.patch.object(
@@ -250,7 +251,7 @@ def test_MantarrayMcSimulator__makes_status_beacon_available_to_read_on_first_it
 def test_MantarrayMcSimulator__makes_status_beacon_available_to_read_every_5_seconds__and_includes_correct_timestamp(
     mantarray_mc_simulator, mocker
 ):
-    _, _, _, _, simulator = mantarray_mc_simulator
+    simulator = mantarray_mc_simulator["simulator"]
 
     expected_durs = [
         0,
@@ -306,7 +307,8 @@ def test_MantarrayMcSimulator__raises_error_if_unrecognized_test_command_is_rece
         "builtins.print", autospec=True
     )  # don't print the error message to console
 
-    _, _, _, testing_queue, simulator = mantarray_mc_simulator
+    simulator = mantarray_mc_simulator["simulator"]
+    testing_queue = mantarray_mc_simulator["testing_queue"]
 
     expected_command = "bad_command"
     test_item = {"command": expected_command}
@@ -320,7 +322,8 @@ def test_MantarrayMcSimulator__raises_error_if_unrecognized_test_command_is_rece
 def test_MantarrayMcSimulator__handles_reads_of_size_less_than_next_packet_in_queue__when_queue_is_not_empty(
     mantarray_mc_simulator_no_beacon,
 ):
-    _, _, _, testing_queue, simulator = mantarray_mc_simulator_no_beacon
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
     test_size_diff = 2
     item_1 = b"item_one"
@@ -352,7 +355,8 @@ def test_MantarrayMcSimulator__handles_reads_of_size_less_than_next_packet_in_qu
 def test_MantarrayMcSimulator__handles_reads_of_size_less_than_next_packet_in_queue__when_queue_is_empty(
     mantarray_mc_simulator_no_beacon,
 ):
-    _, _, _, testing_queue, simulator = mantarray_mc_simulator_no_beacon
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
     test_size_diff_1 = 3
     test_size_diff_2 = 1
@@ -380,7 +384,8 @@ def test_MantarrayMcSimulator__handles_reads_of_size_less_than_next_packet_in_qu
 def test_MantarrayMcSimulator__handles_reads_of_size_less_than_next_packet_in_queue__when_simulator_is_running(
     runnable_mantarray_mc_simulator,
 ):
-    _, _, _, testing_queue, simulator = runnable_mantarray_mc_simulator
+    simulator = runnable_mantarray_mc_simulator["simulator"]
+    testing_queue = runnable_mantarray_mc_simulator["testing_queue"]
 
     # remove boot up beacon
     invoke_process_run_and_check_errors(simulator)
@@ -411,7 +416,8 @@ def test_MantarrayMcSimulator__handles_reads_of_size_less_than_next_packet_in_qu
 def test_MantarrayMcSimulator__handles_reads_of_size_greater_than_next_packet_in_queue__when_queue_is_not_empty(
     mantarray_mc_simulator_no_beacon,
 ):
-    _, _, _, testing_queue, simulator = mantarray_mc_simulator_no_beacon
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
     test_size_diff = 2
     item_1 = b"item_one"
@@ -441,7 +447,8 @@ def test_MantarrayMcSimulator__handles_reads_of_size_greater_than_next_packet_in
 def test_MantarrayMcSimulator__handles_reads_of_size_greater_than_next_packet_in_queue__when_queue_is_empty(
     mantarray_mc_simulator_no_beacon,
 ):
-    _, _, _, testing_queue, simulator = mantarray_mc_simulator_no_beacon
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
     test_item = b"the_item"
     test_dict = {"command": "add_read_bytes", "read_bytes": test_item}
@@ -465,7 +472,7 @@ def test_MantarrayMcSimulator__raises_error_if_unrecognized_module_id_sent_from_
         "builtins.print", autospec=True
     )  # don't print all the error messages to console
 
-    _, _, _, _, simulator = mantarray_mc_simulator_no_beacon
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     dummy_timestamp = 0
     dummy_packet_type = 1
@@ -490,7 +497,7 @@ def test_MantarrayMcSimulator__raises_error_if_unrecognized_packet_type_sent_fro
         "builtins.print", autospec=True
     )  # don't print all the error messages to console
 
-    _, _, _, _, simulator = mantarray_mc_simulator_no_beacon
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     dummy_timestamp = 0
     test_packet_type = 254
@@ -512,7 +519,7 @@ def test_MantarrayMcSimulator__raises_error_if_unrecognized_packet_type_sent_fro
 def test_MantarrayMcSimulator__responds_to_handshake__when_checksum_is_correct(
     mantarray_mc_simulator_no_beacon, mocker
 ):
-    _, _, _, _, simulator = mantarray_mc_simulator_no_beacon
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     spied_get_cms_since_init = mocker.spy(simulator, "get_cms_since_init")
 
@@ -541,7 +548,7 @@ def test_MantarrayMcSimulator__responds_to_handshake__when_checksum_is_correct(
 def test_MantarrayMcSimulator__responds_to_handshake__when_checksum_is_incorrect(
     mantarray_mc_simulator_no_beacon, mocker
 ):
-    _, _, _, _, simulator = mantarray_mc_simulator_no_beacon
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     spied_get_cms_since_init = mocker.spy(simulator, "get_cms_since_init")
 
@@ -573,7 +580,8 @@ def test_MantarrayMcSimulator__responds_to_handshake__when_checksum_is_incorrect
 def test_MantarrayMcSimulator__allows_status_bits_to_be_set_through_testing_queue_commands(
     mantarray_mc_simulator_no_beacon,
 ):
-    _, _, _, testing_queue, simulator = mantarray_mc_simulator_no_beacon
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
     expected_status_code_bits = bytes([4, 13, 7, 0])
     test_command = {
