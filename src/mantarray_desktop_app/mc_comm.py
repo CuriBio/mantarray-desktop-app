@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Mantarray Microcontroller Simulator."""
+"""Process controlling communication with Mantarray Microcontroller."""
 from __future__ import annotations
 
 import logging

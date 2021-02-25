@@ -43,7 +43,7 @@ def test_McCommunicationProcess_super_is_called_during_init(mocker):
 def test_McCommunicationProcess_hard_stop__clears_all_queues_and_returns_lists_of_values(
     four_board_mc_comm_process,
 ):
-    mc_process, board_queues, error_queue = four_board_mc_comm_process
+    mc_process, board_queues, error_queue = four_board_mc_comm_process.values()
 
     expected = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11]]
     expected_error = "error"
@@ -78,7 +78,7 @@ def test_McCommunicationProcess_hard_stop__clears_all_queues_and_returns_lists_o
 def test_McCommunicationProcess_set_board_connection__sets_connect_to_mc_simulator_correctly(
     four_board_mc_comm_process, mantarray_mc_simulator
 ):
-    mc_process = four_board_mc_comm_process[0]
+    mc_process = four_board_mc_comm_process["mc_process"]
     simulator = mantarray_mc_simulator[4]
 
     mc_process.set_board_connection(1, simulator)
@@ -93,7 +93,7 @@ def test_McCommunicationProcess_set_board_connection__sets_connect_to_mc_simulat
 def test_McCommunicationProcess_register_magic_word__registers_magic_word_in_serial_comm_from_board__when_first_packet_is_truncated_to_more_than_8_bytes(
     four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
 ):
-    mc_process = four_board_mc_comm_process[0]
+    mc_process = four_board_mc_comm_process["mc_process"]
     testing_queue = mantarray_mc_simulator_no_beacon[3]
     simulator = mantarray_mc_simulator_no_beacon[4]
 
@@ -122,7 +122,7 @@ def test_McCommunicationProcess_register_magic_word__registers_magic_word_in_ser
 def test_McCommunicationProcess_register_magic_word__registers_magic_word_in_serial_comm_from_board__when_first_packet_is_not_truncated(
     four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
 ):
-    mc_process = four_board_mc_comm_process[0]
+    mc_process = four_board_mc_comm_process["mc_process"]
     testing_queue = mantarray_mc_simulator_no_beacon[3]
     simulator = mantarray_mc_simulator_no_beacon[4]
 
@@ -153,7 +153,7 @@ def test_McCommunicationProcess_register_magic_word__registers_with_magic_word_i
     # mock sleep to speed up the test
     mocked_sleep = mocker.patch.object(mc_comm, "sleep", autospec=True)
 
-    mc_process = four_board_mc_comm_process[0]
+    mc_process = four_board_mc_comm_process["mc_process"]
     simulator = mantarray_mc_simulator_no_beacon[4]
 
     # Arbitrarily slice the magic word across multiple reads and add empty reads to simulate no bytes being available to read
@@ -203,7 +203,7 @@ def test_McCommunicationProcess_register_magic_word__raises_error_if_less_than_8
     # mock sleep to speed up the test
     mocker.patch.object(mc_comm, "sleep", autospec=True)
 
-    mc_process = four_board_mc_comm_process[0]
+    mc_process = four_board_mc_comm_process["mc_process"]
     simulator = mantarray_mc_simulator_no_beacon[4]
 
     # Arbitrarily slice the magic word in first read and add empty reads to simulate no bytes being available to read
@@ -230,7 +230,7 @@ def test_McCommunicationProcess_register_magic_word__raises_error_if_reading_nex
     # mock sleep to speed up the test
     mocker.patch.object(mc_comm, "sleep", autospec=True)
 
-    mc_process = four_board_mc_comm_process[0]
+    mc_process = four_board_mc_comm_process["mc_process"]
     simulator = mantarray_mc_simulator_no_beacon[4]
 
     # Add arbitrary first 8 bytes and then empty read to raise error
@@ -254,7 +254,7 @@ def test_McCommunicationProcess_register_magic_word__raises_error_if_search_exce
     # mock sleep to speed up the test
     mocker.patch.object(mc_comm, "sleep", autospec=True)
 
-    mc_process = four_board_mc_comm_process[0]
+    mc_process = four_board_mc_comm_process["mc_process"]
     simulator = mantarray_mc_simulator_no_beacon[4]
 
     # Add arbitrary first 8 bytes and then enough arbitrary bytes to reach a max size data packet length to raise error
