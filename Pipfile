@@ -18,6 +18,7 @@ pytest-pylint = "==0.18.0"
 pytest-randomly = "==3.5.0"
 pytest-timeout = "==1.4.2"
 sphinx = "==3.5.1"
+pyinstaller = "==4.2"
 
 [packages]
 astroid = "==2.4.2"  # astroid 2.5.0 was causing issues with pylint, so pinning it to 2.4.2 until the issue is resolved in a new version
