@@ -4,7 +4,6 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [dev-packages]
-atomicwrites = "==1.4.0"
 boto3 = "==1.17.17"
 cython = "==0.29.22"
 freezegun = "==1.0.0"
@@ -18,9 +17,12 @@ pytest-pylint = "==0.18.0"
 pytest-randomly = "==3.5.0"
 pytest-timeout = "==1.4.2"
 sphinx = "==3.5.1"
+pyinstaller = "==4.2"
+pywin32-ctypes = "==0.2.0" # Eli (3/1/21): this must be explicitly specified when using a Linux dev environment so that it will be included in a Windows build environment
+pefile = "==2019.4.18" # Eli (3/1/21): this must be explicitly specified when using a Linux dev environment so that it will be included in a Windows build environment
+atomicwrites = "==1.4.0" # Eli (3/1/21): this must be explicitly specified when using a Linux dev environment so that it will be included in a Windows build environment
 
 [packages]
-astroid = "==2.4.2"  # astroid 2.5.0 was causing issues with pylint, so pinning it to 2.4.2 until the issue is resolved in a new version
 flask = "==1.1.2"
 flask-cors = "==3.0.10"
 flatten-dict = "==0.3.0"

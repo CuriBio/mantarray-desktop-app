@@ -227,12 +227,6 @@ jobs:
           sed -i 's/REPLACETHISWITHTIMESTAMPDURINGBUILD/'"$(date +'%y%m%d%H%M%S')"'--$build_number/g' src/mantarray_desktop_app/constants.py
           sed -i 's/REPLACETHISWITHVERSIONDURINGBUILD/'"${{steps.software-version.outputs.prop}}"'/g' src/mantarray_desktop_app/constants.py
 
-      - name: Install Pyinstaller (Windows) and display all packages # Eli (10/21/20): when installed with pipenv during development on Linux, not all the right dependencies are included. Maybe there's a better way to get it into the pipfile, but unsure right now
-        if: runner.os == 'Windows'
-        run: |
-          pipenv run pip install pyinstaller==4.2
-          pipenv run pip freeze
-
       - name: Compile the Python Executable (Windows)
         if: runner.os == 'Windows'
         run: pipenv run pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=dist-python --workpath=build-python
