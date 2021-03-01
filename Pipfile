@@ -19,6 +19,7 @@ pytest-timeout = "==1.4.2"
 sphinx = "==3.5.1"
 pyinstaller = "==4.2"
 pywin32-ctypes = "==0.2.0" # Eli (3/1/21): this must be explicitly specified when using a Linux dev environment so that it will be included in a Windows build environment
+pefile = "==2019.4.18" # Eli (3/1/21): this must be explicitly specified when using a Linux dev environment so that it will be included in a Windows build environment
 
 [packages]
 flask = "==1.1.2"
