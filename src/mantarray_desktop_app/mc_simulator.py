@@ -144,6 +144,7 @@ class MantarrayMcSimulator(InfiniteProcess):
 
     def _commands_for_each_run_iteration(self) -> None:
         self._handle_test_comm()
+        # if _reboot_time_secs is not None, this means the simulator is in a "reboot" phase
         if self._reboot_time_secs is not None:
             secs_since_reboot = _get_secs_since_reboot_command(self._reboot_time_secs)
             if secs_since_reboot < 5:
