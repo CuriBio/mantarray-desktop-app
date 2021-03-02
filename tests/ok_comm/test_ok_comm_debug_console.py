@@ -78,7 +78,7 @@ def test_OkCommunicationProcess_run__processes_init_board_debug_console_command(
     simulator = FrontPanelSimulator({})
     ok_process, board_queues, error_queue = running_process_with_simulated_board(
         simulator
-    )
+    ).values()
     input_queue = board_queues[0][0]
     response_queue = board_queues[0][1]
     init_command = {
@@ -104,7 +104,7 @@ def test_OkCommunicationProcess_run__processes_init_board_debug_console_command_
     simulator.initialize_board()
     ok_process, board_queues, error_queue = running_process_with_simulated_board(
         simulator
-    )
+    ).values()
     input_queue = board_queues[0][0]
     response_queue = board_queues[0][1]
     init_command = {
@@ -141,7 +141,7 @@ def test_OkCommunicationProcess_run__processes_read_wire_out_debug_console_comma
     simulator.initialize_board()
     ok_process, board_queues, error_queue = running_process_with_simulated_board(
         simulator
-    )
+    ).values()
     input_queue = board_queues[0][0]
     response_queue = board_queues[0][1]
     expected_returned_communication = {
@@ -185,7 +185,7 @@ def test_OkCommunicationProcess_run__processes_read_from_fifo_debug_console_comm
     simulator.start_acquisition()
     ok_process, board_queues, error_queue = running_process_with_simulated_board(
         simulator
-    )
+    ).values()
     input_queue = board_queues[0][0]
     response_queue = board_queues[0][1]
     expected_returned_communication = {
@@ -218,7 +218,7 @@ def test_OkCommunicationProcess_run__processes_get_device_id_debug_console_comma
     simulator.set_device_id(expected_id)
     ok_process, board_queues, error_queue = running_process_with_simulated_board(
         simulator
-    )
+    ).values()
     input_queue = board_queues[0][0]
     response_queue = board_queues[0][1]
     expected_returned_communication = {
@@ -242,7 +242,7 @@ def test_OkCommunicationProcess_run__processes_get_serial_number_debug_console_c
     simulator.initialize_board()
     ok_process, board_queues, error_queue = running_process_with_simulated_board(
         simulator
-    )
+    ).values()
     input_queue = board_queues[0][0]
     response_queue = board_queues[0][1]
     expected_returned_communication = {
@@ -267,7 +267,7 @@ def test_OkCommunicationProcess_run__processes_is_spi_running_debug_console_comm
     assert simulator.is_spi_running() is False
     ok_process, board_queues, error_queue = running_process_with_simulated_board(
         simulator
-    )
+    ).values()
     input_queue = board_queues[0][0]
     response_queue = board_queues[0][1]
     expected_returned_communication = {
@@ -292,7 +292,7 @@ def test_OkCommunicationProcess_run__processes_start_acquisition_debug_console_c
     assert simulator.is_spi_running() is False
     ok_process, board_queues, error_queue = running_process_with_simulated_board(
         simulator
-    )
+    ).values()
     input_queue = board_queues[0][0]
     response_queue = board_queues[0][1]
     expected_returned_communication = {
@@ -333,7 +333,7 @@ def test_OkCommunicationProcess_run__processes_stop_acquisition_debug_console_co
     simulator.start_acquisition()
     ok_process, board_queues, error_queue = running_process_with_simulated_board(
         simulator
-    )
+    ).values()
     input_queue = board_queues[0][0]
     response_queue = board_queues[0][1]
     expected_returned_communication = {
@@ -368,7 +368,7 @@ def test_OkCommunicationProcess_run__processes_set_device_id_debug_console_comma
     simulator = FrontPanelSimulator({})
     ok_process, board_queues, error_queue = running_process_with_simulated_board(
         simulator
-    )
+    ).values()
     input_queue = board_queues[0][0]
     response_queue = board_queues[0][1]
     expected_returned_communication = {
@@ -402,7 +402,7 @@ def test_OkCommunicationProcess_run__processes_set_wire_in_debug_console_command
     simulator.initialize_board()
     ok_process, board_queues, error_queue = running_process_with_simulated_board(
         simulator
-    )
+    ).values()
     input_queue = board_queues[0][0]
     response_queue = board_queues[0][1]
     expected_returned_communication = {
@@ -431,7 +431,7 @@ def test_OkCommunicationProcess_run__processes_activate_trigger_in_debug_console
     simulator.initialize_board()
     ok_process, board_queues, error_queue = running_process_with_simulated_board(
         simulator
-    )
+    ).values()
     input_queue = board_queues[0][0]
     response_queue = board_queues[0][1]
     expected_returned_communication = {
@@ -464,7 +464,7 @@ def test_OkCommunicationProcess_run__processes_get_num_words_fifo_debug_console_
     simulator.initialize_board()
     ok_process, board_queues, error_queue = running_process_with_simulated_board(
         simulator
-    )
+    ).values()
     input_queue = board_queues[0][0]
     response_queue = board_queues[0][1]
     expected_returned_communication = {
@@ -488,7 +488,7 @@ def test_OkCommunicationProcess_run__processes_get_status_debug_console_command_
     simulator = FrontPanelSimulator({})
     ok_process, board_queues, error_queue = running_process_with_simulated_board(
         simulator
-    )
+    ).values()
     input_queue = board_queues[0][0]
     response_queue = board_queues[0][1]
     expected_returned_communication = {
@@ -517,7 +517,7 @@ def test_OkCommunicationProcess_run__processes_comm_delay_debug_console_command(
     simulator = FrontPanelSimulator({})
     ok_process, board_queues, error_queue = running_process_with_simulated_board(
         simulator
-    )
+    ).values()
     input_queue = board_queues[0][0]
     response_queue = board_queues[0][1]
     expected_returned_communication = {

@@ -38,7 +38,8 @@ def test_OkCommunicationProcess__always_returns_default_barcode_when_connected_t
     four_board_comm_process,
     mocker,
 ):
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     input_queue = board_queues[0][0]
     to_main_queue = board_queues[0][1]
 
@@ -76,7 +77,8 @@ def test_OkCommunicationProcess__always_returns_default_barcode_when_connected_t
 def test_OkCommunicationProcess__clears_barcode_scanner_after_receiving_start_scan_comm(
     four_board_comm_process, mocker, test_barcode_simulator
 ):
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     input_queue = board_queues[0][0]
 
     simulator, _ = test_barcode_simulator()
@@ -106,7 +108,8 @@ def test_OkCommunicationProcess__waits_appropriate_amount_of_time_after_clearing
         ],
     )
 
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     input_queue = board_queues[0][0]
 
     simulator, mocked_get = test_barcode_simulator(CLEARED_BARCODE_VALUE)
@@ -140,7 +143,8 @@ def test_OkCommunicationProcess__raises_error_if_barcode_buffer_not_cleared_afte
         return_value=BARCODE_CONFIRM_CLEAR_WAIT_SECONDS,
     )
 
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     input_queue = board_queues[0][0]
 
     simulator, _ = test_barcode_simulator(expected_barcode)
@@ -166,7 +170,8 @@ def test_OkCommunicationProcess__checks_barcode_value_after_appropriate_amount_o
         side_effect=[BARCODE_GET_SCAN_WAIT_SECONDS - 1, BARCODE_GET_SCAN_WAIT_SECONDS],
     )
 
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     input_queue = board_queues[0][0]
 
     simulator, mocked_get = test_barcode_simulator(
@@ -214,7 +219,8 @@ def test_OkCommunicationProcess__sends_message_to_main_if_valid_barcode_received
         return_value=BARCODE_GET_SCAN_WAIT_SECONDS,
     )
 
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     input_queue = board_queues[0][0]
     to_main_queue = board_queues[0][1]
 
@@ -258,7 +264,8 @@ def test_OkCommunicationProcess__raises_error_if_barcode_scanner_does_not_respon
         return_value=BARCODE_GET_SCAN_WAIT_SECONDS,
     )
 
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     input_queue = board_queues[0][0]
 
     simulator, _ = test_barcode_simulator(expected_barcode)
@@ -287,7 +294,8 @@ def test_OkCommunicationProcess__logs_that_no_plate_was_detected_if_barcode_scan
         ok_comm, "put_log_message_into_queue", autospec=True
     )
 
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     input_queue = board_queues[0][0]
     to_main_queue = board_queues[0][1]
 
@@ -327,7 +335,8 @@ def test_OkCommunicationProcess__logs_that_invalid_barcode_received_if_barcode_s
         ok_comm, "put_log_message_into_queue", autospec=True
     )
 
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     input_queue = board_queues[0][0]
     to_main_queue = board_queues[0][1]
 
@@ -366,7 +375,8 @@ def test_OkCommunicationProcess__restarts_scan_process_if_valid_barcode_not_dete
         ],
     )
 
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     input_queue = board_queues[0][0]
 
     simulator, mocked_get = test_barcode_simulator(
@@ -407,7 +417,8 @@ def test_OkCommunicationProcess__sends_correct_values_to_main_for_valid_second_b
     # Tanner (12/7/20): mock this so we can make assertions on what's in the queue more easily
     mocker.patch.object(ok_comm, "put_log_message_into_queue", autospec=True)
 
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     input_queue = board_queues[0][0]
     to_main_queue = board_queues[0][1]
 
@@ -464,7 +475,8 @@ def test_OkCommunicationProcess__sends_correct_values_to_main_for_invalid_second
     # Tanner (12/7/20): mock this so we can make assertions on what's in the queue more easily
     mocker.patch.object(ok_comm, "put_log_message_into_queue", autospec=True)
 
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     input_queue = board_queues[0][0]
     to_main_queue = board_queues[0][1]
 
@@ -519,7 +531,8 @@ def test_OkCommunicationProcess__sends_correct_values_to_main_when_no_valid_barc
     # Tanner (12/7/20): mock this so we can make assertions on what's in the queue more easily
     mocker.patch.object(ok_comm, "put_log_message_into_queue", autospec=True)
 
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     input_queue = board_queues[0][0]
     to_main_queue = board_queues[0][1]
 
@@ -578,7 +591,8 @@ def test_OkCommunicationProcess__correctly_handles_two_consecutive_full_process_
     # Tanner (12/7/20): mock this so we can make assertions on what's in the queue more easily
     mocker.patch.object(ok_comm, "put_log_message_into_queue", autospec=True)
 
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     input_queue = board_queues[0][0]
     to_main_queue = board_queues[0][1]
 
@@ -632,7 +646,8 @@ def test_OkCommunicationProcess__does_not_try_to_scan_barcode_before_board_is_in
     four_board_comm_process, mocker, test_barcode_simulator
 ):
     # Tanner (12/10/20): This test is to make sure the barcode feature is compatible with --skip-mantarray-boot-up cmd line arg
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     input_queue = board_queues[0][0]
     to_main_queue = board_queues[0][1]
 

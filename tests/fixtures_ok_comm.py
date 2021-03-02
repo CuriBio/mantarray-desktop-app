@@ -29,27 +29,37 @@ def fixture_patch_connection_to_board(mocker):
 @pytest.fixture(scope="function", name="four_board_comm_process")
 def fixture_four_board_comm_process():
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
-    p = OkCommunicationProcess(board_queues, error_queue)
-    yield p, board_queues, error_queue
+    ok_process = OkCommunicationProcess(board_queues, error_queue)
+    ok_items_dict = {
+        "ok_process": ok_process,
+        "board_queues": board_queues,
+        "error_queue": error_queue,
+    }
+    yield ok_items_dict
     # clean up queues to avoid broken pipe errors
-    p.hard_stop()
+    ok_process.hard_stop()
 
 
 @pytest.fixture(scope="function", name="running_process_with_simulated_board")
 def fixture_running_process_with_simulated_board():
     board_queues, error_queue = generate_board_and_error_queues()
 
-    p = OkCommunicationProcess(
+    ok_process = OkCommunicationProcess(
         board_queues, error_queue, suppress_setup_communication_to_main=True
     )
 
     def _foo(simulator: FrontPanelSimulator):
-        p.set_board_connection(0, simulator)
-        p.start()
+        ok_process.set_board_connection(0, simulator)
+        ok_process.start()
 
-        return p, board_queues, error_queue
+        ok_items_dict = {
+            "ok_process": ok_process,
+            "board_queues": board_queues,
+            "error_queue": error_queue,
+        }
+        return ok_items_dict
 
     yield _foo
 
-    p.stop()
-    p.join()
+    ok_process.stop()
+    ok_process.join()

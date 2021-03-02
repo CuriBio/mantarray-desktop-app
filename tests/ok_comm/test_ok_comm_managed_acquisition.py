@@ -53,7 +53,8 @@ __fixtures__ = [
 def test_OkCommunicationProcess_run__processes_start_managed_acquisition_command(
     four_board_comm_process,
 ):
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
 
     simulator = FrontPanelSimulator({})
     simulator.initialize_board()
@@ -91,7 +92,8 @@ def test_OkCommunicationProcess_run__processes_start_managed_acquisition_command
 def test_OkCommunicationProcess_run__processes_stop_managed_acquisition_command(
     four_board_comm_process,
 ):
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
 
     simulator = FrontPanelSimulator({})
     simulator.initialize_board()
@@ -130,7 +132,8 @@ def test_OkCommunicationProcess_run__raises_error_if_command_to_instrument_is_in
     mocker.patch(
         "builtins.print", autospec=True
     )  # don't print all the error messages to console
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
 
     simulator = FrontPanelSimulator({})
     simulator.initialize_board()
@@ -286,7 +289,8 @@ def test_OkCommunicationProcess_managed_acquisition_reads_at_least_one_prepopula
     four_board_comm_process,  # mocker
 ):
     # mocker.patch('builtins.print') # don't print all the debug messages to console
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
 
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
@@ -335,7 +339,8 @@ def test_OkCommunicationProcess_managed_acquisition_reads_at_least_one_prepopula
 def test_OkCommunicationProcess_managed_acquisition_handles_ignoring_first_data_cycle(
     four_board_comm_process,
 ):
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
 
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
@@ -442,7 +447,8 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
     mocker.patch(
         "builtins.print", autospec=True
     )  # don't print all the error messages to console
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
 
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
@@ -551,7 +557,8 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_when_non_parsin
     mocker.patch(
         "builtins.print", autospec=True
     )  # don't print all the error messages to console
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
 
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
     ok_process._data_frame_format = "fake_format"  # pylint:disable=protected-access
@@ -619,7 +626,8 @@ def test_OkCommunicationProcess_raises_and_logs_error_if_first_managed_read_does
         "builtins.print", autospec=True
     )  # don't print all the error messages to console
     test_bytearray = bytearray(0)
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
 
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
@@ -702,7 +710,8 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
 ):
     test_read = bytearray([1] * DATA_FRAME_SIZE_WORDS * DATA_FRAMES_PER_ROUND_ROBIN * 4)
     test_read.extend(produce_data(1, 12345))
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
 
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
@@ -798,7 +807,8 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_when_non_parsin
     mocker.patch(
         "builtins.print", autospec=True
     )  # don't print all the error messages to console
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
 
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
     ok_process._data_frame_format = "fake_format"  # pylint:disable=protected-access
@@ -914,7 +924,8 @@ def test_OkCommunicationProcess_managed_acquisition_logs_performance_metrics_aft
         side_effect=expected_longest_iterations,
     )
 
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     ok_process._time_of_last_fifo_read[  # pylint: disable=protected-access
         0
     ] = datetime.datetime(2020, 5, 28, 12, 58, 0, 0)
@@ -1049,7 +1060,8 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_percent_use_met
         OkCommunicationProcess, "_is_ready_to_read_from_fifo", return_value=True
     )
 
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     ok_process._time_of_last_fifo_read[  # pylint: disable=protected-access
         0
     ] = datetime.datetime(2020, 7, 3, 9, 25, 0, 0)
