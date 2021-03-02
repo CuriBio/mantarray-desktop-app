@@ -14,6 +14,7 @@ from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
+from mantarray_desktop_app import SERIAL_COMM_REBOOT_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
@@ -612,10 +613,12 @@ def test_MantarrayMcSimulator__allows_status_bits_to_be_set_through_testing_queu
     assert actual_status_code_bits == expected_status_code_bits
 
 
-def test_MantarrayMcSimulator__stops_processing_responding_to_pc_during_period(
+def test_MantarrayMcSimulator__discards_commands_from_pc_during_reboot_period__and_sends_reboot_response_packet_when_finished(
     mantarray_mc_simulator_no_beacon, mocker
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    spied_get_cms_since_init = mocker.spy(simulator, "get_cms_since_init")
 
     reboot_duration = 5
     reboot_times = [4, reboot_duration]
@@ -626,18 +629,21 @@ def test_MantarrayMcSimulator__stops_processing_responding_to_pc_during_period(
         side_effect=reboot_times,
     )
 
+    spied_reset = mocker.spy(simulator, "_reset_start_time")
+
     dummy_timestamp = 0
-    reboot_packet_type = 0
     test_reboot_command = create_data_packet(
         dummy_timestamp,
         SERIAL_COMM_MAIN_MODULE_ID,
-        reboot_packet_type,
+        SERIAL_COMM_REBOOT_PACKET_TYPE,
         bytes(0),
     )
     simulator.write(test_reboot_command)
     invoke_process_run_and_check_errors(simulator)
 
     # TODO Tanner (3/2/21): figure out if real mantarray would ever process this comm
+
+    # test that handshake is ignored
     test_handshake = create_data_packet(
         dummy_timestamp,
         SERIAL_COMM_MAIN_MODULE_ID,
@@ -645,11 +651,79 @@ def test_MantarrayMcSimulator__stops_processing_responding_to_pc_during_period(
         bytes(0),
     )
     simulator.write(test_handshake)
-
     invoke_process_run_and_check_errors(simulator)
     response_during_reboot = simulator.read(size=HANDSHAKE_RESPONSE_SIZE_BYTES)
     assert len(response_during_reboot) == 0
 
+    # test that reboot response packet is sent
     invoke_process_run_and_check_errors(simulator)
-    response_during_reboot = simulator.read(size=HANDSHAKE_RESPONSE_SIZE_BYTES)
-    assert len(response_during_reboot) == HANDSHAKE_RESPONSE_SIZE_BYTES
+    expected_reboot_response = create_data_packet(
+        spied_get_cms_since_init.spy_return,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_REBOOT_PACKET_TYPE,
+        bytes(0),
+    )
+    response_after_reboot = simulator.read(size=len(expected_reboot_response))
+    assert response_after_reboot == expected_reboot_response
+
+    # test that start time was reset
+    spied_reset.assert_called_once()
+
+
+def test_MantarrayMcSimulator__reset_status_code_after_rebooting(
+    mantarray_mc_simulator_no_beacon, mocker
+):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+
+    reboot_duration = 5
+    mocker.patch.object(
+        mc_simulator,
+        "_get_secs_since_reboot_command",
+        autospec=True,
+        return_value=reboot_duration,
+    )
+
+    # set status code to known value
+    expected_status_code_bits = bytes([1, 7, 3, 8])
+    test_command = {
+        "command": "set_status_code_bits",
+        "status_code_bits": expected_status_code_bits,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_command, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator)
+
+    # send reboot command
+    dummy_timestamp = 0
+    test_reboot_command = create_data_packet(
+        dummy_timestamp,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_REBOOT_PACKET_TYPE,
+        bytes(0),
+    )
+    simulator.write(test_reboot_command)
+    invoke_process_run_and_check_errors(simulator)
+
+    # remove reboot response packet
+    invoke_process_run_and_check_errors(simulator)
+    expected_reboot_response = create_data_packet(
+        0,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_REBOOT_PACKET_TYPE,
+        bytes(0),
+    )
+    simulator.read(size=len(expected_reboot_response))
+
+    test_handshake = create_data_packet(
+        dummy_timestamp,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
+        bytes(0),
+    )
+    simulator.write(test_handshake)
+    invoke_process_run_and_check_errors(simulator)
+    handshake_response = simulator.read(size=HANDSHAKE_RESPONSE_SIZE_BYTES)
+    assert len(handshake_response) == HANDSHAKE_RESPONSE_SIZE_BYTES
+    assert handshake_response[-8:-4] == DEFAULT_SIMULATOR_STATUS_CODE

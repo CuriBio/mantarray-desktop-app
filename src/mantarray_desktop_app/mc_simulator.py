@@ -106,11 +106,18 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._reboot_time_secs: Optional[float] = None
         self._leftover_read_bytes: Optional[bytes] = None
         self._read_timeout_seconds = read_timeout_seconds
+        self._status_code_bits: bytes = bytes(0)
+        self._reset_status_code_bits()
+
+    def _reset_status_code_bits(self) -> None:
         self._status_code_bits = bytes(4)
+
+    def _reset_start_time(self) -> None:
+        self._init_time_ns = perf_counter_ns()
 
     def _setup_before_loop(self) -> None:
         # Tanner (2/2/21): Comparing perf_counter_ns values in a subprocess to those in the parent process have unexpected behavior in windows, so storing the initialization time after the process has been created in order to avoid issues
-        self._init_time_ns = perf_counter_ns()
+        self._reset_start_time()
 
     def get_cms_since_init(self) -> int:
         if self._init_time_ns is None:
@@ -140,10 +147,27 @@ class MantarrayMcSimulator(InfiniteProcess):
         if self._reboot_time_secs is not None:
             secs_since_reboot = _get_secs_since_reboot_command(self._reboot_time_secs)
             if secs_since_reboot < 5:
+                self._discard_comm_from_pc()
                 return
-            self._reboot_time_secs = None
+            self._handle_reboot_completion()
         self._handle_comm_from_pc()
         self._handle_status_beacon()
+
+    def _handle_reboot_completion(self) -> None:
+        self._reset_start_time()
+        self._reboot_time_secs = None
+        self._reset_status_code_bits()
+        self._send_data_packet(
+            SERIAL_COMM_MAIN_MODULE_ID,
+            SERIAL_COMM_REBOOT_PACKET_TYPE,
+            bytes(0),
+        )
+
+    def _discard_comm_from_pc(self) -> None:
+        try:
+            self._input_queue.get_nowait()
+        except queue.Empty:
+            pass
 
     def _handle_comm_from_pc(self) -> None:
         try:
