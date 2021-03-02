@@ -610,3 +610,46 @@ def test_MantarrayMcSimulator__allows_status_bits_to_be_set_through_testing_queu
     status_code_start = status_code_end - len(expected_status_code_bits)
     actual_status_code_bits = handshake_response[status_code_start:status_code_end]
     assert actual_status_code_bits == expected_status_code_bits
+
+
+def test_MantarrayMcSimulator__stops_processing_responding_to_pc_during_period(
+    mantarray_mc_simulator_no_beacon, mocker
+):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    reboot_duration = 5
+    reboot_times = [4, reboot_duration]
+    mocker.patch.object(
+        mc_simulator,
+        "_get_secs_since_reboot_command",
+        autospec=True,
+        side_effect=reboot_times,
+    )
+
+    dummy_timestamp = 0
+    reboot_packet_type = 0
+    test_reboot_command = create_data_packet(
+        dummy_timestamp,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        reboot_packet_type,
+        bytes(0),
+    )
+    simulator.write(test_reboot_command)
+    invoke_process_run_and_check_errors(simulator)
+
+    # TODO Tanner (3/2/21): figure out if real mantarray would ever process this comm
+    test_handshake = create_data_packet(
+        dummy_timestamp,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
+        bytes(0),
+    )
+    simulator.write(test_handshake)
+
+    invoke_process_run_and_check_errors(simulator)
+    response_during_reboot = simulator.read(size=HANDSHAKE_RESPONSE_SIZE_BYTES)
+    assert len(response_during_reboot) == 0
+
+    invoke_process_run_and_check_errors(simulator)
+    response_during_reboot = simulator.read(size=HANDSHAKE_RESPONSE_SIZE_BYTES)
+    assert len(response_during_reboot) == HANDSHAKE_RESPONSE_SIZE_BYTES
