@@ -148,6 +148,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         # if _reboot_time_secs is not None, this means the simulator is in a "reboot" phase
         if self._reboot_time_secs is not None:
             secs_since_reboot = _get_secs_since_reboot_command(self._reboot_time_secs)
+            # if secs_since_reboot is less than the reboot duration, simulator is still in the 'reboot' phase. Commands from PC will be discared and status beacons will not be sent
             if secs_since_reboot < 5:
                 self._discard_comm_from_pc()
                 return
@@ -173,6 +174,21 @@ class MantarrayMcSimulator(InfiniteProcess):
         except queue.Empty:
             return
 
+        # validate checksum before handling the communication
+        expected_checksum = crc32(comm_from_pc[:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES])
+        actual_checksum = int.from_bytes(
+            comm_from_pc[-SERIAL_COMM_CHECKSUM_LENGTH_BYTES:],
+            byteorder="little",
+        )
+        if actual_checksum != expected_checksum:
+            # remove magic word before returning message to PC
+            trimmed_comm_from_pc = comm_from_pc[MAGIC_WORD_LEN:]
+            self._send_data_packet(
+                SERIAL_COMM_MAIN_MODULE_ID,
+                SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE,
+                trimmed_comm_from_pc,
+            )
+            return
         module_id = comm_from_pc[SERIAL_COMM_MODULE_ID_INDEX]
         if module_id == SERIAL_COMM_MAIN_MODULE_ID:
             self._process_main_module_command(comm_from_pc)
@@ -193,24 +209,10 @@ class MantarrayMcSimulator(InfiniteProcess):
                 # TODO
                 raise NotImplementedError()
         elif packet_type == SERIAL_COMM_HANDSHAKE_PACKET_TYPE:
-            expected_checksum = crc32(comm_from_pc[:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES])
-            actual_checksum = int.from_bytes(
-                comm_from_pc[-SERIAL_COMM_CHECKSUM_LENGTH_BYTES:],
-                byteorder="little",
-            )
-            if actual_checksum == expected_checksum:
-                self._send_data_packet(
-                    SERIAL_COMM_MAIN_MODULE_ID,
-                    SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-                    self._status_code_bits,
-                )
-                return
-            # remove magic word before returning message to PC
-            trimmed_comm_from_pc = comm_from_pc[MAGIC_WORD_LEN:]
             self._send_data_packet(
                 SERIAL_COMM_MAIN_MODULE_ID,
-                SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE,
-                trimmed_comm_from_pc,
+                SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+                self._status_code_bits,
             )
         else:
             module_id = comm_from_pc[SERIAL_COMM_MODULE_ID_INDEX]
