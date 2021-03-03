@@ -11,6 +11,7 @@ from time import perf_counter
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Optional
 from typing import Union
 
 import stdlib_utils
@@ -32,10 +33,13 @@ def put_object_into_queue_and_raise_error_if_eventually_still_empty(
     obj: object,
     the_queue: UnionOfThreadingAndMultiprocessingQueue,
     timeout_seconds: Union[float, int] = QUEUE_CHECK_TIMEOUT_SECONDS,
+    sleep_after_put_seconds: Optional[Union[float, int]] = None,
 ) -> None:
     stdlib_utils.put_object_into_queue_and_raise_error_if_eventually_still_empty(
         obj, the_queue, timeout_seconds=timeout_seconds
     )
+    if sleep_after_put_seconds is not None:
+        time.sleep(sleep_after_put_seconds)
 
 
 def is_queue_eventually_of_size(
@@ -55,8 +59,11 @@ def confirm_queue_is_eventually_of_size(
     the_queue: UnionOfThreadingAndMultiprocessingQueue,
     size: int,
     timeout_seconds: Union[float, int] = QUEUE_CHECK_TIMEOUT_SECONDS,
+    sleep_after_confirm_seconds: Optional[Union[float, int]] = None,
 ) -> None:
     stdlib_c_q_is_e_of_s(the_queue, size, timeout_seconds=timeout_seconds)
+    if sleep_after_confirm_seconds is not None:
+        time.sleep(sleep_after_confirm_seconds)
 
 
 def handle_putting_multiple_objects_into_empty_queue(

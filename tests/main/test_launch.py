@@ -195,7 +195,6 @@ def test_main__logs_system_info__and_software_version_at_very_start(
 
 
 @pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
-@pytest.mark.slow
 def test_main__raises_error_when_invalid_customer_account_uuid_is_passed_in_cmd_line_args(
     mocker,
 ):
@@ -211,7 +210,6 @@ def test_main__raises_error_when_invalid_customer_account_uuid_is_passed_in_cmd_
 
 
 @pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
-@pytest.mark.slow
 def test_main__raises_error_when_invalid_user_account_uuid_is_passed_in_cmd_line_args(
     mocker,
 ):

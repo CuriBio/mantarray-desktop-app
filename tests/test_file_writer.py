@@ -136,10 +136,9 @@ def test_FileWriterProcess_soft_stop_not_allowed_if_incoming_data_still_in_queue
         board_queues[0][0],
     )
 
-    confirm_queue_is_eventually_of_size(board_queues[0][0], 2)
-    time.sleep(
-        QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # Eli (2/1/21): Even though the queue size has been confirmed in the above line, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
+    confirm_queue_is_eventually_of_size(
+        board_queues[0][0], 2, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
 
     file_writer_process.soft_stop()
     invoke_process_run_and_check_errors(file_writer_process)
@@ -202,9 +201,8 @@ def test_FileWriterProcess_soft_stop_not_allowed_if_command_from_main_still_in_q
     this_command["active_well_indices"] = [1]
     from_main_queue.put(this_command)
     from_main_queue.put(copy.deepcopy(this_command))
-    confirm_queue_is_eventually_of_size(from_main_queue, 2)
-    time.sleep(
-        QUEUE_CHECK_TIMEOUT_SECONDS
+    confirm_queue_is_eventually_of_size(
+        from_main_queue, 2, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )  # Eli (2/1/21): Even though the queue has been confirmed to be of size 2 in the above line, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
     file_writer_process.soft_stop()
     invoke_process_run_and_check_errors(file_writer_process)
@@ -940,10 +938,11 @@ def test_FileWriterProcess__begins_building_data_buffer_when_managed_acquisition
     expected_num_items = 3
     for _ in range(expected_num_items):
         board_queues[0][0].put(SIMPLE_CONSTRUCT_DATA_FROM_WELL_0)
-    confirm_queue_is_eventually_of_size(board_queues[0][0], expected_num_items)
-    time.sleep(
-        QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # Eli (2/1/21): Even though the queue size has been confirmed in the above line, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
+    confirm_queue_is_eventually_of_size(
+        board_queues[0][0],
+        expected_num_items,
+        sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
+    )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
 
     invoke_process_run_and_check_errors(
         file_writer_process, num_iterations=expected_num_items
@@ -976,10 +975,9 @@ def test_FileWriterProcess__removes_packets_from_data_buffer_that_are_older_than
 
     board_queues[0][0].put(old_packet)
     board_queues[0][0].put(new_packet)
-    confirm_queue_is_eventually_of_size(board_queues[0][0], 2)
-    time.sleep(
-        QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # Eli (2/1/21): Even though the queue size has been confirmed in the above line, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
+    confirm_queue_is_eventually_of_size(
+        board_queues[0][0], 2, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=2)
 
@@ -1091,11 +1089,10 @@ def test_FileWriterProcess__deletes_recorded_well_data_after_stop_time(
     start_recording_command["timepoint_to_begin_recording_at"] = 0
     start_recording_command["active_well_indices"] = [expected_well_idx]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        start_recording_command, comm_from_main_queue
+        start_recording_command,
+        comm_from_main_queue,
+        sleep_after_put_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
     )
-    time.sleep(
-        QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # Eli (2/1/21): Even though the queue size has been confirmed in the above line, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
 
     invoke_process_run_and_check_errors(file_writer_process)
 
@@ -1136,11 +1133,10 @@ def test_FileWriterProcess__deletes_recorded_well_data_after_stop_time(
     confirm_queue_is_eventually_empty(comm_from_main_queue)
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        stop_recording_command, comm_from_main_queue
+        stop_recording_command,
+        comm_from_main_queue,
+        sleep_after_put_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
     )
-    time.sleep(
-        QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # Eli (2/1/21): Even though the queue size has been confirmed in the above line, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
     invoke_process_run_and_check_errors(file_writer_process)
 
     expected_barcode = start_recording_command[
@@ -1359,10 +1355,9 @@ def test_FileWriterProcess_hard_stop__closes_all_files_after_stop_recording_befo
             "data": data,
         }
         board_queues[0][0].put(ref_data_packet)
-    confirm_queue_is_eventually_of_size(board_queues[0][0], 30)
-    time.sleep(
-        QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # Eli (2/1/21): Even though the queue size has been confirmed in the above line, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
+    confirm_queue_is_eventually_of_size(
+        board_queues[0][0], 30, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
 
     invoke_process_run_and_check_errors(fw_process, num_iterations=30)
     confirm_queue_is_eventually_empty(board_queues[0][0])
@@ -1420,10 +1415,9 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_files_af
             "data": first_data,
         }
         board_queues[0][0].put(ref_data_packet)
-    confirm_queue_is_eventually_of_size(board_queues[0][0], 30)
-    time.sleep(
-        QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # Eli (2/1/21): Even though the queue size has been confirmed in the above line, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
+    confirm_queue_is_eventually_of_size(
+        board_queues[0][0], 30, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
 
     invoke_process_run_and_check_errors(fw_process, num_iterations=30)
     confirm_queue_is_eventually_empty(board_queues[0][0])
@@ -1463,10 +1457,9 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_files_af
             "data": last_data,
         }
         board_queues[0][0].put(final_ref_data_packet)
-    confirm_queue_is_eventually_of_size(board_queues[0][0], 30)
-    time.sleep(
-        QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # Eli (2/1/21): Even though the queue size has been confirmed in the above line, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
+    confirm_queue_is_eventually_of_size(
+        board_queues[0][0], 30, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
     invoke_process_run_and_check_errors(fw_process, num_iterations=30)
     confirm_queue_is_eventually_empty(board_queues[0][0])
     # check command is still ignored
