@@ -28,7 +28,8 @@ from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
-from .constants import SERIAL_COMM_REBOOT_PACKET_TYPE
+from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
+from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
@@ -129,7 +130,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self,
         module_id: int,
         packet_type: int,
-        data_to_send: bytes,
+        data_to_send: bytes = bytes(0),
         truncate: bool = False,
     ) -> None:
         data_packet = create_data_packet(
@@ -158,11 +159,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._reset_start_time()
         self._reboot_time_secs = None
         self._reset_status_code_bits()
-        self._send_data_packet(
-            SERIAL_COMM_MAIN_MODULE_ID,
-            SERIAL_COMM_REBOOT_PACKET_TYPE,
-            bytes(0),
-        )
+        self._send_status_beacon(truncate=False)
 
     def _discard_comm_from_pc(self) -> None:
         try:
@@ -184,8 +181,17 @@ class MantarrayMcSimulator(InfiniteProcess):
 
     def _process_main_module_command(self, comm_from_pc: bytes) -> None:
         packet_type = comm_from_pc[SERIAL_COMM_PACKET_TYPE_INDEX]
-        if packet_type == SERIAL_COMM_REBOOT_PACKET_TYPE:
-            self._reboot_time_secs = perf_counter()
+        if packet_type == SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE:
+            command_byte = comm_from_pc[SERIAL_COMM_PACKET_TYPE_INDEX + 1]
+            if command_byte == SERIAL_COMM_REBOOT_COMMAND_BYTE:
+                self._reboot_time_secs = perf_counter()
+                self._send_data_packet(
+                    SERIAL_COMM_MAIN_MODULE_ID,
+                    SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+                )
+            else:
+                # TODO
+                raise NotImplementedError()
         elif packet_type == SERIAL_COMM_HANDSHAKE_PACKET_TYPE:
             expected_checksum = crc32(comm_from_pc[:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES])
             actual_checksum = int.from_bytes(

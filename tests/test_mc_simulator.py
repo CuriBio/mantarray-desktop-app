@@ -14,7 +14,8 @@ from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
-from mantarray_desktop_app import SERIAL_COMM_REBOOT_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
@@ -613,12 +614,13 @@ def test_MantarrayMcSimulator__allows_status_bits_to_be_set_through_testing_queu
     assert actual_status_code_bits == expected_status_code_bits
 
 
-def test_MantarrayMcSimulator__discards_commands_from_pc_during_reboot_period__and_sends_reboot_response_packet_when_finished(
-    mantarray_mc_simulator_no_beacon, mocker
+def test_MantarrayMcSimulator__discards_commands_from_pc_during_reboot_period__and_sends_reboot_response_packet_before_reboot__and_sends_status_beacon_after_reboot(
+    mantarray_mc_simulator, mocker
 ):
-    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    simulator = mantarray_mc_simulator["simulator"]
 
     spied_get_cms_since_init = mocker.spy(simulator, "get_cms_since_init")
+    spied_randint = mocker.spy(random, "randint")
 
     reboot_duration = 5
     reboot_times = [4, reboot_duration]
@@ -631,17 +633,32 @@ def test_MantarrayMcSimulator__discards_commands_from_pc_during_reboot_period__a
 
     spied_reset = mocker.spy(simulator, "_reset_start_time")
 
+    # remove initial status beacon
+    invoke_process_run_and_check_errors(simulator)
+    initial_status_beacon_length = STATUS_BEACON_SIZE_BYTES - spied_randint.spy_return
+    initial_status_beacon = simulator.read(size=initial_status_beacon_length)
+    assert len(initial_status_beacon) == initial_status_beacon_length
+
+    # send reboot command
     dummy_timestamp = 0
     test_reboot_command = create_data_packet(
         dummy_timestamp,
         SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_REBOOT_PACKET_TYPE,
-        bytes(0),
+        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+        bytes([SERIAL_COMM_REBOOT_COMMAND_BYTE]),
     )
     simulator.write(test_reboot_command)
     invoke_process_run_and_check_errors(simulator)
 
-    # TODO Tanner (3/2/21): figure out if real mantarray would ever process this comm
+    # test that reboot response packet is sent
+    expected_reboot_response = create_data_packet(
+        spied_get_cms_since_init.spy_return,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+        bytes(0),
+    )
+    reboot_response = simulator.read(size=len(expected_reboot_response))
+    assert reboot_response == expected_reboot_response
 
     # test that handshake is ignored
     test_handshake = create_data_packet(
@@ -655,16 +672,16 @@ def test_MantarrayMcSimulator__discards_commands_from_pc_during_reboot_period__a
     response_during_reboot = simulator.read(size=HANDSHAKE_RESPONSE_SIZE_BYTES)
     assert len(response_during_reboot) == 0
 
-    # test that reboot response packet is sent
+    # test that status beacon is sent after reboot
     invoke_process_run_and_check_errors(simulator)
-    expected_reboot_response = create_data_packet(
+    expected_beacon = create_data_packet(
         spied_get_cms_since_init.spy_return,
         SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_REBOOT_PACKET_TYPE,
-        bytes(0),
+        SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
+        DEFAULT_SIMULATOR_STATUS_CODE,
     )
-    response_after_reboot = simulator.read(size=len(expected_reboot_response))
-    assert response_after_reboot == expected_reboot_response
+    status_beacon = simulator.read(size=len(expected_beacon))
+    assert status_beacon == expected_beacon
 
     # test that start time was reset
     spied_reset.assert_called_once()
@@ -700,8 +717,8 @@ def test_MantarrayMcSimulator__reset_status_code_after_rebooting(
     test_reboot_command = create_data_packet(
         dummy_timestamp,
         SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_REBOOT_PACKET_TYPE,
-        bytes(0),
+        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+        bytes([SERIAL_COMM_REBOOT_COMMAND_BYTE]),
     )
     simulator.write(test_reboot_command)
     invoke_process_run_and_check_errors(simulator)
@@ -711,10 +728,11 @@ def test_MantarrayMcSimulator__reset_status_code_after_rebooting(
     expected_reboot_response = create_data_packet(
         0,
         SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_REBOOT_PACKET_TYPE,
+        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
         bytes(0),
     )
-    simulator.read(size=len(expected_reboot_response))
+    reboot_response = simulator.read(size=len(expected_reboot_response))
+    assert reboot_response == expected_reboot_response
 
     test_handshake = create_data_packet(
         dummy_timestamp,
@@ -748,11 +766,22 @@ def test_MantarrayMcSimulator__processes_testing_commands_during_reboot(
     test_reboot_command = create_data_packet(
         dummy_timestamp,
         SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_REBOOT_PACKET_TYPE,
-        bytes(0),
+        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+        bytes([SERIAL_COMM_REBOOT_COMMAND_BYTE]),
     )
     simulator.write(test_reboot_command)
     invoke_process_run_and_check_errors(simulator)
+
+    # remove reboot response packet
+    invoke_process_run_and_check_errors(simulator)
+    expected_reboot_response = create_data_packet(
+        0,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+        bytes(0),
+    )
+    reboot_response = simulator.read(size=len(expected_reboot_response))
+    assert reboot_response == expected_reboot_response
 
     # add read bytes as test command
     expected_item = b"the_item"

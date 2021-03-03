@@ -82,7 +82,8 @@ from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
-from .constants import SERIAL_COMM_REBOOT_PACKET_TYPE
+from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
+from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
@@ -362,5 +363,6 @@ __all__ = [
     "SerialCommPacketRegistrationReadEmptyError",
     "SERIAL_COMM_MAX_PACKET_LENGTH_BYTES",
     "SerialCommPacketRegistrationSearchExhaustedError",
-    "SERIAL_COMM_REBOOT_PACKET_TYPE",
+    "SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE",
+    "SERIAL_COMM_REBOOT_COMMAND_BYTE",
 ]
