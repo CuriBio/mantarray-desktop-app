@@ -56,7 +56,9 @@ def test_OkCommunicationProcess__always_returns_default_barcode_when_connected_t
 
     confirm_queue_is_eventually_empty(to_main_queue)
     input_queue.put(RUN_BARCODE_SCAN_COMMUNICATION)
-    confirm_queue_is_eventually_of_size(input_queue, 1)
+    confirm_queue_is_eventually_of_size(
+        input_queue, 1, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    )
 
     invoke_process_run_and_check_errors(ok_process)
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
@@ -65,7 +67,9 @@ def test_OkCommunicationProcess__always_returns_default_barcode_when_connected_t
     assert actual == expected_barcode_comm
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        RUN_BARCODE_SCAN_COMMUNICATION, input_queue
+        RUN_BARCODE_SCAN_COMMUNICATION,
+        input_queue,
+        sleep_after_put_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
     )
 
     invoke_process_run_and_check_errors(ok_process)

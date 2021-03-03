@@ -685,7 +685,9 @@ def test_OkCommunicationProcess_soft_stop_not_allowed_if_communication_from_main
     # The first communication will be processed, but if there is a second one in the queue then the soft stop should be disabled
     board_queues[0][0].put(dummy_communication)
     board_queues[0][0].put(dummy_communication)
-    assert is_queue_eventually_of_size(board_queues[0][0], 2) is True
+    confirm_queue_is_eventually_of_size(
+        board_queues[0][0], 2, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    )
     simulator = FrontPanelSimulator({})
     ok_process.set_board_connection(0, simulator)
     ok_process.soft_stop()
@@ -1217,7 +1219,9 @@ def test_OkCommunicationProcess_teardown_after_loop__logs_message_indicating_acq
         }
     )
     input_queue.put(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
-    confirm_queue_is_eventually_of_size(input_queue, 2)
+    confirm_queue_is_eventually_of_size(
+        input_queue, 2, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    )
     invoke_process_run_and_check_errors(
         ok_process, num_iterations=2, perform_teardown_after_loop=True
     )

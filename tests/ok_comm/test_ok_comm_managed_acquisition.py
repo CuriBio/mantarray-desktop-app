@@ -27,6 +27,7 @@ from mantarray_desktop_app import UnrecognizedDataFrameFormatNameError
 import numpy as np
 import pytest
 from scipy import signal
+from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import parallelism_framework
 from xem_wrapper import build_header_magic_number_bytes
@@ -40,6 +41,8 @@ from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATI
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_ok_comm import fixture_four_board_comm_process
 from ..fixtures_ok_comm import generate_board_and_error_queues
+from ..helpers import assert_queue_is_eventually_not_empty
+from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import is_queue_eventually_empty
 from ..helpers import is_queue_eventually_not_empty
 from ..helpers import is_queue_eventually_of_size
@@ -66,11 +69,8 @@ def test_OkCommunicationProcess_run__processes_start_managed_acquisition_command
         str, Any
     ] = get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
     input_queue.put(copy.deepcopy(expected_returned_communication))
-    assert (
-        is_queue_eventually_of_size(
-            input_queue, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
+    confirm_queue_is_eventually_of_size(
+        input_queue, 1, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
     invoke_process_run_and_check_errors(ok_process)
 
@@ -107,11 +107,8 @@ def test_OkCommunicationProcess_run__processes_stop_managed_acquisition_command(
     ok_comm_to_main = board_queues[0][1]
     expected_returned_communication = STOP_MANAGED_ACQUISITION_COMMUNICATION
     input_queue.put(copy.deepcopy(expected_returned_communication))
-    assert (
-        is_queue_eventually_of_size(
-            input_queue, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
+    confirm_queue_is_eventually_of_size(
+        input_queue, 1, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
     invoke_process_run_and_check_errors(ok_process)
 
@@ -145,11 +142,8 @@ def test_OkCommunicationProcess_run__raises_error_if_command_to_instrument_is_in
         "command": "fake_command",
     }
     input_queue.put(copy.deepcopy(expected_returned_communication))
-    assert (
-        is_queue_eventually_of_size(
-            input_queue, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
+    confirm_queue_is_eventually_of_size(
+        input_queue, 1, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
     with pytest.raises(UnrecognizedCommandToInstrumentError, match="fake_command"):
         invoke_process_run_and_check_errors(ok_process)
@@ -950,13 +944,10 @@ def test_OkCommunicationProcess_managed_acquisition_logs_performance_metrics_aft
     fifo = Queue()
     for read in test_fifo_reads:
         fifo.put(read)
-    assert (
-        is_queue_eventually_of_size(
-            fifo,
-            INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES,
-            timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
-        )
-        is True
+    confirm_queue_is_eventually_of_size(
+        fifo,
+        INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES,
+        sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
     )
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
     simulator = FrontPanelSimulator(queues)
@@ -965,28 +956,18 @@ def test_OkCommunicationProcess_managed_acquisition_logs_performance_metrics_aft
     board_queues[0][0].put(
         get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
     )
-    assert (
-        is_queue_eventually_of_size(
-            board_queues[0][0], 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
+    confirm_queue_is_eventually_of_size(
+        board_queues[0][0], 1, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
 
     invoke_process_run_and_check_errors(
         ok_process, num_iterations=INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
     )
 
-    assert (
-        is_queue_eventually_not_empty(
-            board_queues[0][1], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
-    actual = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    while is_queue_eventually_not_empty(
-        board_queues[0][1], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-    ):
-        actual = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert_queue_is_eventually_not_empty(board_queues[0][1])
+    queue_items = drain_queue(board_queues[0][1])
+    actual = queue_items[-1]
+    assert "message" in actual
     actual = actual["message"]
 
     expected_num_bytes = [len(read) for read in test_fifo_reads]
@@ -1046,10 +1027,7 @@ def test_OkCommunicationProcess_managed_acquisition_logs_performance_metrics_aft
     )
 
     # Tanner (5/29/20): Closing a queue while it is not empty (especially when very full) causes BrokePipeErrors, so flushing it before the test ends prevents this
-    while is_queue_eventually_not_empty(
-        board_queues[0][2], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-    ):
-        board_queues[0][2].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    drain_queue(board_queues[0][2])
 
 
 @pytest.mark.slow
@@ -1073,13 +1051,10 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_percent_use_met
     fifo = Queue()
     for _ in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES):
         fifo.put(produce_data(2, 0))
-    assert (
-        is_queue_eventually_of_size(
-            fifo,
-            INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES,
-            timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
-        )
-        is True
+    confirm_queue_is_eventually_of_size(
+        fifo,
+        INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES,
+        sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
     )
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
     simulator = FrontPanelSimulator(queues)
@@ -1088,33 +1063,19 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_percent_use_met
     board_queues[0][0].put(
         get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
     )
-    assert (
-        is_queue_eventually_of_size(
-            board_queues[0][0], 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
+    confirm_queue_is_eventually_of_size(
+        board_queues[0][0], 1, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
 
     invoke_process_run_and_check_errors(
         ok_process, num_iterations=INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
     )
 
-    assert (
-        is_queue_eventually_not_empty(
-            board_queues[0][1], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
-    actual = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    while is_queue_eventually_not_empty(
-        board_queues[0][1], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-    ):
-        actual = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    actual = actual["message"]
-    assert "percent_use_metrics" not in actual
+    assert_queue_is_eventually_not_empty(board_queues[0][1])
+    queue_items = drain_queue(board_queues[0][1])
+    actual = queue_items[-1]
+    assert "message" in actual
+    assert "percent_use_metrics" not in actual["message"]
 
     # Tanner (5/29/20): Closing a queue while it is not empty (especially when very full) causes BrokePipeErrors, so flushing it before the test ends prevents this
-    while is_queue_eventually_not_empty(
-        board_queues[0][2], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-    ):
-        board_queues[0][2].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    drain_queue(board_queues[0][2])

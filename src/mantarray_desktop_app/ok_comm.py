@@ -44,7 +44,6 @@ from .constants import DATA_FRAME_PERIOD
 from .constants import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import NO_PLATE_DETECTED_BARCODE_VALUE
 from .constants import REF_INDEX_TO_24_WELL_INDEX
-from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import TIMESTEP_CONVERSION_FACTOR
 from .constants import VALID_SCRIPTING_COMMANDS
 from .exceptions import BarcodeNotClearedError
@@ -620,9 +619,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
         """
         input_queue = self._board_queues[0][0]
         try:
-            this_communication = input_queue.get(
-                timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
-            )
+            this_communication = input_queue.get_nowait()
         except queue.Empty:
             return
 
