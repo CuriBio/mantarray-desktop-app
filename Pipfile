@@ -26,7 +26,7 @@ atomicwrites = "==1.4.0" # Eli (3/1/21): this must be explicitly specified when 
 flask = "==1.1.2"
 flask-cors = "==3.0.10"
 flatten-dict = "==0.3.0"
-h5py = "==3.1.0"
+h5py = "==3.2.0"
 immutabledict = "==1.2.0"
 immutable-data-validation = "==0.2.1"
 labware-domain-models = "==0.3.1"
