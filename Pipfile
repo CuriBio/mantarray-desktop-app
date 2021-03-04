@@ -37,7 +37,7 @@ mantarray-waveform-analysis = "==0.6.0"
 scipy = "==1.6.1"
 secrets-manager = "==0.4"
 semver = "==2.13.0"
-stdlib-utils = "==0.4.2"
+stdlib-utils = "==0.4.3"
 xem-wrapper = "==0.2.5"
 
 [requires]
