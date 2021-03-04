@@ -20,7 +20,6 @@ from mantarray_desktop_app import OkCommunicationProcess
 from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
-from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
 from mantarray_desktop_app import UnrecognizedCommandToInstrumentError
@@ -1082,45 +1081,45 @@ def test_OkCommunicationProcess_managed_acquisition__does_not_log_percent_use_me
     drain_queue(board_queues[0][2])
 
 
-@pytest.mark.slow
-def test_OkCommunicationProcess_managed_acquisition__cpu_usage_is_less_than_80_percent(
-    mocker,
-):
-    board_queues, error_queue = generate_board_and_error_queues()
-    input_queue = board_queues[0][0]
+# @pytest.mark.slow
+# def test_OkCommunicationProcess_managed_acquisition__cpu_usage_is_less_than_80_percent(
+#     mocker,
+# ):
+#     board_queues, error_queue = generate_board_and_error_queues()
+#     input_queue = board_queues[0][0]
 
-    ok_process = OkCommunicationProcess(
-        board_queues, error_queue, suppress_setup_communication_to_main=True
-    )
-    simulator = RunningFIFOSimulator()
-    ok_process.set_board_connection(0, simulator)
+#     ok_process = OkCommunicationProcess(
+#         board_queues, error_queue, suppress_setup_communication_to_main=True
+#     )
+#     simulator = RunningFIFOSimulator()
+#     ok_process.set_board_connection(0, simulator)
 
-    # lowering this value so the test runs quicker
-    ok_process._performance_logging_cycles = 3  # pylint: disable=protected-access
+#     # lowering this value so the test runs quicker
+#     ok_process._performance_logging_cycles = 3  # pylint: disable=protected-access
 
-    input_queue.put(
-        {
-            "communication_type": "debug_console",
-            "command": "initialize_board",
-            "bit_file_name": None,
-        }
-    )
-    input_queue.put(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
-    confirm_queue_is_eventually_of_size(input_queue, 2)
-    ok_process.start()
-    time.sleep(10)  # let ok_comm create performance logging message
+#     input_queue.put(
+#         {
+#             "communication_type": "debug_console",
+#             "command": "initialize_board",
+#             "bit_file_name": None,
+#         }
+#     )
+#     input_queue.put(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
+#     confirm_queue_is_eventually_of_size(input_queue, 2)
+#     ok_process.start()
+#     time.sleep(10)  # let ok_comm create performance logging message
 
-    input_queue.put(STOP_MANAGED_ACQUISITION_COMMUNICATION)
-    queue_items = ok_process.hard_stop()
+#     input_queue.put(STOP_MANAGED_ACQUISITION_COMMUNICATION)
+#     queue_items = ok_process.hard_stop()
 
-    items_to_main = queue_items["board_0"]["instrument_comm_to_main"]
-    for item in items_to_main:
-        if "message" not in item:
-            continue
-        if "communication_type" not in item["message"]:
-            continue
-        if item["message"]["communication_type"] == "performance_metrics":
-            assert item["message"]["percent_use"] < 80
-            break
-    else:
-        assert False, "No performance logging message was found"
+#     items_to_main = queue_items["board_0"]["instrument_comm_to_main"]
+#     for item in items_to_main:
+#         if "message" not in item:
+#             continue
+#         if "communication_type" not in item["message"]:
+#             continue
+#         if item["message"]["communication_type"] == "performance_metrics":
+#             assert item["message"]["percent_use"] < 80
+#             break
+#     else:
+#         assert False, "No performance logging message was found"
