@@ -19,6 +19,7 @@ from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import SECONDS_TO_SLEEP_BETWEEN_CHECKING_QUEUE_SIZE
 
+from .constants import MC_REBOOT_DURATION_SECONDS
 from .constants import NANOSECONDS_PER_CENTIMILLISECOND
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
@@ -28,6 +29,8 @@ from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
+from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
+from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
@@ -40,6 +43,10 @@ MAGIC_WORD_LEN = len(SERIAL_COMM_MAGIC_WORD_BYTES)
 
 
 def _get_secs_since_last_status_beacon(last_time: float) -> float:
+    return perf_counter() - last_time
+
+
+def _get_secs_since_reboot_command(last_time: float) -> float:
     return perf_counter() - last_time
 
 
@@ -98,13 +105,21 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._testing_queue = testing_queue
         self._init_time_ns: Optional[int] = None
         self._time_of_last_status_beacon_secs: Optional[float] = None
+        self._reboot_time_secs: Optional[float] = None
         self._leftover_read_bytes: Optional[bytes] = None
         self._read_timeout_seconds = read_timeout_seconds
+        self._status_code_bits: bytes = bytes(0)
+        self._reset_status_code_bits()
+
+    def _reset_status_code_bits(self) -> None:
         self._status_code_bits = bytes(4)
+
+    def _reset_start_time(self) -> None:
+        self._init_time_ns = perf_counter_ns()
 
     def _setup_before_loop(self) -> None:
         # Tanner (2/2/21): Comparing perf_counter_ns values in a subprocess to those in the parent process have unexpected behavior in windows, so storing the initialization time after the process has been created in order to avoid issues
-        self._init_time_ns = perf_counter_ns()
+        self._reset_start_time()
 
     def get_cms_since_init(self) -> int:
         if self._init_time_ns is None:
@@ -116,7 +131,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self,
         module_id: int,
         packet_type: int,
-        data_to_send: bytes,
+        data_to_send: bytes = bytes(0),
         truncate: bool = False,
     ) -> None:
         data_packet = create_data_packet(
@@ -131,8 +146,22 @@ class MantarrayMcSimulator(InfiniteProcess):
 
     def _commands_for_each_run_iteration(self) -> None:
         self._handle_test_comm()
+        # if _reboot_time_secs is not None, this means the simulator is in a "reboot" phase
+        if self._reboot_time_secs is not None:
+            secs_since_reboot = _get_secs_since_reboot_command(self._reboot_time_secs)
+            # if secs_since_reboot is less than the reboot duration, simulator is still in the 'reboot' phase. Commands from PC will be discared and status beacons will not be sent
+            if secs_since_reboot < MC_REBOOT_DURATION_SECONDS:
+                return
+            self._handle_reboot_completion()
         self._handle_comm_from_pc()
         self._handle_status_beacon()
+
+    def _handle_reboot_completion(self) -> None:
+        drain_queue(self._input_queue)
+        self._reset_start_time()
+        self._reboot_time_secs = None
+        self._reset_status_code_bits()
+        self._send_status_beacon(truncate=False)
 
     def _handle_comm_from_pc(self) -> None:
         try:
@@ -140,37 +169,51 @@ class MantarrayMcSimulator(InfiniteProcess):
         except queue.Empty:
             return
 
+        # validate checksum before handling the communication
+        expected_checksum = crc32(comm_from_pc[:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES])
+        actual_checksum = int.from_bytes(
+            comm_from_pc[-SERIAL_COMM_CHECKSUM_LENGTH_BYTES:],
+            byteorder="little",
+        )
+        if actual_checksum != expected_checksum:
+            # remove magic word before returning message to PC
+            trimmed_comm_from_pc = comm_from_pc[MAGIC_WORD_LEN:]
+            self._send_data_packet(
+                SERIAL_COMM_MAIN_MODULE_ID,
+                SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE,
+                trimmed_comm_from_pc,
+            )
+            return
         module_id = comm_from_pc[SERIAL_COMM_MODULE_ID_INDEX]
-        packet_type = comm_from_pc[SERIAL_COMM_PACKET_TYPE_INDEX]
         if module_id == SERIAL_COMM_MAIN_MODULE_ID:
-            if packet_type == SERIAL_COMM_HANDSHAKE_PACKET_TYPE:
-                expected_checksum = crc32(
-                    comm_from_pc[:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
-                )
-                actual_checksum = int.from_bytes(
-                    comm_from_pc[-SERIAL_COMM_CHECKSUM_LENGTH_BYTES:],
-                    byteorder="little",
-                )
-                if actual_checksum == expected_checksum:
-                    self._send_data_packet(
-                        SERIAL_COMM_MAIN_MODULE_ID,
-                        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-                        self._status_code_bits,
-                    )
-                    return
-                # remove magic word before returning message to PC
-                trimmed_comm_from_pc = comm_from_pc[MAGIC_WORD_LEN:]
-                self._send_data_packet(
-                    SERIAL_COMM_MAIN_MODULE_ID,
-                    SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE,
-                    trimmed_comm_from_pc,
-                )
-            else:
-                raise UnrecognizedSerialCommPacketTypeError(
-                    f"Packet Type ID: {packet_type} is not defined for Module ID: {module_id}"
-                )
+            self._process_main_module_command(comm_from_pc)
         else:
             raise UnrecognizedSerialCommModuleIdError(module_id)
+
+    def _process_main_module_command(self, comm_from_pc: bytes) -> None:
+        packet_type = comm_from_pc[SERIAL_COMM_PACKET_TYPE_INDEX]
+        if packet_type == SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE:
+            command_byte = comm_from_pc[SERIAL_COMM_PACKET_TYPE_INDEX + 1]
+            if command_byte == SERIAL_COMM_REBOOT_COMMAND_BYTE:
+                self._reboot_time_secs = perf_counter()
+                self._send_data_packet(
+                    SERIAL_COMM_MAIN_MODULE_ID,
+                    SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+                )
+            else:
+                # TODO Tanner (3/4/21): Determine what to do if command_byte, module_id, or packet_type are incorrect. It may make more sense to respond with a message rather than raising an error
+                raise NotImplementedError()
+        elif packet_type == SERIAL_COMM_HANDSHAKE_PACKET_TYPE:
+            self._send_data_packet(
+                SERIAL_COMM_MAIN_MODULE_ID,
+                SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+                self._status_code_bits,
+            )
+        else:
+            module_id = comm_from_pc[SERIAL_COMM_MODULE_ID_INDEX]
+            raise UnrecognizedSerialCommPacketTypeError(
+                f"Packet Type ID: {packet_type} is not defined for Module ID: {module_id}"
+            )
 
     def _handle_status_beacon(self) -> None:
         if self._time_of_last_status_beacon_secs is None:
