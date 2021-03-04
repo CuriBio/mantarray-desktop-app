@@ -6,6 +6,7 @@ from zlib import crc32
 
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import MantarrayMcSimulator
+from mantarray_desktop_app import MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import NANOSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
@@ -622,8 +623,7 @@ def test_MantarrayMcSimulator__discards_commands_from_pc_during_reboot_period__a
     spied_get_cms_since_init = mocker.spy(simulator, "get_cms_since_init")
     spied_randint = mocker.spy(random, "randint")
 
-    reboot_duration = 5
-    reboot_times = [4, reboot_duration]
+    reboot_times = [4, MC_REBOOT_DURATION_SECONDS]
     mocker.patch.object(
         mc_simulator,
         "_get_secs_since_reboot_command",
@@ -693,12 +693,11 @@ def test_MantarrayMcSimulator__reset_status_code_after_rebooting(
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
-    reboot_duration = 5
     mocker.patch.object(
         mc_simulator,
         "_get_secs_since_reboot_command",
         autospec=True,
-        return_value=reboot_duration,
+        return_value=MC_REBOOT_DURATION_SECONDS,
     )
 
     # set status code to known value
@@ -753,12 +752,11 @@ def test_MantarrayMcSimulator__processes_testing_commands_during_reboot(
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
-    reboot_duration = 5
     mocker.patch.object(
         mc_simulator,
         "_get_secs_since_reboot_command",
         autospec=True,
-        return_value=reboot_duration - 1,
+        return_value=MC_REBOOT_DURATION_SECONDS - 1,
     )
 
     # send reboot command

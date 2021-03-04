@@ -59,6 +59,7 @@ from .constants import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
 from .constants import MAX_POSSIBLE_CONNECTED_BOARDS
+from .constants import MC_REBOOT_DURATION_SECONDS
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MIDSCALE_CODE
 from .constants import MILLIVOLTS_PER_VOLT
@@ -365,4 +366,5 @@ __all__ = [
     "SerialCommPacketRegistrationSearchExhaustedError",
     "SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE",
     "SERIAL_COMM_REBOOT_COMMAND_BYTE",
+    "MC_REBOOT_DURATION_SECONDS",
 ]

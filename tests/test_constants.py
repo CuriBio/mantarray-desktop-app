@@ -48,6 +48,7 @@ from mantarray_desktop_app import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import MAX_POSSIBLE_CONNECTED_BOARDS
+from mantarray_desktop_app import MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import MIDSCALE_CODE
 from mantarray_desktop_app import MILLIVOLTS_PER_VOLT
@@ -315,6 +316,8 @@ def test_parallelism_config():
 
 
 def test_serial_comm():
+    assert MC_REBOOT_DURATION_SECONDS == 5
+
     assert SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS == 5
 
     assert SERIAL_COMM_MAGIC_WORD_BYTES == b"CURI BIO"

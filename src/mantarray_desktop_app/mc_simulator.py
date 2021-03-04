@@ -19,6 +19,7 @@ from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import SECONDS_TO_SLEEP_BETWEEN_CHECKING_QUEUE_SIZE
 
+from .constants import MC_REBOOT_DURATION_SECONDS
 from .constants import NANOSECONDS_PER_CENTIMILLISECOND
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
@@ -149,24 +150,18 @@ class MantarrayMcSimulator(InfiniteProcess):
         if self._reboot_time_secs is not None:
             secs_since_reboot = _get_secs_since_reboot_command(self._reboot_time_secs)
             # if secs_since_reboot is less than the reboot duration, simulator is still in the 'reboot' phase. Commands from PC will be discared and status beacons will not be sent
-            if secs_since_reboot < 5:
-                self._discard_comm_from_pc()
+            if secs_since_reboot < MC_REBOOT_DURATION_SECONDS:
                 return
             self._handle_reboot_completion()
         self._handle_comm_from_pc()
         self._handle_status_beacon()
 
     def _handle_reboot_completion(self) -> None:
+        drain_queue(self._input_queue)
         self._reset_start_time()
         self._reboot_time_secs = None
         self._reset_status_code_bits()
         self._send_status_beacon(truncate=False)
-
-    def _discard_comm_from_pc(self) -> None:
-        try:
-            self._input_queue.get_nowait()
-        except queue.Empty:
-            pass
 
     def _handle_comm_from_pc(self) -> None:
         try:
@@ -206,7 +201,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                     SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
                 )
             else:
-                # TODO
+                # TODO Tanner (3/4/21): Determine what to do if command_byte, module_id, or packet_type are incorrect. It may make more sense to respond with a message rather than raising an error
                 raise NotImplementedError()
         elif packet_type == SERIAL_COMM_HANDSHAKE_PACKET_TYPE:
             self._send_data_packet(
