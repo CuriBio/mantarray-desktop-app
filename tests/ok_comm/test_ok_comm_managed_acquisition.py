@@ -1095,7 +1095,7 @@ def test_OkCommunicationProcess_managed_acquisition__cpu_usage_is_less_than_80_p
     simulator = RunningFIFOSimulator()
     ok_process.set_board_connection(0, simulator)
 
-    # patching this value so the test runs quicker
+    # lowering this value so the test runs quicker
     ok_process._performance_logging_cycles = 3  # pylint: disable=protected-access
 
     input_queue.put(

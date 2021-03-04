@@ -568,7 +568,9 @@ def build_jasons_data_cycle() -> bytearray:
 @pytest.mark.timeout(
     2
 )  # Eli (3/16/20) - there were issues at one point where the test hung because it was putting things into the log queue. So adding the timeout
-def test_build_file_writer_objects__correctly_parses_a_real_data_cycle_from_jason():
+def test_build_file_writer_objects__correctly_parses_a_real_data_cycle_from_jason(
+    mocker,
+):
     test_bytearray = build_jasons_data_cycle()
 
     expected_dict = {}
@@ -602,9 +604,14 @@ def test_build_file_writer_objects__correctly_parses_a_real_data_cycle_from_jaso
                 )
             else:
                 expected_dict[key]["data"] = data
+
     logging_queue = (
         Queue()
     )  # Eli (3/16/20): if there isn't a reference to the queue that still exists, it gives a 'broken pipe' error
+    mocker.patch.object(
+        ok_comm, "put_log_message_into_queue", autospec=True
+    )  # Tanner (3/3/21): For some reason this queue is still causing BrokenPipeErrors, so mocking the function that puts objects into it since that functionality is not tested here
+
     actual = build_file_writer_objects(
         test_bytearray,
         "six_channels_32_bit__single_sample_index",
@@ -626,9 +633,6 @@ def test_build_file_writer_objects__correctly_parses_a_real_data_cycle_from_jaso
             assert actual[key]["well_index"] == expected_dict[key]["well_index"]
 
         np.testing.assert_equal(actual[key]["data"], expected_dict[key]["data"])
-
-    # drain the queue to avoid broken pipe errors
-    drain_queue(logging_queue)
 
 
 def test_OkCommunicationProcess_super_is_called_during_init(mocker):

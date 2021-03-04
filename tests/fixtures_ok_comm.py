@@ -36,8 +36,6 @@ def fixture_four_board_comm_process():
         "error_queue": error_queue,
     }
     yield ok_items_dict
-    # clean up queues to avoid broken pipe errors
-    ok_process.hard_stop()
 
 
 @pytest.fixture(scope="function", name="running_process_with_simulated_board")
