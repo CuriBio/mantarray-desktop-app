@@ -488,6 +488,8 @@ class OkCommunicationProcess(InstrumentCommProcess):
             None,
         ]
         self._is_barcode_cleared = [False, False]
+        self._performance_logging_cycles = INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
+        self._fifo_read_period = 1
 
     def create_connections_to_all_available_boards(self) -> None:
         """Create initial connections to boards.
@@ -595,7 +597,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
 
                 if (
                     self._reads_since_last_logging[0]
-                    >= INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
+                    >= self._performance_logging_cycles
                 ):
                     self._handle_performance_logging()
                     self._reads_since_last_logging[0] = 0
@@ -610,7 +612,9 @@ class OkCommunicationProcess(InstrumentCommProcess):
             raise NotImplementedError(
                 "_reads_since_last_logging should always be an int value while managed acquisition is running"
             )
-        return now - self._time_of_last_fifo_read[0] > datetime.timedelta(seconds=1)
+        return now - self._time_of_last_fifo_read[0] > datetime.timedelta(
+            seconds=self._fifo_read_period
+        )
 
     def _process_next_communication_from_main(self) -> None:
         """Process the next communication sent from the main process.

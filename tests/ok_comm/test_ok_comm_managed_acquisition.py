@@ -20,6 +20,7 @@ from mantarray_desktop_app import OkCommunicationProcess
 from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
+from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
 from mantarray_desktop_app import UnrecognizedCommandToInstrumentError
@@ -279,7 +280,7 @@ def test_OkCommunicationProcess_commands_for_each_run_iteration__does_not_send_f
     )
 
 
-def test_OkCommunicationProcess_managed_acquisition_reads_at_least_one_prepopulated_simulated_fifo_read(
+def test_OkCommunicationProcess_managed_acquisition__reads_at_least_one_prepopulated_simulated_fifo_read(
     four_board_comm_process,  # mocker
 ):
     # mocker.patch('builtins.print') # don't print all the debug messages to console
@@ -330,7 +331,7 @@ def test_OkCommunicationProcess_managed_acquisition_reads_at_least_one_prepopula
     assert "576 bytes" in size_msg["message"]
 
 
-def test_OkCommunicationProcess_managed_acquisition_handles_ignoring_first_data_cycle(
+def test_OkCommunicationProcess_managed_acquisition__handles_ignoring_first_data_cycle(
     four_board_comm_process,
 ):
     ok_process = four_board_comm_process["ok_process"]
@@ -430,7 +431,7 @@ def test_OkCommunicationProcess_managed_acquisition_handles_ignoring_first_data_
         ),
     ],
 )
-def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and_attempts_word_conversion(
+def test_OkCommunicationProcess_managed_acquisition__logs_fifo_parsing_errors_and_attempts_word_conversion(
     test_read,
     expected_error,
     is_read_convertable,
@@ -545,7 +546,7 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
     )
 
 
-def test_OkCommunicationProcess_managed_acquisition_does_not_log_when_non_parsing_error_raised_after_first_managed_read(
+def test_OkCommunicationProcess_managed_acquisition__does_not_log_when_non_parsing_error_raised_after_first_managed_read(
     four_board_comm_process, mocker
 ):
     mocker.patch(
@@ -613,7 +614,7 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_when_non_parsin
     )
 
 
-def test_OkCommunicationProcess_raises_and_logs_error_if_first_managed_read_does_not_contain_at_least_one_round_robin(
+def test_OkCommunicationProcess__raises_and_logs_error_if_first_managed_read_does_not_contain_at_least_one_round_robin(
     four_board_comm_process, mocker
 ):
     mocker.patch(
@@ -699,7 +700,7 @@ def test_OkCommunicationProcess_raises_and_logs_error_if_first_managed_read_does
     )
 
 
-def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and_attempts_word_conversion_of_first_round_robin(
+def test_OkCommunicationProcess_managed_acquisition__logs_fifo_parsing_errors_and_attempts_word_conversion_of_first_round_robin(
     four_board_comm_process,
 ):
     test_read = bytearray([1] * DATA_FRAME_SIZE_WORDS * DATA_FRAMES_PER_ROUND_ROBIN * 4)
@@ -795,7 +796,7 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
     )
 
 
-def test_OkCommunicationProcess_managed_acquisition_does_not_log_when_non_parsing_error_raised_with_first_round_robin(
+def test_OkCommunicationProcess_managed_acquisition__does_not_log_when_non_parsing_error_raised_with_first_round_robin(
     four_board_comm_process, mocker
 ):
     mocker.patch(
@@ -870,7 +871,7 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_when_non_parsin
 
 # pylint: disable=too-many-locals
 @pytest.mark.slow
-def test_OkCommunicationProcess_managed_acquisition_logs_performance_metrics_after_appropriate_number_of_read_cycles(
+def test_OkCommunicationProcess_managed_acquisition__logs_performance_metrics_after_appropriate_number_of_read_cycles(
     four_board_comm_process, mocker
 ):
     expected_idle_time = 1
@@ -1031,7 +1032,7 @@ def test_OkCommunicationProcess_managed_acquisition_logs_performance_metrics_aft
 
 
 @pytest.mark.slow
-def test_OkCommunicationProcess_managed_acquisition_does_not_log_percent_use_metrics_in_first_logging_cycle(
+def test_OkCommunicationProcess_managed_acquisition__does_not_log_percent_use_metrics_in_first_logging_cycle(
     four_board_comm_process, mocker
 ):
     mocker.patch.object(
@@ -1079,3 +1080,47 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_percent_use_met
 
     # Tanner (5/29/20): Closing a queue while it is not empty (especially when very full) causes BrokePipeErrors, so flushing it before the test ends prevents this
     drain_queue(board_queues[0][2])
+
+
+@pytest.mark.slow
+def test_OkCommunicationProcess_managed_acquisition__cpu_usage_is_less_than_80_percent(
+    mocker,
+):
+    board_queues, error_queue = generate_board_and_error_queues()
+    input_queue = board_queues[0][0]
+
+    ok_process = OkCommunicationProcess(
+        board_queues, error_queue, suppress_setup_communication_to_main=True
+    )
+    simulator = RunningFIFOSimulator()
+    ok_process.set_board_connection(0, simulator)
+
+    # patching this value so the test runs quicker
+    ok_process._performance_logging_cycles = 3  # pylint: disable=protected-access
+
+    input_queue.put(
+        {
+            "communication_type": "debug_console",
+            "command": "initialize_board",
+            "bit_file_name": None,
+        }
+    )
+    input_queue.put(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
+    confirm_queue_is_eventually_of_size(input_queue, 2)
+    ok_process.start()
+    time.sleep(10)  # let ok_comm create performance logging message
+
+    input_queue.put(STOP_MANAGED_ACQUISITION_COMMUNICATION)
+    queue_items = ok_process.hard_stop()
+
+    items_to_main = queue_items["board_0"]["instrument_comm_to_main"]
+    for item in items_to_main:
+        if "message" not in item:
+            continue
+        if "communication_type" not in item["message"]:
+            continue
+        if item["message"]["communication_type"] == "performance_metrics":
+            assert item["message"]["percent_use"] < 80
+            break
+    else:
+        assert False, "No performance logging message was found"

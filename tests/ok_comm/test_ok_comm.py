@@ -1196,7 +1196,6 @@ def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_
         comm_to_main_queue,
         timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
     )
-    ok_process.join()
 
 
 def test_OkCommunicationProcess_teardown_after_loop__logs_message_indicating_acquisition_is_still_running(
