@@ -794,7 +794,7 @@ def test_MantarrayMcSimulator__processes_testing_commands_during_reboot(
     assert actual == expected_item
 
 
-def test_MantarrayMcSimulator__stops_sending_beacons_during_rebooting(
+def test_MantarrayMcSimulator__does_not_send_status_beacon_while_rebooting(
     mantarray_mc_simulator, mocker
 ):
     simulator = mantarray_mc_simulator["simulator"]
@@ -803,8 +803,13 @@ def test_MantarrayMcSimulator__stops_sending_beacons_during_rebooting(
         mc_simulator,
         "_get_secs_since_last_status_beacon",
         autospec=True,
-        side_effect=[0, 0, SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS],
+        side_effect=[0, SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS],
     )
+    spied_get_cms_since_init = mocker.spy(simulator, "get_cms_since_init")
+
+    # remove boot up beacon
+    invoke_process_run_and_check_errors(simulator)
+    simulator.read(size=STATUS_BEACON_SIZE_BYTES)
 
     # send reboot command
     dummy_timestamp = 0
@@ -820,7 +825,7 @@ def test_MantarrayMcSimulator__stops_sending_beacons_during_rebooting(
     # remove reboot response packet
     invoke_process_run_and_check_errors(simulator)
     expected_reboot_response = create_data_packet(
-        dummy_timestamp,
+        spied_get_cms_since_init.spy_return,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
         bytes(0),
