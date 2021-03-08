@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Request Handler to give us more control over Werkzeug log entries."""
 import re
+import threading
 from typing import Any
 
 from werkzeug.serving import WSGIRequestHandler
@@ -31,9 +32,9 @@ class MantarrayRequestHandler(WSGIRequestHandler):
             args_list = list(args)
             args_list[0] = scrubbed_msg
             args = tuple(args_list)
-
-        _log(
-            type_,
-            f"{self.address_string()} - - {message}\n",  # type: ignore  # Tanner (1/21/20): mypy is complaining that `address_string` is untyped
-            *args,
-        )
+        with threading.Lock():  # Since Flask is running multi-threaded mode, make sure to acquire a lock before logging so logs don't get garbled # Eli (11/3/20): still unable to test if lock was acquired.
+            _log(
+                type_,
+                f"{self.address_string()} - - {message}\n",  # type: ignore  # Tanner (1/21/20): mypy is complaining that `address_string` is untyped
+                *args,
+            )
