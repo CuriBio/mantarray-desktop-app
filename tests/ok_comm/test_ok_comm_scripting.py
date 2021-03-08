@@ -346,7 +346,8 @@ def test_OkCommunicationProcess_xem_scripts__allows_errors_to_propagate(
         ok_comm, "resource_path", autospec=True, return_value=mocked_path_str
     )
 
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
 
     mocked_simulator = RunningFIFOSimulator()
     mocked_activate = mocker.patch.object(

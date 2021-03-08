@@ -44,7 +44,6 @@ from .constants import DATA_FRAME_PERIOD
 from .constants import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import NO_PLATE_DETECTED_BARCODE_VALUE
 from .constants import REF_INDEX_TO_24_WELL_INDEX
-from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import TIMESTEP_CONVERSION_FACTOR
 from .constants import VALID_SCRIPTING_COMMANDS
 from .exceptions import BarcodeNotClearedError
@@ -489,6 +488,8 @@ class OkCommunicationProcess(InstrumentCommProcess):
             None,
         ]
         self._is_barcode_cleared = [False, False]
+        self._performance_logging_cycles = INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
+        self._fifo_read_period = 1
 
     def create_connections_to_all_available_boards(self) -> None:
         """Create initial connections to boards.
@@ -596,7 +597,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
 
                 if (
                     self._reads_since_last_logging[0]
-                    >= INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
+                    >= self._performance_logging_cycles
                 ):
                     self._handle_performance_logging()
                     self._reads_since_last_logging[0] = 0
@@ -611,7 +612,9 @@ class OkCommunicationProcess(InstrumentCommProcess):
             raise NotImplementedError(
                 "_reads_since_last_logging should always be an int value while managed acquisition is running"
             )
-        return now - self._time_of_last_fifo_read[0] > datetime.timedelta(seconds=1)
+        return now - self._time_of_last_fifo_read[0] > datetime.timedelta(
+            seconds=self._fifo_read_period
+        )
 
     def _process_next_communication_from_main(self) -> None:
         """Process the next communication sent from the main process.
@@ -620,9 +623,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
         """
         input_queue = self._board_queues[0][0]
         try:
-            this_communication = input_queue.get(
-                timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
-            )
+            this_communication = input_queue.get_nowait()
         except queue.Empty:
             return
 

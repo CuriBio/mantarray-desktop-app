@@ -219,5 +219,5 @@ def fixture_running_four_board_file_writer_process(four_board_file_writer_proces
     fw_process.start()
     yield four_board_file_writer_process
 
-    fw_process.hard_stop()
+    fw_process.stop()
     fw_process.join()

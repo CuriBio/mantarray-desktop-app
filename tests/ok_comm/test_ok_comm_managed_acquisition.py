@@ -27,6 +27,7 @@ from mantarray_desktop_app import UnrecognizedDataFrameFormatNameError
 import numpy as np
 import pytest
 from scipy import signal
+from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import parallelism_framework
 from xem_wrapper import build_header_magic_number_bytes
@@ -40,6 +41,8 @@ from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATI
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_ok_comm import fixture_four_board_comm_process
 from ..fixtures_ok_comm import generate_board_and_error_queues
+from ..helpers import assert_queue_is_eventually_not_empty
+from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import is_queue_eventually_empty
 from ..helpers import is_queue_eventually_not_empty
 from ..helpers import is_queue_eventually_of_size
@@ -53,7 +56,8 @@ __fixtures__ = [
 def test_OkCommunicationProcess_run__processes_start_managed_acquisition_command(
     four_board_comm_process,
 ):
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
 
     simulator = FrontPanelSimulator({})
     simulator.initialize_board()
@@ -65,11 +69,8 @@ def test_OkCommunicationProcess_run__processes_start_managed_acquisition_command
         str, Any
     ] = get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
     input_queue.put(copy.deepcopy(expected_returned_communication))
-    assert (
-        is_queue_eventually_of_size(
-            input_queue, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
+    confirm_queue_is_eventually_of_size(
+        input_queue, 1, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
     invoke_process_run_and_check_errors(ok_process)
 
@@ -91,7 +92,8 @@ def test_OkCommunicationProcess_run__processes_start_managed_acquisition_command
 def test_OkCommunicationProcess_run__processes_stop_managed_acquisition_command(
     four_board_comm_process,
 ):
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
 
     simulator = FrontPanelSimulator({})
     simulator.initialize_board()
@@ -105,11 +107,8 @@ def test_OkCommunicationProcess_run__processes_stop_managed_acquisition_command(
     ok_comm_to_main = board_queues[0][1]
     expected_returned_communication = STOP_MANAGED_ACQUISITION_COMMUNICATION
     input_queue.put(copy.deepcopy(expected_returned_communication))
-    assert (
-        is_queue_eventually_of_size(
-            input_queue, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
+    confirm_queue_is_eventually_of_size(
+        input_queue, 1, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
     invoke_process_run_and_check_errors(ok_process)
 
@@ -130,7 +129,8 @@ def test_OkCommunicationProcess_run__raises_error_if_command_to_instrument_is_in
     mocker.patch(
         "builtins.print", autospec=True
     )  # don't print all the error messages to console
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
 
     simulator = FrontPanelSimulator({})
     simulator.initialize_board()
@@ -142,11 +142,8 @@ def test_OkCommunicationProcess_run__raises_error_if_command_to_instrument_is_in
         "command": "fake_command",
     }
     input_queue.put(copy.deepcopy(expected_returned_communication))
-    assert (
-        is_queue_eventually_of_size(
-            input_queue, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
+    confirm_queue_is_eventually_of_size(
+        input_queue, 1, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
     with pytest.raises(UnrecognizedCommandToInstrumentError, match="fake_command"):
         invoke_process_run_and_check_errors(ok_process)
@@ -282,11 +279,12 @@ def test_OkCommunicationProcess_commands_for_each_run_iteration__does_not_send_f
     )
 
 
-def test_OkCommunicationProcess_managed_acquisition_reads_at_least_one_prepopulated_simulated_fifo_read(
+def test_OkCommunicationProcess_managed_acquisition__reads_at_least_one_prepopulated_simulated_fifo_read(
     four_board_comm_process,  # mocker
 ):
     # mocker.patch('builtins.print') # don't print all the debug messages to console
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
 
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
@@ -332,10 +330,11 @@ def test_OkCommunicationProcess_managed_acquisition_reads_at_least_one_prepopula
     assert "576 bytes" in size_msg["message"]
 
 
-def test_OkCommunicationProcess_managed_acquisition_handles_ignoring_first_data_cycle(
+def test_OkCommunicationProcess_managed_acquisition__handles_ignoring_first_data_cycle(
     four_board_comm_process,
 ):
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
 
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
@@ -431,7 +430,7 @@ def test_OkCommunicationProcess_managed_acquisition_handles_ignoring_first_data_
         ),
     ],
 )
-def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and_attempts_word_conversion(
+def test_OkCommunicationProcess_managed_acquisition__logs_fifo_parsing_errors_and_attempts_word_conversion(
     test_read,
     expected_error,
     is_read_convertable,
@@ -442,7 +441,8 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
     mocker.patch(
         "builtins.print", autospec=True
     )  # don't print all the error messages to console
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
 
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
@@ -545,13 +545,14 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
     )
 
 
-def test_OkCommunicationProcess_managed_acquisition_does_not_log_when_non_parsing_error_raised_after_first_managed_read(
+def test_OkCommunicationProcess_managed_acquisition__does_not_log_when_non_parsing_error_raised_after_first_managed_read(
     four_board_comm_process, mocker
 ):
     mocker.patch(
         "builtins.print", autospec=True
     )  # don't print all the error messages to console
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
 
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
     ok_process._data_frame_format = "fake_format"  # pylint:disable=protected-access
@@ -612,14 +613,15 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_when_non_parsin
     )
 
 
-def test_OkCommunicationProcess_raises_and_logs_error_if_first_managed_read_does_not_contain_at_least_one_round_robin(
+def test_OkCommunicationProcess__raises_and_logs_error_if_first_managed_read_does_not_contain_at_least_one_round_robin(
     four_board_comm_process, mocker
 ):
     mocker.patch(
         "builtins.print", autospec=True
     )  # don't print all the error messages to console
     test_bytearray = bytearray(0)
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
 
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
@@ -697,12 +699,13 @@ def test_OkCommunicationProcess_raises_and_logs_error_if_first_managed_read_does
     )
 
 
-def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and_attempts_word_conversion_of_first_round_robin(
+def test_OkCommunicationProcess_managed_acquisition__logs_fifo_parsing_errors_and_attempts_word_conversion_of_first_round_robin(
     four_board_comm_process,
 ):
     test_read = bytearray([1] * DATA_FRAME_SIZE_WORDS * DATA_FRAMES_PER_ROUND_ROBIN * 4)
     test_read.extend(produce_data(1, 12345))
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
 
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
@@ -792,13 +795,14 @@ def test_OkCommunicationProcess_managed_acquisition_logs_fifo_parsing_errors_and
     )
 
 
-def test_OkCommunicationProcess_managed_acquisition_does_not_log_when_non_parsing_error_raised_with_first_round_robin(
+def test_OkCommunicationProcess_managed_acquisition__does_not_log_when_non_parsing_error_raised_with_first_round_robin(
     four_board_comm_process, mocker
 ):
     mocker.patch(
         "builtins.print", autospec=True
     )  # don't print all the error messages to console
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
 
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
     ok_process._data_frame_format = "fake_format"  # pylint:disable=protected-access
@@ -866,7 +870,7 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_when_non_parsin
 
 # pylint: disable=too-many-locals
 @pytest.mark.slow
-def test_OkCommunicationProcess_managed_acquisition_logs_performance_metrics_after_appropriate_number_of_read_cycles(
+def test_OkCommunicationProcess_managed_acquisition__logs_performance_metrics_after_appropriate_number_of_read_cycles(
     four_board_comm_process, mocker
 ):
     expected_idle_time = 1
@@ -914,7 +918,8 @@ def test_OkCommunicationProcess_managed_acquisition_logs_performance_metrics_aft
         side_effect=expected_longest_iterations,
     )
 
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     ok_process._time_of_last_fifo_read[  # pylint: disable=protected-access
         0
     ] = datetime.datetime(2020, 5, 28, 12, 58, 0, 0)
@@ -939,13 +944,10 @@ def test_OkCommunicationProcess_managed_acquisition_logs_performance_metrics_aft
     fifo = Queue()
     for read in test_fifo_reads:
         fifo.put(read)
-    assert (
-        is_queue_eventually_of_size(
-            fifo,
-            INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES,
-            timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
-        )
-        is True
+    confirm_queue_is_eventually_of_size(
+        fifo,
+        INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES,
+        sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
     )
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
     simulator = FrontPanelSimulator(queues)
@@ -954,28 +956,18 @@ def test_OkCommunicationProcess_managed_acquisition_logs_performance_metrics_aft
     board_queues[0][0].put(
         get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
     )
-    assert (
-        is_queue_eventually_of_size(
-            board_queues[0][0], 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
+    confirm_queue_is_eventually_of_size(
+        board_queues[0][0], 1, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
 
     invoke_process_run_and_check_errors(
         ok_process, num_iterations=INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
     )
 
-    assert (
-        is_queue_eventually_not_empty(
-            board_queues[0][1], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
-    actual = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    while is_queue_eventually_not_empty(
-        board_queues[0][1], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-    ):
-        actual = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert_queue_is_eventually_not_empty(board_queues[0][1])
+    queue_items = drain_queue(board_queues[0][1])
+    actual = queue_items[-1]
+    assert "message" in actual
     actual = actual["message"]
 
     expected_num_bytes = [len(read) for read in test_fifo_reads]
@@ -1035,21 +1027,19 @@ def test_OkCommunicationProcess_managed_acquisition_logs_performance_metrics_aft
     )
 
     # Tanner (5/29/20): Closing a queue while it is not empty (especially when very full) causes BrokePipeErrors, so flushing it before the test ends prevents this
-    while is_queue_eventually_not_empty(
-        board_queues[0][2], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-    ):
-        board_queues[0][2].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    drain_queue(board_queues[0][2])
 
 
 @pytest.mark.slow
-def test_OkCommunicationProcess_managed_acquisition_does_not_log_percent_use_metrics_in_first_logging_cycle(
+def test_OkCommunicationProcess_managed_acquisition__does_not_log_percent_use_metrics_in_first_logging_cycle(
     four_board_comm_process, mocker
 ):
     mocker.patch.object(
         OkCommunicationProcess, "_is_ready_to_read_from_fifo", return_value=True
     )
 
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     ok_process._time_of_last_fifo_read[  # pylint: disable=protected-access
         0
     ] = datetime.datetime(2020, 7, 3, 9, 25, 0, 0)
@@ -1061,13 +1051,10 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_percent_use_met
     fifo = Queue()
     for _ in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES):
         fifo.put(produce_data(2, 0))
-    assert (
-        is_queue_eventually_of_size(
-            fifo,
-            INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES,
-            timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
-        )
-        is True
+    confirm_queue_is_eventually_of_size(
+        fifo,
+        INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES,
+        sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
     )
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
     simulator = FrontPanelSimulator(queues)
@@ -1076,33 +1063,63 @@ def test_OkCommunicationProcess_managed_acquisition_does_not_log_percent_use_met
     board_queues[0][0].put(
         get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
     )
-    assert (
-        is_queue_eventually_of_size(
-            board_queues[0][0], 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
+    confirm_queue_is_eventually_of_size(
+        board_queues[0][0], 1, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
 
     invoke_process_run_and_check_errors(
         ok_process, num_iterations=INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
     )
 
-    assert (
-        is_queue_eventually_not_empty(
-            board_queues[0][1], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
-    actual = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    while is_queue_eventually_not_empty(
-        board_queues[0][1], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-    ):
-        actual = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    actual = actual["message"]
-    assert "percent_use_metrics" not in actual
+    assert_queue_is_eventually_not_empty(board_queues[0][1])
+    queue_items = drain_queue(board_queues[0][1])
+    actual = queue_items[-1]
+    assert "message" in actual
+    assert "percent_use_metrics" not in actual["message"]
 
     # Tanner (5/29/20): Closing a queue while it is not empty (especially when very full) causes BrokePipeErrors, so flushing it before the test ends prevents this
-    while is_queue_eventually_not_empty(
-        board_queues[0][2], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-    ):
-        board_queues[0][2].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    drain_queue(board_queues[0][2])
+
+
+# @pytest.mark.slow
+# def test_OkCommunicationProcess_managed_acquisition__cpu_usage_is_less_than_80_percent(
+#     mocker,
+# ):
+#     board_queues, error_queue = generate_board_and_error_queues()
+#     input_queue = board_queues[0][0]
+
+#     ok_process = OkCommunicationProcess(
+#         board_queues, error_queue, suppress_setup_communication_to_main=True
+#     )
+#     simulator = RunningFIFOSimulator()
+#     ok_process.set_board_connection(0, simulator)
+
+#     # lowering this value so the test runs quicker
+#     ok_process._performance_logging_cycles = 3  # pylint: disable=protected-access
+
+#     input_queue.put(
+#         {
+#             "communication_type": "debug_console",
+#             "command": "initialize_board",
+#             "bit_file_name": None,
+#         }
+#     )
+#     input_queue.put(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
+#     confirm_queue_is_eventually_of_size(input_queue, 2)
+#     ok_process.start()
+#     time.sleep(10)  # let ok_comm create performance logging message
+
+#     input_queue.put(STOP_MANAGED_ACQUISITION_COMMUNICATION)
+#     queue_items = ok_process.hard_stop()
+
+#     items_to_main = queue_items["board_0"]["instrument_comm_to_main"]
+#     for item in items_to_main:
+#         if "message" not in item:
+#             continue
+#         if "communication_type" not in item["message"]:
+#             continue
+#         if item["message"]["communication_type"] == "performance_metrics":
+#             assert item["message"]["percent_use"] < 80
+#             break
+#     else:
+#         assert False, "No performance logging message was found"
