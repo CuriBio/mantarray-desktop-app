@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """Request Handler to give us more control over Werkzeug log entries."""
 import re
-import threading
 from typing import Any
 
 from werkzeug.serving import WSGIRequestHandler
@@ -32,9 +31,9 @@ class MantarrayRequestHandler(WSGIRequestHandler):
             args_list = list(args)
             args_list[0] = scrubbed_msg
             args = tuple(args_list)
-        with threading.Lock():  # Since Flask is running multi-threaded mode, make sure to acquire a lock before logging so logs don't get garbled # Eli (11/3/20): still unable to test if lock was acquired.
-            _log(
-                type_,
-                f"{self.address_string()} - - {message}\n",  # type: ignore  # Tanner (1/21/20): mypy is complaining that `address_string` is untyped
-                *args,
-            )
+        # Eli (3/9/21): Since Flask is running in multi-threaded mode, it might be possible that some log messages get garbled. It's not immediatley clear if Flask itself prevents this, or if the liklihood is prohibitively low to not worry about it, ...or what a robust way to pass the same threading.Lock() to this method as exists in the ServerThread itself. So for now we're not worrying about locking here and we'll see if it causes any issues with garbled logging.
+        _log(
+            type_,
+            f"{self.address_string()} - - {message}\n",  # type: ignore  # Tanner (1/21/20): mypy is complaining that `address_string` is untyped
+            *args,
+        )
