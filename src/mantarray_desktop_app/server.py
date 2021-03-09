@@ -1083,7 +1083,10 @@ class ServerThread(InfiniteThread):
             _, host, _ = get_server_address_components()
             self.check_port()
             flask_app.run(
-                host=host, port=self._port, request_handler=MantarrayRequestHandler
+                host=host,
+                port=self._port,
+                request_handler=MantarrayRequestHandler,
+                threaded=True,
             )
             # Note (Eli 1/14/20) it appears with the current method of using werkzeug.server.shutdown that nothing after this line will ever be executed. somehow the program exists before returning from app.run
         except Exception as e:  # pylint: disable=broad-except # The deliberate goal of this is to catch everything and put it into the error queue
