@@ -144,6 +144,9 @@ def test_FileWriterProcess_soft_stop_not_allowed_if_incoming_data_still_in_queue
     invoke_process_run_and_check_errors(file_writer_process)
     assert file_writer_process.is_stopped() is False
 
+    # Tanner (3/8/21): Prevent BrokenPipeErrors
+    drain_queue(board_queues[0][0])
+
 
 def test_FileWriterProcess__raises_error_if_not_a_dict_is_passed_through_the_queue_for_board_0_from_instrument_comm(
     four_board_file_writer_process, mocker
@@ -208,6 +211,9 @@ def test_FileWriterProcess_soft_stop_not_allowed_if_command_from_main_still_in_q
     invoke_process_run_and_check_errors(file_writer_process)
     confirm_queue_is_eventually_of_size(from_main_queue, 1)
     assert file_writer_process.is_stopped() is False
+
+    # Tanner (3/8/21): Prevent BrokenPipeErrors
+    drain_queue(from_main_queue)
 
 
 def test_FileWriterProcess__close_all_files(four_board_file_writer_process, mocker):
@@ -928,6 +934,9 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_when_recording(
         ),
     }
 
+    # Tanner (3/8/21): Prevent BrokenPipeErrors
+    drain_queue(board_queues[0][1])
+
 
 def test_FileWriterProcess__begins_building_data_buffer_when_managed_acquisition_starts(
     four_board_file_writer_process,
@@ -994,7 +1003,7 @@ def test_FileWriterProcess__removes_packets_from_data_buffer_that_are_older_than
     np.testing.assert_equal(data_packet_buffer[0]["data"], new_packet["data"])
 
 
-def test_FileWriterProcess__clears_data_buffer_when_stop_mananged_acquisition_command_is_received(
+def test_FileWriterProcess__clears_data_buffer_when_stop_managed_acquisition_command_is_received(
     four_board_file_writer_process,
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
@@ -1469,6 +1478,9 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_files_af
     invoke_process_run_and_check_errors(fw_process)
     confirm_queue_is_eventually_empty(from_main_queue)
     assert fw_process.get_file_directory() == expected_new_dir
+
+    # Tanner (3/8/21): Prevent BrokenPipeErrors
+    drain_queue(board_queues[0][1])
 
 
 @pytest.mark.slow
