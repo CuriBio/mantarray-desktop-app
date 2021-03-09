@@ -12,8 +12,8 @@ from typing import Optional
 from typing import Tuple
 from typing import Union
 
+from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
-from stdlib_utils import safe_get
 from xem_wrapper import FrontPanelBase
 from xem_wrapper import okCFrontPanel
 
@@ -28,22 +28,10 @@ def _drain_board_queues(
     ],
 ) -> Dict[str, List[Any]]:
     board_dict = dict()
-    board_dict["main_to_instrument_comm"] = _drain_queue(board[0])
-    board_dict["instrument_comm_to_main"] = _drain_queue(board[1])
-    board_dict["instrument_comm_to_file_writer"] = _drain_queue(board[2])
+    board_dict["main_to_instrument_comm"] = drain_queue(board[0])
+    board_dict["instrument_comm_to_main"] = drain_queue(board[1])
+    board_dict["instrument_comm_to_file_writer"] = drain_queue(board[2])
     return board_dict
-
-
-def _drain_queue(
-    instrument_comm_queue: Queue[Any],  # pylint: disable=unsubscriptable-object
-) -> List[Any]:
-    # Tanner (2/24/21): Investigate why replacing this with the stdlib_utils function causes issues in integration tests
-    queue_items = list()
-    item = safe_get(instrument_comm_queue)
-    while item is not None:
-        queue_items.append(item)
-        item = safe_get(instrument_comm_queue)
-    return queue_items
 
 
 class InstrumentCommProcess(InfiniteProcess, metaclass=abc.ABCMeta):

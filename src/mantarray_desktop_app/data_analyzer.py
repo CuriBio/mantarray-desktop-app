@@ -20,9 +20,9 @@ from mantarray_waveform_analysis import BUTTERWORTH_LOWPASS_30_UUID
 from mantarray_waveform_analysis import PipelineTemplate
 from nptyping import NDArray
 import numpy as np
+from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
-from stdlib_utils import safe_get
 
 from .constants import ADC_GAIN
 from .constants import CONSTRUCT_SENSOR_SAMPLING_PERIOD
@@ -31,7 +31,6 @@ from .constants import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from .constants import MILLIVOLTS_PER_VOLT
 from .constants import REF_INDEX_TO_24_WELL_INDEX
 from .constants import REFERENCE_VOLTAGE
-from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .exceptions import UnrecognizedCommandToInstrumentError
 from .exceptions import UnrecognizedCommTypeFromMainToDataAnalyzerError
 
@@ -54,20 +53,9 @@ def _drain_board_queues(  # pylint: disable=duplicate-code
     ],
 ) -> Dict[str, List[Any]]:  # pylint: disable=duplicate-code
     board_dict = dict()
-    board_dict["file_writer_to_data_analyzer"] = _drain_queue(board[0])
-    board_dict["outgoing_data"] = _drain_queue(board[1])
+    board_dict["file_writer_to_data_analyzer"] = drain_queue(board[0])
+    board_dict["outgoing_data"] = drain_queue(board[1])
     return board_dict
-
-
-def _drain_queue(
-    da_queue: Queue[Any],  # pylint: disable=unsubscriptable-object
-) -> List[Any]:
-    queue_items = list()
-    item = safe_get(da_queue)
-    while item is not None:
-        queue_items.append(item)
-        item = safe_get(da_queue)
-    return queue_items
 
 
 class DataAnalyzerProcess(InfiniteProcess):
@@ -132,7 +120,7 @@ class DataAnalyzerProcess(InfiniteProcess):
     def _process_next_command_from_main(self) -> None:
         input_queue = self._comm_from_main_queue
         try:
-            communication = input_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
+            communication = input_queue.get_nowait()
         except queue.Empty:
             return
 
@@ -142,7 +130,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         elif communication_type == "to_instrument":
             if communication["command"] == "start_managed_acquisition":
                 self._is_managed_acquisition_running = True
-                _drain_queue(self._board_queues[0][1])
+                drain_queue(self._board_queues[0][1])
             elif communication["command"] == "stop_managed_acquisition":
                 self._is_managed_acquisition_running = False
                 for well_index in range(24):
@@ -159,7 +147,7 @@ class DataAnalyzerProcess(InfiniteProcess):
     def _load_memory_into_buffer(self) -> None:
         input_queue = self._board_queues[0][0]
         try:
-            data_dict = input_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
+            data_dict = input_queue.get_nowait()
         except queue.Empty:
             return
 
@@ -333,10 +321,10 @@ class DataAnalyzerProcess(InfiniteProcess):
         queue_items: Dict[str, Any] = dict()
         for i, board in enumerate(self._board_queues):
             queue_items[f"board_{i}"] = _drain_board_queues(board)
-        queue_items["from_main_to_data_analyzer"] = _drain_queue(
+        queue_items["from_main_to_data_analyzer"] = drain_queue(
             self._comm_from_main_queue
         )
-        queue_items["from_data_analyzer_to_main"] = _drain_queue(
+        queue_items["from_data_analyzer_to_main"] = drain_queue(
             self._comm_to_main_queue
         )
         return queue_items
