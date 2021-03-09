@@ -42,9 +42,9 @@ from mantarray_file_manager import WELL_ROW_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 from nptyping import NDArray
 from stdlib_utils import compute_crc32_and_write_to_file_head
+from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
-from stdlib_utils import safe_get
 
 from .constants import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from .constants import CURRENT_HDF5_FILE_FORMAT_VERSION
@@ -154,20 +154,9 @@ def _drain_board_queues(
     ],
 ) -> Dict[str, List[Any]]:
     board_dict = dict()
-    board_dict["instrument_comm_to_file_writer"] = _drain_queue(board[0])
-    board_dict["file_writer_to_data_analyzer"] = _drain_queue(board[1])
+    board_dict["instrument_comm_to_file_writer"] = drain_queue(board[0])
+    board_dict["file_writer_to_data_analyzer"] = drain_queue(board[1])
     return board_dict
-
-
-def _drain_queue(
-    file_writer_queue: Queue[Any],  # pylint: disable=unsubscriptable-object
-) -> List[Any]:
-    queue_items = list()
-    item = safe_get(file_writer_queue)
-    while item is not None:
-        queue_items.append(item)
-        item = safe_get(file_writer_queue)
-    return queue_items
 
 
 # pylint: disable=too-many-instance-attributes
@@ -714,6 +703,6 @@ class FileWriterProcess(InfiniteProcess):
         queue_items: Dict[str, Any] = dict()
         for i, board in enumerate(self._board_queues):
             queue_items[f"board_{i}"] = _drain_board_queues(board)
-        queue_items["from_main_to_file_writer"] = _drain_queue(self._from_main_queue)
-        queue_items["from_file_writer_to_main"] = _drain_queue(self._to_main_queue)
+        queue_items["from_main_to_file_writer"] = drain_queue(self._from_main_queue)
+        queue_items["from_file_writer_to_main"] = drain_queue(self._to_main_queue)
         return queue_items
