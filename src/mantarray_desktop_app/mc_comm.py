@@ -36,7 +36,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         return is_registered
 
     def create_connections_to_all_available_boards(self) -> None:
-        raise NotImplementedError()  # Tanner (12/18/21): adding this as a placeholder for now to override abstract method. This method will be defined and the NotImplementedError removed before this class is instantied in any source code
+        raise NotImplementedError()  # Tanner (12/18/21): adding this as a placeholder for now to override abstract method. This method will be defined and the NotImplementedError removed before this class is instantiated in any source code
 
     def _commands_for_each_run_iteration(self) -> None:
         board_idx = 0

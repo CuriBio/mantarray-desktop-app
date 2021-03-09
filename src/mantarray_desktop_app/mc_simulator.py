@@ -149,7 +149,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         # if _reboot_time_secs is not None, this means the simulator is in a "reboot" phase
         if self._reboot_time_secs is not None:
             secs_since_reboot = _get_secs_since_reboot_command(self._reboot_time_secs)
-            # if secs_since_reboot is less than the reboot duration, simulator is still in the 'reboot' phase. Commands from PC will be discared and status beacons will not be sent
+            # if secs_since_reboot is less than the reboot duration, simulator is still in the 'reboot' phase. Commands from PC will be ignored and status beacons will not be sent
             if secs_since_reboot < MC_REBOOT_DURATION_SECONDS:
                 return
             self._handle_reboot_completion()
