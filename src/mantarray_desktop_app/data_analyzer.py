@@ -31,7 +31,6 @@ from .constants import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from .constants import MILLIVOLTS_PER_VOLT
 from .constants import REF_INDEX_TO_24_WELL_INDEX
 from .constants import REFERENCE_VOLTAGE
-from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .exceptions import UnrecognizedCommandToInstrumentError
 from .exceptions import UnrecognizedCommTypeFromMainToDataAnalyzerError
 
@@ -121,7 +120,7 @@ class DataAnalyzerProcess(InfiniteProcess):
     def _process_next_command_from_main(self) -> None:
         input_queue = self._comm_from_main_queue
         try:
-            communication = input_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
+            communication = input_queue.get_nowait()
         except queue.Empty:
             return
 
@@ -148,7 +147,7 @@ class DataAnalyzerProcess(InfiniteProcess):
     def _load_memory_into_buffer(self) -> None:
         input_queue = self._board_queues[0][0]
         try:
-            data_dict = input_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
+            data_dict = input_queue.get_nowait()
         except queue.Empty:
             return
 
