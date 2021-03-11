@@ -13,7 +13,6 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 from typing import Union
-from zlib import crc32
 
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
@@ -22,7 +21,6 @@ from stdlib_utils import SECONDS_TO_SLEEP_BETWEEN_CHECKING_QUEUE_SIZE
 from .constants import MC_REBOOT_DURATION_SECONDS
 from .constants import NANOSECONDS_PER_CENTIMILLISECOND
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
-from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
@@ -33,10 +31,11 @@ from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
-from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .exceptions import UnrecognizedSerialCommModuleIdError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .exceptions import UnrecognizedSimulatorTestCommandError
+from .serial_comm_utils import create_data_packet
+from .serial_comm_utils import validate_checksum
 
 
 MAGIC_WORD_LEN = len(SERIAL_COMM_MAGIC_WORD_BYTES)
@@ -48,31 +47,6 @@ def _get_secs_since_last_status_beacon(last_time: float) -> float:
 
 def _get_secs_since_reboot_command(last_time: float) -> float:
     return perf_counter() - last_time
-
-
-def _get_checksum_bytes(packet: bytes) -> bytes:
-    return crc32(packet).to_bytes(SERIAL_COMM_CHECKSUM_LENGTH_BYTES, byteorder="little")
-
-
-def create_data_packet(
-    timestamp: int,
-    module_id: int,
-    packet_type: int,
-    packet_data: bytes,
-) -> bytes:
-    """Create a data packet to send to the PC."""
-    packet_body = timestamp.to_bytes(
-        SERIAL_COMM_TIMESTAMP_LENGTH_BYTES, byteorder="little"
-    )
-    packet_body += bytes([module_id, packet_type])
-    packet_body += packet_data
-    packet_length = len(packet_body) + SERIAL_COMM_CHECKSUM_LENGTH_BYTES
-
-    data_packet = SERIAL_COMM_MAGIC_WORD_BYTES
-    data_packet += packet_length.to_bytes(2, byteorder="little")
-    data_packet += packet_body
-    data_packet += _get_checksum_bytes(data_packet)
-    return data_packet
 
 
 class MantarrayMcSimulator(InfiniteProcess):
@@ -170,12 +144,8 @@ class MantarrayMcSimulator(InfiniteProcess):
             return
 
         # validate checksum before handling the communication
-        expected_checksum = crc32(comm_from_pc[:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES])
-        actual_checksum = int.from_bytes(
-            comm_from_pc[-SERIAL_COMM_CHECKSUM_LENGTH_BYTES:],
-            byteorder="little",
-        )
-        if actual_checksum != expected_checksum:
+        checksum_is_valid = validate_checksum(comm_from_pc)
+        if not checksum_is_valid:
             # remove magic word before returning message to PC
             trimmed_comm_from_pc = comm_from_pc[MAGIC_WORD_LEN:]
             self._send_data_packet(

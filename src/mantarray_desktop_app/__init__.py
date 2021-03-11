@@ -154,7 +154,6 @@ from .main import get_server_port_number
 from .mantarray_front_panel import MantarrayFrontPanel
 from .mantarray_front_panel import MantarrayFrontPanelMixIn
 from .mc_comm import McCommunicationProcess
-from .mc_simulator import create_data_packet
 from .mc_simulator import MantarrayMcSimulator
 from .ok_comm import build_file_writer_objects
 from .ok_comm import check_barcode_for_errors
@@ -168,6 +167,8 @@ from .ok_comm import parse_scripting_log_line
 from .process_manager import MantarrayProcessesManager
 from .process_monitor import MantarrayProcessesMonitor
 from .queue_container import MantarrayQueueContainer
+from .serial_comm_utils import create_data_packet
+from .serial_comm_utils import validate_checksum
 from .server import clear_the_server_thread
 from .server import flask_app
 from .server import get_api_endpoint
@@ -367,4 +368,5 @@ __all__ = [
     "SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE",
     "SERIAL_COMM_REBOOT_COMMAND_BYTE",
     "MC_REBOOT_DURATION_SECONDS",
+    "validate_checksum",
 ]
