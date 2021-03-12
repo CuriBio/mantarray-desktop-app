@@ -39,7 +39,7 @@ const flask_port = 4567;
 const PY_DIST_FOLDER = path.join("dist-python", "mantarray-flask"); // python distributable folder
 const PY_SRC_FOLDER = "src"; // path to the python source
 const PY_MODULE = "entrypoint.py"; // the name of the main module
-const PY_EXE = "mantarray-flask.exe"; // the name of the main module
+const PY_EXE = "mantarray-flask"; // the name of the main module
 
 // const nodeConsole = require("console");
 // const myConsole = new nodeConsole.Console(process.stdout, process.stderr);

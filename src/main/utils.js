@@ -74,6 +74,7 @@ const generate_flask_command_line_args = function (electron_store) {
     electron_store_dir,
     flask_logs_subfolder
   );
+  console.log("node env: " + process.env.NODE_ENV); // allow-log
   // Eli (7/15/20): Having quotation marks around the path does not appear to be necessary even with spaces in the path, since it's being passed programatically and not directly through the shell
   args.push("--log-file-dir=" + flask_logs_full_path + "");
   args.push(
