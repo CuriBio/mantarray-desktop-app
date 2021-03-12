@@ -184,10 +184,10 @@ jobs:
           .\vcn --version
           pipenv run python .github/workflows/vcn.py login
 
-      - name: Run Python Tests with randomly generated seed
-        if: github.event.inputs.randomlyseed == ''
-        timeout-minutes: 40
-        run: pipenv run pytest -xsvv --cov-report=xml --include-slow-tests --full-ci
+      # - name: Run Python Tests with randomly generated seed
+      #   if: github.event.inputs.randomlyseed == ''
+      #   timeout-minutes: 40
+      #   run: pipenv run pytest -xsvv --cov-report=xml --include-slow-tests --full-ci
 
       - name: Run Python Tests with supplied pytest-randomly seed
         if: github.event.inputs.randomlyseed != ''
@@ -227,8 +227,7 @@ jobs:
           sed -i 's/REPLACETHISWITHTIMESTAMPDURINGBUILD/'"$(date +'%y%m%d%H%M%S')"'--$build_number/g' src/mantarray_desktop_app/constants.py
           sed -i 's/REPLACETHISWITHVERSIONDURINGBUILD/'"${{steps.software-version.outputs.prop}}"'/g' src/mantarray_desktop_app/constants.py
 
-      - name: Compile the Python Executable (Windows)
-        if: runner.os == 'Windows'
+      - name: Compile the Python Executable
         run: pipenv run pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=dist-python --workpath=build-python
 
       - name: Run Python Tests on Executable with randomly generated seed (Windows)
@@ -271,6 +270,10 @@ jobs:
       #   #   DISPLAY: ":99.0"
       #   with:
       #     run: pipenv run npm run test:e2e-no-prebuild
+
+      - name: Run E2E Tests
+        with:
+          run: pipenv run npm run test:e2e-ci
 
       - name: Digitally Signing the installation and win_unpacked EXE files
         if: matrix.IS_DEPLOYMENT_CONFIG == true
