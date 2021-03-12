@@ -6,6 +6,7 @@ import { app } from "electron";
 // import 'typeface-roboto/index.css' // https://medium.com/@daddycat/using-offline-material-icons-and-roboto-font-in-electron-app-f25082447443
 // require('typeface-roboto')
 /* end Eli added */
+const ci = require("ci-info");
 
 const path = require("path");
 const fs = require("fs");
@@ -78,6 +79,14 @@ const start_python_subprocess = () => {
     "About to generate command line arguments to use when booting up server"
   );
   const command_line_args = generate_flask_command_line_args(store);
+  if (process.platform !== "win32") {
+    // presumably running in a linux dev or CI environment
+    if (!ci.isCI) {
+      // don't do this in CI environment, only locally
+      command_line_args.push("--skip-software-version-verification"); // TODO (Eli 3/12/21): use the `yargs` package to accept this as a command line argument to the Electron app so that it can be passed appropriately and with more control than everytime the python source code is run (which is based on the assumption that anytime source code is tested it's running locally in a dev environment and the bit file isn't available)
+    }
+  }
+
   console.log("sending command line args: " + command_line_args); // allow-log
   if (isRunningInBundle()) {
     const script = getPythonScriptPath();

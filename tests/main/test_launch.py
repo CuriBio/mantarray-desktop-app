@@ -514,6 +514,21 @@ def test_main__puts_server_into_error_mode_if_expected_software_version_is_incor
     )
 
 
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
+@pytest.mark.slow
+def test_main__When_launched_with_an_expected_software_version_but_also_the_flag_to_skip_the_check__Then_server_does_not_go_into_error_mode(
+    fully_running_app_from_main_entrypoint, test_client
+):
+    fully_running_app_from_main_entrypoint(
+        ["--expected-software-version=0.0.0", "--skip-software-version-verification"]
+    )
+    port = get_server_port_number()
+    confirm_port_in_use(port, timeout=5)
+
+    response = test_client.get("/system_status")
+    assert response.status_code == 200
+
+
 @pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS + 5)
 @pytest.mark.slow
 def test_main__boots_up_instrument_without_a_bitfile_when_using_a_simulator__when_given_no_load_firmware_cmd_line_arg(

@@ -144,6 +144,11 @@ def main(
         action="store_true",
         help="allow app to run from command line when no firmware file is present",
     )
+    parser.add_argument(
+        "--skip-software-version-verification",
+        action="store_true",
+        help="override any supplied expected software version and disable the check",
+    )
     parsed_args = parser.parse_args(command_line_args)
 
     if parsed_args.log_level_debug:
@@ -188,9 +193,10 @@ def main(
         validate_settings(settings_dict)
 
     if parsed_args.expected_software_version:
-        shared_values_dict[
-            "expected_software_version"
-        ] = parsed_args.expected_software_version
+        if not parsed_args.skip_software_version_verification:
+            shared_values_dict[
+                "expected_software_version"
+            ] = parsed_args.expected_software_version
 
     log_file_uuid = settings_dict.get("log_file_uuid", uuid.uuid4())
     shared_values_dict["log_file_uuid"] = log_file_uuid
