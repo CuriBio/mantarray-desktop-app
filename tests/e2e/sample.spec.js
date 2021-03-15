@@ -368,15 +368,15 @@ describe("window_opening", () => {
     let expected_window_top;
     let expected_window_left;
     if (is_windows) {
-      expected_width = 930;
-      expected_height = 1920;
-      expected_window_top = 23;
-      expected_window_left = 1;
+      expected_width = 1936;
+      expected_height = 969;
+      expected_window_left = -8;
+      expected_window_top = 0;
     } else {
-      expected_width = 930;
-      expected_height = 1920;
-      expected_window_top = 23;
+      expected_width = 1920;
+      expected_height = 930;
       expected_window_left = 1;
+      expected_window_top = 23;
     }
 
     expect(width).toStrictEqual(expected_width); // Eli (6/14/20): If running on Cloud9, make sure to install the latest version of c9vnc repo or update the supervisord.conf file to have 1920x1080 dimensions
