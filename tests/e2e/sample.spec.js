@@ -279,10 +279,10 @@ describe("window_opening", () => {
       // let main_process_logs; // = await app.client.getMainProcessLogs()
       // let render_process_logs = await app.client.getRenderProcessLogs();
       const stopped_app_return_code = await app.stop();
-      console.log(
-        // allow-log
-        "stopped_app_return_code: " + JSON.stringify(stopped_app_return_code)
-      );
+      console.log("stopped_app_return_code"); // allow-log
+      for (const [key, value] of Object.entries(stopped_app_return_code)) {
+        console.log(` app.stop return code - ${key}: ${value}`); // allow-log
+      }
       // await app.stop();
 
       // await app.client.execute(() => {
