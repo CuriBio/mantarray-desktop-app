@@ -85,6 +85,15 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._status_code_bits: bytes = bytes(0)
         self._reset_status_code_bits()
 
+    @property
+    def in_waiting(self) -> int:
+        if self._leftover_read_bytes is None:
+            try:
+                self._leftover_read_bytes = self._output_queue.get_nowait()
+            except queue.Empty:
+                return 0
+        return len(self._leftover_read_bytes)
+
     def _reset_status_code_bits(self) -> None:
         self._status_code_bits = bytes(4)
 

@@ -119,6 +119,7 @@ from .exceptions import MismatchedScriptTypeError
 from .exceptions import MultiprocessingNotSetToSpawnError
 from .exceptions import RecordingFolderDoesNotExistError
 from .exceptions import ScriptDoesNotContainEndCommandError
+from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
 from .exceptions import SerialCommPacketRegistrationReadEmptyError
 from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
 from .exceptions import SerialCommPacketRegistrationTimoutError
@@ -369,4 +370,5 @@ __all__ = [
     "SERIAL_COMM_REBOOT_COMMAND_BYTE",
     "MC_REBOOT_DURATION_SECONDS",
     "validate_checksum",
+    "SerialCommIncorrectChecksumFromInstrumentError",
 ]

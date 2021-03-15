@@ -98,11 +98,12 @@ def test_McCommunicationProcess_register_magic_word__registers_magic_word_in_ser
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     board_idx = 0
+    dummy_timestamp = 0
     mc_process.set_board_connection(board_idx, simulator)
     assert mc_process.is_registered_with_serial_comm(board_idx) is False
     test_bytes = SERIAL_COMM_MAGIC_WORD_BYTES[3:] + bytes(8)
     test_bytes += create_data_packet(
-        0,
+        dummy_timestamp,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
         DEFAULT_SIMULATOR_STATUS_CODE,
@@ -127,10 +128,11 @@ def test_McCommunicationProcess_register_magic_word__registers_magic_word_in_ser
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     board_idx = 0
+    dummy_timestamp = 0
     mc_process.set_board_connection(board_idx, simulator)
     assert mc_process.is_registered_with_serial_comm(board_idx) is False
     test_bytes = create_data_packet(
-        0,
+        dummy_timestamp,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
         DEFAULT_SIMULATOR_STATUS_CODE,

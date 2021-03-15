@@ -45,6 +45,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             and self._board_connections[board_idx] is not None
         ):
             self._register_magic_word(board_idx)
+        # TODO: self._handle..()
 
     def _register_magic_word(self, board_idx: int) -> None:
         board = self._board_connections[board_idx]

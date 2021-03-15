@@ -169,6 +169,45 @@ def test_MantarrayMcSimulator_read__returns_empty_bytes_if_no_bytes_to_read(
     assert actual_item == expected_item
 
 
+def test_MantarrayMcSimulator_in_waiting__getter_returns_number_of_bytes_available_for_read__and_does_not_affect_read_sizes(
+    mantarray_mc_simulator_no_beacon,
+):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+
+    assert simulator.in_waiting == 0
+
+    test_bytes = b"1234567890"
+    test_item = {"command": "add_read_bytes", "read_bytes": test_bytes}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_item, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator)
+    assert simulator.in_waiting == 10
+
+    test_read_size_1 = 4
+    test_read_1 = simulator.read(size=test_read_size_1)
+    assert len(test_read_1) == test_read_size_1
+    assert simulator.in_waiting == len(test_bytes) - test_read_size_1
+
+    test_read_size_2 = len(test_bytes) - test_read_size_1
+    test_read_2 = simulator.read(size=test_read_size_2)
+    assert len(test_read_2) == test_read_size_2
+    assert simulator.in_waiting == 0
+
+
+def test_MantarrayMcSimulator_in_waiting__setter_raises_error(
+    mantarray_mc_simulator_no_beacon, mocker
+):
+    mocker.patch(
+        "builtins.print", autospec=True
+    )  # don't print the error message to console
+
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    with pytest.raises(AttributeError):
+        simulator.in_waiting = 0
+
+
 def test_MantarrayMcSimulator_write__puts_object_into_input_queue__with_no_sleep_after_write(
     mocker,
 ):
