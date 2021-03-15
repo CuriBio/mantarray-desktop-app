@@ -390,6 +390,7 @@ describe("window_opening", () => {
 
     const screenshot_path = path.join(this_base_screenshot_path, "init");
     await wait_for_local_server_to_reach_calibration_needed();
+    await sleep(2000); // Eli (3/15/21): do an extra sleep because it seems like sporadically the screenshot is still in the initializing state
     await expect(
       spectron_page_visual_regression(app.browserWindow, screenshot_path)
     ).resolves.toBe(true);
