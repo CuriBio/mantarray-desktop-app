@@ -278,8 +278,9 @@ describe("window_opening", () => {
       // you could also use .stop() here
       // let main_process_logs; // = await app.client.getMainProcessLogs()
       // let render_process_logs = await app.client.getRenderProcessLogs();
-      // const stopped_app_return_code = await app.stop();
-      await app.stop();
+      const stopped_app_return_code = await app.stop();
+      console.log("stopped_app_return_code: " + stopped_app_return_code);
+      // await app.stop();
 
       // await app.client.execute(() => {
       //     window.close();
