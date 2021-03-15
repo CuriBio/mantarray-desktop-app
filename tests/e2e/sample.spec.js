@@ -164,6 +164,7 @@ async function wait_for_local_server_to_reach_calibration_needed() {
       response.data.ui_status_code == "009301eb-625c-4dc4-9e92-1a4d0762465f"
     ) {
       // TODO (Eli 1/14/21): replace this string by importing the value from the frontend-components library
+      await sleep(2000); // Eli (3/15/21): do an extra sleep because it seems like sporadically the screenshot is still in the initializing state
       return;
     }
     await sleep(2000);
@@ -390,7 +391,6 @@ describe("window_opening", () => {
 
     const screenshot_path = path.join(this_base_screenshot_path, "init");
     await wait_for_local_server_to_reach_calibration_needed();
-    // await sleep(2000); // Eli (3/15/21): do an extra sleep because it seems like sporadically the screenshot is still in the initializing state
     await expect(
       spectron_page_visual_regression(app.browserWindow, screenshot_path)
     ).resolves.toBe(true);
