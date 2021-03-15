@@ -289,7 +289,7 @@ describe("window_opening", () => {
         const shutdown_response = await axios.get(
           "http://localhost:4567/shutdown"
         ); // Eli (1/18/21): `app.stop()` apparently isn't triggering the call to shutdown Flask, so manually doing it here
-        console.log("Shutdown response: " + shutdown_response); // allow-log
+        console.log("Shutdown response: " + JSON.stringify(shutdown_response)); // allow-log
       } catch (e) {
         console.log("Error attempting to call shutdown route: " + e); // allow-log
       }
