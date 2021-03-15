@@ -48,7 +48,10 @@ jobs:
     steps:
       - name: Adjust Screen Resolution (Windows)
         if: runner.os == 'Windows'
-        run: Set-DisplayResolution -Width 1920 -Height 1080 -Force
+        run: |
+          Get-DisplayResolution
+          Set-DisplayResolution -Width 1920 -Height 1080 -Force
+          Get-DisplayResolution
 
       - name: Checkout
         uses: actions/checkout@v2
