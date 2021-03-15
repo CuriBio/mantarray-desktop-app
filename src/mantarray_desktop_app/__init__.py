@@ -74,6 +74,7 @@ from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from .constants import REFERENCE_VOLTAGE
 from .constants import ROUND_ROBIN_PERIOD
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+from .constants import SERIAL_COMM_BAUD_RATE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
@@ -371,4 +372,5 @@ __all__ = [
     "MC_REBOOT_DURATION_SECONDS",
     "validate_checksum",
     "SerialCommIncorrectChecksumFromInstrumentError",
+    "SERIAL_COMM_BAUD_RATE",
 ]

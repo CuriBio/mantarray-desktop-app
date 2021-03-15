@@ -2,10 +2,16 @@
 """Process controlling communication with Mantarray Microcontroller."""
 from __future__ import annotations
 
+import datetime
+from multiprocessing import Queue
 from time import sleep
 from typing import Any
 from typing import List
 
+import serial
+import serial.tools.list_ports as list_ports
+
+from .constants import SERIAL_COMM_BAUD_RATE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
@@ -13,6 +19,11 @@ from .exceptions import SerialCommPacketRegistrationReadEmptyError
 from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
 from .exceptions import SerialCommPacketRegistrationTimoutError
 from .instrument_comm import InstrumentCommProcess
+from .mc_simulator import MantarrayMcSimulator
+
+
+def _get_formatted_utc_now() -> str:
+    return datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
 
 
 class McCommunicationProcess(InstrumentCommProcess):
@@ -36,7 +47,45 @@ class McCommunicationProcess(InstrumentCommProcess):
         return is_registered
 
     def create_connections_to_all_available_boards(self) -> None:
-        raise NotImplementedError()  # Tanner (12/18/21): adding this as a placeholder for now to override abstract method. This method will be defined and the NotImplementedError removed before this class is instantiated in any source code
+        """Create initial connections to boards.
+
+        If a board is not present, a simulator will be put in.
+        """
+        num_boards_connected = self.determine_how_many_boards_are_connected()
+        to_main_queue = self._board_queues[0][1]
+        for i in range(num_boards_connected):
+            msg = {
+                "communication_type": "board_connection_status_change",
+                "board_index": i,
+            }
+
+            for name in list(list_ports.comports()):
+                name = str(name)
+                # Tanner (3/15/21): As long as the STM eval board is used in the Mantarray, it will show up as so and we can look for the Mantarray by checking for STM in the name
+                if "STM" not in name:
+                    continue
+                port = name[-5:-1]  # parse out the name of the COM port
+                serial_obj = serial.Serial(
+                    port=port,
+                    baudrate=SERIAL_COMM_BAUD_RATE,
+                    bytesize=8,
+                    timeout=0,
+                    stopbits=serial.STOPBITS_ONE,
+                )
+                break
+            else:
+                msg["message"] = "No board detected. Creating simulator."
+                serial_obj = MantarrayMcSimulator(
+                    Queue(),
+                    Queue(),
+                    Queue(),
+                    Queue(),
+                )
+            self.set_board_connection(i, serial_obj)
+            # TODO Tanner (3/15/21): add serial number and nickname to msg
+            msg["is_connected"] = not isinstance(serial_obj, MantarrayMcSimulator)
+            msg["timestamp"] = _get_formatted_utc_now()
+            to_main_queue.put(msg)
 
     def _commands_for_each_run_iteration(self) -> None:
         board_idx = 0

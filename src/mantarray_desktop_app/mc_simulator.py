@@ -20,6 +20,7 @@ from stdlib_utils import SECONDS_TO_SLEEP_BETWEEN_CHECKING_QUEUE_SIZE
 
 from .constants import MC_REBOOT_DURATION_SECONDS
 from .constants import NANOSECONDS_PER_CENTIMILLISECOND
+from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
@@ -57,7 +58,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         output_queue: queue bytes sent from the simulator using the `read` method
         fatal_error_reporter: a queue to report fatal errors back to the main process
         testing_queue: queue used to send commands to the simulator. Should only be used in unit tests
-        read_timeout_seconds: number of seconds to wait until read is of desired size before returning how ever many bytes have been read. Timeout should be set to 0 unless a non-zero value is necessary for unit testing
+        read_timeout_seconds: number of seconds to wait until read is of desired size before returning how ever many bytes have been read. Timeout should be set to 0 except in unit testing scenarios where necessary
     """
 
     def __init__(
@@ -172,7 +173,7 @@ class MantarrayMcSimulator(InfiniteProcess):
     def _process_main_module_command(self, comm_from_pc: bytes) -> None:
         packet_type = comm_from_pc[SERIAL_COMM_PACKET_TYPE_INDEX]
         if packet_type == SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE:
-            command_byte = comm_from_pc[SERIAL_COMM_PACKET_TYPE_INDEX + 1]
+            command_byte = comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX]
             if command_byte == SERIAL_COMM_REBOOT_COMMAND_BYTE:
                 self._reboot_time_secs = perf_counter()
                 self._send_data_packet(
