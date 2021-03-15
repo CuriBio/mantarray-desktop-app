@@ -38,7 +38,10 @@ import { spectron_page_visual_regression } from "@curi-bio/frontend-test-utils";
 
 const is_windows = process.platform === "win32";
 
-const base_screenshot_path = path.join("continuous-waveform");
+const base_screenshot_path = path.join(
+  is_windows ? "windows" : "linux",
+  "continuous-waveform"
+);
 
 // const { test_with_Spectron } = require('vue-cli-plugin-electron-builder') // may only work with Vue 3 https://nklayman.github.io/vue-cli-plugin-electron-builder/guide/testingAndDebugging.html#testing
 
@@ -360,12 +363,28 @@ describe("window_opening", () => {
     expect(await win.isMaximized()).toBe(false);
     const { width, height } = await win.getBounds();
     console.log("Width: " + width + " height: " + height); // allow-log
-    // expect(width).toStrictEqual(1920); // Eli (6/14/20): If running on Cloud9, make sure to install the latest version of c9vnc repo or update the supervisord.conf file to have 1920x1080 dimensions
-    // expect(height).toStrictEqual(930);
+    let expected_width;
+    let expected_height;
+    let expected_window_top;
+    let expected_window_left;
+    if (is_windows) {
+      expected_width = 930;
+      expected_height = 1920;
+      expected_window_top = 23;
+      expected_window_left = 1;
+    } else {
+      expected_width = 930;
+      expected_height = 1920;
+      expected_window_top = 23;
+      expected_window_left = 1;
+    }
+
+    expect(width).toStrictEqual(expected_width); // Eli (6/14/20): If running on Cloud9, make sure to install the latest version of c9vnc repo or update the supervisord.conf file to have 1920x1080 dimensions
+    expect(height).toStrictEqual(expected_height);
     const win_position = await win.getPosition();
     console.log("Window Position: " + win_position[0] + " " + win_position[1]); // allow-log
-    // expect(win_position[0]).toStrictEqual(1); // when not maximized, there's a single extra pixel of border width on the edge
-    // expect(win_position[1]).toStrictEqual(23); // takes into account the height of the menu
+    expect(win_position[0]).toStrictEqual(expected_window_left); // when not maximized, there's a single extra pixel of border width on the edge
+    expect(win_position[1]).toStrictEqual(expected_window_top); // takes into account the height of the menu
 
     const this_base_screenshot_path = path.join(base_screenshot_path);
 
