@@ -334,6 +334,7 @@ describe("window_opening", () => {
       app.mainProcess.exit(1);
       // do someting to end the test with error
       // 6 / 0;
+      done();
     }
   }, 30000);
 
