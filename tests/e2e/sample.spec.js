@@ -38,7 +38,10 @@ import { spectron_page_visual_regression } from "@curi-bio/frontend-test-utils";
 
 const is_windows = process.platform === "win32";
 
-const base_screenshot_path = path.join("continuous-waveform");
+const base_screenshot_path = path.join(
+  is_windows ? "windows" : "linux",
+  "continuous-waveform"
+);
 
 // const { test_with_Spectron } = require('vue-cli-plugin-electron-builder') // may only work with Vue 3 https://nklayman.github.io/vue-cli-plugin-electron-builder/guide/testingAndDebugging.html#testing
 
@@ -161,6 +164,7 @@ async function wait_for_local_server_to_reach_calibration_needed() {
       response.data.ui_status_code == "009301eb-625c-4dc4-9e92-1a4d0762465f"
     ) {
       // TODO (Eli 1/14/21): replace this string by importing the value from the frontend-components library
+      await sleep(2000); // Eli (3/15/21): do an extra sleep because it seems like sporadically the screenshot is still in the initializing state
       return;
     }
     await sleep(2000);
@@ -278,8 +282,12 @@ describe("window_opening", () => {
       // you could also use .stop() here
       // let main_process_logs; // = await app.client.getMainProcessLogs()
       // let render_process_logs = await app.client.getRenderProcessLogs();
-      // const stopped_app_return_code = await app.stop();
-      await app.stop();
+      const stopped_app_return_code = await app.stop();
+      console.log("stopped_app_return_code"); // allow-log
+      for (const [key, value] of Object.entries(stopped_app_return_code)) {
+        console.log(` app.stop return code - ${key}: ${value}`); // allow-log
+      }
+      // await app.stop();
 
       // await app.client.execute(() => {
       //     window.close();
@@ -289,7 +297,7 @@ describe("window_opening", () => {
         const shutdown_response = await axios.get(
           "http://localhost:4567/shutdown"
         ); // Eli (1/18/21): `app.stop()` apparently isn't triggering the call to shutdown Flask, so manually doing it here
-        console.log("Shutdown response: " + shutdown_response); // allow-log
+        console.log("Shutdown response: " + JSON.stringify(shutdown_response)); // allow-log
       } catch (e) {
         console.log("Error attempting to call shutdown route: " + e); // allow-log
       }
@@ -304,7 +312,10 @@ describe("window_opening", () => {
       try {
         // check if PID is running using '0' signal (throw error if not)
         if (is_windows) {
-          child_process.execSync("taskkill /F /PID " + pid);
+          // child_process.execSync("Stop-Process -ID " + pid + " -Force"); // powershell command syntax
+          child_process.execSync("taskkill /F /PID " + pid, {
+            stdio: "inherit",
+          });
         } else {
           process.kill(pid, 0);
         }
@@ -322,9 +333,10 @@ describe("window_opening", () => {
       // no error, process is still running, stop it
       app.mainProcess.exit(1);
       // do someting to end the test with error
-      6 / 0;
+      // 6 / 0;
+      done();
     }
-  }, 20000);
+  }, 30000);
 
   // test("Then it should initialize nuxt", async () => {
   //   const app = sandbox.the_app;
@@ -356,11 +368,28 @@ describe("window_opening", () => {
     expect(await win.isMaximized()).toBe(false);
     const { width, height } = await win.getBounds();
     console.log("Width: " + width + " height: " + height); // allow-log
-    expect(width).toStrictEqual(1920); // Eli (6/14/20): If running on Cloud9, make sure to install the latest version of c9vnc repo or update the supervisord.conf file to have 1920x1080 dimensions
-    expect(height).toStrictEqual(930);
+    let expected_width;
+    let expected_height;
+    let expected_window_top;
+    let expected_window_left;
+    if (is_windows) {
+      expected_width = 1936;
+      expected_height = 969;
+      expected_window_left = -8;
+      expected_window_top = 0;
+    } else {
+      expected_width = 1920;
+      expected_height = 930;
+      expected_window_left = 1;
+      expected_window_top = 23;
+    }
+
+    expect(width).toStrictEqual(expected_width); // Eli (6/14/20): If running on Cloud9, make sure to install the latest version of c9vnc repo or update the supervisord.conf file to have 1920x1080 dimensions
+    expect(height).toStrictEqual(expected_height);
     const win_position = await win.getPosition();
-    expect(win_position[0]).toStrictEqual(1); // when not maximized, there's a single extra pixel of border width on the edge
-    expect(win_position[1]).toStrictEqual(23); // takes into account the height of the menu
+    console.log("Window Position: " + win_position[0] + " " + win_position[1]); // allow-log
+    expect(win_position[0]).toStrictEqual(expected_window_left); // when not maximized, there's a single extra pixel of border width on the edge
+    expect(win_position[1]).toStrictEqual(expected_window_top); // takes into account the height of the menu
 
     const this_base_screenshot_path = path.join(base_screenshot_path);
 

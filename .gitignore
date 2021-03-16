@@ -18,6 +18,10 @@ npm-debug.log
 # Electron build
 build
 
+# Pyinstaller build
+build-python
+dist-python
+
 # Nuxt generate
 dist
 

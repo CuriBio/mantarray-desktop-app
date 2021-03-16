@@ -46,6 +46,13 @@ jobs:
     name: Python ${{ matrix.python-version }} with Node ${{ matrix.node-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     steps:
+      - name: Adjust Screen Resolution (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          Get-DisplayResolution
+          Set-DisplayResolution -Width 1920 -Height 1080 -Force
+          Get-DisplayResolution
+
       - name: Checkout
         uses: actions/checkout@v2
         with:
@@ -227,16 +234,15 @@ jobs:
           sed -i 's/REPLACETHISWITHTIMESTAMPDURINGBUILD/'"$(date +'%y%m%d%H%M%S')"'--$build_number/g' src/mantarray_desktop_app/constants.py
           sed -i 's/REPLACETHISWITHVERSIONDURINGBUILD/'"${{steps.software-version.outputs.prop}}"'/g' src/mantarray_desktop_app/constants.py
 
-      - name: Compile the Python Executable (Windows)
-        if: runner.os == 'Windows'
+      - name: Compile the Python Executable
         run: pipenv run pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=dist-python --workpath=build-python
 
-      - name: Run Python Tests on Executable with randomly generated seed (Windows)
-        if: runner.os == 'Windows' && github.event.inputs.randomlyseed == ''
+      - name: Run Python Tests on Executable with randomly generated seed
+        if: github.event.inputs.randomlyseed == ''
         run: pipenv run pytest tests/test_exe.py -xsvv --only-exe --no-cov
 
-      - name: Run Python Tests on Executable with supplied pytest-randomly seed (Windows)
-        if: runner.os == 'Windows' && github.event.inputs.randomlyseed != ''
+      - name: Run Python Tests on Executable with supplied pytest-randomly seed
+        if: github.event.inputs.randomlyseed != ''
         run: pipenv run pytest tests/test_exe.py -xsvv --only-exe --no-cov --randomly-seed=${{ github.event.inputs.randomlyseed }}
 
       - name: Digitally Signing the EXE bundled by pyinstaller before it gets packaged into the built Electron app
@@ -271,6 +277,11 @@ jobs:
       #   #   DISPLAY: ":99.0"
       #   with:
       #     run: pipenv run npm run test:e2e-no-prebuild
+
+      - name: Run E2E Tests (Windows)
+        if: runner.os == 'Windows' # Eli (3/15/21): The test hangs for an unknown reason when running in Linux, so disabled for now
+        timeout-minutes: 3
+        run: pipenv run npm run test:e2e-ci
 
       - name: Digitally Signing the installation and win_unpacked EXE files
         if: matrix.IS_DEPLOYMENT_CONFIG == true

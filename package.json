@@ -20,6 +20,7 @@
     "test:unit": "node ./node_modules/@curi-bio/frontend-test-utils/src/check_engines.js && cross-env-shell NODE_ENV=test jest -c jest.config.js",
     "test:e2e": "node ./node_modules/@curi-bio/frontend-test-utils/src/check_engines.js && cross-env-shell NODE_ENV=production node .electron-nuxt/index.js && cross-env-shell NODE_ENV=test jest -c jest-spectron.config.js",
     "test:e2e-no-prebuild": "node ./node_modules/@curi-bio/frontend-test-utils/src/check_engines.js && cross-env-shell NODE_ENV=test jest -c jest-spectron.config.js",
+    "test:e2e-ci": "xvfb-maybe --server-args=\"-screen 0 1920x1080x16\" -- jest -c jest-spectron.config.js",
     "build": "node ./node_modules/@curi-bio/frontend-test-utils/src/check_engines.js && cross-env-shell NODE_ENV=production node .electron-nuxt/index.js",
     "build-nuxt": "node ./node_modules/@curi-bio/frontend-test-utils/src/check_engines.js && cross-env-shell NODE_ENV=production SUPPRESS_ELECTRON_BUILD=true node .electron-nuxt/index.js",
     "electron-builder-help": "electron-builder --help",
@@ -79,6 +80,7 @@
     "jest-serializer-vue": "~2.0.2",
     "jest-sinon": "~1.0.4",
     "jest-transform-stub": "~2.0.0",
+    "npm-merge-driver-install": "~1.1.1",
     "nuxt": "~2.14.12",
     "organize-imports-cli": "~0.8.0",
     "prettier-plugin-organize-imports": "~1.1.1",
@@ -92,7 +94,7 @@
     "vue-devtools": "~5.1.3",
     "vue-eslint-parser": "~7.4.1",
     "vue-jest": "~3.0.7",
-    "npm-merge-driver-install": "~1.1.1",
-    "wait-for-expect": "^3.0.2"
+    "wait-for-expect": "^3.0.2",
+    "xvfb-maybe": "^0.2.1"
   }
 }

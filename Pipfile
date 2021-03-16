@@ -7,7 +7,7 @@ verify_ssl = true
 boto3 = "==1.17.19"
 cython = "==0.29.22"
 freezegun = "==1.0.0"
-pre-commit = "==2.10.1"
+pre-commit = "==2.11.1"
 pylint = "==2.7.2"
 pytest = "==6.2.2"
 pytest-cov = "==2.11.1"
