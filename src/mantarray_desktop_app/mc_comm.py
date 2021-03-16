@@ -7,19 +7,23 @@ from multiprocessing import Queue
 from time import sleep
 from typing import Any
 from typing import List
+from zlib import crc32
 
 import serial
 import serial.tools.list_ports as list_ports
 
 from .constants import SERIAL_COMM_BAUD_RATE
+from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
 from .exceptions import SerialCommPacketRegistrationReadEmptyError
 from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
 from .exceptions import SerialCommPacketRegistrationTimoutError
 from .instrument_comm import InstrumentCommProcess
 from .mc_simulator import MantarrayMcSimulator
+from .serial_comm_utils import validate_checksum
 
 
 def _get_formatted_utc_now() -> str:
@@ -94,7 +98,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             and self._board_connections[board_idx] is not None
         ):
             self._register_magic_word(board_idx)
-        # TODO: self._handle..()
+        self._handle_incoming_data()
 
     def _register_magic_word(self, board_idx: int) -> None:
         board = self._board_connections[board_idx]
@@ -127,3 +131,30 @@ class McCommunicationProcess(InstrumentCommProcess):
             if num_bytes_checked > SERIAL_COMM_MAX_PACKET_LENGTH_BYTES:
                 raise SerialCommPacketRegistrationSearchExhaustedError()
         self._is_registered_with_serial_comm[board_idx] = True
+
+    def _handle_incoming_data(self) -> None:
+        board_idx = 0
+        board = self._board_connections[board_idx]
+        if board is None or board.in_waiting == 0:
+            return
+        packet_size_bytes = board.read(size=2)
+        packet_size = int.from_bytes(packet_size_bytes, byteorder="little")
+        data_packet_bytes = board.read(size=packet_size)
+        # TODO Tanner (3/15/21): eventually make sure the expected number of bytes are read
+
+        # validate checksum before handling the communication. Need to reconstruct the whole packet to get the correct checksum
+        full_data_packet = (
+            SERIAL_COMM_MAGIC_WORD_BYTES + packet_size_bytes + data_packet_bytes
+        )
+        is_checksum_valid = validate_checksum(full_data_packet)
+        if not is_checksum_valid:
+            calculated_checksum = crc32(
+                full_data_packet[:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
+            )
+            received_checksum = int.from_bytes(
+                full_data_packet[-SERIAL_COMM_CHECKSUM_LENGTH_BYTES:],
+                byteorder="little",
+            )
+            raise SerialCommIncorrectChecksumFromInstrumentError(
+                f"Checksum Received: {received_checksum}, Checksum Calculated: {calculated_checksum}, Full Data Packet: {str(full_data_packet)}"
+            )

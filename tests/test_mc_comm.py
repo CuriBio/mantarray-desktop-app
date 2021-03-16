@@ -8,11 +8,13 @@ from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import McCommunicationProcess
 from mantarray_desktop_app import SERIAL_COMM_BAUD_RATE
+from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+from mantarray_desktop_app import SerialCommIncorrectChecksumFromInstrumentError
 from mantarray_desktop_app import SerialCommPacketRegistrationReadEmptyError
 from mantarray_desktop_app import SerialCommPacketRegistrationSearchExhaustedError
 from mantarray_desktop_app import SerialCommPacketRegistrationTimoutError
@@ -356,41 +358,46 @@ def test_McCommunicationProcess_register_magic_word__raises_error_if_search_exce
         invoke_process_run_and_check_errors(mc_process)
 
 
-# def test_McCommunicationProcess__raises_error_if_checksum_in_data_packet_sent_from_mantarray_is_invalid(
-#     four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
-# ):
-#     mocker.patch(
-#         "builtins.print", autospec=True
-#     )  # don't print the error message to console
+def test_McCommunicationProcess__raises_error_if_checksum_in_data_packet_sent_from_mantarray_is_invalid(
+    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
+):
+    mocker.patch(
+        "builtins.print", autospec=True
+    )  # don't print the error message to console
 
-#     mc_process = four_board_mc_comm_process["mc_process"]
-#     simulator = mantarray_mc_simulator_no_beacon["simulator"]
-#     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+    mc_process = four_board_mc_comm_process["mc_process"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
-#     # add packet with bad checksum to be sent from simulator
-#     dummy_timestamp = 0
-#     test_bytes = create_data_packet(
-#         dummy_timestamp,
-#         SERIAL_COMM_MAIN_MODULE_ID,
-#         SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
-#         DEFAULT_SIMULATOR_STATUS_CODE,
-#     )
-#     # set checksum bytes to an arbitrary incorrect value
-#     test_bytes[-SERIAL_COMM_CHECKSUM_LENGTH_BYTES:] = bytes(SERIAL_COMM_CHECKSUM_LENGTH_BYTES)
-#     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-#         {
-#             "command": "add_read_bytes",
-#             "read_bytes": test_bytes,
-#         },
-#         testing_queue,
+    # add packet with bad checksum to be sent from simulator
+    dummy_timestamp = 0
+    test_bytes = create_data_packet(
+        dummy_timestamp,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
+        DEFAULT_SIMULATOR_STATUS_CODE,
+    )
+    # set checksum bytes to an arbitrary incorrect value
+    bad_checksum = 1234
+    bad_checksum_bytes = bad_checksum.to_bytes(4, byteorder="little")
+    test_bytes = test_bytes[:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES] + bad_checksum_bytes
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {
+            "command": "add_read_bytes",
+            "read_bytes": test_bytes,
+        },
+        testing_queue,
+    )
+    invoke_process_run_and_check_errors(simulator)
 
-#     )
-#     invoke_process_run_and_check_errors(simulator)
+    board_idx = 0
+    mc_process.set_board_connection(board_idx, simulator)
+    with pytest.raises(SerialCommIncorrectChecksumFromInstrumentError) as exc_info:
+        invoke_process_run_and_check_errors(mc_process)
 
-#     board_idx = 0
-#     mc_process.set_board_connection(board_idx, simulator)
-#     with pytest.raises(
-#         SerialCommIncorrectChecksumFromInstrumentError
-#         # match=""
-#     ):
-#         invoke_process_run_and_check_errors(mc_process)
+    expected_checksum = int.from_bytes(
+        test_bytes[-SERIAL_COMM_CHECKSUM_LENGTH_BYTES:], byteorder="little"
+    )
+    assert str(bad_checksum) in exc_info.value.args[0]
+    assert str(expected_checksum) in exc_info.value.args[0]
+    assert str(test_bytes) in exc_info.value.args[0]
