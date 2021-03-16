@@ -26,15 +26,18 @@ from mantarray_desktop_app import UnrecognizedSerialCommPacketTypeError
 import pytest
 import serial
 from serial import Serial
+from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import invoke_process_run_and_check_errors
 
+from .fixtures import generate_board_and_error_queues
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .fixtures_mc_comm import fixture_four_board_mc_comm_process
 from .fixtures_mc_comm import fixture_patch_comports
 from .fixtures_mc_comm import fixture_patch_serial_connection
 from .fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from .fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
+from .helpers import assert_queue_is_eventually_not_empty
 from .helpers import confirm_queue_is_eventually_empty
 from .helpers import confirm_queue_is_eventually_of_size
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -55,6 +58,54 @@ def test_McCommunicationProcess_super_is_called_during_init(mocker):
     mocked_init = mocker.patch.object(InfiniteProcess, "__init__")
     McCommunicationProcess((), error_queue)
     mocked_init.assert_called_once_with(error_queue, logging_level=logging.INFO)
+
+
+@pytest.mark.slow
+@freeze_time("2021-03-16 13:05:55.654321")
+def test_McCommunicationProcess_setup_before_loop__connects_to_boards__and_sends_message_to_main(
+    four_board_mc_comm_process,
+):
+    mc_process = four_board_mc_comm_process["mc_process"]
+    board_queues = four_board_mc_comm_process["board_queues"]
+    assert mc_process.get_board_connections_list() == [None, None, None, None]
+    invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
+    populated_connections_list = mc_process.get_board_connections_list()
+    assert isinstance(populated_connections_list[0], MantarrayMcSimulator)
+    assert populated_connections_list[1:] == [None, None, None]
+
+    assert_queue_is_eventually_not_empty(board_queues[0][1])
+    process_initiated_msg = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert process_initiated_msg["communication_type"] == "log"
+    assert (
+        process_initiated_msg["message"]
+        == "Microcontroller Communication Process initiated at 2021-03-16 13:05:55.654321"
+    )
+    # simulator is automatically started by mc_comm during setup_before_loop, so need to stop it
+    populated_connections_list[0].hard_stop()
+
+
+@pytest.mark.slow
+def test_McCommunicationProcess_setup_before_loop__does_not_send_message_to_main_when_setup_comm_is_suppressed():
+    board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
+    mc_process = McCommunicationProcess(
+        board_queues, error_queue, suppress_setup_communication_to_main=True
+    )
+    assert mc_process.get_board_connections_list() == [None, None, None, None]
+    invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
+    populated_connections_list = mc_process.get_board_connections_list()
+    assert isinstance(populated_connections_list[0], MantarrayMcSimulator)
+    assert populated_connections_list[1:] == [None, None, None]
+
+    # Other parts of the process after setup may or may not send messages to main, so drain queue and make sure none of the items (if present) have a setup message
+    to_main_queue_items = drain_queue(board_queues[0][1])
+    for item in to_main_queue_items:
+        if "message" in item:
+            assert (
+                "Microcontroller Communication Process initiated" not in item["message"]
+            )
+
+    # simulator is automatically started by mc_comm during setup_before_loop, so need to stop it
+    populated_connections_list[0].hard_stop()
 
 
 def test_McCommunicationProcess_hard_stop__clears_all_queues_and_returns_lists_of_values(
@@ -299,7 +350,8 @@ def test_McCommunicationProcess_register_magic_word__raises_error_if_less_than_8
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     # Arbitrarily slice the magic word in first read and add empty reads to simulate no bytes being available to read
-    test_read_values = [SERIAL_COMM_MAGIC_WORD_BYTES[:-1]]
+    expected_partial_bytes = SERIAL_COMM_MAGIC_WORD_BYTES[:-1]
+    test_read_values = [expected_partial_bytes]
     test_read_values.extend(
         [bytes(0) for _ in range(SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS)]
     )
@@ -308,25 +360,31 @@ def test_McCommunicationProcess_register_magic_word__raises_error_if_less_than_8
 
     board_idx = 0
     mc_process.set_board_connection(board_idx, simulator)
-    with pytest.raises(SerialCommPacketRegistrationTimoutError):
+    with pytest.raises(SerialCommPacketRegistrationTimoutError) as exc_info:
         invoke_process_run_and_check_errors(mc_process)
+    assert str(expected_partial_bytes) in str(exc_info.value)
 
 
-def test_McCommunicationProcess_register_magic_word__raises_error_if_reading_next_byte_results_in_empty_read(
+def test_McCommunicationProcess_register_magic_word__raises_error_if_reading_next_byte_results_in_empty_read_for_longer_than_status_beacon_period(
     four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
 ):
     mocker.patch(
         "builtins.print", autospec=True
     )  # don't print all the error messages to console
 
-    # mock sleep to speed up the test
-    mocker.patch.object(mc_comm, "sleep", autospec=True)
+    # mock with only two return values to speed up the test
+    mocker.patch.object(
+        mc_comm,
+        "_get_seconds_since_read_start",
+        autospec=True,
+        side_effect=[0, SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS],
+    )
 
     mc_process = four_board_mc_comm_process["mc_process"]
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
-    # Add arbitrary first 8 bytes and then empty read to raise error
-    test_read_values = [bytes(8), bytes(0)]
+    # Add arbitrary first "magic word" bytes and then empty reads to raise error
+    test_read_values = [bytes(len(SERIAL_COMM_MAGIC_WORD_BYTES)), bytes(0), bytes(0)]
     # need to mock read here to have better control over the reads going into McComm
     mocker.patch.object(simulator, "read", autospec=True, side_effect=test_read_values)
 

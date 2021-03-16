@@ -18,7 +18,7 @@ import stdlib_utils
 from stdlib_utils import confirm_queue_is_eventually_empty as stdlib_c_q_is_e_e
 from stdlib_utils import confirm_queue_is_eventually_of_size as stdlib_c_q_is_e_of_s
 from stdlib_utils import is_queue_eventually_empty as stdlib_is_queue_eventually_empty
-from stdlib_utils import is_queue_eventually_not_empty as stdlib_is_queue_ena
+from stdlib_utils import is_queue_eventually_not_empty as stdlib_is_queue_ene
 from stdlib_utils import is_queue_eventually_of_size as stdlib_is_queue_eos
 from stdlib_utils import QueueStillEmptyError
 from stdlib_utils import SECONDS_TO_SLEEP_BETWEEN_CHECKING_QUEUE_SIZE
@@ -108,7 +108,7 @@ def is_queue_eventually_not_empty(
     the_queue: UnionOfThreadingAndMultiprocessingQueue,
     timeout_seconds: Union[float, int] = QUEUE_CHECK_TIMEOUT_SECONDS,
 ) -> bool:
-    output = stdlib_is_queue_ena(the_queue, timeout_seconds=timeout_seconds)
+    output = stdlib_is_queue_ene(the_queue, timeout_seconds=timeout_seconds)
     if not isinstance(output, bool):
         raise NotImplementedError(
             "not sure why mypy is unable to follow the definition of stdlib_is_queue_eventually_not_empty to know that it is typed as a bool return"

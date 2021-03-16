@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 from multiprocessing import Queue
+from time import perf_counter
 from time import sleep
 from typing import Any
 from typing import List
@@ -37,6 +38,10 @@ from .serial_comm_utils import validate_checksum
 
 def _get_formatted_utc_now() -> str:
     return datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
+
+
+def _get_seconds_since_read_start(start: float) -> float:
+    return perf_counter() - start
 
 
 def _process_main_module_comm(comm_from_instrument: bytes) -> None:
@@ -73,6 +78,22 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._is_registered_with_serial_comm: List[bool] = [False] * len(
             self._board_queues
         )
+
+    def _setup_before_loop(self) -> None:
+        msg = {
+            "communication_type": "log",
+            "message": f'Microcontroller Communication Process initiated at {datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")}',
+        }
+        to_main_queue = self._board_queues[0][1]
+        if not self._suppress_setup_communication_to_main:
+            to_main_queue.put(msg)
+        self.create_connections_to_all_available_boards()
+
+        board_idx = 0
+        board = self._board_connections[board_idx]
+        if isinstance(board, MantarrayMcSimulator):
+            # Tanner (3/16/21): Current assumption is that a live mantarray will be running by the time we connect to it, so starting simulator here
+            board.start()
 
     def is_registered_with_serial_comm(self, board_idx: int) -> bool:
         """Mainly for use in testing."""
@@ -137,8 +158,9 @@ class McCommunicationProcess(InstrumentCommProcess):
         magic_word_len = len(SERIAL_COMM_MAGIC_WORD_BYTES)
         magic_word_test_bytes = board.read(size=magic_word_len)
         magic_word_test_bytes_len = len(magic_word_test_bytes)
+        # wait for at least 8 bytes to be read
         if magic_word_test_bytes_len < magic_word_len:
-            # check for more bytes once every second for up to number of seconds in status beacon period
+            # check for more bytes once every second for up to two seconds longer than number of seconds in status beacon period
             for _ in range(SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS):
                 num_bytes_remaining = magic_word_len - magic_word_test_bytes_len
                 next_bytes = board.read(size=num_bytes_remaining)
@@ -149,16 +171,26 @@ class McCommunicationProcess(InstrumentCommProcess):
                 sleep(1)
             else:
                 # if the entire period has passed and no more bytes are available an error has occured with the Mantarray that is considered fatal
-                raise SerialCommPacketRegistrationTimoutError()
+                raise SerialCommPacketRegistrationTimoutError(magic_word_test_bytes)
+        # read more bytes until the magic word is registered, the timeout value is reached, or the maximum number of bytes are read
         num_bytes_checked = 0
-        while magic_word_test_bytes != SERIAL_COMM_MAGIC_WORD_BYTES:
+        read_dur_secs = 0.0
+        start = perf_counter()
+        while (
+            magic_word_test_bytes != SERIAL_COMM_MAGIC_WORD_BYTES
+            and read_dur_secs < SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+        ):
             next_byte = board.read(size=1)
-            if len(next_byte) == 0:
-                raise SerialCommPacketRegistrationReadEmptyError()
-            magic_word_test_bytes = magic_word_test_bytes[1:] + next_byte
-            num_bytes_checked += 1
-            if num_bytes_checked > SERIAL_COMM_MAX_PACKET_LENGTH_BYTES:
-                raise SerialCommPacketRegistrationSearchExhaustedError()
+            if len(next_byte) > 0:
+                magic_word_test_bytes = magic_word_test_bytes[1:] + next_byte
+                num_bytes_checked += 1
+                # A magic word should be encountered if this many bytes are read. If not, we can assume there was a problem with the mantarray
+                if num_bytes_checked > SERIAL_COMM_MAX_PACKET_LENGTH_BYTES:
+                    raise SerialCommPacketRegistrationSearchExhaustedError()
+            read_dur_secs = _get_seconds_since_read_start(start)
+        # if this point is reached and the magic word has not been found, then at some point no additional bytes were being read
+        if magic_word_test_bytes != SERIAL_COMM_MAGIC_WORD_BYTES:
+            raise SerialCommPacketRegistrationReadEmptyError()
         self._is_registered_with_serial_comm[board_idx] = True
 
     def _handle_incoming_data(self) -> None:

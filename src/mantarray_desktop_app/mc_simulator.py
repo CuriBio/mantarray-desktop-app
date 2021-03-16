@@ -238,7 +238,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         # try to get bytes until either timeout occurs or given size is reached or exceeded
         start = perf_counter()
         read_dur_secs = 0.0
-        while len(read_bytes) < size and read_dur_secs < self._read_timeout_seconds:
+        while len(read_bytes) < size and read_dur_secs <= self._read_timeout_seconds:
             read_dur_secs = perf_counter() - start
             try:
                 next_bytes = self._output_queue.get_nowait()
