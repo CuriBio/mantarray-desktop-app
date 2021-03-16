@@ -312,8 +312,10 @@ describe("window_opening", () => {
       try {
         // check if PID is running using '0' signal (throw error if not)
         if (is_windows) {
-          child_process.execSync("Stop-Process -ID " + pid + " -Force"); // powershell command syntax
-          // child_process.execSync("taskkill /F /PID " + pid);
+          // child_process.execSync("Stop-Process -ID " + pid + " -Force"); // powershell command syntax
+          child_process.execSync("taskkill /F /PID " + pid, {
+            stdio: "inherit",
+          });
         } else {
           process.kill(pid, 0);
         }
