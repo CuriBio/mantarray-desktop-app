@@ -18,6 +18,8 @@ from mantarray_desktop_app import SerialCommIncorrectChecksumFromInstrumentError
 from mantarray_desktop_app import SerialCommPacketRegistrationReadEmptyError
 from mantarray_desktop_app import SerialCommPacketRegistrationSearchExhaustedError
 from mantarray_desktop_app import SerialCommPacketRegistrationTimoutError
+from mantarray_desktop_app import UnrecognizedSerialCommModuleIdError
+from mantarray_desktop_app import UnrecognizedSerialCommPacketTypeError
 import pytest
 import serial
 from serial import Serial
@@ -401,3 +403,76 @@ def test_McCommunicationProcess__raises_error_if_checksum_in_data_packet_sent_fr
     assert str(bad_checksum) in exc_info.value.args[0]
     assert str(expected_checksum) in exc_info.value.args[0]
     assert str(test_bytes) in exc_info.value.args[0]
+
+
+def test_McCommunicationProcess__raises_error_if_unrecognized_module_id_sent_from_pc(
+    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
+):
+    mocker.patch(
+        "builtins.print", autospec=True
+    )  # don't print all the error messages to console
+
+    mc_process = four_board_mc_comm_process["mc_process"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+
+    dummy_timestamp = 0
+    dummy_packet_type = 1
+    test_module_id = 254
+    test_packet = create_data_packet(
+        dummy_timestamp,
+        test_module_id,
+        dummy_packet_type,
+        DEFAULT_SIMULATOR_STATUS_CODE,
+    )
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {
+            "command": "add_read_bytes",
+            "read_bytes": test_packet,
+        },
+        testing_queue,
+    )
+    invoke_process_run_and_check_errors(simulator)
+
+    board_idx = 0
+    mc_process.set_board_connection(board_idx, simulator)
+    with pytest.raises(UnrecognizedSerialCommModuleIdError, match=str(test_module_id)):
+        invoke_process_run_and_check_errors(mc_process)
+
+
+def test_McCommunicationProcess__raises_error_if_unrecognized_packet_type_sent_from_pc(
+    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
+):
+    mocker.patch(
+        "builtins.print", autospec=True
+    )  # don't print all the error messages to console
+
+    mc_process = four_board_mc_comm_process["mc_process"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+
+    dummy_timestamp = 0
+    test_packet_type = 254
+    test_packet = create_data_packet(
+        dummy_timestamp,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        test_packet_type,
+        DEFAULT_SIMULATOR_STATUS_CODE,
+    )
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {
+            "command": "add_read_bytes",
+            "read_bytes": test_packet,
+        },
+        testing_queue,
+    )
+    invoke_process_run_and_check_errors(simulator)
+
+    board_idx = 0
+    mc_process.set_board_connection(board_idx, simulator)
+    with pytest.raises(UnrecognizedSerialCommPacketTypeError) as exc_info:
+        invoke_process_run_and_check_errors(mc_process)
+    assert str(SERIAL_COMM_MAIN_MODULE_ID) in str(exc_info.value)
+    assert str(test_packet_type) in str(exc_info.value)

@@ -15,12 +15,18 @@ import serial.tools.list_ports as list_ports
 from .constants import SERIAL_COMM_BAUD_RATE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
+from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
+from .constants import SERIAL_COMM_MODULE_ID_INDEX
+from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
+from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
 from .exceptions import SerialCommPacketRegistrationReadEmptyError
 from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
 from .exceptions import SerialCommPacketRegistrationTimoutError
+from .exceptions import UnrecognizedSerialCommModuleIdError
+from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .instrument_comm import InstrumentCommProcess
 from .mc_simulator import MantarrayMcSimulator
 from .serial_comm_utils import validate_checksum
@@ -28,6 +34,17 @@ from .serial_comm_utils import validate_checksum
 
 def _get_formatted_utc_now() -> str:
     return datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
+
+
+def _process_main_module_comm(comm_from_instrument: bytes) -> None:
+    packet_type = comm_from_instrument[SERIAL_COMM_PACKET_TYPE_INDEX]
+    if packet_type == SERIAL_COMM_STATUS_BEACON_PACKET_TYPE:
+        pass
+    else:
+        module_id = comm_from_instrument[SERIAL_COMM_MODULE_ID_INDEX]
+        raise UnrecognizedSerialCommPacketTypeError(
+            f"Packet Type ID: {packet_type} is not defined for Module ID: {module_id}"
+        )
 
 
 class McCommunicationProcess(InstrumentCommProcess):
@@ -158,3 +175,9 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise SerialCommIncorrectChecksumFromInstrumentError(
                 f"Checksum Received: {received_checksum}, Checksum Calculated: {calculated_checksum}, Full Data Packet: {str(full_data_packet)}"
             )
+
+        module_id = full_data_packet[SERIAL_COMM_MODULE_ID_INDEX]
+        if module_id == SERIAL_COMM_MAIN_MODULE_ID:
+            _process_main_module_comm(full_data_packet)
+        else:
+            raise UnrecognizedSerialCommModuleIdError(module_id)
