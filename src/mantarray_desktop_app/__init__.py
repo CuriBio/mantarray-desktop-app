@@ -124,6 +124,7 @@ from .exceptions import RecordingFolderDoesNotExistError
 from .exceptions import ScriptDoesNotContainEndCommandError
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
 from .exceptions import SerialCommIncorrectChecksumFromPCError
+from .exceptions import SerialCommIncorrectMagicWordFromMantarrayError
 from .exceptions import SerialCommPacketRegistrationReadEmptyError
 from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
 from .exceptions import SerialCommPacketRegistrationTimoutError
@@ -367,6 +368,7 @@ __all__ = [
     "SERIAL_COMM_CHECKSUM_LENGTH_BYTES",
     "SERIAL_COMM_TIMESTAMP_LENGTH_BYTES",
     "SerialCommPacketRegistrationTimoutError",
+    "SerialCommIncorrectMagicWordFromMantarrayError",
     "SerialCommPacketRegistrationReadEmptyError",
     "SERIAL_COMM_MAX_PACKET_LENGTH_BYTES",
     "SerialCommPacketRegistrationSearchExhaustedError",

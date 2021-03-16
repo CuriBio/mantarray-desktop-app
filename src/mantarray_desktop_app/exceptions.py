@@ -148,3 +148,7 @@ class SerialCommIncorrectChecksumFromInstrumentError(Exception):
 
 class SerialCommIncorrectChecksumFromPCError(Exception):
     pass
+
+
+class SerialCommIncorrectMagicWordFromMantarrayError(Exception):
+    pass

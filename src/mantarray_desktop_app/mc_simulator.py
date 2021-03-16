@@ -222,7 +222,11 @@ class MantarrayMcSimulator(InfiniteProcess):
 
         command = test_comm["command"]
         if command == "add_read_bytes":
-            self._output_queue.put_nowait(test_comm["read_bytes"])
+            read_bytes = test_comm["read_bytes"]
+            if not isinstance(read_bytes, list):
+                read_bytes = [read_bytes]
+            for read in read_bytes:
+                self._output_queue.put_nowait(read)
         elif command == "set_status_code_bits":
             self._status_code_bits = test_comm["status_code_bits"]
         else:

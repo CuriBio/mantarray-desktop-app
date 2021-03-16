@@ -344,12 +344,11 @@ def test_MantarrayMcSimulator__handles_reads_of_size_less_than_next_packet_in_qu
     item_1 = b"item_one"
     item_2 = b"second_item"
 
-    test_items = [
-        {"command": "add_read_bytes", "read_bytes": item_1},
-        {"command": "add_read_bytes", "read_bytes": item_2},
-    ]
-    handle_putting_multiple_objects_into_empty_queue(test_items, testing_queue)
-    invoke_process_run_and_check_errors(simulator, 2)
+    test_comm = {"command": "add_read_bytes", "read_bytes": [item_1, item_2]}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_comm, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator, 1)
     confirm_queue_is_eventually_empty(testing_queue)
 
     expected_1 = item_1[:-test_size_diff]
