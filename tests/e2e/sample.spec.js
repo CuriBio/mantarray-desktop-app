@@ -333,7 +333,7 @@ describe("window_opening", () => {
       // no error, process is still running, stop it
       app.mainProcess.exit(1);
       // do someting to end the test with error
-      6 / 0;
+      // 6 / 0;
     }
   }, 30000);
 
