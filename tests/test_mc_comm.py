@@ -9,12 +9,15 @@ from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import McCommunicationProcess
 from mantarray_desktop_app import SERIAL_COMM_BAUD_RATE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import SerialCommIncorrectChecksumFromInstrumentError
+from mantarray_desktop_app import SerialCommIncorrectChecksumFromPCError
 from mantarray_desktop_app import SerialCommPacketRegistrationReadEmptyError
 from mantarray_desktop_app import SerialCommPacketRegistrationSearchExhaustedError
 from mantarray_desktop_app import SerialCommPacketRegistrationTimoutError
@@ -425,7 +428,6 @@ def test_McCommunicationProcess__raises_error_if_unrecognized_module_id_sent_fro
         dummy_packet_type,
         DEFAULT_SIMULATOR_STATUS_CODE,
     )
-
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {
             "command": "add_read_bytes",
@@ -460,7 +462,6 @@ def test_McCommunicationProcess__raises_error_if_unrecognized_packet_type_sent_f
         test_packet_type,
         DEFAULT_SIMULATOR_STATUS_CODE,
     )
-
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {
             "command": "add_read_bytes",
@@ -476,3 +477,33 @@ def test_McCommunicationProcess__raises_error_if_unrecognized_packet_type_sent_f
         invoke_process_run_and_check_errors(mc_process)
     assert str(SERIAL_COMM_MAIN_MODULE_ID) in str(exc_info.value)
     assert str(test_packet_type) in str(exc_info.value)
+
+
+def test_McCommunicationProcess__raises_error_if_mantarray_returns_data_packet_that_it_determined_has_an_incorrect_checksum(
+    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
+):
+    mocker.patch(
+        "builtins.print", autospec=True
+    )  # don't print all the error messages to console
+
+    mc_process = four_board_mc_comm_process["mc_process"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    dummy_timestamp_bytes = bytes(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES)
+    dummy_checksum_bytes = bytes(SERIAL_COMM_CHECKSUM_LENGTH_BYTES)
+    handshake_packet_length = 14
+    test_handshake = SERIAL_COMM_MAGIC_WORD_BYTES
+    test_handshake += handshake_packet_length.to_bytes(2, byteorder="little")
+    test_handshake += dummy_timestamp_bytes
+    test_handshake += bytes([SERIAL_COMM_MAIN_MODULE_ID])
+    test_handshake += bytes([SERIAL_COMM_HANDSHAKE_PACKET_TYPE])
+    test_handshake += dummy_checksum_bytes
+    # send bad packet to simulator to get checksum failure response
+    simulator.write(test_handshake)
+    invoke_process_run_and_check_errors(simulator)
+    # assert that mc_comm receives the checksum failure response and handles it correctly
+    board_idx = 0
+    mc_process.set_board_connection(board_idx, simulator)
+    with pytest.raises(SerialCommIncorrectChecksumFromPCError) as exc_info:
+        invoke_process_run_and_check_errors(mc_process)
+    assert str(test_handshake) in str(exc_info.value)

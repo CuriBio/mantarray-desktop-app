@@ -6,6 +6,7 @@ from . import fifo_simulator
 from . import file_writer
 from . import firmware_manager
 from . import main
+from . import mc_comm
 from . import mc_simulator
 from . import ok_comm
 from . import process_manager
@@ -74,6 +75,7 @@ from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from .constants import REFERENCE_VOLTAGE
 from .constants import ROUND_ROBIN_PERIOD
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BAUD_RATE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
@@ -121,6 +123,7 @@ from .exceptions import MultiprocessingNotSetToSpawnError
 from .exceptions import RecordingFolderDoesNotExistError
 from .exceptions import ScriptDoesNotContainEndCommandError
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
+from .exceptions import SerialCommIncorrectChecksumFromPCError
 from .exceptions import SerialCommPacketRegistrationReadEmptyError
 from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
 from .exceptions import SerialCommPacketRegistrationTimoutError
@@ -370,7 +373,10 @@ __all__ = [
     "SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE",
     "SERIAL_COMM_REBOOT_COMMAND_BYTE",
     "MC_REBOOT_DURATION_SECONDS",
+    "mc_comm",
     "validate_checksum",
     "SerialCommIncorrectChecksumFromInstrumentError",
     "SERIAL_COMM_BAUD_RATE",
+    "SerialCommIncorrectChecksumFromPCError",
+    "SERIAL_COMM_ADDITIONAL_BYTES_INDEX",
 ]

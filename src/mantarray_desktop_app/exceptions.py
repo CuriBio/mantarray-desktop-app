@@ -144,3 +144,7 @@ class SerialCommPacketRegistrationSearchExhaustedError(Exception):
 
 class SerialCommIncorrectChecksumFromInstrumentError(Exception):
     pass
+
+
+class SerialCommIncorrectChecksumFromPCError(Exception):
+    pass

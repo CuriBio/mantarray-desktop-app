@@ -12,7 +12,9 @@ from zlib import crc32
 import serial
 import serial.tools.list_ports as list_ports
 
+from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BAUD_RATE
+from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
@@ -22,6 +24,7 @@ from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
+from .exceptions import SerialCommIncorrectChecksumFromPCError
 from .exceptions import SerialCommPacketRegistrationReadEmptyError
 from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
 from .exceptions import SerialCommPacketRegistrationTimoutError
@@ -38,6 +41,15 @@ def _get_formatted_utc_now() -> str:
 
 def _process_main_module_comm(comm_from_instrument: bytes) -> None:
     packet_type = comm_from_instrument[SERIAL_COMM_PACKET_TYPE_INDEX]
+    if packet_type == SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE:
+        returned_packet = (
+            SERIAL_COMM_MAGIC_WORD_BYTES
+            + comm_from_instrument[
+                SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+            ]
+        )
+        raise SerialCommIncorrectChecksumFromPCError(returned_packet)
+
     if packet_type == SERIAL_COMM_STATUS_BEACON_PACKET_TYPE:
         pass
     else:
