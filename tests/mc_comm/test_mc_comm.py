@@ -68,11 +68,11 @@ def test_McCommunicationProcess_setup_before_loop__connects_to_boards__and_sends
 ):
     mc_process = four_board_mc_comm_process["mc_process"]
     board_queues = four_board_mc_comm_process["board_queues"]
-    assert mc_process.get_board_connections_list() == [None, None, None, None]
+    assert mc_process.get_board_connections_list() == [None] * 4
     invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
     populated_connections_list = mc_process.get_board_connections_list()
     assert isinstance(populated_connections_list[0], MantarrayMcSimulator)
-    assert populated_connections_list[1:] == [None, None, None]
+    assert populated_connections_list[1:] == [None] * 3
 
     assert_queue_is_eventually_not_empty(board_queues[0][1])
     process_initiated_msg = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -82,7 +82,7 @@ def test_McCommunicationProcess_setup_before_loop__connects_to_boards__and_sends
         == "Microcontroller Communication Process initiated at 2021-03-16 13:05:55.654321"
     )
     # simulator is automatically started by mc_comm during setup_before_loop, so need to stop it
-    populated_connections_list[0].hard_stop()
+    populated_connections_list[0].stop()
 
 
 @pytest.mark.slow
@@ -91,11 +91,11 @@ def test_McCommunicationProcess_setup_before_loop__does_not_send_message_to_main
     mc_process = McCommunicationProcess(
         board_queues, error_queue, suppress_setup_communication_to_main=True
     )
-    assert mc_process.get_board_connections_list() == [None, None, None, None]
+    assert mc_process.get_board_connections_list() == [None] * 4
     invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
     populated_connections_list = mc_process.get_board_connections_list()
     assert isinstance(populated_connections_list[0], MantarrayMcSimulator)
-    assert populated_connections_list[1:] == [None, None, None]
+    assert populated_connections_list[1:] == [None] * 3
 
     # Other parts of the process after setup may or may not send messages to main, so drain queue and make sure none of the items (if present) have a setup message
     to_main_queue_items = drain_queue(board_queues[0][1])
@@ -106,7 +106,7 @@ def test_McCommunicationProcess_setup_before_loop__does_not_send_message_to_main
             )
 
     # simulator is automatically started by mc_comm during setup_before_loop, so need to stop it
-    populated_connections_list[0].hard_stop()
+    populated_connections_list[0].stop()
 
 
 def test_McCommunicationProcess_hard_stop__clears_all_queues_and_returns_lists_of_values(
@@ -163,7 +163,7 @@ def test_McCommunicationProcess_set_board_connection__sets_connection_to_mc_simu
 def test_McCommunicationProcess_create_connections_to_all_available_boards__populates_connections_list_with_a_serial_object_when_com_port_is_available__and_sends_correct_message_to_main(
     four_board_mc_comm_process, mocker, patch_comports, patch_serial_connection
 ):
-    comport, mocked_comports = patch_comports
+    comport, comport_name, mocked_comports = patch_comports
     dummy_serial_obj, mocked_serial = patch_serial_connection
     mc_process = four_board_mc_comm_process["mc_process"]
     board_queues = four_board_mc_comm_process["board_queues"]
@@ -180,7 +180,7 @@ def test_McCommunicationProcess_create_connections_to_all_available_boards__popu
     assert mocked_comports.call_count == 1
     assert mocked_serial.call_count == 1
     actual_connections = mc_process.get_board_connections_list()
-    assert actual_connections[1:] == [None, None, None]
+    assert actual_connections[1:] == [None] * 3
     actual_serial_obj = actual_connections[board_idx]
     assert isinstance(actual_serial_obj, Serial)
     assert mocked_serial.call_args_list[0][1] == {
@@ -194,15 +194,16 @@ def test_McCommunicationProcess_create_connections_to_all_available_boards__popu
     actual_message = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_message["communication_type"] == "board_connection_status_change"
     assert actual_message["board_index"] == board_idx
+    assert comport_name in actual_message["message"]
     assert actual_message["is_connected"] is True
     assert actual_message["timestamp"] == "2021-03-15 13:05:10.121212"
 
 
-@freeze_time("2021-03-15 13:05:10.121212")
+@freeze_time("2021-03-15 13:27:31.005000")
 def test_McCommunicationProcess_create_connections_to_all_available_boards__populates_connections_list_with_a_simulator_when_com_port_is_unavailable__and_sends_correct_message_to_main(
     four_board_mc_comm_process, mocker, patch_comports, patch_serial_connection
 ):
-    _, mocked_comports = patch_comports
+    _, _, mocked_comports = patch_comports
     mocked_comports.return_value = ["bad COM port"]
     _, mocked_serial = patch_serial_connection
     mc_process = four_board_mc_comm_process["mc_process"]
@@ -220,7 +221,7 @@ def test_McCommunicationProcess_create_connections_to_all_available_boards__popu
     assert mocked_comports.call_count == 1
     assert mocked_serial.call_count == 0
     actual_connections = mc_process.get_board_connections_list()
-    assert actual_connections[1:] == [None, None, None]
+    assert actual_connections[1:] == [None] * 3
     actual_serial_obj = actual_connections[board_idx]
     assert isinstance(actual_serial_obj, MantarrayMcSimulator)
 
@@ -229,7 +230,7 @@ def test_McCommunicationProcess_create_connections_to_all_available_boards__popu
     assert actual_message["board_index"] == board_idx
     assert actual_message["message"] == "No board detected. Creating simulator."
     assert actual_message["is_connected"] is False
-    assert actual_message["timestamp"] == "2021-03-15 13:05:10.121212"
+    assert actual_message["timestamp"] == "2021-03-15 13:27:31.005000"
 
 
 def test_McCommunicationProcess_register_magic_word__registers_magic_word_in_serial_comm_from_board__when_first_packet_is_truncated_to_more_than_8_bytes(

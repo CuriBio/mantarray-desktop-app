@@ -84,22 +84,24 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _setup_before_loop(self) -> None:
         msg = {
             "communication_type": "log",
-            "message": f'Microcontroller Communication Process initiated at {datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")}',
+            "message": f"Microcontroller Communication Process initiated at {_get_formatted_utc_now()}",
         }
         to_main_queue = self._board_queues[0][1]
         if not self._suppress_setup_communication_to_main:
-            to_main_queue.put(msg)
+            to_main_queue.put_nowait(msg)
         self.create_connections_to_all_available_boards()
 
         board_idx = 0
         board = self._board_connections[board_idx]
+        # TODO Tanner (3/17/21): In the future, may want to create pyserial subclass and add start(), is_start_up_complete(), and some other version of .in_waiting that just returns a bool of whether or not there are bytes available to read
         if isinstance(
             board, MantarrayMcSimulator
         ):  # pragma: no cover  # Tanner (3/16/21): it's impossible to connect to any serial port in CI, so _setup_before_loop will always be called with a simulator and this if statement will always be true in pytest
-            # Tanner (3/16/21): Current assumption is that a live mantarray will be running by the time we connect to it, so starting simulator here and waiting for it to complete start upt
+            # Tanner (3/16/21): Current assumption is that a live mantarray will be running by the time we connect to it, so starting simulator here and waiting for it to complete start up
             board.start()
             while not board.is_start_up_complete():
-                pass
+                # sleep so as to not relentlessly ping the simulator
+                sleep(0.1)
 
     def is_registered_with_serial_comm(self, board_idx: int) -> bool:
         """Mainly for use in testing."""
@@ -124,6 +126,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 # Tanner (3/15/21): As long as the STM eval board is used in the Mantarray, it will show up as so and we can look for the Mantarray by checking for STM in the name
                 if "STM" not in name:
                     continue
+                msg["message"] = f"Board detected with port name: {name}"
                 port = name[-5:-1]  # parse out the name of the COM port
                 serial_obj = serial.Serial(
                     port=port,
@@ -145,7 +148,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             # TODO Tanner (3/15/21): add serial number and nickname to msg
             msg["is_connected"] = not isinstance(serial_obj, MantarrayMcSimulator)
             msg["timestamp"] = _get_formatted_utc_now()
-            to_main_queue.put(msg)
+            to_main_queue.put_nowait(msg)
 
     def _commands_for_each_run_iteration(self) -> None:
         self._handle_incoming_data()

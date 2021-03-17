@@ -111,6 +111,12 @@ class MantarrayMcSimulator(InfiniteProcess):
 
     @property
     def in_waiting(self) -> int:
+        """Only use to determine if a read can be done.
+
+        For example, check if this value if non-zero.
+
+        It does not represent the full number of bytes that can be read.
+        """
         if self._leftover_read_bytes is None:
             try:
                 self._leftover_read_bytes = self._output_queue.get_nowait()
