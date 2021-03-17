@@ -14,12 +14,17 @@ from typing import Dict
 from typing import Optional
 from typing import Union
 
+from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
+from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
+from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import SECONDS_TO_SLEEP_BETWEEN_CHECKING_QUEUE_SIZE
 
+from .constants import BOOTUP_COUNTER_UUID
 from .constants import MC_REBOOT_DURATION_SECONDS
 from .constants import NANOSECONDS_PER_CENTIMILLISECOND
+from .constants import PCB_SERIAL_NUMBER_UUID
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
@@ -32,6 +37,8 @@ from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+from .constants import TAMPER_FLAG_UUID
+from .constants import TOTAL_WORKING_HOURS_UUID
 from .exceptions import UnrecognizedSerialCommModuleIdError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .exceptions import UnrecognizedSimulatorTestCommandError
@@ -61,9 +68,12 @@ class MantarrayMcSimulator(InfiniteProcess):
         read_timeout_seconds: number of seconds to wait until read is of desired size before returning how ever many bytes have been read. Timeout should be set to 0 except in unit testing scenarios where necessary
     """
 
-    default_mantarray_serial_number = "M02001901"
     default_mantarray_nickname = "Mantarray Simulator (MCU)"
-    default_mcu_serial_number = ""
+    default_mantarray_serial_number = "M02001901"
+    default_pcb_serial_number = (
+        "TBD"  # TODO Tanner (3/17/21): implement this once the format is determined
+    )
+    default_firmware_version = "0.0.0"
 
     def __init__(
         self,
@@ -87,7 +97,16 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._reboot_time_secs: Optional[float] = None
         self._leftover_read_bytes: Optional[bytes] = None
         self._read_timeout_seconds = read_timeout_seconds
-        self._status_code_bits: bytes = bytes(0)
+        self._metadata_dict = {
+            BOOTUP_COUNTER_UUID: 0,
+            TOTAL_WORKING_HOURS_UUID: 0,
+            TAMPER_FLAG_UUID: 0,
+            MANTARRAY_SERIAL_NUMBER_UUID: self.default_mantarray_serial_number,
+            MANTARRAY_NICKNAME_UUID: self.default_mantarray_nickname,
+            PCB_SERIAL_NUMBER_UUID: self.default_pcb_serial_number,
+            MAIN_FIRMWARE_VERSION_UUID: self.default_firmware_version,
+        }
+        self._status_code_bits: bytes
         self._reset_status_code_bits()
 
     @property
@@ -114,6 +133,13 @@ class MantarrayMcSimulator(InfiniteProcess):
             return 0
         ns_since_init = perf_counter_ns() - self._init_time_ns
         return ns_since_init // NANOSECONDS_PER_CENTIMILLISECOND
+
+    def get_metadata_dict(self) -> Dict[str, Any]:
+        """Mainly for use in unit tests.
+
+        Return metadata raw values, not as 32 byte values.
+        """
+        return self._metadata_dict
 
     def _send_data_packet(
         self,
@@ -233,6 +259,8 @@ class MantarrayMcSimulator(InfiniteProcess):
                 self._output_queue.put_nowait(read)
         elif command == "set_status_code_bits":
             self._status_code_bits = test_comm["status_code_bits"]
+        elif command == "set_metadata":
+            self._metadata_dict.update(test_comm["metadata_values"])
         else:
             raise UnrecognizedSimulatorTestCommandError(command)
 

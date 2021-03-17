@@ -231,7 +231,7 @@ SUBPROCESS_POLL_DELAY_SECONDS = 0.025
 SECONDS_TO_WAIT_WHEN_POLLING_QUEUES = 0.02  # Due to the unreliablity of the .empty() .qsize() methods in queues, switched to a .get(timeout=) approach for polling the queues in the subprocesses.  Eli (10/26/20): 0.01 seconds was still causing sporadic failures in Linux CI in Github, so bumped to 0.02 seconds.
 
 # Serial Communication Values
-SERIAL_COMM_BAUD_RATE = 4000000
+SERIAL_COMM_BAUD_RATE = 4e6
 
 MC_REBOOT_DURATION_SECONDS = 5
 
@@ -255,3 +255,9 @@ SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE = 3
 SERIAL_COMM_REBOOT_COMMAND_BYTE = 0
 SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE = 4
 SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE = 255
+
+# TODO Tanner (3/17/21): move these to mantarray-file-manager
+BOOTUP_COUNTER_UUID = uuid.UUID("b9ccc724-a39d-429a-be6d-3fd29be5037d")
+TOTAL_WORKING_HOURS_UUID = uuid.UUID("f8108718-2fa0-40ce-a51a-8478e5edd4b8")
+TAMPER_FLAG_UUID = uuid.UUID("68d0147f-9a84-4423-9c50-228da16ba895")
+PCB_SERIAL_NUMBER_UUID = uuid.UUID("5103f995-19d2-4880-8a2e-2ce9080cd2f5")

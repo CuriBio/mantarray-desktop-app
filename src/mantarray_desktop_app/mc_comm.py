@@ -10,6 +10,7 @@ from typing import Any
 from typing import List
 from zlib import crc32
 
+from mantarray_file_manager import DATETIME_STR_FORMAT
 import serial
 import serial.tools.list_ports as list_ports
 
@@ -38,7 +39,7 @@ from .serial_comm_utils import validate_checksum
 
 
 def _get_formatted_utc_now() -> str:
-    return datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
+    return datetime.datetime.utcnow().strftime(DATETIME_STR_FORMAT)
 
 
 def _get_seconds_since_read_start(start: float) -> float:
@@ -168,6 +169,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         packet_size = int.from_bytes(packet_size_bytes, byteorder="little")
         data_packet_bytes = board.read(size=packet_size)
         # TODO Tanner (3/15/21): eventually make sure the expected number of bytes are read. Need to figure out what to do if not enough bytes are read first
+        # TODO Tanner (3/17/21): need to also make sure some min number of bytes are read so indexing in later operations does not cause out-of-bounds errors
 
         # validate checksum before handling the communication. Need to reconstruct the whole packet to get the correct checksum
         full_data_packet = (

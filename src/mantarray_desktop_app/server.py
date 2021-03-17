@@ -61,6 +61,7 @@ from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
 from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import requests
+from stdlib_utils import drain_queue
 from stdlib_utils import get_formatted_stack_trace
 from stdlib_utils import InfiniteThread
 from stdlib_utils import is_port_in_use
@@ -85,7 +86,6 @@ from .exceptions import ServerThreadSingletonAlreadySetError
 from .ok_comm import check_barcode_for_errors
 from .ok_comm import check_mantarray_serial_number
 from .queue_container import MantarrayQueueContainer
-from .queue_utils import _drain_queue
 from .request_handler import MantarrayRequestHandler
 from .utils import convert_request_args_to_config_dict
 from .utils import get_current_software_version
@@ -1133,8 +1133,8 @@ class ServerThread(InfiniteThread):
     def _drain_all_queues(self) -> Dict[str, Any]:
         queue_items = dict()
 
-        queue_items["to_main"] = _drain_queue(self._to_main_queue)
-        queue_items["from_data_analyzer"] = _drain_queue(
+        queue_items["to_main"] = drain_queue(self._to_main_queue)
+        queue_items["from_data_analyzer"] = drain_queue(
             self.get_data_analyzer_data_out_queue()
         )
         return queue_items

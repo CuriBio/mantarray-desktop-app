@@ -3,11 +3,13 @@ import logging
 from multiprocessing import Queue
 import random
 
+from mantarray_desktop_app import BOOTUP_COUNTER_UUID
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import NANOSECONDS_PER_CENTIMILLISECOND
+from mantarray_desktop_app import PCB_SERIAL_NUMBER_UUID
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
@@ -19,9 +21,14 @@ from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from mantarray_desktop_app import TAMPER_FLAG_UUID
+from mantarray_desktop_app import TOTAL_WORKING_HOURS_UUID
 from mantarray_desktop_app import UnrecognizedSerialCommModuleIdError
 from mantarray_desktop_app import UnrecognizedSerialCommPacketTypeError
 from mantarray_desktop_app import UnrecognizedSimulatorTestCommandError
+from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
+from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
+from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import pytest
 from stdlib_utils import InfiniteProcess
@@ -49,11 +56,12 @@ DEFAULT_SIMULATOR_STATUS_CODE = bytes(4)
 
 
 def test_MantarrayMcSimulator__class_attributes():
-    assert MantarrayMcSimulator.default_mantarray_serial_number == "M02001901"
     assert (
         MantarrayMcSimulator.default_mantarray_nickname == "Mantarray Simulator (MCU)"
     )
-    assert MantarrayMcSimulator.default_mcu_serial_number == "?"
+    assert MantarrayMcSimulator.default_mantarray_serial_number == "M02001901"
+    assert MantarrayMcSimulator.default_pcb_serial_number == "TBD"
+    assert MantarrayMcSimulator.default_firmware_version == "0.0.0"
 
 
 def test_MantarrayMcSimulator__super_is_called_during_init__with_default_logging_value(
@@ -70,6 +78,32 @@ def test_MantarrayMcSimulator__super_is_called_during_init__with_default_logging
     mocked_init.assert_called_once_with(
         error_queue,
         logging_level=logging.INFO,
+    )
+
+
+def test_MantarrayMcSimulator__init__sets_default_metadata_values(
+    mantarray_mc_simulator,
+):
+    simulator = mantarray_mc_simulator["simulator"]
+    metadata_dict = simulator.get_metadata_dict()
+    assert metadata_dict[BOOTUP_COUNTER_UUID] == 0
+    assert metadata_dict[TOTAL_WORKING_HOURS_UUID] == 0
+    assert metadata_dict[TAMPER_FLAG_UUID] == 0
+    assert (
+        metadata_dict[MANTARRAY_NICKNAME_UUID]
+        == MantarrayMcSimulator.default_mantarray_nickname
+    )
+    assert (
+        metadata_dict[MANTARRAY_SERIAL_NUMBER_UUID]
+        == MantarrayMcSimulator.default_mantarray_serial_number
+    )
+    assert (
+        metadata_dict[MAIN_FIRMWARE_VERSION_UUID]
+        == MantarrayMcSimulator.default_firmware_version
+    )
+    assert (
+        metadata_dict[PCB_SERIAL_NUMBER_UUID]
+        == MantarrayMcSimulator.default_pcb_serial_number
     )
 
 
@@ -854,3 +888,36 @@ def test_MantarrayMcSimulator__does_not_send_status_beacon_while_rebooting(
     invoke_process_run_and_check_errors(simulator)
     actual_beacon_packet = simulator.read(size=STATUS_BEACON_SIZE_BYTES)
     assert actual_beacon_packet == bytes(0)
+
+
+def test_MantarrayMcSimulator__allows_metadata_to_be_set_through_testing_queue(
+    mantarray_mc_simulator,
+):
+    simulator = mantarray_mc_simulator["simulator"]
+    testing_queue = mantarray_mc_simulator["testing_queue"]
+
+    expected_metadata = {
+        TOTAL_WORKING_HOURS_UUID: 0,
+        MANTARRAY_NICKNAME_UUID: "New Nickname",
+    }
+    test_command = {"command": "set_metadata", "metadata_values": expected_metadata}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_command, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator)
+
+    actual_metadata = simulator.get_metadata_dict()
+    # Check that expected values are updated
+    assert (
+        actual_metadata[TOTAL_WORKING_HOURS_UUID]
+        == expected_metadata[TOTAL_WORKING_HOURS_UUID]
+    )
+    assert (
+        actual_metadata[MANTARRAY_NICKNAME_UUID]
+        == expected_metadata[MANTARRAY_NICKNAME_UUID]
+    )
+    # Check that one other value is not changed
+    assert (
+        actual_metadata[MANTARRAY_SERIAL_NUMBER_UUID]
+        == MantarrayMcSimulator.default_mantarray_serial_number
+    )
