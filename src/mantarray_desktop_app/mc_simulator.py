@@ -61,6 +61,10 @@ class MantarrayMcSimulator(InfiniteProcess):
         read_timeout_seconds: number of seconds to wait until read is of desired size before returning how ever many bytes have been read. Timeout should be set to 0 except in unit testing scenarios where necessary
     """
 
+    default_mantarray_serial_number = "M02001901"
+    default_mantarray_nickname = "Mantarray Simulator (MCU)"
+    default_mcu_serial_number = ""
+
     def __init__(
         self,
         input_queue: Queue[

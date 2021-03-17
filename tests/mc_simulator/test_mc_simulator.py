@@ -27,14 +27,14 @@ import pytest
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import invoke_process_run_and_check_errors
 
-from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
-from .fixtures_mc_simulator import fixture_mantarray_mc_simulator
-from .fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
-from .fixtures_mc_simulator import fixture_runnable_mantarray_mc_simulator
-from .helpers import confirm_queue_is_eventually_empty
-from .helpers import confirm_queue_is_eventually_of_size
-from .helpers import handle_putting_multiple_objects_into_empty_queue
-from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
+from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
+from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
+from ..fixtures_mc_simulator import fixture_runnable_mantarray_mc_simulator
+from ..helpers import confirm_queue_is_eventually_empty
+from ..helpers import confirm_queue_is_eventually_of_size
+from ..helpers import handle_putting_multiple_objects_into_empty_queue
+from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 
 __fixtures__ = [
@@ -46,6 +46,14 @@ __fixtures__ = [
 STATUS_BEACON_SIZE_BYTES = 28
 HANDSHAKE_RESPONSE_SIZE_BYTES = 28
 DEFAULT_SIMULATOR_STATUS_CODE = bytes(4)
+
+
+def test_MantarrayMcSimulator__class_attributes():
+    assert MantarrayMcSimulator.default_mantarray_serial_number == "M02001901"
+    assert (
+        MantarrayMcSimulator.default_mantarray_nickname == "Mantarray Simulator (MCU)"
+    )
+    assert MantarrayMcSimulator.default_mcu_serial_number == "?"
 
 
 def test_MantarrayMcSimulator__super_is_called_during_init__with_default_logging_value(
