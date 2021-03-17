@@ -6,6 +6,7 @@ from . import fifo_simulator
 from . import file_writer
 from . import firmware_manager
 from . import main
+from . import mc_comm
 from . import mc_simulator
 from . import ok_comm
 from . import process_manager
@@ -74,6 +75,8 @@ from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from .constants import REFERENCE_VOLTAGE
 from .constants import ROUND_ROBIN_PERIOD
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
+from .constants import SERIAL_COMM_BAUD_RATE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
@@ -119,6 +122,9 @@ from .exceptions import MismatchedScriptTypeError
 from .exceptions import MultiprocessingNotSetToSpawnError
 from .exceptions import RecordingFolderDoesNotExistError
 from .exceptions import ScriptDoesNotContainEndCommandError
+from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
+from .exceptions import SerialCommIncorrectChecksumFromPCError
+from .exceptions import SerialCommIncorrectMagicWordFromMantarrayError
 from .exceptions import SerialCommPacketRegistrationReadEmptyError
 from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
 from .exceptions import SerialCommPacketRegistrationTimoutError
@@ -154,7 +160,6 @@ from .main import get_server_port_number
 from .mantarray_front_panel import MantarrayFrontPanel
 from .mantarray_front_panel import MantarrayFrontPanelMixIn
 from .mc_comm import McCommunicationProcess
-from .mc_simulator import create_data_packet
 from .mc_simulator import MantarrayMcSimulator
 from .ok_comm import build_file_writer_objects
 from .ok_comm import check_barcode_for_errors
@@ -168,6 +173,8 @@ from .ok_comm import parse_scripting_log_line
 from .process_manager import MantarrayProcessesManager
 from .process_monitor import MantarrayProcessesMonitor
 from .queue_container import MantarrayQueueContainer
+from .serial_comm_utils import create_data_packet
+from .serial_comm_utils import validate_checksum
 from .server import clear_the_server_thread
 from .server import flask_app
 from .server import get_api_endpoint
@@ -361,10 +368,17 @@ __all__ = [
     "SERIAL_COMM_CHECKSUM_LENGTH_BYTES",
     "SERIAL_COMM_TIMESTAMP_LENGTH_BYTES",
     "SerialCommPacketRegistrationTimoutError",
+    "SerialCommIncorrectMagicWordFromMantarrayError",
     "SerialCommPacketRegistrationReadEmptyError",
     "SERIAL_COMM_MAX_PACKET_LENGTH_BYTES",
     "SerialCommPacketRegistrationSearchExhaustedError",
     "SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE",
     "SERIAL_COMM_REBOOT_COMMAND_BYTE",
     "MC_REBOOT_DURATION_SECONDS",
+    "mc_comm",
+    "validate_checksum",
+    "SerialCommIncorrectChecksumFromInstrumentError",
+    "SERIAL_COMM_BAUD_RATE",
+    "SerialCommIncorrectChecksumFromPCError",
+    "SERIAL_COMM_ADDITIONAL_BYTES_INDEX",
 ]

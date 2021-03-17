@@ -2,7 +2,6 @@
 import logging
 from multiprocessing import Queue
 import random
-from zlib import crc32
 
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import MantarrayMcSimulator
@@ -47,32 +46,6 @@ __fixtures__ = [
 STATUS_BEACON_SIZE_BYTES = 28
 HANDSHAKE_RESPONSE_SIZE_BYTES = 28
 DEFAULT_SIMULATOR_STATUS_CODE = bytes(4)
-
-
-def test_create_data_packet__creates_data_packet_bytes_correctly():
-    test_timestamp = 100
-    test_module_id = 0
-    test_packet_type = 1
-    test_data = bytes([1, 5, 3])
-
-    expected_data_packet_bytes = SERIAL_COMM_MAGIC_WORD_BYTES
-    expected_data_packet_bytes += (17).to_bytes(2, byteorder="little")
-    expected_data_packet_bytes += test_timestamp.to_bytes(
-        SERIAL_COMM_TIMESTAMP_LENGTH_BYTES, byteorder="little"
-    )
-    expected_data_packet_bytes += bytes([test_module_id, test_packet_type])
-    expected_data_packet_bytes += test_data
-    expected_data_packet_bytes += crc32(expected_data_packet_bytes).to_bytes(
-        SERIAL_COMM_CHECKSUM_LENGTH_BYTES, byteorder="little"
-    )
-
-    actual = create_data_packet(
-        test_timestamp,
-        test_module_id,
-        test_packet_type,
-        test_data,
-    )
-    assert actual == expected_data_packet_bytes
 
 
 def test_MantarrayMcSimulator__super_is_called_during_init__with_default_logging_value(
@@ -194,6 +167,45 @@ def test_MantarrayMcSimulator_read__returns_empty_bytes_if_no_bytes_to_read(
     actual_item = simulator.read(size=1)
     expected_item = bytes(0)
     assert actual_item == expected_item
+
+
+def test_MantarrayMcSimulator_in_waiting__getter_returns_number_of_bytes_available_for_read__and_does_not_affect_read_sizes(
+    mantarray_mc_simulator_no_beacon,
+):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+
+    assert simulator.in_waiting == 0
+
+    test_bytes = b"1234567890"
+    test_item = {"command": "add_read_bytes", "read_bytes": test_bytes}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_item, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator)
+    assert simulator.in_waiting == 10
+
+    test_read_size_1 = 4
+    test_read_1 = simulator.read(size=test_read_size_1)
+    assert len(test_read_1) == test_read_size_1
+    assert simulator.in_waiting == len(test_bytes) - test_read_size_1
+
+    test_read_size_2 = len(test_bytes) - test_read_size_1
+    test_read_2 = simulator.read(size=test_read_size_2)
+    assert len(test_read_2) == test_read_size_2
+    assert simulator.in_waiting == 0
+
+
+def test_MantarrayMcSimulator_in_waiting__setter_raises_error(
+    mantarray_mc_simulator_no_beacon, mocker
+):
+    mocker.patch(
+        "builtins.print", autospec=True
+    )  # don't print the error message to console
+
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    with pytest.raises(AttributeError):
+        simulator.in_waiting = 0
 
 
 def test_MantarrayMcSimulator_write__puts_object_into_input_queue__with_no_sleep_after_write(
@@ -332,12 +344,11 @@ def test_MantarrayMcSimulator__handles_reads_of_size_less_than_next_packet_in_qu
     item_1 = b"item_one"
     item_2 = b"second_item"
 
-    test_items = [
-        {"command": "add_read_bytes", "read_bytes": item_1},
-        {"command": "add_read_bytes", "read_bytes": item_2},
-    ]
-    handle_putting_multiple_objects_into_empty_queue(test_items, testing_queue)
-    invoke_process_run_and_check_errors(simulator, 2)
+    test_comm = {"command": "add_read_bytes", "read_bytes": [item_1, item_2]}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_comm, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator, 1)
     confirm_queue_is_eventually_empty(testing_queue)
 
     expected_1 = item_1[:-test_size_diff]

@@ -140,3 +140,15 @@ class SerialCommPacketRegistrationReadEmptyError(Exception):
 
 class SerialCommPacketRegistrationSearchExhaustedError(Exception):
     pass
+
+
+class SerialCommIncorrectChecksumFromInstrumentError(Exception):
+    pass
+
+
+class SerialCommIncorrectChecksumFromPCError(Exception):
+    pass
+
+
+class SerialCommIncorrectMagicWordFromMantarrayError(Exception):
+    pass
