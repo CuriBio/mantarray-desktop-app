@@ -285,6 +285,7 @@ def set_mantarray_nickname() -> Response:
     Can be invoked by curl 'http://localhost:4567/set_mantarray_nickname?nickname=My Mantarray'
     """
     nickname = request.args["nickname"]
+    # TODO Tanner (3/18/21): Need to eventually be able to determine if McComm is being used and adjust the max byte length to 32
     if len(nickname.encode("utf-8")) > 23:
         return Response(status="400 Nickname exceeds 23 bytes")
 

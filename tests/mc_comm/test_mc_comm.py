@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
+import copy
 import logging
 from multiprocessing import Queue
 
 from freezegun import freeze_time
+from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_comm
@@ -24,6 +26,7 @@ from mantarray_desktop_app import SerialCommPacketRegistrationSearchExhaustedErr
 from mantarray_desktop_app import SerialCommPacketRegistrationTimoutError
 from mantarray_desktop_app import UnrecognizedSerialCommModuleIdError
 from mantarray_desktop_app import UnrecognizedSerialCommPacketTypeError
+from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 import pytest
 import serial
 from serial import Serial
@@ -52,6 +55,24 @@ __fixtures__ = [
 ]
 
 DEFAULT_SIMULATOR_STATUS_CODE = bytes(4)
+
+
+def set_connection_and_register_simulator(
+    mc_process,
+    simulator_fixture,
+) -> None:
+    """Send a single status beacon in order to register magic word.
+
+    Sets connection on board index 0.
+    """
+    simulator = simulator_fixture["simulator"]
+    testing_queue = simulator_fixture["testing_queue"]
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "send_single_beacon"}, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator)
+    mc_process.set_board_connection(0, simulator)
+    invoke_process_run_and_check_errors(mc_process)
 
 
 def test_McCommunicationProcess_super_is_called_during_init(mocker):
@@ -633,3 +654,37 @@ def test_McCommunicationProcess__raises_error_if_mantarray_returns_data_packet_t
     with pytest.raises(SerialCommIncorrectChecksumFromPCError) as exc_info:
         invoke_process_run_and_check_errors(mc_process)
     assert str(test_handshake) in str(exc_info.value)
+
+
+def test_McCommunicationProcess__processes_set_mantarray_nickname_command(
+    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon
+):
+    mc_process = four_board_mc_comm_process["mc_process"]
+    board_queues = four_board_mc_comm_process["board_queues"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    input_queue = board_queues[0][0]
+    output_queue = board_queues[0][1]
+    set_connection_and_register_simulator(mc_process, mantarray_mc_simulator_no_beacon)
+
+    expected_nickname = "Mantarray++"
+    set_nickname_command = {
+        "communication_type": "mantarray_naming",
+        "command": "set_mantarray_nickname",
+        "mantarray_nickname": expected_nickname,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(set_nickname_command), input_queue
+    )
+    # run mc_process one iteration to send the command and send command acknowledged response back to main
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(output_queue, 1)
+    command_response = output_queue.get_nowait()
+    assert command_response == set_nickname_command
+    # run simulator one iteration to process the command
+    invoke_process_run_and_check_errors(simulator)
+    actual = simulator.get_metadata_dict()[MANTARRAY_NICKNAME_UUID.bytes]
+    assert actual == convert_to_metadata_bytes(expected_nickname)
+    # run mc_process one iteration to read response from simulator
+    invoke_process_run_and_check_errors(mc_process)
+    # confirm response is read by checking that no bytes are available to read from simulator
+    assert simulator.in_waiting == 0

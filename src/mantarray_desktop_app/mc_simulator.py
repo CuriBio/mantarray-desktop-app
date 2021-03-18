@@ -99,7 +99,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._init_time_ns: Optional[int] = None
         self._time_of_last_status_beacon_secs: Optional[float] = None
         self._reboot_time_secs: Optional[float] = None
-        self._leftover_read_bytes: Optional[bytes] = None
+        self._leftover_read_bytes = bytes(0)
         self._read_timeout_seconds = read_timeout_seconds
         self._metadata_dict: Dict[bytes, bytes]
         self._reset_metadata_dict()
@@ -114,7 +114,7 @@ class MantarrayMcSimulator(InfiniteProcess):
 
         It does not represent the full number of bytes that can be read.
         """
-        if self._leftover_read_bytes is None:
+        if len(self._leftover_read_bytes) == 0:
             try:
                 self._leftover_read_bytes = self._output_queue.get_nowait()
             except queue.Empty:
@@ -290,7 +290,13 @@ class MantarrayMcSimulator(InfiniteProcess):
             return
 
         command = test_comm["command"]
-        if command == "add_read_bytes":
+        if command == "send_single_beacon":
+            self._send_data_packet(
+                SERIAL_COMM_MAIN_MODULE_ID,
+                SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
+                self._status_code_bits,
+            )
+        elif command == "add_read_bytes":
             read_bytes = test_comm["read_bytes"]
             if not isinstance(read_bytes, list):
                 read_bytes = [read_bytes]
@@ -309,9 +315,9 @@ class MantarrayMcSimulator(InfiniteProcess):
         """Read the given number of bytes from the simulator."""
         # first check leftover bytes from last read
         read_bytes = bytes(0)
-        if self._leftover_read_bytes is not None:
+        if len(self._leftover_read_bytes) > 0:
             read_bytes = self._leftover_read_bytes
-            self._leftover_read_bytes = None
+            self._leftover_read_bytes = bytes(0)
         # try to get bytes until either timeout occurs or given size is reached or exceeded
         start = perf_counter()
         read_dur_secs = 0.0

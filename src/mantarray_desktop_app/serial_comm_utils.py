@@ -12,6 +12,9 @@ from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .exceptions import SerialCommMetadataValueTooLargeError
 
 
+# Tanner (3/18/21): If/When cython is needed to improve serial communication, this file will likely be a good place to start
+
+
 def _get_checksum_bytes(packet: bytes) -> bytes:
     return crc32(packet).to_bytes(SERIAL_COMM_CHECKSUM_LENGTH_BYTES, byteorder="little")
 

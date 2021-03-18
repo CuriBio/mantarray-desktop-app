@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 from multiprocessing import Queue
+import queue
 from time import perf_counter
 from time import sleep
 from typing import Any
@@ -23,6 +24,7 @@ from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
+from .constants import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
@@ -36,6 +38,8 @@ from .exceptions import UnrecognizedSerialCommModuleIdError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .instrument_comm import InstrumentCommProcess
 from .mc_simulator import MantarrayMcSimulator
+from .serial_comm_utils import convert_to_metadata_bytes
+from .serial_comm_utils import create_data_packet
 from .serial_comm_utils import validate_checksum
 
 
@@ -61,7 +65,7 @@ def _process_main_module_comm(comm_from_instrument: bytes) -> None:
     if packet_type == SERIAL_COMM_STATUS_BEACON_PACKET_TYPE:
         pass  # TODO Tanner (3/17/21): Implement this in a story dedicated to parsing/handling errors codes
     elif packet_type == SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE:
-        pass  # TODO
+        pass  # Tanner (3/17/21): the commands currently implemented do not need any additional handling at this point
     else:
         module_id = comm_from_instrument[SERIAL_COMM_MODULE_ID_INDEX]
         raise UnrecognizedSerialCommPacketTypeError(
@@ -154,7 +158,40 @@ class McCommunicationProcess(InstrumentCommProcess):
             to_main_queue.put_nowait(msg)
 
     def _commands_for_each_run_iteration(self) -> None:
+        self._process_next_communication_from_main()
         self._handle_incoming_data()
+
+    def _process_next_communication_from_main(self) -> None:
+        """Process the next communication sent from the main process.
+
+        Will just return if no comms from main in queue.
+        """
+        input_queue = self._board_queues[0][0]
+        try:
+            comm_from_main = input_queue.get_nowait()
+        except queue.Empty:
+            return
+
+        communication_type = comm_from_main["communication_type"]
+        if communication_type == "mantarray_naming":
+            response_queue = self._board_queues[0][1]
+            board = self.get_board_connections_list()[0]
+            if board is None:
+                raise NotImplementedError(
+                    "Board should not be None when setting a new nickname"
+                )
+            if comm_from_main["command"] == "set_mantarray_nickname":
+                nickname = comm_from_main["mantarray_nickname"]
+                set_nickname_packet = create_data_packet(
+                    0,  # TODO figure out timestamp
+                    SERIAL_COMM_MAIN_MODULE_ID,
+                    SERIAL_COMM_SET_NICKNAME_PACKET_TYPE,
+                    convert_to_metadata_bytes(nickname),
+                )
+                board.write(set_nickname_packet)
+            response_queue.put_nowait(comm_from_main)
+        else:
+            raise NotImplementedError()  # TODO
 
     def _handle_incoming_data(self) -> None:
         board_idx = 0
