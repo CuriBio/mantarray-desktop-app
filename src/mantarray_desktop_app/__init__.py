@@ -86,9 +86,11 @@ from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
+from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
+from .constants import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
@@ -129,6 +131,7 @@ from .exceptions import ScriptDoesNotContainEndCommandError
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
 from .exceptions import SerialCommIncorrectChecksumFromPCError
 from .exceptions import SerialCommIncorrectMagicWordFromMantarrayError
+from .exceptions import SerialCommMetadataValueTooLargeError
 from .exceptions import SerialCommPacketRegistrationReadEmptyError
 from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
 from .exceptions import SerialCommPacketRegistrationTimoutError
@@ -177,6 +180,7 @@ from .ok_comm import parse_scripting_log_line
 from .process_manager import MantarrayProcessesManager
 from .process_monitor import MantarrayProcessesMonitor
 from .queue_container import MantarrayQueueContainer
+from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import create_data_packet
 from .serial_comm_utils import validate_checksum
 from .server import clear_the_server_thread
@@ -389,4 +393,8 @@ __all__ = [
     "TOTAL_WORKING_HOURS_UUID",
     "TAMPER_FLAG_UUID",
     "PCB_SERIAL_NUMBER_UUID",
+    "convert_to_metadata_bytes",
+    "SERIAL_COMM_METADATA_BYTES_LENGTH",
+    "SerialCommMetadataValueTooLargeError",
+    "SERIAL_COMM_SET_NICKNAME_PACKET_TYPE",
 ]

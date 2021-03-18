@@ -152,3 +152,7 @@ class SerialCommIncorrectChecksumFromPCError(Exception):
 
 class SerialCommIncorrectMagicWordFromMantarrayError(Exception):
     pass
+
+
+class SerialCommMetadataValueTooLargeError(Exception):
+    pass
