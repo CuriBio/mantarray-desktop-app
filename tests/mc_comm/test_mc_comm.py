@@ -675,16 +675,45 @@ def test_McCommunicationProcess__processes_set_mantarray_nickname_command(
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(set_nickname_command), input_queue
     )
-    # run mc_process one iteration to send the command and send command acknowledged response back to main
+    # run mc_process one iteration to send the command
     invoke_process_run_and_check_errors(mc_process)
-    confirm_queue_is_eventually_of_size(output_queue, 1)
-    command_response = output_queue.get_nowait()
-    assert command_response == set_nickname_command
     # run simulator one iteration to process the command
     invoke_process_run_and_check_errors(simulator)
     actual = simulator.get_metadata_dict()[MANTARRAY_NICKNAME_UUID.bytes]
     assert actual == convert_to_metadata_bytes(expected_nickname)
-    # run mc_process one iteration to read response from simulator
+    # run mc_process one iteration to read response from simulator and send command completed response back to main
     invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(output_queue, 1)
+    command_response = output_queue.get_nowait()
+    assert command_response == set_nickname_command
     # confirm response is read by checking that no bytes are available to read from simulator
     assert simulator.in_waiting == 0
+
+
+def test_McCommunicationProcess__processes_get_metadata_command(
+    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon
+):
+    mc_process = four_board_mc_comm_process["mc_process"]
+    board_queues = four_board_mc_comm_process["board_queues"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    input_queue = board_queues[0][0]
+    output_queue = board_queues[0][1]
+    set_connection_and_register_simulator(mc_process, mantarray_mc_simulator_no_beacon)
+
+    expected_response = {
+        "communication_type": "to_instrument",
+        "command": "get_metadata",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(expected_response), input_queue
+    )
+    # run mc_process one iteration to send the command
+    invoke_process_run_and_check_errors(mc_process)
+    # run simulator one iteration to process the command
+    invoke_process_run_and_check_errors(simulator)
+    # run mc_process one iteration to get metadata from simulator and send back to main
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(output_queue, 1)
+    expected_response["metadata"] = MantarrayMcSimulator.default_metadata_values
+    command_response = output_queue.get_nowait()
+    assert command_response == expected_response

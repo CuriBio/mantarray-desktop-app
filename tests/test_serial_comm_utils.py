@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 from zlib import crc32
 
+from mantarray_desktop_app import convert_metadata_bytes_to_str
 from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import create_data_packet
+from mantarray_desktop_app import MantarrayMcSimulator
+from mantarray_desktop_app import parse_metadata_bytes
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_METADATA_BYTES_LENGTH
@@ -10,6 +13,11 @@ from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import SerialCommMetadataValueTooLargeError
 from mantarray_desktop_app import validate_checksum
 import pytest
+
+from .fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
+
+
+__fixtures__ = [fixture_mantarray_mc_simulator_no_beacon]
 
 
 def test_create_data_packet__creates_data_packet_bytes_correctly():
@@ -64,7 +72,7 @@ def test_validate_checksum__returns_false_when_checksum_is_incorrect():
         ),
         (
             "Unicøde Nickname",
-            bytes("Unicøde Nickname", "utf-8") + bytes(15),
+            bytes("Unicøde Nickname", "utf-8") + bytes(13),
             "converts string with unicode characters to 32 bytes",
         ),
         (
@@ -97,3 +105,47 @@ def test_convert_to_metadata_bytes__raises_error_string_longer_than_max_number_o
     test_value = "T" * (SERIAL_COMM_METADATA_BYTES_LENGTH + 1)
     with pytest.raises(SerialCommMetadataValueTooLargeError, match=str(test_value)):
         convert_to_metadata_bytes(test_value)
+
+
+@pytest.mark.parametrize(
+    "test_bytes,expected_str,test_description",
+    [
+        (b"", "", "converts empty str correctly"),
+        (b"A", "A", "converts single utf-8 character correctly"),
+        (
+            bytes("水", encoding="utf-8"),
+            "水",
+            "converts single unicode character correctly",
+        ),
+        (
+            b"1" * SERIAL_COMM_METADATA_BYTES_LENGTH,
+            "1" * SERIAL_COMM_METADATA_BYTES_LENGTH,
+            "converts 32 bytes of utf-8 correctly",
+        ),
+        (
+            bytes("AAø" * (SERIAL_COMM_METADATA_BYTES_LENGTH // 4), encoding="utf-8"),
+            "AAø" * (SERIAL_COMM_METADATA_BYTES_LENGTH // 4),
+            "converts 32 bytes with unicode chars correctly",
+        ),
+    ],
+)
+def test_convert_metadata_bytes_to_str__returns_correct_string(
+    test_bytes, expected_str, test_description
+):
+    # make sure test_bytes are correct length before sending them through function
+    test_bytes += b"\x00" * (SERIAL_COMM_METADATA_BYTES_LENGTH - len(test_bytes))
+    actual_str = convert_metadata_bytes_to_str(test_bytes)
+    assert actual_str == expected_str
+
+
+def nottest_parse_metadata_bytes__returns_metadata_as_dictionary(
+    mantarray_mc_simulator_no_beacon,
+):
+    # Tanner (3/18/21): Need to make sure to test this on all default metadata values, so get them from simulator
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    test_metadata_bytes = bytes(0)
+    for key, value in simulator.get_metadata_dict().items():
+        test_metadata_bytes += key + value
+
+    actual = parse_metadata_bytes(test_metadata_bytes)
+    assert actual == MantarrayMcSimulator.default_metadata_values

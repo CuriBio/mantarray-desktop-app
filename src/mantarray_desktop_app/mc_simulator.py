@@ -13,6 +13,7 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 from typing import Union
+from uuid import UUID
 
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
@@ -78,6 +79,15 @@ class MantarrayMcSimulator(InfiniteProcess):
         "TBD"  # TODO Tanner (3/17/21): implement this once the format is determined
     )
     default_firmware_version = "0.0.0"
+    default_metadata_values: Dict[UUID, Any] = {
+        BOOTUP_COUNTER_UUID: 0,
+        TOTAL_WORKING_HOURS_UUID: 0,
+        TAMPER_FLAG_UUID: 0,
+        MANTARRAY_SERIAL_NUMBER_UUID: default_mantarray_serial_number,
+        MANTARRAY_NICKNAME_UUID: default_mantarray_nickname,
+        PCB_SERIAL_NUMBER_UUID: default_pcb_serial_number,
+        MAIN_FIRMWARE_VERSION_UUID: default_firmware_version,
+    }
 
     def __init__(
         self,
@@ -101,7 +111,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._reboot_time_secs: Optional[float] = None
         self._leftover_read_bytes = bytes(0)
         self._read_timeout_seconds = read_timeout_seconds
-        self._metadata_dict: Dict[bytes, bytes]
+        self._metadata_dict: Dict[bytes, bytes] = dict()
         self._reset_metadata_dict()
         self._status_code_bits: bytes
         self._reset_status_code_bits()
@@ -125,23 +135,10 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._status_code_bits = bytes(4)
 
     def _reset_metadata_dict(self) -> None:
-        self._metadata_dict = {
-            BOOTUP_COUNTER_UUID.bytes: convert_to_metadata_bytes(0),
-            TOTAL_WORKING_HOURS_UUID.bytes: convert_to_metadata_bytes(0),
-            TAMPER_FLAG_UUID.bytes: convert_to_metadata_bytes(0),
-            MANTARRAY_SERIAL_NUMBER_UUID.bytes: convert_to_metadata_bytes(
-                self.default_mantarray_serial_number
-            ),
-            MANTARRAY_NICKNAME_UUID.bytes: convert_to_metadata_bytes(
-                self.default_mantarray_nickname
-            ),
-            PCB_SERIAL_NUMBER_UUID.bytes: convert_to_metadata_bytes(
-                self.default_pcb_serial_number
-            ),
-            MAIN_FIRMWARE_VERSION_UUID.bytes: convert_to_metadata_bytes(
-                self.default_firmware_version
-            ),
-        }
+        for uuid_key, metadata_value in self.default_metadata_values.items():
+            self._metadata_dict[uuid_key.bytes] = convert_to_metadata_bytes(
+                metadata_value
+            )
 
     def _reset_start_time(self) -> None:
         self._init_time_ns = perf_counter_ns()

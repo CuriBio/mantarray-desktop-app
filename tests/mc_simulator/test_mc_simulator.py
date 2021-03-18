@@ -65,6 +65,15 @@ def test_MantarrayMcSimulator__class_attributes():
     assert MantarrayMcSimulator.default_mantarray_serial_number == "M02001901"
     assert MantarrayMcSimulator.default_pcb_serial_number == "TBD"
     assert MantarrayMcSimulator.default_firmware_version == "0.0.0"
+    assert MantarrayMcSimulator.default_metadata_values == {
+        BOOTUP_COUNTER_UUID: 0,
+        TOTAL_WORKING_HOURS_UUID: 0,
+        TAMPER_FLAG_UUID: 0,
+        MANTARRAY_SERIAL_NUMBER_UUID: MantarrayMcSimulator.default_mantarray_serial_number,
+        MANTARRAY_NICKNAME_UUID: MantarrayMcSimulator.default_mantarray_nickname,
+        PCB_SERIAL_NUMBER_UUID: MantarrayMcSimulator.default_pcb_serial_number,
+        MAIN_FIRMWARE_VERSION_UUID: MantarrayMcSimulator.default_firmware_version,
+    }
 
 
 def test_MantarrayMcSimulator__super_is_called_during_init__with_default_logging_value(

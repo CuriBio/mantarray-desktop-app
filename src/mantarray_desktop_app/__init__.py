@@ -181,8 +181,10 @@ from .ok_comm import parse_scripting_log_line
 from .process_manager import MantarrayProcessesManager
 from .process_monitor import MantarrayProcessesMonitor
 from .queue_container import MantarrayQueueContainer
+from .serial_comm_utils import convert_metadata_bytes_to_str
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import create_data_packet
+from .serial_comm_utils import parse_metadata_bytes
 from .serial_comm_utils import validate_checksum
 from .server import clear_the_server_thread
 from .server import flask_app
@@ -399,4 +401,6 @@ __all__ = [
     "SerialCommMetadataValueTooLargeError",
     "SERIAL_COMM_SET_NICKNAME_PACKET_TYPE",
     "SERIAL_COMM_GET_METADATA_PACKET_TYPE",
+    "parse_metadata_bytes",
+    "convert_metadata_bytes_to_str",
 ]
