@@ -82,6 +82,7 @@ from .constants import SERIAL_COMM_BAUD_RATE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+from .constants import SERIAL_COMM_GET_METADATA_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
@@ -397,4 +398,5 @@ __all__ = [
     "SERIAL_COMM_METADATA_BYTES_LENGTH",
     "SerialCommMetadataValueTooLargeError",
     "SERIAL_COMM_SET_NICKNAME_PACKET_TYPE",
+    "SERIAL_COMM_GET_METADATA_PACKET_TYPE",
 ]

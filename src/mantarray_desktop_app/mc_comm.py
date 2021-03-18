@@ -23,6 +23,7 @@ from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
+from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
@@ -58,7 +59,9 @@ def _process_main_module_comm(comm_from_instrument: bytes) -> None:
         raise SerialCommIncorrectChecksumFromPCError(returned_packet)
 
     if packet_type == SERIAL_COMM_STATUS_BEACON_PACKET_TYPE:
-        pass
+        pass  # TODO Tanner (3/17/21): Implement this in a story dedicated to parsing/handling errors codes
+    elif packet_type == SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE:
+        pass  # TODO
     else:
         module_id = comm_from_instrument[SERIAL_COMM_MODULE_ID_INDEX]
         raise UnrecognizedSerialCommPacketTypeError(

@@ -14,6 +14,7 @@ from mantarray_desktop_app import PCB_SERIAL_NUMBER_UUID
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_GET_METADATA_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
@@ -88,19 +89,19 @@ def test_MantarrayMcSimulator__init__sets_default_metadata_values(
 ):
     simulator = mantarray_mc_simulator["simulator"]
     metadata_dict = simulator.get_metadata_dict()
-    assert metadata_dict[BOOTUP_COUNTER_UUID] == convert_to_metadata_bytes(0)
-    assert metadata_dict[TOTAL_WORKING_HOURS_UUID] == convert_to_metadata_bytes(0)
-    assert metadata_dict[TAMPER_FLAG_UUID] == convert_to_metadata_bytes(0)
-    assert metadata_dict[MANTARRAY_NICKNAME_UUID] == convert_to_metadata_bytes(
+    assert metadata_dict[BOOTUP_COUNTER_UUID.bytes] == convert_to_metadata_bytes(0)
+    assert metadata_dict[TOTAL_WORKING_HOURS_UUID.bytes] == convert_to_metadata_bytes(0)
+    assert metadata_dict[TAMPER_FLAG_UUID.bytes] == convert_to_metadata_bytes(0)
+    assert metadata_dict[MANTARRAY_NICKNAME_UUID.bytes] == convert_to_metadata_bytes(
         MantarrayMcSimulator.default_mantarray_nickname
     )
-    assert metadata_dict[MANTARRAY_SERIAL_NUMBER_UUID] == convert_to_metadata_bytes(
-        MantarrayMcSimulator.default_mantarray_serial_number
-    )
-    assert metadata_dict[MAIN_FIRMWARE_VERSION_UUID] == convert_to_metadata_bytes(
+    assert metadata_dict[
+        MANTARRAY_SERIAL_NUMBER_UUID.bytes
+    ] == convert_to_metadata_bytes(MantarrayMcSimulator.default_mantarray_serial_number)
+    assert metadata_dict[MAIN_FIRMWARE_VERSION_UUID.bytes] == convert_to_metadata_bytes(
         MantarrayMcSimulator.default_firmware_version
     )
-    assert metadata_dict[PCB_SERIAL_NUMBER_UUID] == convert_to_metadata_bytes(
+    assert metadata_dict[PCB_SERIAL_NUMBER_UUID.bytes] == convert_to_metadata_bytes(
         MantarrayMcSimulator.default_pcb_serial_number
     )
 
@@ -901,16 +902,16 @@ def test_MantarrayMcSimulator__allows_metadata_to_be_set_through_testing_queue(
 
     actual_metadata = simulator.get_metadata_dict()
     # Check that expected values are updated
-    assert actual_metadata[TOTAL_WORKING_HOURS_UUID] == convert_to_metadata_bytes(
+    assert actual_metadata[TOTAL_WORKING_HOURS_UUID.bytes] == convert_to_metadata_bytes(
         expected_metadata[TOTAL_WORKING_HOURS_UUID]
     )
-    assert actual_metadata[MANTARRAY_NICKNAME_UUID] == convert_to_metadata_bytes(
+    assert actual_metadata[MANTARRAY_NICKNAME_UUID.bytes] == convert_to_metadata_bytes(
         expected_metadata[MANTARRAY_NICKNAME_UUID]
     )
     # Check that at least one other value is not changed
-    assert actual_metadata[MANTARRAY_SERIAL_NUMBER_UUID] == convert_to_metadata_bytes(
-        MantarrayMcSimulator.default_mantarray_serial_number
-    )
+    assert actual_metadata[
+        MANTARRAY_SERIAL_NUMBER_UUID.bytes
+    ] == convert_to_metadata_bytes(MantarrayMcSimulator.default_mantarray_serial_number)
 
 
 def test_MantarrayMcSimulator__allows_mantarray_nickname_to_be_set_by_command_received_from_pc__and_sends_correct_response(
@@ -932,7 +933,7 @@ def test_MantarrayMcSimulator__allows_mantarray_nickname_to_be_set_by_command_re
 
     # Check that nickname is updated
     actual_metadata = simulator.get_metadata_dict()
-    assert actual_metadata[MANTARRAY_NICKNAME_UUID] == convert_to_metadata_bytes(
+    assert actual_metadata[MANTARRAY_NICKNAME_UUID.bytes] == convert_to_metadata_bytes(
         expected_nickname
     )
     # Check that correct response is sent
@@ -944,3 +945,33 @@ def test_MantarrayMcSimulator__allows_mantarray_nickname_to_be_set_by_command_re
     )
     actual = simulator.read(size=len(expected_response))
     assert actual == expected_response
+
+
+def test_MantarrayMcSimulator__processes_get_metadata_command(
+    mantarray_mc_simulator_no_beacon, mocker
+):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    spied_get_cms_since_init = mocker.spy(simulator, "get_cms_since_init")
+
+    dummy_timestamp = 0
+    get_metadata_command = create_data_packet(
+        dummy_timestamp,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_GET_METADATA_PACKET_TYPE,
+        bytes(0),
+    )
+    simulator.write(get_metadata_command)
+    invoke_process_run_and_check_errors(simulator)
+
+    expected_metadata_bytes = bytes(0)
+    for key, value in simulator.get_metadata_dict().items():
+        expected_metadata_bytes += key
+        expected_metadata_bytes += value
+    expected_metadata_response = create_data_packet(
+        spied_get_cms_since_init.spy_return,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+        expected_metadata_bytes,
+    )
+    actual = simulator.read(size=len(expected_metadata_response))
+    assert actual == expected_metadata_response

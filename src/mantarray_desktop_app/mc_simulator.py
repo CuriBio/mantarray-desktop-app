@@ -13,7 +13,6 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 from typing import Union
-from uuid import UUID
 
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
@@ -29,6 +28,7 @@ from .constants import PCB_SERIAL_NUMBER_UUID
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+from .constants import SERIAL_COMM_GET_METADATA_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
@@ -101,7 +101,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._reboot_time_secs: Optional[float] = None
         self._leftover_read_bytes: Optional[bytes] = None
         self._read_timeout_seconds = read_timeout_seconds
-        self._metadata_dict: Dict[UUID, bytes]
+        self._metadata_dict: Dict[bytes, bytes]
         self._reset_metadata_dict()
         self._status_code_bits: bytes
         self._reset_status_code_bits()
@@ -126,19 +126,19 @@ class MantarrayMcSimulator(InfiniteProcess):
 
     def _reset_metadata_dict(self) -> None:
         self._metadata_dict = {
-            BOOTUP_COUNTER_UUID: convert_to_metadata_bytes(0),
-            TOTAL_WORKING_HOURS_UUID: convert_to_metadata_bytes(0),
-            TAMPER_FLAG_UUID: convert_to_metadata_bytes(0),
-            MANTARRAY_SERIAL_NUMBER_UUID: convert_to_metadata_bytes(
+            BOOTUP_COUNTER_UUID.bytes: convert_to_metadata_bytes(0),
+            TOTAL_WORKING_HOURS_UUID.bytes: convert_to_metadata_bytes(0),
+            TAMPER_FLAG_UUID.bytes: convert_to_metadata_bytes(0),
+            MANTARRAY_SERIAL_NUMBER_UUID.bytes: convert_to_metadata_bytes(
                 self.default_mantarray_serial_number
             ),
-            MANTARRAY_NICKNAME_UUID: convert_to_metadata_bytes(
+            MANTARRAY_NICKNAME_UUID.bytes: convert_to_metadata_bytes(
                 self.default_mantarray_nickname
             ),
-            PCB_SERIAL_NUMBER_UUID: convert_to_metadata_bytes(
+            PCB_SERIAL_NUMBER_UUID.bytes: convert_to_metadata_bytes(
                 self.default_pcb_serial_number
             ),
-            MAIN_FIRMWARE_VERSION_UUID: convert_to_metadata_bytes(
+            MAIN_FIRMWARE_VERSION_UUID.bytes: convert_to_metadata_bytes(
                 self.default_firmware_version
             ),
         }
@@ -156,7 +156,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         ns_since_init = perf_counter_ns() - self._init_time_ns
         return ns_since_init // NANOSECONDS_PER_CENTIMILLISECOND
 
-    def get_metadata_dict(self) -> Dict[UUID, Any]:
+    def get_metadata_dict(self) -> Dict[bytes, bytes]:
         """Mainly for use in unit tests."""
         return self._metadata_dict
 
@@ -238,13 +238,21 @@ class MantarrayMcSimulator(InfiniteProcess):
                 SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
                 self._status_code_bits,
             )
-
+        elif packet_type == SERIAL_COMM_GET_METADATA_PACKET_TYPE:
+            metadata_bytes = bytes(0)
+            for key, value in self._metadata_dict.items():
+                metadata_bytes += key + value
+            self._send_data_packet(
+                SERIAL_COMM_MAIN_MODULE_ID,
+                SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+                metadata_bytes,
+            )
         elif packet_type == SERIAL_COMM_SET_NICKNAME_PACKET_TYPE:
             nickname_bytes = comm_from_pc[
                 SERIAL_COMM_ADDITIONAL_BYTES_INDEX : SERIAL_COMM_ADDITIONAL_BYTES_INDEX
                 + SERIAL_COMM_METADATA_BYTES_LENGTH
             ]
-            self._metadata_dict[MANTARRAY_NICKNAME_UUID] = nickname_bytes
+            self._metadata_dict[MANTARRAY_NICKNAME_UUID.bytes] = nickname_bytes
             self._send_data_packet(
                 SERIAL_COMM_MAIN_MODULE_ID,
                 SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
@@ -293,7 +301,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         elif command == "set_metadata":
             for key, value in test_comm["metadata_values"].items():
                 value_bytes = convert_to_metadata_bytes(value)
-                self._metadata_dict[key] = value_bytes
+                self._metadata_dict[key.bytes] = value_bytes
         else:
             raise UnrecognizedSimulatorTestCommandError(command)
 

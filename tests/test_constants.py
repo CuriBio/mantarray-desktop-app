@@ -69,6 +69,7 @@ from mantarray_desktop_app import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_GET_METADATA_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
@@ -339,6 +340,7 @@ def test_serial_comm():
     assert SERIAL_COMM_MAIN_MODULE_ID == 0
     assert SERIAL_COMM_STATUS_BEACON_PACKET_TYPE == 0
     assert SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE == 3
+    assert SERIAL_COMM_GET_METADATA_PACKET_TYPE == 6
     assert SERIAL_COMM_SET_NICKNAME_PACKET_TYPE == 9
     assert SERIAL_COMM_REBOOT_COMMAND_BYTE == 0
     assert SERIAL_COMM_HANDSHAKE_PACKET_TYPE == 4
