@@ -6,6 +6,7 @@ import datetime
 from multiprocessing import Queue
 import queue
 from time import perf_counter
+from time import perf_counter_ns
 from time import sleep
 from typing import Any
 from typing import Dict
@@ -17,6 +18,7 @@ from mantarray_file_manager import DATETIME_STR_FORMAT
 import serial
 import serial.tools.list_ports as list_ports
 
+from .constants import NANOSECONDS_PER_CENTIMILLISECOND
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BAUD_RATE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
@@ -69,11 +71,19 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._is_registered_with_serial_comm: List[bool] = [False] * len(
             self._board_queues
         )
+        self._init_time_ns: Optional[int] = None
         self._command_awaiting_response: Optional[
             Dict[str, Any]
         ] = None  # Tanner (3/17/21): Will implement a more robust method of tracking all commands awaiting responses in future. This current implementation can only handle a single command at a time
 
+    def _reset_start_time(self) -> None:
+        # TODO Tanner (3/19/21): Consider moving this functionality to InfiniteProcess since it applies to all running processes. See note in _setup_before_loop from 2/2/21
+        self._init_time_ns = perf_counter_ns()
+
     def _setup_before_loop(self) -> None:
+        # Tanner (2/2/21): Comparing perf_counter_ns values in a subprocess to those in the parent process have unexpected behavior in windows, so storing the initialization time after the process has been created in order to avoid issues
+        self._reset_start_time()
+
         msg = {
             "communication_type": "log",
             "message": f"Microcontroller Communication Process initiated at {_get_formatted_utc_now()}",
@@ -94,6 +104,13 @@ class McCommunicationProcess(InstrumentCommProcess):
             while not board.is_start_up_complete():
                 # sleep so as to not relentlessly ping the simulator
                 sleep(0.1)
+
+    def get_cms_since_init(self) -> int:
+        if self._init_time_ns is None:
+            return 0
+        # pylint: disable=duplicate-code  # Tanner (3/19/21): Consider moving this functionality to InfiniteProcess since it applies to multiple processes
+        ns_since_init = perf_counter_ns() - self._init_time_ns
+        return ns_since_init // NANOSECONDS_PER_CENTIMILLISECOND
 
     def is_registered_with_serial_comm(self, board_idx: int) -> bool:
         """Mainly for use in testing."""
@@ -137,10 +154,27 @@ class McCommunicationProcess(InstrumentCommProcess):
                     Queue(),
                 )
             self.set_board_connection(i, serial_obj)
-            # TODO Tanner (3/15/21): add serial number and nickname to msg
+            # TODO Tanner (3/15/21): At some point during this process starting up, need to get serial number and nickname (maybe just all metadata?) and return to main since it can't be done until magic word is registered
             msg["is_connected"] = not isinstance(serial_obj, MantarrayMcSimulator)
             msg["timestamp"] = _get_formatted_utc_now()
             to_main_queue.put_nowait(msg)
+
+    def _send_data_packet(
+        self,
+        board_idx: int,
+        module_id: int,
+        packet_type: int,
+        data_to_send: bytes = bytes(0),
+    ) -> None:
+        data_packet = create_data_packet(
+            self.get_cms_since_init(), module_id, packet_type, data_to_send
+        )
+        board = self._board_connections[board_idx]
+        if board is None:
+            raise NotImplementedError(
+                "Board should not be None when processing a command from main"
+            )
+        board.write(data_packet)
 
     def _commands_for_each_run_iteration(self) -> None:
         self._process_next_communication_from_main()
@@ -156,34 +190,27 @@ class McCommunicationProcess(InstrumentCommProcess):
             comm_from_main = input_queue.get_nowait()
         except queue.Empty:
             return
-        board = self.get_board_connections_list()[0]
-        if board is None:
-            raise NotImplementedError(
-                "Board should not be None when processing a command from main"
-            )
+        board_idx = 0
 
         communication_type = comm_from_main["communication_type"]
         if communication_type == "mantarray_naming":
             if comm_from_main["command"] == "set_mantarray_nickname":
                 nickname = comm_from_main["mantarray_nickname"]
-                set_nickname_packet = create_data_packet(
-                    0,  # TODO figure out timestamp
+                self._send_data_packet(
+                    board_idx,
                     SERIAL_COMM_MAIN_MODULE_ID,
                     SERIAL_COMM_SET_NICKNAME_PACKET_TYPE,
                     convert_to_metadata_bytes(nickname),
                 )
-                board.write(set_nickname_packet)
             else:
                 raise NotImplementedError()  # TODO
         elif communication_type == "to_instrument":
             if comm_from_main["command"] == "get_metadata":
-                get_metadata_packet = create_data_packet(
-                    0,  # TODO figure out timestamp
+                self._send_data_packet(
+                    board_idx,
                     SERIAL_COMM_MAIN_MODULE_ID,
                     SERIAL_COMM_GET_METADATA_PACKET_TYPE,
-                    bytes(0),
                 )
-                board.write(get_metadata_packet)
             else:
                 raise NotImplementedError()  # TODO
         else:
@@ -292,7 +319,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         start = perf_counter()
         while (
             magic_word_test_bytes != SERIAL_COMM_MAGIC_WORD_BYTES
-            and read_dur_secs < SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+            and read_dur_secs < SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS  # TODO
         ):
             next_byte = board.read(size=1)
             if len(next_byte) == 1:

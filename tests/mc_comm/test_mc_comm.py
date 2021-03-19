@@ -15,6 +15,7 @@ from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
@@ -84,6 +85,7 @@ def test_McCommunicationProcess_super_is_called_during_init(mocker):
 
 @pytest.mark.slow
 @freeze_time("2021-03-16 13:05:55.654321")
+@pytest.mark.timeout(15)
 def test_McCommunicationProcess_setup_before_loop__connects_to_boards__and_sends_message_to_main(
     four_board_mc_comm_process,
 ):
@@ -104,9 +106,11 @@ def test_McCommunicationProcess_setup_before_loop__connects_to_boards__and_sends
     )
     # simulator is automatically started by mc_comm during setup_before_loop, so need to stop it
     populated_connections_list[0].stop()
+    populated_connections_list[0].join()
 
 
 @pytest.mark.slow
+@pytest.mark.timeout(15)
 def test_McCommunicationProcess_setup_before_loop__does_not_send_message_to_main_when_setup_comm_is_suppressed():
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
     mc_process = McCommunicationProcess(
@@ -128,6 +132,7 @@ def test_McCommunicationProcess_setup_before_loop__does_not_send_message_to_main
 
     # simulator is automatically started by mc_comm during setup_before_loop, so need to stop it
     populated_connections_list[0].stop()
+    populated_connections_list[0].join()
 
 
 def test_McCommunicationProcess_hard_stop__clears_all_queues_and_returns_lists_of_values(
@@ -654,6 +659,43 @@ def test_McCommunicationProcess__raises_error_if_mantarray_returns_data_packet_t
     with pytest.raises(SerialCommIncorrectChecksumFromPCError) as exc_info:
         invoke_process_run_and_check_errors(mc_process)
     assert str(test_handshake) in str(exc_info.value)
+
+
+def test_McCommunicationProcess__includes_correct_timestamp_in_packets_sent_to_instrument(
+    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
+):
+    mc_process = four_board_mc_comm_process["mc_process"]
+    board_queues = four_board_mc_comm_process["board_queues"]
+    input_queue = board_queues[0][0]
+
+    expected_timestamp = 24085320
+    mocker.patch.object(
+        mc_process, "get_cms_since_init", autospec=True, return_value=expected_timestamp
+    )
+
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    spied_write = mocker.spy(simulator, "write")
+
+    set_connection_and_register_simulator(mc_process, mantarray_mc_simulator_no_beacon)
+    test_nickname = "anything"
+    set_nickname_command = {
+        "communication_type": "mantarray_naming",
+        "command": "set_mantarray_nickname",
+        "mantarray_nickname": test_nickname,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(set_nickname_command), input_queue
+    )
+    # run mc_process one iteration to send the command
+    invoke_process_run_and_check_errors(mc_process)
+
+    expected_data_packet = create_data_packet(
+        expected_timestamp,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_SET_NICKNAME_PACKET_TYPE,
+        convert_to_metadata_bytes(test_nickname),
+    )
+    spied_write.assert_called_once_with(expected_data_packet)
 
 
 def test_McCommunicationProcess__processes_set_mantarray_nickname_command(
