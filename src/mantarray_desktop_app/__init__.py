@@ -141,6 +141,7 @@ from .exceptions import ServerThreadNotInitializedError
 from .exceptions import ServerThreadSingletonAlreadySetError
 from .exceptions import SystemStartUpError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
+from .exceptions import UnrecognizedCommandFromMainToMcCommError
 from .exceptions import UnrecognizedCommandToInstrumentError
 from .exceptions import UnrecognizedCommTypeFromMainToDataAnalyzerError
 from .exceptions import UnrecognizedCommTypeFromMainToInstrumentError
@@ -405,4 +406,5 @@ __all__ = [
     "parse_metadata_bytes",
     "convert_metadata_bytes_to_str",
     "SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS",
+    "UnrecognizedCommandFromMainToMcCommError",
 ]

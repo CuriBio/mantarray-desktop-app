@@ -25,6 +25,7 @@ from mantarray_desktop_app import SerialCommIncorrectMagicWordFromMantarrayError
 from mantarray_desktop_app import SerialCommPacketRegistrationReadEmptyError
 from mantarray_desktop_app import SerialCommPacketRegistrationSearchExhaustedError
 from mantarray_desktop_app import SerialCommPacketRegistrationTimoutError
+from mantarray_desktop_app import UnrecognizedCommandFromMainToMcCommError
 from mantarray_desktop_app import UnrecognizedSerialCommModuleIdError
 from mantarray_desktop_app import UnrecognizedSerialCommPacketTypeError
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
@@ -636,7 +637,7 @@ def test_McCommunicationProcess__raises_error_if_checksum_in_data_packet_sent_fr
     assert str(test_bytes) in exc_info.value.args[0]
 
 
-def test_McCommunicationProcess__raises_error_if_unrecognized_module_id_sent_from_pc(
+def test_McCommunicationProcess__raises_error_if_unrecognized_module_id_sent_from_instrument(
     four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
 ):
     mocker.patch(
@@ -671,7 +672,7 @@ def test_McCommunicationProcess__raises_error_if_unrecognized_module_id_sent_fro
         invoke_process_run_and_check_errors(mc_process)
 
 
-def test_McCommunicationProcess__raises_error_if_unrecognized_packet_type_sent_from_pc(
+def test_McCommunicationProcess__raises_error_if_unrecognized_packet_type_sent_from_instrument(
     four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
 ):
     mocker.patch(
@@ -772,6 +773,45 @@ def test_McCommunicationProcess__includes_correct_timestamp_in_packets_sent_to_i
         convert_to_metadata_bytes(test_nickname),
     )
     spied_write.assert_called_once_with(expected_data_packet)
+
+
+@pytest.mark.parametrize(
+    "test_comm,test_description",
+    [
+        (
+            {"communication_type": "bad_type"},
+            "raises error with invalid communication_type",
+        ),
+        (
+            {
+                "communication_type": "mantarray_naming",
+                "command": "bad_command",
+            },
+            "raises error with invalid mantarray_naming command",
+        ),
+        (
+            {
+                "communication_type": "to_instrument",
+                "command": "bad_command",
+            },
+            "raises error with invalid to_instrument command",
+        ),
+    ],
+)
+def test_McCommunicationProcess__raises_error_when_receiving_invalid_command_from_main(
+    test_comm, test_description, four_board_mc_comm_process
+):
+    mc_process = four_board_mc_comm_process["mc_process"]
+    input_queue = four_board_mc_comm_process["board_queues"][0][0]
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_comm, input_queue
+    )
+    with pytest.raises(UnrecognizedCommandFromMainToMcCommError) as exc_info:
+        invoke_process_run_and_check_errors(mc_process)
+    assert test_comm["communication_type"] in str(exc_info.value)
+    if "command" in test_comm:
+        assert test_comm["command"] in str(exc_info.value)
 
 
 def test_McCommunicationProcess__processes_set_mantarray_nickname_command(

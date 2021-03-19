@@ -26,6 +26,10 @@ class UnrecognizedCommandFromMainToFileWriterError(Exception):
     pass
 
 
+class UnrecognizedCommandFromMainToMcCommError(Exception):
+    pass
+
+
 class UnrecognizedCommTypeFromMainToDataAnalyzerError(Exception):
     pass
 

@@ -42,6 +42,7 @@ from .exceptions import SerialCommIncorrectMagicWordFromMantarrayError
 from .exceptions import SerialCommPacketRegistrationReadEmptyError
 from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
 from .exceptions import SerialCommPacketRegistrationTimoutError
+from .exceptions import UnrecognizedCommandFromMainToMcCommError
 from .exceptions import UnrecognizedSerialCommModuleIdError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .instrument_comm import InstrumentCommProcess
@@ -222,7 +223,9 @@ class McCommunicationProcess(InstrumentCommProcess):
                     convert_to_metadata_bytes(nickname),
                 )
             else:
-                raise NotImplementedError()  # TODO
+                raise UnrecognizedCommandFromMainToMcCommError(
+                    f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
+                )
         elif communication_type == "to_instrument":
             if comm_from_main["command"] == "get_metadata":
                 self._send_data_packet(
@@ -231,9 +234,13 @@ class McCommunicationProcess(InstrumentCommProcess):
                     SERIAL_COMM_GET_METADATA_PACKET_TYPE,
                 )
             else:
-                raise NotImplementedError()  # TODO
+                raise UnrecognizedCommandFromMainToMcCommError(
+                    f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
+                )
         else:
-            raise NotImplementedError()  # TODO
+            raise UnrecognizedCommandFromMainToMcCommError(
+                f"Invalid communication_type: {communication_type}"
+            )
         self._command_awaiting_response = comm_from_main
         if not input_queue.empty():
             self._process_can_be_soft_stopped = False
