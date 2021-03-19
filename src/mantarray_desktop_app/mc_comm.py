@@ -29,6 +29,7 @@ from .constants import SERIAL_COMM_GET_METADATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
+from .constants import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
@@ -39,6 +40,7 @@ from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
 from .exceptions import SerialCommIncorrectChecksumFromPCError
 from .exceptions import SerialCommIncorrectMagicWordFromMantarrayError
+from .exceptions import SerialCommPacketFromMantarrayTooSmallError
 from .exceptions import SerialCommPacketRegistrationReadEmptyError
 from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
 from .exceptions import SerialCommPacketRegistrationTimoutError
@@ -294,7 +296,6 @@ class McCommunicationProcess(InstrumentCommProcess):
         packet_size = int.from_bytes(packet_size_bytes, byteorder="little")
         data_packet_bytes = board.read(size=packet_size)
         # TODO Tanner (3/15/21): eventually make sure the expected number of bytes are read. Need to figure out what to do if not enough bytes are read first
-        # TODO Tanner (3/17/21): need to also make sure some min number of bytes are read so indexing in later operations does not cause out-of-bounds errors
 
         # validate checksum before handling the communication. Need to reconstruct the whole packet to get the correct checksum
         full_data_packet = (
@@ -312,7 +313,10 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise SerialCommIncorrectChecksumFromInstrumentError(
                 f"Checksum Received: {received_checksum}, Checksum Calculated: {calculated_checksum}, Full Data Packet: {str(full_data_packet)}"
             )
-
+        if packet_size < SERIAL_COMM_MIN_PACKET_SIZE_BYTES:
+            raise SerialCommPacketFromMantarrayTooSmallError(
+                f"Invalid packet length received: {packet_size}, Full Data Packet: {str(full_data_packet)}"
+            )
         module_id = full_data_packet[SERIAL_COMM_MODULE_ID_INDEX]
         if module_id == SERIAL_COMM_MAIN_MODULE_ID:
             self._process_main_module_comm(full_data_packet)

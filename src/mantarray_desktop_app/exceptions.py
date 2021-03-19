@@ -158,5 +158,9 @@ class SerialCommIncorrectMagicWordFromMantarrayError(Exception):
     pass
 
 
+class SerialCommPacketFromMantarrayTooSmallError(Exception):
+    pass
+
+
 class SerialCommMetadataValueTooLargeError(Exception):
     pass

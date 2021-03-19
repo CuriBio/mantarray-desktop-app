@@ -2,6 +2,7 @@
 import copy
 import logging
 from multiprocessing import Queue
+from zlib import crc32
 
 from freezegun import freeze_time
 from mantarray_desktop_app import convert_to_metadata_bytes
@@ -15,6 +16,7 @@ from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
 from mantarray_desktop_app import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
@@ -22,6 +24,7 @@ from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import SerialCommIncorrectChecksumFromInstrumentError
 from mantarray_desktop_app import SerialCommIncorrectChecksumFromPCError
 from mantarray_desktop_app import SerialCommIncorrectMagicWordFromMantarrayError
+from mantarray_desktop_app import SerialCommPacketFromMantarrayTooSmallError
 from mantarray_desktop_app import SerialCommPacketRegistrationReadEmptyError
 from mantarray_desktop_app import SerialCommPacketRegistrationSearchExhaustedError
 from mantarray_desktop_app import SerialCommPacketRegistrationTimoutError
@@ -458,7 +461,7 @@ def test_McCommunicationProcess_register_magic_word__registers_with_magic_word_i
 def test_McCommunicationProcess_register_magic_word__raises_error_if_less_than_8_bytes_available_after_registration_timeout_period_has_elapsed(
     four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
 ):
-    mocker.patch(
+    mocker.patch(  # TODO Tanner (3/19/21) make this a fixture and test that it doesn't print errors
         "builtins.print", autospec=True
     )  # don't print all the error messages to console
 
@@ -637,6 +640,43 @@ def test_McCommunicationProcess__raises_error_if_checksum_in_data_packet_sent_fr
     assert str(test_bytes) in exc_info.value.args[0]
 
 
+def test_McCommunicationProcess__raises_error_if_not_enough_bytes_in_packet_sent_from_instrument(
+    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
+):
+    mocker.patch(
+        "builtins.print", autospec=True
+    )  # don't print all the error messages to console
+
+    mc_process = four_board_mc_comm_process["mc_process"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+
+    dummy_timestamp_bytes = bytes(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES)
+    bad_packet_length = SERIAL_COMM_MIN_PACKET_SIZE_BYTES - 1
+    test_packet = SERIAL_COMM_MAGIC_WORD_BYTES
+    test_packet += bad_packet_length.to_bytes(2, byteorder="little")
+    test_packet += dummy_timestamp_bytes
+    test_packet += bytes([SERIAL_COMM_MAIN_MODULE_ID])
+    test_packet += crc32(test_packet).to_bytes(
+        SERIAL_COMM_CHECKSUM_LENGTH_BYTES, byteorder="little"
+    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {
+            "command": "add_read_bytes",
+            "read_bytes": test_packet,
+        },
+        testing_queue,
+    )
+    invoke_process_run_and_check_errors(simulator)
+
+    board_idx = 0
+    mc_process.set_board_connection(board_idx, simulator)
+    with pytest.raises(SerialCommPacketFromMantarrayTooSmallError) as exc_info:
+        invoke_process_run_and_check_errors(mc_process)
+    assert str(bad_packet_length) in exc_info.value.args[0]
+    assert str(test_packet) in exc_info.value.args[0]
+
+
 def test_McCommunicationProcess__raises_error_if_unrecognized_module_id_sent_from_instrument(
     four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
 ):
@@ -799,8 +839,12 @@ def test_McCommunicationProcess__includes_correct_timestamp_in_packets_sent_to_i
     ],
 )
 def test_McCommunicationProcess__raises_error_when_receiving_invalid_command_from_main(
-    test_comm, test_description, four_board_mc_comm_process
+    test_comm, test_description, four_board_mc_comm_process, mocker
 ):
+    mocker.patch(
+        "builtins.print", autospec=True
+    )  # don't print all the error messages to console
+
     mc_process = four_board_mc_comm_process["mc_process"]
     input_queue = four_board_mc_comm_process["board_queues"][0][0]
 
