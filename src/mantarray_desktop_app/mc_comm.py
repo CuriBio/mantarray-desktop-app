@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+import logging
 from multiprocessing import Queue
 import queue
 from time import perf_counter
@@ -17,6 +18,7 @@ from zlib import crc32
 from mantarray_file_manager import DATETIME_STR_FORMAT
 import serial
 import serial.tools.list_ports as list_ports
+from stdlib_utils import put_log_message_into_queue
 
 from .constants import NANOSECONDS_PER_CENTIMILLISECOND
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
@@ -29,6 +31,7 @@ from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
+from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
@@ -104,6 +107,22 @@ class McCommunicationProcess(InstrumentCommProcess):
             while not board.is_start_up_complete():
                 # sleep so as to not relentlessly ping the simulator
                 sleep(0.1)
+
+    def _teardown_after_loop(self) -> None:
+        log_msg = f"Microcontroller Communication Process beginning teardown at {_get_formatted_utc_now()}"
+        put_log_message_into_queue(
+            logging.INFO,
+            log_msg,
+            self._board_queues[0][1],
+            self.get_logging_level(),
+        )
+        board = self._board_connections[0]
+        if (
+            isinstance(board, MantarrayMcSimulator) and board.is_alive()
+        ):  # pragma: no cover  # Tanner (3/19/21): only need to stop and join if the board is a running simulator
+            board.hard_stop()  # hard stop to drain all queues of simulator
+            board.join()
+        super()._teardown_after_loop()
 
     def get_cms_since_init(self) -> int:
         if self._init_time_ns is None:
@@ -216,6 +235,8 @@ class McCommunicationProcess(InstrumentCommProcess):
         else:
             raise NotImplementedError()  # TODO
         self._command_awaiting_response = comm_from_main
+        if not input_queue.empty():
+            self._process_can_be_soft_stopped = False
 
     def _process_main_module_comm(self, comm_from_instrument: bytes) -> None:
         packet_body = comm_from_instrument[
@@ -319,7 +340,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         start = perf_counter()
         while (
             magic_word_test_bytes != SERIAL_COMM_MAGIC_WORD_BYTES
-            and read_dur_secs < SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS  # TODO
+            and read_dur_secs < SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
         ):
             next_byte = board.read(size=1)
             if len(next_byte) == 1:

@@ -91,6 +91,7 @@ from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
+from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
@@ -403,4 +404,5 @@ __all__ = [
     "SERIAL_COMM_GET_METADATA_PACKET_TYPE",
     "parse_metadata_bytes",
     "convert_metadata_bytes_to_str",
+    "SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS",
 ]

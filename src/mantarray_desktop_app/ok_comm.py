@@ -695,14 +695,14 @@ class OkCommunicationProcess(InstrumentCommProcess):
                 self._send_barcode_to_main(board_idx, barcode, False)
                 return
 
-            log_msg = (
+            msg = (
                 "No plate detected, retrying scan"
                 if barcode == NO_PLATE_DETECTED_BARCODE_VALUE
                 else f"Invalid barcode detected: {barcode}, retrying scan"
             )
             put_log_message_into_queue(
                 logging.INFO,
-                log_msg,
+                msg,
                 self._board_queues[0][1],
                 self.get_logging_level(),
             )
