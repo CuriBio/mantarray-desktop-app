@@ -72,7 +72,7 @@ def test_validate_checksum__returns_false_when_checksum_is_incorrect():
         ),
         (
             "Unicøde Nickname",
-            bytes("Unicøde Nickname", "utf-8") + bytes(13),
+            bytes("Unicøde Nickname", "utf-8") + bytes(15),
             "converts string with unicode characters to 32 bytes",
         ),
         (
