@@ -399,4 +399,21 @@ describe("window_opening", () => {
       spectron_page_visual_regression(app.browserWindow, screenshot_path)
     ).resolves.toBe(true);
   }, 90000);
+  test("When Calibrate is clicked (and waiting some time for calibration to finish), Then the screen shows the Calibrated state", async () => {
+    const app = sandbox.the_app;
+    await wait_for_local_server_to_reach_calibration_needed();
+    const calibrate_button = await app.client.$(
+      ".svg__playback-desktop-player-controls-calibrate-button"
+    );
+    await calibrate_button.click();
+
+    await sleep(10000); // wait for calibration to occur
+    const this_base_screenshot_path = path.join(base_screenshot_path);
+
+    const screenshot_path = path.join(this_base_screenshot_path, "calibrated");
+
+    await expect(
+      spectron_page_visual_regression(app.browserWindow, screenshot_path)
+    ).resolves.toBe(true);
+  }, 90000);
 });
