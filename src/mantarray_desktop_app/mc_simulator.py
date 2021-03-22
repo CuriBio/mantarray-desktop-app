@@ -15,6 +15,7 @@ from typing import Optional
 from typing import Union
 from uuid import UUID
 
+from immutabledict import immutabledict
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
@@ -79,15 +80,17 @@ class MantarrayMcSimulator(InfiniteProcess):
         "TBD"  # TODO Tanner (3/17/21): implement this once the format is determined
     )
     default_firmware_version = "0.0.0"
-    default_metadata_values: Dict[UUID, Any] = {
-        BOOTUP_COUNTER_UUID: 0,
-        TOTAL_WORKING_HOURS_UUID: 0,
-        TAMPER_FLAG_UUID: 0,
-        MANTARRAY_SERIAL_NUMBER_UUID: default_mantarray_serial_number,
-        MANTARRAY_NICKNAME_UUID: default_mantarray_nickname,
-        PCB_SERIAL_NUMBER_UUID: default_pcb_serial_number,
-        MAIN_FIRMWARE_VERSION_UUID: default_firmware_version,
-    }
+    default_metadata_values: Dict[UUID, Any] = immutabledict(
+        {
+            BOOTUP_COUNTER_UUID: 0,
+            TOTAL_WORKING_HOURS_UUID: 0,
+            TAMPER_FLAG_UUID: 0,
+            MANTARRAY_SERIAL_NUMBER_UUID: default_mantarray_serial_number,
+            MANTARRAY_NICKNAME_UUID: default_mantarray_nickname,
+            PCB_SERIAL_NUMBER_UUID: default_pcb_serial_number,
+            MAIN_FIRMWARE_VERSION_UUID: default_firmware_version,
+        }
+    )
 
     def __init__(
         self,

@@ -31,6 +31,7 @@ from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
+from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
@@ -292,7 +293,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 )
         else:
             return
-        packet_size_bytes = board.read(size=2)
+        packet_size_bytes = board.read(size=SERIAL_COMM_PACKET_INFO_LENGTH_BYTES)
         packet_size = int.from_bytes(packet_size_bytes, byteorder="little")
         data_packet_bytes = board.read(size=packet_size)
         # TODO Tanner (3/15/21): eventually make sure the expected number of bytes are read. Need to figure out what to do if not enough bytes are read first

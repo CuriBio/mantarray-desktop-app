@@ -8,6 +8,7 @@ from typing import Union
 from uuid import UUID
 from zlib import crc32
 
+from immutabledict import immutabledict
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
@@ -26,15 +27,17 @@ from .exceptions import SerialCommMetadataValueTooLargeError
 # Tanner (3/18/21): If/When cython is needed to improve serial communication, this file will likely be a good place to start
 
 
-METADATA_TYPES = {
-    MAIN_FIRMWARE_VERSION_UUID: str,
-    MANTARRAY_NICKNAME_UUID: str,
-    MANTARRAY_SERIAL_NUMBER_UUID: str,
-    TOTAL_WORKING_HOURS_UUID: int,
-    TAMPER_FLAG_UUID: int,
-    BOOTUP_COUNTER_UUID: int,
-    PCB_SERIAL_NUMBER_UUID: str,
-}
+METADATA_TYPES = immutabledict(
+    {
+        MAIN_FIRMWARE_VERSION_UUID: str,
+        MANTARRAY_NICKNAME_UUID: str,
+        MANTARRAY_SERIAL_NUMBER_UUID: str,
+        TOTAL_WORKING_HOURS_UUID: int,
+        TAMPER_FLAG_UUID: int,
+        BOOTUP_COUNTER_UUID: int,
+        PCB_SERIAL_NUMBER_UUID: str,
+    }
+)
 
 
 def _get_checksum_bytes(packet: bytes) -> bytes:
@@ -103,7 +106,7 @@ def convert_metadata_bytes_to_str(metadata_bytes: bytes) -> str:
     """
     metadata_str = metadata_bytes.decode("utf-8")
     stop_idx = len(metadata_str)
-    for char in metadata_str[::-1]:
+    for char in reversed(metadata_str):
         if char != "\x00":
             break
         stop_idx -= 1
