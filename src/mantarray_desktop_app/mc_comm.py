@@ -25,7 +25,10 @@ from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BAUD_RATE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
-from .constants import SERIAL_COMM_GET_METADATA_PACKET_TYPE
+from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+from .constants import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
+from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
+from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
@@ -34,7 +37,7 @@ from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
-from .constants import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
+from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
@@ -64,6 +67,10 @@ def _get_seconds_since_read_start(start: float) -> float:
     return perf_counter() - start
 
 
+def _get_secs_since_last_handshake(last_time: float) -> float:
+    return perf_counter() - last_time
+
+
 class McCommunicationProcess(InstrumentCommProcess):
     """Process that controls communication with the Mantarray Beta 2 Board(s).
 
@@ -79,6 +86,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._board_queues
         )
         self._init_time_ns: Optional[int] = None
+        self._time_of_last_handshake_secs: Optional[float] = None
         self._command_awaiting_response: Optional[
             Dict[str, Any]
         ] = None  # Tanner (3/17/21): Will implement a more robust method of tracking all commands awaiting responses in future. This current implementation can only handle a single command at a time
@@ -131,7 +139,7 @@ class McCommunicationProcess(InstrumentCommProcess):
     def get_cms_since_init(self) -> int:
         if self._init_time_ns is None:
             return 0
-        # pylint: disable=duplicate-code  # Tanner (3/19/21): Consider moving this functionality to InfiniteProcess since it applies to multiple processes
+        # pylint: disable=duplicate-code  # TODO Tanner (3/19/21): Consider moving this functionality to InfiniteProcess since it applies to multiple processes
         ns_since_init = perf_counter_ns() - self._init_time_ns
         return ns_since_init // NANOSECONDS_PER_CENTIMILLISECOND
 
@@ -201,6 +209,7 @@ class McCommunicationProcess(InstrumentCommProcess):
 
     def _commands_for_each_run_iteration(self) -> None:
         self._process_next_communication_from_main()
+        self._handle_handshake()
         self._handle_incoming_data()
 
     def _process_next_communication_from_main(self) -> None:
@@ -222,8 +231,9 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._send_data_packet(
                     board_idx,
                     SERIAL_COMM_MAIN_MODULE_ID,
-                    SERIAL_COMM_SET_NICKNAME_PACKET_TYPE,
-                    convert_to_metadata_bytes(nickname),
+                    SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+                    bytes([SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE])
+                    + convert_to_metadata_bytes(nickname),
                 )
             else:
                 raise UnrecognizedCommandFromMainToMcCommError(
@@ -234,7 +244,8 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._send_data_packet(
                     board_idx,
                     SERIAL_COMM_MAIN_MODULE_ID,
-                    SERIAL_COMM_GET_METADATA_PACKET_TYPE,
+                    SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+                    bytes([SERIAL_COMM_GET_METADATA_COMMAND_BYTE]),
                 )
             else:
                 raise UnrecognizedCommandFromMainToMcCommError(
@@ -248,35 +259,28 @@ class McCommunicationProcess(InstrumentCommProcess):
         if not input_queue.empty():
             self._process_can_be_soft_stopped = False
 
-    def _process_main_module_comm(self, comm_from_instrument: bytes) -> None:
-        packet_body = comm_from_instrument[
-            SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES
-        ]
+    def _handle_handshake(self) -> None:
+        board_idx = 0
+        board = self._board_connections[board_idx]
+        if board is None:
+            return
 
-        packet_type = comm_from_instrument[SERIAL_COMM_PACKET_TYPE_INDEX]
-        if packet_type == SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE:
-            returned_packet = SERIAL_COMM_MAGIC_WORD_BYTES + packet_body
-            raise SerialCommIncorrectChecksumFromPCError(returned_packet)
+        if self._time_of_last_handshake_secs is None:
+            self._send_handshake(board_idx)
+            return
+        seconds_elapsed = _get_secs_since_last_handshake(
+            self._time_of_last_handshake_secs
+        )
+        if seconds_elapsed >= SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS - 1:
+            self._send_handshake(board_idx)
 
-        if packet_type == SERIAL_COMM_STATUS_BEACON_PACKET_TYPE:
-            pass  # TODO Tanner (3/17/21): Implement this in a story dedicated to parsing/handling errors codes
-        elif packet_type == SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE:
-            if self._command_awaiting_response is None:
-                raise NotImplementedError(  # stop mypy complaining
-                    "_command_awaiting_response shoudn't be None here"
-                )
-            prev_command = self._command_awaiting_response
-            if prev_command["command"] == "get_metadata":
-                prev_command["metadata"] = parse_metadata_bytes(packet_body)
-            self._board_queues[0][1].put_nowait(
-                prev_command
-            )  # Tanner (3/17/21): to be consistent with OkComm, command responses will be sent back to main after the command is acknowledged by the Mantarray
-            self._command_awaiting_response = None
-        else:
-            module_id = comm_from_instrument[SERIAL_COMM_MODULE_ID_INDEX]
-            raise UnrecognizedSerialCommPacketTypeError(
-                f"Packet Type ID: {packet_type} is not defined for Module ID: {module_id}"
-            )
+    def _send_handshake(self, board_idx: int) -> None:
+        self._time_of_last_handshake_secs = perf_counter()
+        self._send_data_packet(
+            board_idx,
+            SERIAL_COMM_MAIN_MODULE_ID,
+            SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
+        )
 
     def _handle_incoming_data(self) -> None:
         board_idx = 0
@@ -323,6 +327,38 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._process_main_module_comm(full_data_packet)
         else:
             raise UnrecognizedSerialCommModuleIdError(module_id)
+
+    def _process_main_module_comm(self, comm_from_instrument: bytes) -> None:
+        packet_body = comm_from_instrument[
+            SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+        ]
+
+        packet_type = comm_from_instrument[SERIAL_COMM_PACKET_TYPE_INDEX]
+        if packet_type == SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE:
+            returned_packet = SERIAL_COMM_MAGIC_WORD_BYTES + packet_body
+            raise SerialCommIncorrectChecksumFromPCError(returned_packet)
+
+        if packet_type == SERIAL_COMM_STATUS_BEACON_PACKET_TYPE:
+            pass  # TODO Tanner (3/17/21): Implement this in a story dedicated to parsing/handling errors codes in status beacons and handshakes
+        if packet_type == SERIAL_COMM_HANDSHAKE_PACKET_TYPE:
+            pass  # see above comment
+        elif packet_type == SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE:
+            if self._command_awaiting_response is None:
+                raise NotImplementedError(  # stop mypy complaining
+                    "_command_awaiting_response shoudn't be None here"
+                )
+            prev_command = self._command_awaiting_response
+            if prev_command["command"] == "get_metadata":
+                prev_command["metadata"] = parse_metadata_bytes(packet_body)
+            self._board_queues[0][1].put_nowait(
+                prev_command
+            )  # Tanner (3/17/21): to be consistent with OkComm, command responses will be sent back to main after the command is acknowledged by the Mantarray
+            self._command_awaiting_response = None
+        else:
+            module_id = comm_from_instrument[SERIAL_COMM_MODULE_ID_INDEX]
+            raise UnrecognizedSerialCommPacketTypeError(
+                f"Packet Type ID: {packet_type} is not defined for Module ID: {module_id}"
+            )
 
     def _register_magic_word(self, board_idx: int) -> None:
         board = self._board_connections[board_idx]

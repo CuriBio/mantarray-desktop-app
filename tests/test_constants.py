@@ -69,8 +69,9 @@ from mantarray_desktop_app import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
-from mantarray_desktop_app import SERIAL_COMM_GET_METADATA_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
@@ -80,7 +81,7 @@ from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_INDEX
 from mantarray_desktop_app import SERIAL_COMM_PACKET_TYPE_INDEX
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
-from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
@@ -329,6 +330,7 @@ def test_serial_comm():
     assert MC_REBOOT_DURATION_SECONDS == 5
 
     assert SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS == 5
+    assert SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS == 5
     assert SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS == 8
 
     assert SERIAL_COMM_MAGIC_WORD_BYTES == b"CURI BIO"
@@ -346,11 +348,11 @@ def test_serial_comm():
     assert SERIAL_COMM_MAIN_MODULE_ID == 0
     assert SERIAL_COMM_STATUS_BEACON_PACKET_TYPE == 0
     assert SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE == 3
-    assert SERIAL_COMM_GET_METADATA_PACKET_TYPE == 6
-    assert SERIAL_COMM_SET_NICKNAME_PACKET_TYPE == 9
+    assert SERIAL_COMM_GET_METADATA_COMMAND_BYTE == 6
+    assert SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE == 9
     assert SERIAL_COMM_REBOOT_COMMAND_BYTE == 0
     assert SERIAL_COMM_HANDSHAKE_PACKET_TYPE == 4
-    assert SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE == 4
+    assert SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE == 3
     assert SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE == 255
 
     assert SERIAL_COMM_METADATA_BYTES_LENGTH == 32

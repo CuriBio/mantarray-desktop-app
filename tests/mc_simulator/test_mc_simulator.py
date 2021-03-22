@@ -14,12 +14,12 @@ from mantarray_desktop_app import PCB_SERIAL_NUMBER_UUID
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
-from mantarray_desktop_app import SERIAL_COMM_GET_METADATA_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
-from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
@@ -598,7 +598,7 @@ def test_MantarrayMcSimulator__responds_to_handshake__when_checksum_is_correct(
     assert_serial_packet_is_expected(
         actual,
         SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+        SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
         DEFAULT_SIMULATOR_STATUS_CODE,
     )
 
@@ -701,7 +701,7 @@ def test_MantarrayMcSimulator__discards_commands_from_pc_during_reboot_period__a
     assert_serial_packet_is_expected(
         reboot_response,
         SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
     )
 
     # test that handshake is ignored
@@ -764,7 +764,7 @@ def test_MantarrayMcSimulator__reset_status_code_after_rebooting(
     expected_reboot_response = create_data_packet(
         0,
         SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
         bytes(0),
     )
     reboot_response = simulator.read(size=len(expected_reboot_response))
@@ -806,7 +806,7 @@ def test_MantarrayMcSimulator__processes_testing_commands_during_reboot(
     expected_reboot_response = create_data_packet(
         0,
         SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
         bytes(0),
     )
     reboot_response = simulator.read(size=len(expected_reboot_response))
@@ -857,7 +857,7 @@ def test_MantarrayMcSimulator__does_not_send_status_beacon_while_rebooting(
     assert_serial_packet_is_expected(
         reboot_response,
         SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
     )
 
     # check status beacon was not sent
@@ -906,8 +906,9 @@ def test_MantarrayMcSimulator__allows_mantarray_nickname_to_be_set_by_command_re
     set_nickname_command = create_data_packet(
         dummy_timestamp,
         SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_SET_NICKNAME_PACKET_TYPE,
-        convert_to_metadata_bytes(expected_nickname),
+        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+        bytes([SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE])
+        + convert_to_metadata_bytes(expected_nickname),
     )
     simulator.write(set_nickname_command)
     invoke_process_run_and_check_errors(simulator)
@@ -923,7 +924,7 @@ def test_MantarrayMcSimulator__allows_mantarray_nickname_to_be_set_by_command_re
     assert_serial_packet_is_expected(
         actual,
         SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
     )
 
 
@@ -936,8 +937,8 @@ def test_MantarrayMcSimulator__processes_get_metadata_command(
     get_metadata_command = create_data_packet(
         dummy_timestamp,
         SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_GET_METADATA_PACKET_TYPE,
-        bytes(0),
+        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+        bytes([SERIAL_COMM_GET_METADATA_COMMAND_BYTE]),
     )
     simulator.write(get_metadata_command)
     invoke_process_run_and_check_errors(simulator)
@@ -953,6 +954,6 @@ def test_MantarrayMcSimulator__processes_get_metadata_command(
     assert_serial_packet_is_expected(
         actual,
         SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
         expected_metadata_bytes,
     )

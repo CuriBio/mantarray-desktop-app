@@ -82,8 +82,9 @@ from .constants import SERIAL_COMM_BAUD_RATE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
-from .constants import SERIAL_COMM_GET_METADATA_PACKET_TYPE
+from .constants import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
+from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
@@ -94,7 +95,7 @@ from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
-from .constants import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
+from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
@@ -404,8 +405,8 @@ __all__ = [
     "convert_to_metadata_bytes",
     "SERIAL_COMM_METADATA_BYTES_LENGTH",
     "SerialCommMetadataValueTooLargeError",
-    "SERIAL_COMM_SET_NICKNAME_PACKET_TYPE",
-    "SERIAL_COMM_GET_METADATA_PACKET_TYPE",
+    "SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE",
+    "SERIAL_COMM_GET_METADATA_COMMAND_BYTE",
     "parse_metadata_bytes",
     "convert_metadata_bytes_to_str",
     "SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS",
@@ -413,4 +414,5 @@ __all__ = [
     "SERIAL_COMM_MIN_PACKET_SIZE_BYTES",
     "SerialCommPacketFromMantarrayTooSmallError",
     "SERIAL_COMM_PACKET_INFO_LENGTH_BYTES",
+    "SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS",
 ]
