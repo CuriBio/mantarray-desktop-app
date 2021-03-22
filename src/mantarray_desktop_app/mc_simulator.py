@@ -256,7 +256,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         elif packet_type == SERIAL_COMM_HANDSHAKE_PACKET_TYPE:
             self._send_data_packet(
                 SERIAL_COMM_MAIN_MODULE_ID,
-                SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
+                SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
                 self._status_code_bits,
             )
         else:

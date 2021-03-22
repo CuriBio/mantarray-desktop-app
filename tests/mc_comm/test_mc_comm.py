@@ -967,7 +967,7 @@ def test_McCommunicationProcess__processes_command_from_main_when_process_is_ful
         assert False, "expected response to main not found"
 
 
-def test_MantarrayMcSimulator__sends_handshake_every_5_seconds__and_includes_correct_timestamp__and_processes_response(
+def test_MantarrayMcSimulator__sends_handshake_every_4_seconds__and_includes_correct_timestamp__and_processes_response(
     four_board_mc_comm_process,
     mantarray_mc_simulator_no_beacon,
     mocker,

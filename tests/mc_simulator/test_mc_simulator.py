@@ -598,7 +598,7 @@ def test_MantarrayMcSimulator__responds_to_handshake__when_checksum_is_correct(
     assert_serial_packet_is_expected(
         actual,
         SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
+        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
         DEFAULT_SIMULATOR_STATUS_CODE,
     )
 

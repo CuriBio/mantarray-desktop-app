@@ -2,6 +2,7 @@
 """Process controlling communication with Mantarray Microcontroller."""
 from __future__ import annotations
 
+from collections import deque
 import datetime
 import logging
 from multiprocessing import Queue
@@ -10,6 +11,7 @@ from time import perf_counter
 from time import perf_counter_ns
 from time import sleep
 from typing import Any
+from typing import Deque
 from typing import Dict
 from typing import List
 from typing import Optional
@@ -87,9 +89,9 @@ class McCommunicationProcess(InstrumentCommProcess):
         )
         self._init_time_ns: Optional[int] = None
         self._time_of_last_handshake_secs: Optional[float] = None
-        self._command_awaiting_response: Optional[
+        self._commands_awaiting_response: Deque[  # pylint: disable=unsubscriptable-object
             Dict[str, Any]
-        ] = None  # Tanner (3/17/21): Will implement a more robust method of tracking all commands awaiting responses in future. This current implementation can only handle a single command at a time
+        ] = deque()
 
     def _reset_start_time(self) -> None:
         # TODO Tanner (3/19/21): Consider moving this functionality to InfiniteProcess since it applies to all running processes. See note in _setup_before_loop from 2/2/21
@@ -255,7 +257,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise UnrecognizedCommandFromMainToMcCommError(
                 f"Invalid communication_type: {communication_type}"
             )
-        self._command_awaiting_response = comm_from_main
+        self._commands_awaiting_response.append(comm_from_main)
         if not input_queue.empty():
             self._process_can_be_soft_stopped = False
 
@@ -264,14 +266,15 @@ class McCommunicationProcess(InstrumentCommProcess):
         board = self._board_connections[board_idx]
         if board is None:
             return
-
         if self._time_of_last_handshake_secs is None:
             self._send_handshake(board_idx)
             return
         seconds_elapsed = _get_secs_since_last_handshake(
             self._time_of_last_handshake_secs
         )
-        if seconds_elapsed >= SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS - 1:
+        if (
+            seconds_elapsed >= SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS - 1
+        ):  # Tanner (3/22/21): send a second early in order to ensure it is sent before the period has elapsed
             self._send_handshake(board_idx)
 
     def _send_handshake(self, board_idx: int) -> None:
@@ -281,6 +284,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             SERIAL_COMM_MAIN_MODULE_ID,
             SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
         )
+        self._commands_awaiting_response.append({"command": "handshake"})
 
     def _handle_incoming_data(self) -> None:
         board_idx = 0
@@ -340,20 +344,20 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         if packet_type == SERIAL_COMM_STATUS_BEACON_PACKET_TYPE:
             pass  # TODO Tanner (3/17/21): Implement this in a story dedicated to parsing/handling errors codes in status beacons and handshakes
-        if packet_type == SERIAL_COMM_HANDSHAKE_PACKET_TYPE:
-            pass  # see above comment
         elif packet_type == SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE:
-            if self._command_awaiting_response is None:
+            if len(self._commands_awaiting_response) == 0:
                 raise NotImplementedError(  # stop mypy complaining
-                    "_command_awaiting_response shoudn't be None here"
+                    "_command_awaiting_response shoudn't be empty here"
                 )
-            prev_command = self._command_awaiting_response
+            prev_command = self._commands_awaiting_response.popleft()
+            if prev_command["command"] == "handshake":
+                # see note above: Tanner (3/17/21)
+                return
             if prev_command["command"] == "get_metadata":
                 prev_command["metadata"] = parse_metadata_bytes(packet_body)
             self._board_queues[0][1].put_nowait(
                 prev_command
             )  # Tanner (3/17/21): to be consistent with OkComm, command responses will be sent back to main after the command is acknowledged by the Mantarray
-            self._command_awaiting_response = None
         else:
             module_id = comm_from_instrument[SERIAL_COMM_MODULE_ID_INDEX]
             raise UnrecognizedSerialCommPacketTypeError(
