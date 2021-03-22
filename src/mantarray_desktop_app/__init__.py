@@ -90,6 +90,7 @@ from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
+from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
@@ -411,4 +412,5 @@ __all__ = [
     "UnrecognizedCommandFromMainToMcCommError",
     "SERIAL_COMM_MIN_PACKET_SIZE_BYTES",
     "SerialCommPacketFromMantarrayTooSmallError",
+    "SERIAL_COMM_PACKET_INFO_LENGTH_BYTES",
 ]

@@ -41,8 +41,10 @@ from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import fixture_runnable_mantarray_mc_simulator
+from ..helpers import assert_serial_packet_is_expected
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
+from ..helpers import get_full_packet_size_from_packet_body_size
 from ..helpers import handle_putting_multiple_objects_into_empty_queue
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
@@ -56,6 +58,12 @@ __fixtures__ = [
 STATUS_BEACON_SIZE_BYTES = 28
 HANDSHAKE_RESPONSE_SIZE_BYTES = 28
 DEFAULT_SIMULATOR_STATUS_CODE = bytes(4)
+TEST_HANDSHAKE = create_data_packet(
+    0,  # dummy timestamp
+    SERIAL_COMM_MAIN_MODULE_ID,
+    SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
+    bytes(0),
+)
 
 
 def test_MantarrayMcSimulator__class_attributes():
@@ -583,35 +591,22 @@ def test_MantarrayMcSimulator__responds_to_handshake__when_checksum_is_correct(
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
-    spied_get_cms_since_init = mocker.spy(simulator, "get_cms_since_init")
-
-    dummy_timestamp = 0
-    test_handshake = create_data_packet(
-        dummy_timestamp,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
-        bytes(0),
-    )
-
-    simulator.write(test_handshake)
+    simulator.write(TEST_HANDSHAKE)
     invoke_process_run_and_check_errors(simulator)
     actual = simulator.read(size=HANDSHAKE_RESPONSE_SIZE_BYTES)
 
-    expected_handshake_response = create_data_packet(
-        spied_get_cms_since_init.spy_return,
+    assert_serial_packet_is_expected(
+        actual,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
         DEFAULT_SIMULATOR_STATUS_CODE,
     )
-    assert actual == expected_handshake_response
 
 
 def test_MantarrayMcSimulator__responds_to_comm_from_pc__when_checksum_is_incorrect(
     mantarray_mc_simulator_no_beacon, mocker
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
-
-    spied_get_cms_since_init = mocker.spy(simulator, "get_cms_since_init")
 
     dummy_timestamp_bytes = bytes(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES)
     dummy_checksum_bytes = bytes(SERIAL_COMM_CHECKSUM_LENGTH_BYTES)
@@ -627,14 +622,17 @@ def test_MantarrayMcSimulator__responds_to_comm_from_pc__when_checksum_is_incorr
     simulator.write(test_handshake)
     invoke_process_run_and_check_errors(simulator)
 
-    expected_handshake_response = create_data_packet(
-        spied_get_cms_since_init.spy_return,
+    expected_packet_body = test_handshake[len(SERIAL_COMM_MAGIC_WORD_BYTES) :]
+    expected_size = get_full_packet_size_from_packet_body_size(
+        len(expected_packet_body)
+    )
+    actual = simulator.read(size=expected_size)
+    assert_serial_packet_is_expected(
+        actual,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE,
-        test_handshake[len(SERIAL_COMM_MAGIC_WORD_BYTES) :],
+        expected_packet_body,
     )
-    actual = simulator.read(size=len(expected_handshake_response))
-    assert actual == expected_handshake_response
 
 
 def test_MantarrayMcSimulator__allows_status_bits_to_be_set_through_testing_queue_commands(
@@ -653,15 +651,7 @@ def test_MantarrayMcSimulator__allows_status_bits_to_be_set_through_testing_queu
     )
     invoke_process_run_and_check_errors(simulator)
 
-    dummy_timestamp = 0
-    test_handshake = create_data_packet(
-        dummy_timestamp,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
-        bytes(0),
-    )
-
-    simulator.write(test_handshake)
+    simulator.write(TEST_HANDSHAKE)
     invoke_process_run_and_check_errors(simulator)
     handshake_response = simulator.read(size=HANDSHAKE_RESPONSE_SIZE_BYTES)
 
@@ -676,7 +666,6 @@ def test_MantarrayMcSimulator__discards_commands_from_pc_during_reboot_period__a
 ):
     simulator = mantarray_mc_simulator["simulator"]
 
-    spied_get_cms_since_init = mocker.spy(simulator, "get_cms_since_init")
     spied_randint = mocker.spy(random, "randint")
 
     reboot_times = [4, MC_REBOOT_DURATION_SECONDS]
@@ -706,38 +695,30 @@ def test_MantarrayMcSimulator__discards_commands_from_pc_during_reboot_period__a
     simulator.write(test_reboot_command)
     invoke_process_run_and_check_errors(simulator)
 
-    # test that reboot response packet is sent
-    expected_reboot_response = create_data_packet(
-        spied_get_cms_since_init.spy_return,
+    # test that reboot response packet is sent=
+    reboot_response_size = get_full_packet_size_from_packet_body_size(0)
+    reboot_response = simulator.read(size=reboot_response_size)
+    assert_serial_packet_is_expected(
+        reboot_response,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-        bytes(0),
     )
-    reboot_response = simulator.read(size=len(expected_reboot_response))
-    assert reboot_response == expected_reboot_response
 
     # test that handshake is ignored
-    test_handshake = create_data_packet(
-        dummy_timestamp,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
-        bytes(0),
-    )
-    simulator.write(test_handshake)
+    simulator.write(TEST_HANDSHAKE)
     invoke_process_run_and_check_errors(simulator)
     response_during_reboot = simulator.read(size=HANDSHAKE_RESPONSE_SIZE_BYTES)
     assert len(response_during_reboot) == 0
 
     # test that status beacon is sent after reboot
     invoke_process_run_and_check_errors(simulator)
-    expected_beacon = create_data_packet(
-        spied_get_cms_since_init.spy_return,
+    status_beacon = simulator.read(size=STATUS_BEACON_SIZE_BYTES)
+    assert_serial_packet_is_expected(
+        status_beacon,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
         DEFAULT_SIMULATOR_STATUS_CODE,
     )
-    status_beacon = simulator.read(size=len(expected_beacon))
-    assert status_beacon == expected_beacon
 
     # test that start time was reset
     spied_reset.assert_called_once()
@@ -789,13 +770,7 @@ def test_MantarrayMcSimulator__reset_status_code_after_rebooting(
     reboot_response = simulator.read(size=len(expected_reboot_response))
     assert reboot_response == expected_reboot_response
 
-    test_handshake = create_data_packet(
-        dummy_timestamp,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
-        bytes(0),
-    )
-    simulator.write(test_handshake)
+    simulator.write(TEST_HANDSHAKE)
     invoke_process_run_and_check_errors(simulator)
     handshake_response = simulator.read(size=HANDSHAKE_RESPONSE_SIZE_BYTES)
     assert len(handshake_response) == HANDSHAKE_RESPONSE_SIZE_BYTES
@@ -859,7 +834,6 @@ def test_MantarrayMcSimulator__does_not_send_status_beacon_while_rebooting(
         autospec=True,
         side_effect=[0, SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS],
     )
-    spied_get_cms_since_init = mocker.spy(simulator, "get_cms_since_init")
 
     # remove boot up beacon
     invoke_process_run_and_check_errors(simulator)
@@ -878,14 +852,13 @@ def test_MantarrayMcSimulator__does_not_send_status_beacon_while_rebooting(
 
     # remove reboot response packet
     invoke_process_run_and_check_errors(simulator)
-    expected_reboot_response = create_data_packet(
-        spied_get_cms_since_init.spy_return,
+    reboot_resopnse_size = get_full_packet_size_from_packet_body_size(0)
+    reboot_response = simulator.read(size=reboot_resopnse_size)
+    assert_serial_packet_is_expected(
+        reboot_response,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-        bytes(0),
     )
-    reboot_response = simulator.read(size=len(expected_reboot_response))
-    assert reboot_response == expected_reboot_response
 
     # check status beacon was not sent
     invoke_process_run_and_check_errors(simulator)
@@ -927,7 +900,6 @@ def test_MantarrayMcSimulator__allows_mantarray_nickname_to_be_set_by_command_re
     mantarray_mc_simulator_no_beacon, mocker
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    spied_get_cms_since_init = mocker.spy(simulator, "get_cms_since_init")
 
     expected_nickname = "Newer Nickname"
     dummy_timestamp = 0
@@ -946,21 +918,19 @@ def test_MantarrayMcSimulator__allows_mantarray_nickname_to_be_set_by_command_re
         expected_nickname
     )
     # Check that correct response is sent
-    expected_response = create_data_packet(
-        spied_get_cms_since_init.spy_return,
+    expected_response_size = get_full_packet_size_from_packet_body_size(0)
+    actual = simulator.read(size=expected_response_size)
+    assert_serial_packet_is_expected(
+        actual,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-        bytes(0),
     )
-    actual = simulator.read(size=len(expected_response))
-    assert actual == expected_response
 
 
 def test_MantarrayMcSimulator__processes_get_metadata_command(
     mantarray_mc_simulator_no_beacon, mocker
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    spied_get_cms_since_init = mocker.spy(simulator, "get_cms_since_init")
 
     dummy_timestamp = 0
     get_metadata_command = create_data_packet(
@@ -976,11 +946,13 @@ def test_MantarrayMcSimulator__processes_get_metadata_command(
     for key, value in simulator.get_metadata_dict().items():
         expected_metadata_bytes += key
         expected_metadata_bytes += value
-    expected_metadata_response = create_data_packet(
-        spied_get_cms_since_init.spy_return,
+    expected_size = get_full_packet_size_from_packet_body_size(
+        len(expected_metadata_bytes)
+    )
+    actual = simulator.read(size=expected_size)
+    assert_serial_packet_is_expected(
+        actual,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
         expected_metadata_bytes,
     )
-    actual = simulator.read(size=len(expected_metadata_response))
-    assert actual == expected_metadata_response
