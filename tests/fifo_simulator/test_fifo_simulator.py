@@ -25,6 +25,7 @@ from ..helpers import is_queue_eventually_of_size
 def fixture_fifo_simulator():
     simulator = RunningFIFOSimulator()
     yield simulator
+    # TODO Tanner (3/17/21): remove this hard stop
     # clean up
     simulator.hard_stop()
 

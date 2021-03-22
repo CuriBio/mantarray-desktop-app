@@ -16,6 +16,7 @@ from mantarray_desktop_app import BARCODE_SCANNER_TOP_WIRE_OUT_ADDRESS
 from mantarray_desktop_app import BARCODE_SCANNER_TRIGGER_IN_ADDRESS
 from mantarray_desktop_app import BARCODE_UNREADABLE_UUID
 from mantarray_desktop_app import BARCODE_VALID_UUID
+from mantarray_desktop_app import BOOTUP_COUNTER_UUID
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
@@ -56,6 +57,7 @@ from mantarray_desktop_app import NANOSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import NO_PLATE_DETECTED_BARCODE_VALUE
 from mantarray_desktop_app import NO_PLATE_DETECTED_UUID
 from mantarray_desktop_app import OUTGOING_DATA_BUFFER_SIZE
+from mantarray_desktop_app import PCB_SERIAL_NUMBER_UUID
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import REF_INDEX_TO_24_WELL_INDEX
@@ -67,13 +69,18 @@ from mantarray_desktop_app import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_GET_METADATA_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_METADATA_BYTES_LENGTH
+from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_INDEX
 from mantarray_desktop_app import SERIAL_COMM_PACKET_TYPE_INDEX
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
+from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
@@ -86,7 +93,9 @@ from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import SUBPROCESS_POLL_DELAY_SECONDS
 from mantarray_desktop_app import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
+from mantarray_desktop_app import TAMPER_FLAG_UUID
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
+from mantarray_desktop_app import TOTAL_WORKING_HOURS_UUID
 from mantarray_desktop_app import VALID_CONFIG_SETTINGS
 from mantarray_desktop_app import VALID_SCRIPTING_COMMANDS
 from mantarray_desktop_app import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
@@ -320,11 +329,15 @@ def test_serial_comm():
     assert MC_REBOOT_DURATION_SECONDS == 5
 
     assert SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS == 5
+    assert SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS == 8
 
     assert SERIAL_COMM_MAGIC_WORD_BYTES == b"CURI BIO"
     assert SERIAL_COMM_TIMESTAMP_LENGTH_BYTES == 8
     assert SERIAL_COMM_CHECKSUM_LENGTH_BYTES == 4
     assert SERIAL_COMM_MAX_PACKET_LENGTH_BYTES == 65546
+    assert SERIAL_COMM_MIN_PACKET_SIZE_BYTES == (
+        SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 2 + SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+    )
 
     assert SERIAL_COMM_MODULE_ID_INDEX == 18
     assert SERIAL_COMM_PACKET_TYPE_INDEX == 19
@@ -333,7 +346,18 @@ def test_serial_comm():
     assert SERIAL_COMM_MAIN_MODULE_ID == 0
     assert SERIAL_COMM_STATUS_BEACON_PACKET_TYPE == 0
     assert SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE == 3
+    assert SERIAL_COMM_GET_METADATA_PACKET_TYPE == 6
+    assert SERIAL_COMM_SET_NICKNAME_PACKET_TYPE == 9
     assert SERIAL_COMM_REBOOT_COMMAND_BYTE == 0
     assert SERIAL_COMM_HANDSHAKE_PACKET_TYPE == 4
     assert SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE == 4
     assert SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE == 255
+
+    assert SERIAL_COMM_METADATA_BYTES_LENGTH == 32
+
+
+def test_serial_comm_UUIDs():
+    assert BOOTUP_COUNTER_UUID == uuid.UUID("b9ccc724-a39d-429a-be6d-3fd29be5037d")
+    assert TOTAL_WORKING_HOURS_UUID == uuid.UUID("f8108718-2fa0-40ce-a51a-8478e5edd4b8")
+    assert TAMPER_FLAG_UUID == uuid.UUID("68d0147f-9a84-4423-9c50-228da16ba895")
+    assert PCB_SERIAL_NUMBER_UUID == uuid.UUID("5103f995-19d2-4880-8a2e-2ce9080cd2f5")

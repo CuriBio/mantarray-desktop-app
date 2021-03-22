@@ -26,6 +26,10 @@ class UnrecognizedCommandFromMainToFileWriterError(Exception):
     pass
 
 
+class UnrecognizedCommandFromMainToMcCommError(Exception):
+    pass
+
+
 class UnrecognizedCommTypeFromMainToDataAnalyzerError(Exception):
     pass
 
@@ -151,4 +155,12 @@ class SerialCommIncorrectChecksumFromPCError(Exception):
 
 
 class SerialCommIncorrectMagicWordFromMantarrayError(Exception):
+    pass
+
+
+class SerialCommPacketFromMantarrayTooSmallError(Exception):
+    pass
+
+
+class SerialCommMetadataValueTooLargeError(Exception):
     pass

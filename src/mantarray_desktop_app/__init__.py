@@ -28,6 +28,7 @@ from .constants import BARCODE_SCANNER_TOP_WIRE_OUT_ADDRESS
 from .constants import BARCODE_SCANNER_TRIGGER_IN_ADDRESS
 from .constants import BARCODE_UNREADABLE_UUID
 from .constants import BARCODE_VALID_UUID
+from .constants import BOOTUP_COUNTER_UUID
 from .constants import BUFFERING_STATE
 from .constants import CALIBRATED_STATE
 from .constants import CALIBRATING_STATE
@@ -68,6 +69,7 @@ from .constants import NANOSECONDS_PER_CENTIMILLISECOND
 from .constants import NO_PLATE_DETECTED_BARCODE_VALUE
 from .constants import NO_PLATE_DETECTED_UUID
 from .constants import OUTGOING_DATA_BUFFER_SIZE
+from .constants import PCB_SERIAL_NUMBER_UUID
 from .constants import RAW_TO_SIGNED_CONVERSION_VALUE
 from .constants import RECORDING_STATE
 from .constants import REF_INDEX_TO_24_WELL_INDEX
@@ -80,13 +82,18 @@ from .constants import SERIAL_COMM_BAUD_RATE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+from .constants import SERIAL_COMM_GET_METADATA_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
+from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
+from .constants import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
+from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
+from .constants import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
@@ -99,7 +106,9 @@ from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SUBPROCESS_POLL_DELAY_SECONDS
 from .constants import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from .constants import SYSTEM_STATUS_UUIDS
+from .constants import TAMPER_FLAG_UUID
 from .constants import TIMESTEP_CONVERSION_FACTOR
+from .constants import TOTAL_WORKING_HOURS_UUID
 from .constants import VALID_CONFIG_SETTINGS
 from .constants import VALID_SCRIPTING_COMMANDS
 from .constants import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
@@ -125,6 +134,8 @@ from .exceptions import ScriptDoesNotContainEndCommandError
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
 from .exceptions import SerialCommIncorrectChecksumFromPCError
 from .exceptions import SerialCommIncorrectMagicWordFromMantarrayError
+from .exceptions import SerialCommMetadataValueTooLargeError
+from .exceptions import SerialCommPacketFromMantarrayTooSmallError
 from .exceptions import SerialCommPacketRegistrationReadEmptyError
 from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
 from .exceptions import SerialCommPacketRegistrationTimoutError
@@ -132,6 +143,7 @@ from .exceptions import ServerThreadNotInitializedError
 from .exceptions import ServerThreadSingletonAlreadySetError
 from .exceptions import SystemStartUpError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
+from .exceptions import UnrecognizedCommandFromMainToMcCommError
 from .exceptions import UnrecognizedCommandToInstrumentError
 from .exceptions import UnrecognizedCommTypeFromMainToDataAnalyzerError
 from .exceptions import UnrecognizedCommTypeFromMainToInstrumentError
@@ -173,7 +185,10 @@ from .ok_comm import parse_scripting_log_line
 from .process_manager import MantarrayProcessesManager
 from .process_monitor import MantarrayProcessesMonitor
 from .queue_container import MantarrayQueueContainer
+from .serial_comm_utils import convert_metadata_bytes_to_str
+from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import create_data_packet
+from .serial_comm_utils import parse_metadata_bytes
 from .serial_comm_utils import validate_checksum
 from .server import clear_the_server_thread
 from .server import flask_app
@@ -381,4 +396,19 @@ __all__ = [
     "SERIAL_COMM_BAUD_RATE",
     "SerialCommIncorrectChecksumFromPCError",
     "SERIAL_COMM_ADDITIONAL_BYTES_INDEX",
+    "BOOTUP_COUNTER_UUID",
+    "TOTAL_WORKING_HOURS_UUID",
+    "TAMPER_FLAG_UUID",
+    "PCB_SERIAL_NUMBER_UUID",
+    "convert_to_metadata_bytes",
+    "SERIAL_COMM_METADATA_BYTES_LENGTH",
+    "SerialCommMetadataValueTooLargeError",
+    "SERIAL_COMM_SET_NICKNAME_PACKET_TYPE",
+    "SERIAL_COMM_GET_METADATA_PACKET_TYPE",
+    "parse_metadata_bytes",
+    "convert_metadata_bytes_to_str",
+    "SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS",
+    "UnrecognizedCommandFromMainToMcCommError",
+    "SERIAL_COMM_MIN_PACKET_SIZE_BYTES",
+    "SerialCommPacketFromMantarrayTooSmallError",
 ]

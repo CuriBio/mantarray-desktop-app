@@ -13,28 +13,40 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 from typing import Union
+from uuid import UUID
 
+from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
+from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
+from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import SECONDS_TO_SLEEP_BETWEEN_CHECKING_QUEUE_SIZE
 
+from .constants import BOOTUP_COUNTER_UUID
 from .constants import MC_REBOOT_DURATION_SECONDS
 from .constants import NANOSECONDS_PER_CENTIMILLISECOND
+from .constants import PCB_SERIAL_NUMBER_UUID
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+from .constants import SERIAL_COMM_GET_METADATA_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
+from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
+from .constants import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+from .constants import TAMPER_FLAG_UUID
+from .constants import TOTAL_WORKING_HOURS_UUID
 from .exceptions import UnrecognizedSerialCommModuleIdError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .exceptions import UnrecognizedSimulatorTestCommandError
+from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import create_data_packet
 from .serial_comm_utils import validate_checksum
 
@@ -61,6 +73,22 @@ class MantarrayMcSimulator(InfiniteProcess):
         read_timeout_seconds: number of seconds to wait until read is of desired size before returning how ever many bytes have been read. Timeout should be set to 0 except in unit testing scenarios where necessary
     """
 
+    default_mantarray_nickname = "Mantarray Simulator (MCU)"
+    default_mantarray_serial_number = "M02001901"
+    default_pcb_serial_number = (
+        "TBD"  # TODO Tanner (3/17/21): implement this once the format is determined
+    )
+    default_firmware_version = "0.0.0"
+    default_metadata_values: Dict[UUID, Any] = {
+        BOOTUP_COUNTER_UUID: 0,
+        TOTAL_WORKING_HOURS_UUID: 0,
+        TAMPER_FLAG_UUID: 0,
+        MANTARRAY_SERIAL_NUMBER_UUID: default_mantarray_serial_number,
+        MANTARRAY_NICKNAME_UUID: default_mantarray_nickname,
+        PCB_SERIAL_NUMBER_UUID: default_pcb_serial_number,
+        MAIN_FIRMWARE_VERSION_UUID: default_firmware_version,
+    }
+
     def __init__(
         self,
         input_queue: Queue[
@@ -81,14 +109,22 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._init_time_ns: Optional[int] = None
         self._time_of_last_status_beacon_secs: Optional[float] = None
         self._reboot_time_secs: Optional[float] = None
-        self._leftover_read_bytes: Optional[bytes] = None
+        self._leftover_read_bytes = bytes(0)
         self._read_timeout_seconds = read_timeout_seconds
-        self._status_code_bits: bytes = bytes(0)
+        self._metadata_dict: Dict[bytes, bytes] = dict()
+        self._reset_metadata_dict()
+        self._status_code_bits: bytes
         self._reset_status_code_bits()
 
     @property
     def in_waiting(self) -> int:
-        if self._leftover_read_bytes is None:
+        """Only use to determine if a read can be done.
+
+        For example, check if this value if non-zero.
+
+        It does not represent the full number of bytes that can be read.
+        """
+        if len(self._leftover_read_bytes) == 0:
             try:
                 self._leftover_read_bytes = self._output_queue.get_nowait()
             except queue.Empty:
@@ -97,6 +133,12 @@ class MantarrayMcSimulator(InfiniteProcess):
 
     def _reset_status_code_bits(self) -> None:
         self._status_code_bits = bytes(4)
+
+    def _reset_metadata_dict(self) -> None:
+        for uuid_key, metadata_value in self.default_metadata_values.items():
+            self._metadata_dict[uuid_key.bytes] = convert_to_metadata_bytes(
+                metadata_value
+            )
 
     def _reset_start_time(self) -> None:
         self._init_time_ns = perf_counter_ns()
@@ -110,6 +152,10 @@ class MantarrayMcSimulator(InfiniteProcess):
             return 0
         ns_since_init = perf_counter_ns() - self._init_time_ns
         return ns_since_init // NANOSECONDS_PER_CENTIMILLISECOND
+
+    def get_metadata_dict(self) -> Dict[bytes, bytes]:
+        """Mainly for use in unit tests."""
+        return self._metadata_dict
 
     def _send_data_packet(
         self,
@@ -189,6 +235,26 @@ class MantarrayMcSimulator(InfiniteProcess):
                 SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
                 self._status_code_bits,
             )
+        elif packet_type == SERIAL_COMM_GET_METADATA_PACKET_TYPE:
+            metadata_bytes = bytes(0)
+            for key, value in self._metadata_dict.items():
+                metadata_bytes += key + value
+            self._send_data_packet(
+                SERIAL_COMM_MAIN_MODULE_ID,
+                SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+                metadata_bytes,
+            )
+        elif packet_type == SERIAL_COMM_SET_NICKNAME_PACKET_TYPE:
+            nickname_bytes = comm_from_pc[
+                SERIAL_COMM_ADDITIONAL_BYTES_INDEX : SERIAL_COMM_ADDITIONAL_BYTES_INDEX
+                + SERIAL_COMM_METADATA_BYTES_LENGTH
+            ]
+            self._metadata_dict[MANTARRAY_NICKNAME_UUID.bytes] = nickname_bytes
+            self._send_data_packet(
+                SERIAL_COMM_MAIN_MODULE_ID,
+                SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+                bytes(0),
+            )
         else:
             module_id = comm_from_pc[SERIAL_COMM_MODULE_ID_INDEX]
             raise UnrecognizedSerialCommPacketTypeError(
@@ -221,7 +287,13 @@ class MantarrayMcSimulator(InfiniteProcess):
             return
 
         command = test_comm["command"]
-        if command == "add_read_bytes":
+        if command == "send_single_beacon":
+            self._send_data_packet(
+                SERIAL_COMM_MAIN_MODULE_ID,
+                SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
+                self._status_code_bits,
+            )
+        elif command == "add_read_bytes":
             read_bytes = test_comm["read_bytes"]
             if not isinstance(read_bytes, list):
                 read_bytes = [read_bytes]
@@ -229,6 +301,10 @@ class MantarrayMcSimulator(InfiniteProcess):
                 self._output_queue.put_nowait(read)
         elif command == "set_status_code_bits":
             self._status_code_bits = test_comm["status_code_bits"]
+        elif command == "set_metadata":
+            for key, value in test_comm["metadata_values"].items():
+                value_bytes = convert_to_metadata_bytes(value)
+                self._metadata_dict[key.bytes] = value_bytes
         else:
             raise UnrecognizedSimulatorTestCommandError(command)
 
@@ -236,9 +312,9 @@ class MantarrayMcSimulator(InfiniteProcess):
         """Read the given number of bytes from the simulator."""
         # first check leftover bytes from last read
         read_bytes = bytes(0)
-        if self._leftover_read_bytes is not None:
+        if len(self._leftover_read_bytes) > 0:
             read_bytes = self._leftover_read_bytes
-            self._leftover_read_bytes = None
+            self._leftover_read_bytes = bytes(0)
         # try to get bytes until either timeout occurs or given size is reached or exceeded
         start = perf_counter()
         read_dur_secs = 0.0

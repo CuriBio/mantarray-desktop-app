@@ -3,66 +3,64 @@
 from __future__ import annotations
 
 import datetime
+import logging
 from multiprocessing import Queue
+import queue
 from time import perf_counter
+from time import perf_counter_ns
 from time import sleep
 from typing import Any
+from typing import Dict
 from typing import List
+from typing import Optional
 from zlib import crc32
 
+from mantarray_file_manager import DATETIME_STR_FORMAT
 import serial
 import serial.tools.list_ports as list_ports
+from stdlib_utils import put_log_message_into_queue
 
+from .constants import NANOSECONDS_PER_CENTIMILLISECOND
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BAUD_RATE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+from .constants import SERIAL_COMM_GET_METADATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
+from .constants import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
+from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
+from .constants import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
+from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
 from .exceptions import SerialCommIncorrectChecksumFromPCError
 from .exceptions import SerialCommIncorrectMagicWordFromMantarrayError
+from .exceptions import SerialCommPacketFromMantarrayTooSmallError
 from .exceptions import SerialCommPacketRegistrationReadEmptyError
 from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
 from .exceptions import SerialCommPacketRegistrationTimoutError
+from .exceptions import UnrecognizedCommandFromMainToMcCommError
 from .exceptions import UnrecognizedSerialCommModuleIdError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .instrument_comm import InstrumentCommProcess
 from .mc_simulator import MantarrayMcSimulator
+from .serial_comm_utils import convert_to_metadata_bytes
+from .serial_comm_utils import create_data_packet
+from .serial_comm_utils import parse_metadata_bytes
 from .serial_comm_utils import validate_checksum
 
 
 def _get_formatted_utc_now() -> str:
-    return datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
+    return datetime.datetime.utcnow().strftime(DATETIME_STR_FORMAT)
 
 
 def _get_seconds_since_read_start(start: float) -> float:
     return perf_counter() - start
-
-
-def _process_main_module_comm(comm_from_instrument: bytes) -> None:
-    packet_type = comm_from_instrument[SERIAL_COMM_PACKET_TYPE_INDEX]
-    if packet_type == SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE:
-        returned_packet = (
-            SERIAL_COMM_MAGIC_WORD_BYTES
-            + comm_from_instrument[
-                SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES
-            ]
-        )
-        raise SerialCommIncorrectChecksumFromPCError(returned_packet)
-
-    if packet_type == SERIAL_COMM_STATUS_BEACON_PACKET_TYPE:
-        pass
-    else:
-        module_id = comm_from_instrument[SERIAL_COMM_MODULE_ID_INDEX]
-        raise UnrecognizedSerialCommPacketTypeError(
-            f"Packet Type ID: {packet_type} is not defined for Module ID: {module_id}"
-        )
 
 
 class McCommunicationProcess(InstrumentCommProcess):
@@ -79,26 +77,62 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._is_registered_with_serial_comm: List[bool] = [False] * len(
             self._board_queues
         )
+        self._init_time_ns: Optional[int] = None
+        self._command_awaiting_response: Optional[
+            Dict[str, Any]
+        ] = None  # Tanner (3/17/21): Will implement a more robust method of tracking all commands awaiting responses in future. This current implementation can only handle a single command at a time
+
+    def _reset_start_time(self) -> None:
+        # TODO Tanner (3/19/21): Consider moving this functionality to InfiniteProcess since it applies to all running processes. See note in _setup_before_loop from 2/2/21
+        self._init_time_ns = perf_counter_ns()
 
     def _setup_before_loop(self) -> None:
+        # Tanner (2/2/21): Comparing perf_counter_ns values in a subprocess to those in the parent process have unexpected behavior in windows, so storing the initialization time after the process has been created in order to avoid issues
+        self._reset_start_time()
+
         msg = {
             "communication_type": "log",
-            "message": f'Microcontroller Communication Process initiated at {datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")}',
+            "message": f"Microcontroller Communication Process initiated at {_get_formatted_utc_now()}",
         }
         to_main_queue = self._board_queues[0][1]
         if not self._suppress_setup_communication_to_main:
-            to_main_queue.put(msg)
+            to_main_queue.put_nowait(msg)
         self.create_connections_to_all_available_boards()
 
         board_idx = 0
         board = self._board_connections[board_idx]
+        # Tanner (3/17/21): In the future, may want to create pyserial subclass and add start(), is_start_up_complete(), and some other version of .in_waiting that just returns a bool of whether or not there are bytes available to read
         if isinstance(
             board, MantarrayMcSimulator
         ):  # pragma: no cover  # Tanner (3/16/21): it's impossible to connect to any serial port in CI, so _setup_before_loop will always be called with a simulator and this if statement will always be true in pytest
-            # Tanner (3/16/21): Current assumption is that a live mantarray will be running by the time we connect to it, so starting simulator here and waiting for it to complete start upt
+            # Tanner (3/16/21): Current assumption is that a live mantarray will be running by the time we connect to it, so starting simulator here and waiting for it to complete start up
             board.start()
             while not board.is_start_up_complete():
-                pass
+                # sleep so as to not relentlessly ping the simulator
+                sleep(0.1)
+
+    def _teardown_after_loop(self) -> None:
+        log_msg = f"Microcontroller Communication Process beginning teardown at {_get_formatted_utc_now()}"
+        put_log_message_into_queue(
+            logging.INFO,
+            log_msg,
+            self._board_queues[0][1],
+            self.get_logging_level(),
+        )
+        board = self._board_connections[0]
+        if (
+            isinstance(board, MantarrayMcSimulator) and board.is_alive()
+        ):  # pragma: no cover  # Tanner (3/19/21): only need to stop and join if the board is a running simulator
+            board.hard_stop()  # hard stop to drain all queues of simulator
+            board.join()
+        super()._teardown_after_loop()
+
+    def get_cms_since_init(self) -> int:
+        if self._init_time_ns is None:
+            return 0
+        # pylint: disable=duplicate-code  # Tanner (3/19/21): Consider moving this functionality to InfiniteProcess since it applies to multiple processes
+        ns_since_init = perf_counter_ns() - self._init_time_ns
+        return ns_since_init // NANOSECONDS_PER_CENTIMILLISECOND
 
     def is_registered_with_serial_comm(self, board_idx: int) -> bool:
         """Mainly for use in testing."""
@@ -123,6 +157,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 # Tanner (3/15/21): As long as the STM eval board is used in the Mantarray, it will show up as so and we can look for the Mantarray by checking for STM in the name
                 if "STM" not in name:
                     continue
+                msg["message"] = f"Board detected with port name: {name}"
                 port = name[-5:-1]  # parse out the name of the COM port
                 serial_obj = serial.Serial(
                     port=port,
@@ -141,13 +176,106 @@ class McCommunicationProcess(InstrumentCommProcess):
                     Queue(),
                 )
             self.set_board_connection(i, serial_obj)
-            # TODO Tanner (3/15/21): add serial number and nickname to msg
+            # TODO Tanner (3/15/21): At some point during this process starting up, need to get serial number and nickname (maybe just all metadata?) and return to main since it can't be done until magic word is registered
             msg["is_connected"] = not isinstance(serial_obj, MantarrayMcSimulator)
             msg["timestamp"] = _get_formatted_utc_now()
-            to_main_queue.put(msg)
+            to_main_queue.put_nowait(msg)
+
+    def _send_data_packet(
+        self,
+        board_idx: int,
+        module_id: int,
+        packet_type: int,
+        data_to_send: bytes = bytes(0),
+    ) -> None:
+        data_packet = create_data_packet(
+            self.get_cms_since_init(), module_id, packet_type, data_to_send
+        )
+        board = self._board_connections[board_idx]
+        if board is None:
+            raise NotImplementedError(
+                "Board should not be None when processing a command from main"
+            )
+        board.write(data_packet)
 
     def _commands_for_each_run_iteration(self) -> None:
+        self._process_next_communication_from_main()
         self._handle_incoming_data()
+
+    def _process_next_communication_from_main(self) -> None:
+        """Process the next communication sent from the main process.
+
+        Will just return if no comms from main in queue.
+        """
+        input_queue = self._board_queues[0][0]
+        try:
+            comm_from_main = input_queue.get_nowait()
+        except queue.Empty:
+            return
+        board_idx = 0
+
+        communication_type = comm_from_main["communication_type"]
+        if communication_type == "mantarray_naming":
+            if comm_from_main["command"] == "set_mantarray_nickname":
+                nickname = comm_from_main["mantarray_nickname"]
+                self._send_data_packet(
+                    board_idx,
+                    SERIAL_COMM_MAIN_MODULE_ID,
+                    SERIAL_COMM_SET_NICKNAME_PACKET_TYPE,
+                    convert_to_metadata_bytes(nickname),
+                )
+            else:
+                raise UnrecognizedCommandFromMainToMcCommError(
+                    f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
+                )
+        elif communication_type == "to_instrument":
+            if comm_from_main["command"] == "get_metadata":
+                self._send_data_packet(
+                    board_idx,
+                    SERIAL_COMM_MAIN_MODULE_ID,
+                    SERIAL_COMM_GET_METADATA_PACKET_TYPE,
+                )
+            else:
+                raise UnrecognizedCommandFromMainToMcCommError(
+                    f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
+                )
+        else:
+            raise UnrecognizedCommandFromMainToMcCommError(
+                f"Invalid communication_type: {communication_type}"
+            )
+        self._command_awaiting_response = comm_from_main
+        if not input_queue.empty():
+            self._process_can_be_soft_stopped = False
+
+    def _process_main_module_comm(self, comm_from_instrument: bytes) -> None:
+        packet_body = comm_from_instrument[
+            SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+        ]
+
+        packet_type = comm_from_instrument[SERIAL_COMM_PACKET_TYPE_INDEX]
+        if packet_type == SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE:
+            returned_packet = SERIAL_COMM_MAGIC_WORD_BYTES + packet_body
+            raise SerialCommIncorrectChecksumFromPCError(returned_packet)
+
+        if packet_type == SERIAL_COMM_STATUS_BEACON_PACKET_TYPE:
+            pass  # TODO Tanner (3/17/21): Implement this in a story dedicated to parsing/handling errors codes
+        elif packet_type == SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE:
+            if self._command_awaiting_response is None:
+                raise NotImplementedError(  # stop mypy complaining
+                    "_command_awaiting_response shoudn't be None here"
+                )
+            prev_command = self._command_awaiting_response
+            if prev_command["command"] == "get_metadata":
+                prev_command["metadata"] = parse_metadata_bytes(packet_body)
+            self._board_queues[0][1].put_nowait(
+                prev_command
+            )  # Tanner (3/17/21): to be consistent with OkComm, command responses will be sent back to main after the command is acknowledged by the Mantarray
+            self._command_awaiting_response = None
+        else:
+            module_id = comm_from_instrument[SERIAL_COMM_MODULE_ID_INDEX]
+            raise UnrecognizedSerialCommPacketTypeError(
+                f"Packet Type ID: {packet_type} is not defined for Module ID: {module_id}"
+            )
 
     def _handle_incoming_data(self) -> None:
         board_idx = 0
@@ -185,10 +313,13 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise SerialCommIncorrectChecksumFromInstrumentError(
                 f"Checksum Received: {received_checksum}, Checksum Calculated: {calculated_checksum}, Full Data Packet: {str(full_data_packet)}"
             )
-
+        if packet_size < SERIAL_COMM_MIN_PACKET_SIZE_BYTES:
+            raise SerialCommPacketFromMantarrayTooSmallError(
+                f"Invalid packet length received: {packet_size}, Full Data Packet: {str(full_data_packet)}"
+            )
         module_id = full_data_packet[SERIAL_COMM_MODULE_ID_INDEX]
         if module_id == SERIAL_COMM_MAIN_MODULE_ID:
-            _process_main_module_comm(full_data_packet)
+            self._process_main_module_comm(full_data_packet)
         else:
             raise UnrecognizedSerialCommModuleIdError(module_id)
 
@@ -220,7 +351,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         start = perf_counter()
         while (
             magic_word_test_bytes != SERIAL_COMM_MAGIC_WORD_BYTES
-            and read_dur_secs < SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+            and read_dur_secs < SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
         ):
             next_byte = board.read(size=1)
             if len(next_byte) == 1:
