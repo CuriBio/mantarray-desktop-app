@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "3422ae1d27f7c337d1a4b3fa6978adf42a95c121647ac737c7eccf6831dbbf4f"
+            "sha256": "c3fefced8c6a3336e706e8dfa4e30409922374c1cecaa204e66fd8b95bfef2f0"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -131,19 +131,19 @@
         },
         "mantarray-waveform-analysis": {
             "hashes": [
-                "sha256:277a5827dcfefe64803f4f510ce6e355c639b991d2692cd4f388ff6c2ccc4054",
-                "sha256:32783e4489349711e1e3118fc58906edfc3bcb88666481dda8d51b30414c2f00",
-                "sha256:3d85371860bd85218b6686e0bba46279f6906ca4739f15db759d9d4d7a139073",
-                "sha256:5e0daa8b4a5b6795af5f82a33bac679b338df18bfe1fb0524048bd44f53c7977",
-                "sha256:62c6eb754cd9c69494a8085ddcb38379573cb5b74ff1a552cc88528b0e8b3271",
-                "sha256:a323464765a7534bfe9f6db21a3e7377dc69c5c338bc21888087312e41e3d0a7",
-                "sha256:c10584e1828dc863704ac090904b5f941dfe25e2d3e06f1865aaf706a68faddc",
-                "sha256:d4bb0ac39afae5e8ce27d40e64f3b3dff83c176a4a27df85407fb0319790845a",
-                "sha256:e8635d5ba7f75b628a8eec62e517b7d63f155491903bff2f2baa700175c04eab",
-                "sha256:f105ffe8643f4c29ae4b77f6eadaf16c28fff423d0709751f8aff936aebb46f5"
+                "sha256:3bf0bf35b3ae18d510fd2893d01c46a81703b79f44339f0262582eb4a0524d6b",
+                "sha256:56681eb2463e1b8b39bb823eea8e12b8780bd343b6331419a2925641e9f57033",
+                "sha256:5ca8c250b0f85cc0df7fe02dd0f9377f587de85019d5c4c1b723f16574195d8c",
+                "sha256:8362a0fd7f6a10eed9ffae59ca218122937be28d370a2fa57d428dea4047782e",
+                "sha256:8eceb08663426703f7c2f9ea4979bb38f0c859ff37cd796fae46459987005ec1",
+                "sha256:b909792ddc47723ed02b4e5c2f51e08fae1a4daf312d7a167d1ed0e4a59f346e",
+                "sha256:d87892747482d3749adc5e6289528cbd35350fe9e8cde64966b5ab685236a076",
+                "sha256:dd5f9080472986aceeac03a01b42c8d1630d010fef0b071fb07e30c4d08fb6c8",
+                "sha256:e7ca19e945c04df442b0cd6bc4bdd6bf62cca21889332211a04e394efc97ad1e",
+                "sha256:f62be6407f6127561b0403eae744bdb76acf48472f631748b5ce76edeea02c60"
             ],
             "index": "pypi",
-            "version": "==0.6.0"
+            "version": "==0.7.0"
         },
         "markupsafe": {
             "hashes": [
@@ -405,10 +405,10 @@
         },
         "botocore": {
             "hashes": [
-                "sha256:1cef96e716f7481bfb3b8d3c3d45e640d588aa5af613cd6d7f33d784aa2e8d12",
-                "sha256:fc162b69adc54c9ef037fec31f93d46df0bf8a9c3d201ecb16d0a9ec5f2936ec"
+                "sha256:749bdb151e340329f1b25600bfe9d223e930f8ba26bd74b71478ca5781f2feaf",
+                "sha256:c4fe4fea1d6a3934dd8c670ee83b128f935a64078786fe8afb8a662446304926"
             ],
-            "version": "==1.20.32"
+            "version": "==1.20.34"
         },
         "certifi": {
             "hashes": [
@@ -568,10 +568,10 @@
         },
         "identify": {
             "hashes": [
-                "sha256:99d40094d8c9fc0b88b379200ecb4f8345a593878656867fa5363abc850766ab",
-                "sha256:f516f69e62df018a3965a835dccfb3397ed02ddaf513584633c9acaf084be3f2"
+                "sha256:39c0b110c9d0cd2391b6c38cd0ff679ee4b4e98f8db8b06c5d9d9e502711a1e1",
+                "sha256:efbf090a619255bc31c4fbba709e2805f7d30913fd4854ad84ace52bd276e2f6"
             ],
-            "version": "==2.1.4"
+            "version": "==2.2.0"
         },
         "idna": {
             "hashes": [
@@ -596,10 +596,10 @@
         },
         "isort": {
             "hashes": [
-                "sha256:c729845434366216d320e936b8ad6f9d681aab72dc7cbc2d51bedc3582f3ad1e",
-                "sha256:fff4f0c04e1825522ce6949973e83110a6e907750cd92d128b0d14aaaadbffdc"
+                "sha256:0a943902919f65c5684ac4e0154b1ad4fac6dcaa5d9f3426b732f1c8b5419be6",
+                "sha256:2bb1680aad211e3c9944dbce1d4ba09a989f04e238296c87fe2139faa26d655d"
             ],
-            "version": "==5.7.0"
+            "version": "==5.8.0"
         },
         "jinja2": {
             "hashes": [
