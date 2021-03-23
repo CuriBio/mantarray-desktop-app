@@ -43,6 +43,7 @@ from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
 from .exceptions import SerialCommIncorrectChecksumFromPCError
 from .exceptions import SerialCommIncorrectMagicWordFromMantarrayError
@@ -345,16 +346,17 @@ class McCommunicationProcess(InstrumentCommProcess):
         if packet_type == SERIAL_COMM_STATUS_BEACON_PACKET_TYPE:
             pass  # TODO Tanner (3/17/21): Implement this in a story dedicated to parsing/handling errors codes in status beacons and handshakes
         elif packet_type == SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE:
+            response_data = packet_body[SERIAL_COMM_TIMESTAMP_LENGTH_BYTES:]
             if len(self._commands_awaiting_response) == 0:
                 raise NotImplementedError(  # stop mypy complaining
-                    "_command_awaiting_response shoudn't be empty here"
+                    "_commands_awaiting_response shoudn't be empty here"
                 )
             prev_command = self._commands_awaiting_response.popleft()
             if prev_command["command"] == "handshake":
                 # see note above: Tanner (3/17/21)
                 return
             if prev_command["command"] == "get_metadata":
-                prev_command["metadata"] = parse_metadata_bytes(packet_body)
+                prev_command["metadata"] = parse_metadata_bytes(response_data)
             self._board_queues[0][1].put_nowait(
                 prev_command
             )  # Tanner (3/17/21): to be consistent with OkComm, command responses will be sent back to main after the command is acknowledged by the Mantarray

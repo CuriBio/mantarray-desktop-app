@@ -930,7 +930,7 @@ def test_McCommunicationProcess__processes_get_metadata_command(
 
 @pytest.mark.slow
 @pytest.mark.timeout(20)
-def test_McCommunicationProcess__processes_command_from_main_when_process_is_fully_running(
+def test_McCommunicationProcess__processes_commands_from_main_when_process_is_fully_running(
     four_board_mc_comm_process,
 ):
     mc_process = four_board_mc_comm_process["mc_process"]

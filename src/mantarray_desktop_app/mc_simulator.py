@@ -42,6 +42,8 @@ from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
+from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import TAMPER_FLAG_UUID
 from .constants import TOTAL_WORKING_HOURS_UUID
 from .exceptions import UnrecognizedSerialCommModuleIdError
@@ -220,50 +222,43 @@ class MantarrayMcSimulator(InfiniteProcess):
             raise UnrecognizedSerialCommModuleIdError(module_id)
 
     def _process_main_module_command(self, comm_from_pc: bytes) -> None:
+        timestamp_from_pc_bytes = comm_from_pc[
+            SERIAL_COMM_TIMESTAMP_BYTES_INDEX : SERIAL_COMM_TIMESTAMP_BYTES_INDEX
+            + SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+        ]
+        response_body = timestamp_from_pc_bytes
+
         packet_type = comm_from_pc[SERIAL_COMM_PACKET_TYPE_INDEX]
         if packet_type == SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE:
-            # TODO add timestamp
             command_byte = comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX]
             if command_byte == SERIAL_COMM_REBOOT_COMMAND_BYTE:
                 self._reboot_time_secs = perf_counter()
-                self._send_data_packet(
-                    SERIAL_COMM_MAIN_MODULE_ID,
-                    SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-                )
             elif command_byte == SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE:
                 start_idx = SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 1
                 nickname_bytes = comm_from_pc[
                     start_idx : start_idx + SERIAL_COMM_METADATA_BYTES_LENGTH
                 ]
                 self._metadata_dict[MANTARRAY_NICKNAME_UUID.bytes] = nickname_bytes
-                self._send_data_packet(
-                    SERIAL_COMM_MAIN_MODULE_ID,
-                    SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-                    bytes(0),
-                )
             elif command_byte == SERIAL_COMM_GET_METADATA_COMMAND_BYTE:
                 metadata_bytes = bytes(0)
                 for key, value in self._metadata_dict.items():
                     metadata_bytes += key + value
-                self._send_data_packet(
-                    SERIAL_COMM_MAIN_MODULE_ID,
-                    SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-                    metadata_bytes,
-                )
+                response_body += metadata_bytes
             else:
                 # TODO Tanner (3/4/21): Determine what to do if command_byte, module_id, or packet_type are incorrect. It may make more sense to respond with a message rather than raising an error
                 raise NotImplementedError(command_byte)
         elif packet_type == SERIAL_COMM_HANDSHAKE_PACKET_TYPE:
-            self._send_data_packet(
-                SERIAL_COMM_MAIN_MODULE_ID,
-                SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-                self._status_code_bits,
-            )
+            response_body += self._status_code_bits
         else:
             module_id = comm_from_pc[SERIAL_COMM_MODULE_ID_INDEX]
             raise UnrecognizedSerialCommPacketTypeError(
                 f"Packet Type ID: {packet_type} is not defined for Module ID: {module_id}"
             )
+        self._send_data_packet(
+            SERIAL_COMM_MAIN_MODULE_ID,
+            SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+            response_body,
+        )
 
     def _handle_status_beacon(self) -> None:
         if self._time_of_last_status_beacon_secs is None:

@@ -78,6 +78,7 @@ from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_METADATA_BYTES_LENGTH
 from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_INDEX
+from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_TYPE_INDEX
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
@@ -85,6 +86,7 @@ from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE
@@ -334,13 +336,20 @@ def test_serial_comm():
     assert SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS == 8
 
     assert SERIAL_COMM_MAGIC_WORD_BYTES == b"CURI BIO"
+    assert SERIAL_COMM_PACKET_INFO_LENGTH_BYTES == 2
     assert SERIAL_COMM_TIMESTAMP_LENGTH_BYTES == 8
     assert SERIAL_COMM_CHECKSUM_LENGTH_BYTES == 4
     assert SERIAL_COMM_MAX_PACKET_LENGTH_BYTES == 65546
     assert SERIAL_COMM_MIN_PACKET_SIZE_BYTES == (
-        SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 2 + SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+        SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+        + SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
+        + SERIAL_COMM_CHECKSUM_LENGTH_BYTES
     )
 
+    assert (
+        SERIAL_COMM_TIMESTAMP_BYTES_INDEX
+        == len(SERIAL_COMM_MAGIC_WORD_BYTES) + SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
+    )
     assert SERIAL_COMM_MODULE_ID_INDEX == 18
     assert SERIAL_COMM_PACKET_TYPE_INDEX == 19
     assert SERIAL_COMM_ADDITIONAL_BYTES_INDEX == 20

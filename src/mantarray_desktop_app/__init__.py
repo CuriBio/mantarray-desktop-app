@@ -99,6 +99,7 @@ from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
@@ -415,4 +416,5 @@ __all__ = [
     "SerialCommPacketFromMantarrayTooSmallError",
     "SERIAL_COMM_PACKET_INFO_LENGTH_BYTES",
     "SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS",
+    "SERIAL_COMM_TIMESTAMP_BYTES_INDEX",
 ]
