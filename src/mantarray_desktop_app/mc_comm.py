@@ -273,9 +273,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         seconds_elapsed = _get_secs_since_last_handshake(
             self._time_of_last_handshake_secs
         )
-        if (
-            seconds_elapsed >= SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS - 1
-        ):  # Tanner (3/22/21): send a second early in order to ensure it is sent before the period has elapsed
+        if seconds_elapsed >= SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS:
             self._send_handshake(board_idx)
 
     def _send_handshake(self, board_idx: int) -> None:

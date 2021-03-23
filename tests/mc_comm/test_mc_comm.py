@@ -967,7 +967,7 @@ def test_McCommunicationProcess__processes_commands_from_main_when_process_is_fu
         assert False, "expected response to main not found"
 
 
-def test_MantarrayMcSimulator__sends_handshake_every_4_seconds__and_includes_correct_timestamp__and_processes_response(
+def test_MantarrayMcSimulator__sends_handshake_every_5_seconds__and_includes_correct_timestamp__and_processes_response(
     four_board_mc_comm_process,
     mantarray_mc_simulator_no_beacon,
     mocker,
@@ -979,7 +979,7 @@ def test_MantarrayMcSimulator__sends_handshake_every_4_seconds__and_includes_cor
 
     expected_durs = [
         0,
-        CENTIMILLISECONDS_PER_SECOND * (SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS - 1),
+        CENTIMILLISECONDS_PER_SECOND * SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS,
     ]
     mocker.patch.object(
         mc_process, "get_cms_since_init", autospec=True, side_effect=expected_durs
@@ -990,8 +990,8 @@ def test_MantarrayMcSimulator__sends_handshake_every_4_seconds__and_includes_cor
         autospec=True,
         side_effect=[
             0,
+            SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS,
             SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS - 1,
-            SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS - 2,
             1,
         ],
     )
