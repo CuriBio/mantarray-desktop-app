@@ -32,10 +32,12 @@ from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from .constants import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
+from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
+from .constants import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
@@ -46,6 +48,7 @@ from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import TAMPER_FLAG_UUID
 from .constants import TOTAL_WORKING_HOURS_UUID
+from .exceptions import InstrumentCommTooManyMissedHandshakesError
 from .exceptions import UnrecognizedSerialCommModuleIdError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .exceptions import UnrecognizedSimulatorTestCommandError
@@ -55,6 +58,10 @@ from .serial_comm_utils import validate_checksum
 
 
 MAGIC_WORD_LEN = len(SERIAL_COMM_MAGIC_WORD_BYTES)
+
+
+def _get_secs_since_last_handshake(last_time: float) -> float:
+    return perf_counter() - last_time
 
 
 def _get_secs_since_last_status_beacon(last_time: float) -> float:
@@ -113,6 +120,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._testing_queue = testing_queue
         self._init_time_ns: Optional[int] = None
         self._time_of_last_status_beacon_secs: Optional[float] = None
+        self._time_of_last_handshake_secs: Optional[float] = None
         self._reboot_time_secs: Optional[float] = None
         self._leftover_read_bytes = bytes(0)
         self._read_timeout_seconds = read_timeout_seconds
@@ -190,6 +198,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._handle_reboot_completion()
         self._handle_comm_from_pc()
         self._handle_status_beacon()
+        self._check_handshake()
 
     def _handle_reboot_completion(self) -> None:
         drain_queue(self._input_queue)
@@ -248,6 +257,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                 # TODO Tanner (3/4/21): Determine what to do if command_byte, module_id, or packet_type are incorrect. It may make more sense to respond with a message rather than raising an error
                 raise NotImplementedError(command_byte)
         elif packet_type == SERIAL_COMM_HANDSHAKE_PACKET_TYPE:
+            self._time_of_last_handshake_secs = perf_counter()
             response_body += self._status_code_bits
         else:
             module_id = comm_from_pc[SERIAL_COMM_MODULE_ID_INDEX]
@@ -278,6 +288,19 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._status_code_bits,
             truncate,
         )
+
+    def _check_handshake(self) -> None:
+        if self._time_of_last_handshake_secs is None:
+            return
+        time_of_last_handshake_secs = _get_secs_since_last_handshake(
+            self._time_of_last_handshake_secs
+        )
+        if (
+            time_of_last_handshake_secs
+            >= SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
+            * SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
+        ):
+            raise InstrumentCommTooManyMissedHandshakesError()
 
     def _handle_test_comm(self) -> None:
         try:

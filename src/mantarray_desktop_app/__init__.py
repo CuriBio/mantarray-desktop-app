@@ -91,6 +91,7 @@ from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
+from .constants import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
@@ -126,6 +127,7 @@ from .exceptions import FirstManagedReadLessThanOneRoundRobinError
 from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
 from .exceptions import ImproperlyFormattedUserAccountUUIDError
 from .exceptions import InstrumentCommIncorrectHeaderError
+from .exceptions import InstrumentCommTooManyMissedHandshakesError
 from .exceptions import InvalidDataFramePeriodError
 from .exceptions import InvalidDataTypeFromOkCommError
 from .exceptions import InvalidScriptCommandError
@@ -417,4 +419,6 @@ __all__ = [
     "SERIAL_COMM_PACKET_INFO_LENGTH_BYTES",
     "SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS",
     "SERIAL_COMM_TIMESTAMP_BYTES_INDEX",
+    "SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES",
+    "InstrumentCommTooManyMissedHandshakesError",
 ]

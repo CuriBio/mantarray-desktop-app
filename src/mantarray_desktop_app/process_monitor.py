@@ -382,7 +382,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         """Execute additional commands inside the run loop."""
         process_manager = self._process_manager
 
-        # any potential errors should be handled first
+        # any potential errors should be handled first  # TODO Tanner (3/23/21): add story to include mc_simulator error queues here. Need to integrate McComm into the rest of the software and determine if it is running in simulation mode first
         for iter_error_queue, iter_process in (
             (
                 process_manager.queue_container().get_instrument_communication_error_queue(),

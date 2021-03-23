@@ -78,6 +78,7 @@ from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_METADATA_BYTES_LENGTH
 from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_INDEX
+from mantarray_desktop_app import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_TYPE_INDEX
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
@@ -330,6 +331,8 @@ def test_parallelism_config():
 
 def test_serial_comm():
     assert MC_REBOOT_DURATION_SECONDS == 5
+
+    assert SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES == 3
 
     assert SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS == 5
     assert SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS == 5

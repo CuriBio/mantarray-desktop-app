@@ -6,6 +6,7 @@ import random
 from mantarray_desktop_app import BOOTUP_COUNTER_UUID
 from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import create_data_packet
+from mantarray_desktop_app import InstrumentCommTooManyMissedHandshakesError
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app import mc_simulator
@@ -16,8 +17,10 @@ from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
+from mantarray_desktop_app import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
@@ -37,6 +40,7 @@ import pytest
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import invoke_process_run_and_check_errors
 
+from ..fixtures import fixture_patch_print
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
@@ -50,6 +54,7 @@ from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_
 
 
 __fixtures__ = [
+    fixture_patch_print,
     fixture_mantarray_mc_simulator,
     fixture_mantarray_mc_simulator_no_beacon,
     fixture_runnable_mantarray_mc_simulator,
@@ -257,12 +262,8 @@ def test_MantarrayMcSimulator_in_waiting__getter_returns_number_of_bytes_availab
 
 
 def test_MantarrayMcSimulator_in_waiting__setter_raises_error(
-    mantarray_mc_simulator_no_beacon, mocker
+    mantarray_mc_simulator_no_beacon, mocker, patch_print
 ):
-    mocker.patch(
-        "builtins.print", autospec=True
-    )  # don't print the error message to console
-
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     with pytest.raises(AttributeError):
         simulator.in_waiting = 0
@@ -376,12 +377,8 @@ def test_MantarrayMcSimulator__makes_status_beacon_available_to_read_every_5_sec
 
 
 def test_MantarrayMcSimulator__raises_error_if_unrecognized_test_command_is_received(
-    mantarray_mc_simulator, mocker
+    mantarray_mc_simulator, mocker, patch_print
 ):
-    mocker.patch(
-        "builtins.print", autospec=True
-    )  # don't print the error message to console
-
     simulator = mantarray_mc_simulator["simulator"]
     testing_queue = mantarray_mc_simulator["testing_queue"]
 
@@ -540,12 +537,8 @@ def test_MantarrayMcSimulator__handles_reads_of_size_greater_than_next_packet_in
 
 
 def test_MantarrayMcSimulator__raises_error_if_unrecognized_module_id_sent_from_pc(
-    mantarray_mc_simulator_no_beacon, mocker
+    mantarray_mc_simulator_no_beacon, mocker, patch_print
 ):
-    mocker.patch(
-        "builtins.print", autospec=True
-    )  # don't print all the error messages to console
-
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     dummy_timestamp = 0
@@ -564,12 +557,8 @@ def test_MantarrayMcSimulator__raises_error_if_unrecognized_module_id_sent_from_
 
 
 def test_MantarrayMcSimulator__raises_error_if_unrecognized_packet_type_sent_from_pc(
-    mantarray_mc_simulator_no_beacon, mocker
+    mantarray_mc_simulator_no_beacon, mocker, patch_print
 ):
-    mocker.patch(
-        "builtins.print", autospec=True
-    )  # don't print all the error messages to console
-
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     dummy_timestamp = 0
@@ -984,3 +973,34 @@ def test_MantarrayMcSimulator__processes_get_metadata_command(
         )
         + expected_metadata_bytes,
     )
+
+
+def test_MantarrayMcSimulator__raises_error_if_too_many_consecutive_handshake_periods_missed_from_pc__after_first_handshake_received(
+    mantarray_mc_simulator_no_beacon, mocker, patch_print
+):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    mocker.patch.object(
+        mc_simulator,
+        "_get_secs_since_last_handshake",
+        autospec=True,
+        side_effect=[
+            0,
+            SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
+            * SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
+            - 1,
+            SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
+            * SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES,
+        ],
+    )
+
+    # make sure error isn't raised before initial handshake received
+    invoke_process_run_and_check_errors(simulator)
+    # send and process first handshake
+    simulator.write(TEST_HANDSHAKE)
+    invoke_process_run_and_check_errors(simulator)
+    # make sure error isn't raised 1 second before final handshake missed
+    invoke_process_run_and_check_errors(simulator)
+    # make sure error is raised when final handshake missed
+    with pytest.raises(InstrumentCommTooManyMissedHandshakesError):
+        invoke_process_run_and_check_errors(simulator)

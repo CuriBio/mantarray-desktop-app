@@ -42,6 +42,7 @@ from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import invoke_process_run_and_check_errors
 
+from ..fixtures import fixture_patch_print
 from ..fixtures import generate_board_and_error_queues
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process
@@ -57,6 +58,7 @@ from ..helpers import handle_putting_multiple_objects_into_empty_queue
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 __fixtures__ = [
+    fixture_patch_print,
     fixture_four_board_mc_comm_process,
     fixture_mantarray_mc_simulator,
     fixture_mantarray_mc_simulator_no_beacon,
@@ -465,12 +467,8 @@ def test_McCommunicationProcess_register_magic_word__registers_with_magic_word_i
 
 
 def test_McCommunicationProcess_register_magic_word__raises_error_if_less_than_8_bytes_available_after_registration_timeout_period_has_elapsed(
-    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
+    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker, patch_print
 ):
-    mocker.patch(  # TODO Tanner (3/19/21) make this a fixture and test that it doesn't print errors
-        "builtins.print", autospec=True
-    )  # don't print all the error messages to console
-
     # mock sleep to speed up the test
     mocker.patch.object(mc_comm, "sleep", autospec=True)
 
@@ -494,12 +492,8 @@ def test_McCommunicationProcess_register_magic_word__raises_error_if_less_than_8
 
 
 def test_McCommunicationProcess_register_magic_word__raises_error_if_reading_next_byte_results_in_empty_read_for_longer_than_registration_timeout_period(
-    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
+    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker, patch_print
 ):
-    mocker.patch(
-        "builtins.print", autospec=True
-    )  # don't print all the error messages to console
-
     # mock with only two return values to speed up the test
     mocker.patch.object(
         mc_comm,
@@ -523,12 +517,8 @@ def test_McCommunicationProcess_register_magic_word__raises_error_if_reading_nex
 
 
 def test_McCommunicationProcess_register_magic_word__raises_error_if_search_exceeds_max_packet_length(
-    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
+    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker, patch_print
 ):
-    mocker.patch(
-        "builtins.print", autospec=True
-    )  # don't print all the error messages to console
-
     # mock sleep to speed up the test
     mocker.patch.object(mc_comm, "sleep", autospec=True)
 
@@ -562,12 +552,8 @@ def test_McCommunicationProcess_register_magic_word__does_not_try_to_register_wh
 
 
 def test_McCommunicationProcess__raises_error_if_magic_word_is_incorrect_in_packet_after_previous_magic_word_has_been_registered(
-    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
+    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker, patch_print
 ):
-    mocker.patch(
-        "builtins.print", autospec=True
-    )  # don't print the error message to console
-
     mc_process = four_board_mc_comm_process["mc_process"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
@@ -602,12 +588,8 @@ def test_McCommunicationProcess__raises_error_if_magic_word_is_incorrect_in_pack
 
 
 def test_McCommunicationProcess__raises_error_if_checksum_in_data_packet_sent_from_mantarray_is_invalid(
-    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
+    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker, patch_print
 ):
-    mocker.patch(
-        "builtins.print", autospec=True
-    )  # don't print the error message to console
-
     mc_process = four_board_mc_comm_process["mc_process"]
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
@@ -647,12 +629,8 @@ def test_McCommunicationProcess__raises_error_if_checksum_in_data_packet_sent_fr
 
 
 def test_McCommunicationProcess__raises_error_if_not_enough_bytes_in_packet_sent_from_instrument(
-    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
+    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker, patch_print
 ):
-    mocker.patch(
-        "builtins.print", autospec=True
-    )  # don't print all the error messages to console
-
     mc_process = four_board_mc_comm_process["mc_process"]
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
@@ -684,12 +662,8 @@ def test_McCommunicationProcess__raises_error_if_not_enough_bytes_in_packet_sent
 
 
 def test_McCommunicationProcess__raises_error_if_unrecognized_module_id_sent_from_instrument(
-    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
+    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker, patch_print
 ):
-    mocker.patch(
-        "builtins.print", autospec=True
-    )  # don't print all the error messages to console
-
     mc_process = four_board_mc_comm_process["mc_process"]
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
@@ -719,12 +693,8 @@ def test_McCommunicationProcess__raises_error_if_unrecognized_module_id_sent_fro
 
 
 def test_McCommunicationProcess__raises_error_if_unrecognized_packet_type_sent_from_instrument(
-    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
+    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker, patch_print
 ):
-    mocker.patch(
-        "builtins.print", autospec=True
-    )  # don't print all the error messages to console
-
     mc_process = four_board_mc_comm_process["mc_process"]
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
@@ -755,12 +725,8 @@ def test_McCommunicationProcess__raises_error_if_unrecognized_packet_type_sent_f
 
 
 def test_McCommunicationProcess__raises_error_if_mantarray_returns_data_packet_that_it_determined_has_an_incorrect_checksum(
-    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
+    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker, patch_print
 ):
-    mocker.patch(
-        "builtins.print", autospec=True
-    )  # don't print all the error messages to console
-
     mc_process = four_board_mc_comm_process["mc_process"]
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
@@ -846,12 +812,8 @@ def test_McCommunicationProcess__includes_correct_timestamp_in_packets_sent_to_i
     ],
 )
 def test_McCommunicationProcess__raises_error_when_receiving_invalid_command_from_main(
-    test_comm, test_description, four_board_mc_comm_process, mocker
+    test_comm, test_description, four_board_mc_comm_process, mocker, patch_print
 ):
-    mocker.patch(
-        "builtins.print", autospec=True
-    )  # don't print all the error messages to console
-
     mc_process = four_board_mc_comm_process["mc_process"]
     input_queue = four_board_mc_comm_process["board_queues"][0][0]
 
