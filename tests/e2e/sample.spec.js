@@ -179,11 +179,12 @@ async function wait_for_local_server_to_reach_calibration_needed() {
  * @throws Will throw error if Flask never shuts down (determined by port still being occupied)
  */
 async function wait_for_flask_to_be_shutdown() {
-  for (let i = 0; i < 10000; i++) {
+  for (let i = 0; i < 15; i++) {
     const detected_open_port = await detect_port(flask_port);
     if (detected_open_port === flask_port) {
       return;
     }
+    await sleep(1000);
   }
   throw new Error(`Port never became open: ${flask_port}`);
 }
