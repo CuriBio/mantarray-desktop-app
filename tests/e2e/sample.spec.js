@@ -141,7 +141,7 @@ function sleep(ms) {
  * @throws Will throw error if Flask never initializes (determined by port still being open)
  */
 async function wait_for_flask_to_init() {
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 15; i++) {
     const detected_open_port = await detect_port(flask_port);
     if (detected_open_port !== flask_port) {
       return;
