@@ -259,6 +259,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 f"Invalid communication_type: {communication_type}"
             )
         self._commands_awaiting_response.append(comm_from_main)
+        # Tanner (3/23/21): consider replacing this with is_queue_eventually_empty
         if not input_queue.empty():
             self._process_can_be_soft_stopped = False
 
@@ -303,7 +304,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         packet_size_bytes = board.read(size=SERIAL_COMM_PACKET_INFO_LENGTH_BYTES)
         packet_size = int.from_bytes(packet_size_bytes, byteorder="little")
         data_packet_bytes = board.read(size=packet_size)
-        # TODO Tanner (3/15/21): eventually make sure the expected number of bytes are read. Need to figure out what to do if not enough bytes are read first
+        # TODO Tanner (3/15/21): eventually make sure the expected number of bytes are read
 
         # validate checksum before handling the communication. Need to reconstruct the whole packet to get the correct checksum
         full_data_packet = (
