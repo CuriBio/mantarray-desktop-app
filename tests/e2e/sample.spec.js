@@ -30,6 +30,7 @@ chromeDriver -v
 const axios = require("axios");
 import sinon from "sinon";
 const child_process = require("child_process");
+const ci = require("ci-info");
 const path = require("path");
 const Application = require("spectron").Application;
 const flask_port = 4567;
@@ -380,7 +381,11 @@ describe("window_opening", () => {
     } else {
       expected_width = 1920;
       expected_height = 930;
-      expected_window_left = 1;
+      if (ci.isCI) {
+        expected_window_left = 0;
+      } else {
+        expected_window_left = 1; // for some reason the coordinate is 1 in Cloud9, but 0 in Ubuntu in Github CI
+      }
       expected_window_top = 23;
     }
 
