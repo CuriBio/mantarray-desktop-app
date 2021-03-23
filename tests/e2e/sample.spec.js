@@ -383,10 +383,11 @@ describe("window_opening", () => {
       expected_height = 930;
       if (ci.isCI) {
         expected_window_left = 0;
+        expected_window_top = 0;
       } else {
         expected_window_left = 1; // for some reason the coordinate is 1 in Cloud9, but 0 in Ubuntu in Github CI
+        expected_window_top = 23; // for some reason the coordinate is 23 in Cloud9, but 0 in Ubuntu in Github CI
       }
-      expected_window_top = 23;
     }
 
     expect(width).toStrictEqual(expected_width); // Eli (6/14/20): If running on Cloud9, make sure to install the latest version of c9vnc repo or update the supervisord.conf file to have 1920x1080 dimensions
