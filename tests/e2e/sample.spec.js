@@ -182,6 +182,11 @@ async function wait_for_flask_to_be_shutdown() {
   for (let i = 0; i < 15; i++) {
     const detected_open_port = await detect_port(flask_port);
     if (detected_open_port === flask_port) {
+      console.log(
+        "Flask successfully detected as shut down after " +
+          i +
+          " checks of the port."
+      ); // allow-log
       return;
     }
     await sleep(1000);
@@ -414,7 +419,7 @@ describe("window_opening", () => {
     );
     await calibrate_button.click();
 
-    await sleep(10000); // wait for calibration to occur
+    await sleep(15000); // wait for calibration to occur and simulated barcode to populate
     const this_base_screenshot_path = path.join(base_screenshot_path);
 
     const screenshot_path = path.join(this_base_screenshot_path, "calibrated");
