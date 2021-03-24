@@ -164,3 +164,11 @@ class SerialCommPacketFromMantarrayTooSmallError(Exception):
 
 class SerialCommMetadataValueTooLargeError(Exception):
     pass
+
+
+class SerialCommTooManyMissedHandshakesError(Exception):
+    pass
+
+
+class SerialCommUntrackedCommandResponseError(Exception):
+    pass

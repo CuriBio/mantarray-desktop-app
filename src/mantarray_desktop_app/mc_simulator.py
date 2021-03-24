@@ -15,6 +15,7 @@ from typing import Optional
 from typing import Union
 from uuid import UUID
 
+from immutabledict import immutabledict
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
@@ -29,20 +30,25 @@ from .constants import PCB_SERIAL_NUMBER_UUID
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
-from .constants import SERIAL_COMM_GET_METADATA_PACKET_TYPE
+from .constants import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
+from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
+from .constants import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
-from .constants import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
+from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
+from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import TAMPER_FLAG_UUID
 from .constants import TOTAL_WORKING_HOURS_UUID
+from .exceptions import SerialCommTooManyMissedHandshakesError
 from .exceptions import UnrecognizedSerialCommModuleIdError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .exceptions import UnrecognizedSimulatorTestCommandError
@@ -52,6 +58,10 @@ from .serial_comm_utils import validate_checksum
 
 
 MAGIC_WORD_LEN = len(SERIAL_COMM_MAGIC_WORD_BYTES)
+
+
+def _get_secs_since_last_handshake(last_time: float) -> float:
+    return perf_counter() - last_time
 
 
 def _get_secs_since_last_status_beacon(last_time: float) -> float:
@@ -79,15 +89,17 @@ class MantarrayMcSimulator(InfiniteProcess):
         "TBD"  # TODO Tanner (3/17/21): implement this once the format is determined
     )
     default_firmware_version = "0.0.0"
-    default_metadata_values: Dict[UUID, Any] = {
-        BOOTUP_COUNTER_UUID: 0,
-        TOTAL_WORKING_HOURS_UUID: 0,
-        TAMPER_FLAG_UUID: 0,
-        MANTARRAY_SERIAL_NUMBER_UUID: default_mantarray_serial_number,
-        MANTARRAY_NICKNAME_UUID: default_mantarray_nickname,
-        PCB_SERIAL_NUMBER_UUID: default_pcb_serial_number,
-        MAIN_FIRMWARE_VERSION_UUID: default_firmware_version,
-    }
+    default_metadata_values: Dict[UUID, Any] = immutabledict(
+        {
+            BOOTUP_COUNTER_UUID: 0,
+            TOTAL_WORKING_HOURS_UUID: 0,
+            TAMPER_FLAG_UUID: 0,
+            MANTARRAY_SERIAL_NUMBER_UUID: default_mantarray_serial_number,
+            MANTARRAY_NICKNAME_UUID: default_mantarray_nickname,
+            PCB_SERIAL_NUMBER_UUID: default_pcb_serial_number,
+            MAIN_FIRMWARE_VERSION_UUID: default_firmware_version,
+        }
+    )
 
     def __init__(
         self,
@@ -108,6 +120,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._testing_queue = testing_queue
         self._init_time_ns: Optional[int] = None
         self._time_of_last_status_beacon_secs: Optional[float] = None
+        self._time_of_last_handshake_secs: Optional[float] = None
         self._reboot_time_secs: Optional[float] = None
         self._leftover_read_bytes = bytes(0)
         self._read_timeout_seconds = read_timeout_seconds
@@ -185,6 +198,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._handle_reboot_completion()
         self._handle_comm_from_pc()
         self._handle_status_beacon()
+        self._check_handshake()
 
     def _handle_reboot_completion(self) -> None:
         drain_queue(self._input_queue)
@@ -217,49 +231,44 @@ class MantarrayMcSimulator(InfiniteProcess):
             raise UnrecognizedSerialCommModuleIdError(module_id)
 
     def _process_main_module_command(self, comm_from_pc: bytes) -> None:
+        timestamp_from_pc_bytes = comm_from_pc[
+            SERIAL_COMM_TIMESTAMP_BYTES_INDEX : SERIAL_COMM_TIMESTAMP_BYTES_INDEX
+            + SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+        ]
+        response_body = timestamp_from_pc_bytes
+
         packet_type = comm_from_pc[SERIAL_COMM_PACKET_TYPE_INDEX]
         if packet_type == SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE:
             command_byte = comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX]
             if command_byte == SERIAL_COMM_REBOOT_COMMAND_BYTE:
                 self._reboot_time_secs = perf_counter()
-                self._send_data_packet(
-                    SERIAL_COMM_MAIN_MODULE_ID,
-                    SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-                )
+            elif command_byte == SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE:
+                start_idx = SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 1
+                nickname_bytes = comm_from_pc[
+                    start_idx : start_idx + SERIAL_COMM_METADATA_BYTES_LENGTH
+                ]
+                self._metadata_dict[MANTARRAY_NICKNAME_UUID.bytes] = nickname_bytes
+            elif command_byte == SERIAL_COMM_GET_METADATA_COMMAND_BYTE:
+                metadata_bytes = bytes(0)
+                for key, value in self._metadata_dict.items():
+                    metadata_bytes += key + value
+                response_body += metadata_bytes
             else:
                 # TODO Tanner (3/4/21): Determine what to do if command_byte, module_id, or packet_type are incorrect. It may make more sense to respond with a message rather than raising an error
-                raise NotImplementedError()
+                raise NotImplementedError(command_byte)
         elif packet_type == SERIAL_COMM_HANDSHAKE_PACKET_TYPE:
-            self._send_data_packet(
-                SERIAL_COMM_MAIN_MODULE_ID,
-                SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-                self._status_code_bits,
-            )
-        elif packet_type == SERIAL_COMM_GET_METADATA_PACKET_TYPE:
-            metadata_bytes = bytes(0)
-            for key, value in self._metadata_dict.items():
-                metadata_bytes += key + value
-            self._send_data_packet(
-                SERIAL_COMM_MAIN_MODULE_ID,
-                SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-                metadata_bytes,
-            )
-        elif packet_type == SERIAL_COMM_SET_NICKNAME_PACKET_TYPE:
-            nickname_bytes = comm_from_pc[
-                SERIAL_COMM_ADDITIONAL_BYTES_INDEX : SERIAL_COMM_ADDITIONAL_BYTES_INDEX
-                + SERIAL_COMM_METADATA_BYTES_LENGTH
-            ]
-            self._metadata_dict[MANTARRAY_NICKNAME_UUID.bytes] = nickname_bytes
-            self._send_data_packet(
-                SERIAL_COMM_MAIN_MODULE_ID,
-                SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-                bytes(0),
-            )
+            self._time_of_last_handshake_secs = perf_counter()
+            response_body += self._status_code_bits
         else:
             module_id = comm_from_pc[SERIAL_COMM_MODULE_ID_INDEX]
             raise UnrecognizedSerialCommPacketTypeError(
                 f"Packet Type ID: {packet_type} is not defined for Module ID: {module_id}"
             )
+        self._send_data_packet(
+            SERIAL_COMM_MAIN_MODULE_ID,
+            SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+            response_body,
+        )
 
     def _handle_status_beacon(self) -> None:
         if self._time_of_last_status_beacon_secs is None:
@@ -279,6 +288,19 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._status_code_bits,
             truncate,
         )
+
+    def _check_handshake(self) -> None:
+        if self._time_of_last_handshake_secs is None:
+            return
+        time_of_last_handshake_secs = _get_secs_since_last_handshake(
+            self._time_of_last_handshake_secs
+        )
+        if (
+            time_of_last_handshake_secs
+            >= SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
+            * SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
+        ):
+            raise SerialCommTooManyMissedHandshakesError()
 
     def _handle_test_comm(self) -> None:
         try:

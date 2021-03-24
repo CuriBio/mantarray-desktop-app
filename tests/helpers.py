@@ -14,6 +14,13 @@ from typing import List
 from typing import Optional
 from typing import Union
 
+from mantarray_desktop_app import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
+from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
+from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
+from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_INDEX
+from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_PACKET_TYPE_INDEX
 import stdlib_utils
 from stdlib_utils import confirm_queue_is_eventually_empty as stdlib_c_q_is_e_e
 from stdlib_utils import confirm_queue_is_eventually_of_size as stdlib_c_q_is_e_of_s
@@ -142,3 +149,29 @@ def convert_after_request_log_msg_to_json(log_msg: str) -> Dict[Any, Any]:
     trimmed_log_msg = log_msg[log_msg.index("{") :].replace("'", '"')
     logged_json: Dict[Any, Any] = json.loads(trimmed_log_msg)
     return logged_json
+
+
+def assert_serial_packet_is_expected(
+    full_packet: bytes,
+    module_id: int,
+    packet_type: int,
+    additional_bytes: bytes = bytes(0),
+) -> None:
+    assert full_packet[SERIAL_COMM_MODULE_ID_INDEX] == module_id
+    assert full_packet[SERIAL_COMM_PACKET_TYPE_INDEX] == packet_type
+    assert (
+        full_packet[
+            SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+        ]
+        == additional_bytes
+    )
+
+
+def get_full_packet_size_from_packet_body_size(packet_body_size: int) -> int:
+    full_packet_size: int = (
+        len(SERIAL_COMM_MAGIC_WORD_BYTES)
+        + SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
+        + SERIAL_COMM_MIN_PACKET_SIZE_BYTES
+        + packet_body_size
+    )
+    return full_packet_size
