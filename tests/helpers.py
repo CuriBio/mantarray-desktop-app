@@ -168,9 +168,10 @@ def assert_serial_packet_is_expected(
 
 
 def get_full_packet_size_from_packet_body_size(packet_body_size: int) -> int:
-    return (
+    full_packet_size: int = (
         len(SERIAL_COMM_MAGIC_WORD_BYTES)
         + SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
         + SERIAL_COMM_MIN_PACKET_SIZE_BYTES
         + packet_body_size
     )
+    return full_packet_size

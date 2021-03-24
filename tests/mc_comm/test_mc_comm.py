@@ -919,7 +919,7 @@ def test_McCommunicationProcess__processes_commands_from_main_when_process_is_fu
     )
     mc_process.start()
     confirm_queue_is_eventually_empty(  # Tanner (3/3/21): Using timeout longer than registration period here to give sufficient time to make sure queue is emptied
-        input_queue, timeout_seconds=SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS + 6
+        input_queue, timeout_seconds=SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS + 8
     )
     mc_process.soft_stop()
     mc_process.join()
