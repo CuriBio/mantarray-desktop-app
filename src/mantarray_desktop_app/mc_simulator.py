@@ -48,7 +48,7 @@ from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import TAMPER_FLAG_UUID
 from .constants import TOTAL_WORKING_HOURS_UUID
-from .exceptions import InstrumentCommTooManyMissedHandshakesError
+from .exceptions import SerialCommTooManyMissedHandshakesError
 from .exceptions import UnrecognizedSerialCommModuleIdError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .exceptions import UnrecognizedSimulatorTestCommandError
@@ -300,7 +300,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             >= SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
             * SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
         ):
-            raise InstrumentCommTooManyMissedHandshakesError()
+            raise SerialCommTooManyMissedHandshakesError()
 
     def _handle_test_comm(self) -> None:
         try:

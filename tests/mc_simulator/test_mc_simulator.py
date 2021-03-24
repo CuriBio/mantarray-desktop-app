@@ -2,11 +2,11 @@
 import logging
 from multiprocessing import Queue
 import random
+from random import randint
 
 from mantarray_desktop_app import BOOTUP_COUNTER_UUID
 from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import create_data_packet
-from mantarray_desktop_app import InstrumentCommTooManyMissedHandshakesError
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app import mc_simulator
@@ -20,6 +20,7 @@ from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
+from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
@@ -27,6 +28,7 @@ from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from mantarray_desktop_app import SerialCommTooManyMissedHandshakesError
 from mantarray_desktop_app import TAMPER_FLAG_UUID
 from mantarray_desktop_app import TOTAL_WORKING_HOURS_UUID
 from mantarray_desktop_app import UnrecognizedSerialCommModuleIdError
@@ -748,7 +750,7 @@ def test_MantarrayMcSimulator__reset_status_code_after_rebooting(
     invoke_process_run_and_check_errors(simulator)
 
     # send reboot command
-    expected_timestamp = 11110
+    expected_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
     test_reboot_command = create_data_packet(
         expected_timestamp,
         SERIAL_COMM_MAIN_MODULE_ID,
@@ -792,7 +794,7 @@ def test_MantarrayMcSimulator__processes_testing_commands_during_reboot(
     )
 
     # send reboot command
-    expected_timestamp = 1000
+    expected_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
     test_reboot_command = create_data_packet(
         expected_timestamp,
         SERIAL_COMM_MAIN_MODULE_ID,
@@ -910,7 +912,7 @@ def test_MantarrayMcSimulator__allows_mantarray_nickname_to_be_set_by_command_re
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     expected_nickname = "Newer Nickname"
-    expected_timestamp = 112233
+    expected_timestamp = SERIAL_COMM_MAX_TIMESTAMP_VALUE
     set_nickname_command = create_data_packet(
         expected_timestamp,
         SERIAL_COMM_MAIN_MODULE_ID,
@@ -946,7 +948,7 @@ def test_MantarrayMcSimulator__processes_get_metadata_command(
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
-    expected_timestamp = 0
+    expected_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
     get_metadata_command = create_data_packet(
         expected_timestamp,
         SERIAL_COMM_MAIN_MODULE_ID,
@@ -1002,5 +1004,5 @@ def test_MantarrayMcSimulator__raises_error_if_too_many_consecutive_handshake_pe
     # make sure error isn't raised 1 second before final handshake missed
     invoke_process_run_and_check_errors(simulator)
     # make sure error is raised when final handshake missed
-    with pytest.raises(InstrumentCommTooManyMissedHandshakesError):
+    with pytest.raises(SerialCommTooManyMissedHandshakesError):
         invoke_process_run_and_check_errors(simulator)

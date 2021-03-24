@@ -51,6 +51,7 @@ from .exceptions import SerialCommPacketFromMantarrayTooSmallError
 from .exceptions import SerialCommPacketRegistrationReadEmptyError
 from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
 from .exceptions import SerialCommPacketRegistrationTimoutError
+from .exceptions import SerialCommUntrackedCommandResponseError
 from .exceptions import UnrecognizedCommandFromMainToMcCommError
 from .exceptions import UnrecognizedSerialCommModuleIdError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
@@ -265,8 +266,7 @@ class McCommunicationProcess(InstrumentCommProcess):
 
     def _handle_handshake(self) -> None:
         board_idx = 0
-        board = self._board_connections[board_idx]
-        if board is None:
+        if self._board_connections[board_idx] is None:
             return
         if self._time_of_last_handshake_secs is None:
             self._send_handshake(board_idx)
@@ -346,9 +346,9 @@ class McCommunicationProcess(InstrumentCommProcess):
             pass  # TODO Tanner (3/17/21): Implement this in a story dedicated to parsing/handling errors codes in status beacons and handshakes
         elif packet_type == SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE:
             response_data = packet_body[SERIAL_COMM_TIMESTAMP_LENGTH_BYTES:]
-            if len(self._commands_awaiting_response) == 0:
-                raise NotImplementedError(  # stop mypy complaining
-                    "_commands_awaiting_response shoudn't be empty here"
+            if not self._commands_awaiting_response:
+                raise SerialCommUntrackedCommandResponseError(
+                    f"Full Data Packet: {str(comm_from_instrument)}"
                 )
             prev_command = self._commands_awaiting_response.popleft()
             if prev_command["command"] == "handshake":

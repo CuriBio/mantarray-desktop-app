@@ -166,5 +166,9 @@ class SerialCommMetadataValueTooLargeError(Exception):
     pass
 
 
-class InstrumentCommTooManyMissedHandshakesError(Exception):
+class SerialCommTooManyMissedHandshakesError(Exception):
+    pass
+
+
+class SerialCommUntrackedCommandResponseError(Exception):
     pass

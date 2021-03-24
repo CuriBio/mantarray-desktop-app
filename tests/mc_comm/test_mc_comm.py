@@ -2,6 +2,7 @@
 import copy
 import logging
 from multiprocessing import Queue
+from random import randint
 from zlib import crc32
 
 from freezegun import freeze_time
@@ -12,11 +13,13 @@ from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import McCommunicationProcess
 from mantarray_desktop_app import SERIAL_COMM_BAUD_RATE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
 from mantarray_desktop_app import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
@@ -30,6 +33,7 @@ from mantarray_desktop_app import SerialCommPacketFromMantarrayTooSmallError
 from mantarray_desktop_app import SerialCommPacketRegistrationReadEmptyError
 from mantarray_desktop_app import SerialCommPacketRegistrationSearchExhaustedError
 from mantarray_desktop_app import SerialCommPacketRegistrationTimoutError
+from mantarray_desktop_app import SerialCommUntrackedCommandResponseError
 from mantarray_desktop_app import UnrecognizedCommandFromMainToMcCommError
 from mantarray_desktop_app import UnrecognizedSerialCommModuleIdError
 from mantarray_desktop_app import UnrecognizedSerialCommPacketTypeError
@@ -757,7 +761,7 @@ def test_McCommunicationProcess__includes_correct_timestamp_in_packets_sent_to_i
     board_queues = four_board_mc_comm_process["board_queues"]
     input_queue = board_queues[0][0]
 
-    expected_timestamp = 24085320
+    expected_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
     mocker.patch.object(
         mc_process, "get_cms_since_init", autospec=True, return_value=expected_timestamp
     )
@@ -929,7 +933,7 @@ def test_McCommunicationProcess__processes_commands_from_main_when_process_is_fu
         assert False, "expected response to main not found"
 
 
-def test_MantarrayMcSimulator__sends_handshake_every_5_seconds__and_includes_correct_timestamp__and_processes_response(
+def test_McCommunicationProcess__sends_handshake_every_5_seconds__and_includes_correct_timestamp__and_processes_response(
     four_board_mc_comm_process,
     mantarray_mc_simulator_no_beacon,
     mocker,
@@ -986,3 +990,32 @@ def test_MantarrayMcSimulator__sends_handshake_every_5_seconds__and_includes_cor
     invoke_process_run_and_check_errors(simulator)
     invoke_process_run_and_check_errors(mc_process)
     assert simulator.in_waiting == 0
+
+
+def test_McCommunicationProcess__raises_error_when_receiving_untracked_command_response_from_instrument(
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+    mocker,
+    patch_print,
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+
+    test_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+    test_command_response = create_data_packet(
+        test_timestamp,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+        bytes(8),  # 8 arbitrary bytes in place of timestamp of command sent from pc
+    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "add_read_bytes", "read_bytes": test_command_response},
+        testing_queue,
+    )
+    invoke_process_run_and_check_errors(simulator)
+
+    mc_process.set_board_connection(0, simulator)
+    with pytest.raises(SerialCommUntrackedCommandResponseError) as exc_info:
+        invoke_process_run_and_check_errors(mc_process)
+    assert str(test_command_response) in str(exc_info.value)

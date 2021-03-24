@@ -88,6 +88,7 @@ from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
+from .constants import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
@@ -127,7 +128,6 @@ from .exceptions import FirstManagedReadLessThanOneRoundRobinError
 from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
 from .exceptions import ImproperlyFormattedUserAccountUUIDError
 from .exceptions import InstrumentCommIncorrectHeaderError
-from .exceptions import InstrumentCommTooManyMissedHandshakesError
 from .exceptions import InvalidDataFramePeriodError
 from .exceptions import InvalidDataTypeFromOkCommError
 from .exceptions import InvalidScriptCommandError
@@ -144,6 +144,8 @@ from .exceptions import SerialCommPacketFromMantarrayTooSmallError
 from .exceptions import SerialCommPacketRegistrationReadEmptyError
 from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
 from .exceptions import SerialCommPacketRegistrationTimoutError
+from .exceptions import SerialCommTooManyMissedHandshakesError
+from .exceptions import SerialCommUntrackedCommandResponseError
 from .exceptions import ServerThreadNotInitializedError
 from .exceptions import ServerThreadSingletonAlreadySetError
 from .exceptions import SystemStartUpError
@@ -420,5 +422,7 @@ __all__ = [
     "SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS",
     "SERIAL_COMM_TIMESTAMP_BYTES_INDEX",
     "SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES",
-    "InstrumentCommTooManyMissedHandshakesError",
+    "SerialCommTooManyMissedHandshakesError",
+    "SERIAL_COMM_MAX_TIMESTAMP_VALUE",
+    "SerialCommUntrackedCommandResponseError",
 ]
