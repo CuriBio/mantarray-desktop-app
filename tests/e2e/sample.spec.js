@@ -234,27 +234,6 @@ describe("window_opening", () => {
 
     const the_started_app = await app.start();
 
-    // attempt to use webDriverIO (the 'client') to directly set the window size...since other approaches using chromeDriverArgs or webdriverOptions were not working in Windows CodeBuild
-    // console.log(the_started_app.client.browser);
-    // console.log(JSON.stringify(the_started_app.client));
-    // console.log(await the_started_app.client.getWindowCount());
-    // console.log(typeof the_started_app.client);
-    // const all_function = Object.getOwnPropertyNames(
-    //   Object.getPrototypeOf(the_started_app.client.window)
-    // ).filter((m) => "function" === typeof the_started_app.client.window[m]);
-    // console.log(all_function);
-    // for (let i = 0; i < all_function.length; i++) {
-    //   console.log(all_function[i]);
-    // }
-
-    // Object.getOwnPropertyNames(the_started_app.client).filter(function (p) {
-    //   return typeof the_started_app.client[p] === "function";
-    // })
-    // );
-    // const the_time=await the_started_app.client.getWindowBounds();
-    // console.log(the_time)
-    // await the_started_app.client.setViewportSize({width:1920, height:1080},true);
-
     console.log("app started"); // allow-log
 
     addExtraCommands(app.client);
@@ -279,7 +258,7 @@ describe("window_opening", () => {
     });
 
     if (app && app.isRunning()) {
-      console.log("about to stop app. Platform is windows? " + is_windows); // allow-log
+      console.log("about to stop app"); // allow-log
       // adapted from https://stackoverflow.com/questions/51310500/spectron-test-leaves-window-open
       // get the main process PID
       const pid = await app.mainProcess.pid();
@@ -290,10 +269,13 @@ describe("window_opening", () => {
       // let main_process_logs; // = await app.client.getMainProcessLogs()
       // let render_process_logs = await app.client.getRenderProcessLogs();
       const stopped_app_return_code = await app.stop();
-      console.log("stopped_app_return_code"); // allow-log
-      for (const [key, value] of Object.entries(stopped_app_return_code)) {
-        console.log(` app.stop return code - ${key}: ${value}`); // allow-log
-      }
+      console.log(
+        "stopped_app_return_code['running']: " +
+          stopped_app_return_code["running"]
+      ); // allow-log
+      // for (const [key, value] of Object.entries(stopped_app_return_code)) {
+      //   console.log(` app.stop return code - ${key}: ${value}`); // allow-log
+      // }
       // await app.stop();
 
       // await app.client.execute(() => {
