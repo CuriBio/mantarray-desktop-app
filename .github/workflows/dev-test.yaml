@@ -279,8 +279,8 @@ jobs:
       #     run: pipenv run npm run test:e2e-no-prebuild
 
       - name: Run E2E Tests (Windows)
-        if: runner.os == 'Windows' # Eli (3/15/21): The test hangs for an unknown reason when running in Linux, so disabled for now
         timeout-minutes: 3
+        if: runner.os == 'Windows'
         run: pipenv run npm run test:e2e-ci
 
       - name: Digitally Signing the installation and win_unpacked EXE files
