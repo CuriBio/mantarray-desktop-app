@@ -30,6 +30,8 @@ chromeDriver -v
 const axios = require("axios");
 import sinon from "sinon";
 const child_process = require("child_process");
+const resemble = require("resemblejs");
+
 const ci = require("ci-info");
 const path = require("path");
 const Application = require("spectron").Application;
@@ -43,6 +45,12 @@ const base_screenshot_path = path.join(
   is_windows ? "windows" : "linux",
   "continuous-waveform"
 );
+const box_surrounding_version_number = {
+  left: 229,
+  top: 910,
+  right: 229 + 40,
+  bottom: 910 + 12,
+};
 
 // const { test_with_Spectron } = require('vue-cli-plugin-electron-builder') // may only work with Vue 3 https://nklayman.github.io/vue-cli-plugin-electron-builder/guide/testingAndDebugging.html#testing
 
@@ -389,9 +397,11 @@ describe("window_opening", () => {
 
     const screenshot_path = path.join(this_base_screenshot_path, "init");
     await wait_for_local_server_to_reach_calibration_needed();
+    resemble.outputSettings({ ignoredBox: box_surrounding_version_number });
     await expect(
       spectron_page_visual_regression(app.browserWindow, screenshot_path)
     ).resolves.toBe(true);
+    resemble.outputSettings({ ignoredBox: undefined });
   }, 90000);
   test("When Calibrate is clicked (and waiting some time for calibration to finish), Then the screen shows the Calibrated state", async () => {
     const app = sandbox.the_app;
@@ -406,8 +416,10 @@ describe("window_opening", () => {
 
     const screenshot_path = path.join(this_base_screenshot_path, "calibrated");
 
+    resemble.outputSettings({ ignoredBox: box_surrounding_version_number });
     await expect(
       spectron_page_visual_regression(app.browserWindow, screenshot_path)
     ).resolves.toBe(true);
+    resemble.outputSettings({ ignoredBox: undefined });
   }, 90000);
 });
