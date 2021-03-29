@@ -63,20 +63,19 @@ describe("utils.js", () => {
           );
         });
         test("When the function is invoked, Then the expected-software-version argument is set to the value returned by get_current_app_version", () => {
+          const spied_get_current_app_version = jest.spyOn(
+            main_utils,
+            "get_current_app_version"
+          );
+
           const actual_args = main_utils.generate_flask_command_line_args(
             store
           );
 
-          // const spied_get_current_app_version = jest.spyOn(
-          //   main_utils,
-          //   "get_current_app_version"
-          // );
           expect(actual_args).toStrictEqual(
             expect.arrayContaining([
               "--expected-software-version=" +
-                // Eli (1/15/21) can't figure out how to get the spy set up correctly
-                // spied_get_current_app_version.mock.results[0].value,
-                "0.4.2",
+                spied_get_current_app_version.mock.results[0].value,
             ])
           );
         });
@@ -132,7 +131,7 @@ describe("utils.js", () => {
     });
 
     describe("get_current_app_version", () => {
-      test("Given that Electron is not actually running (because this is just a unit test), When the function is called, Then it returns the current version of Electron", () => {
+      test("Given that Electron is not actually running (because this is just a unit test), When the function is called, Then it returns the current version of the App", () => {
         const path_to_package_json = path.join(
           __dirname,
           "..",

@@ -154,7 +154,9 @@ app.on("will-quit", function () {
   console.log("will-quit event being handled"); // allow-log
   // mainWindow = null;
 
-  axios.get(`http://localhost:${flask_port}/shutdown`);
+  axios.get(
+    `http://localhost:${flask_port}/shutdown?called_through_app_will_quit=true`
+  );
 });
 
 // win_handler = require("./mainWindow");

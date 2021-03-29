@@ -10,26 +10,7 @@ const yaml = require("js-yaml");
  * @return {string} the semantic version
  */
 const get_current_app_version = function () {
-  return "0.4.2";
-  // Eli (1/15/21) - can't figure out how to get it working dynamically
-  // try {
-  //   const {electron_app} = require("electron").remote;
-  // }
-  // catch (err) {
-  //   if(err instanceof TypeError){
-  //       // Electron is not actually running, so get the version from package.json
-  //       console.log('Attempting to read the version from package.json') // allow-log
-  //       const path_to_package_json=path.join(__dirname,'..','..','package.json')
-  //       const package_info=require(path_to_package_json)
-  //       return package_info.version
-  //   }
-  //   else {
-  //     console.log( // allow-log
-  //       'Something other than TypeError detected when trying to require electron.remote: ' + err)
-  //     throw err
-  //   }
-  // }
-  // return electron_app.getVersion()
+  return process.env.npm_package_version;
 };
 
 /**
