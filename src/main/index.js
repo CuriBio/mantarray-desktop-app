@@ -1,6 +1,8 @@
 /* globals INCLUDE_RESOURCES_PATH */
 import { app } from "electron";
-
+const log = require("electron-log");
+console.log = log.log;
+console.error = log.error;
 /* Eli added */
 // import './style.scss'
 // import 'typeface-roboto/index.css' // https://medium.com/@daddycat/using-offline-material-icons-and-roboto-font-in-electron-app-f25082447443
