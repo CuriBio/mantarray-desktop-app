@@ -46,9 +46,9 @@ const base_screenshot_path = path.join(
   "continuous-waveform"
 );
 const box_surrounding_version_number = {
-  left: 229,
+  left: 237, // Eli (3/29/21): This VRT does still include the major version so that basics of text style and ability to extract the version number can be validated. This seems like a reasonable compromise between testing to make sure nothing is wrong, and not having a brittle test that needs to be updated everytime a minor or patch version bump happens.
   top: 910,
-  right: 229 + 40,
+  right: 237 + 32,
   bottom: 910 + 12,
 };
 
