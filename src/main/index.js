@@ -1,6 +1,17 @@
 /* globals INCLUDE_RESOURCES_PATH */
 import { app } from "electron";
 const log = require("electron-log");
+const now = new Date();
+log.transports.file.fileName = `mantarray_log__${now.getUTCFullYear()}_${now.getUTCMonth()}_${now.getUTCDate()}_${now.getUTCHours()}${now.getUTCMinutes()}${now.getUTCSeconds()}_main.txt`;
+console.log("Set filename to: " + log.transports.file.fileName);
+log.transports.file.resolvePath = (variables) => {
+  return path.join(
+    variables.electronDefaultDir,
+    "logs_flask",
+    variables.fileName
+  );
+};
+
 console.log = log.log;
 console.error = log.error;
 /* Eli added */
