@@ -14,7 +14,7 @@ const filename_prefix = `mantarray_log__${now.getUTCFullYear()}_${utc_month}_${n
   .getUTCMinutes()
   .toString()
   .padStart(2, "0")}${now.getUTCSeconds().toString().padStart(2, "0")}_`;
-console.log("Set filename to: " + log.transports.file.fileName);
+
 log.transports.file.resolvePath = (variables) => {
   let filename;
   switch (process.type) {
@@ -30,7 +30,6 @@ log.transports.file.resolvePath = (variables) => {
   filename = filename + ".txt";
   return path.join(variables.libraryDefaultDir, "..", "logs_flask", filename);
 };
-log.transports.ipc.level = "silly"; // By default, ipc transport is disabled in the built app, so need to re-enable it
 console.log = log.log;
 console.error = log.error;
 /* Eli added */
