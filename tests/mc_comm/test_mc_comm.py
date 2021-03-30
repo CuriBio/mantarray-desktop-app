@@ -26,6 +26,7 @@ from mantarray_desktop_app import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import SerialCommCommandResponseTimeoutError
 from mantarray_desktop_app import SerialCommIncorrectChecksumFromInstrumentError
@@ -35,6 +36,7 @@ from mantarray_desktop_app import SerialCommPacketFromMantarrayTooSmallError
 from mantarray_desktop_app import SerialCommPacketRegistrationReadEmptyError
 from mantarray_desktop_app import SerialCommPacketRegistrationSearchExhaustedError
 from mantarray_desktop_app import SerialCommPacketRegistrationTimoutError
+from mantarray_desktop_app import SerialCommStatusBeaconTimeoutError
 from mantarray_desktop_app import SerialCommUntrackedCommandResponseError
 from mantarray_desktop_app import UnrecognizedCommandFromMainToMcCommError
 from mantarray_desktop_app import UnrecognizedSerialCommModuleIdError
@@ -1036,7 +1038,6 @@ def test_McCommunicationProcess__processes_command_response_when_packet_received
 
     set_connection_and_register_simulator(mc_process, mantarray_mc_simulator_no_beacon)
 
-    assert simulator.in_waiting == 0
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"command": "send_single_beacon"},
         testing_queue,
@@ -1066,6 +1067,7 @@ def test_McCommunicationProcess__raises_error_if_command_response_not_received_w
     board_queues = four_board_mc_comm_process_no_handshake["board_queues"]
     input_queue = board_queues[0][0]
 
+    # patch so second iteration of mc_process will hit response timeout
     mocker.patch.object(
         mc_comm,
         "_get_secs_since_command_sent",
@@ -1091,4 +1093,22 @@ def test_McCommunicationProcess__raises_error_if_command_response_not_received_w
     invoke_process_run_and_check_errors(mc_process)
     # confirm error is raised after wait period elapses
     with pytest.raises(SerialCommCommandResponseTimeoutError, match=expected_command):
+        invoke_process_run_and_check_errors(mc_process)
+
+
+def test_McCommunicationProcess__raises_error_if_status_beacon_not_received_in_allowed_period_of_time(
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+
+    set_connection_and_register_simulator(mc_process, mantarray_mc_simulator_no_beacon)
+
+    # patch so next iteration of mc_process will hit beacon timeout
+    mocker.patch.object(
+        mc_comm,
+        "_get_secs_since_last_beacon",
+        autospec=True,
+        return_value=SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS,
+    )
+    with pytest.raises(SerialCommStatusBeaconTimeoutError):
         invoke_process_run_and_check_errors(mc_process)

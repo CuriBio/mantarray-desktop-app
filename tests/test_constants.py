@@ -89,6 +89,7 @@ from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import SERVER_INITIALIZING_STATE
@@ -339,6 +340,7 @@ def test_serial_comm():
     assert SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS == 5
     assert SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS == 5
     assert SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS == 5
+    assert SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS == 7
     assert SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS == 8
 
     assert SERIAL_COMM_MAGIC_WORD_BYTES == b"CURI BIO"

@@ -174,5 +174,9 @@ class SerialCommUntrackedCommandResponseError(Exception):
     pass
 
 
+class SerialCommStatusBeaconTimeoutError(Exception):
+    pass
+
+
 class SerialCommCommandResponseTimeoutError(Exception):
     pass

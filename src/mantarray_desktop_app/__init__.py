@@ -102,6 +102,7 @@ from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+from .constants import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import SERVER_INITIALIZING_STATE
@@ -146,6 +147,7 @@ from .exceptions import SerialCommPacketFromMantarrayTooSmallError
 from .exceptions import SerialCommPacketRegistrationReadEmptyError
 from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
 from .exceptions import SerialCommPacketRegistrationTimoutError
+from .exceptions import SerialCommStatusBeaconTimeoutError
 from .exceptions import SerialCommTooManyMissedHandshakesError
 from .exceptions import SerialCommUntrackedCommandResponseError
 from .exceptions import ServerThreadNotInitializedError
@@ -429,4 +431,6 @@ __all__ = [
     "SerialCommUntrackedCommandResponseError",
     "SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS",
     "SerialCommCommandResponseTimeoutError",
+    "SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS",
+    "SerialCommStatusBeaconTimeoutError",
 ]

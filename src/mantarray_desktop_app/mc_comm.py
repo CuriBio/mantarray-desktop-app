@@ -44,6 +44,7 @@ from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+from .constants import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .exceptions import SerialCommCommandResponseTimeoutError
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
@@ -53,6 +54,7 @@ from .exceptions import SerialCommPacketFromMantarrayTooSmallError
 from .exceptions import SerialCommPacketRegistrationReadEmptyError
 from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
 from .exceptions import SerialCommPacketRegistrationTimoutError
+from .exceptions import SerialCommStatusBeaconTimeoutError
 from .exceptions import SerialCommUntrackedCommandResponseError
 from .exceptions import UnrecognizedCommandFromMainToMcCommError
 from .exceptions import UnrecognizedSerialCommModuleIdError
@@ -77,6 +79,10 @@ def _get_secs_since_last_handshake(last_time: float) -> float:
     return perf_counter() - last_time
 
 
+def _get_secs_since_last_beacon(last_time: float) -> float:
+    return perf_counter() - last_time
+
+
 def _get_secs_since_command_sent(command_timestamp: float) -> float:
     return perf_counter() - command_timestamp
 
@@ -97,6 +103,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         )
         self._init_time_ns: Optional[int] = None
         self._time_of_last_handshake_secs: Optional[float] = None
+        self._time_of_last_beacon_secs: Optional[float] = None
         self._commands_awaiting_response: Deque[  # pylint: disable=unsubscriptable-object
             Dict[str, Any]
         ] = deque()
@@ -219,8 +226,9 @@ class McCommunicationProcess(InstrumentCommProcess):
 
     def _commands_for_each_run_iteration(self) -> None:
         self._process_next_communication_from_main()
-        self._handle_handshake()
+        self._handle_sending_handshake()
         self._handle_incoming_data()
+        self._handle_beacon_tracking()
         self._handle_command_tracking()
 
     def _process_next_communication_from_main(self) -> None:
@@ -275,7 +283,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         ):  # Tanner (3/23/21): consider replacing this with is_queue_eventually_empty
             self._process_can_be_soft_stopped = False
 
-    def _handle_handshake(self) -> None:
+    def _handle_sending_handshake(self) -> None:
         board_idx = 0
         if self._board_connections[board_idx] is None:
             return
@@ -356,7 +364,8 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise SerialCommIncorrectChecksumFromPCError(returned_packet)
 
         if packet_type == SERIAL_COMM_STATUS_BEACON_PACKET_TYPE:
-            pass  # TODO Tanner (3/17/21): Implement this in a story dedicated to parsing/handling errors codes in status beacons and handshakes
+            self._time_of_last_beacon_secs = perf_counter()
+            # TODO Tanner (3/17/21): Implement this in a story dedicated to parsing/handling errors codes in status beacons and handshakes
         elif packet_type == SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE:
             response_data = packet_body[SERIAL_COMM_TIMESTAMP_LENGTH_BYTES:]
             if not self._commands_awaiting_response:
@@ -421,6 +430,15 @@ class McCommunicationProcess(InstrumentCommProcess):
         if magic_word_test_bytes != SERIAL_COMM_MAGIC_WORD_BYTES:
             raise SerialCommPacketRegistrationReadEmptyError()
         self._is_registered_with_serial_comm[board_idx] = True
+
+    def _handle_beacon_tracking(self) -> None:
+        if self._time_of_last_beacon_secs is None:
+            return
+        secs_since_last_beacon_received = _get_secs_since_last_beacon(
+            self._time_of_last_beacon_secs
+        )
+        if secs_since_last_beacon_received >= SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS:
+            raise SerialCommStatusBeaconTimeoutError()
 
     def _handle_command_tracking(self) -> None:
         if not self._commands_awaiting_response:
