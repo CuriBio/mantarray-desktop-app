@@ -1,8 +1,6 @@
 Changelog for Mantarray Desktop App
 ===================================
-
-
-0.4.3 (2021-03-29)
+0.4.3 (2021-03-30)
 ------------------
 
 - Added logging for frontend user interface

@@ -14,10 +14,8 @@ const get_current_app_version = function () {
   // adapted from https://github.com/electron/electron/issues/7085
   let { current_version } = "";
   if (process.env.NODE_ENV !== "production") {
-    console.log("attempting to obtain app version from package.json"); // allow-log
     current_version = require("../../package.json").version;
   } else {
-    console.log("attempting to obtain app version from app.getVersion"); // allow-log
     current_version = require("electron").app.getVersion();
   }
   return current_version;
