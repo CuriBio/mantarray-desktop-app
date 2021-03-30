@@ -30,6 +30,9 @@ chromeDriver -v
 const axios = require("axios");
 import sinon from "sinon";
 const child_process = require("child_process");
+const resemble = require("resemblejs");
+
+const ci = require("ci-info");
 const path = require("path");
 const Application = require("spectron").Application;
 const flask_port = 4567;
@@ -38,7 +41,16 @@ import { spectron_page_visual_regression } from "@curi-bio/frontend-test-utils";
 
 const is_windows = process.platform === "win32";
 
-const base_screenshot_path = path.join("continuous-waveform");
+const base_screenshot_path = path.join(
+  is_windows ? "windows" : "linux",
+  "continuous-waveform"
+);
+const box_surrounding_version_number = {
+  left: 237, // Eli (3/29/21): This VRT does still include the major version so that basics of text style and ability to extract the version number can be validated. This seems like a reasonable compromise between testing to make sure nothing is wrong, and not having a brittle test that needs to be updated everytime a minor or patch version bump happens.
+  top: 910,
+  right: 237 + 32,
+  bottom: 910 + 12,
+};
 
 // const { test_with_Spectron } = require('vue-cli-plugin-electron-builder') // may only work with Vue 3 https://nklayman.github.io/vue-cli-plugin-electron-builder/guide/testingAndDebugging.html#testing
 
@@ -137,7 +149,7 @@ function sleep(ms) {
  * @throws Will throw error if Flask never initializes (determined by port still being open)
  */
 async function wait_for_flask_to_init() {
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 15; i++) {
     const detected_open_port = await detect_port(flask_port);
     if (detected_open_port !== flask_port) {
       return;
@@ -161,12 +173,12 @@ async function wait_for_local_server_to_reach_calibration_needed() {
       response.data.ui_status_code == "009301eb-625c-4dc4-9e92-1a4d0762465f"
     ) {
       // TODO (Eli 1/14/21): replace this string by importing the value from the frontend-components library
+      await sleep(2000); // Eli (3/15/21): do an extra sleep because it seems like sporadically the screenshot is still in the initializing state
       return;
     }
     await sleep(2000);
   }
-  // Eli (1/14/21): not sure at the moment why ever after 25 seconds the server doesn't reach CALIBRATION_NEEDED, so for now just returning and capturing an E2E screenshot of the "Initializing" state
-  // throw new Error(`Server never reached CALIBRATION_NEEDED state`);
+  throw new Error(`Server never reached CALIBRATION_NEEDED state`);
 }
 
 /**
@@ -175,11 +187,17 @@ async function wait_for_local_server_to_reach_calibration_needed() {
  * @throws Will throw error if Flask never shuts down (determined by port still being occupied)
  */
 async function wait_for_flask_to_be_shutdown() {
-  for (let i = 0; i < 10000; i++) {
+  for (let i = 0; i < 15; i++) {
     const detected_open_port = await detect_port(flask_port);
     if (detected_open_port === flask_port) {
+      console.log(
+        "Flask successfully detected as shut down after " +
+          i +
+          " checks of the port."
+      ); // allow-log
       return;
     }
+    await sleep(1000);
   }
   throw new Error(`Port never became open: ${flask_port}`);
 }
@@ -224,27 +242,6 @@ describe("window_opening", () => {
 
     const the_started_app = await app.start();
 
-    // attempt to use webDriverIO (the 'client') to directly set the window size...since other approaches using chromeDriverArgs or webdriverOptions were not working in Windows CodeBuild
-    // console.log(the_started_app.client.browser);
-    // console.log(JSON.stringify(the_started_app.client));
-    // console.log(await the_started_app.client.getWindowCount());
-    // console.log(typeof the_started_app.client);
-    // const all_function = Object.getOwnPropertyNames(
-    //   Object.getPrototypeOf(the_started_app.client.window)
-    // ).filter((m) => "function" === typeof the_started_app.client.window[m]);
-    // console.log(all_function);
-    // for (let i = 0; i < all_function.length; i++) {
-    //   console.log(all_function[i]);
-    // }
-
-    // Object.getOwnPropertyNames(the_started_app.client).filter(function (p) {
-    //   return typeof the_started_app.client[p] === "function";
-    // })
-    // );
-    // const the_time=await the_started_app.client.getWindowBounds();
-    // console.log(the_time)
-    // await the_started_app.client.setViewportSize({width:1920, height:1080},true);
-
     console.log("app started"); // allow-log
 
     addExtraCommands(app.client);
@@ -269,7 +266,7 @@ describe("window_opening", () => {
     });
 
     if (app && app.isRunning()) {
-      console.log("about to stop app. Platform is windows? " + is_windows); // allow-log
+      console.log("about to stop app"); // allow-log
       // adapted from https://stackoverflow.com/questions/51310500/spectron-test-leaves-window-open
       // get the main process PID
       const pid = await app.mainProcess.pid();
@@ -279,8 +276,15 @@ describe("window_opening", () => {
       // you could also use .stop() here
       // let main_process_logs; // = await app.client.getMainProcessLogs()
       // let render_process_logs = await app.client.getRenderProcessLogs();
-      // const stopped_app_return_code = await app.stop();
-      await app.stop();
+      const stopped_app_return_code = await app.stop();
+      console.log(
+        "stopped_app_return_code['running']: " +
+          stopped_app_return_code["running"]
+      ); // allow-log
+      // for (const [key, value] of Object.entries(stopped_app_return_code)) {
+      //   console.log(` app.stop return code - ${key}: ${value}`); // allow-log
+      // }
+      // await app.stop();
 
       // await app.client.execute(() => {
       //     window.close();
@@ -290,7 +294,7 @@ describe("window_opening", () => {
         const shutdown_response = await axios.get(
           "http://localhost:4567/shutdown"
         ); // Eli (1/18/21): `app.stop()` apparently isn't triggering the call to shutdown Flask, so manually doing it here
-        console.log("Shutdown response: " + shutdown_response); // allow-log
+        console.log("Shutdown response: " + JSON.stringify(shutdown_response)); // allow-log
       } catch (e) {
         console.log("Error attempting to call shutdown route: " + e); // allow-log
       }
@@ -305,7 +309,10 @@ describe("window_opening", () => {
       try {
         // check if PID is running using '0' signal (throw error if not)
         if (is_windows) {
-          child_process.execSync("taskkill /F /PID " + pid);
+          // child_process.execSync("Stop-Process -ID " + pid + " -Force"); // powershell command syntax
+          child_process.execSync("taskkill /F /PID " + pid, {
+            stdio: "inherit",
+          });
         } else {
           process.kill(pid, 0);
         }
@@ -323,9 +330,10 @@ describe("window_opening", () => {
       // no error, process is still running, stop it
       app.mainProcess.exit(1);
       // do someting to end the test with error
-      6 / 0;
+      // 6 / 0;
+      done();
     }
-  }, 20000);
+  }, 30000);
 
   // test("Then it should initialize nuxt", async () => {
   //   const app = sandbox.the_app;
@@ -357,18 +365,61 @@ describe("window_opening", () => {
     expect(await win.isMaximized()).toBe(false);
     const { width, height } = await win.getBounds();
     console.log("Width: " + width + " height: " + height); // allow-log
-    expect(width).toStrictEqual(1920); // Eli (6/14/20): If running on Cloud9, make sure to install the latest version of c9vnc repo or update the supervisord.conf file to have 1920x1080 dimensions
-    expect(height).toStrictEqual(930);
+    let expected_width;
+    let expected_height;
+    let expected_window_top;
+    let expected_window_left;
+    if (is_windows) {
+      expected_width = 1936;
+      expected_height = 969;
+      expected_window_left = -8;
+      expected_window_top = 0;
+    } else {
+      expected_width = 1920;
+      expected_height = 930;
+      if (ci.isCI) {
+        expected_window_left = 0;
+        expected_window_top = 0;
+      } else {
+        expected_window_left = 1; // for some reason the coordinate is 1 in Cloud9, but 0 in Ubuntu in Github CI
+        expected_window_top = 23; // for some reason the coordinate is 23 in Cloud9, but 0 in Ubuntu in Github CI
+      }
+    }
+
+    expect(width).toStrictEqual(expected_width); // Eli (6/14/20): If running on Cloud9, make sure to install the latest version of c9vnc repo or update the supervisord.conf file to have 1920x1080 dimensions
+    expect(height).toStrictEqual(expected_height);
     const win_position = await win.getPosition();
-    expect(win_position[0]).toStrictEqual(1); // when not maximized, there's a single extra pixel of border width on the edge
-    expect(win_position[1]).toStrictEqual(23); // takes into account the height of the menu
+    console.log("Window Position: " + win_position[0] + " " + win_position[1]); // allow-log
+    expect(win_position[0]).toStrictEqual(expected_window_left); // when not maximized, there's a single extra pixel of border width on the edge
+    expect(win_position[1]).toStrictEqual(expected_window_top); // takes into account the height of the menu
 
     const this_base_screenshot_path = path.join(base_screenshot_path);
 
     const screenshot_path = path.join(this_base_screenshot_path, "init");
     await wait_for_local_server_to_reach_calibration_needed();
+    resemble.outputSettings({ ignoredBox: box_surrounding_version_number });
     await expect(
       spectron_page_visual_regression(app.browserWindow, screenshot_path)
     ).resolves.toBe(true);
+    resemble.outputSettings({ ignoredBox: undefined });
+  }, 90000);
+  test("When Calibrate is clicked (and waiting some time for calibration to finish), Then the screen shows the Calibrated state", async () => {
+    const app = sandbox.the_app;
+    await wait_for_local_server_to_reach_calibration_needed();
+    const calibrate_button = await app.client.$(
+      ".svg__playback-desktop-player-controls-calibrate-button"
+    );
+    await calibrate_button.click();
+
+    await sleep(15000); // wait for calibration to occur and simulated barcode to populate
+    const this_base_screenshot_path = path.join(base_screenshot_path);
+
+    const screenshot_path = path.join(this_base_screenshot_path, "calibrated");
+
+    resemble.outputSettings({ ignoredBox: box_surrounding_version_number });
+    await expect(
+      spectron_page_visual_regression(app.browserWindow, screenshot_path)
+    ).resolves.toBe(true);
+    resemble.outputSettings({ ignoredBox: undefined });
   }, 90000);
 });

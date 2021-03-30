@@ -20,6 +20,7 @@ from .constants import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from .data_analyzer import DataAnalyzerProcess
 from .file_writer import FileWriterProcess
 from .firmware_manager import get_latest_firmware
+from .instrument_comm import InstrumentCommProcess
 from .ok_comm import OkCommunicationProcess
 from .queue_container import MantarrayQueueContainer
 from .server import ServerThread
@@ -36,7 +37,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
     ) -> None:
         self._queue_container: MantarrayQueueContainer
 
-        self._ok_communication_process: OkCommunicationProcess
+        self._instrument_communication_process: InstrumentCommProcess
         self._logging_level: int
         if values_to_share_to_server is None:
             values_to_share_to_server = dict()
@@ -48,7 +49,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         self._data_analyzer_process: DataAnalyzerProcess
 
         self._all_processes = Tuple[
-            ServerThread, OkCommunicationProcess, FileWriterProcess, DataAnalyzerProcess
+            ServerThread, InstrumentCommProcess, FileWriterProcess, DataAnalyzerProcess
         ]  # server takes longest to start, so have that first
 
         self.set_logging_level(logging_level)
@@ -71,8 +72,8 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
     def get_logging_level(self) -> int:
         return self._logging_level
 
-    def get_instrument_process(self) -> OkCommunicationProcess:
-        return self._ok_communication_process
+    def get_instrument_process(self) -> InstrumentCommProcess:
+        return self._instrument_communication_process
 
     def get_file_writer_process(self) -> FileWriterProcess:
         return self._file_writer_process
@@ -99,9 +100,9 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             ),
         )
 
-        self._ok_communication_process = OkCommunicationProcess(
-            queue_container.get_ok_comm_board_queues(),
-            queue_container.get_ok_communication_error_queue(),
+        self._instrument_communication_process = OkCommunicationProcess(
+            queue_container.get_instrument_comm_board_queues(),
+            queue_container.get_instrument_communication_error_queue(),
             logging_level=self._logging_level,
         )
 
@@ -124,7 +125,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
 
         self._all_processes = (
             self._server_thread,
-            self._ok_communication_process,
+            self._instrument_communication_process,
             self._file_writer_process,
             self._data_analyzer_process,
         )
@@ -142,15 +143,19 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         self.create_processes()
         self.start_processes()
 
-    def boot_up_instrument(self) -> Dict[str, Any]:
+    def boot_up_instrument(self, load_firmware_file: bool = True) -> Dict[str, Any]:
         """Boot up the Mantarray instrument.
 
         It is assumed that 'bit_file_name' will be a path to a real .bit
         firmware file whose name follows the format:
         'mantarray_#_#_#.bit'
         """
-        bit_file_name = get_latest_firmware()
-        to_ok_comm_queue = self.queue_container().get_communication_to_ok_comm_queue(0)
+        bit_file_name = None
+        if load_firmware_file:
+            bit_file_name = get_latest_firmware()
+        to_instrument_comm_queue = (
+            self.queue_container().get_communication_to_instrument_comm_queue(0)
+        )
 
         self.get_values_to_share_to_server()[
             "system_status"
@@ -162,13 +167,13 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             "suppress_error": False,
             "allow_board_reinitialization": False,
         }
-        to_ok_comm_queue.put(boot_up_dict)
+        to_instrument_comm_queue.put(boot_up_dict)
 
         start_up_dict = {
             "communication_type": "xem_scripts",
             "script_type": "start_up",
         }
-        to_ok_comm_queue.put(start_up_dict)
+        to_instrument_comm_queue.put(start_up_dict)
 
         response_dict = {
             "boot_up_instrument": copy.deepcopy(boot_up_dict),
@@ -200,12 +205,12 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
 
     def hard_stop_processes(self) -> Dict[str, Any]:
         """Immediately stop subprocesses."""
-        ok_comm_items = self._ok_communication_process.hard_stop()
+        instrument_comm_items = self._instrument_communication_process.hard_stop()
         file_writer_items = self._file_writer_process.hard_stop()
         data_analyzer_items = self._data_analyzer_process.hard_stop()
         server_items = self._server_thread.hard_stop()
         process_items = {
-            "ok_comm_items": ok_comm_items,
+            "instrument_comm_items": instrument_comm_items,
             "file_writer_items": file_writer_items,
             "data_analyzer_items": data_analyzer_items,
             "server_items": server_items,
@@ -230,8 +235,8 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
 
     def hard_stop_and_join_processes(self) -> Dict[str, Any]:
         """Hard stop all processes and return contents of their queues."""
-        ok_comm_items = self._ok_communication_process.hard_stop()
-        self._ok_communication_process.join()
+        instrument_comm_items = self._instrument_communication_process.hard_stop()
+        self._instrument_communication_process.join()
         file_writer_items = self._file_writer_process.hard_stop()
         self._file_writer_process.join()
         data_analyzer_items = self._data_analyzer_process.hard_stop()
@@ -239,7 +244,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         server_items = self._server_thread.hard_stop()
         self._server_thread.join()
         process_items = {
-            "ok_comm_items": ok_comm_items,
+            "instrument_comm_items": instrument_comm_items,
             "file_writer_items": file_writer_items,
             "data_analyzer_items": data_analyzer_items,
             "server_items": server_items,
@@ -247,7 +252,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         return process_items
 
     def are_processes_stopped(
-        self, timeout_secs: Union[float, int] = SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
+        self, timeout_seconds: Union[float, int] = SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
     ) -> bool:
         """Check if processes are stopped."""
         start = perf_counter()
@@ -261,7 +266,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         while not are_stopped:
             sleep(SUBPROCESS_POLL_DELAY_SECONDS)
             elapsed_time = perf_counter() - start
-            if elapsed_time >= timeout_secs:
+            if elapsed_time >= timeout_seconds:
                 break
             are_stopped = all(p.is_stopped() for p in processes)
         return are_stopped

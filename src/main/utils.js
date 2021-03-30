@@ -10,26 +10,12 @@ const yaml = require("js-yaml");
  * @return {string} the semantic version
  */
 const get_current_app_version = function () {
-  return "0.4.2";
-  // Eli (1/15/21) - can't figure out how to get it working dynamically
-  // try {
-  //   const {electron_app} = require("electron").remote;
-  // }
-  // catch (err) {
-  //   if(err instanceof TypeError){
-  //       // Electron is not actually running, so get the version from package.json
-  //       console.log('Attempting to read the version from package.json') // allow-log
-  //       const path_to_package_json=path.join(__dirname,'..','..','package.json')
-  //       const package_info=require(path_to_package_json)
-  //       return package_info.version
-  //   }
-  //   else {
-  //     console.log( // allow-log
-  //       'Something other than TypeError detected when trying to require electron.remote: ' + err)
-  //     throw err
-  //   }
-  // }
-  // return electron_app.getVersion()
+  // Eli (3/30/21): Do NOT use `process.env.npm_package_version` to try and do this. It works in CI using the test runner, but does not actually work when running on a standalone machine--it just evaluates to undefined.
+  // adapted from https://github.com/electron/electron/issues/7085
+  if (process.env.NODE_ENV !== "production") {
+    return require("../../package.json").version;
+  }
+  return require("electron").app.getVersion();
 };
 
 /**
@@ -74,6 +60,7 @@ const generate_flask_command_line_args = function (electron_store) {
     electron_store_dir,
     flask_logs_subfolder
   );
+  console.log("node env: " + process.env.NODE_ENV); // allow-log
   // Eli (7/15/20): Having quotation marks around the path does not appear to be necessary even with spaces in the path, since it's being passed programatically and not directly through the shell
   args.push("--log-file-dir=" + flask_logs_full_path + "");
   args.push(

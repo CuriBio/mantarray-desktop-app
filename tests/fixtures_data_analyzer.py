@@ -13,13 +13,14 @@ def fixture_four_board_analyzer_process():
     error_queue = Queue()
 
     board_queues = tuple(
-        [
+        (
             (
                 Queue(),
                 Queue(),
             )
+            # pylint: disable=duplicate-code
             for _ in range(num_boards)
-        ]
+        )
     )
     p = DataAnalyzerProcess(
         board_queues,
@@ -28,5 +29,3 @@ def fixture_four_board_analyzer_process():
         error_queue,
     )
     yield p, board_queues, comm_from_main_queue, comm_to_main_queue, error_queue
-    # clean up by draining all the queues to avoid BrokenPipe errors
-    p.hard_stop()

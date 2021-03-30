@@ -15,8 +15,8 @@ NodeJS Dependencies:
 
 .. image:: https://david-dm.org/CuriBio/mantarray-desktop-app/status.svg
    :target: https://david-dm.org/CuriBio/mantarray-desktop-app
-   :alt: NodeDevDependency Status
+   :alt: NodeDependency Status
 
 .. image:: https://david-dm.org/CuriBio/mantarray-desktop-app/dev-status.svg
    :target: https://david-dm.org/CuriBio/mantarray-desktop-app?type=dev
-   :alt: NodeDependency Status
+   :alt: NodeDevDependency Status

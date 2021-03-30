@@ -14,7 +14,7 @@ class UnrecognizedDebugConsoleCommandError(Exception):
     pass
 
 
-class UnrecognizedCommTypeFromMainToOKCommError(Exception):
+class UnrecognizedCommTypeFromMainToInstrumentError(Exception):
     pass
 
 
@@ -23,6 +23,10 @@ class UnrecognizedCommandToInstrumentError(Exception):
 
 
 class UnrecognizedCommandFromMainToFileWriterError(Exception):
+    pass
+
+
+class UnrecognizedCommandFromMainToMcCommError(Exception):
     pass
 
 
@@ -82,6 +86,10 @@ class UnrecognizedRecordingCommandError(Exception):
     pass
 
 
+class UnrecognizedSimulatorTestCommandError(Exception):
+    pass
+
+
 class ImproperlyFormattedCustomerAccountUUIDError(Exception):
     pass
 
@@ -112,3 +120,55 @@ class ServerThreadNotInitializedError(Exception):
 
 class ServerThreadSingletonAlreadySetError(Exception):
     """Helps ensure that test cases clean up after themselves."""
+
+
+class InstrumentCommIncorrectHeaderError(Exception):
+    pass
+
+
+class UnrecognizedSerialCommModuleIdError(Exception):
+    pass
+
+
+class UnrecognizedSerialCommPacketTypeError(Exception):
+    pass
+
+
+class SerialCommPacketRegistrationTimoutError(Exception):
+    pass
+
+
+class SerialCommPacketRegistrationReadEmptyError(Exception):
+    pass
+
+
+class SerialCommPacketRegistrationSearchExhaustedError(Exception):
+    pass
+
+
+class SerialCommIncorrectChecksumFromInstrumentError(Exception):
+    pass
+
+
+class SerialCommIncorrectChecksumFromPCError(Exception):
+    pass
+
+
+class SerialCommIncorrectMagicWordFromMantarrayError(Exception):
+    pass
+
+
+class SerialCommPacketFromMantarrayTooSmallError(Exception):
+    pass
+
+
+class SerialCommMetadataValueTooLargeError(Exception):
+    pass
+
+
+class SerialCommTooManyMissedHandshakesError(Exception):
+    pass
+
+
+class SerialCommUntrackedCommandResponseError(Exception):
+    pass

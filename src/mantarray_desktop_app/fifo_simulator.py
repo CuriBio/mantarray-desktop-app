@@ -9,6 +9,7 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 
+from stdlib_utils import drain_queue
 from xem_wrapper import DATA_FRAME_SIZE_WORDS
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 from xem_wrapper import FrontPanelBase
@@ -25,11 +26,10 @@ from .exceptions import AttemptToInitializeFIFOReadsError
 from .fifo_read_producer import FIFOReadProducer
 from .fifo_read_producer import produce_data
 from .mantarray_front_panel import MantarrayFrontPanelMixIn
-from .queue_utils import _drain_queue
 
 
 class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
-    """Simulate a running Mantarray machine.
+    """Simulate a running Mantarray machine with OK board.
 
     Args:
         simulated_response_queues: dictionary where the ultimate leaves should be multiprocessing_utils.SimpleMultiprocessingQueue objects. These values are popped off the end of the queue and returned as if coming from the XEM. The 'wire_outs' key should contain a sub-dict with keys of integer values representing the ep addresses.
@@ -65,7 +65,7 @@ class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
         if "wire_outs" in self._simulated_response_queues:
             wire_outs = self._simulated_response_queues["wire_outs"]
             for _, wire_out_queue in wire_outs.items():
-                _drain_queue(wire_out_queue)
+                drain_queue(wire_out_queue)
 
     def initialize_board(
         self,

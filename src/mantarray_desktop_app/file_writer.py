@@ -40,11 +40,11 @@ from mantarray_file_manager import WELL_INDEX_UUID
 from mantarray_file_manager import WELL_NAME_UUID
 from mantarray_file_manager import WELL_ROW_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
-import numpy as np
+from nptyping import NDArray
 from stdlib_utils import compute_crc32_and_write_to_file_head
+from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
-from stdlib_utils import safe_get
 
 from .constants import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from .constants import CURRENT_HDF5_FILE_FORMAT_VERSION
@@ -53,7 +53,6 @@ from .constants import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from .constants import ROUND_ROBIN_PERIOD
-from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .exceptions import InvalidDataTypeFromOkCommError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
 
@@ -77,22 +76,24 @@ def _get_formatted_utc_now() -> str:
 
 
 def get_tissue_dataset_from_file(
-    the_file: h5py._hl.files.File,  # pylint: disable=protected-access # WTF pylint...this is a type definition
-) -> h5py._hl.dataset.Dataset:  # pylint: disable=protected-access # WTF pylint...this is a type definition
+    the_file: h5py.File,
+) -> h5py.Dataset:
     """Return the dataset for tissue sensor data from the H5 file object."""
     return the_file["tissue_sensor_readings"]
 
 
 def get_reference_dataset_from_file(
-    the_file: h5py._hl.files.File,  # pylint: disable=protected-access # WTF pylint...this is a type definition
-) -> h5py._hl.dataset.Dataset:  # pylint: disable=protected-access # WTF pylint...this is a type definition
+    the_file: h5py.File,
+) -> h5py.Dataset:
     """Return the dataset for reference sensor data from the H5 file object."""
     return the_file["reference_sensor_readings"]
 
 
 def get_data_slice_within_timepoints(
-    time_value_arr: np.array, min_timepoint: int, max_timepoint: Optional[int] = None
-) -> Tuple[np.array, int, int]:
+    time_value_arr: NDArray[(2, Any), int],
+    min_timepoint: int,
+    max_timepoint: Optional[int] = None,
+) -> Tuple[NDArray[(2, Any), int], int, int]:
     """Get just the section of data that is relevant.
 
     It is assumed that at least some of this data will be relevant.
@@ -153,25 +154,9 @@ def _drain_board_queues(
     ],
 ) -> Dict[str, List[Any]]:
     board_dict = dict()
-    board_dict["ok_comm_to_file_writer"] = _drain_queue(board[0])
-    board_dict["file_writer_to_data_analyzer"] = _drain_queue(board[1])
+    board_dict["instrument_comm_to_file_writer"] = drain_queue(board[0])
+    board_dict["file_writer_to_data_analyzer"] = drain_queue(board[1])
     return board_dict
-
-
-def _drain_queue(
-    file_writer_queue: Queue[Any],  # pylint: disable=unsubscriptable-object
-) -> List[Any]:
-    queue_items = list()
-    item = safe_get(file_writer_queue)
-    while item is not None:
-        queue_items.append(item)
-        item = safe_get(file_writer_queue)
-    return queue_items
-
-
-# MPQueueOfCommunicationsType = Queue[  # pylint: disable=unsubscriptable-object
-#     Dict[str, Any]
-# ]
 
 
 # pylint: disable=too-many-instance-attributes
@@ -484,7 +469,7 @@ class FileWriterProcess(InfiniteProcess):
     def _process_next_command_from_main(self) -> None:
         input_queue = self._from_main_queue
         try:
-            communication = input_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
+            communication = input_queue.get_nowait()
         except queue.Empty:
             return
 
@@ -625,7 +610,7 @@ class FileWriterProcess(InfiniteProcess):
         """
         input_queue = self._board_queues[0][0]
         try:
-            data_packet = input_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
+            data_packet = input_queue.get_nowait()
         except queue.Empty:
             return
 
@@ -718,6 +703,6 @@ class FileWriterProcess(InfiniteProcess):
         queue_items: Dict[str, Any] = dict()
         for i, board in enumerate(self._board_queues):
             queue_items[f"board_{i}"] = _drain_board_queues(board)
-        queue_items["from_main_to_file_writer"] = _drain_queue(self._from_main_queue)
-        queue_items["from_file_writer_to_main"] = _drain_queue(self._to_main_queue)
+        queue_items["from_main_to_file_writer"] = drain_queue(self._from_main_queue)
+        queue_items["from_file_writer_to_main"] = drain_queue(self._to_main_queue)
         return queue_items

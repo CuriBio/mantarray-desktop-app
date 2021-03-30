@@ -25,7 +25,7 @@ from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
-from mantarray_desktop_app.server import queue_command_to_ok_comm
+from mantarray_desktop_app.server import queue_command_to_instrument_comm
 import numpy as np
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
@@ -56,7 +56,7 @@ def test_MantarrayProcessesMonitor__init__calls_super(mocker, test_process_manag
     assert mocked_super_init.call_count == 1
 
 
-@pytest.mark.timeout(10)
+@pytest.mark.timeout(12)
 def test_MantarrayProcessesMonitor__soft_stop_calls_manager_soft_stop_and_join(
     test_monitor, test_process_manager, mocker
 ):
@@ -74,14 +74,14 @@ def test_MantarrayProcessesMonitor__soft_stop_calls_manager_soft_stop_and_join(
     assert spied_stop.call_count == 1
 
 
-def test_MantarrayProcessesMonitor__logs_messages_from_ok_comm(
+def test_MantarrayProcessesMonitor__logs_messages_from_instrument_comm(
     mocker, test_process_manager, test_monitor
 ):
     monitor_thread, _, _, _ = test_monitor
 
     mocked_logger = mocker.patch.object(process_monitor.logger, "info", autospec=True)
 
-    ok_comm_to_main = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    instrument_comm_to_main = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
     expected_comm = {
@@ -89,10 +89,10 @@ def test_MantarrayProcessesMonitor__logs_messages_from_ok_comm(
         "command": "get_device_id",
         "response": "my_cool_id",
     }
-    ok_comm_to_main.put(expected_comm)
-    assert is_queue_eventually_not_empty(ok_comm_to_main) is True
+    instrument_comm_to_main.put(expected_comm)
+    assert is_queue_eventually_not_empty(instrument_comm_to_main) is True
     invoke_process_run_and_check_errors(monitor_thread)
-    assert is_queue_eventually_empty(ok_comm_to_main) is True
+    assert is_queue_eventually_empty(instrument_comm_to_main) is True
     mocked_logger.assert_called_once_with(
         f"Communication from the OpalKelly Controller: {expected_comm}"
     )
@@ -176,7 +176,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_data_analyzer(
     )
 
 
-def test_MantarrayProcessesMonitor__logs_errors_from_OKComm(
+def test_MantarrayProcessesMonitor__logs_errors_from_InstrumentCommProcess(
     mocker, test_process_manager, test_monitor
 ):
     monitor_thread, _, _, _ = test_monitor
@@ -185,16 +185,16 @@ def test_MantarrayProcessesMonitor__logs_errors_from_OKComm(
 
     test_process_manager.start_processes()
 
-    ok_comm_error_queue = (
-        test_process_manager.queue_container().get_ok_communication_error_queue()
+    instrument_comm_error_queue = (
+        test_process_manager.queue_container().get_instrument_communication_error_queue()
     )
     expected_error = ValueError("something wrong")
     expected_stack_trace = "my stack trace"
     expected_message = f"Error raised by subprocess {test_process_manager.get_instrument_process()}\n{expected_stack_trace}\n{expected_error}"
-    ok_comm_error_queue.put((expected_error, expected_stack_trace))
-    assert is_queue_eventually_not_empty(ok_comm_error_queue) is True
+    instrument_comm_error_queue.put((expected_error, expected_stack_trace))
+    assert is_queue_eventually_not_empty(instrument_comm_error_queue) is True
     invoke_process_run_and_check_errors(monitor_thread)
-    assert is_queue_eventually_empty(ok_comm_error_queue) is True
+    assert is_queue_eventually_empty(instrument_comm_error_queue) is True
     mocked_logger.assert_any_call(expected_message)
 
 
@@ -291,8 +291,8 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         ("error", "stack_trace"), ok_comm_error_queue
     )
-    instrument_to_main = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    instrument_to_main = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         expected_ok_comm_item, instrument_to_main
@@ -340,13 +340,13 @@ def test_MantarrayProcessesMonitor__updates_timestamp_in_shared_values_dict_afte
     test_monitor, test_process_manager
 ):
     monitor_thread, shared_values_dict, _, _ = test_monitor
-    queue_command_to_ok_comm(
+    queue_command_to_instrument_comm(
         get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
     )
-    comm_to_ok_comm = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    comm_to_instrument_comm = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
-    assert is_queue_eventually_not_empty(comm_to_ok_comm) is True
+    assert is_queue_eventually_not_empty(comm_to_instrument_comm) is True
     ok_comm_process = test_process_manager.get_instrument_process()
     simulator = FrontPanelSimulator({})
     simulator.initialize_board()
@@ -464,10 +464,12 @@ def test_MantarrayProcessesMonitor__sets_in_simulation_mode_to_false_when_connec
 
     ok_comm_process = test_process_manager.get_instrument_process()
     container = test_process_manager.queue_container()
-    ok_comm_to_main_queue = container.get_communication_queue_from_ok_comm_to_main(0)
+    instrument_comm_to_main_queue = (
+        container.get_communication_queue_from_instrument_comm_to_main(0)
+    )
 
     ok_comm_process.create_connections_to_all_available_boards()
-    assert is_queue_eventually_not_empty(ok_comm_to_main_queue) is True
+    assert is_queue_eventually_not_empty(instrument_comm_to_main_queue) is True
 
     invoke_process_run_and_check_errors(monitor_thread)
 
@@ -480,12 +482,12 @@ def test_MantarrayProcessesMonitor__sets_in_simulation_mode_to_true_when_connect
     monitor_thread, shared_values_dict, _, _ = test_monitor
 
     ok_comm_process = test_process_manager.get_instrument_process()
-    ok_comm_to_main_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    instrument_comm_to_main_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
 
     ok_comm_process.create_connections_to_all_available_boards()
-    assert is_queue_eventually_not_empty(ok_comm_to_main_queue) is True
+    assert is_queue_eventually_not_empty(instrument_comm_to_main_queue) is True
 
     invoke_process_run_and_check_errors(monitor_thread)
 
@@ -507,19 +509,19 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_needs_calibration_afte
     simulator.initialize_board()
     ok_comm_process.set_board_connection(0, simulator)
 
-    from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    from_instrument_comm_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
-    to_ok_comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    to_instrument_comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
-    to_ok_comm_queue.put(
+    to_instrument_comm_queue.put(
         {"communication_type": "xem_scripts", "script_type": "start_up"}
     )
-    assert is_queue_eventually_not_empty(to_ok_comm_queue) is True
+    assert is_queue_eventually_not_empty(to_instrument_comm_queue) is True
     invoke_process_run_and_check_errors(ok_comm_process)
 
-    assert is_queue_eventually_not_empty(from_ok_comm_queue) is True
+    assert is_queue_eventually_not_empty(from_instrument_comm_queue) is True
     # Tanner (6/2/20): num iterations should be 3 here because xem_scripts sends 3 messages to main, and the third one will contain the system status update
     invoke_process_run_and_check_errors(monitor_thread, num_iterations=3)
 
@@ -543,19 +545,19 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_calibrated_after_calib
     ok_comm_process.set_board_connection(0, simulator)
 
     ok_comm_process = test_process_manager.get_instrument_process()
-    from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    from_instrument_comm_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
-    to_ok_comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    to_instrument_comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
-    to_ok_comm_queue.put(
+    to_instrument_comm_queue.put(
         {"communication_type": "xem_scripts", "script_type": "start_calibration"}
     )
-    assert is_queue_eventually_not_empty(to_ok_comm_queue) is True
+    assert is_queue_eventually_not_empty(to_instrument_comm_queue) is True
     invoke_process_run_and_check_errors(ok_comm_process)
 
-    assert is_queue_eventually_not_empty(from_ok_comm_queue) is True
+    assert is_queue_eventually_not_empty(from_instrument_comm_queue) is True
     # Tanner (6/29/20): num iterations should be 51 here because xem_scripts sends 51 total messages, the last one containing the system status update
     invoke_process_run_and_check_errors(monitor_thread, num_iterations=51)
 
@@ -571,11 +573,11 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_calibrated_after_manag
     )
 
     ok_comm_process = test_process_manager.get_instrument_process()
-    from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    from_instrument_comm_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
-    to_ok_comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    to_instrument_comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
 
     simulator = FrontPanelSimulator({})
@@ -583,11 +585,11 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_calibrated_after_manag
     simulator.start_acquisition()
     ok_comm_process.set_board_connection(0, simulator)
 
-    to_ok_comm_queue.put(STOP_MANAGED_ACQUISITION_COMMUNICATION)
-    assert is_queue_eventually_not_empty(to_ok_comm_queue) is True
+    to_instrument_comm_queue.put(STOP_MANAGED_ACQUISITION_COMMUNICATION)
+    assert is_queue_eventually_not_empty(to_instrument_comm_queue) is True
     invoke_process_run_and_check_errors(ok_comm_process)
 
-    assert is_queue_eventually_not_empty(from_ok_comm_queue) is True
+    assert is_queue_eventually_not_empty(from_instrument_comm_queue) is True
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["system_status"] == CALIBRATED_STATE
     assert monitor_thread._data_dump_buffer_size == 0  # pylint:disable=protected-access
@@ -599,12 +601,12 @@ def test_MantarrayProcessesMonitor__stores_device_information_after_connection(
     monitor_thread, shared_values_dict, _, _ = test_monitor
 
     ok_comm_process = test_process_manager.get_instrument_process()
-    ok_comm_to_main_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    instrument_comm_to_main_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
 
     ok_comm_process.create_connections_to_all_available_boards()
-    assert is_queue_eventually_not_empty(ok_comm_to_main_queue) is True
+    assert is_queue_eventually_not_empty(instrument_comm_to_main_queue) is True
 
     invoke_process_run_and_check_errors(monitor_thread)
 
@@ -675,20 +677,20 @@ def test_MantarrayProcessesMonitor__stores_firmware_versions_during_instrument_b
     )
 
     okc_process = test_process_manager.get_instrument_process()
-    to_ok_comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    to_instrument_comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
-    from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    from_instrument_comm_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
 
     simulator = RunningFIFOSimulator()
     okc_process.set_board_connection(0, simulator)
     test_process_manager.boot_up_instrument()
-    assert is_queue_eventually_not_empty(to_ok_comm_queue) is True
+    assert is_queue_eventually_not_empty(to_instrument_comm_queue) is True
     invoke_process_run_and_check_errors(okc_process)
 
-    assert is_queue_eventually_not_empty(from_ok_comm_queue) is True
+    assert is_queue_eventually_not_empty(from_instrument_comm_queue) is True
     invoke_process_run_and_check_errors(monitor_thread)
     assert (
         shared_values_dict["main_firmware_version"][0]
@@ -703,7 +705,7 @@ def test_MantarrayProcessesMonitor__scrubs_username_from_bit_file_name_in_get_st
     monitor_thread, _, _, _ = test_monitor
     spied_info = mocker.spy(process_monitor.logger, "info")
 
-    from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    from_instrument_comm_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
 
@@ -717,7 +719,7 @@ def test_MantarrayProcessesMonitor__scrubs_username_from_bit_file_name_in_get_st
         },
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        copy.deepcopy(test_communication), from_ok_comm_queue
+        copy.deepcopy(test_communication), from_instrument_comm_queue
     )
 
     invoke_process_run_and_check_errors(monitor_thread)
@@ -732,7 +734,7 @@ def test_MantarrayProcessesMonitor__scrubs_username_from_bit_file_name_in_boot_u
     monitor_thread, _, _, _ = test_monitor
     spied_info = mocker.spy(process_monitor.logger, "info")
 
-    from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    from_instrument_comm_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
 
@@ -747,7 +749,7 @@ def test_MantarrayProcessesMonitor__scrubs_username_from_bit_file_name_in_boot_u
         "bit_file_name": r"Users\username1\AppData\main.bit",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        copy.deepcopy(test_communication), from_ok_comm_queue
+        copy.deepcopy(test_communication), from_instrument_comm_queue
     )
 
     invoke_process_run_and_check_errors(monitor_thread)
@@ -784,8 +786,8 @@ def test_MantarrayProcessesMonitor__sends_two_barcode_poll_commands_to_OKComm_at
     test_monitor, test_process_manager, mocker
 ):
     monitor_thread, _, _, _ = test_monitor
-    to_ok_comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    to_instrument_comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
 
     expected_time_1 = 0
@@ -815,17 +817,17 @@ def test_MantarrayProcessesMonitor__sends_two_barcode_poll_commands_to_OKComm_at
     }
 
     invoke_process_run_and_check_errors(monitor_thread)
-    confirm_queue_is_eventually_empty(to_ok_comm_queue)
+    confirm_queue_is_eventually_empty(to_instrument_comm_queue)
     invoke_process_run_and_check_errors(monitor_thread)
-    confirm_queue_is_eventually_of_size(to_ok_comm_queue, 1)
-    actual = to_ok_comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    confirm_queue_is_eventually_of_size(to_instrument_comm_queue, 1)
+    actual = to_instrument_comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_comm
 
     invoke_process_run_and_check_errors(monitor_thread)
-    confirm_queue_is_eventually_empty(to_ok_comm_queue)
+    confirm_queue_is_eventually_empty(to_instrument_comm_queue)
     invoke_process_run_and_check_errors(monitor_thread)
-    confirm_queue_is_eventually_of_size(to_ok_comm_queue, 1)
-    actual = to_ok_comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    confirm_queue_is_eventually_of_size(to_instrument_comm_queue, 1)
+    actual = to_instrument_comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_comm
 
     assert mocked_get_dur.call_args_list[0][0][0] == expected_time_1
@@ -842,7 +844,7 @@ def test_MantarrayProcessesMonitor__sends_two_barcode_poll_commands_to_OKComm_at
         ("", None, BARCODE_UNREADABLE_UUID, "stores no barcode"),
     ],
 )
-def test_MantarrayProcessesMonitor__stores_barcode_sent_from_ok_comm__and_no_previously_stored_barcode(
+def test_MantarrayProcessesMonitor__stores_barcode_sent_from_instrument_comm__and_no_previously_stored_barcode(
     expected_barcode,
     test_valid,
     expected_status,
@@ -852,7 +854,7 @@ def test_MantarrayProcessesMonitor__stores_barcode_sent_from_ok_comm__and_no_pre
 ):
     monitor_thread, shared_values_dict, _, _ = test_monitor
     expected_board_idx = 0
-    from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    from_instrument_comm_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         expected_board_idx
     )
 
@@ -867,7 +869,7 @@ def test_MantarrayProcessesMonitor__stores_barcode_sent_from_ok_comm__and_no_pre
         # specifically want test_valid to be False here, not None since invalid barcodes have trailing `\x00`
         barcode_comm["barcode"] += chr(0)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        barcode_comm, from_ok_comm_queue
+        barcode_comm, from_instrument_comm_queue
     )
     invoke_process_run_and_check_errors(monitor_thread)
 
@@ -886,7 +888,7 @@ def test_MantarrayProcessesMonitor__stores_barcode_sent_from_ok_comm__and_no_pre
         ("", None, BARCODE_UNREADABLE_UUID, "updates to no barcode"),
     ],
 )
-def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_ok_comm(
+def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_instrument_comm(
     expected_barcode,
     test_valid,
     expected_status,
@@ -905,7 +907,7 @@ def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_ok_comm(
         }
     }
 
-    from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    from_instrument_comm_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         expected_board_idx
     )
 
@@ -920,7 +922,7 @@ def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_ok_comm(
         # specifically want test_valid to be False here, not None since invalid barcodes have trailing `\x00`
         barcode_comm["barcode"] += chr(0)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        barcode_comm, from_ok_comm_queue
+        barcode_comm, from_instrument_comm_queue
     )
     invoke_process_run_and_check_errors(monitor_thread)
 
@@ -957,7 +959,7 @@ def test_MantarrayProcessesMonitor__does_not_update_any_values_if_new_barcode_ma
     }
     shared_values_dict["barcodes"] = {expected_board_idx: expected_dict}
 
-    from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    from_instrument_comm_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         expected_board_idx
     )
 
@@ -972,7 +974,7 @@ def test_MantarrayProcessesMonitor__does_not_update_any_values_if_new_barcode_ma
         # specifically want test_valid to be False here, not None since invalid barcodes have trailing `\x00`
         barcode_comm["barcode"] += chr(0)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        barcode_comm, from_ok_comm_queue
+        barcode_comm, from_instrument_comm_queue
     )
     invoke_process_run_and_check_errors(monitor_thread)
 
@@ -985,7 +987,7 @@ def test_MantarrayProcessesMonitor__trims_barcode_string_before_storing_in_share
     monitor_thread, shared_values_dict, _, _ = test_monitor
 
     expected_board_idx = 0
-    from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    from_instrument_comm_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         expected_board_idx
     )
 
@@ -996,7 +998,7 @@ def test_MantarrayProcessesMonitor__trims_barcode_string_before_storing_in_share
         "board_idx": expected_board_idx,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        barcode_comm, from_ok_comm_queue
+        barcode_comm, from_instrument_comm_queue
     )
     invoke_process_run_and_check_errors(monitor_thread)
 
@@ -1013,7 +1015,7 @@ def test_MantarrayProcessesMonitor__redacts_mantarray_nickname_from_logged_manta
 
     mocked_logger = mocker.patch.object(process_monitor.logger, "info", autospec=True)
 
-    ok_comm_to_main = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    instrument_comm_to_main = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
 
@@ -1024,10 +1026,10 @@ def test_MantarrayProcessesMonitor__redacts_mantarray_nickname_from_logged_manta
         "mantarray_nickname": test_nickname,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_comm, ok_comm_to_main
+        test_comm, instrument_comm_to_main
     )
     invoke_process_run_and_check_errors(monitor_thread)
-    confirm_queue_is_eventually_empty(ok_comm_to_main)
+    confirm_queue_is_eventually_empty(instrument_comm_to_main)
 
     expected_comm = copy.deepcopy(test_comm)
     expected_comm["mantarray_nickname"] = "*" * len(test_nickname)
@@ -1043,7 +1045,7 @@ def test_MantarrayProcessesMonitor__redacts_mantarray_nickname_from_logged_board
 
     mocked_logger = mocker.patch.object(process_monitor.logger, "info", autospec=True)
 
-    ok_comm_to_main = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    instrument_comm_to_main = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
 
@@ -1057,10 +1059,10 @@ def test_MantarrayProcessesMonitor__redacts_mantarray_nickname_from_logged_board
         "mantarray_nickname": test_nickname,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_comm, ok_comm_to_main
+        test_comm, instrument_comm_to_main
     )
     invoke_process_run_and_check_errors(monitor_thread)
-    confirm_queue_is_eventually_empty(ok_comm_to_main)
+    confirm_queue_is_eventually_empty(instrument_comm_to_main)
 
     expected_comm = copy.deepcopy(test_comm)
     expected_comm["mantarray_nickname"] = "*" * len(test_nickname)

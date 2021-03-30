@@ -139,6 +139,16 @@ def main(
         type=str,
         help="used to make sure flask server and GUI are the same version",
     )
+    parser.add_argument(
+        "--no-load-firmware",
+        action="store_true",
+        help="allow app to run from command line when no firmware file is present",
+    )
+    parser.add_argument(
+        "--skip-software-version-verification",
+        action="store_true",
+        help="override any supplied expected software version and disable the check",
+    )
     parsed_args = parser.parse_args(command_line_args)
 
     if parsed_args.log_level_debug:
@@ -183,9 +193,10 @@ def main(
         validate_settings(settings_dict)
 
     if parsed_args.expected_software_version:
-        shared_values_dict[
-            "expected_software_version"
-        ] = parsed_args.expected_software_version
+        if not parsed_args.skip_software_version_verification:
+            shared_values_dict[
+                "expected_software_version"
+            ] = parsed_args.expected_software_version
 
     log_file_uuid = settings_dict.get("log_file_uuid", uuid.uuid4())
     shared_values_dict["log_file_uuid"] = log_file_uuid
@@ -230,6 +241,7 @@ def main(
     process_manager.spawn_processes()
 
     boot_up_after_processes_start = not parsed_args.skip_mantarray_boot_up
+    load_firmware_file = not parsed_args.no_load_firmware
 
     the_lock = threading.Lock()
     process_monitor_error_queue: Queue[  # pylint: disable=unsubscriptable-object
@@ -242,6 +254,7 @@ def main(
         process_monitor_error_queue,
         the_lock,
         boot_up_after_processes_start=boot_up_after_processes_start,
+        load_firmware_file=load_firmware_file,
     )
 
     object_access_for_testing["process_monitor"] = process_monitor_thread

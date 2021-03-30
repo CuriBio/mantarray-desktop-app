@@ -53,6 +53,7 @@ a = Analysis(  # type: ignore # noqa: F821     the 'Analysis' object is special 
     ],
     hiddenimports=[
         "xem_wrapper._windows._ok",
+        "xem_wrapper._linux._ok",  # Eli (3/12/21): adding in the linux binary so that it can run on Linux in CI for testing
         "scipy.special.cython_special",
         "flatten_dict",
     ],

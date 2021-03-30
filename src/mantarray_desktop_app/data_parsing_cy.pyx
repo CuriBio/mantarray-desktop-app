@@ -24,6 +24,8 @@ def parse_sensor_bytes(unsigned char[4] data_bytes) -> Tuple[bool, int, int]:
     Returns:
         true if a reference sensor, the index of the reference sensor or plate well index of construct sensor, and the value in the 24-bits
     """
+    # TODO Tanner (2/17/21): investigate pybind
+    # TODO Tanner (2/17/21): investigate wrap around and bounce
     cdef int meta_data_byte, adc_num, adc_ch_num, index
     cdef bint is_reference_sensor
 

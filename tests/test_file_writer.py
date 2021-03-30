@@ -65,12 +65,9 @@ from mantarray_file_manager import WELL_ROW_UUID
 from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
 import numpy as np
 import pytest
-from stdlib_utils import confirm_queue_is_eventually_of_size
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import invoke_process_run_and_check_errors
-from stdlib_utils import is_queue_eventually_empty
-from stdlib_utils import is_queue_eventually_of_size
 from stdlib_utils import validate_file_head_crc32
 
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
@@ -82,8 +79,10 @@ from .fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from .fixtures_file_writer import GENERIC_TISSUE_DATA_PACKET
 from .fixtures_file_writer import open_the_generic_h5_file
 from .fixtures_file_writer import WELL_DEF_24
-from .helpers import assert_queue_is_eventually_not_empty
 from .helpers import confirm_queue_is_eventually_empty
+from .helpers import confirm_queue_is_eventually_of_size
+from .helpers import is_queue_eventually_empty
+from .helpers import is_queue_eventually_of_size
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 from .parsed_channel_data_packets import SIMPLE_CONSTRUCT_DATA_FROM_WELL_0
 
@@ -127,41 +126,37 @@ def test_FileWriterProcess_super_is_called_during_init(mocker):
 def test_FileWriterProcess_soft_stop_not_allowed_if_incoming_data_still_in_queue_for_board_0(
     four_board_file_writer_process,
 ):
-    # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
-    # fmt: off
-    file_writer_process, board_queues, _, _, _, _, = four_board_file_writer_process
-    # fmt: on
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    board_queues = four_board_file_writer_process["board_queues"]
+
     # The first communication will be processed, but if there is a second one in the queue then the soft stop should be disabled
     board_queues[0][0].put(SIMPLE_CONSTRUCT_DATA_FROM_WELL_0)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         SIMPLE_CONSTRUCT_DATA_FROM_WELL_0,
         board_queues[0][0],
     )
-    assert (
-        is_queue_eventually_of_size(
-            board_queues[0][0], 2, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+
+    confirm_queue_is_eventually_of_size(
+        board_queues[0][0], 2, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
+
     file_writer_process.soft_stop()
     invoke_process_run_and_check_errors(file_writer_process)
     assert file_writer_process.is_stopped() is False
 
+    # Tanner (3/8/21): Prevent BrokenPipeErrors
+    drain_queue(board_queues[0][0])
 
-def test_FileWriterProcess__raises_error_if_not_a_dict_is_passed_through_the_queue_for_board_0_from_ok_comm(
+
+def test_FileWriterProcess__raises_error_if_not_a_dict_is_passed_through_the_queue_for_board_0_from_instrument_comm(
     four_board_file_writer_process, mocker
 ):
     mocker.patch(
         "builtins.print", autospec=True
     )  # don't print all the error messages to console
-    (
-        file_writer_process,
-        board_queues,
-        _,
-        _,
-        _,
-        _,
-    ) = four_board_file_writer_process
+
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    board_queues = four_board_file_writer_process["board_queues"]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         "a string is not a dictionary",
         board_queues[0][0],
@@ -179,20 +174,17 @@ def test_FileWriterProcess__raises_error_if_unrecognized_command_from_main(
     mocker.patch(
         "builtins.print", autospec=True
     )  # don't print all the error messages to console
-    (
-        file_writer_process,
-        _,
-        from_main_queue,
-        _,
-        error_queue,
-        _,
-    ) = four_board_file_writer_process
+
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    error_queue = four_board_file_writer_process["error_queue"]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"command": "do the hokey pokey"},
         from_main_queue,
     )
     file_writer_process.run(num_iterations=1)
-    assert_queue_is_eventually_not_empty(error_queue)
+    confirm_queue_is_eventually_of_size(error_queue, 1)
+
     raised_error, _ = error_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert (
         isinstance(raised_error, UnrecognizedCommandFromMainToFileWriterError) is True
@@ -204,35 +196,29 @@ def test_FileWriterProcess__raises_error_if_unrecognized_command_from_main(
 def test_FileWriterProcess_soft_stop_not_allowed_if_command_from_main_still_in_queue(
     four_board_file_writer_process,
 ):
-    (
-        file_writer_process,
-        _,
-        from_main_queue,
-        _,
-        _,
-        _,
-    ) = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
     # The first communication will be processed, but if there is a second one in the queue then the soft stop should be disabled
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [1]
     from_main_queue.put(this_command)
     from_main_queue.put(copy.deepcopy(this_command))
-    confirm_queue_is_eventually_of_size(from_main_queue, 2)
+    confirm_queue_is_eventually_of_size(
+        from_main_queue, 2, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # Eli (2/1/21): Even though the queue has been confirmed to be of size 2 in the above line, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
     file_writer_process.soft_stop()
     invoke_process_run_and_check_errors(file_writer_process)
     confirm_queue_is_eventually_of_size(from_main_queue, 1)
     assert file_writer_process.is_stopped() is False
 
+    # Tanner (3/8/21): Prevent BrokenPipeErrors
+    drain_queue(from_main_queue)
+
 
 def test_FileWriterProcess__close_all_files(four_board_file_writer_process, mocker):
-    (
-        file_writer_process,
-        _,
-        from_main_queue,
-        _,
-        _,
-        _,
-    ) = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
 
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [3, 18]
@@ -254,14 +240,9 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
     four_board_file_writer_process,
 ):
     # Creating 24 files takes a few seconds, so also test that all the metadata and other things are set during this single test
-    (
-        file_writer_process,
-        _,
-        from_main_queue,
-        _,
-        _,
-        file_dir,
-    ) = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    file_dir = four_board_file_writer_process["file_dir"]
 
     timestamp_str = "2020_02_09_190935"
     expected_barcode = GENERIC_START_RECORDING_COMMAND[
@@ -417,14 +398,10 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
 def test_FileWriterProcess__only_creates_file_indices_specified__when_receiving_communication_to_start_recording__and_reports_command_receipt_to_main(
     four_board_file_writer_process, mocker
 ):
-    (
-        file_writer_process,
-        _,
-        from_main_queue,
-        to_main_queue,
-        _,
-        file_dir,
-    ) = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
+    file_dir = four_board_file_writer_process["file_dir"]
 
     spied_abspath = mocker.spy(os.path, "abspath")
 
@@ -450,7 +427,7 @@ def test_FileWriterProcess__only_creates_file_indices_specified__when_receiving_
         ]
     )
     assert actual_set_of_files == expected_set_of_files
-    assert_queue_is_eventually_not_empty(to_main_queue)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
     comm_to_main = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert comm_to_main["communication_type"] == "command_receipt"
     assert comm_to_main["command"] == "start_recording"
@@ -467,15 +444,8 @@ def test_FileWriterProcess__only_creates_file_indices_specified__when_receiving_
 def test_FileWriterProcess__start_recording__sets_stop_recording_timestamp_to_none__and_tissue_and_reference_finalization_status_to_false__and_is_recording_to_true(
     four_board_file_writer_process,
 ):
-    # should maybe be replaced by a broader test that a recording can be started and stopped twice successfully...
-    (
-        file_writer_process,
-        _,
-        from_main_queue,
-        _,
-        _,
-        _,
-    ) = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
 
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [1, 5]
@@ -511,17 +481,10 @@ def test_FileWriterProcess__start_recording__sets_stop_recording_timestamp_to_no
 def test_FileWriterProcess__stop_recording_sets_stop_recording_timestamp_to_timepoint_in_communication_and_communicates_successful_receipt_and_sets_is_recording_to_false__and_start_recording_clears_stop_timestamp_and_finalization_statuses(
     four_board_file_writer_process,
 ):
-    (
-        # pylint: disable=duplicate-code
-        file_writer_process,
-        board_queues,
-        # pylint: disable=duplicate-code
-        from_main_queue,
-        to_main_queue,
-        _,
-        # pylint: disable=duplicate-code
-        _,
-    ) = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    board_queues = four_board_file_writer_process["board_queues"]
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
 
     expected_well_idx = 0
     start_timepoint_1 = 440000
@@ -609,14 +572,11 @@ def test_FileWriterProcess__stop_recording_sets_stop_recording_timestamp_to_time
 def test_FileWriterProcess__closes_the_files_and_adds_crc32_checksum_and_sends_communication_to_main_when_all_data_has_been_added_after_recording_stopped(
     four_board_file_writer_process, mocker
 ):
-    (
-        file_writer_process,
-        board_queues,
-        from_main_queue,
-        to_main_queue,
-        _,
-        file_dir,
-    ) = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    board_queues = four_board_file_writer_process["board_queues"]
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    file_dir = four_board_file_writer_process["file_dir"]
 
     spied_h5_close = mocker.spy(
         h5py._hl.files.File,  # pylint:disable=protected-access # this is the only known (Eli 2/27/20) way to access the appropriate type definition
@@ -732,12 +692,11 @@ def test_FileWriterProcess__closes_the_files_and_adds_crc32_checksum_and_sends_c
     to_main_queue.get(
         timeout=QUEUE_CHECK_TIMEOUT_SECONDS
     )  # pop off the initial receipt of stop command message
-    assert_queue_is_eventually_not_empty(to_main_queue)
 
+    confirm_queue_is_eventually_of_size(to_main_queue, 2)
     first_comm_to_main = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert first_comm_to_main["communication_type"] == "file_finalized"
     assert "_A2" in first_comm_to_main["file_path"]
-    assert_queue_is_eventually_not_empty(to_main_queue)
 
     second_comm_to_main = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert second_comm_to_main["communication_type"] == "file_finalized"
@@ -752,14 +711,11 @@ def test_FileWriterProcess__drain_all_queues__drains_all_queues_except_error_que
     expected_from_main = "from_main"
     expected_to_main = "to_main"
 
-    (
-        file_writer_process,
-        board_queues,
-        from_main_queue,
-        to_main_queue,
-        error_queue,
-        _,
-    ) = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    board_queues = four_board_file_writer_process["board_queues"]
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    error_queue = four_board_file_writer_process["error_queue"]
     for i, board in enumerate(board_queues):
         for j, iter_queue in enumerate(board):
             item = expected[i][j]
@@ -778,7 +734,7 @@ def test_FileWriterProcess__drain_all_queues__drains_all_queues_except_error_que
 
     actual = file_writer_process._drain_all_queues()  # pylint:disable=protected-access
 
-    assert_queue_is_eventually_not_empty(error_queue)
+    confirm_queue_is_eventually_of_size(error_queue, 1)
     actual_error = error_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_error == expected_error
 
@@ -800,11 +756,11 @@ def test_FileWriterProcess__drain_all_queues__drains_all_queues_except_error_que
             ),
         ) == (iter_queue_idx, True)
 
-    assert actual["board_0"]["ok_comm_to_file_writer"] == [expected[0][0]]
+    assert actual["board_0"]["instrument_comm_to_file_writer"] == [expected[0][0]]
     assert actual["board_0"]["file_writer_to_data_analyzer"] == [expected[0][1]]
-    assert actual["board_1"]["ok_comm_to_file_writer"] == [expected[1][0]]
-    assert actual["board_2"]["ok_comm_to_file_writer"] == [expected[2][0]]
-    assert actual["board_3"]["ok_comm_to_file_writer"] == [expected[3][0]]
+    assert actual["board_1"]["instrument_comm_to_file_writer"] == [expected[1][0]]
+    assert actual["board_2"]["instrument_comm_to_file_writer"] == [expected[2][0]]
+    assert actual["board_3"]["instrument_comm_to_file_writer"] == [expected[3][0]]
     assert actual["from_main_to_file_writer"] == [expected_from_main]
     assert actual["from_file_writer_to_main"] == [expected_to_main]
 
@@ -813,7 +769,8 @@ def test_FileWriterProcess__drain_all_queues__drains_all_queues_except_error_que
 def test_FileWriterProcess__logs_performance_metrics_after_appropriate_number_of_run_cycles(
     four_board_file_writer_process, mocker
 ):
-    file_writer_process, _, _, to_main_queue, _, _ = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
 
     expected_iteration_dur = 0.001 * 10 ** 9
     expected_idle_time = (
@@ -859,7 +816,7 @@ def test_FileWriterProcess__logs_performance_metrics_after_appropriate_number_of
     invoke_process_run_and_check_errors(
         file_writer_process, num_iterations=FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
     )
-    assert_queue_is_eventually_not_empty(to_main_queue)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
     actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     actual = actual["message"]
 
@@ -887,7 +844,9 @@ def test_FileWriterProcess__logs_performance_metrics_after_appropriate_number_of
 def test_FileWriterProcess__does_not_log_percent_use_metrics_in_first_logging_cycle(
     four_board_file_writer_process,
 ):
-    file_writer_process, _, _, to_main_queue, _, _ = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
+
     file_writer_process._minimum_iteration_duration_seconds = (  # pylint: disable=protected-access
         0
     )
@@ -895,7 +854,7 @@ def test_FileWriterProcess__does_not_log_percent_use_metrics_in_first_logging_cy
     invoke_process_run_and_check_errors(
         file_writer_process, num_iterations=FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
     )
-    assert_queue_is_eventually_not_empty(to_main_queue)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
 
     actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     actual = actual["message"]
@@ -905,14 +864,11 @@ def test_FileWriterProcess__does_not_log_percent_use_metrics_in_first_logging_cy
 def test_FileWriterProcess__logs_metrics_of_data_recording_when_recording(
     four_board_file_writer_process, mocker
 ):
-    (
-        file_writer_process,
-        board_queues,
-        from_main_queue,
-        to_main_queue,
-        _,
-        _,
-    ) = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    board_queues = four_board_file_writer_process["board_queues"]
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
     file_writer_process._minimum_iteration_duration_seconds = (  # pylint: disable=protected-access
         0
     )
@@ -948,12 +904,7 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_when_recording(
             "data": np.zeros((2, num_points)),
         }
         board_queues[0][0].put(ref_packet)
-    assert (
-        is_queue_eventually_of_size(
-            board_queues[0][0], 30, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    confirm_queue_is_eventually_of_size(board_queues[0][0], 30)
     expected_recording_durations = list(range(30))
     perf_counter_vals = [
         0 if i % 2 == 0 else expected_recording_durations[i // 2] for i in range(60)
@@ -983,26 +934,24 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_when_recording(
         ),
     }
 
+    # Tanner (3/8/21): Prevent BrokenPipeErrors
+    drain_queue(board_queues[0][1])
+
 
 def test_FileWriterProcess__begins_building_data_buffer_when_managed_acquisition_starts(
     four_board_file_writer_process,
 ):
-    # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
-    # fmt: off
-    file_writer_process, board_queues, _, _, _, _, = four_board_file_writer_process
-    # fmt: on
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    board_queues = four_board_file_writer_process["board_queues"]
 
     expected_num_items = 3
     for _ in range(expected_num_items):
         board_queues[0][0].put(SIMPLE_CONSTRUCT_DATA_FROM_WELL_0)
-    assert (
-        is_queue_eventually_of_size(
-            board_queues[0][0],
-            expected_num_items,
-            timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
-        )
-        is True
-    )
+    confirm_queue_is_eventually_of_size(
+        board_queues[0][0],
+        expected_num_items,
+        sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
+    )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
 
     invoke_process_run_and_check_errors(
         file_writer_process, num_iterations=expected_num_items
@@ -1017,10 +966,8 @@ def test_FileWriterProcess__begins_building_data_buffer_when_managed_acquisition
 def test_FileWriterProcess__removes_packets_from_data_buffer_that_are_older_than_buffer_memory_size(
     four_board_file_writer_process,
 ):
-    # Eli (12/9/20) a new version of black separated these all out onto separate lines...not sure how to de-duplicate it
-    # fmt: off
-    file_writer_process, board_queues, _, _, _, _, = four_board_file_writer_process
-    # fmt: on
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    board_queues = four_board_file_writer_process["board_queues"]
 
     new_packet = {
         "is_reference_sensor": False,
@@ -1037,12 +984,9 @@ def test_FileWriterProcess__removes_packets_from_data_buffer_that_are_older_than
 
     board_queues[0][0].put(old_packet)
     board_queues[0][0].put(new_packet)
-    assert (
-        is_queue_eventually_of_size(
-            board_queues[0][0], 2, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    confirm_queue_is_eventually_of_size(
+        board_queues[0][0], 2, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=2)
 
@@ -1059,17 +1003,11 @@ def test_FileWriterProcess__removes_packets_from_data_buffer_that_are_older_than
     np.testing.assert_equal(data_packet_buffer[0]["data"], new_packet["data"])
 
 
-def test_FileWriterProcess__clears_data_buffer_when_stop_mananged_acquisition_command_is_received(
+def test_FileWriterProcess__clears_data_buffer_when_stop_managed_acquisition_command_is_received(
     four_board_file_writer_process,
 ):
-    (
-        file_writer_process,
-        _,
-        from_main_queue,
-        _,
-        _,
-        _,
-    ) = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
 
     # Eli (12/10/20): the new version of black is forcing the pylint note to be moved away from the relevant line
     # fmt: off
@@ -1093,14 +1031,9 @@ def test_FileWriterProcess__clears_data_buffer_when_stop_mananged_acquisition_co
 def test_FileWriterProcess__records_all_requested_data_in_buffer__and_creates_dict_of_latest_data_timepoints_for_open_files__when_start_recording_command_is_received(
     four_board_file_writer_process,
 ):
-    (
-        file_writer_process,
-        _,
-        from_main_queue,
-        _,
-        _,
-        file_dir,
-    ) = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    file_dir = four_board_file_writer_process["file_dir"]
 
     # Eli (12/10/20): the new version of black is forcing the pylint note to be moved away from the relevant line
     # fmt: off
@@ -1155,22 +1088,21 @@ def test_FileWriterProcess__records_all_requested_data_in_buffer__and_creates_di
 def test_FileWriterProcess__deletes_recorded_well_data_after_stop_time(
     four_board_file_writer_process,
 ):
-    (
-        file_writer_process,
-        ok_board_queues,
-        comm_from_main_queue,
-        _,
-        _,
-        file_dir,
-    ) = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    instrument_board_queues = four_board_file_writer_process["board_queues"]
+    comm_from_main_queue = four_board_file_writer_process["from_main_queue"]
+    file_dir = four_board_file_writer_process["file_dir"]
 
     expected_well_idx = 0
     start_recording_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     start_recording_command["timepoint_to_begin_recording_at"] = 0
     start_recording_command["active_well_indices"] = [expected_well_idx]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        start_recording_command, comm_from_main_queue
+        start_recording_command,
+        comm_from_main_queue,
+        sleep_after_put_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
     )
+
     invoke_process_run_and_check_errors(file_writer_process)
 
     expected_timepoint = 100
@@ -1183,7 +1115,7 @@ def test_FileWriterProcess__deletes_recorded_well_data_after_stop_time(
             "well_index": expected_well_idx,
             "data": np.array([[i], [i]], dtype=np.int32),
         }
-        ok_board_queues[0][0].put(data_packet)
+        instrument_board_queues[0][0].put(data_packet)
     dummy_packets = 2
     for i in range(dummy_packets):
         data_packet = {
@@ -1194,11 +1126,10 @@ def test_FileWriterProcess__deletes_recorded_well_data_after_stop_time(
                 dtype=np.int32,
             ),
         }
-        ok_board_queues[0][0].put(data_packet)
-    assert is_queue_eventually_of_size(
-        ok_board_queues[0][0],
+        instrument_board_queues[0][0].put(data_packet)
+    confirm_queue_is_eventually_of_size(
+        instrument_board_queues[0][0],
         expected_remaining_packets_recorded + dummy_packets,
-        timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
     )
     invoke_process_run_and_check_errors(
         file_writer_process,
@@ -1208,12 +1139,12 @@ def test_FileWriterProcess__deletes_recorded_well_data_after_stop_time(
     stop_recording_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
     stop_recording_command["timepoint_to_stop_recording_at"] = expected_timepoint
     # ensure queue is empty before putting something else in
-    assert is_queue_eventually_empty(
-        comm_from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-    )
-    comm_from_main_queue.put(stop_recording_command)
-    assert is_queue_eventually_of_size(
-        comm_from_main_queue, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    confirm_queue_is_eventually_empty(comm_from_main_queue)
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        stop_recording_command,
+        comm_from_main_queue,
+        sleep_after_put_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
@@ -1239,14 +1170,10 @@ def test_FileWriterProcess__deletes_recorded_well_data_after_stop_time(
 def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
     four_board_file_writer_process,
 ):
-    (
-        file_writer_process,
-        ok_board_queues,
-        comm_from_main_queue,
-        _,
-        _,
-        file_dir,
-    ) = four_board_file_writer_process
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    instrument_board_queues = four_board_file_writer_process["board_queues"]
+    comm_from_main_queue = four_board_file_writer_process["from_main_queue"]
+    file_dir = four_board_file_writer_process["file_dir"]
 
     expected_well_idx = 0
     start_recording_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
@@ -1267,7 +1194,7 @@ def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
             "reference_for_wells": set([0, 1, 4, 5]),
             "data": np.array([[i], [i]], dtype=np.int32),
         }
-        ok_board_queues[0][0].put(data_packet)
+        instrument_board_queues[0][0].put(data_packet)
     dummy_packets = 2
     for i in range(dummy_packets):
         data_packet = {
@@ -1278,9 +1205,9 @@ def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
                 dtype=np.int32,
             ),
         }
-        ok_board_queues[0][0].put(data_packet)
+        instrument_board_queues[0][0].put(data_packet)
     assert is_queue_eventually_of_size(
-        ok_board_queues[0][0],
+        instrument_board_queues[0][0],
         expected_remaining_packets_recorded + dummy_packets,
         timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
     )
@@ -1323,7 +1250,7 @@ def test_FileWriterProcess_teardown_after_loop__sets_teardown_complete_event(
     four_board_file_writer_process,
     mocker,
 ):
-    fw_process, _, _, _, _, _ = four_board_file_writer_process
+    fw_process = four_board_file_writer_process["fw_process"]
 
     fw_process.soft_stop()
     fw_process.run(perform_setup_before_loop=False, num_iterations=1)
@@ -1335,11 +1262,12 @@ def test_FileWriterProcess_teardown_after_loop__sets_teardown_complete_event(
 def test_FileWriterProcess_teardown_after_loop__puts_teardown_log_message_into_queue(
     four_board_file_writer_process,
 ):
-    fw_process, _, _, to_main_queue, _, _ = four_board_file_writer_process
+    fw_process = four_board_file_writer_process["fw_process"]
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
 
     fw_process.soft_stop()
     fw_process.run(perform_setup_before_loop=False, num_iterations=1)
-    assert_queue_is_eventually_not_empty(to_main_queue)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
 
     actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert (
@@ -1351,7 +1279,8 @@ def test_FileWriterProcess_teardown_after_loop__puts_teardown_log_message_into_q
 def test_FileWriterProcess_teardown_after_loop__does_not_call_close_all_files__when_not_recording(
     four_board_file_writer_process, mocker
 ):
-    fw_process, _, _, _, _, _ = four_board_file_writer_process
+    fw_process = four_board_file_writer_process["fw_process"]
+
     spied_close_all_files = mocker.spy(fw_process, "close_all_files")
 
     fw_process.soft_stop()
@@ -1363,7 +1292,9 @@ def test_FileWriterProcess_teardown_after_loop__does_not_call_close_all_files__w
 def test_FileWriterProcess_teardown_after_loop__calls_close_all_files__when_still_recording(
     four_board_file_writer_process, mocker
 ):
-    fw_process, _, from_main_queue, _, _, _ = four_board_file_writer_process
+    fw_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
     spied_close_all_files = mocker.spy(fw_process, "close_all_files")
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         GENERIC_START_RECORDING_COMMAND, from_main_queue
@@ -1378,7 +1309,9 @@ def test_FileWriterProcess_teardown_after_loop__calls_close_all_files__when_stil
 def test_FileWriterProcess_hard_stop__calls_close_all_files__when_still_recording(
     four_board_file_writer_process, mocker
 ):
-    fw_process, _, from_main_queue, _, _, _ = four_board_file_writer_process
+    fw_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
     spied_close_all_files = mocker.spy(fw_process, "close_all_files")
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         GENERIC_START_RECORDING_COMMAND, from_main_queue
@@ -1402,14 +1335,11 @@ def test_FileWriterProcess_hard_stop__closes_all_files_after_stop_recording_befo
         "metadata_to_copy_onto_main_file_attributes"
     ][PLATE_BARCODE_UUID]
 
-    (
-        fw_process,
-        board_queues,
-        from_main_queue,
-        _,
-        _,
-        tmp_dir,
-    ) = four_board_file_writer_process
+    fw_process = four_board_file_writer_process["fw_process"]
+    board_queues = four_board_file_writer_process["board_queues"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    tmp_dir = four_board_file_writer_process["file_dir"]
+
     spied_close_all_files = mocker.spy(fw_process, "close_all_files")
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -1434,7 +1364,10 @@ def test_FileWriterProcess_hard_stop__closes_all_files_after_stop_recording_befo
             "data": data,
         }
         board_queues[0][0].put(ref_data_packet)
-    confirm_queue_is_eventually_of_size(board_queues[0][0], 30)
+    confirm_queue_is_eventually_of_size(
+        board_queues[0][0], 30, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
+
     invoke_process_run_and_check_errors(fw_process, num_iterations=30)
     confirm_queue_is_eventually_empty(board_queues[0][0])
 
@@ -1465,7 +1398,9 @@ def test_FileWriterProcess_hard_stop__closes_all_files_after_stop_recording_befo
 def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_files_after_stop_recording(
     four_board_file_writer_process, mocker
 ):
-    fw_process, board_queues, from_main_queue, _, _, _ = four_board_file_writer_process
+    fw_process = four_board_file_writer_process["fw_process"]
+    board_queues = four_board_file_writer_process["board_queues"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         GENERIC_START_RECORDING_COMMAND, from_main_queue
@@ -1489,7 +1424,10 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_files_af
             "data": first_data,
         }
         board_queues[0][0].put(ref_data_packet)
-    confirm_queue_is_eventually_of_size(board_queues[0][0], 30)
+    confirm_queue_is_eventually_of_size(
+        board_queues[0][0], 30, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
+
     invoke_process_run_and_check_errors(fw_process, num_iterations=30)
     confirm_queue_is_eventually_empty(board_queues[0][0])
 
@@ -1528,7 +1466,9 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_files_af
             "data": last_data,
         }
         board_queues[0][0].put(final_ref_data_packet)
-    confirm_queue_is_eventually_of_size(board_queues[0][0], 30)
+    confirm_queue_is_eventually_of_size(
+        board_queues[0][0], 30, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
     invoke_process_run_and_check_errors(fw_process, num_iterations=30)
     confirm_queue_is_eventually_empty(board_queues[0][0])
     # check command is still ignored
@@ -1539,20 +1479,19 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_files_af
     confirm_queue_is_eventually_empty(from_main_queue)
     assert fw_process.get_file_directory() == expected_new_dir
 
+    # Tanner (3/8/21): Prevent BrokenPipeErrors
+    drain_queue(board_queues[0][1])
+
 
 @pytest.mark.slow
 @pytest.mark.timeout(10)
 def test_FileWriterProcess_teardown_after_loop__can_teardown_process_while_recording__and_log_stop_recording_message(
     running_four_board_file_writer_process,
 ):
-    (
-        fw_process,
-        _,
-        from_main_queue,
-        to_main_queue,
-        _,
-        _,
-    ) = running_four_board_file_writer_process
+    fw_process = running_four_board_file_writer_process["fw_process"]
+    to_main_queue = running_four_board_file_writer_process["to_main_queue"]
+    from_main_queue = running_four_board_file_writer_process["from_main_queue"]
+
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         GENERIC_START_RECORDING_COMMAND, from_main_queue
     )

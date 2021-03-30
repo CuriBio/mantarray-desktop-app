@@ -6,6 +6,8 @@ from . import fifo_simulator
 from . import file_writer
 from . import firmware_manager
 from . import main
+from . import mc_comm
+from . import mc_simulator
 from . import ok_comm
 from . import process_manager
 from . import process_monitor
@@ -26,6 +28,7 @@ from .constants import BARCODE_SCANNER_TOP_WIRE_OUT_ADDRESS
 from .constants import BARCODE_SCANNER_TRIGGER_IN_ADDRESS
 from .constants import BARCODE_UNREADABLE_UUID
 from .constants import BARCODE_VALID_UUID
+from .constants import BOOTUP_COUNTER_UUID
 from .constants import BUFFERING_STATE
 from .constants import CALIBRATED_STATE
 from .constants import CALIBRATING_STATE
@@ -54,16 +57,19 @@ from .constants import FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
 from .constants import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
 from .constants import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import FIRMWARE_VERSION_WIRE_OUT_ADDRESS
+from .constants import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
 from .constants import MAX_POSSIBLE_CONNECTED_BOARDS
+from .constants import MC_REBOOT_DURATION_SECONDS
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MIDSCALE_CODE
 from .constants import MILLIVOLTS_PER_VOLT
+from .constants import NANOSECONDS_PER_CENTIMILLISECOND
 from .constants import NO_PLATE_DETECTED_BARCODE_VALUE
 from .constants import NO_PLATE_DETECTED_UUID
-from .constants import OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import OUTGOING_DATA_BUFFER_SIZE
+from .constants import PCB_SERIAL_NUMBER_UUID
 from .constants import RAW_TO_SIGNED_CONVERSION_VALUE
 from .constants import RECORDING_STATE
 from .constants import REF_INDEX_TO_24_WELL_INDEX
@@ -71,6 +77,32 @@ from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from .constants import REFERENCE_VOLTAGE
 from .constants import ROUND_ROBIN_PERIOD
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
+from .constants import SERIAL_COMM_BAUD_RATE
+from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
+from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+from .constants import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
+from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
+from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
+from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
+from .constants import SERIAL_COMM_MAIN_MODULE_ID
+from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
+from .constants import SERIAL_COMM_MAX_TIMESTAMP_VALUE
+from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
+from .constants import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
+from .constants import SERIAL_COMM_MODULE_ID_INDEX
+from .constants import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
+from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
+from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
+from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
+from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
+from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
+from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
+from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
+from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
+from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
 from .constants import START_BARCODE_SCAN_TRIG_BIT
@@ -79,7 +111,9 @@ from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SUBPROCESS_POLL_DELAY_SECONDS
 from .constants import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from .constants import SYSTEM_STATUS_UUIDS
+from .constants import TAMPER_FLAG_UUID
 from .constants import TIMESTEP_CONVERSION_FACTOR
+from .constants import TOTAL_WORKING_HOURS_UUID
 from .constants import VALID_CONFIG_SETTINGS
 from .constants import VALID_SCRIPTING_COMMANDS
 from .constants import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
@@ -93,6 +127,7 @@ from .exceptions import FirmwareFileNameDoesNotMatchWireOutVersionError
 from .exceptions import FirstManagedReadLessThanOneRoundRobinError
 from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
 from .exceptions import ImproperlyFormattedUserAccountUUIDError
+from .exceptions import InstrumentCommIncorrectHeaderError
 from .exceptions import InvalidDataFramePeriodError
 from .exceptions import InvalidDataTypeFromOkCommError
 from .exceptions import InvalidScriptCommandError
@@ -101,17 +136,31 @@ from .exceptions import MismatchedScriptTypeError
 from .exceptions import MultiprocessingNotSetToSpawnError
 from .exceptions import RecordingFolderDoesNotExistError
 from .exceptions import ScriptDoesNotContainEndCommandError
+from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
+from .exceptions import SerialCommIncorrectChecksumFromPCError
+from .exceptions import SerialCommIncorrectMagicWordFromMantarrayError
+from .exceptions import SerialCommMetadataValueTooLargeError
+from .exceptions import SerialCommPacketFromMantarrayTooSmallError
+from .exceptions import SerialCommPacketRegistrationReadEmptyError
+from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
+from .exceptions import SerialCommPacketRegistrationTimoutError
+from .exceptions import SerialCommTooManyMissedHandshakesError
+from .exceptions import SerialCommUntrackedCommandResponseError
 from .exceptions import ServerThreadNotInitializedError
 from .exceptions import ServerThreadSingletonAlreadySetError
 from .exceptions import SystemStartUpError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
+from .exceptions import UnrecognizedCommandFromMainToMcCommError
 from .exceptions import UnrecognizedCommandToInstrumentError
 from .exceptions import UnrecognizedCommTypeFromMainToDataAnalyzerError
-from .exceptions import UnrecognizedCommTypeFromMainToOKCommError
+from .exceptions import UnrecognizedCommTypeFromMainToInstrumentError
 from .exceptions import UnrecognizedDataFrameFormatNameError
 from .exceptions import UnrecognizedDebugConsoleCommandError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
 from .exceptions import UnrecognizedRecordingCommandError
+from .exceptions import UnrecognizedSerialCommModuleIdError
+from .exceptions import UnrecognizedSerialCommPacketTypeError
+from .exceptions import UnrecognizedSimulatorTestCommandError
 from .fifo_read_producer import FIFOReadProducer
 from .fifo_read_producer import produce_data
 from .fifo_simulator import RunningFIFOSimulator
@@ -124,10 +173,13 @@ from .firmware_manager import get_latest_firmware
 from .firmware_manager import get_latest_firmware_name
 from .firmware_manager import get_latest_firmware_version
 from .firmware_manager import sort_firmware_files
+from .instrument_comm import InstrumentCommProcess
 from .main import clear_server_singletons
 from .main import get_server_port_number
 from .mantarray_front_panel import MantarrayFrontPanel
 from .mantarray_front_panel import MantarrayFrontPanelMixIn
+from .mc_comm import McCommunicationProcess
+from .mc_simulator import MantarrayMcSimulator
 from .ok_comm import build_file_writer_objects
 from .ok_comm import check_barcode_for_errors
 from .ok_comm import check_mantarray_serial_number
@@ -140,6 +192,11 @@ from .ok_comm import parse_scripting_log_line
 from .process_manager import MantarrayProcessesManager
 from .process_monitor import MantarrayProcessesMonitor
 from .queue_container import MantarrayQueueContainer
+from .serial_comm_utils import convert_metadata_bytes_to_str
+from .serial_comm_utils import convert_to_metadata_bytes
+from .serial_comm_utils import create_data_packet
+from .serial_comm_utils import parse_metadata_bytes
+from .serial_comm_utils import validate_checksum
 from .server import clear_the_server_thread
 from .server import flask_app
 from .server import get_api_endpoint
@@ -205,7 +262,7 @@ __all__ = [
     "FileWriterProcess",
     "InvalidDataTypeFromOkCommError",
     "build_file_writer_objects",
-    "UnrecognizedCommTypeFromMainToOKCommError",
+    "UnrecognizedCommTypeFromMainToInstrumentError",
     "fifo_simulator",
     "RunningFIFOSimulator",
     "AttemptToInitializeFIFOReadsError",
@@ -230,7 +287,7 @@ __all__ = [
     "DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS",
     "FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE",
     "RAW_TO_SIGNED_CONVERSION_VALUE",
-    "OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES",
+    "INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES",
     "SYSTEM_STATUS_UUIDS",
     "DEFAULT_USER_CONFIG",
     "firmware_manager",
@@ -311,4 +368,61 @@ __all__ = [
     "get_current_software_version",
     "ServerThreadNotInitializedError",
     "ServerThreadSingletonAlreadySetError",
+    "mc_simulator",
+    "MantarrayMcSimulator",
+    "create_data_packet",
+    "SERIAL_COMM_MAGIC_WORD_BYTES",
+    "SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS",
+    "UnrecognizedSimulatorTestCommandError",
+    "NANOSECONDS_PER_CENTIMILLISECOND",
+    "InstrumentCommProcess",
+    "InstrumentCommIncorrectHeaderError",
+    "SERIAL_COMM_STATUS_BEACON_PACKET_TYPE",
+    "SERIAL_COMM_MAIN_MODULE_ID",
+    "SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE",
+    "SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE",
+    "SERIAL_COMM_HANDSHAKE_PACKET_TYPE",
+    "SERIAL_COMM_MODULE_ID_INDEX",
+    "SERIAL_COMM_PACKET_TYPE_INDEX",
+    "UnrecognizedSerialCommModuleIdError",
+    "UnrecognizedSerialCommPacketTypeError",
+    "McCommunicationProcess",
+    "SERIAL_COMM_CHECKSUM_LENGTH_BYTES",
+    "SERIAL_COMM_TIMESTAMP_LENGTH_BYTES",
+    "SerialCommPacketRegistrationTimoutError",
+    "SerialCommIncorrectMagicWordFromMantarrayError",
+    "SerialCommPacketRegistrationReadEmptyError",
+    "SERIAL_COMM_MAX_PACKET_LENGTH_BYTES",
+    "SerialCommPacketRegistrationSearchExhaustedError",
+    "SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE",
+    "SERIAL_COMM_REBOOT_COMMAND_BYTE",
+    "MC_REBOOT_DURATION_SECONDS",
+    "mc_comm",
+    "validate_checksum",
+    "SerialCommIncorrectChecksumFromInstrumentError",
+    "SERIAL_COMM_BAUD_RATE",
+    "SerialCommIncorrectChecksumFromPCError",
+    "SERIAL_COMM_ADDITIONAL_BYTES_INDEX",
+    "BOOTUP_COUNTER_UUID",
+    "TOTAL_WORKING_HOURS_UUID",
+    "TAMPER_FLAG_UUID",
+    "PCB_SERIAL_NUMBER_UUID",
+    "convert_to_metadata_bytes",
+    "SERIAL_COMM_METADATA_BYTES_LENGTH",
+    "SerialCommMetadataValueTooLargeError",
+    "SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE",
+    "SERIAL_COMM_GET_METADATA_COMMAND_BYTE",
+    "parse_metadata_bytes",
+    "convert_metadata_bytes_to_str",
+    "SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS",
+    "UnrecognizedCommandFromMainToMcCommError",
+    "SERIAL_COMM_MIN_PACKET_SIZE_BYTES",
+    "SerialCommPacketFromMantarrayTooSmallError",
+    "SERIAL_COMM_PACKET_INFO_LENGTH_BYTES",
+    "SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS",
+    "SERIAL_COMM_TIMESTAMP_BYTES_INDEX",
+    "SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES",
+    "SerialCommTooManyMissedHandshakesError",
+    "SERIAL_COMM_MAX_TIMESTAMP_VALUE",
+    "SerialCommUntrackedCommandResponseError",
 ]

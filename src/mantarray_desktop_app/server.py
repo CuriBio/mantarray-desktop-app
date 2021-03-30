@@ -61,6 +61,7 @@ from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
 from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import requests
+from stdlib_utils import drain_queue
 from stdlib_utils import get_formatted_stack_trace
 from stdlib_utils import InfiniteThread
 from stdlib_utils import is_port_in_use
@@ -85,7 +86,6 @@ from .exceptions import ServerThreadSingletonAlreadySetError
 from .ok_comm import check_barcode_for_errors
 from .ok_comm import check_mantarray_serial_number
 from .queue_container import MantarrayQueueContainer
-from .queue_utils import _drain_queue
 from .request_handler import MantarrayRequestHandler
 from .utils import convert_request_args_to_config_dict
 from .utils import get_current_software_version
@@ -151,17 +151,19 @@ def _get_values_from_process_monitor() -> Dict[str, Any]:
     return get_the_server_thread().get_values_from_process_monitor()
 
 
-def queue_command_to_ok_comm(comm_dict: Dict[str, Any]) -> Response:
+def queue_command_to_instrument_comm(comm_dict: Dict[str, Any]) -> Response:
     """Queue command to send to XEM and return response.
 
     This is used by the test suite, so is not designated as private in
     order to make pylint happier.
     """
-    to_ok_comm_queue = (
-        get_the_server_thread().queue_container().get_communication_to_ok_comm_queue(0)
+    to_instrument_comm_queue = (
+        get_the_server_thread()
+        .queue_container()
+        .get_communication_to_instrument_comm_queue(0)
     )
     comm_dict = dict(comm_dict)  # make a mutable version to pass into ok_comm
-    to_ok_comm_queue.put(comm_dict)
+    to_instrument_comm_queue.put(comm_dict)
     response = Response(json.dumps(comm_dict), mimetype="application/json")
 
     return response
@@ -283,6 +285,7 @@ def set_mantarray_nickname() -> Response:
     Can be invoked by curl 'http://localhost:4567/set_mantarray_nickname?nickname=My Mantarray'
     """
     nickname = request.args["nickname"]
+    # TODO Tanner (3/18/21): Need to eventually be able to determine if McComm is being used and adjust the max byte length to 32
     if len(nickname.encode("utf-8")) > 23:
         return Response(status="400 Nickname exceeds 23 bytes")
 
@@ -581,7 +584,7 @@ def stop_managed_acquisition() -> Response:
     )
     to_file_writer_queue.put(comm_dict)
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
     return response
 
 
@@ -637,7 +640,7 @@ def queue_initialize_board() -> Response:
         "suppress_error": True,
     }
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 
@@ -658,7 +661,7 @@ def queue_activate_trigger_in() -> Response:
         "suppress_error": True,
     }
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 
@@ -679,7 +682,7 @@ def queue_comm_delay() -> Response:
         "suppress_error": True,
     }
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 
@@ -714,7 +717,7 @@ def queue_get_num_words_fifo() -> Response:
         "suppress_error": True,
     }
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 
@@ -737,7 +740,7 @@ def queue_set_device_id() -> Response:
         "suppress_error": True,
     }
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 
@@ -754,7 +757,7 @@ def queue_stop_acquisition() -> Response:
         "suppress_error": True,
     }
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 
@@ -771,7 +774,7 @@ def queue_start_acquisition() -> Response:
         "suppress_error": True,
     }
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 
@@ -788,7 +791,7 @@ def queue_get_serial_number() -> Response:
         "suppress_error": True,
     }
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 
@@ -805,7 +808,7 @@ def queue_get_device_id() -> Response:
         "suppress_error": True,
     }
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 
@@ -822,7 +825,7 @@ def queue_is_spi_running() -> Response:
         "suppress_error": True,
     }
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 
@@ -841,7 +844,7 @@ def queue_read_from_fifo() -> Response:
         "suppress_error": True,
     }
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 
@@ -864,7 +867,7 @@ def queue_set_wire_in() -> Response:
         "suppress_error": True,
     }
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 
@@ -878,7 +881,7 @@ def run_xem_script() -> Response:
     script_type = request.args["script_type"]
     comm_dict = {"communication_type": "xem_scripts", "script_type": script_type}
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 
@@ -902,7 +905,7 @@ def queue_read_wire_out() -> Response:
     if description is not None:
         comm_dict["description"] = description
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 
@@ -921,7 +924,7 @@ def queue_get_status() -> Response:
         "suppress_error": True,
     }
 
-    response = queue_command_to_ok_comm(comm_dict)
+    response = queue_command_to_instrument_comm(comm_dict)
 
     return response
 
@@ -960,6 +963,12 @@ def shutdown() -> Response:
     )
     shutdown_server()
     return response
+
+
+@flask_app.route("/health_check", methods=["GET"])
+def health_check() -> Response:
+    # curl http://localhost:4567/health_check
+    return Response(status=200)
 
 
 @flask_app.after_request
@@ -1075,7 +1084,10 @@ class ServerThread(InfiniteThread):
             _, host, _ = get_server_address_components()
             self.check_port()
             flask_app.run(
-                host=host, port=self._port, request_handler=MantarrayRequestHandler
+                host=host,
+                port=self._port,
+                request_handler=MantarrayRequestHandler,
+                threaded=True,
             )
             # Note (Eli 1/14/20) it appears with the current method of using werkzeug.server.shutdown that nothing after this line will ever be executed. somehow the program exists before returning from app.run
         except Exception as e:  # pylint: disable=broad-except # The deliberate goal of this is to catch everything and put it into the error queue
@@ -1122,8 +1134,8 @@ class ServerThread(InfiniteThread):
     def _drain_all_queues(self) -> Dict[str, Any]:
         queue_items = dict()
 
-        queue_items["to_main"] = _drain_queue(self._to_main_queue)
-        queue_items["from_data_analyzer"] = _drain_queue(
+        queue_items["to_main"] = drain_queue(self._to_main_queue)
+        queue_items["from_data_analyzer"] = drain_queue(
             self.get_data_analyzer_data_out_queue()
         )
         return queue_items

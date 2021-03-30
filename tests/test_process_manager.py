@@ -101,7 +101,7 @@ def test_MantarrayProcessesManager__soft_stop_processes_except_server__calls_sof
 def test_MantarrayProcessesManager__hard_stop_processes__calls_hard_stop_on_all_processes_and_returns_process_queue_items(
     mocker, generic_manager
 ):
-    expected_ok_comm_items = {"ok_comm_queue": ["ok_item"]}
+    expected_ok_comm_items = {"instrument_comm_queue": ["instrument_item"]}
     expected_file_writer_items = {"file_writer_queue": ["fw_item"]}
     expected_da_items = {"data_analyzer_queue": ["da_item"]}
     expected_server_items = {"to_main": ["server_item"]}
@@ -126,7 +126,7 @@ def test_MantarrayProcessesManager__hard_stop_processes__calls_hard_stop_on_all_
     mocked_data_analyzer_hard_stop.assert_called_once()
     mocked_server_hard_stop.assert_called_once()
 
-    assert actual["ok_comm_items"] == expected_ok_comm_items
+    assert actual["instrument_comm_items"] == expected_ok_comm_items
     assert actual["file_writer_items"] == expected_file_writer_items
     assert actual["data_analyzer_items"] == expected_da_items
     assert actual["server_items"] == expected_server_items
@@ -173,7 +173,7 @@ def test_MantarrayProcessesManager__spawn_processes__stop_and_join_processes__st
     generic_manager.get_file_writer_process()._drain_all_queues()  # pylint:disable=protected-access
     generic_manager.get_data_analyzer_process()._drain_all_queues()  # pylint:disable=protected-access
     generic_manager.get_server_thread()._drain_all_queues()  # pylint:disable=protected-access
-    # instrument_to_main_queue=generic_manager.queue_container().get_communication_queue_from_ok_comm_to_main()
+    # instrument_to_main_queue=generic_manager.queue_container().get_communication_queue_from_instrument_comm_to_main()
 
     generic_manager.stop_and_join_processes()
     spied_ok_comm_start.assert_called_once()
@@ -269,9 +269,11 @@ def test_MantarrayProcessesManager__hard_stop_and_join_processes__hard_stops_pro
 
     manager.spawn_processes()
     container = manager.queue_container()
-    ok_comm_to_main = container.get_communication_queue_from_ok_comm_to_main(0)
+    instrument_comm_to_main = (
+        container.get_communication_queue_from_instrument_comm_to_main(0)
+    )
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        expected_ok_comm_item, ok_comm_to_main
+        expected_ok_comm_item, instrument_comm_to_main
     )
     file_writer_to_main = container.get_communication_queue_from_file_writer_to_main()
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -307,7 +309,8 @@ def test_MantarrayProcessesManager__hard_stop_and_join_processes__hard_stops_pro
     spied_server_join.assert_called_once()
 
     assert (
-        expected_ok_comm_item in actual["ok_comm_items"]["board_0"]["ok_comm_to_main"]
+        expected_ok_comm_item
+        in actual["instrument_comm_items"]["board_0"]["instrument_comm_to_main"]
     )
     assert (
         expected_file_writer_item
@@ -359,16 +362,16 @@ def test_MantarrayProcessesManager__boot_up_instrument__populates_ok_comm_queue_
 ):
     generic_manager.create_processes()
     generic_manager.boot_up_instrument()
-    main_to_ok_comm_queue = (
-        generic_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    main_to_instrument_comm_queue = (
+        generic_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     )
-    assert is_queue_eventually_of_size(main_to_ok_comm_queue, 2) is True
+    assert is_queue_eventually_of_size(main_to_instrument_comm_queue, 2) is True
     assert (
         generic_manager.get_values_to_share_to_server()["system_status"]
         == INSTRUMENT_INITIALIZING_STATE
     )
 
-    actual_communication_1 = main_to_ok_comm_queue.get(
+    actual_communication_1 = main_to_instrument_comm_queue.get(
         timeout=QUEUE_CHECK_TIMEOUT_SECONDS
     )
     assert actual_communication_1 == {
@@ -379,7 +382,7 @@ def test_MantarrayProcessesManager__boot_up_instrument__populates_ok_comm_queue_
         "allow_board_reinitialization": False,
     }
 
-    actual_communication_2 = main_to_ok_comm_queue.get(
+    actual_communication_2 = main_to_instrument_comm_queue.get(
         timeout=QUEUE_CHECK_TIMEOUT_SECONDS
     )
     assert actual_communication_2 == {
@@ -460,7 +463,7 @@ def test_MantarrayProcessesManager__are_processes_stopped__waits_correct_amount_
     )
 
     assert (
-        test_process_manager.are_processes_stopped(timeout_secs=expected_timeout)
+        test_process_manager.are_processes_stopped(timeout_seconds=expected_timeout)
         is False
     )
 

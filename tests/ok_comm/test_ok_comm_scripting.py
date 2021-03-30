@@ -231,11 +231,11 @@ def test_gain_value_is_parsed_and_saved_when_running_start_up_script(
     monitor_thread, shared_values_dict, _, _ = test_monitor
 
     ok_comm_process = test_process_manager.get_instrument_process()
-    from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
-    to_ok_comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    to_ok_comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
     ok_comm_process.set_board_connection(0, simulator)
 
@@ -303,11 +303,11 @@ def test_offset_values_are_parsed_and_saved_when_running_start_calibration_scrip
     monitor_thread, shared_values_dict, _, _ = test_monitor
 
     ok_comm_process = test_process_manager.get_instrument_process()
-    from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_ok_comm_to_main(
+    from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
         0
     )
-    to_ok_comm_queue = (
-        test_process_manager.queue_container().get_communication_to_ok_comm_queue(0)
+    to_ok_comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
     )
     ok_comm_process.set_board_connection(0, simulator)
 
@@ -346,7 +346,8 @@ def test_OkCommunicationProcess_xem_scripts__allows_errors_to_propagate(
         ok_comm, "resource_path", autospec=True, return_value=mocked_path_str
     )
 
-    ok_process, board_queues, _ = four_board_comm_process
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
 
     mocked_simulator = RunningFIFOSimulator()
     mocked_activate = mocker.patch.object(

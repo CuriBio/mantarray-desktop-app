@@ -14,6 +14,7 @@ import pytest
 import requests
 from stdlib_utils import confirm_port_in_use
 from stdlib_utils import get_current_file_abs_directory
+from stdlib_utils import is_system_windows
 
 PATH_OF_CURRENT_FILE = get_current_file_abs_directory()
 
@@ -22,9 +23,8 @@ PATH_OF_CURRENT_FILE = get_current_file_abs_directory()
 @pytest.mark.only_exe  # TODO (Eli 12/9/20): figure out why this won't run on entrypoint.py in Windows GitHub
 def test_exe_can_access_xem_script_and_firmware_folders():
     # Eli (10/21/20): other parts of CI ensure that the EXE actually exists, so this can be run on the source file and the exe both to ensure we can catch test failures earlier
-    subprocess_args = [
-        os.path.join("dist-python", "mantarray-flask", "mantarray-flask.exe")
-    ]
+    exe_file_name = "mantarray-flask.exe" if is_system_windows() else "mantarray-flask"
+    subprocess_args = [os.path.join("dist-python", "mantarray-flask", exe_file_name)]
     if not os.path.isfile(subprocess_args[0]):
         path_to_entrypoint = os.path.abspath(
             os.path.join(

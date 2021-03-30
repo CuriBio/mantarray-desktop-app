@@ -1,13 +1,44 @@
 /* globals INCLUDE_RESOURCES_PATH */
 import { app } from "electron";
+const log = require("electron-log");
+const path = require("path");
+const now = new Date();
+const utc_month = (now.getUTCMonth() + 1).toString().padStart(2, "0"); // Eli (3/29/21) for some reason getUTCMonth returns a zero-based number, while everything else is a month, so adjusting here
+const filename_prefix = `mantarray_log__${now.getUTCFullYear()}_${utc_month}_${now
+  .getUTCDate()
+  .toString()
+  .padStart(2, "0")}_${now
+  .getUTCHours()
+  .toString()
+  .padStart(2, "0")}${now
+  .getUTCMinutes()
+  .toString()
+  .padStart(2, "0")}${now.getUTCSeconds().toString().padStart(2, "0")}_`;
 
+log.transports.file.resolvePath = (variables) => {
+  let filename;
+  switch (process.type) {
+    case "renderer":
+      filename = filename_prefix + "renderer";
+      break;
+    case "worker":
+      filename = filename_prefix + "worker";
+      break;
+    default:
+      filename = filename_prefix + "main";
+  }
+  filename = filename + ".txt";
+  return path.join(variables.libraryDefaultDir, "..", "logs_flask", filename);
+};
+console.log = log.log;
+console.error = log.error;
 /* Eli added */
 // import './style.scss'
 // import 'typeface-roboto/index.css' // https://medium.com/@daddycat/using-offline-material-icons-and-roboto-font-in-electron-app-f25082447443
 // require('typeface-roboto')
 /* end Eli added */
+const ci = require("ci-info");
 
-const path = require("path");
 const fs = require("fs");
 const axios = require("axios");
 // const {
@@ -39,7 +70,7 @@ const flask_port = 4567;
 const PY_DIST_FOLDER = path.join("dist-python", "mantarray-flask"); // python distributable folder
 const PY_SRC_FOLDER = "src"; // path to the python source
 const PY_MODULE = "entrypoint.py"; // the name of the main module
-const PY_EXE = "mantarray-flask.exe"; // the name of the main module
+const PY_EXE = "mantarray-flask"; // the name of the main module
 
 // const nodeConsole = require("console");
 // const myConsole = new nodeConsole.Console(process.stdout, process.stderr);
@@ -78,6 +109,14 @@ const start_python_subprocess = () => {
     "About to generate command line arguments to use when booting up server"
   );
   const command_line_args = generate_flask_command_line_args(store);
+  if (process.platform !== "win32") {
+    // presumably running in a linux dev or CI environment
+    if (!ci.isCI) {
+      // don't do this in CI environment, only locally
+      command_line_args.push("--skip-software-version-verification"); // TODO (Eli 3/12/21): use the `yargs` package to accept this as a command line argument to the Electron app so that it can be passed appropriately and with more control than everytime the python source code is run (which is based on the assumption that anytime source code is tested it's running locally in a dev environment and the bit file isn't available)
+    }
+  }
+
   console.log("sending command line args: " + command_line_args); // allow-log
   if (isRunningInBundle()) {
     const script = getPythonScriptPath();
@@ -89,6 +128,8 @@ const start_python_subprocess = () => {
     require("child_process").execFile(script, command_line_args);
   } else {
     const PythonShell = require("python-shell").PythonShell; // Eli (4/15/20) experienced odd error where the compiled exe was not able to load package python-shell...but since it's only actually required in development, just moving it to here
+    command_line_args.push("--no-load-firmware"); // TODO (Eli 2/24/21): use the `yargs` package to accept this as a command line argument to the Electron app so that it can be passed appropriately and with more control than everytime the python source code is run (which is based on the assumption that anytime source code is tested it's running locally in a dev environment and the bit file isn't available)
+    console.log("sending command line args: " + command_line_args); // allow-log
     const options = {
       mode: "text",
       pythonPath: "python3", // In Cloud9, you need to specify python3 to use the installation inside the virtual environment...just Python defaults to system installation
@@ -138,12 +179,14 @@ app.on("ready", () => {
 
 // This is another place to handle events after all windows are closed
 app.on("will-quit", function () {
-  // This is a good place to add tests insuring the app is still
+  // This is a good place to add tests ensuring the app is still
   // responsive and all windows are closed.
   console.log("will-quit event being handled"); // allow-log
   // mainWindow = null;
 
-  axios.get(`http://localhost:${flask_port}/shutdown`);
+  axios.get(
+    `http://localhost:${flask_port}/shutdown?called_through_app_will_quit=true`
+  );
 });
 
 // win_handler = require("./mainWindow");

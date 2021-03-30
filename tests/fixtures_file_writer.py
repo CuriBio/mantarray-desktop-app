@@ -182,7 +182,7 @@ def generate_fw_from_main_to_main_board_and_error_queues(num_boards: int = 4):
             ],
         ],  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
         ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-    ] = tuple([(Queue(), Queue()) for _ in range(4)])
+    ] = tuple(((Queue(), Queue()) for _ in range(4)))
     return from_main, to_main, board_queues, error_queue
 
 
@@ -195,28 +195,29 @@ def fixture_four_board_file_writer_process():
         error_queue,
     ) = generate_fw_from_main_to_main_board_and_error_queues()
     with tempfile.TemporaryDirectory() as tmp_dir:
-        p = FileWriterProcess(
+        fw_process = FileWriterProcess(
             board_queues, from_main, to_main, error_queue, file_directory=tmp_dir
         )
-        yield p, board_queues, from_main, to_main, error_queue, tmp_dir
-        if not p.is_alive():
+        fw_items_dict = {
+            "fw_process": fw_process,
+            "board_queues": board_queues,
+            "from_main_queue": from_main,
+            "to_main_queue": to_main,
+            "error_queue": error_queue,
+            "file_dir": tmp_dir,
+        }
+        yield fw_items_dict
+
+        if not fw_process.is_alive():
             # Eli (2/10/20): it is important in windows based systems to make sure to close the files before deleting them. be careful about this when running tests in a linux dev environment
-            p.close_all_files()
-        # cleanup queues to avoid broken pipe errors
-        p.hard_stop()
+            fw_process.close_all_files()
 
 
 @pytest.fixture(scope="function", name="running_four_board_file_writer_process")
 def fixture_running_four_board_file_writer_process(four_board_file_writer_process):
-    (
-        p,
-        board_queues,
-        from_main,
-        to_uploader,
-        error_queue,
-        tmp_dir,
-    ) = four_board_file_writer_process
-    p.start()
-    yield p, board_queues, from_main, to_uploader, error_queue, tmp_dir
-    p.stop()
-    p.join()
+    fw_process = four_board_file_writer_process["fw_process"]
+    fw_process.start()
+    yield four_board_file_writer_process
+
+    fw_process.stop()
+    fw_process.join()

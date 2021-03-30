@@ -1,5 +1,10 @@
 Changelog for Mantarray Desktop App
 ===================================
+0.4.3 (2021-03-30)
+------------------
+
+- Added logging for frontend user interface
+- Fixed performance tracking issues for backend server logging
 
 
 0.4.2 (2021-01-17)
@@ -12,8 +17,8 @@ Changelog for Mantarray Desktop App
   - Log file path in command line args.
 
 - Changed SHA512 output format from raw bytes to a hex value.
-- Brought in v0.1.12 of frontend component library to patch issue of potentially different states between frontend and backend after initiating a state change from the GUI
-- Trimmed any \x00 characters off of the end of the barcode before passing it to ProcessMonitor
+- Brought in v0.1.12 of frontend component library to patch issue of potentially different states between frontend and backend after initiating a state change from the GUI.
+- Trimmed any \x00 characters off of the end of the barcode before passing it to ProcessMonitor.
 
 
 0.4.1 (2021-01-15)

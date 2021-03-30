@@ -1,6 +1,9 @@
 # dependencies
 node_modules
 
+src/firmware/*.bit
+src/drivers/*.exe
+
 # CI caches
 .npm_cache/
 .precommit_cache/
@@ -14,6 +17,10 @@ npm-debug.log
 
 # Electron build
 build
+
+# Pyinstaller build
+build-python
+dist-python
 
 # Nuxt generate
 dist
@@ -29,6 +36,7 @@ coverage-report-pytest
 .mypy_cache/
 .coverage
 .coverage.*
+coverage.xml
 
 # test profiling
 prof/
