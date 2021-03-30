@@ -206,6 +206,28 @@ def test_OkCommunicationProcess_soft_stop_not_allowed_if_communication_from_main
         items_to_put_in_queue, board_queues[0][0]
     )
     set_connection_and_register_simulator(mc_process, mantarray_mc_simulator_no_beacon)
+    # attempt to soft stop and confirm process does not stop
+    mc_process.soft_stop()
+    invoke_process_run_and_check_errors(mc_process)
+    assert mc_process.is_stopped() is False
+
+
+def test_OkCommunicationProcess_soft_stop_not_allowed_if_waiting_for_command_response_from_instrument(
+    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
+):
+    mc_process = four_board_mc_comm_process["mc_process"]
+    board_queues = four_board_mc_comm_process["board_queues"]
+    test_communication = {
+        "communication_type": "to_instrument",
+        "command": "get_metadata",
+    }
+    set_connection_and_register_simulator(mc_process, mantarray_mc_simulator_no_beacon)
+    # send command but do not process it in simulator
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_communication, board_queues[0][0]
+    )
+    invoke_process_run_and_check_errors(mc_process)
+    # attempt to soft stop and confirm process does not stop
     mc_process.soft_stop()
     invoke_process_run_and_check_errors(mc_process)
     assert mc_process.is_stopped() is False

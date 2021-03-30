@@ -231,6 +231,14 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._handle_beacon_tracking()
         self._handle_command_tracking()
 
+        # process can be soft stopped if no commands in queue from main and no command responses needed from instrument
+        self._process_can_be_soft_stopped = (
+            not bool(self._commands_awaiting_response)
+            and self._board_queues[0][
+                0
+            ].empty()  # Tanner (3/23/21): consider replacing this with is_queue_eventually_empty
+        )
+
     def _process_next_communication_from_main(self) -> None:
         """Process the next communication sent from the main process.
 
@@ -277,11 +285,6 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         comm_from_main["timepoint"] = perf_counter()
         self._commands_awaiting_response.append(comm_from_main)
-
-        if (
-            not input_queue.empty()
-        ):  # Tanner (3/23/21): consider replacing this with is_queue_eventually_empty
-            self._process_can_be_soft_stopped = False
 
     def _handle_sending_handshake(self) -> None:
         board_idx = 0
