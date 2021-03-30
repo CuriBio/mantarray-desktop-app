@@ -2,6 +2,13 @@ Changelog for Mantarray Desktop App
 ===================================
 
 
+0.4.3 (2021-03-29)
+------------------
+
+- Added logging for frontend user interface
+- Fixed performance tracking issues for backend server logging
+
+
 0.4.2 (2021-01-17)
 ------------------
 

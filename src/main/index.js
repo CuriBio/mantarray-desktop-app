@@ -1,6 +1,37 @@
 /* globals INCLUDE_RESOURCES_PATH */
 import { app } from "electron";
+const log = require("electron-log");
+const path = require("path");
+const now = new Date();
+const utc_month = (now.getUTCMonth() + 1).toString().padStart(2, "0"); // Eli (3/29/21) for some reason getUTCMonth returns a zero-based number, while everything else is a month, so adjusting here
+const filename_prefix = `mantarray_log__${now.getUTCFullYear()}_${utc_month}_${now
+  .getUTCDate()
+  .toString()
+  .padStart(2, "0")}_${now
+  .getUTCHours()
+  .toString()
+  .padStart(2, "0")}${now
+  .getUTCMinutes()
+  .toString()
+  .padStart(2, "0")}${now.getUTCSeconds().toString().padStart(2, "0")}_`;
 
+log.transports.file.resolvePath = (variables) => {
+  let filename;
+  switch (process.type) {
+    case "renderer":
+      filename = filename_prefix + "renderer";
+      break;
+    case "worker":
+      filename = filename_prefix + "worker";
+      break;
+    default:
+      filename = filename_prefix + "main";
+  }
+  filename = filename + ".txt";
+  return path.join(variables.libraryDefaultDir, "..", "logs_flask", filename);
+};
+console.log = log.log;
+console.error = log.error;
 /* Eli added */
 // import './style.scss'
 // import 'typeface-roboto/index.css' // https://medium.com/@daddycat/using-offline-material-icons-and-roboto-font-in-electron-app-f25082447443
@@ -8,7 +39,6 @@ import { app } from "electron";
 /* end Eli added */
 const ci = require("ci-info");
 
-const path = require("path");
 const fs = require("fs");
 const axios = require("axios");
 // const {
@@ -149,7 +179,7 @@ app.on("ready", () => {
 
 // This is another place to handle events after all windows are closed
 app.on("will-quit", function () {
-  // This is a good place to add tests insuring the app is still
+  // This is a good place to add tests ensuring the app is still
   // responsive and all windows are closed.
   console.log("will-quit event being handled"); // allow-log
   // mainWindow = null;
