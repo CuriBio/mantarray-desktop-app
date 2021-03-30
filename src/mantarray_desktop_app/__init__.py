@@ -97,6 +97,7 @@ from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
+from .constants import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
@@ -136,6 +137,7 @@ from .exceptions import MismatchedScriptTypeError
 from .exceptions import MultiprocessingNotSetToSpawnError
 from .exceptions import RecordingFolderDoesNotExistError
 from .exceptions import ScriptDoesNotContainEndCommandError
+from .exceptions import SerialCommCommandResponseTimeoutError
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
 from .exceptions import SerialCommIncorrectChecksumFromPCError
 from .exceptions import SerialCommIncorrectMagicWordFromMantarrayError
@@ -425,4 +427,6 @@ __all__ = [
     "SerialCommTooManyMissedHandshakesError",
     "SERIAL_COMM_MAX_TIMESTAMP_VALUE",
     "SerialCommUntrackedCommandResponseError",
+    "SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS",
+    "SerialCommCommandResponseTimeoutError",
 ]

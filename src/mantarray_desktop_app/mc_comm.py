@@ -39,11 +39,13 @@ from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
+from .constants import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from .exceptions import SerialCommCommandResponseTimeoutError
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
 from .exceptions import SerialCommIncorrectChecksumFromPCError
 from .exceptions import SerialCommIncorrectMagicWordFromMantarrayError
@@ -73,6 +75,10 @@ def _get_seconds_since_read_start(start: float) -> float:
 
 def _get_secs_since_last_handshake(last_time: float) -> float:
     return perf_counter() - last_time
+
+
+def _get_secs_since_command_sent(command_timestamp: float) -> float:
+    return perf_counter() - command_timestamp
 
 
 class McCommunicationProcess(InstrumentCommProcess):
@@ -215,6 +221,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._process_next_communication_from_main()
         self._handle_handshake()
         self._handle_incoming_data()
+        self._handle_command_tracking()
 
     def _process_next_communication_from_main(self) -> None:
         """Process the next communication sent from the main process.
@@ -259,9 +266,13 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise UnrecognizedCommandFromMainToMcCommError(
                 f"Invalid communication_type: {communication_type}"
             )
+
+        comm_from_main["timepoint"] = perf_counter()
         self._commands_awaiting_response.append(comm_from_main)
-        # Tanner (3/23/21): consider replacing this with is_queue_eventually_empty
-        if not input_queue.empty():
+
+        if (
+            not input_queue.empty()
+        ):  # Tanner (3/23/21): consider replacing this with is_queue_eventually_empty
             self._process_can_be_soft_stopped = False
 
     def _handle_handshake(self) -> None:
@@ -284,7 +295,9 @@ class McCommunicationProcess(InstrumentCommProcess):
             SERIAL_COMM_MAIN_MODULE_ID,
             SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
         )
-        self._commands_awaiting_response.append({"command": "handshake"})
+        self._commands_awaiting_response.append(
+            {"command": "handshake", "timepoint": self._time_of_last_handshake_secs}
+        )
 
     def _handle_incoming_data(self) -> None:
         board_idx = 0
@@ -356,6 +369,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 return
             if prev_command["command"] == "get_metadata":
                 prev_command["metadata"] = parse_metadata_bytes(response_data)
+            del prev_command["timepoint"]
             self._board_queues[0][1].put_nowait(
                 prev_command
             )  # Tanner (3/17/21): to be consistent with OkComm, command responses will be sent back to main after the command is acknowledged by the Mantarray
@@ -407,3 +421,13 @@ class McCommunicationProcess(InstrumentCommProcess):
         if magic_word_test_bytes != SERIAL_COMM_MAGIC_WORD_BYTES:
             raise SerialCommPacketRegistrationReadEmptyError()
         self._is_registered_with_serial_comm[board_idx] = True
+
+    def _handle_command_tracking(self) -> None:
+        if not self._commands_awaiting_response:
+            return
+        oldest_command = self._commands_awaiting_response[0]
+        secs_since_command_sent = _get_secs_since_command_sent(
+            oldest_command["timepoint"]
+        )
+        if secs_since_command_sent >= SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS:
+            raise SerialCommCommandResponseTimeoutError(oldest_command["command"])

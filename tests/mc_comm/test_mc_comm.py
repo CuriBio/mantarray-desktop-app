@@ -22,10 +22,12 @@ from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
 from mantarray_desktop_app import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
+from mantarray_desktop_app import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from mantarray_desktop_app import SerialCommCommandResponseTimeoutError
 from mantarray_desktop_app import SerialCommIncorrectChecksumFromInstrumentError
 from mantarray_desktop_app import SerialCommIncorrectChecksumFromPCError
 from mantarray_desktop_app import SerialCommIncorrectMagicWordFromMantarrayError
@@ -1019,3 +1021,74 @@ def test_McCommunicationProcess__raises_error_when_receiving_untracked_command_r
     with pytest.raises(SerialCommUntrackedCommandResponseError) as exc_info:
         invoke_process_run_and_check_errors(mc_process)
     assert str(test_command_response) in str(exc_info.value)
+
+
+def test_McCommunicationProcess__processes_command_response_when_packet_received_in_between_sending_command_and_receiving_response(
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    board_queues = four_board_mc_comm_process_no_handshake["board_queues"]
+    input_queue = board_queues[0][0]
+    output_queue = board_queues[0][1]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+
+    set_connection_and_register_simulator(mc_process, mantarray_mc_simulator_no_beacon)
+
+    assert simulator.in_waiting == 0
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "send_single_beacon"},
+        testing_queue,
+    )
+    invoke_process_run_and_check_errors(simulator)
+
+    test_command = {
+        "communication_type": "to_instrument",
+        "command": "get_metadata",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_command, input_queue
+    )
+    # send command to simulator and read status beacon sent before command response
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
+    confirm_queue_is_eventually_empty(output_queue)
+    # confirm command response is received and data sent back to main
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(output_queue, 1)
+
+
+def test_McCommunicationProcess__raises_error_if_command_response_not_received_within_command_response_wait_period(
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    board_queues = four_board_mc_comm_process_no_handshake["board_queues"]
+    input_queue = board_queues[0][0]
+
+    mocker.patch.object(
+        mc_comm,
+        "_get_secs_since_command_sent",
+        autospec=True,
+        side_effect=[
+            SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS - 1,
+            SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS,
+        ],
+    )
+
+    set_connection_and_register_simulator(mc_process, mantarray_mc_simulator_no_beacon)
+
+    expected_command = "get_metadata"
+    test_command_dict = {
+        "communication_type": "to_instrument",
+        "command": expected_command,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_command_dict, input_queue
+    )
+
+    # send command but do not run simulator so command response is not sent
+    invoke_process_run_and_check_errors(mc_process)
+    # confirm error is raised after wait period elapses
+    with pytest.raises(SerialCommCommandResponseTimeoutError, match=expected_command):
+        invoke_process_run_and_check_errors(mc_process)
