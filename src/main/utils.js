@@ -12,13 +12,10 @@ const yaml = require("js-yaml");
 const get_current_app_version = function () {
   // Eli (3/30/21): Do NOT use `process.env.npm_package_version` to try and do this. It works in CI using the test runner, but does not actually work when running on a standalone machine--it just evaluates to undefined.
   // adapted from https://github.com/electron/electron/issues/7085
-  let { current_version } = "";
   if (process.env.NODE_ENV !== "production") {
-    current_version = require("../../package.json").version;
-  } else {
-    current_version = require("electron").app.getVersion();
+    return require("../../package.json").version;
   }
-  return current_version;
+  return require("electron").app.getVersion();
 };
 
 /**
