@@ -8,7 +8,7 @@ from mantarray_desktop_app import BOOTUP_COUNTER_UUID
 from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import MantarrayMcSimulator
-from mantarray_desktop_app import MC_REBOOT_DURATION_SECONDS
+from mantarray_desktop_app import MAX_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import NANOSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import PCB_SERIAL_NUMBER_UUID
@@ -664,7 +664,10 @@ def test_MantarrayMcSimulator__discards_commands_from_pc_during_reboot_period__a
 
     spied_randint = mocker.spy(random, "randint")
 
-    reboot_times = [4, MC_REBOOT_DURATION_SECONDS]
+    reboot_times = [
+        MAX_MC_REBOOT_DURATION_SECONDS / 2 - 1,
+        MAX_MC_REBOOT_DURATION_SECONDS / 2,
+    ]
     mocker.patch.object(
         mc_simulator,
         "_get_secs_since_reboot_command",
@@ -731,11 +734,12 @@ def test_MantarrayMcSimulator__reset_status_code_after_rebooting(
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
+    reboot_dur = MAX_MC_REBOOT_DURATION_SECONDS / 2
     mocker.patch.object(
         mc_simulator,
         "_get_secs_since_reboot_command",
         autospec=True,
-        return_value=MC_REBOOT_DURATION_SECONDS,
+        return_value=reboot_dur,
     )
 
     # set status code to known value
@@ -790,7 +794,7 @@ def test_MantarrayMcSimulator__processes_testing_commands_during_reboot(
         mc_simulator,
         "_get_secs_since_reboot_command",
         autospec=True,
-        return_value=MC_REBOOT_DURATION_SECONDS - 1,
+        return_value=MAX_MC_REBOOT_DURATION_SECONDS / 2 - 1,
     )
 
     # send reboot command

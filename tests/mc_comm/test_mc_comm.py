@@ -9,7 +9,9 @@ from freezegun import freeze_time
 from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import MantarrayMcSimulator
+from mantarray_desktop_app import MAX_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app import mc_comm
+from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import McCommunicationProcess
 from mantarray_desktop_app import SERIAL_COMM_BAUD_RATE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
@@ -89,6 +91,9 @@ def set_connection_and_register_simulator(
     """
     simulator = simulator_fixture["simulator"]
     testing_queue = simulator_fixture["testing_queue"]
+    # first iteration to send truncated beacon
+    invoke_process_run_and_check_errors(simulator)
+    # send single untruncated beacon and then register with mc_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"command": "send_single_beacon"}, testing_queue
     )
@@ -1134,3 +1139,51 @@ def test_McCommunicationProcess__raises_error_if_status_beacon_not_received_in_a
     )
     with pytest.raises(SerialCommStatusBeaconTimeoutError):
         invoke_process_run_and_check_errors(mc_process)
+
+
+def test_McCommunicationProcess__processes_reboot_command(
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    board_queues = four_board_mc_comm_process_no_handshake["board_queues"]
+    simulator = mantarray_mc_simulator["simulator"]
+    input_queue = board_queues[0][0]
+    output_queue = board_queues[0][1]
+
+    mocker.patch.object(
+        mc_simulator,
+        "_get_secs_since_reboot_command",
+        autospec=True,
+        return_value=MAX_MC_REBOOT_DURATION_SECONDS / 2,
+    )
+    mocker.patch.object(  # mock so beacons periodic aren't sent automatically, but can be sent by reboot
+        mc_simulator,
+        "_get_secs_since_last_status_beacon",
+        autospec=True,
+        return_value=0,
+    )
+    set_connection_and_register_simulator(mc_process, mantarray_mc_simulator)
+
+    expected_response = {
+        "communication_type": "to_instrument",
+        "command": "reboot",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(expected_response), input_queue
+    )
+    # run mc_process one iteration to send reboot command
+    invoke_process_run_and_check_errors(mc_process)
+    # run simulator to start reboot and mc_process to confirm reboot started
+    invoke_process_run_and_check_errors(simulator)
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(output_queue, 1)
+    command_response = output_queue.get_nowait()
+    expected_response["message"] = "Instrument beginning reboot"
+    assert command_response == expected_response
+    # run simulator to finish reboot and mc_prcess to send reboot complete message to main
+    invoke_process_run_and_check_errors(simulator)
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(output_queue, 1)
+    reboot_response = output_queue.get_nowait()
+    expected_response["message"] = "Instrument completed reboot"
+    assert reboot_response == expected_response

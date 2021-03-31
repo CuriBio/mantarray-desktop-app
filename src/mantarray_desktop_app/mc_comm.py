@@ -38,6 +38,7 @@ from .constants import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
+from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
@@ -107,6 +108,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._commands_awaiting_response: Deque[  # pylint: disable=unsubscriptable-object
             Dict[str, Any]
         ] = deque()
+        self._is_instrument_rebooting = False
 
     def _reset_start_time(self) -> None:
         # TODO Tanner (3/19/21): Consider moving this functionality to InfiniteProcess since it applies to all running processes. See note in _setup_before_loop from 2/2/21
@@ -284,6 +286,13 @@ class McCommunicationProcess(InstrumentCommProcess):
                     SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
                     bytes([SERIAL_COMM_GET_METADATA_COMMAND_BYTE]),
                 )
+            elif comm_from_main["command"] == "reboot":
+                self._send_data_packet(
+                    board_idx,
+                    SERIAL_COMM_MAIN_MODULE_ID,
+                    SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+                    bytes([SERIAL_COMM_REBOOT_COMMAND_BYTE]),
+                )
             else:
                 raise UnrecognizedCommandFromMainToMcCommError(
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
@@ -378,6 +387,15 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         if packet_type == SERIAL_COMM_STATUS_BEACON_PACKET_TYPE:
             self._time_of_last_beacon_secs = perf_counter()
+            if self._is_instrument_rebooting:
+                self._is_instrument_rebooting = False
+                self._board_queues[0][1].put_nowait(
+                    {
+                        "communication_type": "to_instrument",
+                        "command": "reboot",
+                        "message": "Instrument completed reboot",
+                    }
+                )
             # TODO Tanner (3/17/21): Implement this in a story dedicated to parsing/handling errors codes in status beacons and handshakes
         elif packet_type == SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE:
             response_data = packet_body[SERIAL_COMM_TIMESTAMP_LENGTH_BYTES:]
@@ -391,6 +409,9 @@ class McCommunicationProcess(InstrumentCommProcess):
                 return
             if prev_command["command"] == "get_metadata":
                 prev_command["metadata"] = parse_metadata_bytes(response_data)
+            elif prev_command["command"] == "reboot":
+                self._is_instrument_rebooting = True
+                prev_command["message"] = "Instrument beginning reboot"
             del prev_command[
                 "timepoint"
             ]  # main process does not need to know the timepoint and is not expecting this key in the dictionary returned to it
