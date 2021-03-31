@@ -1270,3 +1270,32 @@ def test_McCommunicationProcess__does_not_send_handshakes_while_instrument_is_re
     # run mc_process once and confirm that the handshake was not sent
     invoke_process_run_and_check_errors(mc_process)
     assert spied_write.call_count == 1
+
+
+def test_McCommunicationProcess__does_not_check_for_overdue_status_beacons_after_reboot_command_is_sent(
+    four_board_mc_comm_process, mantarray_mc_simulator, mocker
+):
+    mc_process = four_board_mc_comm_process["mc_process"]
+    board_queues = four_board_mc_comm_process["board_queues"]
+    simulator = mantarray_mc_simulator["simulator"]
+    input_queue = board_queues[0][0]
+    set_connection_and_register_simulator(mc_process, mantarray_mc_simulator)
+
+    mocked_get_secs = mocker.patch.object(
+        mc_comm,
+        "_get_secs_since_last_beacon",
+        autospec=True,
+        side_effect=[SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS],
+    )
+    reboot_command = {
+        "communication_type": "to_instrument",
+        "command": "reboot",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(reboot_command), input_queue
+    )
+    # run mc_process to sent reboot command and simulator to start reboot
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
+    # run mc_process again to make sure status beacon time is checked but not error is raised
+    assert mocked_get_secs.call_count == 1

@@ -108,8 +108,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._commands_awaiting_response: Deque[  # pylint: disable=unsubscriptable-object
             Dict[str, Any]
         ] = deque()
-        self._is_awaiting_reboot_response = False
-        self._is_instrument_rebooting = False
+        self._is_waiting_for_reboot = False
 
     def _reset_start_time(self) -> None:
         # TODO Tanner (3/19/21): Consider moving this functionality to InfiniteProcess since it applies to all running processes. See note in _setup_before_loop from 2/2/21
@@ -241,7 +240,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         4. Make sure the beacon is not overdue. If the beacon were overdue, it's reasonable to assume something caused the instrument to stop working. This task should happen after handling of sending/receiving data from the instrument and main process.
         5. Make sure commands are not overdue. This task should happen after the instrument has been determined to be working properly.
         """
-        if not self._is_awaiting_reboot_response and not self._is_instrument_rebooting:
+        if not self._is_waiting_for_reboot:
             self._process_next_communication_from_main()
             self._handle_sending_handshake()
         self._handle_incoming_data()
@@ -298,7 +297,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                     SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
                     bytes([SERIAL_COMM_REBOOT_COMMAND_BYTE]),
                 )
-                self._is_awaiting_reboot_response = True
+                self._is_waiting_for_reboot = True
             else:
                 raise UnrecognizedCommandFromMainToMcCommError(
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
@@ -393,8 +392,8 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         if packet_type == SERIAL_COMM_STATUS_BEACON_PACKET_TYPE:
             self._time_of_last_beacon_secs = perf_counter()
-            if self._is_instrument_rebooting:
-                self._is_instrument_rebooting = False
+            if self._is_waiting_for_reboot:
+                self._is_waiting_for_reboot = False
                 self._board_queues[0][1].put_nowait(
                     {
                         "communication_type": "to_instrument",
@@ -402,7 +401,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                         "message": "Instrument completed reboot",
                     }
                 )
-            # TODO Tanner (3/17/21): Implement this in a story dedicated to parsing/handling errors codes in status beacons and handshakes
+            # TODO Tanner (3/17/21): parse/handle errors codes in status beacons and handshakes
         elif packet_type == SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE:
             response_data = packet_body[SERIAL_COMM_TIMESTAMP_LENGTH_BYTES:]
             if not self._commands_awaiting_response:
@@ -416,8 +415,6 @@ class McCommunicationProcess(InstrumentCommProcess):
             if prev_command["command"] == "get_metadata":
                 prev_command["metadata"] = parse_metadata_bytes(response_data)
             elif prev_command["command"] == "reboot":
-                self._is_awaiting_reboot_response = False
-                self._is_instrument_rebooting = True
                 prev_command["message"] = "Instrument beginning reboot"
             del prev_command[
                 "timepoint"
@@ -475,19 +472,20 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._is_registered_with_serial_comm[board_idx] = True
 
     def _handle_beacon_tracking(self) -> None:
-        if self._time_of_last_beacon_secs is None or self._is_instrument_rebooting:
+        if self._time_of_last_beacon_secs is None:
             return
         secs_since_last_beacon_received = _get_secs_since_last_beacon(
             self._time_of_last_beacon_secs
         )
-        if secs_since_last_beacon_received >= SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS:
+        if (
+            secs_since_last_beacon_received >= SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
+            and not self._is_waiting_for_reboot
+        ):
             raise SerialCommStatusBeaconTimeoutError()
 
     def _handle_command_tracking(self) -> None:
         if not self._commands_awaiting_response:
             return
-        if self._is_instrument_rebooting:
-            pass  # raise Exception()
         oldest_command = self._commands_awaiting_response[0]
         secs_since_command_sent = _get_secs_since_command_sent(
             oldest_command["timepoint"]
