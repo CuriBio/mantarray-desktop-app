@@ -61,6 +61,7 @@ from ..fixtures_mc_comm import fixture_patch_comports
 from ..fixtures_mc_comm import fixture_patch_serial_connection
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
+from ..fixtures_mc_simulator import MantarrayMcSimulatorNoBeacons
 from ..helpers import assert_queue_is_eventually_not_empty
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
@@ -91,8 +92,9 @@ def set_connection_and_register_simulator(
     """
     simulator = simulator_fixture["simulator"]
     testing_queue = simulator_fixture["testing_queue"]
-    # first iteration to send truncated beacon
-    invoke_process_run_and_check_errors(simulator)
+    if not isinstance(simulator, MantarrayMcSimulatorNoBeacons):
+        # first iteration to send truncated beacon
+        invoke_process_run_and_check_errors(simulator)
     # send single untruncated beacon and then register with mc_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"command": "send_single_beacon"}, testing_queue
@@ -1154,13 +1156,7 @@ def test_McCommunicationProcess__processes_reboot_command(
         mc_simulator,
         "_get_secs_since_reboot_command",
         autospec=True,
-        return_value=MAX_MC_REBOOT_DURATION_SECONDS / 2,
-    )
-    mocker.patch.object(  # mock so beacons periodic aren't sent automatically, but can be sent by reboot
-        mc_simulator,
-        "_get_secs_since_last_status_beacon",
-        autospec=True,
-        return_value=0,
+        side_effect=[MAX_MC_REBOOT_DURATION_SECONDS / 2],
     )
     set_connection_and_register_simulator(mc_process, mantarray_mc_simulator)
 
@@ -1187,3 +1183,90 @@ def test_McCommunicationProcess__processes_reboot_command(
     reboot_response = output_queue.get_nowait()
     expected_response["message"] = "Instrument completed reboot"
     assert reboot_response == expected_response
+
+
+def test_McCommunicationProcess__waits_until_instrument_is_done_rebooting_to_send_commands(
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    board_queues = four_board_mc_comm_process_no_handshake["board_queues"]
+    simulator = mantarray_mc_simulator["simulator"]
+    input_queue = board_queues[0][0]
+    output_queue = board_queues[0][1]
+
+    mocker.patch.object(
+        mc_simulator,
+        "_get_secs_since_reboot_command",
+        autospec=True,
+        side_effect=[MAX_MC_REBOOT_DURATION_SECONDS / 2],
+    )
+    set_connection_and_register_simulator(mc_process, mantarray_mc_simulator)
+
+    reboot_command = {
+        "communication_type": "to_instrument",
+        "command": "reboot",
+    }
+    test_command = {
+        "communication_type": "to_instrument",
+        "command": "get_metadata",
+    }
+    handle_putting_multiple_objects_into_empty_queue(
+        [copy.deepcopy(reboot_command), copy.deepcopy(test_command)], input_queue
+    )
+    # run mc_process to sent reboot command and simulator to start reboot
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
+    # run mc_process once and confirm the command is still in queue
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(input_queue, 1)
+    # run simulator to finish reboot
+    invoke_process_run_and_check_errors(simulator)
+    # run mc_process twice to confirm reboot completion and then to send command to simulator
+    invoke_process_run_and_check_errors(mc_process, num_iterations=2)
+    # run simulator once to process the command
+    invoke_process_run_and_check_errors(simulator)
+    # run mc_process to process response from instrument and send message back to main
+    invoke_process_run_and_check_errors(mc_process)
+    # confirm message was sent back to main
+    to_main_items = drain_queue(output_queue)
+    assert to_main_items[-1]["command"] == "get_metadata"
+
+
+def test_McCommunicationProcess__does_not_send_handshakes_while_instrument_is_rebooting(
+    four_board_mc_comm_process, mantarray_mc_simulator, mocker
+):
+    mc_process = four_board_mc_comm_process["mc_process"]
+    board_queues = four_board_mc_comm_process["board_queues"]
+    simulator = mantarray_mc_simulator["simulator"]
+    input_queue = board_queues[0][0]
+
+    mocker.patch.object(
+        mc_simulator,
+        "_get_secs_since_reboot_command",
+        autospec=True,
+        side_effect=[MAX_MC_REBOOT_DURATION_SECONDS / 2],
+    )
+    set_connection_and_register_simulator(mc_process, mantarray_mc_simulator)
+
+    mocker.patch.object(
+        mc_comm,
+        "_get_secs_since_last_handshake",
+        autospec=True,
+        side_effect=[0, SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS],
+    )
+    spied_write = mocker.spy(simulator, "write")
+
+    reboot_command = {
+        "communication_type": "to_instrument",
+        "command": "reboot",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(reboot_command), input_queue
+    )
+    # run mc_process to sent reboot command and simulator to start reboot
+    invoke_process_run_and_check_errors(mc_process)
+    assert spied_write.call_count == 1
+    invoke_process_run_and_check_errors(simulator)
+    # run mc_process once and confirm that the handshake was not sent
+    invoke_process_run_and_check_errors(mc_process)
+    assert spied_write.call_count == 1

@@ -108,6 +108,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._commands_awaiting_response: Deque[  # pylint: disable=unsubscriptable-object
             Dict[str, Any]
         ] = deque()
+        self._is_awaiting_reboot_response = False
         self._is_instrument_rebooting = False
 
     def _reset_start_time(self) -> None:
@@ -231,14 +232,18 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         This process must be responsive to communication from the main process and then the instrument before anything else.
 
+        After reboot command is sent, no more commands should be sent until reboot completes.
+        During instrument reboot, should only check for incoming data make sure no commands are awaiting a response.
+
         1. Process next communication from main. This process's highest priority is to be responsive to the main process and should check for messages from main first. These messages will let this process know when to send commands to the instrument.Process
         2. Send handshake to instrument when necessary. Second highest priority is to let the instrument know that this process and the rest of the software are alive and responsive.
         3. Process data coming from the instrument. Processing data coming from the instrument is the highest priority task after sending data to it.
         4. Make sure the beacon is not overdue. If the beacon were overdue, it's reasonable to assume something caused the instrument to stop working. This task should happen after handling of sending/receiving data from the instrument and main process.
         5. Make sure commands are not overdue. This task should happen after the instrument has been determined to be working properly.
         """
-        self._process_next_communication_from_main()
-        self._handle_sending_handshake()
+        if not self._is_awaiting_reboot_response and not self._is_instrument_rebooting:
+            self._process_next_communication_from_main()
+            self._handle_sending_handshake()
         self._handle_incoming_data()
         self._handle_beacon_tracking()
         self._handle_command_tracking()
@@ -293,6 +298,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                     SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
                     bytes([SERIAL_COMM_REBOOT_COMMAND_BYTE]),
                 )
+                self._is_awaiting_reboot_response = True
             else:
                 raise UnrecognizedCommandFromMainToMcCommError(
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
@@ -410,6 +416,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             if prev_command["command"] == "get_metadata":
                 prev_command["metadata"] = parse_metadata_bytes(response_data)
             elif prev_command["command"] == "reboot":
+                self._is_awaiting_reboot_response = False
                 self._is_instrument_rebooting = True
                 prev_command["message"] = "Instrument beginning reboot"
             del prev_command[
@@ -468,7 +475,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._is_registered_with_serial_comm[board_idx] = True
 
     def _handle_beacon_tracking(self) -> None:
-        if self._time_of_last_beacon_secs is None:
+        if self._time_of_last_beacon_secs is None or self._is_instrument_rebooting:
             return
         secs_since_last_beacon_received = _get_secs_since_last_beacon(
             self._time_of_last_beacon_secs
@@ -479,6 +486,8 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _handle_command_tracking(self) -> None:
         if not self._commands_awaiting_response:
             return
+        if self._is_instrument_rebooting:
+            pass  # raise Exception()
         oldest_command = self._commands_awaiting_response[0]
         secs_since_command_sent = _get_secs_since_command_sent(
             oldest_command["timepoint"]
