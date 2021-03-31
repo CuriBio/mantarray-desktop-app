@@ -130,6 +130,7 @@ from .exceptions import FirstManagedReadLessThanOneRoundRobinError
 from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
 from .exceptions import ImproperlyFormattedUserAccountUUIDError
 from .exceptions import InstrumentCommIncorrectHeaderError
+from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import InvalidDataFramePeriodError
 from .exceptions import InvalidDataTypeFromOkCommError
 from .exceptions import InvalidScriptCommandError
@@ -433,4 +434,5 @@ __all__ = [
     "SerialCommCommandResponseTimeoutError",
     "SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS",
     "SerialCommStatusBeaconTimeoutError",
+    "InstrumentRebootTimeoutError",
 ]

@@ -180,3 +180,7 @@ class SerialCommStatusBeaconTimeoutError(Exception):
 
 class SerialCommCommandResponseTimeoutError(Exception):
     pass
+
+
+class InstrumentRebootTimeoutError(Exception):
+    pass

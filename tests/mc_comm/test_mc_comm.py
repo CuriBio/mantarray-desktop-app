@@ -8,6 +8,7 @@ from zlib import crc32
 from freezegun import freeze_time
 from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import create_data_packet
+from mantarray_desktop_app import InstrumentRebootTimeoutError
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import MAX_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app import mc_comm
@@ -1090,7 +1091,10 @@ def test_McCommunicationProcess__processes_command_response_when_packet_received
 
 
 def test_McCommunicationProcess__raises_error_if_command_response_not_received_within_command_response_wait_period(
-    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+    mocker,
+    patch_print,
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     board_queues = four_board_mc_comm_process_no_handshake["board_queues"]
@@ -1126,7 +1130,10 @@ def test_McCommunicationProcess__raises_error_if_command_response_not_received_w
 
 
 def test_McCommunicationProcess__raises_error_if_status_beacon_not_received_in_allowed_period_of_time(
-    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+    mocker,
+    patch_print,
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
 
@@ -1299,3 +1306,36 @@ def test_McCommunicationProcess__does_not_check_for_overdue_status_beacons_after
     invoke_process_run_and_check_errors(simulator)
     # run mc_process again to make sure status beacon time is checked but not error is raised
     assert mocked_get_secs.call_count == 1
+
+
+def test_McCommunicationProcess__raises_error_if_reboot_takes_longer_than_maximum_reboot_period(
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator,
+    mocker,  # patch_print
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    board_queues = four_board_mc_comm_process_no_handshake["board_queues"]
+    simulator = mantarray_mc_simulator["simulator"]
+    input_queue = board_queues[0][0]
+    set_connection_and_register_simulator(mc_process, mantarray_mc_simulator)
+
+    mocker.patch.object(
+        mc_comm,
+        "_get_secs_since_reboot_start",
+        autospec=True,
+        side_effect=[MAX_MC_REBOOT_DURATION_SECONDS],
+    )
+
+    reboot_command = {
+        "communication_type": "to_instrument",
+        "command": "reboot",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(reboot_command), input_queue
+    )
+    # run mc_process to sent reboot command and simulator to start reboot
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
+    # run mc_process to raise error after reboot period has elapsed and confirm error is raised
+    with pytest.raises(InstrumentRebootTimeoutError):
+        invoke_process_run_and_check_errors(mc_process)
