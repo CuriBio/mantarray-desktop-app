@@ -225,6 +225,16 @@ class McCommunicationProcess(InstrumentCommProcess):
         board.write(data_packet)
 
     def _commands_for_each_run_iteration(self) -> None:
+        """Ordered actions to perform each iteration.
+
+        This process must be responsive to communication from the main process and then the instrument before anything else.
+
+        1. Process next communication from main. This process's highest priority is to be responsive to the main process and should check for messages from main first. These messages will let this process know when to send commands to the instrument.Process
+        2. Send handshake to instrument when necessary. Second highest priority is to let the instrument know that this process and the rest of the software are alive and responsive.
+        3. Process data coming from the instrument. Processing data coming from the instrument is the highest priority task after sending data to it.
+        4. Make sure the beacon is not overdue. If the beacon were overdue, it's reasonable to assume something caused the instrument to stop working. This task should happen after handling of sending/receiving data from the instrument and main process.
+        5. Make sure commands are not overdue. This task should happen after the instrument has been determined to be working properly.
+        """
         self._process_next_communication_from_main()
         self._handle_sending_handshake()
         self._handle_incoming_data()
@@ -381,7 +391,9 @@ class McCommunicationProcess(InstrumentCommProcess):
                 return
             if prev_command["command"] == "get_metadata":
                 prev_command["metadata"] = parse_metadata_bytes(response_data)
-            del prev_command["timepoint"]
+            del prev_command[
+                "timepoint"
+            ]  # main process does not need to know the timepoint and is not expecting this key in the dictionary returned to it
             self._board_queues[0][1].put_nowait(
                 prev_command
             )  # Tanner (3/17/21): to be consistent with OkComm, command responses will be sent back to main after the command is acknowledged by the Mantarray
