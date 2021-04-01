@@ -22,6 +22,7 @@ import serial
 import serial.tools.list_ports as list_ports
 from stdlib_utils import put_log_message_into_queue
 
+from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import NANOSECONDS_PER_CENTIMILLISECOND
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BAUD_RATE
@@ -38,6 +39,7 @@ from .constants import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
+from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
@@ -46,6 +48,7 @@ from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import SerialCommCommandResponseTimeoutError
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
 from .exceptions import SerialCommIncorrectChecksumFromPCError
@@ -87,6 +90,10 @@ def _get_secs_since_command_sent(command_timestamp: float) -> float:
     return perf_counter() - command_timestamp
 
 
+def _get_secs_since_reboot_start(reboot_start_time: float) -> float:
+    return perf_counter() - reboot_start_time
+
+
 class McCommunicationProcess(InstrumentCommProcess):
     """Process that controls communication with the Mantarray Beta 2 Board(s).
 
@@ -107,6 +114,8 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._commands_awaiting_response: Deque[  # pylint: disable=unsubscriptable-object
             Dict[str, Any]
         ] = deque()
+        self._is_waiting_for_reboot = False
+        self._time_of_reboot_start: Optional[float] = None
 
     def _reset_start_time(self) -> None:
         # TODO Tanner (3/19/21): Consider moving this functionality to InfiniteProcess since it applies to all running processes. See note in _setup_before_loop from 2/2/21
@@ -225,11 +234,29 @@ class McCommunicationProcess(InstrumentCommProcess):
         board.write(data_packet)
 
     def _commands_for_each_run_iteration(self) -> None:
-        self._process_next_communication_from_main()
-        self._handle_sending_handshake()
+        """Ordered actions to perform each iteration.
+
+        This process must be responsive to communication from the main process and then the instrument before anything else.
+
+        After reboot command is sent, no more commands should be sent until reboot completes.
+        During instrument reboot, should only check for incoming data make sure no commands are awaiting a response.
+
+        1. Process next communication from main. This process's highest priority is to be responsive to the main process and should check for messages from main first. These messages will let this process know when to send commands to the instrument.Process
+        2. Send handshake to instrument when necessary. Second highest priority is to let the instrument know that this process and the rest of the software are alive and responsive.
+        3. Process data coming from the instrument. Processing data coming from the instrument is the highest priority task after sending data to it.
+        4. Make sure the beacon is not overdue, unless instrument is rebooting. If the beacon is overdue, it's reasonable to assume something caused the instrument to stop working. This task should happen after handling of sending/receiving data from the instrument and main process.
+        5. Make sure commands are not overdue. This task should happen after the instrument has been determined to be working properly.
+        6. If rebooting, make sure that the reboot has not taken longer than the max allowed reboot time.
+        """
+        if not self._is_waiting_for_reboot:
+            self._process_next_communication_from_main()
+            self._handle_sending_handshake()
         self._handle_incoming_data()
         self._handle_beacon_tracking()
         self._handle_command_tracking()
+
+        if self._is_waiting_for_reboot:
+            self._check_reboot_status()
 
         # process can be soft stopped if no commands in queue from main and no command responses needed from instrument
         self._process_can_be_soft_stopped = (
@@ -274,6 +301,14 @@ class McCommunicationProcess(InstrumentCommProcess):
                     SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
                     bytes([SERIAL_COMM_GET_METADATA_COMMAND_BYTE]),
                 )
+            elif comm_from_main["command"] == "reboot":
+                self._send_data_packet(
+                    board_idx,
+                    SERIAL_COMM_MAIN_MODULE_ID,
+                    SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+                    bytes([SERIAL_COMM_REBOOT_COMMAND_BYTE]),
+                )
+                self._is_waiting_for_reboot = True
             else:
                 raise UnrecognizedCommandFromMainToMcCommError(
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
@@ -368,7 +403,17 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         if packet_type == SERIAL_COMM_STATUS_BEACON_PACKET_TYPE:
             self._time_of_last_beacon_secs = perf_counter()
-            # TODO Tanner (3/17/21): Implement this in a story dedicated to parsing/handling errors codes in status beacons and handshakes
+            if self._is_waiting_for_reboot:
+                self._is_waiting_for_reboot = False
+                self._time_of_reboot_start = None
+                self._board_queues[0][1].put_nowait(
+                    {
+                        "communication_type": "to_instrument",
+                        "command": "reboot",
+                        "message": "Instrument completed reboot",
+                    }
+                )
+            # TODO Tanner (3/17/21): parse/handle errors codes in status beacons and handshakes
         elif packet_type == SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE:
             response_data = packet_body[SERIAL_COMM_TIMESTAMP_LENGTH_BYTES:]
             if not self._commands_awaiting_response:
@@ -381,7 +426,12 @@ class McCommunicationProcess(InstrumentCommProcess):
                 return
             if prev_command["command"] == "get_metadata":
                 prev_command["metadata"] = parse_metadata_bytes(response_data)
-            del prev_command["timepoint"]
+            elif prev_command["command"] == "reboot":
+                prev_command["message"] = "Instrument beginning reboot"
+                self._time_of_reboot_start = perf_counter()
+            del prev_command[
+                "timepoint"
+            ]  # main process does not need to know the timepoint and is not expecting this key in the dictionary returned to it
             self._board_queues[0][1].put_nowait(
                 prev_command
             )  # Tanner (3/17/21): to be consistent with OkComm, command responses will be sent back to main after the command is acknowledged by the Mantarray
@@ -440,7 +490,10 @@ class McCommunicationProcess(InstrumentCommProcess):
         secs_since_last_beacon_received = _get_secs_since_last_beacon(
             self._time_of_last_beacon_secs
         )
-        if secs_since_last_beacon_received >= SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS:
+        if (
+            secs_since_last_beacon_received >= SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
+            and not self._is_waiting_for_reboot
+        ):
             raise SerialCommStatusBeaconTimeoutError()
 
     def _handle_command_tracking(self) -> None:
@@ -452,3 +505,10 @@ class McCommunicationProcess(InstrumentCommProcess):
         )
         if secs_since_command_sent >= SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS:
             raise SerialCommCommandResponseTimeoutError(oldest_command["command"])
+
+    def _check_reboot_status(self) -> None:
+        if self._time_of_reboot_start is None:
+            return
+        reboot_dur_secs = _get_secs_since_reboot_start(self._time_of_reboot_start)
+        if reboot_dur_secs >= MAX_MC_REBOOT_DURATION_SECONDS:
+            raise InstrumentRebootTimeoutError()
