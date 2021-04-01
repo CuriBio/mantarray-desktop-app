@@ -31,7 +31,7 @@
     "node": ">=14.15.1"
   },
   "dependencies": {
-    "@curi-bio/mantarray-frontend-components": "0.1.13",
+    "@curi-bio/mantarray-frontend-components": "git://github.com/CuriBio/mantarray-frontend-components.git#skip-ahead-playback-if-delay",
     "@electron/remote": "~1.0.2",
     "axios": "~0.21.1",
     "current-script-polyfill": "~1.0.0",
