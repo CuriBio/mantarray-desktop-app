@@ -8,7 +8,6 @@ import queue
 import random
 import time
 from time import perf_counter
-from time import perf_counter_ns
 from typing import Any
 from typing import Dict
 from typing import Optional
@@ -25,7 +24,6 @@ from stdlib_utils import SECONDS_TO_SLEEP_BETWEEN_CHECKING_QUEUE_SIZE
 
 from .constants import BOOTUP_COUNTER_UUID
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
-from .constants import NANOSECONDS_PER_CENTIMILLISECOND
 from .constants import PCB_SERIAL_NUMBER_UUID
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
@@ -119,7 +117,6 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._output_queue = output_queue
         self._input_queue = input_queue
         self._testing_queue = testing_queue
-        self._init_time_ns: Optional[int] = None
         self._time_of_last_status_beacon_secs: Optional[float] = None
         self._time_of_last_handshake_secs: Optional[float] = None
         self._reboot_time_secs: Optional[float] = None
@@ -153,19 +150,6 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._metadata_dict[uuid_key.bytes] = convert_to_metadata_bytes(
                 metadata_value
             )
-
-    def _reset_start_time(self) -> None:
-        self._init_time_ns = perf_counter_ns()
-
-    def _setup_before_loop(self) -> None:
-        # Tanner (2/2/21): Comparing perf_counter_ns values in a subprocess to those in the parent process have unexpected behavior in windows, so storing the initialization time after the process has been created in order to avoid issues
-        self._reset_start_time()
-
-    def get_cms_since_init(self) -> int:
-        if self._init_time_ns is None:
-            return 0
-        ns_since_init = perf_counter_ns() - self._init_time_ns
-        return ns_since_init // NANOSECONDS_PER_CENTIMILLISECOND
 
     def get_metadata_dict(self) -> Dict[bytes, bytes]:
         """Mainly for use in unit tests."""

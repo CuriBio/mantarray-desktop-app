@@ -113,6 +113,21 @@ def test_McCommunicationProcess_super_is_called_during_init(mocker):
     mocked_init.assert_called_once_with(error_queue, logging_level=logging.INFO)
 
 
+def test_McCommunicationProcess_setup_before_loop__calls_super(
+    four_board_mc_comm_process, mocker
+):
+    spied_setup = mocker.spy(InfiniteProcess, "_setup_before_loop")
+
+    mc_process = four_board_mc_comm_process["mc_process"]
+    invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
+    spied_setup.assert_called_once()
+
+    # simulator is automatically started by mc_comm during setup_before_loop. Need to hard stop here since there is no access to the simulator's queues which must be drained before joining
+    populated_connections_list = mc_process.get_board_connections_list()
+    populated_connections_list[0].hard_stop()
+    populated_connections_list[0].join()
+
+
 @pytest.mark.slow
 @freeze_time("2021-03-16 13:05:55.654321")
 @pytest.mark.timeout(15)

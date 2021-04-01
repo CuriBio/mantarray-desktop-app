@@ -38,7 +38,7 @@ scipy = "==1.6.1"
 secrets-manager = "==0.4"
 semver = "==2.13.0"
 pyserial = "==3.5"
-stdlib-utils = "==0.4.3"
+stdlib-utils = {editable = true, ref = "timing-fixes", git = "https://github.com/CuriBio/stdlib-utils.git"}
 xem-wrapper = "==0.2.5"
 
 [requires]
