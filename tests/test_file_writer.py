@@ -123,6 +123,16 @@ def test_FileWriterProcess_super_is_called_during_init(mocker):
     mocked_init.assert_called_once_with(error_queue, logging_level=logging.INFO)
 
 
+def test_FileWriterProcess_setup_before_loop__calls_super(
+    four_board_file_writer_process, mocker
+):
+    spied_setup = mocker.spy(InfiniteProcess, "_setup_before_loop")
+
+    fw_process = four_board_file_writer_process["fw_process"]
+    invoke_process_run_and_check_errors(fw_process, perform_setup_before_loop=True)
+    spied_setup.assert_called_once()
+
+
 def test_FileWriterProcess_soft_stop_not_allowed_if_incoming_data_still_in_queue_for_board_0(
     four_board_file_writer_process,
 ):
@@ -852,7 +862,9 @@ def test_FileWriterProcess__does_not_log_percent_use_metrics_in_first_logging_cy
     )
 
     invoke_process_run_and_check_errors(
-        file_writer_process, num_iterations=FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
+        file_writer_process,
+        num_iterations=FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES,
+        perform_setup_before_loop=True,
     )
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
 
@@ -880,7 +892,9 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_when_recording(
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         start_recording_command, from_main_queue
     )
-    invoke_process_run_and_check_errors(file_writer_process)
+    invoke_process_run_and_check_errors(
+        file_writer_process, perform_setup_before_loop=True
+    )
     to_main_queue.get(
         timeout=QUEUE_CHECK_TIMEOUT_SECONDS
     )  # Tanner (9/10/20): remove start_recording confirmation
