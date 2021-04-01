@@ -114,8 +114,10 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._commands_awaiting_response: Deque[  # pylint: disable=unsubscriptable-object
             Dict[str, Any]
         ] = deque()
-        self._is_waiting_for_reboot = False
-        self._time_of_reboot_start: Optional[float] = None
+        self._is_waiting_for_reboot = False  # Tanner (4/1/21): This flag indicates that a reboot command has been sent and a status beacon following reboot completion has not been received. It does not imply that the instrument has begun rebooting.
+        self._time_of_reboot_start: Optional[
+            float
+        ] = None  # Tanner (4/1/21): This value will be None until this process receives a response to a reboot command. It will be set back to None after receiving a status beacon upon reboot completion
 
     def _reset_start_time(self) -> None:
         # TODO Tanner (3/19/21): Consider moving this functionality to InfiniteProcess since it applies to all running processes. See note in _setup_before_loop from 2/2/21
@@ -403,7 +405,9 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         if packet_type == SERIAL_COMM_STATUS_BEACON_PACKET_TYPE:
             self._time_of_last_beacon_secs = perf_counter()
-            if self._is_waiting_for_reboot:
+            if (
+                self._time_of_reboot_start is not None
+            ):  # Tanner (4/1/21): want to check that reboot has actually started before considering a status beacon to mean that reboot has completed. It is possible (and has happened in unit tests) where a beacon is received in between sending the reboot command and the instrument actually beginning to reboot
                 self._is_waiting_for_reboot = False
                 self._time_of_reboot_start = None
                 self._board_queues[0][1].put_nowait(
