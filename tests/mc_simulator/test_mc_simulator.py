@@ -8,7 +8,6 @@ from mantarray_desktop_app import BOOTUP_COUNTER_UUID
 from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import MantarrayMcSimulator
-from mantarray_desktop_app import MAX_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import NANOSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import PCB_SERIAL_NUMBER_UUID
@@ -34,6 +33,7 @@ from mantarray_desktop_app import TOTAL_WORKING_HOURS_UUID
 from mantarray_desktop_app import UnrecognizedSerialCommModuleIdError
 from mantarray_desktop_app import UnrecognizedSerialCommPacketTypeError
 from mantarray_desktop_app import UnrecognizedSimulatorTestCommandError
+from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
@@ -665,8 +665,8 @@ def test_MantarrayMcSimulator__discards_commands_from_pc_during_reboot_period__a
     spied_randint = mocker.spy(random, "randint")
 
     reboot_times = [
-        MAX_MC_REBOOT_DURATION_SECONDS / 2 - 1,
-        MAX_MC_REBOOT_DURATION_SECONDS / 2,
+        AVERAGE_MC_REBOOT_DURATION_SECONDS - 1,
+        AVERAGE_MC_REBOOT_DURATION_SECONDS,
     ]
     mocker.patch.object(
         mc_simulator,
@@ -734,7 +734,7 @@ def test_MantarrayMcSimulator__reset_status_code_after_rebooting(
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
-    reboot_dur = MAX_MC_REBOOT_DURATION_SECONDS / 2
+    reboot_dur = AVERAGE_MC_REBOOT_DURATION_SECONDS
     mocker.patch.object(
         mc_simulator,
         "_get_secs_since_reboot_command",
@@ -794,7 +794,7 @@ def test_MantarrayMcSimulator__processes_testing_commands_during_reboot(
         mc_simulator,
         "_get_secs_since_reboot_command",
         autospec=True,
-        return_value=MAX_MC_REBOOT_DURATION_SECONDS / 2 - 1,
+        return_value=AVERAGE_MC_REBOOT_DURATION_SECONDS - 1,
     )
 
     # send reboot command

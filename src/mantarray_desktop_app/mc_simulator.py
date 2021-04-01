@@ -58,6 +58,7 @@ from .serial_comm_utils import validate_checksum
 
 
 MAGIC_WORD_LEN = len(SERIAL_COMM_MAGIC_WORD_BYTES)
+AVERAGE_MC_REBOOT_DURATION_SECONDS = MAX_MC_REBOOT_DURATION_SECONDS / 2
 
 
 def _get_secs_since_last_handshake(last_time: float) -> float:
@@ -194,7 +195,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             secs_since_reboot = _get_secs_since_reboot_command(self._reboot_time_secs)
             # if secs_since_reboot is less than the reboot duration, simulator is still in the 'reboot' phase. Commands from PC will be ignored and status beacons will not be sent
             if (
-                secs_since_reboot < MAX_MC_REBOOT_DURATION_SECONDS / 2
+                secs_since_reboot < AVERAGE_MC_REBOOT_DURATION_SECONDS
             ):  # Tanner (3/31/21): rebooting should be much faster than the maximum allowed time for rebooting, so arbitrarily picking
                 return
             self._handle_reboot_completion()

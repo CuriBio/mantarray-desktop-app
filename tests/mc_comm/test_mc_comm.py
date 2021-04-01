@@ -44,6 +44,7 @@ from mantarray_desktop_app import SerialCommUntrackedCommandResponseError
 from mantarray_desktop_app import UnrecognizedCommandFromMainToMcCommError
 from mantarray_desktop_app import UnrecognizedSerialCommModuleIdError
 from mantarray_desktop_app import UnrecognizedSerialCommPacketTypeError
+from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import pytest
@@ -893,7 +894,7 @@ def test_McCommunicationProcess__processes_set_mantarray_nickname_command(
     # run mc_process one iteration to read response from simulator and send command completed response back to main
     invoke_process_run_and_check_errors(mc_process)
     confirm_queue_is_eventually_of_size(output_queue, 1)
-    command_response = output_queue.get_nowait()
+    command_response = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert command_response == set_nickname_command
     # confirm response is read by checking that no bytes are available to read from simulator
     assert simulator.in_waiting == 0
@@ -924,7 +925,7 @@ def test_McCommunicationProcess__processes_get_metadata_command(
     invoke_process_run_and_check_errors(mc_process)
     confirm_queue_is_eventually_of_size(output_queue, 1)
     expected_response["metadata"] = MantarrayMcSimulator.default_metadata_values
-    command_response = output_queue.get_nowait()
+    command_response = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert command_response == expected_response
 
 
@@ -1163,7 +1164,7 @@ def test_McCommunicationProcess__processes_reboot_command(
         mc_simulator,
         "_get_secs_since_reboot_command",
         autospec=True,
-        side_effect=[MAX_MC_REBOOT_DURATION_SECONDS / 2],
+        side_effect=[AVERAGE_MC_REBOOT_DURATION_SECONDS],
     )
     set_connection_and_register_simulator(mc_process, mantarray_mc_simulator)
 
@@ -1180,14 +1181,14 @@ def test_McCommunicationProcess__processes_reboot_command(
     invoke_process_run_and_check_errors(simulator)
     invoke_process_run_and_check_errors(mc_process)
     confirm_queue_is_eventually_of_size(output_queue, 1)
-    command_response = output_queue.get_nowait()
+    command_response = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     expected_response["message"] = "Instrument beginning reboot"
     assert command_response == expected_response
     # run simulator to finish reboot and mc_prcess to send reboot complete message to main
     invoke_process_run_and_check_errors(simulator)
     invoke_process_run_and_check_errors(mc_process)
     confirm_queue_is_eventually_of_size(output_queue, 1)
-    reboot_response = output_queue.get_nowait()
+    reboot_response = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     expected_response["message"] = "Instrument completed reboot"
     assert reboot_response == expected_response
 
@@ -1205,7 +1206,7 @@ def test_McCommunicationProcess__waits_until_instrument_is_done_rebooting_to_sen
         mc_simulator,
         "_get_secs_since_reboot_command",
         autospec=True,
-        side_effect=[MAX_MC_REBOOT_DURATION_SECONDS / 2],
+        side_effect=[AVERAGE_MC_REBOOT_DURATION_SECONDS],
     )
     set_connection_and_register_simulator(mc_process, mantarray_mc_simulator)
 
@@ -1251,7 +1252,7 @@ def test_McCommunicationProcess__does_not_send_handshakes_while_instrument_is_re
         mc_simulator,
         "_get_secs_since_reboot_command",
         autospec=True,
-        side_effect=[MAX_MC_REBOOT_DURATION_SECONDS / 2],
+        side_effect=[AVERAGE_MC_REBOOT_DURATION_SECONDS],
     )
     set_connection_and_register_simulator(mc_process, mantarray_mc_simulator)
 
@@ -1311,7 +1312,8 @@ def test_McCommunicationProcess__does_not_check_for_overdue_status_beacons_after
 def test_McCommunicationProcess__raises_error_if_reboot_takes_longer_than_maximum_reboot_period(
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator,
-    mocker,  # patch_print
+    mocker,
+    patch_print,
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     board_queues = four_board_mc_comm_process_no_handshake["board_queues"]
