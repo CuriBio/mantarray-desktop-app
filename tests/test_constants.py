@@ -90,6 +90,7 @@ from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
+from mantarray_desktop_app import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import SERVER_INITIALIZING_STATE
@@ -347,6 +348,7 @@ def test_serial_comm():
     assert SERIAL_COMM_PACKET_INFO_LENGTH_BYTES == 2
     assert SERIAL_COMM_TIMESTAMP_LENGTH_BYTES == 8
     assert SERIAL_COMM_CHECKSUM_LENGTH_BYTES == 4
+    assert SERIAL_COMM_STATUS_CODE_LENGTH_BYTES == 4
     assert SERIAL_COMM_MAX_PACKET_LENGTH_BYTES == 65546
     assert SERIAL_COMM_MIN_PACKET_SIZE_BYTES == (
         SERIAL_COMM_TIMESTAMP_LENGTH_BYTES

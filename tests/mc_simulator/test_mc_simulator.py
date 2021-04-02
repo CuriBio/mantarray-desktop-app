@@ -614,16 +614,16 @@ def test_MantarrayMcSimulator__responds_to_comm_from_pc__when_checksum_is_incorr
     )
 
 
-def test_MantarrayMcSimulator__allows_status_bits_to_be_set_through_testing_queue_commands(
+def test_MantarrayMcSimulator__allows_status_bytes_to_be_set_through_testing_queue_commands(
     mantarray_mc_simulator_no_beacon,
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
-    expected_status_code_bits = bytes([4, 13, 7, 0])
+    expected_status_code_bytes = bytes([4, 13, 7, 0])
     test_command = {
-        "command": "set_status_code_bits",
-        "status_code_bits": expected_status_code_bits,
+        "command": "set_status_code_bytes",
+        "status_code_bytes": expected_status_code_bytes,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         test_command, testing_queue
@@ -635,9 +635,9 @@ def test_MantarrayMcSimulator__allows_status_bits_to_be_set_through_testing_queu
     handshake_response = simulator.read(size=HANDSHAKE_RESPONSE_SIZE_BYTES)
 
     status_code_end = len(handshake_response) - SERIAL_COMM_CHECKSUM_LENGTH_BYTES
-    status_code_start = status_code_end - len(expected_status_code_bits)
-    actual_status_code_bits = handshake_response[status_code_start:status_code_end]
-    assert actual_status_code_bits == expected_status_code_bits
+    status_code_start = status_code_end - len(expected_status_code_bytes)
+    actual_status_code_bytes = handshake_response[status_code_start:status_code_end]
+    assert actual_status_code_bytes == expected_status_code_bytes
 
 
 def test_MantarrayMcSimulator__discards_commands_from_pc_during_reboot_period__and_sends_reboot_response_packet_before_reboot__and_sends_status_beacon_after_reboot(
@@ -726,10 +726,10 @@ def test_MantarrayMcSimulator__reset_status_code_after_rebooting(
     )
 
     # set status code to known value
-    expected_status_code_bits = bytes([1, 7, 3, 8])
+    expected_status_code_bytes = bytes([1, 7, 3, 8])
     test_command = {
-        "command": "set_status_code_bits",
-        "status_code_bits": expected_status_code_bits,
+        "command": "set_status_code_bytes",
+        "status_code_bytes": expected_status_code_bytes,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         test_command, testing_queue

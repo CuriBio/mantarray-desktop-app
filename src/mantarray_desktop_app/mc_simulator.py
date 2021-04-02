@@ -42,6 +42,7 @@ from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import TAMPER_FLAG_UUID
@@ -124,8 +125,8 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._read_timeout_seconds = read_timeout_seconds
         self._metadata_dict: Dict[bytes, bytes] = dict()
         self._reset_metadata_dict()
-        self._status_code_bits: bytes
-        self._reset_status_code_bits()
+        self._status_code_bytes: bytes
+        self._reset_status_code_bytes()
 
     @property
     def in_waiting(self) -> int:
@@ -142,8 +143,8 @@ class MantarrayMcSimulator(InfiniteProcess):
                 return 0
         return len(self._leftover_read_bytes)
 
-    def _reset_status_code_bits(self) -> None:
-        self._status_code_bits = bytes(4)
+    def _reset_status_code_bytes(self) -> None:
+        self._status_code_bytes = bytes(SERIAL_COMM_STATUS_CODE_LENGTH_BYTES)
 
     def _reset_metadata_dict(self) -> None:
         for uuid_key, metadata_value in self.default_metadata_values.items():
@@ -191,7 +192,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         drain_queue(self._input_queue)
         self._reset_start_time()
         self._reboot_time_secs = None
-        self._reset_status_code_bits()
+        self._reset_status_code_bytes()
         self._send_status_beacon(truncate=False)
 
     def _handle_comm_from_pc(self) -> None:
@@ -245,7 +246,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                 raise NotImplementedError(command_byte)
         elif packet_type == SERIAL_COMM_HANDSHAKE_PACKET_TYPE:
             self._time_of_last_handshake_secs = perf_counter()
-            response_body += self._status_code_bits
+            response_body += self._status_code_bytes
         else:
             module_id = comm_from_pc[SERIAL_COMM_MODULE_ID_INDEX]
             raise UnrecognizedSerialCommPacketTypeError(
@@ -272,7 +273,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._send_data_packet(
             SERIAL_COMM_MAIN_MODULE_ID,
             SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
-            self._status_code_bits,
+            self._status_code_bytes,
             truncate,
         )
 
@@ -300,7 +301,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._send_data_packet(
                 SERIAL_COMM_MAIN_MODULE_ID,
                 SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
-                self._status_code_bits,
+                self._status_code_bytes,
             )
         elif command == "add_read_bytes":
             read_bytes = test_comm["read_bytes"]
@@ -308,8 +309,8 @@ class MantarrayMcSimulator(InfiniteProcess):
                 read_bytes = [read_bytes]
             for read in read_bytes:
                 self._output_queue.put_nowait(read)
-        elif command == "set_status_code_bits":
-            self._status_code_bits = test_comm["status_code_bits"]
+        elif command == "set_status_code_bytes":
+            self._status_code_bytes = test_comm["status_code_bytes"]
         elif command == "set_metadata":
             for key, value in test_comm["metadata_values"].items():
                 value_bytes = convert_to_metadata_bytes(value)

@@ -403,6 +403,16 @@ class McCommunicationProcess(InstrumentCommProcess):
                         "message": "Instrument completed reboot",
                     }
                 )
+            status_code = int.from_bytes(packet_body, byteorder="little")
+            log_msg = (
+                f"Status Beacon received from instrument. Status Code: {status_code}"
+            )
+            put_log_message_into_queue(
+                logging.INFO,
+                log_msg,
+                self._board_queues[0][1],
+                self.get_logging_level(),
+            )
             # TODO Tanner (3/17/21): parse/handle errors codes in status beacons and handshakes
         elif packet_type == SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE:
             response_data = packet_body[SERIAL_COMM_TIMESTAMP_LENGTH_BYTES:]
