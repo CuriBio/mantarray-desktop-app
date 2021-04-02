@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "f41af100409d44f591c1c05b7f8d7157d102843dafd0ce930ce2e2d28a990c62"
+            "sha256": "fdde91467097620c5c85e869eb80bed03c0105653442347d428ec7e4106c1e69"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -315,9 +315,12 @@
             "version": "==1.15.0"
         },
         "stdlib-utils": {
-            "editable": true,
-            "git": "https://github.com/CuriBio/stdlib-utils.git",
-            "ref": "89acb58a24677e3be0f37914ad418546b7475bca"
+            "hashes": [
+                "sha256:5563777c213f8a4df67194130bc8c883564c92819c3ed7573703ac5901863538",
+                "sha256:7599f84d8449ac3ccdb24fa7886d845c3e506312f15ec751ca97f036b6348b42"
+            ],
+            "index": "pypi",
+            "version": "==0.4.4"
         },
         "typish": {
             "hashes": [
@@ -330,7 +333,7 @@
                 "sha256:56f6dc65d86c2e5b8f04f22acedd33af2c233edc1082fe4d24fd3996bd19d0fe",
                 "sha256:f9395cad9a30cb9864fa0c0d18a84daead1eb8807774f4e09f588f89b7dc77d8"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3' and python_version < '4'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3' and python_version < '4.0'",
             "version": "==1.5.0"
         },
         "werkzeug": {
@@ -414,11 +417,11 @@
         },
         "botocore": {
             "hashes": [
-                "sha256:58ac95e801fb02023927abd03280277616137c50cfdef39a69b97a08a64417d2",
-                "sha256:724fb32ccfe903e5a37860890a6da6b56ea3ecda28a324549f2baedd3c4e4e30"
+                "sha256:7630d734260babdc34dc53c704d937f53c362bb15ccd3863ccf1b1b26be04df8",
+                "sha256:7d0326fd8f8d7b3b7d2e8ecc4edb5a39ecd5537072bd0f088767ca53dd34818a"
             ],
             "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4, 3.5'",
-            "version": "==1.20.42"
+            "version": "==1.20.43"
         },
         "certifi": {
             "hashes": [
