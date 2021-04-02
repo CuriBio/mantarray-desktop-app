@@ -172,3 +172,15 @@ class SerialCommTooManyMissedHandshakesError(Exception):
 
 class SerialCommUntrackedCommandResponseError(Exception):
     pass
+
+
+class SerialCommStatusBeaconTimeoutError(Exception):
+    pass
+
+
+class SerialCommCommandResponseTimeoutError(Exception):
+    pass
+
+
+class InstrumentRebootTimeoutError(Exception):
+    pass

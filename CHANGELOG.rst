@@ -1,5 +1,11 @@
 Changelog for Mantarray Desktop App
 ===================================
+0.4.4 (2021-04-02)
+------------------
+
+- Added fix to catch up playback if rendering is lagging
+
+
 0.4.3 (2021-03-30)
 ------------------
 

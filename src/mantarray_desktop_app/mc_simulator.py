@@ -24,7 +24,7 @@ from stdlib_utils import InfiniteProcess
 from stdlib_utils import SECONDS_TO_SLEEP_BETWEEN_CHECKING_QUEUE_SIZE
 
 from .constants import BOOTUP_COUNTER_UUID
-from .constants import MC_REBOOT_DURATION_SECONDS
+from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import NANOSECONDS_PER_CENTIMILLISECOND
 from .constants import PCB_SERIAL_NUMBER_UUID
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
@@ -193,7 +193,9 @@ class MantarrayMcSimulator(InfiniteProcess):
         if self._reboot_time_secs is not None:
             secs_since_reboot = _get_secs_since_reboot_command(self._reboot_time_secs)
             # if secs_since_reboot is less than the reboot duration, simulator is still in the 'reboot' phase. Commands from PC will be ignored and status beacons will not be sent
-            if secs_since_reboot < MC_REBOOT_DURATION_SECONDS:
+            if (
+                secs_since_reboot < MAX_MC_REBOOT_DURATION_SECONDS / 2
+            ):  # Tanner (3/31/21): rebooting should be much faster than the maximum allowed time for rebooting, so arbitrarily picking
                 return
             self._handle_reboot_completion()
         self._handle_comm_from_pc()
