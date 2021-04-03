@@ -642,6 +642,16 @@ def test_OkCommunicationProcess_super_is_called_during_init(mocker):
     mocked_init.assert_called_once_with(error_queue, logging_level=logging.INFO)
 
 
+def test_OkCommunicationProcess_setup_before_loop__calls_super(
+    four_board_comm_process, mocker
+):
+    spied_setup = mocker.spy(InfiniteProcess, "_setup_before_loop")
+
+    ok_process = four_board_comm_process["ok_process"]
+    invoke_process_run_and_check_errors(ok_process, perform_setup_before_loop=True)
+    spied_setup.assert_called_once()
+
+
 def test_OkCommunicationProcess_get_board_connections_list__returns_sequence_same_length_as_queues_in_init(
     four_board_comm_process,
 ):

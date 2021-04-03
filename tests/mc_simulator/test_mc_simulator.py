@@ -8,9 +8,7 @@ from mantarray_desktop_app import BOOTUP_COUNTER_UUID
 from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import MantarrayMcSimulator
-from mantarray_desktop_app import MAX_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app import mc_simulator
-from mantarray_desktop_app import NANOSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import PCB_SERIAL_NUMBER_UUID
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
@@ -34,6 +32,7 @@ from mantarray_desktop_app import TOTAL_WORKING_HOURS_UUID
 from mantarray_desktop_app import UnrecognizedSerialCommModuleIdError
 from mantarray_desktop_app import UnrecognizedSerialCommPacketTypeError
 from mantarray_desktop_app import UnrecognizedSimulatorTestCommandError
+from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
@@ -132,6 +131,16 @@ def test_MantarrayMcSimulator__init__sets_default_metadata_values(
     )
 
 
+def test_MantarrayMcSimulator_setup_before_loop__calls_super(
+    mantarray_mc_simulator, mocker
+):
+    spied_setup = mocker.spy(InfiniteProcess, "_setup_before_loop")
+
+    simulator = mantarray_mc_simulator["simulator"]
+    invoke_process_run_and_check_errors(simulator, perform_setup_before_loop=True)
+    spied_setup.assert_called_once()
+
+
 def test_MantarrayMcSimulator_hard_stop__clears_all_queues_and_returns_lists_of_values(
     mantarray_mc_simulator_no_beacon,
 ):
@@ -183,32 +192,6 @@ def test_MantarrayMcSimulator_hard_stop__clears_all_queues_and_returns_lists_of_
     confirm_queue_is_eventually_empty(output_queue)
     confirm_queue_is_eventually_empty(error_queue)
     confirm_queue_is_eventually_empty(testing_queue)
-
-
-def test_MantarrayMcSimulator__correctly_stores_time_since_initialized__in_setup_before_loop(
-    mocker,
-    mantarray_mc_simulator_no_beacon,
-):
-    simulator = mantarray_mc_simulator_no_beacon["simulator"]
-
-    expected_init_time = 15796649135715
-    expected_poll_time = 15880317595302
-    mocker.patch.object(
-        mc_simulator,
-        "perf_counter_ns",
-        autospec=True,
-        side_effect=[expected_init_time, expected_poll_time],
-    )
-
-    # before setup
-    assert simulator.get_cms_since_init() == 0
-
-    invoke_process_run_and_check_errors(simulator, perform_setup_before_loop=True)
-    # after setup
-    expected_dur_since_init = (
-        expected_poll_time - expected_init_time
-    ) // NANOSECONDS_PER_CENTIMILLISECOND
-    assert simulator.get_cms_since_init() == expected_dur_since_init
 
 
 def test_MantarrayMcSimulator_read__gets_next_available_bytes(
@@ -665,8 +648,8 @@ def test_MantarrayMcSimulator__discards_commands_from_pc_during_reboot_period__a
     spied_randint = mocker.spy(random, "randint")
 
     reboot_times = [
-        MAX_MC_REBOOT_DURATION_SECONDS / 2 - 1,
-        MAX_MC_REBOOT_DURATION_SECONDS / 2,
+        AVERAGE_MC_REBOOT_DURATION_SECONDS - 1,
+        AVERAGE_MC_REBOOT_DURATION_SECONDS,
     ]
     mocker.patch.object(
         mc_simulator,
@@ -734,7 +717,7 @@ def test_MantarrayMcSimulator__reset_status_code_after_rebooting(
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
-    reboot_dur = MAX_MC_REBOOT_DURATION_SECONDS / 2
+    reboot_dur = AVERAGE_MC_REBOOT_DURATION_SECONDS
     mocker.patch.object(
         mc_simulator,
         "_get_secs_since_reboot_command",
@@ -794,7 +777,7 @@ def test_MantarrayMcSimulator__processes_testing_commands_during_reboot(
         mc_simulator,
         "_get_secs_since_reboot_command",
         autospec=True,
-        return_value=MAX_MC_REBOOT_DURATION_SECONDS / 2 - 1,
+        return_value=AVERAGE_MC_REBOOT_DURATION_SECONDS - 1,
     )
 
     # send reboot command

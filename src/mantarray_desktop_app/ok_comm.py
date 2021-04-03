@@ -524,6 +524,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
             comm_to_main_queue.put(msg)
 
     def _setup_before_loop(self) -> None:
+        super()._setup_before_loop()
         msg = {
             "communication_type": "log",
             "message": f'OpalKelly Communication Process initiated at {datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")}',

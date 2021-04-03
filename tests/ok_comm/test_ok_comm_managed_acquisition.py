@@ -1068,7 +1068,9 @@ def test_OkCommunicationProcess_managed_acquisition__does_not_log_percent_use_me
     )
 
     invoke_process_run_and_check_errors(
-        ok_process, num_iterations=INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
+        ok_process,
+        num_iterations=INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES,
+        perform_setup_before_loop=True,
     )
 
     assert_queue_is_eventually_not_empty(board_queues[0][1])

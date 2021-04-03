@@ -8,7 +8,6 @@ import logging
 from multiprocessing import Queue
 import queue
 from time import perf_counter
-from time import perf_counter_ns
 from time import sleep
 from typing import Any
 from typing import Deque
@@ -23,7 +22,6 @@ import serial.tools.list_ports as list_ports
 from stdlib_utils import put_log_message_into_queue
 
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
-from .constants import NANOSECONDS_PER_CENTIMILLISECOND
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BAUD_RATE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
@@ -114,16 +112,13 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._commands_awaiting_response: Deque[  # pylint: disable=unsubscriptable-object
             Dict[str, Any]
         ] = deque()
-        self._is_waiting_for_reboot = False
-        self._time_of_reboot_start: Optional[float] = None
-
-    def _reset_start_time(self) -> None:
-        # TODO Tanner (3/19/21): Consider moving this functionality to InfiniteProcess since it applies to all running processes. See note in _setup_before_loop from 2/2/21
-        self._init_time_ns = perf_counter_ns()
+        self._is_waiting_for_reboot = False  # Tanner (4/1/21): This flag indicates that a reboot command has been sent and a status beacon following reboot completion has not been received. It does not imply that the instrument has begun rebooting.
+        self._time_of_reboot_start: Optional[
+            float
+        ] = None  # Tanner (4/1/21): This value will be None until this process receives a response to a reboot command. It will be set back to None after receiving a status beacon upon reboot completion
 
     def _setup_before_loop(self) -> None:
-        # Tanner (2/2/21): Comparing perf_counter_ns values in a subprocess to those in the parent process have unexpected behavior in windows, so storing the initialization time after the process has been created in order to avoid issues
-        self._reset_start_time()
+        super()._setup_before_loop()
 
         msg = {
             "communication_type": "log",
@@ -161,13 +156,6 @@ class McCommunicationProcess(InstrumentCommProcess):
             board.hard_stop()  # hard stop to drain all queues of simulator
             board.join()
         super()._teardown_after_loop()
-
-    def get_cms_since_init(self) -> int:
-        if self._init_time_ns is None:
-            return 0
-        # pylint: disable=duplicate-code  # TODO Tanner (3/19/21): Consider moving this functionality to InfiniteProcess since it applies to multiple processes
-        ns_since_init = perf_counter_ns() - self._init_time_ns
-        return ns_since_init // NANOSECONDS_PER_CENTIMILLISECOND
 
     def is_registered_with_serial_comm(self, board_idx: int) -> bool:
         """Mainly for use in testing."""
@@ -403,7 +391,9 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         if packet_type == SERIAL_COMM_STATUS_BEACON_PACKET_TYPE:
             self._time_of_last_beacon_secs = perf_counter()
-            if self._is_waiting_for_reboot:
+            if (
+                self._time_of_reboot_start is not None
+            ):  # Tanner (4/1/21): want to check that reboot has actually started before considering a status beacon to mean that reboot has completed. It is possible (and has happened in unit tests) where a beacon is received in between sending the reboot command and the instrument actually beginning to reboot
                 self._is_waiting_for_reboot = False
                 self._time_of_reboot_start = None
                 self._board_queues[0][1].put_nowait(

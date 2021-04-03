@@ -122,7 +122,7 @@ def test_DataAnalyzerProcess_performance(four_board_analyzer_process):
         get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
         comm_from_main_queue,
     )
-    invoke_process_run_and_check_errors(p)
+    invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
 
     num_seconds = 8
     fill_da_input_data_queue(input_queue, num_seconds)
@@ -143,6 +143,16 @@ def test_DataAnalyzerProcess_super_is_called_during_init(mocker):
     mocked_init = mocker.patch.object(InfiniteProcess, "__init__")
     DataAnalyzerProcess((), None, None, error_queue)
     mocked_init.assert_called_once_with(error_queue, logging_level=logging.INFO)
+
+
+def test_DataAnalyzerProcess_setup_before_loop__calls_super(
+    four_board_analyzer_process, mocker
+):
+    spied_setup = mocker.spy(InfiniteProcess, "_setup_before_loop")
+
+    da_process, _, _, _, _ = four_board_analyzer_process
+    invoke_process_run_and_check_errors(da_process, perform_setup_before_loop=True)
+    spied_setup.assert_called_once()
 
 
 def test_DataAnalyzerProcess_commands_for_each_run_iteration__checks_for_calibration_update_from_main(
@@ -417,6 +427,7 @@ def test_DataAnalyzerProcess__dumps_all_data_when_buffer_is_full_and_clears_buff
     p, board_queues, _, _, _ = four_board_analyzer_process
     outgoing_data = board_queues[0][1]
 
+    invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
     data_buffer = p._data_buffer  # pylint:disable=protected-access
     for well_index in range(24):
         data_buffer[well_index]["construct_data"] = np.array(
@@ -548,6 +559,7 @@ def test_DataAnalyzerProcess__create_outgoing_data__compresses_displacement_data
     four_board_analyzer_process,
 ):
     p, _, _, _, _ = four_board_analyzer_process
+    invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
 
     timepoint_end = math.ceil(
         DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS / ROUND_ROBIN_PERIOD
@@ -835,7 +847,7 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_dumping_data(
     }
 
 
-def test_DataAnalyzerProcess__does_not_include_metrics_in_first_logging_cycle(
+def test_DataAnalyzerProcess__does_not_include_performance_metrics_in_first_logging_cycle(
     four_board_analyzer_process, mocker
 ):
     mocker.patch.object(Pipeline, "get_compressed_voltage", autospec=True)
@@ -856,9 +868,9 @@ def test_DataAnalyzerProcess__does_not_include_metrics_in_first_logging_cycle(
         data_buffer[i]["ref_data"] = np.zeros((2, 2))
     mocker.patch.object(da_process, "_is_buffer_full", return_value=True)
 
-    invoke_process_run_and_check_errors(da_process)
+    invoke_process_run_and_check_errors(da_process, perform_setup_before_loop=True)
     confirm_queue_is_eventually_of_size(to_main_queue, 2)
     actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     actual = actual["message"]
     assert "percent_use_metrics" not in actual
-    assert "outgoing_data_creation_metrics" not in actual
+    assert "data_creating_duration_metrics" not in actual
