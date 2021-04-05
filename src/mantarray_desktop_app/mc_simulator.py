@@ -33,6 +33,8 @@ from .constants import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
+from .constants import SERIAL_COMM_MAGIC_WORD_TIMEOUT_CODE
+from .constants import SERIAL_COMM_MAGIC_WORD_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
@@ -77,6 +79,10 @@ def _get_secs_since_reboot_command(last_time: float) -> float:
 
 def _get_secs_since_boot_up(start_time: float) -> float:
     return perf_counter() - start_time
+
+
+def _get_secs_since_last_comm_from_pc(last_time: float) -> float:
+    return perf_counter() - last_time
 
 
 # pylint: disable=too-many-instance-attributes
@@ -128,15 +134,15 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._testing_queue = testing_queue
         self._time_of_last_status_beacon_secs: Optional[float] = None
         self._time_of_last_handshake_secs: Optional[float] = None
+        self._time_of_last_comm_from_pc_secs: Optional[float] = None
         self._reboot_time_secs: Optional[float] = None
-        self._is_booting_up = True
         self._boot_up_time_secs: Optional[float] = None
         self._leftover_read_bytes = bytes(0)
         self._read_timeout_seconds = read_timeout_seconds
         self._metadata_dict: Dict[bytes, bytes] = dict()
         self._reset_metadata_dict()
-        self._status_code_bytes: bytes
-        self._reset_status_code_bytes()
+        self._status_code: int
+        self._reset_status_code()
 
     @property
     def in_waiting(self) -> int:
@@ -153,10 +159,8 @@ class MantarrayMcSimulator(InfiniteProcess):
                 return 0
         return len(self._leftover_read_bytes)
 
-    def _reset_status_code_bytes(self) -> None:
-        self._status_code_bytes = SERIAL_COMM_BOOT_UP_CODE.to_bytes(
-            SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little"
-        )
+    def _reset_status_code(self) -> None:
+        self._status_code = SERIAL_COMM_BOOT_UP_CODE
 
     def _reset_metadata_dict(self) -> None:
         for uuid_key, metadata_value in self.default_metadata_values.items():
@@ -167,6 +171,10 @@ class MantarrayMcSimulator(InfiniteProcess):
     def get_metadata_dict(self) -> Dict[bytes, bytes]:
         """Mainly for use in unit tests."""
         return self._metadata_dict
+
+    def get_status_code(self) -> int:
+        """Mainly for use in unit tests."""
+        return self._status_code
 
     def _send_data_packet(
         self,
@@ -196,13 +204,14 @@ class MantarrayMcSimulator(InfiniteProcess):
             ):  # Tanner (3/31/21): rebooting should be much faster than the maximum allowed time for rebooting, so arbitrarily picking a simulated reboot duration
                 return
             self._handle_reboot_completion()
-        elif self._is_booting_up:
+        elif (
+            self._status_code == SERIAL_COMM_BOOT_UP_CODE
+        ):  # simulator is still in boot-up phase if simulator has default status code
             if self._boot_up_time_secs is None:
                 self._boot_up_time_secs = perf_counter()
             boot_up_dur_secs = _get_secs_since_boot_up(self._boot_up_time_secs)
             # if boot_up_dur_secs is less than the boot-up duration, simulator is still booting up
             if boot_up_dur_secs >= MC_SIMULATOR_BOOT_UP_DURATION_SECONDS:
-                self._is_booting_up = False
                 self._update_status_code(SERIAL_COMM_TIME_SYNC_READY_CODE)
         self._handle_comm_from_pc()
         self._handle_status_beacon()
@@ -212,16 +221,21 @@ class MantarrayMcSimulator(InfiniteProcess):
         drain_queue(self._input_queue)
         self._reset_start_time()
         self._reboot_time_secs = None
-        self._reset_status_code_bytes()
+        self._reset_status_code()
         self._send_status_beacon(truncate=False)
-        self._is_booting_up = True
         self._boot_up_time_secs = perf_counter()
 
     def _handle_comm_from_pc(self) -> None:
         try:
             comm_from_pc = self._input_queue.get_nowait()
         except queue.Empty:
+            if self._status_code not in (
+                SERIAL_COMM_BOOT_UP_CODE,
+                SERIAL_COMM_TIME_SYNC_READY_CODE,
+            ):
+                self._check_magic_word_timeout()
             return
+        self._time_of_last_comm_from_pc_secs = perf_counter()
 
         # validate checksum before handling the communication
         checksum_is_valid = validate_checksum(comm_from_pc)
@@ -239,6 +253,15 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._process_main_module_command(comm_from_pc)
         else:
             raise UnrecognizedSerialCommModuleIdError(module_id)
+
+    def _check_magic_word_timeout(self) -> None:
+        if self._time_of_last_comm_from_pc_secs is None:
+            return
+        secs_since_last_comm_from_pc = _get_secs_since_last_comm_from_pc(
+            self._time_of_last_comm_from_pc_secs
+        )
+        if secs_since_last_comm_from_pc >= SERIAL_COMM_MAGIC_WORD_TIMEOUT_SECONDS:
+            self._update_status_code(SERIAL_COMM_MAGIC_WORD_TIMEOUT_CODE)
 
     def _process_main_module_command(self, comm_from_pc: bytes) -> None:
         timestamp_from_pc_bytes = comm_from_pc[
@@ -268,7 +291,9 @@ class MantarrayMcSimulator(InfiniteProcess):
                 raise NotImplementedError(command_byte)
         elif packet_type == SERIAL_COMM_HANDSHAKE_PACKET_TYPE:
             self._time_of_last_handshake_secs = perf_counter()
-            response_body += self._status_code_bytes
+            response_body += self._status_code.to_bytes(
+                SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little"
+            )
         else:
             module_id = comm_from_pc[SERIAL_COMM_MODULE_ID_INDEX]
             raise UnrecognizedSerialCommPacketTypeError(
@@ -281,9 +306,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         )
 
     def _update_status_code(self, new_code: int) -> None:
-        self._status_code_bytes = new_code.to_bytes(
-            SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little"
-        )
+        self._status_code = new_code
         self._send_status_beacon()
 
     def _handle_status_beacon(self) -> None:
@@ -301,7 +324,9 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._send_data_packet(
             SERIAL_COMM_MAIN_MODULE_ID,
             SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
-            self._status_code_bytes,
+            self._status_code.to_bytes(
+                SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little"
+            ),
             truncate,
         )
 
@@ -329,7 +354,9 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._send_data_packet(
                 SERIAL_COMM_MAIN_MODULE_ID,
                 SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
-                self._status_code_bytes,
+                self._status_code.to_bytes(
+                    SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little"
+                ),
             )
         elif command == "add_read_bytes":
             read_bytes = test_comm["read_bytes"]
@@ -337,8 +364,8 @@ class MantarrayMcSimulator(InfiniteProcess):
                 read_bytes = [read_bytes]
             for read in read_bytes:
                 self._output_queue.put_nowait(read)
-        elif command == "set_status_code_bytes":
-            self._status_code_bytes = test_comm["status_code_bytes"]
+        elif command == "set_status_code":
+            self._status_code = test_comm["status_code"]
         elif command == "set_metadata":
             for key, value in test_comm["metadata_values"].items():
                 value_bytes = convert_to_metadata_bytes(value)

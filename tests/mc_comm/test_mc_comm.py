@@ -1424,12 +1424,7 @@ def test_McCommunicationProcess__logs_status_codes_from_status_beacons(
 
     expected_status_code = 1234
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {
-            "command": "set_status_code_bytes",
-            "status_code_bytes": expected_status_code.to_bytes(
-                SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little"
-            ),
-        },
+        {"command": "set_status_code", "status_code": expected_status_code},
         testing_queue,
     )
     invoke_process_run_and_check_errors(simulator)
@@ -1458,12 +1453,7 @@ def test_McCommunicationProcess__logs_status_codes_from_handshake_responses(
 
     expected_status_code = 1234
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {
-            "command": "set_status_code_bytes",
-            "status_code_bytes": expected_status_code.to_bytes(
-                SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little"
-            ),
-        },
+        {"command": "set_status_code", "status_code": expected_status_code},
         testing_queue,
     )
     invoke_process_run_and_check_errors(simulator)

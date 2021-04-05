@@ -76,6 +76,7 @@ from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_IDLE_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_TIMEOUT_CODE
+from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
@@ -345,6 +346,7 @@ def test_serial_comm():
     assert SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS == 5
     assert SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS == 5
     assert SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS == 5
+    assert SERIAL_COMM_MAGIC_WORD_TIMEOUT_SECONDS == 7
     assert SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS == 7
     assert SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS == 8
 

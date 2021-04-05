@@ -17,7 +17,10 @@ from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
+from mantarray_desktop_app import SERIAL_COMM_IDLE_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
+from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_TIMEOUT_CODE
+from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
@@ -67,9 +70,6 @@ __fixtures__ = [
 
 STATUS_BEACON_SIZE_BYTES = 28
 HANDSHAKE_RESPONSE_SIZE_BYTES = 36
-DEFAULT_SIMULATOR_STATUS_CODE = SERIAL_COMM_BOOT_UP_CODE.to_bytes(
-    SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little"
-)
 
 TEST_HANDSHAKE_TIMESTAMP = 12345
 TEST_HANDSHAKE = create_data_packet(
@@ -77,6 +77,10 @@ TEST_HANDSHAKE = create_data_packet(
     SERIAL_COMM_MAIN_MODULE_ID,
     SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
     bytes(0),
+)
+
+DEFAULT_SIMULATOR_STATUS_CODE = SERIAL_COMM_BOOT_UP_CODE.to_bytes(
+    SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little"
 )
 
 
@@ -614,16 +618,16 @@ def test_MantarrayMcSimulator__responds_to_comm_from_pc__when_checksum_is_incorr
     )
 
 
-def test_MantarrayMcSimulator__allows_status_bytes_to_be_set_through_testing_queue_commands(
+def test_MantarrayMcSimulator__allows_status_code_to_be_set_through_testing_queue_commands(
     mantarray_mc_simulator_no_beacon,
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
-    expected_status_code_bytes = bytes([4, 13, 7, 0])
+    expected_status_code = SERIAL_COMM_IDLE_READY_CODE
     test_command = {
-        "command": "set_status_code_bytes",
-        "status_code_bytes": expected_status_code_bytes,
+        "command": "set_status_code",
+        "status_code": expected_status_code,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         test_command, testing_queue
@@ -635,9 +639,11 @@ def test_MantarrayMcSimulator__allows_status_bytes_to_be_set_through_testing_que
     handshake_response = simulator.read(size=HANDSHAKE_RESPONSE_SIZE_BYTES)
 
     status_code_end = len(handshake_response) - SERIAL_COMM_CHECKSUM_LENGTH_BYTES
-    status_code_start = status_code_end - len(expected_status_code_bytes)
+    status_code_start = status_code_end - SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
     actual_status_code_bytes = handshake_response[status_code_start:status_code_end]
-    assert actual_status_code_bytes == expected_status_code_bytes
+    assert actual_status_code_bytes == expected_status_code.to_bytes(
+        SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little"
+    )
 
 
 def test_MantarrayMcSimulator__discards_commands_from_pc_during_reboot_period__and_sends_reboot_response_packet_before_reboot__and_sends_status_beacon_after_reboot(
@@ -726,10 +732,10 @@ def test_MantarrayMcSimulator__reset_status_code_after_rebooting(
     )
 
     # set status code to known value
-    expected_status_code_bytes = bytes([1, 7, 3, 8])
+    test_status_code = 1738
     test_command = {
-        "command": "set_status_code_bytes",
-        "status_code_bytes": expected_status_code_bytes,
+        "command": "set_status_code",
+        "status_code": test_status_code,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         test_command, testing_queue
@@ -968,6 +974,13 @@ def test_MantarrayMcSimulator__raises_error_if_too_many_consecutive_handshake_pe
     mantarray_mc_simulator_no_beacon, mocker, patch_print
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "set_status_code", "status_code": SERIAL_COMM_IDLE_READY_CODE},
+        testing_queue,
+    )
+    invoke_process_run_and_check_errors(simulator)
 
     mocker.patch.object(
         mc_simulator,
@@ -1021,3 +1034,72 @@ def test_MantarrayMcSimulator__switches_to_time_sync_status_code_after_boot_up_p
             SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little"
         ),
     )
+
+
+def test_MantarrayMcSimulator__switches_from_idle_ready_status_to_magic_word_timeout_status_if_magic_word_not_detected_within_timeout_period(
+    mantarray_mc_simulator, mocker
+):
+    simulator = mantarray_mc_simulator["simulator"]
+    testing_queue = mantarray_mc_simulator["testing_queue"]
+    mocker.patch.object(
+        mc_simulator,
+        "_get_secs_since_last_comm_from_pc",
+        autospec=True,
+        side_effect=[
+            SERIAL_COMM_MAGIC_WORD_TIMEOUT_SECONDS - 1,
+            SERIAL_COMM_MAGIC_WORD_TIMEOUT_SECONDS,
+        ],
+    )
+
+    test_command = {
+        "command": "set_status_code",
+        "status_code": SERIAL_COMM_IDLE_READY_CODE,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_command, testing_queue
+    )
+    simulator.write(TEST_HANDSHAKE)
+    # confirm idle ready and process handshake
+    invoke_process_run_and_check_errors(simulator, num_iterations=2)
+    assert simulator.get_status_code() == SERIAL_COMM_IDLE_READY_CODE
+    # confirm magic word timeout
+    invoke_process_run_and_check_errors(simulator)
+    assert simulator.get_status_code() == SERIAL_COMM_MAGIC_WORD_TIMEOUT_CODE
+
+
+@pytest.mark.parametrize(
+    "test_code,test_description",
+    [
+        (SERIAL_COMM_BOOT_UP_CODE, "does not switch status code when booting up"),
+        (
+            SERIAL_COMM_TIME_SYNC_READY_CODE,
+            "does not switch status code when waiting for time sync",
+        ),
+    ],
+)
+def test_MantarrayMcSimulator__does_not_switch_to_magic_word_timeout_status_when_before_time_is_synced(
+    test_code, test_description, mantarray_mc_simulator, mocker
+):
+    simulator = mantarray_mc_simulator["simulator"]
+    testing_queue = mantarray_mc_simulator["testing_queue"]
+    mocker.patch.object(
+        mc_simulator,
+        "_get_secs_since_last_comm_from_pc",
+        autospec=True,
+        side_effect=[SERIAL_COMM_MAGIC_WORD_TIMEOUT_SECONDS],
+    )
+
+    test_command = {
+        "command": "set_status_code",
+        "status_code": test_code,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_command, testing_queue
+    )
+    simulator.write(TEST_HANDSHAKE)
+    # confirm test status code
+    invoke_process_run_and_check_errors(simulator)
+    assert simulator.get_status_code() == test_code
+    # confirm status code did not change
+    invoke_process_run_and_check_errors(simulator)
+    assert simulator.get_status_code() == test_code
