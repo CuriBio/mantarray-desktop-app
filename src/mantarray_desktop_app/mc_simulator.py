@@ -45,7 +45,6 @@ from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
-from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
@@ -56,6 +55,7 @@ from .exceptions import UnrecognizedSerialCommModuleIdError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .exceptions import UnrecognizedSimulatorTestCommandError
 from .serial_comm_utils import convert_to_metadata_bytes
+from .serial_comm_utils import convert_to_status_code_bytes
 from .serial_comm_utils import create_data_packet
 from .serial_comm_utils import validate_checksum
 
@@ -289,9 +289,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                 raise NotImplementedError(command_byte)
         elif packet_type == SERIAL_COMM_HANDSHAKE_PACKET_TYPE:
             self._time_of_last_handshake_secs = perf_counter()
-            response_body += self._status_code.to_bytes(
-                SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little"
-            )
+            response_body += convert_to_status_code_bytes(self._status_code)
         else:
             module_id = comm_from_pc[SERIAL_COMM_MODULE_ID_INDEX]
             raise UnrecognizedSerialCommPacketTypeError(
@@ -322,9 +320,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._send_data_packet(
             SERIAL_COMM_MAIN_MODULE_ID,
             SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
-            self._status_code.to_bytes(
-                SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little"
-            ),
+            convert_to_status_code_bytes(self._status_code),
             truncate,
         )
 
@@ -352,9 +348,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._send_data_packet(
                 SERIAL_COMM_MAIN_MODULE_ID,
                 SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
-                self._status_code.to_bytes(
-                    SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little"
-                ),
+                convert_to_status_code_bytes(self._status_code),
             )
         elif command == "add_read_bytes":
             read_bytes = test_comm["read_bytes"]

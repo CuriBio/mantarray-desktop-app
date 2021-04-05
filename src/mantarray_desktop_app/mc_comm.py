@@ -406,15 +406,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                     }
                 )
             status_code = int.from_bytes(packet_body, byteorder="little")
-            log_msg = (
-                f"Status Beacon received from instrument. Status Code: {status_code}"
-            )
-            put_log_message_into_queue(
-                logging.INFO,
-                log_msg,
-                self._board_queues[0][1],
-                self.get_logging_level(),
-            )
+            self._log_status_code(status_code, "Status Beacon")
             if status_code == SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE:
                 raise SerialCommHandshakeTimeoutError()
         elif packet_type == SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE:
@@ -426,13 +418,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             prev_command = self._commands_awaiting_response.popleft()
             if prev_command["command"] == "handshake":
                 status_code = int.from_bytes(response_data, byteorder="little")
-                log_msg = f"Handshake response received from instrument. Status Code: {status_code}"
-                put_log_message_into_queue(
-                    logging.INFO,
-                    log_msg,
-                    self._board_queues[0][1],
-                    self.get_logging_level(),
-                )
+                self._log_status_code(status_code, "Handshake Response")
                 return
             if prev_command["command"] == "get_metadata":
                 prev_command["metadata"] = parse_metadata_bytes(response_data)
@@ -522,3 +508,12 @@ class McCommunicationProcess(InstrumentCommProcess):
         reboot_dur_secs = _get_secs_since_reboot_start(self._time_of_reboot_start)
         if reboot_dur_secs >= MAX_MC_REBOOT_DURATION_SECONDS:
             raise InstrumentRebootTimeoutError()
+
+    def _log_status_code(self, status_code: int, comm_type: str) -> None:
+        log_msg = f"{comm_type} received from instrument. Status Code: {status_code}"
+        put_log_message_into_queue(
+            logging.INFO,
+            log_msg,
+            self._board_queues[0][1],
+            self.get_logging_level(),
+        )

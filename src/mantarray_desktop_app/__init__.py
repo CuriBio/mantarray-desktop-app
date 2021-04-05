@@ -206,6 +206,7 @@ from .process_monitor import MantarrayProcessesMonitor
 from .queue_container import MantarrayQueueContainer
 from .serial_comm_utils import convert_metadata_bytes_to_str
 from .serial_comm_utils import convert_to_metadata_bytes
+from .serial_comm_utils import convert_to_status_code_bytes
 from .serial_comm_utils import create_data_packet
 from .serial_comm_utils import parse_metadata_bytes
 from .serial_comm_utils import validate_checksum
@@ -449,4 +450,5 @@ __all__ = [
     "SERIAL_COMM_BOOT_UP_CODE",
     "SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS",
     "SerialCommHandshakeTimeoutError",
+    "convert_to_status_code_bytes",
 ]

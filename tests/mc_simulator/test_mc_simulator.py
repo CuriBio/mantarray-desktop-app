@@ -6,6 +6,7 @@ from random import randint
 
 from mantarray_desktop_app import BOOTUP_COUNTER_UUID
 from mantarray_desktop_app import convert_to_metadata_bytes
+from mantarray_desktop_app import convert_to_status_code_bytes
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
@@ -24,6 +25,7 @@ from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
+from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
@@ -79,9 +81,7 @@ TEST_HANDSHAKE = create_data_packet(
     bytes(0),
 )
 
-DEFAULT_SIMULATOR_STATUS_CODE = SERIAL_COMM_BOOT_UP_CODE.to_bytes(
-    SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little"
-)
+DEFAULT_SIMULATOR_STATUS_CODE = convert_to_status_code_bytes(SERIAL_COMM_BOOT_UP_CODE)
 
 
 def test_MantarrayMcSimulator__class_attributes():
@@ -596,7 +596,9 @@ def test_MantarrayMcSimulator__responds_to_comm_from_pc__when_checksum_is_incorr
     handshake_packet_length = 14
     test_handshake = (
         SERIAL_COMM_MAGIC_WORD_BYTES
-        + handshake_packet_length.to_bytes(2, byteorder="little")
+        + handshake_packet_length.to_bytes(
+            SERIAL_COMM_PACKET_INFO_LENGTH_BYTES, byteorder="little"
+        )
         + dummy_timestamp_bytes
         + bytes([SERIAL_COMM_MAIN_MODULE_ID])
         + bytes([SERIAL_COMM_HANDSHAKE_PACKET_TYPE])
@@ -641,8 +643,8 @@ def test_MantarrayMcSimulator__allows_status_code_to_be_set_through_testing_queu
     status_code_end = len(handshake_response) - SERIAL_COMM_CHECKSUM_LENGTH_BYTES
     status_code_start = status_code_end - SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
     actual_status_code_bytes = handshake_response[status_code_start:status_code_end]
-    assert actual_status_code_bytes == expected_status_code.to_bytes(
-        SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little"
+    assert actual_status_code_bytes == convert_to_status_code_bytes(
+        expected_status_code
     )
 
 
@@ -1030,9 +1032,7 @@ def test_MantarrayMcSimulator__switches_to_time_sync_status_code_after_boot_up_p
         actual,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
-        SERIAL_COMM_TIME_SYNC_READY_CODE.to_bytes(
-            SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little"
-        ),
+        convert_to_status_code_bytes(SERIAL_COMM_TIME_SYNC_READY_CODE),
     )
 
 
