@@ -413,7 +413,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._board_queues[0][1],
                 self.get_logging_level(),
             )
-            # TODO Tanner (3/17/21): parse/handle errors codes in status beacons and handshakes
+            # TODO Tanner (3/17/21): handle errors codes in status beacons and handshakes
         elif packet_type == SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE:
             response_data = packet_body[SERIAL_COMM_TIMESTAMP_LENGTH_BYTES:]
             if not self._commands_awaiting_response:
@@ -423,6 +423,14 @@ class McCommunicationProcess(InstrumentCommProcess):
             prev_command = self._commands_awaiting_response.popleft()
             if prev_command["command"] == "handshake":
                 # see note above: Tanner (3/17/21)
+                status_code = int.from_bytes(response_data, byteorder="little")
+                log_msg = f"Handshake response received from instrument. Status Code: {status_code}"
+                put_log_message_into_queue(
+                    logging.INFO,
+                    log_msg,
+                    self._board_queues[0][1],
+                    self.get_logging_level(),
+                )
                 return
             if prev_command["command"] == "get_metadata":
                 prev_command["metadata"] = parse_metadata_bytes(response_data)

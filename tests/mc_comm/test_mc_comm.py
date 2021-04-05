@@ -1438,3 +1438,33 @@ def test_McCommunicationProcess__logs_status_codes_from_status_beacons(
     confirm_queue_is_eventually_of_size(output_queue, 1)
     actual = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert str(expected_status_code) in actual["message"]
+
+
+def test_McCommunicationProcess__logs_status_codes_from_handshake_responses(
+    four_board_mc_comm_process,
+    mantarray_mc_simulator_no_beacon,
+):
+    mc_process = four_board_mc_comm_process["mc_process"]
+    output_queue = four_board_mc_comm_process["board_queues"][0][1]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process, mantarray_mc_simulator_no_beacon
+    )
+
+    expected_status_code = 1234
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {
+            "command": "set_status_code_bytes",
+            "status_code_bytes": expected_status_code.to_bytes(
+                SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little"
+            ),
+        },
+        testing_queue,
+    )
+    invoke_process_run_and_check_errors(simulator)
+
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(output_queue, 1)
+    actual = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert str(expected_status_code) in actual["message"]
