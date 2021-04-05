@@ -182,5 +182,9 @@ class SerialCommCommandResponseTimeoutError(Exception):
     pass
 
 
+class SerialCommHandshakeTimeoutError(Exception):
+    pass
+
+
 class InstrumentRebootTimeoutError(Exception):
     pass

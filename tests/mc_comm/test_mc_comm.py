@@ -19,6 +19,7 @@ from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
+from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
@@ -34,6 +35,7 @@ from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import SerialCommCommandResponseTimeoutError
+from mantarray_desktop_app import SerialCommHandshakeTimeoutError
 from mantarray_desktop_app import SerialCommIncorrectChecksumFromInstrumentError
 from mantarray_desktop_app import SerialCommIncorrectChecksumFromPCError
 from mantarray_desktop_app import SerialCommIncorrectMagicWordFromMantarrayError
@@ -1462,3 +1464,31 @@ def test_McCommunicationProcess__logs_status_codes_from_handshake_responses(
     confirm_queue_is_eventually_of_size(output_queue, 1)
     actual = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert str(expected_status_code) in actual["message"]
+
+
+def test_McCommunicationProcess__raises_error_if_handshake_timeout_status_code_received(
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator, patch_print
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    simulator = mantarray_mc_simulator["simulator"]
+    testing_queue = mantarray_mc_simulator["testing_queue"]
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator
+    )
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {
+            "command": "set_status_code",
+            "status_code": SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE,
+        },
+        testing_queue,
+    )
+    invoke_process_run_and_check_errors(simulator)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "send_single_beacon"},
+        testing_queue,
+    )
+    invoke_process_run_and_check_errors(simulator)
+
+    with pytest.raises(SerialCommHandshakeTimeoutError):
+        invoke_process_run_and_check_errors(mc_process)

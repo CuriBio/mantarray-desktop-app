@@ -32,9 +32,9 @@ from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from .constants import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
+from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
+from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
-from .constants import SERIAL_COMM_MAGIC_WORD_TIMEOUT_CODE
-from .constants import SERIAL_COMM_MAGIC_WORD_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
@@ -204,9 +204,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             ):  # Tanner (3/31/21): rebooting should be much faster than the maximum allowed time for rebooting, so arbitrarily picking a simulated reboot duration
                 return
             self._handle_reboot_completion()
-        elif (
-            self._status_code == SERIAL_COMM_BOOT_UP_CODE
-        ):  # simulator is still in boot-up phase if simulator has default status code
+        elif self._status_code == SERIAL_COMM_BOOT_UP_CODE:
             if self._boot_up_time_secs is None:
                 self._boot_up_time_secs = perf_counter()
             boot_up_dur_secs = _get_secs_since_boot_up(self._boot_up_time_secs)
@@ -233,7 +231,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                 SERIAL_COMM_BOOT_UP_CODE,
                 SERIAL_COMM_TIME_SYNC_READY_CODE,
             ):
-                self._check_magic_word_timeout()
+                self._check_handshake_timeout()
             return
         self._time_of_last_comm_from_pc_secs = perf_counter()
 
@@ -254,14 +252,14 @@ class MantarrayMcSimulator(InfiniteProcess):
         else:
             raise UnrecognizedSerialCommModuleIdError(module_id)
 
-    def _check_magic_word_timeout(self) -> None:
+    def _check_handshake_timeout(self) -> None:
         if self._time_of_last_comm_from_pc_secs is None:
             return
         secs_since_last_comm_from_pc = _get_secs_since_last_comm_from_pc(
             self._time_of_last_comm_from_pc_secs
         )
-        if secs_since_last_comm_from_pc >= SERIAL_COMM_MAGIC_WORD_TIMEOUT_SECONDS:
-            self._update_status_code(SERIAL_COMM_MAGIC_WORD_TIMEOUT_CODE)
+        if secs_since_last_comm_from_pc >= SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS:
+            self._update_status_code(SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE)
 
     def _process_main_module_command(self, comm_from_pc: bytes) -> None:
         timestamp_from_pc_bytes = comm_from_pc[

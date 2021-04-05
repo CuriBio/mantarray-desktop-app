@@ -17,10 +17,10 @@ from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
+from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
+from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_IDLE_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
-from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_TIMEOUT_CODE
-from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
@@ -1046,8 +1046,8 @@ def test_MantarrayMcSimulator__switches_from_idle_ready_status_to_magic_word_tim
         "_get_secs_since_last_comm_from_pc",
         autospec=True,
         side_effect=[
-            SERIAL_COMM_MAGIC_WORD_TIMEOUT_SECONDS - 1,
-            SERIAL_COMM_MAGIC_WORD_TIMEOUT_SECONDS,
+            SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS - 1,
+            SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS,
         ],
     )
 
@@ -1064,7 +1064,7 @@ def test_MantarrayMcSimulator__switches_from_idle_ready_status_to_magic_word_tim
     assert simulator.get_status_code() == SERIAL_COMM_IDLE_READY_CODE
     # confirm magic word timeout
     invoke_process_run_and_check_errors(simulator)
-    assert simulator.get_status_code() == SERIAL_COMM_MAGIC_WORD_TIMEOUT_CODE
+    assert simulator.get_status_code() == SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 
 
 @pytest.mark.parametrize(
@@ -1077,7 +1077,7 @@ def test_MantarrayMcSimulator__switches_from_idle_ready_status_to_magic_word_tim
         ),
     ],
 )
-def test_MantarrayMcSimulator__does_not_switch_to_magic_word_timeout_status_when_before_time_is_synced(
+def test_MantarrayMcSimulator__does_not_switch_to_magic_word_timeout_status_before_time_is_synced(
     test_code, test_description, mantarray_mc_simulator, mocker
 ):
     simulator = mantarray_mc_simulator["simulator"]
@@ -1086,7 +1086,7 @@ def test_MantarrayMcSimulator__does_not_switch_to_magic_word_timeout_status_when
         mc_simulator,
         "_get_secs_since_last_comm_from_pc",
         autospec=True,
-        side_effect=[SERIAL_COMM_MAGIC_WORD_TIMEOUT_SECONDS],
+        side_effect=[SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS],
     )
 
     test_command = {
