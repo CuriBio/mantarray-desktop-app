@@ -10,6 +10,7 @@ from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import PCB_SERIAL_NUMBER_UUID
+from mantarray_desktop_app import SERIAL_COMM_BOOT_UP_CODE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
@@ -25,6 +26,8 @@ from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+from mantarray_desktop_app import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_TIME_SYNC_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import SerialCommTooManyMissedHandshakesError
 from mantarray_desktop_app import TAMPER_FLAG_UUID
@@ -33,6 +36,7 @@ from mantarray_desktop_app import UnrecognizedSerialCommModuleIdError
 from mantarray_desktop_app import UnrecognizedSerialCommPacketTypeError
 from mantarray_desktop_app import UnrecognizedSimulatorTestCommandError
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
+from mantarray_desktop_app.mc_simulator import MC_SIMULATOR_BOOT_UP_DURATION_SECONDS
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
@@ -63,7 +67,9 @@ __fixtures__ = [
 
 STATUS_BEACON_SIZE_BYTES = 28
 HANDSHAKE_RESPONSE_SIZE_BYTES = 36
-DEFAULT_SIMULATOR_STATUS_CODE = bytes(4)
+DEFAULT_SIMULATOR_STATUS_CODE = SERIAL_COMM_BOOT_UP_CODE.to_bytes(
+    SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little"
+)
 
 TEST_HANDSHAKE_TIMESTAMP = 12345
 TEST_HANDSHAKE = create_data_packet(
@@ -443,22 +449,16 @@ def test_MantarrayMcSimulator__handles_reads_of_size_less_than_next_packet_in_qu
     simulator = runnable_mantarray_mc_simulator["simulator"]
     testing_queue = runnable_mantarray_mc_simulator["testing_queue"]
 
-    # remove boot up beacon
-    invoke_process_run_and_check_errors(simulator)
-    simulator.read(size=STATUS_BEACON_SIZE_BYTES)
-
+    # add test bytes as initial bytes to be read
     test_item_1 = b"12345"
     test_item_2 = b"67890"
     test_items = [
-        {"command": "add_read_bytes", "read_bytes": test_item_1},
-        {"command": "add_read_bytes", "read_bytes": test_item_2},
+        {"command": "add_read_bytes", "read_bytes": [test_item_1, test_item_2]},
     ]
-
     handle_putting_multiple_objects_into_empty_queue(test_items, testing_queue)
+    invoke_process_run_and_check_errors(simulator)
+
     simulator.start()
-    confirm_queue_is_eventually_empty(  # Tanner (3/3/21): Using 6 second timeout here to give sufficient time to make sure testing_queue is emptied
-        testing_queue, timeout_seconds=6
-    )
 
     read_len_1 = 3
     read_1 = simulator.read(size=read_len_1)
@@ -993,3 +993,31 @@ def test_MantarrayMcSimulator__raises_error_if_too_many_consecutive_handshake_pe
     # make sure error is raised when final handshake missed
     with pytest.raises(SerialCommTooManyMissedHandshakesError):
         invoke_process_run_and_check_errors(simulator)
+
+
+def test_MantarrayMcSimulator__switches_to_time_sync_status_code_after_boot_up_period__and_automatically_sends_beacon_after_status_code_update(
+    mantarray_mc_simulator, mocker
+):
+    simulator = mantarray_mc_simulator["simulator"]
+    mocker.patch.object(
+        mc_simulator,
+        "_get_secs_since_boot_up",
+        autospec=True,
+        side_effect=[0, MC_SIMULATOR_BOOT_UP_DURATION_SECONDS],
+    )
+
+    invoke_process_run_and_check_errors(simulator)
+    # remove initial beacon
+    simulator.read(size=STATUS_BEACON_SIZE_BYTES)
+    # run simulator to complete boot up
+    invoke_process_run_and_check_errors(simulator)
+    # check that status beacon is automatically sent with updated status code
+    actual = simulator.read(size=STATUS_BEACON_SIZE_BYTES)
+    assert_serial_packet_is_expected(
+        actual,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
+        SERIAL_COMM_TIME_SYNC_READY_CODE.to_bytes(
+            SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little"
+        ),
+    )

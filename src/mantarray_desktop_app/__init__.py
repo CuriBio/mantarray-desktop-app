@@ -79,13 +79,16 @@ from .constants import ROUND_ROBIN_PERIOD
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BAUD_RATE
+from .constants import SERIAL_COMM_BOOT_UP_CODE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from .constants import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
+from .constants import SERIAL_COMM_IDLE_READY_CODE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
+from .constants import SERIAL_COMM_MAGIC_WORD_TIMEOUT_CODE
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAX_TIMESTAMP_VALUE
@@ -104,6 +107,7 @@ from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
+from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import SERVER_INITIALIZING_STATE
@@ -437,4 +441,8 @@ __all__ = [
     "SerialCommStatusBeaconTimeoutError",
     "InstrumentRebootTimeoutError",
     "SERIAL_COMM_STATUS_CODE_LENGTH_BYTES",
+    "SERIAL_COMM_IDLE_READY_CODE",
+    "SERIAL_COMM_TIME_SYNC_READY_CODE",
+    "SERIAL_COMM_MAGIC_WORD_TIMEOUT_CODE",
+    "SERIAL_COMM_BOOT_UP_CODE",
 ]

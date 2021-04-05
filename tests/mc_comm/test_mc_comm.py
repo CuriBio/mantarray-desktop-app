@@ -1134,7 +1134,9 @@ def test_McCommunicationProcess__processes_command_response_when_packet_received
     # send command to simulator and read status beacon sent before command response
     invoke_process_run_and_check_errors(mc_process)
     invoke_process_run_and_check_errors(simulator)
-    confirm_queue_is_eventually_empty(output_queue)
+    # remove status beacon log message
+    confirm_queue_is_eventually_of_size(output_queue, 1)
+    output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     # confirm command response is received and data sent back to main
     invoke_process_run_and_check_errors(mc_process)
     confirm_queue_is_eventually_of_size(output_queue, 1)
@@ -1239,10 +1241,12 @@ def test_McCommunicationProcess__processes_reboot_command(
     command_response = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     expected_response["message"] = "Instrument beginning reboot"
     assert command_response == expected_response
-    # run simulator to finish reboot and mc_prcess to send reboot complete message to main
+    # run simulator to finish reboot and mc_process to send reboot complete message to main
     invoke_process_run_and_check_errors(simulator)
     invoke_process_run_and_check_errors(mc_process)
-    confirm_queue_is_eventually_of_size(output_queue, 1)
+    confirm_queue_is_eventually_of_size(
+        output_queue, 2
+    )  # first message should be reboot complete message, second message should be status code log message
     reboot_response = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     expected_response["message"] = "Instrument completed reboot"
     assert reboot_response == expected_response

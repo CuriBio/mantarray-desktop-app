@@ -69,6 +69,17 @@ def fixture_mantarray_mc_simulator():
 
 
 class MantarrayMcSimulatorNoBeacons(MantarrayMcSimulatorSleepAfterWrite):
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(
+            *args,
+            **kwargs,
+        )
+        self._is_booting_up = False
+
     def _send_status_beacon(self, truncate=False) -> None:
         self._time_of_last_status_beacon_secs = time.perf_counter()
 
