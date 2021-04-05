@@ -18,6 +18,8 @@ from .constants import PCB_SERIAL_NUMBER_UUID
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
+from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
+from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import TAMPER_FLAG_UUID
 from .constants import TOTAL_WORKING_HOURS_UUID
@@ -59,7 +61,9 @@ def create_data_packet(
     packet_length = len(packet_body) + SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 
     data_packet = SERIAL_COMM_MAGIC_WORD_BYTES
-    data_packet += packet_length.to_bytes(2, byteorder="little")
+    data_packet += packet_length.to_bytes(
+        SERIAL_COMM_PACKET_INFO_LENGTH_BYTES, byteorder="little"
+    )
     data_packet += packet_body
     data_packet += _get_checksum_bytes(data_packet)
     return data_packet
@@ -133,3 +137,9 @@ def parse_metadata_bytes(metadata_bytes: bytes) -> Dict[UUID, Any]:
         )
         metadata_dict[this_uuid] = this_value
     return metadata_dict
+
+
+def convert_to_status_code_bytes(status_code: int) -> bytes:
+    return status_code.to_bytes(
+        SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little"
+    )

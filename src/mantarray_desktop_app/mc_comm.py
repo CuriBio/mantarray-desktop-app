@@ -30,6 +30,7 @@ from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from .constants import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
+from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
@@ -48,6 +49,7 @@ from .constants import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import SerialCommCommandResponseTimeoutError
+from .exceptions import SerialCommHandshakeTimeoutError
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
 from .exceptions import SerialCommIncorrectChecksumFromPCError
 from .exceptions import SerialCommIncorrectMagicWordFromMantarrayError
@@ -403,7 +405,10 @@ class McCommunicationProcess(InstrumentCommProcess):
                         "message": "Instrument completed reboot",
                     }
                 )
-            # TODO Tanner (3/17/21): parse/handle errors codes in status beacons and handshakes
+            status_code = int.from_bytes(packet_body, byteorder="little")
+            self._log_status_code(status_code, "Status Beacon")
+            if status_code == SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE:
+                raise SerialCommHandshakeTimeoutError()
         elif packet_type == SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE:
             response_data = packet_body[SERIAL_COMM_TIMESTAMP_LENGTH_BYTES:]
             if not self._commands_awaiting_response:
@@ -412,7 +417,8 @@ class McCommunicationProcess(InstrumentCommProcess):
                 )
             prev_command = self._commands_awaiting_response.popleft()
             if prev_command["command"] == "handshake":
-                # see note above: Tanner (3/17/21)
+                status_code = int.from_bytes(response_data, byteorder="little")
+                self._log_status_code(status_code, "Handshake Response")
                 return
             if prev_command["command"] == "get_metadata":
                 prev_command["metadata"] = parse_metadata_bytes(response_data)
@@ -502,3 +508,12 @@ class McCommunicationProcess(InstrumentCommProcess):
         reboot_dur_secs = _get_secs_since_reboot_start(self._time_of_reboot_start)
         if reboot_dur_secs >= MAX_MC_REBOOT_DURATION_SECONDS:
             raise InstrumentRebootTimeoutError()
+
+    def _log_status_code(self, status_code: int, comm_type: str) -> None:
+        log_msg = f"{comm_type} received from instrument. Status Code: {status_code}"
+        put_log_message_into_queue(
+            logging.INFO,
+            log_msg,
+            self._board_queues[0][1],
+            self.get_logging_level(),
+        )
