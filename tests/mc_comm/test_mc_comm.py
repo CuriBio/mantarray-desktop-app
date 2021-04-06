@@ -1217,6 +1217,12 @@ def test_McCommunicationProcess__processes_reboot_command(
     input_queue = board_queues[0][0]
     output_queue = board_queues[0][1]
 
+    mocker.patch.object(  # Tanner (4/6/21): Need to prevent automatic beacons without interrupting the beacon sent after boot-up
+        mc_simulator,
+        "_get_secs_since_last_status_beacon",
+        autospec=True,
+        return_value=0,
+    )
     mocker.patch.object(
         mc_simulator,
         "_get_secs_since_reboot_command",
@@ -1467,28 +1473,26 @@ def test_McCommunicationProcess__logs_status_codes_from_handshake_responses(
 
 
 def test_McCommunicationProcess__raises_error_if_handshake_timeout_status_code_received(
-    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator, patch_print
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+    patch_print,
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
-    simulator = mantarray_mc_simulator["simulator"]
-    testing_queue = mantarray_mc_simulator["testing_queue"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
     set_connection_and_register_simulator(
-        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
 
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+    test_commands = [
         {
             "command": "set_status_code",
             "status_code": SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE,
         },
-        testing_queue,
-    )
-    invoke_process_run_and_check_errors(simulator)
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"command": "send_single_beacon"},
-        testing_queue,
-    )
-    invoke_process_run_and_check_errors(simulator)
+    ]
+    handle_putting_multiple_objects_into_empty_queue(test_commands, testing_queue)
+    invoke_process_run_and_check_errors(simulator, num_iterations=2)
 
     with pytest.raises(SerialCommHandshakeTimeoutError):
         invoke_process_run_and_check_errors(mc_process)

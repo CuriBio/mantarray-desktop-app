@@ -1144,7 +1144,7 @@ def test_send_single_set_mantarray_serial_number_command__gets_processed_and_sto
     test_process_manager.hard_stop_and_join_processes()
 
 
-@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS * 2)
 @pytest.mark.slow
 def test_send_single_boot_up_command__gets_processed_and_sets_system_status_to_instrument_initializing(
     patched_xem_scripts_folder,
