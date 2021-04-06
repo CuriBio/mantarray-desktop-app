@@ -697,8 +697,8 @@ def test_OkCommunicationProcess_soft_stop_not_allowed_if_communication_from_main
         "bit_file_name": patched_firmware_folder,
     }
     # The first communication will be processed, but if there is a second one in the queue then the soft stop should be disabled
-    board_queues[0][0].put(dummy_communication)
-    board_queues[0][0].put(dummy_communication)
+    board_queues[0][0].put_nowait(dummy_communication)
+    board_queues[0][0].put_nowait(dummy_communication)
     confirm_queue_is_eventually_of_size(
         board_queues[0][0], 2, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
@@ -726,7 +726,7 @@ def test_OkCommunicationProcess_run__raises_error_if_communication_type_is_inval
     expected_returned_communication = {
         "communication_type": "fake_comm_type",
     }
-    input_queue.put(copy.deepcopy(expected_returned_communication))
+    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
     assert is_queue_eventually_not_empty(input_queue) is True
     with pytest.raises(
         UnrecognizedCommTypeFromMainToInstrumentError, match="fake_comm_type"
@@ -909,9 +909,9 @@ def test_OkCommunicationProcess__hard_stop__drains_all_queues_and_returns__all_i
     for i, board in enumerate(board_queues):
         for j, queue in enumerate(board):
             item = expected[i][j]
-            queue.put(item)
+            queue.put_nowait(item)
     assert is_queue_eventually_not_empty(board_queues[3][2]) is True
-    error_queue.put(expected_error)
+    error_queue.put_nowait(expected_error)
     assert is_queue_eventually_of_size(error_queue, 1) is True
 
     actual = ok_process.hard_stop()
@@ -961,7 +961,7 @@ def test_OkCommunicationProcess_run__raises_error_if_mantarray_naming_command_is
         "communication_type": "mantarray_naming",
         "command": "fake_command",
     }
-    input_queue.put(copy.deepcopy(expected_returned_communication))
+    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
     assert is_queue_eventually_not_empty(input_queue) is True
     with pytest.raises(UnrecognizedMantarrayNamingCommandError, match="fake_command"):
         invoke_process_run_and_check_errors(ok_process)
@@ -984,7 +984,7 @@ def test_OkCommunicationProcess_run__correctly_sets_mantarray_serial_number(
         "command": "set_mantarray_serial_number",
         "mantarray_serial_number": expected_serial_number,
     }
-    input_queue.put(copy.deepcopy(expected_returned_communication))
+    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
     assert is_queue_eventually_not_empty(input_queue) is True
 
     invoke_process_run_and_check_errors(ok_process)
@@ -1073,7 +1073,7 @@ def test_OkCommunicationProcess_run__correctly_sets_mantarray_nickname_without_s
         "command": "set_mantarray_nickname",
         "mantarray_nickname": expected_nickname,
     }
-    input_queue.put(copy.deepcopy(expected_returned_communication))
+    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
     assert is_queue_eventually_not_empty(input_queue) is True
 
     invoke_process_run_and_check_errors(ok_process)
@@ -1099,7 +1099,7 @@ def test_OkCommunicationProcess_run__correctly_sets_mantarray_nickname_with_vali
         "command": "set_mantarray_nickname",
         "mantarray_nickname": expected_nickname,
     }
-    input_queue.put(copy.deepcopy(expected_returned_communication))
+    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
     assert is_queue_eventually_not_empty(input_queue) is True
 
     invoke_process_run_and_check_errors(ok_process)
@@ -1189,14 +1189,16 @@ def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_
     comm_to_main_queue = running_process_items["board_queues"][0][1]
 
     ok_process.pause()  # pause so it can be asserted that both commands populate ok_comm's input queue
-    input_queue.put(
+    input_queue.put_nowait(
         {
             "communication_type": "debug_console",
             "command": "initialize_board",
             "bit_file_name": None,
         }
     )
-    input_queue.put(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
+    input_queue.put_nowait(
+        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
+    )
     confirm_queue_is_eventually_of_size(input_queue, 2)
     ok_process.resume()
     ok_process.soft_stop()
@@ -1224,14 +1226,16 @@ def test_OkCommunicationProcess_teardown_after_loop__logs_message_indicating_acq
     simulator = RunningFIFOSimulator()
     ok_process.set_board_connection(0, simulator)
 
-    input_queue.put(
+    input_queue.put_nowait(
         {
             "communication_type": "debug_console",
             "command": "initialize_board",
             "bit_file_name": None,
         }
     )
-    input_queue.put(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
+    input_queue.put_nowait(
+        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
+    )
     confirm_queue_is_eventually_of_size(
         input_queue, 2, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
@@ -1287,7 +1291,7 @@ def test_OkCommunicationProcess_boot_up_instrument__with_real_board__raises_erro
         "suppress_error": False,
         "allow_board_reinitialization": False,
     }
-    board_queues[0][0].put(boot_up_comm)
+    board_queues[0][0].put_nowait(boot_up_comm)
     assert is_queue_eventually_not_empty(board_queues[0][0]) is True
 
     expected_error_msg = f"File name: {patched_firmware_folder}, Version from wire_out value: {expected_wire_out_version}"
@@ -1328,7 +1332,7 @@ def test_OkCommunicationProcess_boot_up_instrument__with_real_board__does_not_ra
         "suppress_error": False,
         "allow_board_reinitialization": False,
     }
-    board_queues[0][0].put(boot_up_comm)
+    board_queues[0][0].put_nowait(boot_up_comm)
     assert is_queue_eventually_not_empty(board_queues[0][0]) is True
     invoke_process_run_and_check_errors(ok_process)
 

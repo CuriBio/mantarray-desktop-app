@@ -86,7 +86,7 @@ def test_OkCommunicationProcess_run__processes_init_board_debug_console_command(
         "command": "initialize_board",
         "bit_file_name": test_bit_file_name,
     }
-    input_queue.put(copy.deepcopy(init_command))
+    input_queue.put_nowait(copy.deepcopy(init_command))
     ok_process.soft_stop()
     ok_process.join()
     assert error_queue.empty() is True
@@ -113,7 +113,7 @@ def test_OkCommunicationProcess_run__processes_init_board_debug_console_command_
         "bit_file_name": test_bit_file_name,
         "allow_board_reinitialization": True,
     }
-    input_queue.put(copy.deepcopy(init_command))
+    input_queue.put_nowait(copy.deepcopy(init_command))
     ok_process.soft_stop()
     ok_process.join()
     assert error_queue.empty() is True
@@ -136,7 +136,7 @@ def test_OkCommunicationProcess_run__processes_read_wire_out_debug_console_comma
     running_process_with_simulated_board,
 ):
     wire_queue = Queue()
-    wire_queue.put(test_response)
+    wire_queue.put_nowait(test_response)
     simulator = FrontPanelSimulator({"wire_outs": {test_address: wire_queue}})
     simulator.initialize_board()
     ok_process, board_queues, error_queue = running_process_with_simulated_board(
@@ -149,7 +149,7 @@ def test_OkCommunicationProcess_run__processes_read_wire_out_debug_console_comma
         "command": "read_wire_out",
         "ep_addr": test_address,
     }
-    input_queue.put(copy.deepcopy(expected_returned_communication))
+    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
     ok_process.soft_stop()
     ok_process.join()
     assert error_queue.empty() is True
@@ -177,7 +177,7 @@ def test_OkCommunicationProcess_run__processes_read_from_fifo_debug_console_comm
 ):
     test_bytearray = produce_data(test_num_cycles_to_read, 0)
     fifo = Queue()
-    fifo.put(test_bytearray)
+    fifo.put_nowait(test_bytearray)
     assert is_queue_eventually_not_empty(fifo) is True
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
     simulator = FrontPanelSimulator(queues)
@@ -193,7 +193,7 @@ def test_OkCommunicationProcess_run__processes_read_from_fifo_debug_console_comm
         "command": "read_from_fifo",
         "num_words_to_log": test_num_words_to_log,
     }
-    input_queue.put(copy.deepcopy(expected_returned_communication))
+    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
     ok_process.soft_stop()
     ok_process.join()
     assert error_queue.empty() is True
@@ -225,7 +225,7 @@ def test_OkCommunicationProcess_run__processes_get_device_id_debug_console_comma
         "communication_type": "debug_console",
         "command": "get_device_id",
     }
-    input_queue.put(copy.deepcopy(expected_returned_communication))
+    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
     ok_process.soft_stop()
     ok_process.join()
     assert error_queue.empty() is True
@@ -249,7 +249,7 @@ def test_OkCommunicationProcess_run__processes_get_serial_number_debug_console_c
         "communication_type": "debug_console",
         "command": "get_serial_number",
     }
-    input_queue.put(copy.deepcopy(expected_returned_communication))
+    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
     ok_process.soft_stop()
     ok_process.join()
     assert error_queue.empty() is True
@@ -274,7 +274,7 @@ def test_OkCommunicationProcess_run__processes_is_spi_running_debug_console_comm
         "communication_type": "debug_console",
         "command": "is_spi_running",
     }
-    input_queue.put(copy.deepcopy(expected_returned_communication))
+    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
     ok_process.soft_stop()
     ok_process.join()
     assert error_queue.empty() is True
@@ -299,12 +299,12 @@ def test_OkCommunicationProcess_run__processes_start_acquisition_debug_console_c
         "communication_type": "debug_console",
         "command": "start_acquisition",
     }
-    input_queue.put(copy.deepcopy(expected_returned_communication))
+    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
     expected_spi_communication = {
         "communication_type": "debug_console",
         "command": "is_spi_running",
     }
-    input_queue.put(copy.deepcopy(expected_spi_communication))
+    input_queue.put_nowait(copy.deepcopy(expected_spi_communication))
     ok_process.soft_stop()
     ok_process.join()
     assert error_queue.empty() is True
@@ -340,12 +340,12 @@ def test_OkCommunicationProcess_run__processes_stop_acquisition_debug_console_co
         "communication_type": "debug_console",
         "command": "stop_acquisition",
     }
-    input_queue.put(copy.deepcopy(expected_returned_communication))
+    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
     expected_spi_communication = {
         "communication_type": "debug_console",
         "command": "is_spi_running",
     }
-    input_queue.put(copy.deepcopy(expected_spi_communication))
+    input_queue.put_nowait(copy.deepcopy(expected_spi_communication))
     ok_process.soft_stop()
     ok_process.join()
     assert error_queue.empty() is True
@@ -376,12 +376,12 @@ def test_OkCommunicationProcess_run__processes_set_device_id_debug_console_comma
         "command": "set_device_id",
         "new_id": expected_id,
     }
-    input_queue.put(copy.deepcopy(expected_returned_communication))
+    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
     expected_get_communication = {
         "communication_type": "debug_console",
         "command": "get_device_id",
     }
-    input_queue.put(copy.deepcopy(expected_get_communication))
+    input_queue.put_nowait(copy.deepcopy(expected_get_communication))
     ok_process.soft_stop()
     ok_process.join()
     assert error_queue.empty() is True
@@ -412,7 +412,7 @@ def test_OkCommunicationProcess_run__processes_set_wire_in_debug_console_command
         "value": 0x00000001,
         "mask": 0x00000001,
     }
-    input_queue.put(copy.deepcopy(expected_returned_communication))
+    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
     ok_process.soft_stop()
     ok_process.join()
     assert error_queue.empty() is True
@@ -440,7 +440,7 @@ def test_OkCommunicationProcess_run__processes_activate_trigger_in_debug_console
         "ep_addr": 32,
         "bit": 0x01,
     }
-    input_queue.put(copy.deepcopy(expected_returned_communication))
+    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
     ok_process.soft_stop()
     ok_process.join()
     assert error_queue.empty() is True
@@ -457,7 +457,7 @@ def test_OkCommunicationProcess_run__processes_get_num_words_fifo_debug_console_
     expected_num_words = DATA_FRAME_SIZE_WORDS * DATA_FRAMES_PER_ROUND_ROBIN
     test_bytearray = bytearray(expected_num_words * 4)
     fifo = Queue()
-    fifo.put(test_bytearray)
+    fifo.put_nowait(test_bytearray)
     assert is_queue_eventually_not_empty(fifo) is True
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
     simulator = FrontPanelSimulator(queues)
@@ -471,7 +471,7 @@ def test_OkCommunicationProcess_run__processes_get_num_words_fifo_debug_console_
         "communication_type": "debug_console",
         "command": "get_num_words_fifo",
     }
-    input_queue.put(copy.deepcopy(expected_returned_communication))
+    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
     ok_process.soft_stop()
     ok_process.join()
     assert error_queue.empty() is True
@@ -495,7 +495,7 @@ def test_OkCommunicationProcess_run__processes_get_status_debug_console_command_
         "communication_type": "debug_console",
         "command": "get_status",
     }
-    input_queue.put(copy.deepcopy(expected_returned_communication))
+    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
     ok_process.soft_stop()
     ok_process.join()
     assert error_queue.empty() is True
@@ -525,7 +525,7 @@ def test_OkCommunicationProcess_run__processes_comm_delay_debug_console_command(
         "command": "comm_delay",
         "num_milliseconds": expected_num_millis,
     }
-    input_queue.put(copy.deepcopy(expected_returned_communication))
+    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
     ok_process.soft_stop()
     ok_process.join()
     assert error_queue.empty() is True

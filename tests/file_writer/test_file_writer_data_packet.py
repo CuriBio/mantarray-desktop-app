@@ -243,7 +243,7 @@ def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_for_two
     next_data_packet = copy.deepcopy(GENERIC_TISSUE_DATA_PACKET)
     next_data_packet["data"] = next_data
 
-    board_queues[0][0].put(this_data_packet)
+    board_queues[0][0].put_nowait(this_data_packet)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         next_data_packet,
         board_queues[0][0],

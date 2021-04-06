@@ -202,9 +202,9 @@ def test_McCommunicationProcess_hard_stop__clears_all_queues_and_returns_lists_o
     for i, board in enumerate(board_queues):
         for j, queue in enumerate(board):
             item = expected[i][j]
-            queue.put(item)
+            queue.put_nowait(item)
     confirm_queue_is_eventually_of_size(board_queues[3][2], 1)
-    error_queue.put(expected_error)
+    error_queue.put_nowait(expected_error)
     confirm_queue_is_eventually_of_size(error_queue, 1)
 
     actual = mc_process.hard_stop()
