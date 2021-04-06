@@ -72,7 +72,7 @@ def fill_da_input_data_queue(
                 "is_reference_sensor": False,
                 "data": np.array([time_indices, tissue_data], dtype=np.int32),
             }
-            input_queue.put(tissue_packet)
+            input_queue.put_nowait(tissue_packet)
         for ref in range(6):
             time_indices = np.arange(
                 seconds * CENTIMILLISECONDS_PER_SECOND,
@@ -87,7 +87,7 @@ def fill_da_input_data_queue(
                 "is_reference_sensor": True,
                 "data": np.array([time_indices, ref_data], dtype=np.int32),
             }
-            input_queue.put(ref_packet)
+            input_queue.put_nowait(ref_packet)
     confirm_queue_is_eventually_of_size(input_queue, num_seconds * (24 + 6))
 
 
@@ -522,8 +522,8 @@ def test_DataAnalyzerProcess__drain_all_queues__drains_all_queues_except_error_q
                 queue_item, queue
             )
 
-    from_main_queue.put(expected_from_main)
-    to_main_queue.put(expected_to_main)
+    from_main_queue.put_nowait(expected_from_main)
+    to_main_queue.put_nowait(expected_to_main)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         expected_error, error_queue
     )
@@ -713,13 +713,13 @@ def test_DataAnalyzerProcess__does_not_load_data_to_buffer_if_managed_acquisitio
         "well_index": test_well_index,
         "data": np.array([[0, 250], [1, 3]]),
     }
-    incoming_data.put(test_construct_dict)
+    incoming_data.put_nowait(test_construct_dict)
     test_ref_dict = {
         "is_reference_sensor": True,
         "reference_for_wells": REF_INDEX_TO_24_WELL_INDEX[0],
         "data": np.array([[125, 375], [2, 4]]),
     }
-    incoming_data.put(test_ref_dict)
+    incoming_data.put_nowait(test_ref_dict)
     confirm_queue_is_eventually_of_size(incoming_data, 2)
 
     invoke_process_run_and_check_errors(p, num_iterations=2)

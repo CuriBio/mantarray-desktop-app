@@ -70,21 +70,21 @@ from stdlib_utils import InfiniteProcess
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import validate_file_head_crc32
 
-from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
-from .fixtures_file_writer import fixture_four_board_file_writer_process
-from .fixtures_file_writer import fixture_running_four_board_file_writer_process
-from .fixtures_file_writer import GENERIC_REFERENCE_SENSOR_DATA_PACKET
-from .fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
-from .fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
-from .fixtures_file_writer import GENERIC_TISSUE_DATA_PACKET
-from .fixtures_file_writer import open_the_generic_h5_file
-from .fixtures_file_writer import WELL_DEF_24
-from .helpers import confirm_queue_is_eventually_empty
-from .helpers import confirm_queue_is_eventually_of_size
-from .helpers import is_queue_eventually_empty
-from .helpers import is_queue_eventually_of_size
-from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
-from .parsed_channel_data_packets import SIMPLE_CONSTRUCT_DATA_FROM_WELL_0
+from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from ..fixtures_file_writer import fixture_four_board_file_writer_process
+from ..fixtures_file_writer import fixture_running_four_board_file_writer_process
+from ..fixtures_file_writer import GENERIC_REFERENCE_SENSOR_DATA_PACKET
+from ..fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
+from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
+from ..fixtures_file_writer import GENERIC_TISSUE_DATA_PACKET
+from ..fixtures_file_writer import open_the_generic_h5_file
+from ..fixtures_file_writer import WELL_DEF_24
+from ..helpers import confirm_queue_is_eventually_empty
+from ..helpers import confirm_queue_is_eventually_of_size
+from ..helpers import is_queue_eventually_empty
+from ..helpers import is_queue_eventually_of_size
+from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
+from ..parsed_channel_data_packets import SIMPLE_CONSTRUCT_DATA_FROM_WELL_0
 
 
 __fixtures__ = [
@@ -140,7 +140,7 @@ def test_FileWriterProcess_soft_stop_not_allowed_if_incoming_data_still_in_queue
     board_queues = four_board_file_writer_process["board_queues"]
 
     # The first communication will be processed, but if there is a second one in the queue then the soft stop should be disabled
-    board_queues[0][0].put(SIMPLE_CONSTRUCT_DATA_FROM_WELL_0)
+    board_queues[0][0].put_nowait(SIMPLE_CONSTRUCT_DATA_FROM_WELL_0)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         SIMPLE_CONSTRUCT_DATA_FROM_WELL_0,
         board_queues[0][0],
@@ -212,8 +212,8 @@ def test_FileWriterProcess_soft_stop_not_allowed_if_command_from_main_still_in_q
     # The first communication will be processed, but if there is a second one in the queue then the soft stop should be disabled
     this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [1]
-    from_main_queue.put(this_command)
-    from_main_queue.put(copy.deepcopy(this_command))
+    from_main_queue.put_nowait(this_command)
+    from_main_queue.put_nowait(copy.deepcopy(this_command))
     confirm_queue_is_eventually_of_size(
         from_main_queue, 2, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )  # Eli (2/1/21): Even though the queue has been confirmed to be of size 2 in the above line, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
@@ -631,7 +631,7 @@ def test_FileWriterProcess__closes_the_files_and_adds_crc32_checksum_and_sends_c
     this_data_packet = copy.deepcopy(GENERIC_TISSUE_DATA_PACKET)
     this_data_packet["data"] = data
 
-    board_queues[0][0].put(this_data_packet)
+    board_queues[0][0].put_nowait(this_data_packet)
     data_packet_for_5 = copy.deepcopy(this_data_packet)
     data_packet_for_5["well_index"] = 5
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -671,7 +671,7 @@ def test_FileWriterProcess__closes_the_files_and_adds_crc32_checksum_and_sends_c
         data_after_stop[1, this_idx] = this_idx * 5
     reference_data_packet_after_stop["data"] = data_after_stop
 
-    board_queues[0][0].put(reference_data_packet_after_stop)
+    board_queues[0][0].put_nowait(reference_data_packet_after_stop)
 
     # tissue data
     tissue_data_packet_after_stop = copy.deepcopy(GENERIC_TISSUE_DATA_PACKET)
@@ -682,7 +682,7 @@ def test_FileWriterProcess__closes_the_files_and_adds_crc32_checksum_and_sends_c
             + this_idx * CONSTRUCT_SENSOR_SAMPLING_PERIOD
         )
     tissue_data_packet_after_stop["data"] = data_after_stop
-    board_queues[0][0].put(tissue_data_packet_after_stop)
+    board_queues[0][0].put_nowait(tissue_data_packet_after_stop)
     data_packet_for_5 = copy.deepcopy(tissue_data_packet_after_stop)
     data_packet_for_5["well_index"] = 5
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -908,7 +908,7 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_when_recording(
             "is_reference_sensor": False,
             "data": np.zeros((2, num_points)),
         }
-        board_queues[0][0].put(well_packet)
+        board_queues[0][0].put_nowait(well_packet)
     for i in range(6):
         num_points = 5
         num_points_list.append(num_points)
@@ -917,7 +917,7 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_when_recording(
             "is_reference_sensor": True,
             "data": np.zeros((2, num_points)),
         }
-        board_queues[0][0].put(ref_packet)
+        board_queues[0][0].put_nowait(ref_packet)
     confirm_queue_is_eventually_of_size(board_queues[0][0], 30)
     expected_recording_durations = list(range(30))
     perf_counter_vals = [
@@ -960,7 +960,7 @@ def test_FileWriterProcess__begins_building_data_buffer_when_managed_acquisition
 
     expected_num_items = 3
     for _ in range(expected_num_items):
-        board_queues[0][0].put(SIMPLE_CONSTRUCT_DATA_FROM_WELL_0)
+        board_queues[0][0].put_nowait(SIMPLE_CONSTRUCT_DATA_FROM_WELL_0)
     confirm_queue_is_eventually_of_size(
         board_queues[0][0],
         expected_num_items,
@@ -996,8 +996,8 @@ def test_FileWriterProcess__removes_packets_from_data_buffer_that_are_older_than
         "data": np.array([[0], [0]], dtype=np.int32),
     }
 
-    board_queues[0][0].put(old_packet)
-    board_queues[0][0].put(new_packet)
+    board_queues[0][0].put_nowait(old_packet)
+    board_queues[0][0].put_nowait(new_packet)
     confirm_queue_is_eventually_of_size(
         board_queues[0][0], 2, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
@@ -1129,7 +1129,7 @@ def test_FileWriterProcess__deletes_recorded_well_data_after_stop_time(
             "well_index": expected_well_idx,
             "data": np.array([[i], [i]], dtype=np.int32),
         }
-        instrument_board_queues[0][0].put(data_packet)
+        instrument_board_queues[0][0].put_nowait(data_packet)
     dummy_packets = 2
     for i in range(dummy_packets):
         data_packet = {
@@ -1140,7 +1140,7 @@ def test_FileWriterProcess__deletes_recorded_well_data_after_stop_time(
                 dtype=np.int32,
             ),
         }
-        instrument_board_queues[0][0].put(data_packet)
+        instrument_board_queues[0][0].put_nowait(data_packet)
     confirm_queue_is_eventually_of_size(
         instrument_board_queues[0][0],
         expected_remaining_packets_recorded + dummy_packets,
@@ -1208,7 +1208,7 @@ def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
             "reference_for_wells": set([0, 1, 4, 5]),
             "data": np.array([[i], [i]], dtype=np.int32),
         }
-        instrument_board_queues[0][0].put(data_packet)
+        instrument_board_queues[0][0].put_nowait(data_packet)
     dummy_packets = 2
     for i in range(dummy_packets):
         data_packet = {
@@ -1219,7 +1219,7 @@ def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
                 dtype=np.int32,
             ),
         }
-        instrument_board_queues[0][0].put(data_packet)
+        instrument_board_queues[0][0].put_nowait(data_packet)
     assert is_queue_eventually_of_size(
         instrument_board_queues[0][0],
         expected_remaining_packets_recorded + dummy_packets,
@@ -1370,14 +1370,14 @@ def test_FileWriterProcess_hard_stop__closes_all_files_after_stop_recording_befo
             "is_reference_sensor": False,
             "data": data,
         }
-        board_queues[0][0].put(tissue_data_packet)
+        board_queues[0][0].put_nowait(tissue_data_packet)
     for i in range(6):
         ref_data_packet = {
             "reference_for_wells": REF_INDEX_TO_24_WELL_INDEX[i],
             "is_reference_sensor": True,
             "data": data,
         }
-        board_queues[0][0].put(ref_data_packet)
+        board_queues[0][0].put_nowait(ref_data_packet)
     confirm_queue_is_eventually_of_size(
         board_queues[0][0], 30, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
@@ -1430,14 +1430,14 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_files_af
             "is_reference_sensor": False,
             "data": first_data,
         }
-        board_queues[0][0].put(tissue_data_packet)
+        board_queues[0][0].put_nowait(tissue_data_packet)
     for i in range(6):
         ref_data_packet = {
             "reference_for_wells": REF_INDEX_TO_24_WELL_INDEX[i],
             "is_reference_sensor": True,
             "data": first_data,
         }
-        board_queues[0][0].put(ref_data_packet)
+        board_queues[0][0].put_nowait(ref_data_packet)
     confirm_queue_is_eventually_of_size(
         board_queues[0][0], 30, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
@@ -1472,14 +1472,14 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_files_af
             "is_reference_sensor": False,
             "data": last_data,
         }
-        board_queues[0][0].put(final_tissue_data_packet)
+        board_queues[0][0].put_nowait(final_tissue_data_packet)
     for i in range(6):
         final_ref_data_packet = {
             "reference_for_wells": REF_INDEX_TO_24_WELL_INDEX[i],
             "is_reference_sensor": True,
             "data": last_data,
         }
-        board_queues[0][0].put(final_ref_data_packet)
+        board_queues[0][0].put_nowait(final_ref_data_packet)
     confirm_queue_is_eventually_of_size(
         board_queues[0][0], 30, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.

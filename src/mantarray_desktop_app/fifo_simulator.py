@@ -181,7 +181,7 @@ class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
                     * DATA_FRAMES_PER_ROUND_ROBIN
                     * FIFO_READ_PRODUCER_CYCLES_PER_ITERATION
                 )
-                temp_queue.put(iter_data)
+                temp_queue.put_nowait(iter_data)
 
             while True:
                 try:
@@ -190,7 +190,7 @@ class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
                     )
                 except queue.Empty:
                     break
-                self._producer_data_queue.put(iter_data)
+                self._producer_data_queue.put_nowait(iter_data)
         return num_words
 
     def add_data_cycles(self, num_cycles: int) -> None:
@@ -202,7 +202,7 @@ class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
             raise NotImplementedError("_producer_data_queue should never be None here")
 
         data = produce_data(num_cycles, 0)
-        self._producer_data_queue.put(data)
+        self._producer_data_queue.put_nowait(data)
 
     def get_firmware_version(self) -> str:
         FrontPanelBase.read_wire_out(self, FIRMWARE_VERSION_WIRE_OUT_ADDRESS)

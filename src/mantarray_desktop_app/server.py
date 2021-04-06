@@ -163,7 +163,7 @@ def queue_command_to_instrument_comm(comm_dict: Dict[str, Any]) -> Response:
         .get_communication_to_instrument_comm_queue(0)
     )
     comm_dict = dict(comm_dict)  # make a mutable version to pass into ok_comm
-    to_instrument_comm_queue.put(comm_dict)
+    to_instrument_comm_queue.put_nowait(comm_dict)
     response = Response(json.dumps(comm_dict), mimetype="application/json")
 
     return response
@@ -181,7 +181,7 @@ def queue_command_to_main(comm_dict: Dict[str, Any]) -> Response:
         copy.deepcopy(comm_dict)
     )  # Eli (12/8/20): make a copy since sometimes this dictionary can be mutated after the communication gets passed elsewhere. This is relevant since this is a thread queue. Queues between true processes get pickled and in essence already get copied
     # Eli (12/8/20): immutable dicts cannot be JSON serialized, so make a regular dict copy
-    to_main_queue.put(comm_dict)
+    to_main_queue.put_nowait(comm_dict)
     response = Response(json.dumps(comm_dict), mimetype="application/json")
 
     return response
@@ -486,7 +486,7 @@ def start_recording() -> Response:
         comm_dict["active_well_indices"] = list(range(24))
 
     to_main_queue = get_server_to_main_queue()
-    to_main_queue.put(
+    to_main_queue.put_nowait(
         copy.deepcopy(comm_dict)
     )  # Eli (3/16/20): apparently when using multiprocessing.Queue you have to be careful when modifying values put into the queue because they might still be editable. So making a copy first
     for this_attr_name, this_attr_value in list(
@@ -578,11 +578,11 @@ def stop_managed_acquisition() -> Response:
     to_da_queue = (
         server_thread.queue_container().get_communication_queue_from_main_to_data_analyzer()
     )
-    to_da_queue.put(comm_dict)
+    to_da_queue.put_nowait(comm_dict)
     to_file_writer_queue = (
         server_thread.queue_container().get_communication_queue_from_main_to_file_writer()
     )
-    to_file_writer_queue.put(comm_dict)
+    to_file_writer_queue.put_nowait(comm_dict)
 
     response = queue_command_to_instrument_comm(comm_dict)
     return response

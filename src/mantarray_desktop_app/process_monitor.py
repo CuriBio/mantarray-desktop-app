@@ -166,7 +166,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 to_file_writer_queue = (
                     process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
                 )
-                to_file_writer_queue.put(
+                to_file_writer_queue.put_nowait(
                     {
                         "command": "update_directory",
                         "new_directory": new_recording_directory,
@@ -200,7 +200,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     ]["adc_offsets"]
             else:
                 raise UnrecognizedRecordingCommandError(command)
-            main_to_fw_queue.put(communication)
+            main_to_fw_queue.put_nowait(communication)
         elif communication_type == "to_instrument":
             command = communication["command"]
             if command == "boot_up":
@@ -214,8 +214,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     self._process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
                 )
 
-                main_to_instrument_comm_queue.put(communication)
-                main_to_da_queue.put(communication)
+                main_to_instrument_comm_queue.put_nowait(communication)
+                main_to_da_queue.put_nowait(communication)
             else:
                 raise UnrecognizedCommandToInstrumentError(command)
         elif communication_type == "barcode_read_receipt":
@@ -230,7 +230,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         main_to_instrument_comm_queue = self._process_manager.queue_container().get_communication_to_instrument_comm_queue(
             0
         )
-        main_to_instrument_comm_queue.put(communication)
+        main_to_instrument_comm_queue.put_nowait(communication)
 
     def _check_and_handle_data_analyzer_to_main_queue(self) -> None:
         process_manager = self._process_manager
@@ -447,7 +447,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 "communication_type": "barcode_comm",
                 "command": "start_scan",
             }
-            to_instrument_comm.put(barcode_poll_comm)
+            to_instrument_comm.put_nowait(barcode_poll_comm)
             self._last_barcode_clear_time = _get_barcode_clear_time()
 
     def _check_subprocess_start_up_statuses(self) -> None:

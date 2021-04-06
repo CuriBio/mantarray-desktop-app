@@ -55,7 +55,7 @@ def test_OkCommunicationProcess__always_returns_default_barcode_when_connected_t
     }
 
     confirm_queue_is_eventually_empty(to_main_queue)
-    input_queue.put(RUN_BARCODE_SCAN_COMMUNICATION)
+    input_queue.put_nowait(RUN_BARCODE_SCAN_COMMUNICATION)
     confirm_queue_is_eventually_of_size(
         input_queue, 1, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )

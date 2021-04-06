@@ -140,7 +140,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                     }
             else:
                 raise UnrecognizedCommandToInstrumentError(communication["command"])
-            self._comm_to_main_queue.put(communication)
+            self._comm_to_main_queue.put_nowait(communication)
         else:
             raise UnrecognizedCommTypeFromMainToDataAnalyzerError(communication_type)
 
@@ -305,7 +305,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         num_data_points = (
             outgoing_data["latest_timepoint"] - outgoing_data["earliest_timepoint"]
         ) // CONSTRUCT_SENSOR_SAMPLING_PERIOD
-        self._comm_to_main_queue.put(
+        self._comm_to_main_queue.put_nowait(
             {
                 "communication_type": "data_available",
                 "timestamp": timestamp,
@@ -315,7 +315,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             }
         )
         outgoing_data_json = json.dumps(outgoing_data)
-        self._board_queues[0][1].put(outgoing_data_json)
+        self._board_queues[0][1].put_nowait(outgoing_data_json)
 
     def _drain_all_queues(self) -> Dict[str, Any]:
         queue_items: Dict[str, Any] = dict()

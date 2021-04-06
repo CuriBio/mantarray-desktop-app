@@ -461,7 +461,7 @@ def test_send_single_get_num_words_fifo_command__gets_processed(
     expected_num_words = DATA_FRAME_SIZE_WORDS * DATA_FRAMES_PER_ROUND_ROBIN
     test_bytearray = bytearray(expected_num_words * 4)
     fifo = Queue()
-    fifo.put(test_bytearray)
+    fifo.put_nowait(test_bytearray)
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
     simulator = FrontPanelSimulator(queues)
     simulator.initialize_board()
@@ -777,7 +777,7 @@ def test_read_from_fifo_command__is_received_by_ok_comm__with_correct_num_words_
 ):
     test_bytearray = produce_data(1, 0)
     fifo = Queue()
-    fifo.put(test_bytearray)
+    fifo.put_nowait(test_bytearray)
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
     simulator = FrontPanelSimulator(queues)
     simulator.initialize_board()
@@ -821,7 +821,7 @@ def test_send_single_read_from_fifo_command__gets_processed_with_correct_num_wor
     test_bytearray = produce_data(1, 0)
 
     fifo = Queue()
-    fifo.put(test_bytearray)
+    fifo.put_nowait(test_bytearray)
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
     simulator = FrontPanelSimulator(queues)
     simulator.initialize_board()
@@ -980,7 +980,7 @@ def test_send_single_read_wire_out_command__gets_processed(
     expected_ep_addr = 7
     wire_queue = Queue()
     expected_wire_out_response = 33
-    wire_queue.put(expected_wire_out_response)
+    wire_queue.put_nowait(expected_wire_out_response)
 
     simulator = FrontPanelSimulator({"wire_outs": {expected_ep_addr: wire_queue}})
     simulator.initialize_board()

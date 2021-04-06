@@ -239,7 +239,7 @@ def test_gain_value_is_parsed_and_saved_when_running_start_up_script(
     )
     ok_comm_process.set_board_connection(0, simulator)
 
-    to_ok_comm_queue.put(
+    to_ok_comm_queue.put_nowait(
         {"communication_type": "xem_scripts", "script_type": "start_up"}
     )
     assert is_queue_eventually_not_empty(to_ok_comm_queue) is True
@@ -285,10 +285,10 @@ def test_offset_values_are_parsed_and_saved_when_running_start_calibration_scrip
             ep_addr_val = ch_idx * 6 + adc_idx
             wire_outs[ep_addr_val] = Queue()
             val = convert_wire_value(well_idx * 2)
-            wire_outs[ep_addr_val].put(val)
+            wire_outs[ep_addr_val].put_nowait(val)
             wire_outs[ep_addr_val + 6] = Queue()
             val = convert_wire_value(well_idx * 2 + 1)
-            wire_outs[ep_addr_val + 6].put(val)
+            wire_outs[ep_addr_val + 6].put_nowait(val)
 
     simulator = RunningFIFOSimulator({"wire_outs": wire_outs})
     simulator.initialize_board()
@@ -311,7 +311,7 @@ def test_offset_values_are_parsed_and_saved_when_running_start_calibration_scrip
     )
     ok_comm_process.set_board_connection(0, simulator)
 
-    to_ok_comm_queue.put(
+    to_ok_comm_queue.put_nowait(
         {"communication_type": "xem_scripts", "script_type": "start_calibration"}
     )
     assert is_queue_eventually_not_empty(to_ok_comm_queue) is True
@@ -360,7 +360,7 @@ def test_OkCommunicationProcess_xem_scripts__allows_errors_to_propagate(
     mocked_simulator.initialize_board()
     ok_process.set_board_connection(0, mocked_simulator)
 
-    board_queues[0][0].put(
+    board_queues[0][0].put_nowait(
         {"communication_type": "xem_scripts", "script_type": test_script}
     )
     assert is_queue_eventually_not_empty(board_queues[0][0])

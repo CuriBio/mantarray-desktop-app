@@ -378,7 +378,7 @@ def test_RunningFIFOSimulator__read_wire_out__returns_default_value_if_wire_out_
 def test_RunningFIFOSimulator__read_wire_out__returns_expected_values_from_populated_wire_out():
     expected_first_read = 1
     wire_out_queue = Queue()
-    wire_out_queue.put(expected_first_read)
+    wire_out_queue.put_nowait(expected_first_read)
     assert is_queue_eventually_of_size(wire_out_queue, 1) is True
     wire_outs = {0: wire_out_queue}
     fifo_simulator = RunningFIFOSimulator({"wire_outs": wire_outs})
@@ -464,10 +464,10 @@ def test_RunningFIFOSimulator_hard_stop__passes_timeout_kwarg_to_read_producer(
 def test_RunningFIFOSimulator_hard_stop__drains_wire_out_queues(mocker):
 
     wire_out_queue = Queue()
-    wire_out_queue.put(1)
+    wire_out_queue.put_nowait(1)
     assert is_queue_eventually_of_size(wire_out_queue, 1) is True
     wire_out_queue_2 = Queue()
-    wire_out_queue_2.put(2)
+    wire_out_queue_2.put_nowait(2)
     assert is_queue_eventually_of_size(wire_out_queue_2, 1) is True
     wire_outs = {0: wire_out_queue, 7: wire_out_queue_2}
     fifo_simulator = RunningFIFOSimulator({"wire_outs": wire_outs})
