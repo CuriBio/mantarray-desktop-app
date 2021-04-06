@@ -167,13 +167,13 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             "suppress_error": False,
             "allow_board_reinitialization": False,
         }
-        to_instrument_comm_queue.put(boot_up_dict)
+        to_instrument_comm_queue.put_nowait(boot_up_dict)
 
         start_up_dict = {
             "communication_type": "xem_scripts",
             "script_type": "start_up",
         }
-        to_instrument_comm_queue.put(start_up_dict)
+        to_instrument_comm_queue.put_nowait(start_up_dict)
 
         response_dict = {
             "boot_up_instrument": copy.deepcopy(boot_up_dict),
