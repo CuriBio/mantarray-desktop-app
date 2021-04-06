@@ -521,7 +521,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
             else:
                 msg["mantarray_serial_number"] = ""
                 msg["mantarray_nickname"] = device_id
-            comm_to_main_queue.put(msg)
+            comm_to_main_queue.put_nowait(msg)
 
     def _setup_before_loop(self) -> None:
         super()._setup_before_loop()
@@ -531,7 +531,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
         }
         comm_to_main_queue = self._board_queues[0][1]
         if not self._suppress_setup_communication_to_main:
-            comm_to_main_queue.put(msg)
+            comm_to_main_queue.put_nowait(msg)
         board_connections = self.get_board_connections_list()
         if isinstance(board_connections[0], FrontPanelSimulator):
             # If the board has already been set to be a simulator (i.e. by a unit test), then don't attempt to make a new connection.
@@ -730,7 +730,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
         }
         if barcode:
             barcode_comm_dict["valid"] = is_valid
-        comm_to_main_queue.put(barcode_comm_dict)
+        comm_to_main_queue.put_nowait(barcode_comm_dict)
         self._reset_barcode_values()
 
     def _reset_barcode_values(self) -> None:
@@ -747,7 +747,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
         if isinstance(response, int) and not isinstance(response, bool):
             # bool is a subclass of int so we must make sure we check for them
             this_communication["hex_converted_response"] = hex(response)
-        response_queue.put(this_communication)
+        response_queue.put_nowait(this_communication)
 
     def _boot_up_instrument(self, this_communication: Dict[str, Any]) -> None:
         board = self.get_board_connections_list()[0]
@@ -776,7 +776,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
         this_communication["sleep_firmware_version"] = "0.0.0"
 
         response_queue = self._board_queues[0][1]
-        response_queue.put(this_communication)
+        response_queue.put_nowait(this_communication)
 
     def _handle_to_instrument_comm(self, this_communication: Dict[str, Any]) -> None:
         response_queue = self._board_queues[0][1]
@@ -795,7 +795,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
             board.stop_acquisition()
         else:
             raise UnrecognizedCommandToInstrumentError(this_communication["command"])
-        response_queue.put(this_communication)
+        response_queue.put_nowait(this_communication)
 
     def _handle_xem_scripts_comm(self, this_communication: Dict[str, Any]) -> None:
         response_queue = self._board_queues[0][1]
@@ -805,7 +805,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
 
         version = script_dict["version"]
         this_communication["response"] = f"Running {script_type} script v{version}..."
-        response_queue.put(this_communication)
+        response_queue.put_nowait(this_communication)
 
         gain_value = None
         for command_dict in script_dict["command_list"]:
@@ -834,7 +834,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
                     "script_type": this_communication["script_type"],
                     "response": comm_delay_command_response,
                 }
-                response_queue.put(comm_delay_response)
+                response_queue.put_nowait(comm_delay_response)
             elif callable_to_execute is not None:
                 script_response: Optional[int] = callable_to_execute()
                 if script_response is not None:
@@ -849,7 +849,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
                     description = command_dict.get("description", None)
                     if description is not None:
                         wire_out_response["description"] = description
-                    response_queue.put(wire_out_response)
+                    response_queue.put_nowait(wire_out_response)
             else:
                 raise NotImplementedError(
                     "callable_to_execute should only be None if command == comm_delay"
@@ -867,7 +867,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
                     "gain_value must always be an integer after running start_up script"
                 )
             done_message["adc_gain"] = gain_value
-        response_queue.put(done_message)
+        response_queue.put_nowait(done_message)
 
     def _handle_mantarray_naming_comm(self, this_communication: Dict[str, Any]) -> None:
         response_queue = self._board_queues[0][1]
@@ -889,7 +889,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
             board.set_device_id(serial_number)
         else:
             raise UnrecognizedMantarrayNamingCommandError(this_communication["command"])
-        response_queue.put(this_communication)
+        response_queue.put_nowait(this_communication)
 
     def _dump_data_dicts_into_queue(self) -> None:
         """Pull data from the XEM FIFO, reformat, and push it to the queue."""
@@ -994,7 +994,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
             raise e
 
         for data in channel_dicts.values():
-            self._board_queues[0][2].put(data)
+            self._board_queues[0][2].put_nowait(data)
 
     def _log_fifo_read_and_error(
         self, logging_level: int, fifo_read: bytearray, error: Exception
