@@ -16,18 +16,18 @@ import pytest
 from stdlib_utils import confirm_parallelism_is_stopped
 from stdlib_utils import invoke_process_run_and_check_errors
 
-from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
-from .fixtures_file_writer import fixture_four_board_file_writer_process
-from .fixtures_file_writer import fixture_running_four_board_file_writer_process
-from .fixtures_file_writer import GENERIC_REFERENCE_SENSOR_DATA_PACKET
-from .fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
-from .fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
-from .fixtures_file_writer import GENERIC_TISSUE_DATA_PACKET
-from .fixtures_file_writer import open_the_generic_h5_file
-from .fixtures_file_writer import open_the_generic_h5_file_as_WellFile
-from .helpers import assert_queue_is_eventually_empty
-from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
-from .parsed_channel_data_packets import SIMPLE_CONSTRUCT_DATA_FROM_WELL_0
+from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from ..fixtures_file_writer import fixture_four_board_file_writer_process
+from ..fixtures_file_writer import fixture_running_four_board_file_writer_process
+from ..fixtures_file_writer import GENERIC_REFERENCE_SENSOR_DATA_PACKET
+from ..fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
+from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
+from ..fixtures_file_writer import GENERIC_TISSUE_DATA_PACKET
+from ..fixtures_file_writer import open_the_generic_h5_file
+from ..fixtures_file_writer import open_the_generic_h5_file_as_WellFile
+from ..helpers import assert_queue_is_eventually_empty
+from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
+from ..parsed_channel_data_packets import SIMPLE_CONSTRUCT_DATA_FROM_WELL_0
 
 
 __fixtures__ = [

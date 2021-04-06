@@ -323,7 +323,7 @@ class FileWriterProcess(InfiniteProcess):
                 with open(this_filename, "rb+") as file_buffer:
                     compute_crc32_and_write_to_file_head(file_buffer)
                 to_main_queue = self._to_main_queue
-                to_main_queue.put(
+                to_main_queue.put_nowait(
                     {
                         "communication_type": "file_finalized",
                         "file_path": this_filename,
@@ -485,7 +485,7 @@ class FileWriterProcess(InfiniteProcess):
         command = communication["command"]
         if command == "start_recording":
             self._process_start_recording_command(communication)
-            to_main.put(
+            to_main.put_nowait(
                 {
                     "communication_type": "command_receipt",
                     "command": "start_recording",
@@ -498,7 +498,7 @@ class FileWriterProcess(InfiniteProcess):
 
         elif command == "stop_recording":
             self._process_stop_recording_command(communication)
-            to_main.put(
+            to_main.put_nowait(
                 {
                     "communication_type": "command_receipt",
                     "command": "stop_recording",
@@ -509,7 +509,7 @@ class FileWriterProcess(InfiniteProcess):
             )
         elif command == "stop_managed_acquisition":
             self._data_packet_buffers[0].clear()
-            to_main.put(
+            to_main.put_nowait(
                 {
                     "communication_type": "command_receipt",
                     "command": "stop_managed_acquisition",
@@ -517,7 +517,7 @@ class FileWriterProcess(InfiniteProcess):
             )
         elif command == "update_directory":
             self._file_directory = communication["new_directory"]
-            to_main.put(
+            to_main.put_nowait(
                 {
                     "communication_type": "command_receipt",
                     "command": "update_directory",
@@ -634,7 +634,7 @@ class FileWriterProcess(InfiniteProcess):
         self._data_packet_buffers[0].append(data_packet)
 
         output_queue = self._board_queues[0][1]
-        output_queue.put(data_packet)
+        output_queue.put_nowait(data_packet)
 
         self._num_recorded_points.append(data_packet["data"].shape[1])
         start = time.perf_counter()

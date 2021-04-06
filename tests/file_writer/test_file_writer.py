@@ -70,21 +70,21 @@ from stdlib_utils import InfiniteProcess
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import validate_file_head_crc32
 
-from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
-from .fixtures_file_writer import fixture_four_board_file_writer_process
-from .fixtures_file_writer import fixture_running_four_board_file_writer_process
-from .fixtures_file_writer import GENERIC_REFERENCE_SENSOR_DATA_PACKET
-from .fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
-from .fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
-from .fixtures_file_writer import GENERIC_TISSUE_DATA_PACKET
-from .fixtures_file_writer import open_the_generic_h5_file
-from .fixtures_file_writer import WELL_DEF_24
-from .helpers import confirm_queue_is_eventually_empty
-from .helpers import confirm_queue_is_eventually_of_size
-from .helpers import is_queue_eventually_empty
-from .helpers import is_queue_eventually_of_size
-from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
-from .parsed_channel_data_packets import SIMPLE_CONSTRUCT_DATA_FROM_WELL_0
+from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from ..fixtures_file_writer import fixture_four_board_file_writer_process
+from ..fixtures_file_writer import fixture_running_four_board_file_writer_process
+from ..fixtures_file_writer import GENERIC_REFERENCE_SENSOR_DATA_PACKET
+from ..fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
+from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
+from ..fixtures_file_writer import GENERIC_TISSUE_DATA_PACKET
+from ..fixtures_file_writer import open_the_generic_h5_file
+from ..fixtures_file_writer import WELL_DEF_24
+from ..helpers import confirm_queue_is_eventually_empty
+from ..helpers import confirm_queue_is_eventually_of_size
+from ..helpers import is_queue_eventually_empty
+from ..helpers import is_queue_eventually_of_size
+from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
+from ..parsed_channel_data_packets import SIMPLE_CONSTRUCT_DATA_FROM_WELL_0
 
 
 __fixtures__ = [
