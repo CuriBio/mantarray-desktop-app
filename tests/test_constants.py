@@ -78,6 +78,7 @@ from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_IDLE_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
+from mantarray_desktop_app import SERIAL_COMM_MAX_DATA_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_METADATA_BYTES_LENGTH
@@ -355,7 +356,8 @@ def test_serial_comm():
     assert SERIAL_COMM_TIMESTAMP_LENGTH_BYTES == 8
     assert SERIAL_COMM_CHECKSUM_LENGTH_BYTES == 4
     assert SERIAL_COMM_STATUS_CODE_LENGTH_BYTES == 4
-    assert SERIAL_COMM_MAX_PACKET_LENGTH_BYTES == 65546
+    assert SERIAL_COMM_MAX_PACKET_LENGTH_BYTES == 2 ** 16
+    assert SERIAL_COMM_MAX_DATA_LENGTH_BYTES == SERIAL_COMM_MAX_PACKET_LENGTH_BYTES - 14
     assert SERIAL_COMM_MIN_PACKET_SIZE_BYTES == (
         SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
         + SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
