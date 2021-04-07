@@ -933,6 +933,9 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_when_recording(
 
     actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     actual = actual["message"]
+    assert (
+        "num_recorded_data_points_metrics" in actual
+    ), f"Message did not contain key: 'num_recorded_data_points_metrics', Full message dict: {actual}"
     assert actual["num_recorded_data_points_metrics"] == {
         "max": max(num_points_list),
         "min": min(num_points_list),
