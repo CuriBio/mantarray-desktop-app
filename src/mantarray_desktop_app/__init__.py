@@ -163,7 +163,6 @@ from .exceptions import SerialCommTooManyMissedHandshakesError
 from .exceptions import SerialCommUntrackedCommandResponseError
 from .exceptions import ServerThreadNotInitializedError
 from .exceptions import ServerThreadSingletonAlreadySetError
-from .exceptions import SimulatorTimeSyncNotReadyError
 from .exceptions import SystemStartUpError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
 from .exceptions import UnrecognizedCommandFromMainToMcCommError
@@ -462,5 +461,4 @@ __all__ = [
     "convert_to_timestamp_bytes",
     "get_serial_comm_timestamp",
     "SERIAL_COMM_TIMESTAMP_EPOCH",
-    "SimulatorTimeSyncNotReadyError",
 ]

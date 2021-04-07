@@ -42,10 +42,12 @@ from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
+from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
+from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import SerialCommCommandResponseTimeoutError
@@ -65,6 +67,7 @@ from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .instrument_comm import InstrumentCommProcess
 from .mc_simulator import MantarrayMcSimulator
 from .serial_comm_utils import convert_to_metadata_bytes
+from .serial_comm_utils import convert_to_timestamp_bytes
 from .serial_comm_utils import create_data_packet
 from .serial_comm_utils import get_serial_comm_timestamp
 from .serial_comm_utils import parse_metadata_bytes
@@ -383,6 +386,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise UnrecognizedSerialCommModuleIdError(module_id)
 
     def _process_main_module_comm(self, comm_from_instrument: bytes) -> None:
+        board_idx = 0
         packet_body = comm_from_instrument[
             SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES
         ]
@@ -399,7 +403,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             ):  # Tanner (4/1/21): want to check that reboot has actually started before considering a status beacon to mean that reboot has completed. It is possible (and has happened in unit tests) where a beacon is received in between sending the reboot command and the instrument actually beginning to reboot
                 self._is_waiting_for_reboot = False
                 self._time_of_reboot_start = None
-                self._board_queues[0][1].put_nowait(
+                self._board_queues[board_idx][1].put_nowait(
                     {
                         "communication_type": "to_instrument",
                         "command": "reboot",
@@ -410,6 +414,17 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._log_status_code(status_code, "Status Beacon")
             if status_code == SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE:
                 raise SerialCommHandshakeTimeoutError()
+            if status_code == SERIAL_COMM_TIME_SYNC_READY_CODE:
+                self._send_data_packet(
+                    board_idx,
+                    SERIAL_COMM_MAIN_MODULE_ID,
+                    SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+                    bytes([SERIAL_COMM_SET_TIME_COMMAND_BYTE])
+                    + convert_to_timestamp_bytes(get_serial_comm_timestamp()),
+                )
+                self._commands_awaiting_response.append(
+                    {"command": "set_time", "timepoint": perf_counter()}
+                )
         elif packet_type == SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE:
             response_data = packet_body[SERIAL_COMM_TIMESTAMP_LENGTH_BYTES:]
             if not self._commands_awaiting_response:
@@ -426,10 +441,12 @@ class McCommunicationProcess(InstrumentCommProcess):
             elif prev_command["command"] == "reboot":
                 prev_command["message"] = "Instrument beginning reboot"
                 self._time_of_reboot_start = perf_counter()
+            elif prev_command["command"] == "set_time":
+                prev_command["message"] = "Instrument time synced with PC"
             del prev_command[
                 "timepoint"
             ]  # main process does not need to know the timepoint and is not expecting this key in the dictionary returned to it
-            self._board_queues[0][1].put_nowait(
+            self._board_queues[board_idx][1].put_nowait(
                 prev_command
             )  # Tanner (3/17/21): to be consistent with OkComm, command responses will be sent back to main after the command is acknowledged by the Mantarray
         else:

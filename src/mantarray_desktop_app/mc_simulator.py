@@ -55,7 +55,6 @@ from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import TAMPER_FLAG_UUID
 from .constants import TOTAL_WORKING_HOURS_UUID
 from .exceptions import SerialCommTooManyMissedHandshakesError
-from .exceptions import SimulatorTimeSyncNotReadyError
 from .exceptions import UnrecognizedSerialCommModuleIdError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .exceptions import UnrecognizedSimulatorTestCommandError
@@ -395,7 +394,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                     SERIAL_COMM_BOOT_UP_CODE,
                     SERIAL_COMM_TIME_SYNC_READY_CODE,
                 ):
-                    raise SimulatorTimeSyncNotReadyError(
+                    raise NotImplementedError(
                         "baseline_time cannot be set through testing queue in boot up or time sync state"
                     )
                 self._baseline_time_usec = baseline_time
