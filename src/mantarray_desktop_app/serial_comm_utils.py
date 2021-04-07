@@ -53,9 +53,7 @@ def create_data_packet(
     packet_data: bytes,
 ) -> bytes:
     """Create a data packet to send to the PC."""
-    packet_body = timestamp.to_bytes(
-        SERIAL_COMM_TIMESTAMP_LENGTH_BYTES, byteorder="little"
-    )
+    packet_body = convert_to_timestamp_bytes(timestamp)
     packet_body += bytes([module_id, packet_type])
     packet_body += packet_data
     packet_length = len(packet_body) + SERIAL_COMM_CHECKSUM_LENGTH_BYTES
@@ -143,3 +141,7 @@ def convert_to_status_code_bytes(status_code: int) -> bytes:
     return status_code.to_bytes(
         SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little"
     )
+
+
+def convert_to_timestamp_bytes(timestamp: int) -> bytes:
+    return timestamp.to_bytes(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES, byteorder="little")

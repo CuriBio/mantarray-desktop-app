@@ -8,6 +8,7 @@ import queue
 import random
 import time
 from time import perf_counter
+from time import perf_counter_ns
 from typing import Any
 from typing import Dict
 from typing import Optional
@@ -24,6 +25,7 @@ from stdlib_utils import SECONDS_TO_SLEEP_BETWEEN_CHECKING_QUEUE_SIZE
 
 from .constants import BOOTUP_COUNTER_UUID
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
+from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import PCB_SERIAL_NUMBER_UUID
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BOOT_UP_CODE
@@ -34,6 +36,7 @@ from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS
+from .constants import SERIAL_COMM_IDLE_READY_CODE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
@@ -42,6 +45,7 @@ from .constants import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
+from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
@@ -63,6 +67,11 @@ from .serial_comm_utils import validate_checksum
 MAGIC_WORD_LEN = len(SERIAL_COMM_MAGIC_WORD_BYTES)
 AVERAGE_MC_REBOOT_DURATION_SECONDS = MAX_MC_REBOOT_DURATION_SECONDS / 2
 MC_SIMULATOR_BOOT_UP_DURATION_SECONDS = 3
+
+
+def _perf_counter_us() -> int:
+    """Return perf_counter value as microseconds."""
+    return perf_counter_ns() // 10 ** 3
 
 
 def _get_secs_since_last_handshake(last_time: float) -> float:
@@ -132,6 +141,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._output_queue = output_queue
         self._input_queue = input_queue
         self._testing_queue = testing_queue
+        self._baseline_time_usec: Optional[int] = None
         self._time_of_last_status_beacon_secs: Optional[float] = None
         self._time_of_last_handshake_secs: Optional[float] = None
         self._time_of_last_comm_from_pc_secs: Optional[float] = None
@@ -183,8 +193,15 @@ class MantarrayMcSimulator(InfiniteProcess):
         data_to_send: bytes = bytes(0),
         truncate: bool = False,
     ) -> None:
+        # TODO Tanner (4/7/21): convert timestamp to microseconds once real board makes the switch
+        timestamp = (
+            (self._baseline_time_usec + _perf_counter_us())
+            // MICROSECONDS_PER_CENTIMILLISECOND
+            if self._baseline_time_usec is not None
+            else self.get_cms_since_init()
+        )
         data_packet = create_data_packet(
-            self.get_cms_since_init(), module_id, packet_type, data_to_send
+            timestamp, module_id, packet_type, data_to_send
         )
         if truncate:
             trunc_index = random.randint(  # nosec B311 # Tanner (2/4/21): Bandit blacklisted this psuedo-random generator for cryptographic security reasons that do not apply to the desktop app.
@@ -222,6 +239,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._reset_status_code()
         self._send_status_beacon(truncate=False)
         self._boot_up_time_secs = perf_counter()
+        self._baseline_time_usec = None
 
     def _handle_comm_from_pc(self) -> None:
         try:
@@ -262,28 +280,34 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._update_status_code(SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE)
 
     def _process_main_module_command(self, comm_from_pc: bytes) -> None:
+        status_code_update: Optional[int] = None
+
         timestamp_from_pc_bytes = comm_from_pc[
             SERIAL_COMM_TIMESTAMP_BYTES_INDEX : SERIAL_COMM_TIMESTAMP_BYTES_INDEX
             + SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
         ]
         response_body = timestamp_from_pc_bytes
-
         packet_type = comm_from_pc[SERIAL_COMM_PACKET_TYPE_INDEX]
         if packet_type == SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE:
             command_byte = comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX]
             if command_byte == SERIAL_COMM_REBOOT_COMMAND_BYTE:
                 self._reboot_time_secs = perf_counter()
+            elif command_byte == SERIAL_COMM_GET_METADATA_COMMAND_BYTE:
+                metadata_bytes = bytes(0)
+                for key, value in self._metadata_dict.items():
+                    metadata_bytes += key + value
+                response_body += metadata_bytes
+            elif command_byte == SERIAL_COMM_SET_TIME_COMMAND_BYTE:
+                self._baseline_time_usec = int.from_bytes(
+                    response_body, byteorder="little"
+                )
+                status_code_update = SERIAL_COMM_IDLE_READY_CODE
             elif command_byte == SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE:
                 start_idx = SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 1
                 nickname_bytes = comm_from_pc[
                     start_idx : start_idx + SERIAL_COMM_METADATA_BYTES_LENGTH
                 ]
                 self._metadata_dict[MANTARRAY_NICKNAME_UUID.bytes] = nickname_bytes
-            elif command_byte == SERIAL_COMM_GET_METADATA_COMMAND_BYTE:
-                metadata_bytes = bytes(0)
-                for key, value in self._metadata_dict.items():
-                    metadata_bytes += key + value
-                response_body += metadata_bytes
             else:
                 # TODO Tanner (3/4/21): Determine what to do if command_byte, module_id, or packet_type are incorrect. It may make more sense to respond with a message rather than raising an error
                 raise NotImplementedError(command_byte)
@@ -300,6 +324,9 @@ class MantarrayMcSimulator(InfiniteProcess):
             SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
             response_body,
         )
+        # update status cpde (if an update is necessary) after sending command response
+        if status_code_update is not None:
+            self._update_status_code(status_code_update)
 
     def _update_status_code(self, new_code: int) -> None:
         self._status_code = new_code
