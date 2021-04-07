@@ -188,3 +188,7 @@ class SerialCommHandshakeTimeoutError(Exception):
 
 class InstrumentRebootTimeoutError(Exception):
     pass
+
+
+class SimulatorTimeSyncNotReadyError(Exception):
+    pass

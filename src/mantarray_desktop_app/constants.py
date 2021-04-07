@@ -9,6 +9,7 @@ The following constants are based off the geometry of Mantarray Board Rev 2
 * ADC_CH_TO_IS_REF_SENSOR
 * WELL_24_INDEX_TO_ADC_AND_CH_INDEX
 """
+import datetime
 from typing import Dict
 from typing import Tuple
 import uuid
@@ -236,6 +237,8 @@ SERIAL_COMM_BAUD_RATE = 4e6
 MAX_MC_REBOOT_DURATION_SECONDS = 5
 
 SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES = 3
+
+SERIAL_COMM_TIMESTAMP_EPOCH = datetime.datetime(year=2021, month=1, day=1)
 
 SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS = 5
 SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS = 5

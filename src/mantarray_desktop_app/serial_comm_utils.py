@@ -2,6 +2,7 @@
 """Utility functions for Serial Communication."""
 from __future__ import annotations
 
+import datetime
 from typing import Any
 from typing import Dict
 from typing import Union
@@ -20,6 +21,7 @@ from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
+from .constants import SERIAL_COMM_TIMESTAMP_EPOCH
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import TAMPER_FLAG_UUID
 from .constants import TOTAL_WORKING_HOURS_UUID
@@ -145,3 +147,11 @@ def convert_to_status_code_bytes(status_code: int) -> bytes:
 
 def convert_to_timestamp_bytes(timestamp: int) -> bytes:
     return timestamp.to_bytes(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES, byteorder="little")
+
+
+# Tanner (4/7/21): This method should not be used in the simulator. It has its own way of determining the timestamp to send in order to behave more accurately like the real Mantarray instrument
+def get_serial_comm_timestamp() -> int:
+    # TODO Tanner (4/7/21): change this to microseconds when the real Mantarray makes the switch
+    return (
+        datetime.datetime.utcnow() - SERIAL_COMM_TIMESTAMP_EPOCH
+    ) // datetime.timedelta(microseconds=1)

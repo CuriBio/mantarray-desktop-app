@@ -112,6 +112,7 @@ from .constants import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
+from .constants import SERIAL_COMM_TIMESTAMP_EPOCH
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
@@ -162,6 +163,7 @@ from .exceptions import SerialCommTooManyMissedHandshakesError
 from .exceptions import SerialCommUntrackedCommandResponseError
 from .exceptions import ServerThreadNotInitializedError
 from .exceptions import ServerThreadSingletonAlreadySetError
+from .exceptions import SimulatorTimeSyncNotReadyError
 from .exceptions import SystemStartUpError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
 from .exceptions import UnrecognizedCommandFromMainToMcCommError
@@ -211,6 +213,7 @@ from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_status_code_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
 from .serial_comm_utils import create_data_packet
+from .serial_comm_utils import get_serial_comm_timestamp
 from .serial_comm_utils import parse_metadata_bytes
 from .serial_comm_utils import validate_checksum
 from .server import clear_the_server_thread
@@ -457,4 +460,7 @@ __all__ = [
     "SERIAL_COMM_MAX_DATA_LENGTH_BYTES",
     "SERIAL_COMM_SET_TIME_COMMAND_BYTE",
     "convert_to_timestamp_bytes",
+    "get_serial_comm_timestamp",
+    "SERIAL_COMM_TIMESTAMP_EPOCH",
+    "SimulatorTimeSyncNotReadyError",
 ]

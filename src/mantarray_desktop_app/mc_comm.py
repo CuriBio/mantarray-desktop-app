@@ -66,6 +66,7 @@ from .instrument_comm import InstrumentCommProcess
 from .mc_simulator import MantarrayMcSimulator
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import create_data_packet
+from .serial_comm_utils import get_serial_comm_timestamp
 from .serial_comm_utils import parse_metadata_bytes
 from .serial_comm_utils import validate_checksum
 
@@ -214,7 +215,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         data_to_send: bytes = bytes(0),
     ) -> None:
         data_packet = create_data_packet(
-            self.get_cms_since_init(), module_id, packet_type, data_to_send
+            get_serial_comm_timestamp(), module_id, packet_type, data_to_send
         )
         board = self._board_connections[board_idx]
         if board is None:

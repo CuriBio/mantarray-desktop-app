@@ -55,6 +55,7 @@ from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import TAMPER_FLAG_UUID
 from .constants import TOTAL_WORKING_HOURS_UUID
 from .exceptions import SerialCommTooManyMissedHandshakesError
+from .exceptions import SimulatorTimeSyncNotReadyError
 from .exceptions import UnrecognizedSerialCommModuleIdError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .exceptions import UnrecognizedSimulatorTestCommandError
@@ -97,6 +98,8 @@ def _get_secs_since_last_comm_from_pc(last_time: float) -> float:
 # pylint: disable=too-many-instance-attributes
 class MantarrayMcSimulator(InfiniteProcess):
     """Simulate a running Mantarray instrument with Microcontroller.
+
+    If a command from the PC triggers an update to the status code, the updated status beacon will be sent after the command response
 
     Args:
         input_queue: queue bytes sent to the simulator using the `write` method
@@ -384,7 +387,18 @@ class MantarrayMcSimulator(InfiniteProcess):
             for read in read_bytes:
                 self._output_queue.put_nowait(read)
         elif command == "set_status_code":
-            self._status_code = test_comm["status_code"]
+            status_code = test_comm["status_code"]
+            self._status_code = status_code
+            baseline_time = test_comm.get("baseline_time", None)
+            if baseline_time is not None:
+                if status_code in (
+                    SERIAL_COMM_BOOT_UP_CODE,
+                    SERIAL_COMM_TIME_SYNC_READY_CODE,
+                ):
+                    raise SimulatorTimeSyncNotReadyError(
+                        "baseline_time cannot be set through testing queue in boot up or time sync state"
+                    )
+                self._baseline_time_usec = baseline_time
         elif command == "set_metadata":
             for key, value in test_comm["metadata_values"].items():
                 value_bytes = convert_to_metadata_bytes(value)

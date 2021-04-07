@@ -322,7 +322,7 @@ def test_MantarrayMcSimulator__makes_status_beacon_available_to_read_on_first_it
     assert actual == expected_initial_beacon[spied_randint.spy_return :]
 
 
-def test_MantarrayMcSimulator__makes_status_beacon_available_to_read_every_5_seconds__and_includes_correct_timestamp(
+def test_MantarrayMcSimulator__makes_status_beacon_available_to_read_every_5_seconds__and_includes_correct_timestamp_before_time_is_synced(
     mantarray_mc_simulator, mocker
 ):
     simulator = mantarray_mc_simulator["simulator"]
@@ -1169,5 +1169,42 @@ def test_MantarrayMcSimulator__processes_set_time_command(
         SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
         additional_bytes=convert_to_status_code_bytes(SERIAL_COMM_IDLE_READY_CODE),
         timestamp=(expected_pc_timestamp + expected_status_beacon_time_us)
+        // MICROSECONDS_PER_CENTIMILLISECOND,
+    )
+
+
+def test_MantarrayMcSimulator__accepts_time_sync_along_with_status_code_update__if_status_code_is_set_to_state_following_time_sync(
+    mantarray_mc_simulator_no_beacon, mocker
+):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+
+    spied_perf_counter_us = mocker.spy(
+        mc_simulator,
+        "_perf_counter_us",
+    )
+
+    expected_time_usecs = 83924409
+    test_command = {
+        "command": "set_status_code",
+        "status_code": SERIAL_COMM_IDLE_READY_CODE,
+        "baseline_time": expected_time_usecs,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_command, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator)
+    # send status beacon to verify timestamp is set
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "send_single_beacon"}, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator)
+    status_beacon = simulator.read(size=STATUS_BEACON_SIZE_BYTES)
+    assert_serial_packet_is_expected(
+        status_beacon,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
+        additional_bytes=convert_to_status_code_bytes(SERIAL_COMM_IDLE_READY_CODE),
+        timestamp=(expected_time_usecs + spied_perf_counter_us.spy_return)
         // MICROSECONDS_PER_CENTIMILLISECOND,
     )

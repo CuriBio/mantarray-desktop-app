@@ -842,7 +842,10 @@ def test_McCommunicationProcess__includes_correct_timestamp_in_packets_sent_to_i
 
     expected_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
     mocker.patch.object(
-        mc_process, "get_cms_since_init", autospec=True, return_value=expected_timestamp
+        mc_comm,
+        "get_serial_comm_timestamp",
+        autospec=True,
+        return_value=expected_timestamp,
     )
 
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
@@ -1033,7 +1036,7 @@ def test_McCommunicationProcess__sends_handshake_every_5_seconds__and_includes_c
         CENTIMILLISECONDS_PER_SECOND * SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS,
     ]
     mocker.patch.object(
-        mc_process, "get_cms_since_init", autospec=True, side_effect=expected_durs
+        mc_comm, "get_serial_comm_timestamp", autospec=True, side_effect=expected_durs
     )
     mocker.patch.object(
         mc_comm,

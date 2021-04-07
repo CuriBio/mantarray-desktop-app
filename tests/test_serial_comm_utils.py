@@ -1,14 +1,18 @@
 # -*- coding: utf-8 -*-
+import datetime
 from zlib import crc32
 
+from freezegun import freeze_time
 from mantarray_desktop_app import convert_metadata_bytes_to_str
 from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import create_data_packet
+from mantarray_desktop_app import get_serial_comm_timestamp
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import parse_metadata_bytes
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_METADATA_BYTES_LENGTH
+from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_EPOCH
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import SerialCommMetadataValueTooLargeError
 from mantarray_desktop_app import validate_checksum
@@ -138,7 +142,7 @@ def test_convert_metadata_bytes_to_str__returns_correct_string(
     assert actual_str == expected_str
 
 
-def nottest_parse_metadata_bytes__returns_metadata_as_dictionary(
+def test_parse_metadata_bytes__returns_metadata_as_dictionary(
     mantarray_mc_simulator_no_beacon,
 ):
     # Tanner (3/18/21): Need to make sure to test this on all default metadata values, so get them from simulator
@@ -149,3 +153,12 @@ def nottest_parse_metadata_bytes__returns_metadata_as_dictionary(
 
     actual = parse_metadata_bytes(test_metadata_bytes)
     assert actual == MantarrayMcSimulator.default_metadata_values
+
+
+@freeze_time("2021-04-07 13:14:07.234987")
+def test_get_serial_comm_timestamp__returns_microseconds_since_2021_01_01():
+    expected_usecs = (
+        datetime.datetime.utcnow() - SERIAL_COMM_TIMESTAMP_EPOCH
+    ) // datetime.timedelta(microseconds=1)
+    actual = get_serial_comm_timestamp()
+    assert actual == expected_usecs
