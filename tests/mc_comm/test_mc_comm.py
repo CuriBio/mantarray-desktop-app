@@ -103,18 +103,21 @@ def set_connection_and_register_simulator(
     output_queue = mc_process_fixture["board_queues"][0][1]
     simulator = simulator_fixture["simulator"]
     testing_queue = simulator_fixture["testing_queue"]
+
+    num_iterations = 1
     if not isinstance(simulator, MantarrayMcSimulatorNoBeacons):
-        # first iteration to send truncated beacon
+        # first iteration to send possibly truncated beacon
         invoke_process_run_and_check_errors(simulator)
+        num_iterations += 1  # Tanner (4/6/21): May need to run two iterations in case the first beacon is not truncated. Not doing this will cause issues with output_queue later on
     # send single untruncated beacon and then register with mc_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"command": "send_single_beacon"}, testing_queue
     )
     invoke_process_run_and_check_errors(simulator)
     mc_process.set_board_connection(0, simulator)
-    invoke_process_run_and_check_errors(mc_process)
-    # remove status code log message
-    output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    invoke_process_run_and_check_errors(mc_process, num_iterations=num_iterations)
+    # remove status code log message(s)
+    drain_queue(output_queue)
 
 
 def test_McCommunicationProcess_super_is_called_during_init(mocker):
@@ -1232,6 +1235,9 @@ def test_McCommunicationProcess__processes_reboot_command(
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator
     )
+    confirm_queue_is_eventually_empty(output_queue)
+
+    # put simulator in idle ready state before rebooting
 
     expected_response = {
         "communication_type": "to_instrument",
