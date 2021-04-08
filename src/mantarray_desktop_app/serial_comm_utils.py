@@ -10,12 +10,14 @@ from uuid import UUID
 from zlib import crc32
 
 from immutabledict import immutabledict
+from mantarray_file_manager import BOOTUP_COUNTER_UUID
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
+from mantarray_file_manager import PCB_SERIAL_NUMBER_UUID
+from mantarray_file_manager import TAMPER_FLAG_UUID
+from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
 
-from .constants import BOOTUP_COUNTER_UUID
-from .constants import PCB_SERIAL_NUMBER_UUID
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
@@ -23,8 +25,6 @@ from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIMESTAMP_EPOCH
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
-from .constants import TAMPER_FLAG_UUID
-from .constants import TOTAL_WORKING_HOURS_UUID
 from .exceptions import SerialCommMetadataValueTooLargeError
 
 

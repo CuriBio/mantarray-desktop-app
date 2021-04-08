@@ -28,7 +28,6 @@ from .constants import BARCODE_SCANNER_TOP_WIRE_OUT_ADDRESS
 from .constants import BARCODE_SCANNER_TRIGGER_IN_ADDRESS
 from .constants import BARCODE_UNREADABLE_UUID
 from .constants import BARCODE_VALID_UUID
-from .constants import BOOTUP_COUNTER_UUID
 from .constants import BUFFERING_STATE
 from .constants import CALIBRATED_STATE
 from .constants import CALIBRATING_STATE
@@ -69,7 +68,6 @@ from .constants import NANOSECONDS_PER_CENTIMILLISECOND
 from .constants import NO_PLATE_DETECTED_BARCODE_VALUE
 from .constants import NO_PLATE_DETECTED_UUID
 from .constants import OUTGOING_DATA_BUFFER_SIZE
-from .constants import PCB_SERIAL_NUMBER_UUID
 from .constants import RAW_TO_SIGNED_CONVERSION_VALUE
 from .constants import RECORDING_STATE
 from .constants import REF_INDEX_TO_24_WELL_INDEX
@@ -122,9 +120,7 @@ from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SUBPROCESS_POLL_DELAY_SECONDS
 from .constants import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from .constants import SYSTEM_STATUS_UUIDS
-from .constants import TAMPER_FLAG_UUID
 from .constants import TIMESTEP_CONVERSION_FACTOR
-from .constants import TOTAL_WORKING_HOURS_UUID
 from .constants import VALID_CONFIG_SETTINGS
 from .constants import VALID_SCRIPTING_COMMANDS
 from .constants import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
@@ -421,10 +417,6 @@ __all__ = [
     "SERIAL_COMM_BAUD_RATE",
     "SerialCommIncorrectChecksumFromPCError",
     "SERIAL_COMM_ADDITIONAL_BYTES_INDEX",
-    "BOOTUP_COUNTER_UUID",
-    "TOTAL_WORKING_HOURS_UUID",
-    "TAMPER_FLAG_UUID",
-    "PCB_SERIAL_NUMBER_UUID",
     "convert_to_metadata_bytes",
     "SERIAL_COMM_METADATA_BYTES_LENGTH",
     "SerialCommMetadataValueTooLargeError",

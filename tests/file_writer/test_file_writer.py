@@ -36,7 +36,7 @@ from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import ADC_REF_OFFSET_UUID
 from mantarray_file_manager import ADC_TISSUE_OFFSET_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
-from mantarray_file_manager import COMPUTER_NAME_HASH
+from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
 from mantarray_file_manager import IS_FILE_ORIGINAL_UNTRIMMED_UUID
@@ -386,10 +386,10 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
             == CONSTRUCT_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
         )
         assert (
-            this_file.attrs[str(COMPUTER_NAME_HASH)]
+            this_file.attrs[str(COMPUTER_NAME_HASH_UUID)]
             == GENERIC_START_RECORDING_COMMAND[
                 "metadata_to_copy_onto_main_file_attributes"
-            ][COMPUTER_NAME_HASH]
+            ][COMPUTER_NAME_HASH_UUID]
         )
         assert (
             bool(this_file.attrs[str(BARCODE_IS_FROM_SCANNER_UUID)])

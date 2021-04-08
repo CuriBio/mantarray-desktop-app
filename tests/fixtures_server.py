@@ -9,7 +9,7 @@ from mantarray_desktop_app import flask_app
 from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import ServerThread
 from mantarray_file_manager import BACKEND_LOG_UUID
-from mantarray_file_manager import COMPUTER_NAME_HASH
+from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 import pytest
@@ -138,7 +138,7 @@ def fixture_generic_start_recording_info_in_shared_dict(
     ][BACKEND_LOG_UUID]
     shared_values_dict["computer_name_hash"] = GENERIC_START_RECORDING_COMMAND[
         "metadata_to_copy_onto_main_file_attributes"
-    ][COMPUTER_NAME_HASH]
+    ][COMPUTER_NAME_HASH_UUID]
     shared_values_dict["barcodes"] = {
         board_idx: {
             "plate_barcode": GENERIC_START_RECORDING_COMMAND[
