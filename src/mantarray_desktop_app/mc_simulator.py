@@ -33,6 +33,7 @@ from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BOOT_UP_CODE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+from .constants import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
 from .constants import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
@@ -196,6 +197,15 @@ class MantarrayMcSimulator(InfiniteProcess):
         """Mainly for use in unit tests."""
         return self._status_code
 
+    def get_eeprom_bytes(self) -> bytes:
+        eeprom_dict = {
+            "Status Code": self._status_code,
+            "Time Sync Value received from PC (microseconds)": self._baseline_time_usec,
+        }
+        return bytes(
+            f" Simulator EEPROM Contents: {str(eeprom_dict)}", encoding="ascii"
+        )
+
     def _send_data_packet(
         self,
         module_id: int,
@@ -308,6 +318,8 @@ class MantarrayMcSimulator(InfiniteProcess):
                 for key, value in self._metadata_dict.items():
                     metadata_bytes += key + value
                 response_body += metadata_bytes
+            elif command_byte == SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE:
+                response_body += self.get_eeprom_bytes()
             elif command_byte == SERIAL_COMM_SET_TIME_COMMAND_BYTE:
                 self._baseline_time_usec = int.from_bytes(
                     response_body, byteorder="little"
