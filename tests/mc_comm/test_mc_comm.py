@@ -1073,7 +1073,7 @@ def test_McCommunicationProcess__sends_handshake_every_5_seconds__and_includes_c
     invoke_process_run_and_check_errors(mc_process)
     # assert handshake response was read
     assert simulator.in_waiting == 0
-    # repeat, 5 seconds since prev beacon
+    # repeat, 5 seconds since previous beacon
     invoke_process_run_and_check_errors(mc_process)
     expected_handshake_2 = create_data_packet(
         expected_durs[1] // MICROSECONDS_PER_CENTIMILLISECOND,

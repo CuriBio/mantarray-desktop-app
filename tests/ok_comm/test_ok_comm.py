@@ -260,19 +260,19 @@ def test_parse_sensor_bytes_performance():
     # 5000 iterations
     # parsing sensor bytes, adc metadata, and little endian int24
     #
-    # started at:                       30867322
-    # 1. converting to cython:           4758391
-    # 2. cpdef functions:                2846122
-    # 3. line_trace=False:               2672362
-    # 4. better function arg typing:     1477277
-    # 5. more cdef variables:             808056
+    # started at:                           30867322
+    # 1. converting to cython:               4758391
+    # 2. cpdef functions:                    2846122
+    # 3. line_trace=False:                   2672362
+    # 4. better typing of function args:     1477277
+    # 5. more cdef variables:                 808056  # pylint:disable=wrong-spelling-in-comment # Eli (4/8/21): I don't want to add cdef to the overall dictionary of words to ignore
 
     test_bytearray = bytearray([0x02, 0xF6, 0x85, 0x77])
     start = time.perf_counter_ns()
     for _ in range(5000):
         parse_sensor_bytes(test_bytearray)
     dur = time.perf_counter_ns() - start
-    # print(f"Duration (ns): {dur}")
+    # print(f"Duration (ns): {dur}") # pylint:disable=wrong-spelling-in-comment # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
     assert dur < 10000000
 
 
@@ -342,7 +342,7 @@ def test_build_file_writer_objects__raises_error__when_first_data_frame_period_o
     # Tanner (7/10/20) When the error is raised, the queue is closed before it finishes writing to Pipe, so mock to avoid error in test
     mocker.patch.object(ok_comm, "put_log_message_into_queue", autospec=True)
     q = Queue()
-    first_data_frame_size = DATA_FRAME_SIZE_WORDS * 4  # num bytes in a word
+    first_data_frame_size = DATA_FRAME_SIZE_WORDS * 4  # number of bytes in a word
     test_bytearray = produce_data(1, 0)[:first_data_frame_size]
     test_bytearray.extend(produce_data(1, test_data_frame_period))
     expected_error_string = f"Detected period between first two data frames of FIFO read: {test_data_frame_period * TIMESTEP_CONVERSION_FACTOR} does not matched expected value: {DATA_FRAME_PERIOD}. Actual time indices: 0x0, {hex(test_data_frame_period * TIMESTEP_CONVERSION_FACTOR)}"
@@ -375,7 +375,7 @@ def test_build_file_writer_objects__logs_warning__when_first_data_frame_period_o
         ok_comm, "put_log_message_into_queue", autospec=True
     )
     expected_queue = Queue()
-    first_data_frame_size = DATA_FRAME_SIZE_WORDS * 4  # num bytes in a word
+    first_data_frame_size = DATA_FRAME_SIZE_WORDS * 4  # number of bytes in a word
     test_bytearray = produce_data(1, 0)[:first_data_frame_size]
     test_bytearray.extend(produce_data(1, test_data_frame_period))
 

@@ -1338,7 +1338,7 @@ def test_FileWriterProcess_hard_stop__calls_close_all_files__when_still_recordin
         num_iterations=1,
         perform_teardown_after_loop=False,
     )
-    assert spied_close_all_files.call_count == 0  # confirm pre-condition
+    assert spied_close_all_files.call_count == 0  # confirm precondition
     fw_process.hard_stop()
 
     spied_close_all_files.assert_called_once()
@@ -1394,7 +1394,7 @@ def test_FileWriterProcess_hard_stop__closes_all_files_after_stop_recording_befo
     )
     invoke_process_run_and_check_errors(fw_process)
 
-    assert spied_close_all_files.call_count == 0  # confirm pre-condition
+    assert spied_close_all_files.call_count == 0  # confirm precondition
     fw_process.hard_stop()
     spied_close_all_files.assert_called_once()
 

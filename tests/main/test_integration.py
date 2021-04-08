@@ -127,7 +127,7 @@ def test_send_xem_scripts_command__gets_processed_in_fully_running_app(
     ]
     monitor_error_queue = test_process_monitor.get_fatal_error_reporter()
 
-    # Tanner (12/29/20): init with no bit file since local dev environment does not have any real bit files and we are using a simulator
+    # Tanner (12/29/20): init with no bit file since local development environment does not have any real bit files and we are using a simulator
     response = requests.get(
         f"{get_api_endpoint()}insert_xem_command_into_queue/initialize_board"
     )
@@ -178,7 +178,7 @@ def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_li
 
     # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
-        # Tanner (12/29/20): Sending in alternate recording directory through cmd line args
+        # Tanner (12/29/20): Sending in alternate recording directory through command line args
         test_dict = {
             "user_account_uuid": "0288efbc-7705-4946-8815-02701193f766",
             "customer_account_uuid": "14b9294a-9efb-47dd-a06e-8247e982e196",
@@ -680,11 +680,11 @@ def test_full_datapath(
         system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
     )
 
-    # Tanner (12/30/20): start managed_acquisition in order to get data moving through datapath
+    # Tanner (12/30/20): start managed_acquisition in order to get data moving through data path
     acquisition_request = f"{get_api_endpoint()}start_managed_acquisition"
     response = requests.get(acquisition_request)
     assert response.status_code == 200
-    # Tanner (12/29/20): When system status equals LIVE_VIEW_ACTIVE_STATE then enough data has passed through the datapath to make assertions
+    # Tanner (12/29/20): When system status equals LIVE_VIEW_ACTIVE_STATE then enough data has passed through the data path to make assertions
     assert (
         system_state_eventually_equals(
             LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME

@@ -350,9 +350,9 @@ def test_MantarrayMcSimulator__makes_status_beacon_available_to_read_every_5_sec
     # remove boot up beacon
     invoke_process_run_and_check_errors(simulator)
     simulator.read(size=STATUS_BEACON_SIZE_BYTES)
-    # 1 second since prev beacon
+    # 1 second since previous beacon
     invoke_process_run_and_check_errors(simulator)
-    # 5 seconds since prev beacon
+    # 5 seconds since previous beacon
     invoke_process_run_and_check_errors(simulator)
     expected_beacon_1 = create_data_packet(
         expected_durs[1],
@@ -361,9 +361,9 @@ def test_MantarrayMcSimulator__makes_status_beacon_available_to_read_every_5_sec
         DEFAULT_SIMULATOR_STATUS_CODE,
     )
     assert simulator.read(size=len(expected_beacon_1)) == expected_beacon_1
-    # 4 seconds since prev beacon
+    # 4 seconds since previous beacon
     invoke_process_run_and_check_errors(simulator)
-    # 6 seconds since prev beacon
+    # 6 seconds since previous beacon
     invoke_process_run_and_check_errors(simulator)
     expected_beacon_2 = create_data_packet(
         expected_durs[2],
