@@ -1226,7 +1226,7 @@ def test_MantarrayMcSimulator__processes_dump_EEPROM_command(
     )
     simulator.write(test_dump_eeprom_command)
     invoke_process_run_and_check_errors(simulator)
-
+    # assert EEPROM dump is correct
     eeprom_dump_size = get_full_packet_size_from_packet_body_size(
         SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + len(simulator.get_eeprom_bytes())
     )
