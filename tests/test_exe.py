@@ -20,7 +20,7 @@ PATH_OF_CURRENT_FILE = get_current_file_abs_directory()
 
 
 @pytest.mark.slow
-@pytest.mark.only_exe  # TODO (Eli 12/9/20): figure out why this won't run on entrypoint.py in Windows GitHub
+@pytest.mark.only_exe  # TODO (Eli 12/9/20): figure out why this won't run on :file:`entrypoint.py` in Windows GitHub
 def test_exe_can_access_xem_script_and_firmware_folders():
     # Eli (10/21/20): other parts of CI ensure that the EXE actually exists, so this can be run on the source file and the exe both to ensure we can catch test failures earlier
     exe_file_name = "mantarray-flask.exe" if is_system_windows() else "mantarray-flask"
@@ -32,7 +32,7 @@ def test_exe_can_access_xem_script_and_firmware_folders():
             )
         )
         if not os.path.isfile(path_to_entrypoint):
-            # Eli (12/9/20): the path to entrypoint.py was different somehow in Windows containers for GitHub actions, so leaving this here for future possible debugging
+            # Eli (12/9/20): the path to :file:`entrypoint.py` was different somehow in Windows containers for GitHub actions, so leaving this here for future possible debugging
             print(  # allow-print
                 f"\nfile path that does not exist: {path_to_entrypoint}"
             )
@@ -55,10 +55,7 @@ def test_exe_can_access_xem_script_and_firmware_folders():
 
         subprocess_args = [sys.executable, path_to_entrypoint]
 
-    sub_process = subprocess.Popen(
-        subprocess_args
-        # ,stdout=PIPE,stderr=PIPE
-    )
+    sub_process = subprocess.Popen(subprocess_args)
     port = get_server_port_number()
     confirm_port_in_use(port, timeout=10)
     wait_for_subprocesses_to_start()

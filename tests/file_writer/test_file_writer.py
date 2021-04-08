@@ -278,7 +278,7 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
     assert actual_set_of_files == expected_set_of_files
 
     for this_well_idx in range(24):
-        # Eli (2/9/20) can't figure out a more elegant way to test this than accessing the private instance variable.  If you open a file using the swmr=True kwarg and the file isn't being written that way, no error is raised, and asserting f.swmr_mode is True on the file being read doesn't work (always returns what the kwarg was set as during opening for reading)
+        # Eli (2/9/20) can't figure out a more elegant way to test this than accessing the private instance variable.  If you open a file using the :code:`swmr=True` kwarg and the file isn't being written that way, no error is raised, and asserting f.swmr_mode is True on the file being read doesn't work (always returns what the kwarg was set as during opening for reading)
         open_files = file_writer_process._open_files  # pylint: disable=protected-access
         this_file_being_written_to = open_files[0][this_well_idx]
         assert this_file_being_written_to.swmr_mode is True

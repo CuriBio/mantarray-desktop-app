@@ -209,7 +209,7 @@ def fixture_four_board_file_writer_process():
         yield fw_items_dict
 
         if not fw_process.is_alive():
-            # Eli (2/10/20): it is important in windows based systems to make sure to close the files before deleting them. be careful about this when running tests in a linux dev environment
+            # Eli (2/10/20): it is important in windows based systems to make sure to close the files before deleting them. be careful about this when running tests in a Linux development environment
             fw_process.close_all_files()
 
 

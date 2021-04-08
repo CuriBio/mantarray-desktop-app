@@ -114,7 +114,7 @@ def set_connection_and_register_simulator(
         # first iteration to send possibly truncated beacon
         invoke_process_run_and_check_errors(simulator)
         num_iterations += 1  # Tanner (4/6/21): May need to run two iterations in case the first beacon is not truncated. Not doing this will cause issues with output_queue later on
-    # send single untruncated beacon and then register with mc_process
+    # send single non-truncated beacon and then register with mc_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"command": "send_single_beacon"}, testing_queue
     )
@@ -1102,7 +1102,7 @@ def test_McCommunicationProcess__raises_error_when_receiving_untracked_command_r
         test_timestamp,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-        bytes(8),  # 8 arbitrary bytes in place of timestamp of command sent from pc
+        bytes(8),  # 8 arbitrary bytes in place of timestamp of command sent from PC
     )
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"command": "add_read_bytes", "read_bytes": test_command_response},

@@ -134,7 +134,7 @@ def test_DataAnalyzerProcess_performance(four_board_analyzer_process):
         timeout=QUEUE_CHECK_TIMEOUT_SECONDS
     )  # Tanner (8/31/20): prevent BrokenPipeError
 
-    # print(f"Duration (ns): {dur}")
+    # print(f"Duration (ns): {dur}") # pylint:disable=wrong-spelling-in-comment # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
     assert dur < 7000000000
 
 
@@ -807,7 +807,7 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_dumping_data(
     )
     confirm_queue_is_eventually_of_size(
         to_main_queue, 2
-    )  # Tanner (1/4/21): log msg is put into queue after waveform data dump
+    )  # Tanner (1/4/21): log message is put into queue after waveform data dump
 
     actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     actual = actual["message"]

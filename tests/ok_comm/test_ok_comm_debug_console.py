@@ -121,7 +121,7 @@ def test_OkCommunicationProcess_run__processes_init_board_debug_console_command_
     init_response = response_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert init_response["command"] == "initialize_board"
     assert init_response["bit_file_name"] == test_bit_file_name
-    # Tanner (5/26/20): Asserting respone is None is the simplest way to assert no error was returned
+    # Tanner (5/26/20): Asserting response is None is the simplest way to assert no error was returned
     assert init_response["response"] is None
 
 

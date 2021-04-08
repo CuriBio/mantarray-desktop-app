@@ -87,7 +87,7 @@ def test_parse_scripting_log__calls_resource_path_correctly(mocker):
     )
 
     def side_effect(*args, **kwargs):
-        # Tanner (4/14/20): we want to call resource_path unmocked, but need to patch it to get the return value needed for testing
+        # Tanner (4/14/20): we want to truly call resource_path (not mocked), but need to patch it to get the return value needed for testing
         resource_path(*args, **kwargs)
         return mocked_path_str
 
@@ -246,7 +246,7 @@ def test_gain_value_is_parsed_and_saved_when_running_start_up_script(
     invoke_process_run_and_check_errors(ok_comm_process)
 
     assert is_queue_eventually_not_empty(from_ok_comm_queue) is True
-    # Tanner (6/12/20): num iterations should be 3 here because xem_scripts sends 3 messages to main, and the third one will contain the gain value
+    # Tanner (6/12/20): number of iterations should be 3 here because xem_scripts sends 3 messages to main, and the third one will contain the gain value
     invoke_process_run_and_check_errors(monitor_thread, num_iterations=3)
 
     assert shared_values_dict["adc_gain"] == 16
@@ -318,7 +318,7 @@ def test_offset_values_are_parsed_and_saved_when_running_start_calibration_scrip
     invoke_process_run_and_check_errors(ok_comm_process)
 
     assert is_queue_eventually_not_empty(from_ok_comm_queue) is True
-    # Tanner (6/26/20): num iterations should be 49 here because xem_scripts sends one scripting message followed by 48 offset values to main
+    # Tanner (6/26/20): number of iterations should be 49 here because xem_scripts sends one scripting message followed by 48 offset values to main
     invoke_process_run_and_check_errors(monitor_thread, num_iterations=49)
 
     assert shared_values_dict["adc_offsets"][0]["construct"] == 0

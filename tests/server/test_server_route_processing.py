@@ -1898,7 +1898,7 @@ def test_after_request__redacts_mantarray_nicknames_from_start_recording_log_mes
 def test_server__redacts_nickname_parameter_from_set_mantarray_nickname_route(
     running_server_thread, mocker
 ):
-    # Tanner (1/27/21): calling this route so werkzeug will have to instantiate its logger to log the route called. An issue has occured where werkzeug_internal._logger was still None when trying to spy it
+    # Tanner (1/27/21): calling this route so werkzeug will have to instantiate its logger to log the route called. An issue has occurred where werkzeug_internal._logger was still None when trying to spy it
     response = requests.get(f"{get_api_endpoint()}health_check")
     assert response.status_code == 200
 
@@ -1924,7 +1924,7 @@ def test_server__redacts_nickname_parameter_from_set_mantarray_nickname_route(
 def test_server__does_not_modify_log_message_for_route_not_containing_sensitive_info_in_params(
     running_server_thread, mocker
 ):
-    # Tanner (1/27/21): calling this route so werkzeug will have to instantiate its logger to log the route called. An issue has occured where werkzeug_internal._logger was still None when trying to spy it
+    # Tanner (1/27/21): calling this route so werkzeug will have to instantiate its logger to log the route called. An issue has occurred where werkzeug_internal._logger was still None when trying to spy it
     response = requests.get(f"{get_api_endpoint()}health_check")
     assert response.status_code == 200
 
@@ -1938,5 +1938,5 @@ def test_server__does_not_modify_log_message_for_route_not_containing_sensitive_
     assert response.status_code == 200
     time.sleep(
         0.1
-    )  # Eli (1/25/21) it appears sometimes it can take a non-zero amount of time after the status code occurs for the werkzeug to make the log entry. There was a case where it only had 'http' in the entry when the assertion was made. https://github.com/CuriBio/mantarray-desktop-app/runs/1762884429?check_suite_focus=true
+    )  # Eli (1/25/21) it appears sometimes it can take a non-zero amount of time after the status code occurs for the werkzeug to make the log entry. There was a case where it only had 'HTTP' in the entry when the assertion was made. https://github.com/CuriBio/mantarray-desktop-app/runs/1762884429?check_suite_focus=true
     assert expected_route_call in spied_werkzeug_logger_info.call_args_list[0][0][1]

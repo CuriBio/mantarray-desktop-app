@@ -522,7 +522,7 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_needs_calibration_afte
     invoke_process_run_and_check_errors(ok_comm_process)
 
     assert is_queue_eventually_not_empty(from_instrument_comm_queue) is True
-    # Tanner (6/2/20): num iterations should be 3 here because xem_scripts sends 3 messages to main, and the third one will contain the system status update
+    # Tanner (6/2/20): number of iterations should be 3 here because xem_scripts sends 3 messages to main, and the third one will contain the system status update
     invoke_process_run_and_check_errors(monitor_thread, num_iterations=3)
 
     assert shared_values_dict["system_status"] == CALIBRATION_NEEDED_STATE
@@ -558,7 +558,7 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_calibrated_after_calib
     invoke_process_run_and_check_errors(ok_comm_process)
 
     assert is_queue_eventually_not_empty(from_instrument_comm_queue) is True
-    # Tanner (6/29/20): num iterations should be 51 here because xem_scripts sends 51 total messages, the last one containing the system status update
+    # Tanner (6/29/20): number of iterations should be 51 here because xem_scripts sends 51 total messages, the last one containing the system status update
     invoke_process_run_and_check_errors(monitor_thread, num_iterations=51)
 
     assert shared_values_dict["system_status"] == CALIBRATED_STATE
@@ -671,7 +671,7 @@ def test_MantarrayProcessesMonitor__stores_firmware_versions_during_instrument_b
 ):
     monitor_thread, shared_values_dict, _, _ = test_monitor
 
-    # Tanner (12/28/20): RunningFIFOSimulator ignores the name of bitfile given, so we can mock this out so it will pass in Cloud9
+    # Tanner (12/28/20): RunningFIFOSimulator ignores the name of bit file given, so we can mock this out so it will pass in Cloud9
     mocker.patch.object(
         process_manager, "get_latest_firmware", autospec=True, return_value=None
     )

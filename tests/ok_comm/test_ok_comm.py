@@ -117,7 +117,7 @@ def test_parse_data_frame__six_channels_32_bit__single_sample_index(
     data_bytes.extend([0x0D, 0x0E, 0x0F, 0x10])  # channel 2 reading
     data_bytes.extend([0x11, 0x12, 0x13, 0x14])  # channel 3 reading
     data_bytes.extend([0x15, 0x16, 0x17, 0x18])  # channel 4 reading
-    data_bytes.extend([0x19, 0x1A, 0x1B, 0x1C])  # chxannel 5 reading
+    data_bytes.extend([0x19, 0x1A, 0x1B, 0x1C])  # channel 5 reading
     actual = parse_data_frame(data_bytes, "six_channels_32_bit__single_sample_index")
 
     sample_index = 0x04030201 * TIMESTEP_CONVERSION_FACTOR
@@ -258,11 +258,11 @@ def test_parse_sensor_bytes(
 
 def test_parse_sensor_bytes_performance():
     # 5000 iterations
-    # parsing sensor bytes, adc metadata, and little endian int24
+    # parsing sensor bytes, ADC metadata, and little endian int24
     #
     # started at:                           30867322
     # 1. converting to cython:               4758391
-    # 2. cpdef functions:                    2846122
+    # 2. cpdef functions:                    2846122  # pylint:disable=wrong-spelling-in-comment # Eli (4/8/21): I don't want to add cpdef to the overall dictionary of words to ignore
     # 3. line_trace=False:                   2672362
     # 4. better typing of function args:     1477277
     # 5. more cdef variables:                 808056  # pylint:disable=wrong-spelling-in-comment # Eli (4/8/21): I don't want to add cdef to the overall dictionary of words to ignore
@@ -300,7 +300,7 @@ def test_build_file_writer_objects_performance():
     dur = time.perf_counter_ns() - start
 
     ns_per_iter = dur / num_iterations
-    # print(f"ns per iterations: {ns_per_iter}")
+    # print(f"ns per iterations: {ns_per_iter}") # pylint:disable=wrong-spelling-in-comment # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
     assert (
         ns_per_iter < 450000000
     )  # Eli (10/20/20): bumped up from 300000000 to 450000000 because it was running a bit slow on windows in Github CI
