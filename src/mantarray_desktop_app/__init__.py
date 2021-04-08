@@ -104,6 +104,7 @@ from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
+from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
@@ -111,6 +112,7 @@ from .constants import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
+from .constants import SERIAL_COMM_TIMESTAMP_EPOCH
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
@@ -208,7 +210,9 @@ from .queue_container import MantarrayQueueContainer
 from .serial_comm_utils import convert_metadata_bytes_to_str
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_status_code_bytes
+from .serial_comm_utils import convert_to_timestamp_bytes
 from .serial_comm_utils import create_data_packet
+from .serial_comm_utils import get_serial_comm_timestamp
 from .serial_comm_utils import parse_metadata_bytes
 from .serial_comm_utils import validate_checksum
 from .server import clear_the_server_thread
@@ -453,4 +457,8 @@ __all__ = [
     "SerialCommHandshakeTimeoutError",
     "convert_to_status_code_bytes",
     "SERIAL_COMM_MAX_DATA_LENGTH_BYTES",
+    "SERIAL_COMM_SET_TIME_COMMAND_BYTE",
+    "convert_to_timestamp_bytes",
+    "get_serial_comm_timestamp",
+    "SERIAL_COMM_TIMESTAMP_EPOCH",
 ]

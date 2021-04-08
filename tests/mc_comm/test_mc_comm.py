@@ -7,6 +7,7 @@ from zlib import crc32
 
 from freezegun import freeze_time
 from mantarray_desktop_app import convert_to_metadata_bytes
+from mantarray_desktop_app import convert_to_timestamp_bytes
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import InstrumentRebootTimeoutError
 from mantarray_desktop_app import MantarrayMcSimulator
@@ -14,6 +15,7 @@ from mantarray_desktop_app import MAX_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import McCommunicationProcess
+from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import SERIAL_COMM_BAUD_RATE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
@@ -29,10 +31,12 @@ from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_TIME_SYNC_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import SerialCommCommandResponseTimeoutError
 from mantarray_desktop_app import SerialCommHandshakeTimeoutError
@@ -69,6 +73,7 @@ from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import MantarrayMcSimulatorNoBeacons
 from ..helpers import assert_queue_is_eventually_not_empty
+from ..helpers import assert_serial_packet_is_expected
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import handle_putting_multiple_objects_into_empty_queue
@@ -842,7 +847,10 @@ def test_McCommunicationProcess__includes_correct_timestamp_in_packets_sent_to_i
 
     expected_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
     mocker.patch.object(
-        mc_process, "get_cms_since_init", autospec=True, return_value=expected_timestamp
+        mc_comm,
+        "get_serial_comm_timestamp",
+        autospec=True,
+        return_value=expected_timestamp,
     )
 
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
@@ -864,7 +872,7 @@ def test_McCommunicationProcess__includes_correct_timestamp_in_packets_sent_to_i
     invoke_process_run_and_check_errors(mc_process)
 
     expected_data_packet = create_data_packet(
-        expected_timestamp,
+        expected_timestamp // MICROSECONDS_PER_CENTIMILLISECOND,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
         bytes([SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE])
@@ -1033,7 +1041,7 @@ def test_McCommunicationProcess__sends_handshake_every_5_seconds__and_includes_c
         CENTIMILLISECONDS_PER_SECOND * SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS,
     ]
     mocker.patch.object(
-        mc_process, "get_cms_since_init", autospec=True, side_effect=expected_durs
+        mc_comm, "get_serial_comm_timestamp", autospec=True, side_effect=expected_durs
     )
     mocker.patch.object(
         mc_comm,
@@ -1053,7 +1061,7 @@ def test_McCommunicationProcess__sends_handshake_every_5_seconds__and_includes_c
     # send handshake
     invoke_process_run_and_check_errors(mc_process)
     expected_handshake_1 = create_data_packet(
-        expected_durs[0],
+        expected_durs[0] // MICROSECONDS_PER_CENTIMILLISECOND,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
         bytes(0),
@@ -1068,7 +1076,7 @@ def test_McCommunicationProcess__sends_handshake_every_5_seconds__and_includes_c
     # repeat, 5 seconds since prev beacon
     invoke_process_run_and_check_errors(mc_process)
     expected_handshake_2 = create_data_packet(
-        expected_durs[1],
+        expected_durs[1] // MICROSECONDS_PER_CENTIMILLISECOND,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
         bytes(0),
@@ -1502,3 +1510,53 @@ def test_McCommunicationProcess__raises_error_if_handshake_timeout_status_code_r
 
     with pytest.raises(SerialCommHandshakeTimeoutError):
         invoke_process_run_and_check_errors(mc_process)
+
+
+@freeze_time("2021-04-07 16:26:42.880088")
+def test_McCommunicationProcess__automatically_sends_time_set_command_when_receiving_a_status_beacon_with_time_sync_ready_code__and_processes_command_response(
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    output_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+
+    spied_write = mocker.spy(simulator, "write")
+    spied_get_timestamp = mocker.spy(mc_comm, "get_serial_comm_timestamp")
+
+    # put simulator in time sync ready status and send beacon
+    test_commands = [
+        {
+            "command": "set_status_code",
+            "status_code": SERIAL_COMM_TIME_SYNC_READY_CODE,
+        },
+        {"command": "send_single_beacon"},
+    ]
+    handle_putting_multiple_objects_into_empty_queue(test_commands, testing_queue)
+    invoke_process_run_and_check_errors(simulator, num_iterations=2)
+    # read status beacon and send time sync command
+    invoke_process_run_and_check_errors(mc_process)
+    # assert correct time is sent
+    assert_serial_packet_is_expected(
+        spied_write.call_args[0][0],
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+        additional_bytes=bytes([SERIAL_COMM_SET_TIME_COMMAND_BYTE])
+        + convert_to_timestamp_bytes(spied_get_timestamp.spy_return),
+    )
+    # process command and send response
+    invoke_process_run_and_check_errors(simulator)
+    # process command response
+    invoke_process_run_and_check_errors(mc_process)
+    # remove initial status beacon log message
+    output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    # assert command response proceesed and message sent to main
+    confirm_queue_is_eventually_of_size(output_queue, 1)
+    message_to_main = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert message_to_main == {
+        "command": "set_time",
+        "message": "Instrument time synced with PC",
+    }

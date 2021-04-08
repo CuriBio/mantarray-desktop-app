@@ -7,9 +7,11 @@ from random import randint
 from mantarray_desktop_app import BOOTUP_COUNTER_UUID
 from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import convert_to_status_code_bytes
+from mantarray_desktop_app import convert_to_timestamp_bytes
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
+from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import PCB_SERIAL_NUMBER_UUID
 from mantarray_desktop_app import SERIAL_COMM_BOOT_UP_CODE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
@@ -28,6 +30,7 @@ from mantarray_desktop_app import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
@@ -319,7 +322,7 @@ def test_MantarrayMcSimulator__makes_status_beacon_available_to_read_on_first_it
     assert actual == expected_initial_beacon[spied_randint.spy_return :]
 
 
-def test_MantarrayMcSimulator__makes_status_beacon_available_to_read_every_5_seconds__and_includes_correct_timestamp(
+def test_MantarrayMcSimulator__makes_status_beacon_available_to_read_every_5_seconds__and_includes_correct_timestamp_before_time_is_synced(
     mantarray_mc_simulator, mocker
 ):
     simulator = mantarray_mc_simulator["simulator"]
@@ -852,10 +855,10 @@ def test_MantarrayMcSimulator__does_not_send_status_beacon_while_rebooting(
 
     # remove reboot response packet
     invoke_process_run_and_check_errors(simulator)
-    reboot_resopnse_size = get_full_packet_size_from_packet_body_size(
+    reboot_response_size = get_full_packet_size_from_packet_body_size(
         SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
     )
-    reboot_response = simulator.read(size=reboot_resopnse_size)
+    reboot_response = simulator.read(size=reboot_response_size)
     assert_serial_packet_is_expected(
         reboot_response,
         SERIAL_COMM_MAIN_MODULE_ID,
@@ -1021,8 +1024,8 @@ def test_MantarrayMcSimulator__switches_to_time_sync_status_code_after_boot_up_p
         side_effect=[0, MC_SIMULATOR_BOOT_UP_DURATION_SECONDS],
     )
 
-    invoke_process_run_and_check_errors(simulator)
     # remove initial beacon
+    invoke_process_run_and_check_errors(simulator)
     simulator.read(size=STATUS_BEACON_SIZE_BYTES)
     # run simulator to complete boot up
     invoke_process_run_and_check_errors(simulator)
@@ -1103,3 +1106,105 @@ def test_MantarrayMcSimulator__does_not_switch_to_magic_word_timeout_status_befo
     # confirm status code did not change
     invoke_process_run_and_check_errors(simulator)
     assert simulator.get_status_code() == test_code
+
+
+def test_MantarrayMcSimulator__processes_set_time_command(
+    mantarray_mc_simulator, mocker
+):
+    simulator = mantarray_mc_simulator["simulator"]
+    testing_queue = mantarray_mc_simulator["testing_queue"]
+
+    # put simulator in time sync ready state before syncing time
+    test_command = {
+        "command": "set_status_code",
+        "status_code": SERIAL_COMM_TIME_SYNC_READY_CODE,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_command, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator)
+    # remove initial beacon
+    simulator.read(size=STATUS_BEACON_SIZE_BYTES)
+
+    # mock here to avoid interference from previous iteration calling method
+    expected_command_response_time_us = 111111
+    expected_status_beacon_time_us = 222222
+    mocker.patch.object(
+        simulator,
+        "_get_us_since_time_sync",
+        autospec=True,
+        side_effect=[expected_command_response_time_us, expected_status_beacon_time_us],
+    )
+
+    # send set time command
+    expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+    test_set_time_command = create_data_packet(
+        expected_pc_timestamp,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+        bytes([SERIAL_COMM_SET_TIME_COMMAND_BYTE])
+        + convert_to_timestamp_bytes(expected_pc_timestamp),
+    )
+    simulator.write(test_set_time_command)
+    invoke_process_run_and_check_errors(simulator)
+
+    # test that command response uses updated timestamp
+    command_response_size = get_full_packet_size_from_packet_body_size(
+        SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+    )
+    command_response = simulator.read(size=command_response_size)
+    assert_serial_packet_is_expected(
+        command_response,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+        additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp),
+        timestamp=(expected_pc_timestamp + expected_command_response_time_us)
+        // MICROSECONDS_PER_CENTIMILLISECOND,
+    )
+    # test that status beacon is automatically sent after command response with status code updated to idle ready and correct timestamp
+    status_beacon = simulator.read(size=STATUS_BEACON_SIZE_BYTES)
+    assert_serial_packet_is_expected(
+        status_beacon,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
+        additional_bytes=convert_to_status_code_bytes(SERIAL_COMM_IDLE_READY_CODE),
+        timestamp=(expected_pc_timestamp + expected_status_beacon_time_us)
+        // MICROSECONDS_PER_CENTIMILLISECOND,
+    )
+
+
+def test_MantarrayMcSimulator__accepts_time_sync_along_with_status_code_update__if_status_code_is_set_to_state_following_time_sync(
+    mantarray_mc_simulator_no_beacon, mocker
+):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+
+    spied_get_us = mocker.spy(
+        simulator,
+        "_get_us_since_time_sync",
+    )
+
+    expected_time_usecs = 83924409
+    test_command = {
+        "command": "set_status_code",
+        "status_code": SERIAL_COMM_IDLE_READY_CODE,
+        "baseline_time": expected_time_usecs,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_command, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator)
+    # send status beacon to verify timestamp is set
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "send_single_beacon"}, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator)
+    status_beacon = simulator.read(size=STATUS_BEACON_SIZE_BYTES)
+    assert_serial_packet_is_expected(
+        status_beacon,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
+        additional_bytes=convert_to_status_code_bytes(SERIAL_COMM_IDLE_READY_CODE),
+        timestamp=(expected_time_usecs + spied_get_us.spy_return)
+        // MICROSECONDS_PER_CENTIMILLISECOND,
+    )

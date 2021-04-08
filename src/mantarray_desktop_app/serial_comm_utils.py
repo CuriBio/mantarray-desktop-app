@@ -2,6 +2,7 @@
 """Utility functions for Serial Communication."""
 from __future__ import annotations
 
+import datetime
 from typing import Any
 from typing import Dict
 from typing import Union
@@ -20,6 +21,7 @@ from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
+from .constants import SERIAL_COMM_TIMESTAMP_EPOCH
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import TAMPER_FLAG_UUID
 from .constants import TOTAL_WORKING_HOURS_UUID
@@ -53,9 +55,7 @@ def create_data_packet(
     packet_data: bytes,
 ) -> bytes:
     """Create a data packet to send to the PC."""
-    packet_body = timestamp.to_bytes(
-        SERIAL_COMM_TIMESTAMP_LENGTH_BYTES, byteorder="little"
-    )
+    packet_body = convert_to_timestamp_bytes(timestamp)
     packet_body += bytes([module_id, packet_type])
     packet_body += packet_data
     packet_length = len(packet_body) + SERIAL_COMM_CHECKSUM_LENGTH_BYTES
@@ -143,3 +143,14 @@ def convert_to_status_code_bytes(status_code: int) -> bytes:
     return status_code.to_bytes(
         SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little"
     )
+
+
+def convert_to_timestamp_bytes(timestamp: int) -> bytes:
+    return timestamp.to_bytes(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES, byteorder="little")
+
+
+# Tanner (4/7/21): This method should not be used in the simulator. It has its own way of determining the timestamp to send in order to behave more accurately like the real Mantarray instrument
+def get_serial_comm_timestamp() -> int:
+    return (
+        datetime.datetime.now(tz=datetime.timezone.utc) - SERIAL_COMM_TIMESTAMP_EPOCH
+    ) // datetime.timedelta(microseconds=1)
