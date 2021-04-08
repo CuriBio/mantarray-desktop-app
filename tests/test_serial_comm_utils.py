@@ -158,7 +158,7 @@ def test_parse_metadata_bytes__returns_metadata_as_dictionary(
 @freeze_time("2021-04-07 13:14:07.234987")
 def test_get_serial_comm_timestamp__returns_microseconds_since_2021_01_01():
     expected_usecs = (
-        datetime.datetime.utcnow() - SERIAL_COMM_TIMESTAMP_EPOCH
+        datetime.datetime.now(tz=datetime.timezone.utc) - SERIAL_COMM_TIMESTAMP_EPOCH
     ) // datetime.timedelta(microseconds=1)
     actual = get_serial_comm_timestamp()
     assert actual == expected_usecs

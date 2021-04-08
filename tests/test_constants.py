@@ -347,7 +347,9 @@ def test_serial_comm():
 
     assert SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES == 3
 
-    assert SERIAL_COMM_TIMESTAMP_EPOCH == datetime.datetime(year=2021, month=1, day=1)
+    assert SERIAL_COMM_TIMESTAMP_EPOCH == datetime.datetime(
+        year=2021, month=1, day=1, tzinfo=datetime.timezone.utc
+    )
 
     assert SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS == 5
     assert SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS == 5
