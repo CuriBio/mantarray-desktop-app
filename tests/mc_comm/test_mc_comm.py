@@ -1553,7 +1553,7 @@ def test_McCommunicationProcess__automatically_sends_time_set_command_when_recei
     invoke_process_run_and_check_errors(mc_process)
     # remove initial status beacon log message
     output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    # assert command response proceesed and message sent to main
+    # assert command response processed and message sent to main
     confirm_queue_is_eventually_of_size(output_queue, 1)
     message_to_main = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert message_to_main == {
