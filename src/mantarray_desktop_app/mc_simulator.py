@@ -144,6 +144,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._input_queue = input_queue
         self._testing_queue = testing_queue
         self._baseline_time_usec: Optional[int] = None
+        self._timepoint_of_time_sync_us: Optional[int] = None
         self._time_of_last_status_beacon_secs: Optional[float] = None
         self._time_of_last_handshake_secs: Optional[float] = None
         self._time_of_last_comm_from_pc_secs: Optional[float] = None
@@ -180,6 +181,13 @@ class MantarrayMcSimulator(InfiniteProcess):
                 metadata_value
             )
 
+    def _get_us_since_time_sync(self) -> int:
+        return (
+            0
+            if self._timepoint_of_time_sync_us is None
+            else _perf_counter_us() - self._timepoint_of_time_sync_us
+        )
+
     def get_metadata_dict(self) -> Dict[bytes, bytes]:
         """Mainly for use in unit tests."""
         return self._metadata_dict
@@ -197,10 +205,10 @@ class MantarrayMcSimulator(InfiniteProcess):
     ) -> None:
         # TODO Tanner (4/7/21): convert timestamp to microseconds once real board makes the switch
         timestamp = (
-            (self._baseline_time_usec + _perf_counter_us())
+            self.get_cms_since_init()
+            if self._baseline_time_usec is None
+            else (self._baseline_time_usec + self._get_us_since_time_sync())
             // MICROSECONDS_PER_CENTIMILLISECOND
-            if self._baseline_time_usec is not None
-            else self.get_cms_since_init()
         )
         data_packet = create_data_packet(
             timestamp, module_id, packet_type, data_to_send
@@ -242,6 +250,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._send_status_beacon(truncate=False)
         self._boot_up_time_secs = perf_counter()
         self._baseline_time_usec = None
+        self._timepoint_of_time_sync_us = None
 
     def _handle_comm_from_pc(self) -> None:
         try:
@@ -303,6 +312,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                 self._baseline_time_usec = int.from_bytes(
                     response_body, byteorder="little"
                 )
+                self._timepoint_of_time_sync_us = _perf_counter_us()
                 status_code_update = SERIAL_COMM_IDLE_READY_CODE
             elif command_byte == SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE:
                 start_idx = SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 1
@@ -326,7 +336,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
             response_body,
         )
-        # update status cpde (if an update is necessary) after sending command response
+        # update status code (if an update is necessary) after sending command response
         if status_code_update is not None:
             self._update_status_code(status_code_update)
 
@@ -398,6 +408,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                         "baseline_time cannot be set through testing queue in boot up or time sync state"
                     )
                 self._baseline_time_usec = baseline_time
+                self._timepoint_of_time_sync_us = _perf_counter_us()
         elif command == "set_metadata":
             for key, value in test_comm["metadata_values"].items():
                 value_bytes = convert_to_metadata_bytes(value)

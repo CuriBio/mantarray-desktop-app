@@ -15,6 +15,7 @@ from mantarray_desktop_app import MAX_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import McCommunicationProcess
+from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import SERIAL_COMM_BAUD_RATE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
@@ -871,7 +872,7 @@ def test_McCommunicationProcess__includes_correct_timestamp_in_packets_sent_to_i
     invoke_process_run_and_check_errors(mc_process)
 
     expected_data_packet = create_data_packet(
-        expected_timestamp,
+        expected_timestamp // MICROSECONDS_PER_CENTIMILLISECOND,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
         bytes([SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE])
@@ -1060,7 +1061,7 @@ def test_McCommunicationProcess__sends_handshake_every_5_seconds__and_includes_c
     # send handshake
     invoke_process_run_and_check_errors(mc_process)
     expected_handshake_1 = create_data_packet(
-        expected_durs[0],
+        expected_durs[0] // MICROSECONDS_PER_CENTIMILLISECOND,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
         bytes(0),
@@ -1075,7 +1076,7 @@ def test_McCommunicationProcess__sends_handshake_every_5_seconds__and_includes_c
     # repeat, 5 seconds since prev beacon
     invoke_process_run_and_check_errors(mc_process)
     expected_handshake_2 = create_data_packet(
-        expected_durs[1],
+        expected_durs[1] // MICROSECONDS_PER_CENTIMILLISECOND,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
         bytes(0),

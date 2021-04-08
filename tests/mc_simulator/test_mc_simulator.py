@@ -1130,8 +1130,8 @@ def test_MantarrayMcSimulator__processes_set_time_command(
     expected_command_response_time_us = 111111
     expected_status_beacon_time_us = 222222
     mocker.patch.object(
-        mc_simulator,
-        "_perf_counter_us",
+        simulator,
+        "_get_us_since_time_sync",
         autospec=True,
         side_effect=[expected_command_response_time_us, expected_status_beacon_time_us],
     )
@@ -1179,9 +1179,9 @@ def test_MantarrayMcSimulator__accepts_time_sync_along_with_status_code_update__
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
-    spied_perf_counter_us = mocker.spy(
-        mc_simulator,
-        "_perf_counter_us",
+    spied_get_us = mocker.spy(
+        simulator,
+        "_get_us_since_time_sync",
     )
 
     expected_time_usecs = 83924409
@@ -1205,6 +1205,6 @@ def test_MantarrayMcSimulator__accepts_time_sync_along_with_status_code_update__
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
         additional_bytes=convert_to_status_code_bytes(SERIAL_COMM_IDLE_READY_CODE),
-        timestamp=(expected_time_usecs + spied_perf_counter_us.spy_return)
+        timestamp=(expected_time_usecs + spied_get_us.spy_return)
         // MICROSECONDS_PER_CENTIMILLISECOND,
     )

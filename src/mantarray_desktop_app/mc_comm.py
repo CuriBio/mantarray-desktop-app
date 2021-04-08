@@ -22,6 +22,7 @@ import serial.tools.list_ports as list_ports
 from stdlib_utils import put_log_message_into_queue
 
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
+from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BAUD_RATE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
@@ -217,8 +218,12 @@ class McCommunicationProcess(InstrumentCommProcess):
         packet_type: int,
         data_to_send: bytes = bytes(0),
     ) -> None:
+        # TODO Tanner (4/7/21): change timestamp to microseconds when the real Mantarray makes the switch
         data_packet = create_data_packet(
-            get_serial_comm_timestamp(), module_id, packet_type, data_to_send
+            get_serial_comm_timestamp() // MICROSECONDS_PER_CENTIMILLISECOND,
+            module_id,
+            packet_type,
+            data_to_send,
         )
         board = self._board_connections[board_idx]
         if board is None:

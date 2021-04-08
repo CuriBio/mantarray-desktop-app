@@ -151,7 +151,6 @@ def convert_to_timestamp_bytes(timestamp: int) -> bytes:
 
 # Tanner (4/7/21): This method should not be used in the simulator. It has its own way of determining the timestamp to send in order to behave more accurately like the real Mantarray instrument
 def get_serial_comm_timestamp() -> int:
-    # TODO Tanner (4/7/21): change this to microseconds when the real Mantarray makes the switch
     return (
         datetime.datetime.utcnow() - SERIAL_COMM_TIMESTAMP_EPOCH
     ) // datetime.timedelta(microseconds=1)
