@@ -103,7 +103,7 @@ class McCommunicationProcess(InstrumentCommProcess):
     """Process that controls communication with the Mantarray Beta 2 Board(s).
 
     Args:
-        board_queues: A tuple (the max number of MC board connections should be pre-defined, so not a mutable list) of tuples of 3 queues. The first queue is for input/communication from the main thread to this sub process, second queue is for communication from this process back to the main thread. Third queue is for streaming communication (largely fo raw data) to the process that controls writing to disk.
+        board_queues: A tuple (the max number of MC board connections should be predefined, so not a mutable list) of tuples of 3 queues. The first queue is for input/communication from the main thread to this sub process, second queue is for communication from this process back to the main thread. Third queue is for streaming communication (largely of raw data) to the process that controls writing to disk.
         fatal_error_reporter: A queue that reports back any unhandled errors that have caused the process to stop.
         suppress_setup_communication_to_main: if set to true (often during unit tests), messages during the _setup_before_loop will not be put into the queue to communicate back to the main process
     """
@@ -268,7 +268,7 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _process_next_communication_from_main(self) -> None:
         """Process the next communication sent from the main process.
 
-        Will just return if no comms from main in queue.
+        Will just return if no communications from main in queue.
         """
         input_queue = self._board_queues[0][0]
         try:
@@ -480,7 +480,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                     break
                 sleep(1)
             else:
-                # if the entire period has passed and no more bytes are available an error has occured with the Mantarray that is considered fatal
+                # if the entire period has passed and no more bytes are available an error has occurred with the Mantarray that is considered fatal
                 raise SerialCommPacketRegistrationTimoutError(magic_word_test_bytes)
         # read more bytes until the magic word is registered, the timeout value is reached, or the maximum number of bytes are read
         num_bytes_checked = 0

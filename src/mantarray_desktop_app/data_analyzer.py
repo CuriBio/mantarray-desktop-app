@@ -62,7 +62,7 @@ class DataAnalyzerProcess(InfiniteProcess):
     """Process that analyzes data.
 
     Args:
-        board_queues: A tuple (the max number of board connections should be pre-defined, so not a mutable list) of tuples of 2 queues. The first queue is for incoming data for that board that should be analyzed. The second queue is for finalized outgoing data to main process
+        board_queues: A tuple (the max number of board connections should be predefined, so not a mutable list) of tuples of 2 queues. The first queue is for incoming data for that board that should be analyzed. The second queue is for finalized outgoing data to main process
         from_main_queue: a queue of communication from the main process
         to_main_queue: a queue to put general communication back to main
         fatal_error_reporter: a queue to report fatal errors back to the main process

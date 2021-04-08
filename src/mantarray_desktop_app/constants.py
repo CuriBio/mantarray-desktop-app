@@ -229,7 +229,7 @@ SYSTEM_STATUS_UUIDS = immutabledict(
 SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS = 1
 SUBPROCESS_POLL_DELAY_SECONDS = 0.025
 
-SECONDS_TO_WAIT_WHEN_POLLING_QUEUES = 0.02  # Due to the unreliablity of the .empty() .qsize() methods in queues, switched to a .get(timeout=) approach for polling the queues in the subprocesses.  Eli (10/26/20): 0.01 seconds was still causing sporadic failures in Linux CI in Github, so bumped to 0.02 seconds.
+SECONDS_TO_WAIT_WHEN_POLLING_QUEUES = 0.02  # Due to the unreliability of the :method:`.empty()` :method:`.qsize()` methods in queues, switched to a :method:`.get(timeout=)` approach for polling the queues in the subprocesses.  Eli (10/26/20): 0.01 seconds was still causing sporadic failures in Linux CI in Github, so bumped to 0.02 seconds.
 
 # Serial Communication Values
 SERIAL_COMM_BAUD_RATE = 4e6

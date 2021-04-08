@@ -212,7 +212,7 @@ def _create_activate_trigger_in_callable(
 def _comm_delay(
     communication: Dict[str, Any],
 ) -> str:
-    """Pause comms to XEM for given number of milliseconds."""
+    """Pause communications to XEM for given number of milliseconds."""
     num_milliseconds = communication["num_milliseconds"]
     sleep_val = num_milliseconds / 1000
     time.sleep(sleep_val)
@@ -462,7 +462,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
     """Process that controls communication with the OpalKelly Board(s).
 
     Args:
-        board_queues: A tuple (the max number of board connections should be pre-defined, so not a mutable list) of tuples of 3 queues. The first queue is for input/communication from the main thread to this sub process, second queue is for communication from this process back to the main thread. Third queue is for streaming communication (largely fo raw data) to the process that controls writing to disk.
+        board_queues: A tuple (the max number of board connections should be predefined, so not a mutable list) of tuples of 3 queues. The first queue is for input/communication from the main thread to this sub process, second queue is for communication from this process back to the main thread. Third queue is for streaming communication (largely of raw data) to the process that controls writing to disk.
         fatal_error_reporter: A queue that reports back any unhandled errors that have caused the process to stop.
         suppress_setup_communication_to_main: if set to true (often during unit testing), messages during the _setup_before_loop will not be put into the queue to communicate back to the main process
     """

@@ -214,7 +214,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             timestamp, module_id, packet_type, data_to_send
         )
         if truncate:
-            trunc_index = random.randint(  # nosec B311 # Tanner (2/4/21): Bandit blacklisted this psuedo-random generator for cryptographic security reasons that do not apply to the desktop app.
+            trunc_index = random.randint(  # nosec B311 # Tanner (2/4/21): Bandit blacklisted this pseudo-random generator for cryptographic security reasons that do not apply to the desktop app.
                 0, len(data_packet) - 1
             )
             data_packet = data_packet[trunc_index:]

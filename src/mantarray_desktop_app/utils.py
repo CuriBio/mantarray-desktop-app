@@ -145,7 +145,7 @@ def get_current_software_version() -> str:
 
 
 def _trim_barcode(barcode: str) -> str:
-    """Trim the trailing 1 or 2 ASCII NUL (0x00) chars off barcode."""
+    """Trim the trailing 1 or 2 ASCII NULL (0x00) characters off barcode."""
     if barcode[11] != chr(0):
         return barcode
     if barcode[10] != chr(0):

@@ -32,7 +32,9 @@ class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
     """Simulate a running Mantarray machine with OK board.
 
     Args:
-        simulated_response_queues: dictionary where the ultimate leaves should be multiprocessing_utils.SimpleMultiprocessingQueue objects. These values are popped off the end of the queue and returned as if coming from the XEM. The 'wire_outs' key should contain a sub-dict with keys of integer values representing the ep addresses.
+        simulated_response_queues: dictionary where the ultimate leaves should be multiprocessing_utils.SimpleMultiprocessingQueue objects.
+                                    These values are popped off the end of the queue and returned as if coming from the XEM.
+                                    The 'wire_outs' key should contain a sub-dict with keys of integer values representing the EP addresses.
     """
 
     default_device_id = "M02001900Mantarray Simulator"

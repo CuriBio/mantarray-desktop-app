@@ -134,6 +134,10 @@ jobs:
           echo ${{steps.software-version.outputs.prop}}
           echo ${{steps.product-name.outputs.prop}}
 
+      # - name: Install enchant (required for pylint spellchecking)
+      #   if: matrix.IS_FASTEST_JOB == true
+      #   run: apt-get install -y enchant
+
       - name: Install pipenv # no known reason for this specific version of pipenv, just pinning it for good practice
         run: pip install pipenv==2020.11.15
 
