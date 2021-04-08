@@ -164,7 +164,7 @@ class FileWriterProcess(InfiniteProcess):
     """Process that writes data to disk.
 
     Args:
-        board_queues: A tuple (the max number of board connections should be pre-defined, so not a mutable list) of tuples of 2 queues. The first queue is for incoming data for that board that should be saved to disk. The second queue is for outgoing data for that board that has been saved to disk.
+        board_queues: A tuple (the max number of board connections should be predefined, so not a mutable list) of tuples of 2 queues. The first queue is for incoming data for that board that should be saved to disk. The second queue is for outgoing data for that board that has been saved to disk.
         from_main_queue: a queue of communication from the main process
         to_main_queue: a queue to put general communication back to main (including file names of finished files into so the uploader can begin uploading)
         fatal_error_reporter: a queue to report fatal errors back to the main process

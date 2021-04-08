@@ -136,7 +136,7 @@ def fixture_test_process_manager(mocker):
 
         fw = manager.get_file_writer_process()
         if not fw.is_alive():
-            # Eli (2/10/20): it is important in windows based systems to make sure to close the files before deleting them. be careful about this when running tests in a linux dev environment
+            # Eli (2/10/20): it is important in windows based systems to make sure to close the files before deleting them. be careful about this when running tests in a Linux development environment
             fw.close_all_files()
 
     # clean up the server singleton
@@ -190,7 +190,7 @@ def fixture_test_process_manager_without_created_processes(mocker):
 
         fw = manager.get_file_writer_process()
         if not fw.is_alive():
-            # Eli (2/10/20): it is important in windows based systems to make sure to close the files before deleting them. be careful about this when running tests in a linux dev environment
+            # Eli (2/10/20): it is important in windows based systems to make sure to close the files before deleting them. be careful about this when running tests in a Linux development environment
             fw.close_all_files()
 
 

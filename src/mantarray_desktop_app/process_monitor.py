@@ -118,7 +118,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         msg: str
         if "mantarray_nickname" in communication:
-            # Tanner (1/20/21): items in communication dict are used after this log message is generated, so need to creat a copy of the dict when redacting info
+            # Tanner (1/20/21): items in communication dict are used after this log message is generated, so need to create a copy of the dict when redacting info
             comm_copy = copy.deepcopy(communication)
             comm_copy["mantarray_nickname"] = "*" * len(comm_copy["mantarray_nickname"])
             msg = f"Communication from the Server: {comm_copy}"
@@ -288,7 +288,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         msg: str
         if "mantarray_nickname" in communication:
-            # Tanner (1/20/21): items in communication dict are used after this log message is generated, so need to creat a copy of the dict when redacting info
+            # Tanner (1/20/21): items in communication dict are used after this log message is generated, so need to create a copy of the dict when redacting info
             comm_copy = copy.deepcopy(communication)
             comm_copy["mantarray_nickname"] = "*" * len(comm_copy["mantarray_nickname"])
             msg = f"Communication from the OpalKelly Controller: {comm_copy}"

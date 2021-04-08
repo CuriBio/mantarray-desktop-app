@@ -282,7 +282,6 @@ def test_OkCommunicationProcess_commands_for_each_run_iteration__does_not_send_f
 def test_OkCommunicationProcess_managed_acquisition__reads_at_least_one_prepopulated_simulated_fifo_read(
     four_board_comm_process,  # mocker
 ):
-    # mocker.patch('builtins.print') # don't print all the debug messages to console
     ok_process = four_board_comm_process["ok_process"]
     board_queues = four_board_comm_process["board_queues"]
 

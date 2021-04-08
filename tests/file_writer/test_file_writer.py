@@ -278,7 +278,7 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
     assert actual_set_of_files == expected_set_of_files
 
     for this_well_idx in range(24):
-        # Eli (2/9/20) can't figure out a more elegant way to test this than accessing the private instance variable.  If you open a file using the swmr=True kwarg and the file isn't being written that way, no error is raised, and asserting f.swmr_mode is True on the file being read doesn't work (always returns what the kwarg was set as during opening for reading)
+        # Eli (2/9/20) can't figure out a more elegant way to test this than accessing the private instance variable.  If you open a file using the :code:`swmr=True` kwarg and the file isn't being written that way, no error is raised, and asserting f.swmr_mode is True on the file being read doesn't work (always returns what the kwarg was set as during opening for reading)
         open_files = file_writer_process._open_files  # pylint: disable=protected-access
         this_file_being_written_to = open_files[0][this_well_idx]
         assert this_file_being_written_to.swmr_mode is True
@@ -1338,7 +1338,7 @@ def test_FileWriterProcess_hard_stop__calls_close_all_files__when_still_recordin
         num_iterations=1,
         perform_teardown_after_loop=False,
     )
-    assert spied_close_all_files.call_count == 0  # confirm pre-condition
+    assert spied_close_all_files.call_count == 0  # confirm precondition
     fw_process.hard_stop()
 
     spied_close_all_files.assert_called_once()
@@ -1394,7 +1394,7 @@ def test_FileWriterProcess_hard_stop__closes_all_files_after_stop_recording_befo
     )
     invoke_process_run_and_check_errors(fw_process)
 
-    assert spied_close_all_files.call_count == 0  # confirm pre-condition
+    assert spied_close_all_files.call_count == 0  # confirm precondition
     fw_process.hard_stop()
     spied_close_all_files.assert_called_once()
 

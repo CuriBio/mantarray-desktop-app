@@ -129,7 +129,7 @@ def get_server_address_components() -> Tuple[str, str, int]:
     """Get Flask server address components.
 
     Returns:
-        protocol (i.e. http), host (i.e. 127.0.0.1), port (i.e. 4567)
+        protocol (i.e. HTTP), host (i.e. 127.0.0.1), port (i.e. 4567)
     """
     try:
         port_number = get_the_server_thread().get_port_number()
@@ -668,7 +668,7 @@ def queue_activate_trigger_in() -> Response:
 
 @flask_app.route("/insert_xem_command_into_queue/comm_delay", methods=["GET"])
 def queue_comm_delay() -> Response:
-    """Queue up a command delay comms to the XEM for a given period of time.
+    """Queue a command delay communication to the XEM for a period of time.
 
     Mainly to be used in XEM scripting when delays between commands are necessary.
 
@@ -728,7 +728,7 @@ def queue_set_device_id() -> Response:
 
     Do not use this route to set Mantarray Device Nicknames or Serial Numbers.
 
-    This route should be used cautiously as it will overwrite an exisiting Mantarray serial number / ID stored in the XEM.
+    This route should be used cautiously as it will overwrite an existing Mantarray serial number / ID stored in the XEM.
 
     Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/set_device_id?new_id=""
     """
@@ -1007,7 +1007,7 @@ def after_request(response: Response) -> Response:
     return response
 
 
-# TODO (Eli 11/3/20): refactor stdlib utils to separate some of the more generic multiprocessing functionality out of the "InfiniteLooping" mixin so that it could be included here without all the other things
+# TODO (Eli 11/3/20): refactor :package:`stdlib-utils` to separate some of the more generic multiprocessing functionality out of the "InfiniteLooping" mixin so that it could be included here without all the other things
 class ServerThread(InfiniteThread):
     """Thread to run the Flask server."""
 

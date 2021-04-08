@@ -649,7 +649,7 @@ def test_OkCommunicationProcess__correctly_handles_two_consecutive_full_process_
 def test_OkCommunicationProcess__does_not_try_to_scan_barcode_before_board_is_initialized(
     four_board_comm_process, mocker, test_barcode_simulator
 ):
-    # Tanner (12/10/20): This test is to make sure the barcode feature is compatible with --skip-mantarray-boot-up cmd line arg
+    # Tanner (12/10/20): This test is to make sure the barcode feature is compatible with --skip-mantarray-boot-up command line argument
     ok_process = four_board_comm_process["ok_process"]
     board_queues = four_board_comm_process["board_queues"]
     input_queue = board_queues[0][0]

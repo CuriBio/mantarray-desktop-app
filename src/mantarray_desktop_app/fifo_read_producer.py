@@ -68,7 +68,7 @@ def produce_data(num_cycles: int, starting_sample_index: int) -> bytearray:
             )
             sample_indices.append(sample_index)
             sawtooth_indices.append(sample_index / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD)
-    # generate sawtooth vals
+    # generate sawtooth values
     sawtooth_vals = signal.sawtooth(sawtooth_indices, width=0.5)
     # generate bytearray data
     data = bytearray(0)
