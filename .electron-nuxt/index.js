@@ -39,7 +39,7 @@ builder_config_path = path.join(
 );
 
 const builder = new ElectronBuilder({
-  processArgv: ["--config", builder_config_path, "--publish", "always"],
+  processArgv: ["--config", builder_config_path, "--publish", "never"],
 });
 
 const webpackConfig = Webpack.getBaseConfig({
