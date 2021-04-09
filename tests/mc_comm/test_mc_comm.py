@@ -1243,9 +1243,6 @@ def test_McCommunicationProcess__processes_reboot_command(
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator
     )
-    confirm_queue_is_eventually_empty(output_queue)
-
-    # put simulator in idle ready state before rebooting
 
     expected_response = {
         "communication_type": "to_instrument",
@@ -1560,3 +1557,35 @@ def test_McCommunicationProcess__automatically_sends_time_set_command_when_recei
         "command": "set_time",
         "message": "Instrument time synced with PC",
     }
+
+
+def test_McCommunicationProcess__processes_dump_eeprom_command(
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    board_queues = four_board_mc_comm_process_no_handshake["board_queues"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    input_queue = board_queues[0][0]
+    output_queue = board_queues[0][1]
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+
+    expected_response = {
+        "communication_type": "to_instrument",
+        "command": "dump_eeprom",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(expected_response), input_queue
+    )
+    # run mc_process to send command
+    invoke_process_run_and_check_errors(mc_process)
+    # run simulator to process command and send response
+    invoke_process_run_and_check_errors(simulator)
+    # run mc_process to process command response and send message back to main
+    invoke_process_run_and_check_errors(mc_process)
+    # confirm correct message sent to main
+    confirm_queue_is_eventually_of_size(output_queue, 1)
+    message_to_main = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    expected_response["eeprom_contents"] = simulator.get_eeprom_bytes()
+    assert message_to_main == expected_response

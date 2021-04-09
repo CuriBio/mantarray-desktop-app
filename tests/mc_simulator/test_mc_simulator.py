@@ -1211,7 +1211,7 @@ def test_MantarrayMcSimulator__accepts_time_sync_along_with_status_code_update__
     )
 
 
-def test_MantarrayMcSimulator__processes_dump_EEPROM_command(
+def test_MantarrayMcSimulator__processes_dump_eeprom_command(
     mantarray_mc_simulator_no_beacon, mocker
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
