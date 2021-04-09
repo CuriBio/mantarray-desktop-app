@@ -264,6 +264,10 @@ jobs:
           pipenv run python .github/workflows/vcn.py authenticate "dist/${{steps.product-name.outputs.prop}}-Setup-${{steps.software-version.outputs.prop}}.exe"
           pipenv run python .github/workflows/vcn.py authenticate "dist/win-unpacked/Mantarray Controller.exe"
 
+      - name: List
+        if: matrix.IS_DEPLOYMENT_CONFIG == true
+        run: ls -alh dist
+
       - name: S3 Publisher
         if: matrix.IS_DEPLOYMENT_CONFIG == true
         env:
