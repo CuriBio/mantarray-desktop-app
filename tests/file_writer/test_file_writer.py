@@ -918,7 +918,9 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_when_recording(
             "data": np.zeros((2, num_points)),
         }
         board_queues[0][0].put_nowait(ref_packet)
-    confirm_queue_is_eventually_of_size(board_queues[0][0], 30)
+    confirm_queue_is_eventually_of_size(
+        board_queues[0][0], 30, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # Tanner (4/9/21): Even after confirming the queue is the expected size, a sleep is necessary in order to let the items actually populate the queue. Guess as to why this is happening is that the size of the queue is reported by a different thread than the one that actually writes data to the queue's underlying pipe
     expected_recording_durations = list(range(30))
     perf_counter_vals = [
         0 if i % 2 == 0 else expected_recording_durations[i // 2] for i in range(60)
@@ -930,6 +932,7 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_when_recording(
     invoke_process_run_and_check_errors(
         file_writer_process, num_iterations=FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
     )
+    confirm_queue_is_eventually_empty(board_queues[0][0])
 
     actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     actual = actual["message"]
