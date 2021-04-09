@@ -266,14 +266,14 @@ jobs:
 
       - name: List
         if: matrix.IS_DEPLOYMENT_CONFIG == true
-        run: ls -alh dist
+        run: pipenv run ls -alh dist
 
       - name: S3 Publisher
         if: matrix.IS_DEPLOYMENT_CONFIG == true
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_USER_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_USER_SECRET_KEY }}
-        run: node s3_publish.js --file="${{steps.product-name.outputs.prop}}-Setup-${{steps.software-version.outputs.prop}}.exe" --buildDir=./dist/ --channel=alpha
+        run: pipenv run node s3_publish.js --file="${{steps.product-name.outputs.prop}}-Setup-${{steps.software-version.outputs.prop}}.exe" --buildDir=./dist/ --channel=alpha
       # - name: Archive Installer File
       #   if: runner.os == 'Windows'
       #   uses: actions/upload-artifact@v2
