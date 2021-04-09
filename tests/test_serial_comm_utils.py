@@ -99,7 +99,7 @@ def test_convert_to_metadata_bytes__returns_correct_values(
     assert convert_to_metadata_bytes(test_value) == expected_bytes
 
 
-def test_convert_to_metadata_bytes__raises_error_with_integer_value_cannot_fit_in_max_number_of_bytes():
+def test_convert_to_metadata_bytes__raises_error_with_integer_that_value_cannot_fit_in_max_number_of_bytes():
     test_value = 1 << SERIAL_COMM_METADATA_BYTES_LENGTH
     with pytest.raises(SerialCommMetadataValueTooLargeError, match=str(test_value)):
         convert_to_metadata_bytes(test_value)

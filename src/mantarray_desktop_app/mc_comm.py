@@ -28,6 +28,7 @@ from .constants import SERIAL_COMM_BAUD_RATE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+from .constants import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
 from .constants import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
@@ -276,38 +277,27 @@ class McCommunicationProcess(InstrumentCommProcess):
         except queue.Empty:
             return
         board_idx = 0
+        bytes_to_send: bytes
 
         communication_type = comm_from_main["communication_type"]
         if communication_type == "mantarray_naming":
             if comm_from_main["command"] == "set_mantarray_nickname":
                 nickname = comm_from_main["mantarray_nickname"]
-                self._send_data_packet(
-                    board_idx,
-                    SERIAL_COMM_MAIN_MODULE_ID,
-                    SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-                    bytes([SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE])
-                    + convert_to_metadata_bytes(nickname),
-                )
+                bytes_to_send = bytes(
+                    [SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE]
+                ) + convert_to_metadata_bytes(nickname)
             else:
                 raise UnrecognizedCommandFromMainToMcCommError(
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
                 )
         elif communication_type == "to_instrument":
             if comm_from_main["command"] == "get_metadata":
-                self._send_data_packet(
-                    board_idx,
-                    SERIAL_COMM_MAIN_MODULE_ID,
-                    SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-                    bytes([SERIAL_COMM_GET_METADATA_COMMAND_BYTE]),
-                )
+                bytes_to_send = bytes([SERIAL_COMM_GET_METADATA_COMMAND_BYTE])
             elif comm_from_main["command"] == "reboot":
-                self._send_data_packet(
-                    board_idx,
-                    SERIAL_COMM_MAIN_MODULE_ID,
-                    SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-                    bytes([SERIAL_COMM_REBOOT_COMMAND_BYTE]),
-                )
+                bytes_to_send = bytes([SERIAL_COMM_REBOOT_COMMAND_BYTE])
                 self._is_waiting_for_reboot = True
+            elif comm_from_main["command"] == "dump_eeprom":
+                bytes_to_send = bytes([SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE])
             else:
                 raise UnrecognizedCommandFromMainToMcCommError(
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
@@ -317,6 +307,12 @@ class McCommunicationProcess(InstrumentCommProcess):
                 f"Invalid communication_type: {communication_type}"
             )
 
+        self._send_data_packet(
+            board_idx,
+            SERIAL_COMM_MAIN_MODULE_ID,
+            SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+            bytes_to_send,
+        )
         comm_from_main["timepoint"] = perf_counter()
         self._commands_awaiting_response.append(comm_from_main)
 
@@ -448,6 +444,9 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._time_of_reboot_start = perf_counter()
             elif prev_command["command"] == "set_time":
                 prev_command["message"] = "Instrument time synced with PC"
+            elif prev_command["command"] == "dump_eeprom":
+                prev_command["eeprom_contents"] = response_data
+
             del prev_command[
                 "timepoint"
             ]  # main process does not need to know the timepoint and is not expecting this key in the dictionary returned to it

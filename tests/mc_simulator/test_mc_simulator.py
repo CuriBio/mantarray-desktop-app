@@ -4,7 +4,6 @@ from multiprocessing import Queue
 import random
 from random import randint
 
-from mantarray_desktop_app import BOOTUP_COUNTER_UUID
 from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import convert_to_status_code_bytes
 from mantarray_desktop_app import convert_to_timestamp_bytes
@@ -12,11 +11,11 @@ from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
-from mantarray_desktop_app import PCB_SERIAL_NUMBER_UUID
 from mantarray_desktop_app import SERIAL_COMM_BOOT_UP_CODE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
@@ -38,16 +37,18 @@ from mantarray_desktop_app import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_TIME_SYNC_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import SerialCommTooManyMissedHandshakesError
-from mantarray_desktop_app import TAMPER_FLAG_UUID
-from mantarray_desktop_app import TOTAL_WORKING_HOURS_UUID
 from mantarray_desktop_app import UnrecognizedSerialCommModuleIdError
 from mantarray_desktop_app import UnrecognizedSerialCommPacketTypeError
 from mantarray_desktop_app import UnrecognizedSimulatorTestCommandError
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app.mc_simulator import MC_SIMULATOR_BOOT_UP_DURATION_SECONDS
+from mantarray_file_manager import BOOTUP_COUNTER_UUID
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
+from mantarray_file_manager import PCB_SERIAL_NUMBER_UUID
+from mantarray_file_manager import TAMPER_FLAG_UUID
+from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import pytest
 from stdlib_utils import InfiniteProcess
@@ -1207,4 +1208,33 @@ def test_MantarrayMcSimulator__accepts_time_sync_along_with_status_code_update__
         additional_bytes=convert_to_status_code_bytes(SERIAL_COMM_IDLE_READY_CODE),
         timestamp=(expected_time_usecs + spied_get_us.spy_return)
         // MICROSECONDS_PER_CENTIMILLISECOND,
+    )
+
+
+def test_MantarrayMcSimulator__processes_dump_eeprom_command(
+    mantarray_mc_simulator_no_beacon, mocker
+):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    # send dump EEPROM command
+    expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+    test_dump_eeprom_command = create_data_packet(
+        expected_pc_timestamp,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+        bytes([SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE]),
+    )
+    simulator.write(test_dump_eeprom_command)
+    invoke_process_run_and_check_errors(simulator)
+    # assert EEPROM dump is correct
+    eeprom_dump_size = get_full_packet_size_from_packet_body_size(
+        SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + len(simulator.get_eeprom_bytes())
+    )
+    eeprom_dump = simulator.read(size=eeprom_dump_size)
+    assert_serial_packet_is_expected(
+        eeprom_dump,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+        additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp)
+        + simulator.get_eeprom_bytes(),
     )

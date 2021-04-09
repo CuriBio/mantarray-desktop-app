@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "84b25872244ebbf0cdd8d00a7437fc823810a3a923237cc9680114821331819d"
+            "sha256": "2bae4ace341abd445d4718a6bd2c3ed8ff93247657988b7e7e46d5470b98ec9e"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -127,11 +127,11 @@
         },
         "mantarray-file-manager": {
             "hashes": [
-                "sha256:1d7ab8c690c30e6775c61abfd64c1c87f213bee7e80e3ce5a9ce9fc00119fb50",
-                "sha256:dc2f60a56f249ae1d336d653bdfad7ba7ab77e83d641982767bdb9f6d2559343"
+                "sha256:291014efc8d35b1005c0d17228125e2316bc6400706a6420af24cf77823b5cfa",
+                "sha256:cf077559e00fbc7bc14be0a5c33382ffd2db7b49efcd0685983cf616b2f8b324"
             ],
             "index": "pypi",
-            "version": "==0.4.5"
+            "version": "==0.4.8"
         },
         "mantarray-waveform-analysis": {
             "hashes": [
@@ -417,11 +417,11 @@
         },
         "botocore": {
             "hashes": [
-                "sha256:ad90e3b41456274b83f47c6b20f25def6782c0a8824f0ea07c441b730922ff97",
-                "sha256:be586cad3c669d47af01c22d2f2746d64238f78028ebe2c5c7205f856d3c3ce9"
+                "sha256:99c4f96bffae406f6dec1fa94e0886993e5bcd8657604d950abb43a49121fa7c",
+                "sha256:af27a8133f5b8f6a55738ccd5efd35689f1822cfd447625a839ef7a991eab64f"
             ],
             "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4, 3.5'",
-            "version": "==1.20.47"
+            "version": "==1.20.48"
         },
         "certifi": {
             "hashes": [

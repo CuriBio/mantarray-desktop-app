@@ -52,7 +52,7 @@ from mantarray_file_manager import ADC_REF_OFFSET_UUID
 from mantarray_file_manager import ADC_TISSUE_OFFSET_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
-from mantarray_file_manager import COMPUTER_NAME_HASH
+from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
 from mantarray_file_manager import IS_FILE_ORIGINAL_UNTRIMMED_UUID
@@ -622,10 +622,10 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                         ][BACKEND_LOG_UUID]
                     )
                     assert (
-                        this_file_attrs[str(COMPUTER_NAME_HASH)]
+                        this_file_attrs[str(COMPUTER_NAME_HASH_UUID)]
                         == GENERIC_START_RECORDING_COMMAND[
                             "metadata_to_copy_onto_main_file_attributes"
-                        ][COMPUTER_NAME_HASH]
+                        ][COMPUTER_NAME_HASH_UUID]
                     )
                     # Tanner (1/12/21): The barcode used for testing (which is passed to start_recoring route) is different than the simulator's barcode (the one that is 'scanned' in this test), so this should result to False
                     assert (

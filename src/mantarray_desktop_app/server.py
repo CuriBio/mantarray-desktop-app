@@ -42,7 +42,7 @@ from immutabledict import immutabledict
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
-from mantarray_file_manager import COMPUTER_NAME_HASH
+from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
@@ -443,7 +443,7 @@ def start_recording() -> Response:
         "is_hardware_test_recording": is_hardware_test_recording,
         "metadata_to_copy_onto_main_file_attributes": {
             BACKEND_LOG_UUID: shared_values_dict["log_file_uuid"],
-            COMPUTER_NAME_HASH: shared_values_dict["computer_name_hash"],
+            COMPUTER_NAME_HASH_UUID: shared_values_dict["computer_name_hash"],
             HARDWARE_TEST_RECORDING_UUID: is_hardware_test_recording,
             UTC_BEGINNING_DATA_ACQUISTION_UUID: timestamp_of_sample_idx_zero,
             START_RECORDING_TIME_INDEX_UUID: begin_timepoint,

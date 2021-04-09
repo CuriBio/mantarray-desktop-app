@@ -16,21 +16,24 @@ from typing import Union
 from uuid import UUID
 
 from immutabledict import immutabledict
+from mantarray_file_manager import BOOTUP_COUNTER_UUID
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
+from mantarray_file_manager import PCB_SERIAL_NUMBER_UUID
+from mantarray_file_manager import TAMPER_FLAG_UUID
+from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import SECONDS_TO_SLEEP_BETWEEN_CHECKING_QUEUE_SIZE
 
-from .constants import BOOTUP_COUNTER_UUID
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
-from .constants import PCB_SERIAL_NUMBER_UUID
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BOOT_UP_CODE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+from .constants import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
 from .constants import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
@@ -52,8 +55,6 @@ from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
-from .constants import TAMPER_FLAG_UUID
-from .constants import TOTAL_WORKING_HOURS_UUID
 from .exceptions import SerialCommTooManyMissedHandshakesError
 from .exceptions import UnrecognizedSerialCommModuleIdError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
@@ -196,6 +197,15 @@ class MantarrayMcSimulator(InfiniteProcess):
         """Mainly for use in unit tests."""
         return self._status_code
 
+    def get_eeprom_bytes(self) -> bytes:
+        eeprom_dict = {
+            "Status Code": self._status_code,
+            "Time Sync Value received from PC (microseconds)": self._baseline_time_usec,
+        }
+        return bytes(
+            f" Simulator EEPROM Contents: {str(eeprom_dict)}", encoding="ascii"
+        )
+
     def _send_data_packet(
         self,
         module_id: int,
@@ -308,6 +318,8 @@ class MantarrayMcSimulator(InfiniteProcess):
                 for key, value in self._metadata_dict.items():
                     metadata_bytes += key + value
                 response_body += metadata_bytes
+            elif command_byte == SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE:
+                response_body += self.get_eeprom_bytes()
             elif command_byte == SERIAL_COMM_SET_TIME_COMMAND_BYTE:
                 self._baseline_time_usec = int.from_bytes(
                     response_body, byteorder="little"

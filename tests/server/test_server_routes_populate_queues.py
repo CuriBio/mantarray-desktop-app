@@ -11,7 +11,7 @@ from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
-from mantarray_file_manager import COMPUTER_NAME_HASH
+from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
@@ -1077,10 +1077,12 @@ def test_start_recording_command__populates_queue__with_defaults__24_wells__utcn
         is True
     )
     assert (  # pylint: disable=duplicate-code
-        communication["metadata_to_copy_onto_main_file_attributes"][COMPUTER_NAME_HASH]
+        communication["metadata_to_copy_onto_main_file_attributes"][
+            COMPUTER_NAME_HASH_UUID
+        ]
         == GENERIC_START_RECORDING_COMMAND[
             "metadata_to_copy_onto_main_file_attributes"
-        ][COMPUTER_NAME_HASH]
+        ][COMPUTER_NAME_HASH_UUID]
     )
     assert set(communication["active_well_indices"]) == set(range(24))
     assert (
