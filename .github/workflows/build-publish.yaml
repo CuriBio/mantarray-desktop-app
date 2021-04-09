@@ -269,7 +269,7 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_USER_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_USER_SECRET_KEY }}
-        run: node s3_publish.js --file="dist/${{steps.product-name.outputs.prop}-Setup-${{steps.software-version.outputs.prop}}.exe" --channel=alpha
+        run: node s3_publish.js --file="dist/${{steps.product-name.outputs.prop}}-Setup-${{steps.software-version.outputs.prop}}.exe" --channel=alpha
       # - name: Archive Installer File
       #   if: runner.os == 'Windows'
       #   uses: actions/upload-artifact@v2
