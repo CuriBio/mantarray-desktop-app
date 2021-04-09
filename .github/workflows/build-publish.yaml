@@ -264,6 +264,12 @@ jobs:
           pipenv run python .github/workflows/vcn.py authenticate "dist/${{steps.product-name.outputs.prop}}-Setup-${{steps.software-version.outputs.prop}}.exe"
           pipenv run python .github/workflows/vcn.py authenticate "dist/win-unpacked/Mantarray Controller.exe"
 
+      - name: S3 Publisher
+        if: matrix.IS_DEPLOYMENT_CONFIG == true
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_USER_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_USER_SECRET_KEY }}
+        run: node s3_publish.js --file="dist/Mantarray*.exe" --channel=alpha
       # - name: Archive Installer File
       #   if: runner.os == 'Windows'
       #   uses: actions/upload-artifact@v2
