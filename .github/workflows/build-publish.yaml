@@ -10,6 +10,10 @@ on:
         description: "Release tag"
         required: true
         default: ""
+      release_channel:
+        description: "Release channel"
+        required: true
+        defauilt: "alpha"
       randomlyseed:
         description: "Pytest Randomly Seed"
         required: false
@@ -273,7 +277,7 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_USER_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_USER_SECRET_KEY }}
-        run: pipenv run node s3_publish.js --file="${{steps.product-name.outputs.prop}}-Setup-${{steps.software-version.outputs.prop}}.exe" --buildDir=./dist/ --channel=alpha
+        run: pipenv run node s3_publish.js --file="${{steps.product-name.outputs.prop}}-Setup-${{github.event.inputs.release_channel}}-${{steps.software-version.outputs.prop}}.exe" --buildDir=./dist/ --channel=${{github.event.inputs.release_channel}}
       # - name: Archive Installer File
       #   if: runner.os == 'Windows'
       #   uses: actions/upload-artifact@v2
