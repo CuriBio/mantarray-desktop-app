@@ -192,3 +192,7 @@ class InstrumentRebootTimeoutError(Exception):
 
 class InstrumentFatalError(Exception):
     pass
+
+
+class InstrumentSoftError(Exception):
+    pass

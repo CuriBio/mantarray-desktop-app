@@ -140,6 +140,7 @@ from .exceptions import ImproperlyFormattedUserAccountUUIDError
 from .exceptions import InstrumentCommIncorrectHeaderError
 from .exceptions import InstrumentFatalError
 from .exceptions import InstrumentRebootTimeoutError
+from .exceptions import InstrumentSoftError
 from .exceptions import InvalidDataFramePeriodError
 from .exceptions import InvalidDataTypeFromOkCommError
 from .exceptions import InvalidScriptCommandError
@@ -461,4 +462,5 @@ __all__ = [
     "SERIAL_COMM_FATAL_ERROR_CODE",
     "SERIAL_COMM_SOFT_ERROR_CODE",
     "InstrumentFatalError",
+    "InstrumentSoftError",
 ]
