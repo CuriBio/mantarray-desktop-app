@@ -82,6 +82,7 @@ from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from .constants import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
+from .constants import SERIAL_COMM_FATAL_ERROR_CODE
 from .constants import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
@@ -105,6 +106,7 @@ from .constants import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
+from .constants import SERIAL_COMM_SOFT_ERROR_CODE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
@@ -136,6 +138,7 @@ from .exceptions import FirstManagedReadLessThanOneRoundRobinError
 from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
 from .exceptions import ImproperlyFormattedUserAccountUUIDError
 from .exceptions import InstrumentCommIncorrectHeaderError
+from .exceptions import InstrumentFatalError
 from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import InvalidDataFramePeriodError
 from .exceptions import InvalidDataTypeFromOkCommError
@@ -455,4 +458,7 @@ __all__ = [
     "get_serial_comm_timestamp",
     "SERIAL_COMM_TIMESTAMP_EPOCH",
     "SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE",
+    "SERIAL_COMM_FATAL_ERROR_CODE",
+    "SERIAL_COMM_SOFT_ERROR_CODE",
+    "InstrumentFatalError",
 ]
