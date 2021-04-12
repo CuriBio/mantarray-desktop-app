@@ -235,11 +235,11 @@ class MantarrayMcSimulator(InfiniteProcess):
         """Ordered actions to perform each iteration.
 
         1. Handle any test communication. This must be done first since test comm may cause the simulator to enter a certain state or send a data packet. Test communication should also be processed regardless of the internal state of the simulator.
-        2. Check if the simulator is in an error state
-        #. Check if booting up
-        #. Handle communication from the PC.
-        #. Send a status beacon if enough time has passed since the previous one was sent.
-        #. Check if the handshake from the PC Is overdue
+        2. Check if the simulator is in a fatal error state. If this is the case, the simulator should suspend all other functionality. Currently this state can only be reached through testing commands.
+        3. Check if rebooting. The simulator should not be responsive to any commands from the PC while it is rebooting.
+        4. Handle communication from the PC.
+        5. Send a status beacon if enough time has passed since the previous one was sent.
+        6. Check if the handshake from the PC Is overdue. This should be done after checking for data sent from the PC since the next packet might be a handshake.
         """
         self._handle_test_comm()
         if self._status_code == SERIAL_COMM_FATAL_ERROR_CODE:
