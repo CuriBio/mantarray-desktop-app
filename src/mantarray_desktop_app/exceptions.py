@@ -188,3 +188,11 @@ class SerialCommHandshakeTimeoutError(Exception):
 
 class InstrumentRebootTimeoutError(Exception):
     pass
+
+
+class InstrumentFatalError(Exception):
+    pass
+
+
+class InstrumentSoftError(Exception):
+    pass

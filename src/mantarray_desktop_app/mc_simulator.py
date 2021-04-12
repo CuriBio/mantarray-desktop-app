@@ -34,6 +34,7 @@ from .constants import SERIAL_COMM_BOOT_UP_CODE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from .constants import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
+from .constants import SERIAL_COMM_FATAL_ERROR_CODE
 from .constants import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
@@ -231,7 +232,18 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._output_queue.put_nowait(data_packet)
 
     def _commands_for_each_run_iteration(self) -> None:
+        """Ordered actions to perform each iteration.
+
+        1. Handle any test communication. This must be done first since test comm may cause the simulator to enter a certain state or send a data packet. Test communication should also be processed regardless of the internal state of the simulator.
+        2. Check if the simulator is in a fatal error state. If this is the case, the simulator should suspend all other functionality. Currently this state can only be reached through testing commands.
+        3. Check if rebooting. The simulator should not be responsive to any commands from the PC while it is rebooting.
+        4. Handle communication from the PC.
+        5. Send a status beacon if enough time has passed since the previous one was sent.
+        6. Check if the handshake from the PC Is overdue. This should be done after checking for data sent from the PC since the next packet might be a handshake.
+        """
         self._handle_test_comm()
+        if self._status_code == SERIAL_COMM_FATAL_ERROR_CODE:
+            return
         # if _reboot_time_secs is not None, this means the simulator is in a "reboot" phase
         if self._reboot_time_secs is not None:
             secs_since_reboot = _get_secs_since_reboot_command(self._reboot_time_secs)
@@ -421,6 +433,14 @@ class MantarrayMcSimulator(InfiniteProcess):
                     )
                 self._baseline_time_usec = baseline_time
                 self._timepoint_of_time_sync_us = _perf_counter_us()
+            # Tanner (4/12/21): simulator has no other way of reaching this state since it has no physical components that can break, so this is the only way to reach this state and the status beacon should be sent automatically
+            if status_code == SERIAL_COMM_FATAL_ERROR_CODE:
+                self._send_data_packet(
+                    SERIAL_COMM_MAIN_MODULE_ID,
+                    SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
+                    convert_to_status_code_bytes(self._status_code)
+                    + self.get_eeprom_bytes(),
+                )
         elif command == "set_metadata":
             for key, value in test_comm["metadata_values"].items():
                 value_bytes = convert_to_metadata_bytes(value)

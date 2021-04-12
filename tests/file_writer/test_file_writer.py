@@ -760,11 +760,11 @@ def test_FileWriterProcess__drain_all_queues__drains_all_queues_except_error_que
         )
     ):
         assert (
-            iter_queue_idx,
             is_queue_eventually_empty(
                 iter_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-            ),
-        ) == (iter_queue_idx, True)
+            )
+            is True
+        ), f"Queue at index {iter_queue_idx} was not empty"
 
     assert actual["board_0"]["instrument_comm_to_file_writer"] == [expected[0][0]]
     assert actual["board_0"]["file_writer_to_data_analyzer"] == [expected[0][1]]

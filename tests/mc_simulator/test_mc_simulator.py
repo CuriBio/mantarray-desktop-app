@@ -16,6 +16,7 @@ from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_FATAL_ERROR_CODE
 from mantarray_desktop_app import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
@@ -1238,3 +1239,42 @@ def test_MantarrayMcSimulator__processes_dump_eeprom_command(
         additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp)
         + simulator.get_eeprom_bytes(),
     )
+
+
+def test_MantarrayMcSimulator__when_in_fatal_error_state__does_not_respond_to_commands_or_send_any_packets__and_includes_eeprom_dump_in_status_beacon(
+    mantarray_mc_simulator_no_beacon, mocker
+):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+
+    mocker.patch.object(  # patch so simulator will always think it is ready to send status beacon
+        mc_simulator,
+        "_get_secs_since_last_status_beacon",
+        autospec=True,
+        return_value=SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS,
+    )
+
+    # put simulator in fatal error state
+    test_command = {
+        "command": "set_status_code",
+        "status_code": SERIAL_COMM_FATAL_ERROR_CODE,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_command, testing_queue
+    )
+    # send a handshake
+    simulator.write(TEST_HANDSHAKE)
+    # run simulator to make sure the only data packet sent back to PC is a status beacon with EEPROM dump
+    invoke_process_run_and_check_errors(simulator)
+    status_beacon_size = get_full_packet_size_from_packet_body_size(
+        SERIAL_COMM_STATUS_CODE_LENGTH_BYTES + len(simulator.get_eeprom_bytes())
+    )
+    status_beacon = simulator.read(size=status_beacon_size)
+    assert_serial_packet_is_expected(
+        status_beacon,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
+        additional_bytes=convert_to_status_code_bytes(SERIAL_COMM_FATAL_ERROR_CODE)
+        + simulator.get_eeprom_bytes(),
+    )
+    assert simulator.in_waiting == 0

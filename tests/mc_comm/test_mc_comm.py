@@ -9,7 +9,9 @@ from freezegun import freeze_time
 from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import convert_to_timestamp_bytes
 from mantarray_desktop_app import create_data_packet
+from mantarray_desktop_app import InstrumentFatalError
 from mantarray_desktop_app import InstrumentRebootTimeoutError
+from mantarray_desktop_app import InstrumentSoftError
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import MAX_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app import mc_comm
@@ -19,6 +21,7 @@ from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import SERIAL_COMM_BAUD_RATE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_FATAL_ERROR_CODE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
@@ -33,6 +36,7 @@ from mantarray_desktop_app import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_SOFT_ERROR_CODE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
@@ -1589,3 +1593,64 @@ def test_McCommunicationProcess__processes_dump_eeprom_command(
     message_to_main = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     expected_response["eeprom_contents"] = simulator.get_eeprom_bytes()
     assert message_to_main == expected_response
+
+
+def test_McCommunicationProcess__raises_error_if_fatal_error_code_received_from_instrument__and_logs_eeprom_contents_included_in_status_beacon(
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+    mocker,
+    patch_print,
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+
+    # put simulator in fatal error code state
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {
+            "command": "set_status_code",
+            "status_code": SERIAL_COMM_FATAL_ERROR_CODE,
+        },
+        testing_queue,
+    )
+    invoke_process_run_and_check_errors(simulator)
+    # process status beacon so error is raised and EEPROM contents are logged
+    with pytest.raises(InstrumentFatalError) as exc_info:
+        invoke_process_run_and_check_errors(mc_process)
+    assert str(simulator.get_eeprom_bytes()) in str(exc_info.value)
+
+
+def test_McCommunicationProcess__when_instrument_has_soft_error_retrieves_eeprom_dump_then_raises_error_and_logs_eeprom_contents(
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+    mocker,
+    patch_print,
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+
+    # put simulator in soft error code state and send beacon
+    test_commands = [
+        {
+            "command": "set_status_code",
+            "status_code": SERIAL_COMM_SOFT_ERROR_CODE,
+        },
+        {"command": "send_single_beacon"},
+    ]
+    handle_putting_multiple_objects_into_empty_queue(test_commands, testing_queue)
+    invoke_process_run_and_check_errors(simulator, num_iterations=2)
+    # run mc_process to receives error status and send dump EEPROM command
+    invoke_process_run_and_check_errors(mc_process)
+    # run simulator to process dump EEPROM command
+    invoke_process_run_and_check_errors(simulator)
+    # run mc_process to raise error with EEPROM contents
+    with pytest.raises(InstrumentSoftError) as exc_info:
+        invoke_process_run_and_check_errors(mc_process)
+    assert str(simulator.get_eeprom_bytes()) in str(exc_info.value)

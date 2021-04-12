@@ -29,6 +29,7 @@ from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from .constants import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
+from .constants import SERIAL_COMM_FATAL_ERROR_CODE
 from .constants import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
@@ -46,12 +47,16 @@ from .constants import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
+from .constants import SERIAL_COMM_SOFT_ERROR_CODE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
+from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from .exceptions import InstrumentFatalError
 from .exceptions import InstrumentRebootTimeoutError
+from .exceptions import InstrumentSoftError
 from .exceptions import SerialCommCommandResponseTimeoutError
 from .exceptions import SerialCommHandshakeTimeoutError
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
@@ -111,10 +116,10 @@ class McCommunicationProcess(InstrumentCommProcess):
 
     def __init__(self, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
+        self._is_instrument_in_error_state = False
         self._is_registered_with_serial_comm: List[bool] = [False] * len(
             self._board_queues
         )
-        self._init_time_ns: Optional[int] = None
         self._time_of_last_handshake_secs: Optional[float] = None
         self._time_of_last_beacon_secs: Optional[float] = None
         self._commands_awaiting_response: Deque[  # pylint: disable=unsubscriptable-object
@@ -241,7 +246,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         After reboot command is sent, no more commands should be sent until reboot completes.
         During instrument reboot, should only check for incoming data make sure no commands are awaiting a response.
 
-        1. Process next communication from main. This process's highest priority is to be responsive to the main process and should check for messages from main first. These messages will let this process know when to send commands to the instrument.Process
+        1. Process next communication from main. This process's highest priority is to be responsive to the main process and should check for messages from main first. These messages will let this process know when to send commands to the instrument.
         2. Send handshake to instrument when necessary. Second highest priority is to let the instrument know that this process and the rest of the software are alive and responsive.
         3. Process data coming from the instrument. Processing data coming from the instrument is the highest priority task after sending data to it.
         4. Make sure the beacon is not overdue, unless instrument is rebooting. If the beacon is overdue, it's reasonable to assume something caused the instrument to stop working. This task should happen after handling of sending/receiving data from the instrument and main process.
@@ -411,11 +416,29 @@ class McCommunicationProcess(InstrumentCommProcess):
                         "message": "Instrument completed reboot",
                     }
                 )
-            status_code = int.from_bytes(packet_body, byteorder="little")
+            status_code = int.from_bytes(
+                packet_body[:SERIAL_COMM_STATUS_CODE_LENGTH_BYTES], byteorder="little"
+            )
             self._log_status_code(status_code, "Status Beacon")
+            if status_code == SERIAL_COMM_FATAL_ERROR_CODE:
+                eeprom_contents = packet_body[SERIAL_COMM_STATUS_CODE_LENGTH_BYTES:]
+                raise InstrumentFatalError(
+                    f"Instrument EEPROM contents: {str(eeprom_contents)}"
+                )
             if status_code == SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE:
                 raise SerialCommHandshakeTimeoutError()
-            if status_code == SERIAL_COMM_TIME_SYNC_READY_CODE:
+            if status_code == SERIAL_COMM_SOFT_ERROR_CODE:
+                self._send_data_packet(
+                    board_idx,
+                    SERIAL_COMM_MAIN_MODULE_ID,
+                    SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+                    bytes([SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE]),
+                )
+                self._commands_awaiting_response.append(
+                    {"command": "dump_eeprom", "timepoint": perf_counter()}
+                )
+                self._is_instrument_in_error_state = True
+            elif status_code == SERIAL_COMM_TIME_SYNC_READY_CODE:
                 self._send_data_packet(
                     board_idx,
                     SERIAL_COMM_MAIN_MODULE_ID,
@@ -445,6 +468,10 @@ class McCommunicationProcess(InstrumentCommProcess):
             elif prev_command["command"] == "set_time":
                 prev_command["message"] = "Instrument time synced with PC"
             elif prev_command["command"] == "dump_eeprom":
+                if self._is_instrument_in_error_state:
+                    raise InstrumentSoftError(
+                        f"Instrument EEPROM contents: {str(response_data)}"
+                    )
                 prev_command["eeprom_contents"] = response_data
 
             del prev_command[
