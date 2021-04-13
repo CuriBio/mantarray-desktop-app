@@ -163,11 +163,26 @@ class McCommunicationProcess(InstrumentCommProcess):
             self.get_logging_level(),
         )
         board = self._board_connections[0]
-        if (
-            isinstance(board, MantarrayMcSimulator) and board.is_alive()
-        ):  # pragma: no cover  # Tanner (3/19/21): only need to stop and join if the board is a running simulator
-            board.hard_stop()  # hard stop to drain all queues of simulator
-            board.join()
+        if board is not None:
+            remaining_serial_data = bytes(0)
+            while board.in_waiting > 0:
+                remaining_serial_data += board.read(
+                    size=SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
+                )
+            serial_data_flush_msg = (
+                f"Remaining Serial Data {str(remaining_serial_data)}"
+            )
+            put_log_message_into_queue(
+                logging.INFO,
+                serial_data_flush_msg,
+                self._board_queues[0][1],
+                self.get_logging_level(),
+            )
+            if (
+                isinstance(board, MantarrayMcSimulator) and board.is_alive()
+            ):  # pragma: no cover  # Tanner (3/19/21): only need to stop and join if the board is a running simulator
+                board.hard_stop()  # hard stop to drain all queues of simulator
+                board.join()
         super()._teardown_after_loop()
 
     def is_registered_with_serial_comm(self, board_idx: int) -> bool:

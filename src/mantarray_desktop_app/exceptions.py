@@ -190,9 +190,13 @@ class InstrumentRebootTimeoutError(Exception):
     pass
 
 
-class InstrumentFatalError(Exception):
+class MantarrayInstrumentError(Exception):
+    """Errors occurring on the Mantarray instrument itself."""
+
+
+class InstrumentFatalError(MantarrayInstrumentError):
     pass
 
 
-class InstrumentSoftError(Exception):
+class InstrumentSoftError(MantarrayInstrumentError):
     pass

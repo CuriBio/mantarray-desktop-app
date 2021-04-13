@@ -238,7 +238,7 @@ def test_McCommunicationProcess_hard_stop__clears_all_queues_and_returns_lists_o
     assert actual["board_0"]["instrument_comm_to_file_writer"] == [expected[0][2]]
 
 
-def test_OkCommunicationProcess_soft_stop_not_allowed_if_communication_from_main_still_in_queue(
+def test_McCommunicationProcess_soft_stop_not_allowed_if_communication_from_main_still_in_queue(
     four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
 ):
     mc_process = four_board_mc_comm_process["mc_process"]
@@ -261,7 +261,7 @@ def test_OkCommunicationProcess_soft_stop_not_allowed_if_communication_from_main
     assert mc_process.is_stopped() is False
 
 
-def test_OkCommunicationProcess_soft_stop_not_allowed_if_waiting_for_command_response_from_instrument(
+def test_McCommunicationProcess_soft_stop_not_allowed_if_waiting_for_command_response_from_instrument(
     four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
 ):
     mc_process = four_board_mc_comm_process["mc_process"]
@@ -298,7 +298,7 @@ def test_McCommunicationProcess_teardown_after_loop__sets_teardown_complete_even
 
 
 @freeze_time("2021-03-19 12:53:30.654321")
-def test_OkCommunicationProcess_teardown_after_loop__puts_teardown_log_message_into_queue(
+def test_McCommunicationProcess_teardown_after_loop__puts_teardown_log_message_into_queue(
     four_board_mc_comm_process,
 ):
     mc_process = four_board_mc_comm_process["mc_process"]
@@ -318,11 +318,56 @@ def test_OkCommunicationProcess_teardown_after_loop__puts_teardown_log_message_i
     )
 
 
+def test_McCommunicationProcess_teardown_after_loop__flushes_and_logs_remaining_serial_data(
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    output_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+
+    # add one beacon for mc_process to read normally
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "send_single_beacon"},
+        testing_queue,
+    )
+    invoke_process_run_and_check_errors(simulator)
+    # add read bytes to flush from simulator
+    test_read_bytes = [
+        bytes(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES),
+        bytes(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES),
+        bytes(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES // 2),  # arbitrary final length
+    ]
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {
+            "command": "add_read_bytes",
+            "read_bytes": test_read_bytes,
+        },
+        testing_queue,
+    )
+    invoke_process_run_and_check_errors(simulator)
+    # read beacon then flush remaining serial data
+    invoke_process_run_and_check_errors(
+        mc_process,
+        perform_teardown_after_loop=True,
+    )
+    assert simulator.in_waiting == 0
+    # check that log message contains remaining data
+    teardown_messages = drain_queue(output_queue)
+    actual = teardown_messages[-1]
+    assert (
+        "message" in actual
+    ), f"Correct message not found. Full message dict: {actual}"
+    expected_bytes = bytes(int(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES * 2.5))
+    assert str(expected_bytes) in actual["message"]
+
+
 @pytest.mark.slow
 @pytest.mark.timeout(15)
-def test_OkCommunicationProcess_teardown_after_loop__stops_running_simulator(
-    four_board_mc_comm_process,
-):
+def test_McCommunicationProcess_teardown_after_loop__stops_running_simulator():
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
     mc_process = McCommunicationProcess(
         board_queues, error_queue, suppress_setup_communication_to_main=True
@@ -1564,7 +1609,8 @@ def test_McCommunicationProcess__automatically_sends_time_set_command_when_recei
 
 
 def test_McCommunicationProcess__processes_dump_eeprom_command(
-    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     board_queues = four_board_mc_comm_process_no_handshake["board_queues"]
@@ -1598,7 +1644,6 @@ def test_McCommunicationProcess__processes_dump_eeprom_command(
 def test_McCommunicationProcess__raises_error_if_fatal_error_code_received_from_instrument__and_logs_eeprom_contents_included_in_status_beacon(
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
-    mocker,
     patch_print,
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
@@ -1626,7 +1671,6 @@ def test_McCommunicationProcess__raises_error_if_fatal_error_code_received_from_
 def test_McCommunicationProcess__when_instrument_has_soft_error_retrieves_eeprom_dump_then_raises_error_and_logs_eeprom_contents(
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
-    mocker,
     patch_print,
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
