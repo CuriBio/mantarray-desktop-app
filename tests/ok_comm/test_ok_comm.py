@@ -1026,9 +1026,9 @@ def test_OkCommunicationProcess_run__correctly_sets_mantarray_serial_number(
             "returns error message with invalid header",
         ),
         (
-            "M02X01900",
-            "Serial Number contains invalid character: 'X'",
-            "returns error message with year 2X",
+            "M01901900",
+            "Serial Number contains invalid year: '19'",
+            "returns error message with year 19",
         ),
         (
             "M02000000",

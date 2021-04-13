@@ -2,7 +2,7 @@ Changelog for Mantarray Desktop App
 ===================================
 
 
-0.4.4 (2021-04-13)
+0.4.5 (2021-04-13)
 ------------------
 
 - Fixed issue with Mantarray serial numbers created after 2020

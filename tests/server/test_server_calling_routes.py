@@ -247,11 +247,6 @@ def test_server__handles_logging_after_request_when_get_available_data_is_called
             "returns error message with year 19",
         ),
         (
-            "M02101900",
-            "Serial Number contains invalid year: '21'",
-            "returns error message with year 21",
-        ),
-        (
             "M02000000",
             "Serial Number contains invalid Julian date: '000'",
             "returns error message with invalid Julian date 000",
