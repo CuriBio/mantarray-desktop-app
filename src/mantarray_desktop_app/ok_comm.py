@@ -450,7 +450,7 @@ def check_mantarray_serial_number(serial_number: str) -> str:
     for char in serial_number[2:]:
         if not char.isnumeric():
             return f"Serial Number contains invalid character: '{char}'"
-    if int(serial_number[2:4]) != 20:
+    if int(serial_number[2:4]) < 20:
         return f"Serial Number contains invalid year: '{serial_number[2:4]}'"
     if int(serial_number[4:7]) < 1 or int(serial_number[4:7]) > 366:
         return f"Serial Number contains invalid Julian date: '{serial_number[4:7]}'"
