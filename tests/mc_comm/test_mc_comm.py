@@ -3,6 +3,7 @@ import copy
 import logging
 from multiprocessing import Queue
 from random import randint
+import time
 from zlib import crc32
 
 from freezegun import freeze_time
@@ -129,6 +130,11 @@ def set_connection_and_register_simulator(
     invoke_process_run_and_check_errors(mc_process, num_iterations=num_iterations)
     # remove status code log message(s)
     drain_queue(output_queue)
+
+
+def sleep_side_effect(*args) -> None:
+    """Side effect for mocking sleep when called in between queue checks."""
+    time.sleep(QUEUE_CHECK_TIMEOUT_SECONDS)
 
 
 def test_McCommunicationProcess_super_is_called_during_init(mocker):
@@ -335,7 +341,9 @@ def test_McCommunicationProcess_teardown_after_loop__flushes_and_logs_remaining_
     )
 
     mocked_write = mocker.patch.object(simulator, "write", autospec=True)
-    mocked_sleep = mocker.patch.object(mc_comm, "sleep", autospec=True)
+    mocked_sleep = mocker.patch.object(
+        mc_comm, "sleep", autospec=True, side_effect=sleep_side_effect
+    )
 
     # add one data packet with bad magic word to raise error and additional bytes to flush from simulator
     test_read_bytes = [
@@ -395,7 +403,9 @@ def test_McCommunicationProcess_teardown_after_loop__does_not_request_eeprom_dum
     )
 
     mocked_write = mocker.patch.object(simulator, "write", autospec=True)
-    mocked_sleep = mocker.patch.object(mc_comm, "sleep", autospec=True)
+    mocked_sleep = mocker.patch.object(
+        mc_comm, "sleep", autospec=True, side_effect=sleep_side_effect
+    )
 
     # put simulator in error state before sending beacon
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -452,7 +462,9 @@ def test_McCommunicationProcess_teardown_after_loop__does_not_request_eeprom_dum
     )
 
     mocked_write = mocker.patch.object(simulator, "write", autospec=True)
-    mocked_sleep = mocker.patch.object(mc_comm, "sleep", autospec=True)
+    mocked_sleep = mocker.patch.object(
+        mc_comm, "sleep", autospec=True, side_effect=sleep_side_effect
+    )
 
     # run one iteration then teardown
     invoke_process_run_and_check_errors(
