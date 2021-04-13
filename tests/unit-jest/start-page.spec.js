@@ -50,7 +50,7 @@ describe("StartPage", () => {
     });
 
     test("When mounted, Then status pinging gets started", async () => {
-      // confirm pre-condition
+      // confirm precondition
       expect(store.state.flask.status_ping_interval_id).toBeNull();
       wrapper = shallowMount(StartPage, { propsData, store, localVue });
       await wait_for_expect(() => {

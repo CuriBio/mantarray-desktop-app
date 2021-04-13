@@ -68,7 +68,7 @@ def produce_data(num_cycles: int, starting_sample_index: int) -> bytearray:
             )
             sample_indices.append(sample_index)
             sawtooth_indices.append(sample_index / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD)
-    # generate sawtooth vals
+    # generate sawtooth values
     sawtooth_vals = signal.sawtooth(sawtooth_indices, width=0.5)
     # generate bytearray data
     data = bytearray(0)
@@ -129,7 +129,7 @@ class FIFOReadProducer(InfiniteThread):
         data = produce_data(FIFO_READ_PRODUCER_CYCLES_PER_ITERATION, self._sample_index)
         # Tanner (4/30/20) is not sure how to test that we are using a lock here. The purpose of this lock is to ensure that data is not pulled from the queue at the same time it is being added.
         with self._lock:
-            self._data_out_queue.put(data)
+            self._data_out_queue.put_nowait(data)
         self._sample_index += (
             FIFO_READ_PRODUCER_CYCLES_PER_ITERATION * ROUND_ROBIN_PERIOD
         ) // TIMESTEP_CONVERSION_FACTOR

@@ -2,6 +2,7 @@
 """Utility functions for Serial Communication."""
 from __future__ import annotations
 
+import datetime
 from typing import Any
 from typing import Dict
 from typing import Union
@@ -9,18 +10,21 @@ from uuid import UUID
 from zlib import crc32
 
 from immutabledict import immutabledict
+from mantarray_file_manager import BOOTUP_COUNTER_UUID
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
+from mantarray_file_manager import PCB_SERIAL_NUMBER_UUID
+from mantarray_file_manager import TAMPER_FLAG_UUID
+from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
 
-from .constants import BOOTUP_COUNTER_UUID
-from .constants import PCB_SERIAL_NUMBER_UUID
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
+from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
+from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
+from .constants import SERIAL_COMM_TIMESTAMP_EPOCH
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
-from .constants import TAMPER_FLAG_UUID
-from .constants import TOTAL_WORKING_HOURS_UUID
 from .exceptions import SerialCommMetadataValueTooLargeError
 
 
@@ -51,15 +55,15 @@ def create_data_packet(
     packet_data: bytes,
 ) -> bytes:
     """Create a data packet to send to the PC."""
-    packet_body = timestamp.to_bytes(
-        SERIAL_COMM_TIMESTAMP_LENGTH_BYTES, byteorder="little"
-    )
+    packet_body = convert_to_timestamp_bytes(timestamp)
     packet_body += bytes([module_id, packet_type])
     packet_body += packet_data
     packet_length = len(packet_body) + SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 
     data_packet = SERIAL_COMM_MAGIC_WORD_BYTES
-    data_packet += packet_length.to_bytes(2, byteorder="little")
+    data_packet += packet_length.to_bytes(
+        SERIAL_COMM_PACKET_INFO_LENGTH_BYTES, byteorder="little"
+    )
     data_packet += packet_body
     data_packet += _get_checksum_bytes(data_packet)
     return data_packet
@@ -133,3 +137,20 @@ def parse_metadata_bytes(metadata_bytes: bytes) -> Dict[UUID, Any]:
         )
         metadata_dict[this_uuid] = this_value
     return metadata_dict
+
+
+def convert_to_status_code_bytes(status_code: int) -> bytes:
+    return status_code.to_bytes(
+        SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little"
+    )
+
+
+def convert_to_timestamp_bytes(timestamp: int) -> bytes:
+    return timestamp.to_bytes(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES, byteorder="little")
+
+
+# Tanner (4/7/21): This method should not be used in the simulator. It has its own way of determining the timestamp to send in order to behave more accurately like the real Mantarray instrument
+def get_serial_comm_timestamp() -> int:
+    return (
+        datetime.datetime.now(tz=datetime.timezone.utc) - SERIAL_COMM_TIMESTAMP_EPOCH
+    ) // datetime.timedelta(microseconds=1)

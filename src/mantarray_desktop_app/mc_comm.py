@@ -8,7 +8,6 @@ import logging
 from multiprocessing import Queue
 import queue
 from time import perf_counter
-from time import perf_counter_ns
 from time import sleep
 from typing import Any
 from typing import Deque
@@ -23,15 +22,18 @@ import serial.tools.list_ports as list_ports
 from stdlib_utils import put_log_message_into_queue
 
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
-from .constants import NANOSECONDS_PER_CENTIMILLISECOND
+from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BAUD_RATE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+from .constants import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
+from .constants import SERIAL_COMM_FATAL_ERROR_CODE
 from .constants import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
+from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
@@ -43,13 +45,20 @@ from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
+from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
+from .constants import SERIAL_COMM_SOFT_ERROR_CODE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
+from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
+from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from .exceptions import InstrumentFatalError
 from .exceptions import InstrumentRebootTimeoutError
+from .exceptions import InstrumentSoftError
 from .exceptions import SerialCommCommandResponseTimeoutError
+from .exceptions import SerialCommHandshakeTimeoutError
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
 from .exceptions import SerialCommIncorrectChecksumFromPCError
 from .exceptions import SerialCommIncorrectMagicWordFromMantarrayError
@@ -65,7 +74,9 @@ from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .instrument_comm import InstrumentCommProcess
 from .mc_simulator import MantarrayMcSimulator
 from .serial_comm_utils import convert_to_metadata_bytes
+from .serial_comm_utils import convert_to_timestamp_bytes
 from .serial_comm_utils import create_data_packet
+from .serial_comm_utils import get_serial_comm_timestamp
 from .serial_comm_utils import parse_metadata_bytes
 from .serial_comm_utils import validate_checksum
 
@@ -98,32 +109,29 @@ class McCommunicationProcess(InstrumentCommProcess):
     """Process that controls communication with the Mantarray Beta 2 Board(s).
 
     Args:
-        board_queues: A tuple (the max number of MC board connections should be pre-defined, so not a mutable list) of tuples of 3 queues. The first queue is for input/communication from the main thread to this sub process, second queue is for communication from this process back to the main thread. Third queue is for streaming communication (largely fo raw data) to the process that controls writing to disk.
+        board_queues: A tuple (the max number of MC board connections should be predefined, so not a mutable list) of tuples of 3 queues. The first queue is for input/communication from the main thread to this sub process, second queue is for communication from this process back to the main thread. Third queue is for streaming communication (largely of raw data) to the process that controls writing to disk.
         fatal_error_reporter: A queue that reports back any unhandled errors that have caused the process to stop.
         suppress_setup_communication_to_main: if set to true (often during unit tests), messages during the _setup_before_loop will not be put into the queue to communicate back to the main process
     """
 
     def __init__(self, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
+        self._is_instrument_in_error_state = False
         self._is_registered_with_serial_comm: List[bool] = [False] * len(
             self._board_queues
         )
-        self._init_time_ns: Optional[int] = None
         self._time_of_last_handshake_secs: Optional[float] = None
         self._time_of_last_beacon_secs: Optional[float] = None
         self._commands_awaiting_response: Deque[  # pylint: disable=unsubscriptable-object
             Dict[str, Any]
         ] = deque()
-        self._is_waiting_for_reboot = False
-        self._time_of_reboot_start: Optional[float] = None
-
-    def _reset_start_time(self) -> None:
-        # TODO Tanner (3/19/21): Consider moving this functionality to InfiniteProcess since it applies to all running processes. See note in _setup_before_loop from 2/2/21
-        self._init_time_ns = perf_counter_ns()
+        self._is_waiting_for_reboot = False  # Tanner (4/1/21): This flag indicates that a reboot command has been sent and a status beacon following reboot completion has not been received. It does not imply that the instrument has begun rebooting.
+        self._time_of_reboot_start: Optional[
+            float
+        ] = None  # Tanner (4/1/21): This value will be None until this process receives a response to a reboot command. It will be set back to None after receiving a status beacon upon reboot completion
 
     def _setup_before_loop(self) -> None:
-        # Tanner (2/2/21): Comparing perf_counter_ns values in a subprocess to those in the parent process have unexpected behavior in windows, so storing the initialization time after the process has been created in order to avoid issues
-        self._reset_start_time()
+        super()._setup_before_loop()
 
         msg = {
             "communication_type": "log",
@@ -161,13 +169,6 @@ class McCommunicationProcess(InstrumentCommProcess):
             board.hard_stop()  # hard stop to drain all queues of simulator
             board.join()
         super()._teardown_after_loop()
-
-    def get_cms_since_init(self) -> int:
-        if self._init_time_ns is None:
-            return 0
-        # pylint: disable=duplicate-code  # TODO Tanner (3/19/21): Consider moving this functionality to InfiniteProcess since it applies to multiple processes
-        ns_since_init = perf_counter_ns() - self._init_time_ns
-        return ns_since_init // NANOSECONDS_PER_CENTIMILLISECOND
 
     def is_registered_with_serial_comm(self, board_idx: int) -> bool:
         """Mainly for use in testing."""
@@ -223,8 +224,12 @@ class McCommunicationProcess(InstrumentCommProcess):
         packet_type: int,
         data_to_send: bytes = bytes(0),
     ) -> None:
+        # TODO Tanner (4/7/21): change timestamp to microseconds when the real Mantarray makes the switch
         data_packet = create_data_packet(
-            self.get_cms_since_init(), module_id, packet_type, data_to_send
+            get_serial_comm_timestamp() // MICROSECONDS_PER_CENTIMILLISECOND,
+            module_id,
+            packet_type,
+            data_to_send,
         )
         board = self._board_connections[board_idx]
         if board is None:
@@ -241,7 +246,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         After reboot command is sent, no more commands should be sent until reboot completes.
         During instrument reboot, should only check for incoming data make sure no commands are awaiting a response.
 
-        1. Process next communication from main. This process's highest priority is to be responsive to the main process and should check for messages from main first. These messages will let this process know when to send commands to the instrument.Process
+        1. Process next communication from main. This process's highest priority is to be responsive to the main process and should check for messages from main first. These messages will let this process know when to send commands to the instrument.
         2. Send handshake to instrument when necessary. Second highest priority is to let the instrument know that this process and the rest of the software are alive and responsive.
         3. Process data coming from the instrument. Processing data coming from the instrument is the highest priority task after sending data to it.
         4. Make sure the beacon is not overdue, unless instrument is rebooting. If the beacon is overdue, it's reasonable to assume something caused the instrument to stop working. This task should happen after handling of sending/receiving data from the instrument and main process.
@@ -269,7 +274,7 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _process_next_communication_from_main(self) -> None:
         """Process the next communication sent from the main process.
 
-        Will just return if no comms from main in queue.
+        Will just return if no communications from main in queue.
         """
         input_queue = self._board_queues[0][0]
         try:
@@ -277,38 +282,27 @@ class McCommunicationProcess(InstrumentCommProcess):
         except queue.Empty:
             return
         board_idx = 0
+        bytes_to_send: bytes
 
         communication_type = comm_from_main["communication_type"]
         if communication_type == "mantarray_naming":
             if comm_from_main["command"] == "set_mantarray_nickname":
                 nickname = comm_from_main["mantarray_nickname"]
-                self._send_data_packet(
-                    board_idx,
-                    SERIAL_COMM_MAIN_MODULE_ID,
-                    SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-                    bytes([SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE])
-                    + convert_to_metadata_bytes(nickname),
-                )
+                bytes_to_send = bytes(
+                    [SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE]
+                ) + convert_to_metadata_bytes(nickname)
             else:
                 raise UnrecognizedCommandFromMainToMcCommError(
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
                 )
         elif communication_type == "to_instrument":
             if comm_from_main["command"] == "get_metadata":
-                self._send_data_packet(
-                    board_idx,
-                    SERIAL_COMM_MAIN_MODULE_ID,
-                    SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-                    bytes([SERIAL_COMM_GET_METADATA_COMMAND_BYTE]),
-                )
+                bytes_to_send = bytes([SERIAL_COMM_GET_METADATA_COMMAND_BYTE])
             elif comm_from_main["command"] == "reboot":
-                self._send_data_packet(
-                    board_idx,
-                    SERIAL_COMM_MAIN_MODULE_ID,
-                    SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-                    bytes([SERIAL_COMM_REBOOT_COMMAND_BYTE]),
-                )
+                bytes_to_send = bytes([SERIAL_COMM_REBOOT_COMMAND_BYTE])
                 self._is_waiting_for_reboot = True
+            elif comm_from_main["command"] == "dump_eeprom":
+                bytes_to_send = bytes([SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE])
             else:
                 raise UnrecognizedCommandFromMainToMcCommError(
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
@@ -318,6 +312,12 @@ class McCommunicationProcess(InstrumentCommProcess):
                 f"Invalid communication_type: {communication_type}"
             )
 
+        self._send_data_packet(
+            board_idx,
+            SERIAL_COMM_MAIN_MODULE_ID,
+            SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+            bytes_to_send,
+        )
         comm_from_main["timepoint"] = perf_counter()
         self._commands_awaiting_response.append(comm_from_main)
 
@@ -392,6 +392,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise UnrecognizedSerialCommModuleIdError(module_id)
 
     def _process_main_module_comm(self, comm_from_instrument: bytes) -> None:
+        board_idx = 0
         packet_body = comm_from_instrument[
             SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES
         ]
@@ -403,17 +404,51 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         if packet_type == SERIAL_COMM_STATUS_BEACON_PACKET_TYPE:
             self._time_of_last_beacon_secs = perf_counter()
-            if self._is_waiting_for_reboot:
+            if (
+                self._time_of_reboot_start is not None
+            ):  # Tanner (4/1/21): want to check that reboot has actually started before considering a status beacon to mean that reboot has completed. It is possible (and has happened in unit tests) where a beacon is received in between sending the reboot command and the instrument actually beginning to reboot
                 self._is_waiting_for_reboot = False
                 self._time_of_reboot_start = None
-                self._board_queues[0][1].put_nowait(
+                self._board_queues[board_idx][1].put_nowait(
                     {
                         "communication_type": "to_instrument",
                         "command": "reboot",
                         "message": "Instrument completed reboot",
                     }
                 )
-            # TODO Tanner (3/17/21): parse/handle errors codes in status beacons and handshakes
+            status_code = int.from_bytes(
+                packet_body[:SERIAL_COMM_STATUS_CODE_LENGTH_BYTES], byteorder="little"
+            )
+            self._log_status_code(status_code, "Status Beacon")
+            if status_code == SERIAL_COMM_FATAL_ERROR_CODE:
+                eeprom_contents = packet_body[SERIAL_COMM_STATUS_CODE_LENGTH_BYTES:]
+                raise InstrumentFatalError(
+                    f"Instrument EEPROM contents: {str(eeprom_contents)}"
+                )
+            if status_code == SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE:
+                raise SerialCommHandshakeTimeoutError()
+            if status_code == SERIAL_COMM_SOFT_ERROR_CODE:
+                self._send_data_packet(
+                    board_idx,
+                    SERIAL_COMM_MAIN_MODULE_ID,
+                    SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+                    bytes([SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE]),
+                )
+                self._commands_awaiting_response.append(
+                    {"command": "dump_eeprom", "timepoint": perf_counter()}
+                )
+                self._is_instrument_in_error_state = True
+            elif status_code == SERIAL_COMM_TIME_SYNC_READY_CODE:
+                self._send_data_packet(
+                    board_idx,
+                    SERIAL_COMM_MAIN_MODULE_ID,
+                    SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+                    bytes([SERIAL_COMM_SET_TIME_COMMAND_BYTE])
+                    + convert_to_timestamp_bytes(get_serial_comm_timestamp()),
+                )
+                self._commands_awaiting_response.append(
+                    {"command": "set_time", "timepoint": perf_counter()}
+                )
         elif packet_type == SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE:
             response_data = packet_body[SERIAL_COMM_TIMESTAMP_LENGTH_BYTES:]
             if not self._commands_awaiting_response:
@@ -422,17 +457,27 @@ class McCommunicationProcess(InstrumentCommProcess):
                 )
             prev_command = self._commands_awaiting_response.popleft()
             if prev_command["command"] == "handshake":
-                # see note above: Tanner (3/17/21)
+                status_code = int.from_bytes(response_data, byteorder="little")
+                self._log_status_code(status_code, "Handshake Response")
                 return
             if prev_command["command"] == "get_metadata":
                 prev_command["metadata"] = parse_metadata_bytes(response_data)
             elif prev_command["command"] == "reboot":
                 prev_command["message"] = "Instrument beginning reboot"
                 self._time_of_reboot_start = perf_counter()
+            elif prev_command["command"] == "set_time":
+                prev_command["message"] = "Instrument time synced with PC"
+            elif prev_command["command"] == "dump_eeprom":
+                if self._is_instrument_in_error_state:
+                    raise InstrumentSoftError(
+                        f"Instrument EEPROM contents: {str(response_data)}"
+                    )
+                prev_command["eeprom_contents"] = response_data
+
             del prev_command[
                 "timepoint"
             ]  # main process does not need to know the timepoint and is not expecting this key in the dictionary returned to it
-            self._board_queues[0][1].put_nowait(
+            self._board_queues[board_idx][1].put_nowait(
                 prev_command
             )  # Tanner (3/17/21): to be consistent with OkComm, command responses will be sent back to main after the command is acknowledged by the Mantarray
         else:
@@ -461,7 +506,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                     break
                 sleep(1)
             else:
-                # if the entire period has passed and no more bytes are available an error has occured with the Mantarray that is considered fatal
+                # if the entire period has passed and no more bytes are available an error has occurred with the Mantarray that is considered fatal
                 raise SerialCommPacketRegistrationTimoutError(magic_word_test_bytes)
         # read more bytes until the magic word is registered, the timeout value is reached, or the maximum number of bytes are read
         num_bytes_checked = 0
@@ -512,3 +557,12 @@ class McCommunicationProcess(InstrumentCommProcess):
         reboot_dur_secs = _get_secs_since_reboot_start(self._time_of_reboot_start)
         if reboot_dur_secs >= MAX_MC_REBOOT_DURATION_SECONDS:
             raise InstrumentRebootTimeoutError()
+
+    def _log_status_code(self, status_code: int, comm_type: str) -> None:
+        log_msg = f"{comm_type} received from instrument. Status Code: {status_code}"
+        put_log_message_into_queue(
+            logging.INFO,
+            log_msg,
+            self._board_queues[0][1],
+            self.get_logging_level(),
+        )

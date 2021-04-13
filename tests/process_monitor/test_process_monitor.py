@@ -89,7 +89,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_instrument_comm(
         "command": "get_device_id",
         "response": "my_cool_id",
     }
-    instrument_comm_to_main.put(expected_comm)
+    instrument_comm_to_main.put_nowait(expected_comm)
     assert is_queue_eventually_not_empty(instrument_comm_to_main) is True
     invoke_process_run_and_check_errors(monitor_thread)
     assert is_queue_eventually_empty(instrument_comm_to_main) is True
@@ -113,7 +113,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_file_writer(
         "command": "stop_recording",
         "timepoint_to_stop_recording_at": 223,
     }
-    file_writer_to_main.put(expected_comm)
+    file_writer_to_main.put_nowait(expected_comm)
     assert is_queue_eventually_not_empty(file_writer_to_main) is True
     invoke_process_run_and_check_errors(monitor_thread)
     assert is_queue_eventually_empty(file_writer_to_main) is True
@@ -167,7 +167,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_data_analyzer(
         "well_index": 0,
         "data": np.zeros((2, 10)),
     }
-    data_analyzer_to_main.put(expected_comm)
+    data_analyzer_to_main.put_nowait(expected_comm)
     assert is_queue_eventually_not_empty(data_analyzer_to_main) is True
     invoke_process_run_and_check_errors(monitor_thread)
     assert is_queue_eventually_empty(data_analyzer_to_main) is True
@@ -191,7 +191,7 @@ def test_MantarrayProcessesMonitor__logs_errors_from_InstrumentCommProcess(
     expected_error = ValueError("something wrong")
     expected_stack_trace = "my stack trace"
     expected_message = f"Error raised by subprocess {test_process_manager.get_instrument_process()}\n{expected_stack_trace}\n{expected_error}"
-    instrument_comm_error_queue.put((expected_error, expected_stack_trace))
+    instrument_comm_error_queue.put_nowait((expected_error, expected_stack_trace))
     assert is_queue_eventually_not_empty(instrument_comm_error_queue) is True
     invoke_process_run_and_check_errors(monitor_thread)
     assert is_queue_eventually_empty(instrument_comm_error_queue) is True
@@ -213,7 +213,7 @@ def test_MantarrayProcessesMonitor__logs_errors_from_FileWriter(
     expected_error = ValueError("something wrong when writing file")
     expected_stack_trace = "my stack trace from writing a file"
     expected_message = f"Error raised by subprocess {test_process_manager.get_file_writer_process()}\n{expected_stack_trace}\n{expected_error}"
-    file_writer_error_queue.put((expected_error, expected_stack_trace))
+    file_writer_error_queue.put_nowait((expected_error, expected_stack_trace))
     assert is_queue_eventually_not_empty(file_writer_error_queue) is True
     invoke_process_run_and_check_errors(monitor_thread)
     assert is_queue_eventually_empty(file_writer_error_queue) is True
@@ -515,14 +515,14 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_needs_calibration_afte
     to_instrument_comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
         0
     )
-    to_instrument_comm_queue.put(
+    to_instrument_comm_queue.put_nowait(
         {"communication_type": "xem_scripts", "script_type": "start_up"}
     )
     assert is_queue_eventually_not_empty(to_instrument_comm_queue) is True
     invoke_process_run_and_check_errors(ok_comm_process)
 
     assert is_queue_eventually_not_empty(from_instrument_comm_queue) is True
-    # Tanner (6/2/20): num iterations should be 3 here because xem_scripts sends 3 messages to main, and the third one will contain the system status update
+    # Tanner (6/2/20): number of iterations should be 3 here because xem_scripts sends 3 messages to main, and the third one will contain the system status update
     invoke_process_run_and_check_errors(monitor_thread, num_iterations=3)
 
     assert shared_values_dict["system_status"] == CALIBRATION_NEEDED_STATE
@@ -551,14 +551,14 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_calibrated_after_calib
     to_instrument_comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
         0
     )
-    to_instrument_comm_queue.put(
+    to_instrument_comm_queue.put_nowait(
         {"communication_type": "xem_scripts", "script_type": "start_calibration"}
     )
     assert is_queue_eventually_not_empty(to_instrument_comm_queue) is True
     invoke_process_run_and_check_errors(ok_comm_process)
 
     assert is_queue_eventually_not_empty(from_instrument_comm_queue) is True
-    # Tanner (6/29/20): num iterations should be 51 here because xem_scripts sends 51 total messages, the last one containing the system status update
+    # Tanner (6/29/20): number of iterations should be 51 here because xem_scripts sends 51 total messages, the last one containing the system status update
     invoke_process_run_and_check_errors(monitor_thread, num_iterations=51)
 
     assert shared_values_dict["system_status"] == CALIBRATED_STATE
@@ -585,7 +585,7 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_calibrated_after_manag
     simulator.start_acquisition()
     ok_comm_process.set_board_connection(0, simulator)
 
-    to_instrument_comm_queue.put(STOP_MANAGED_ACQUISITION_COMMUNICATION)
+    to_instrument_comm_queue.put_nowait(STOP_MANAGED_ACQUISITION_COMMUNICATION)
     assert is_queue_eventually_not_empty(to_instrument_comm_queue) is True
     invoke_process_run_and_check_errors(ok_comm_process)
 
@@ -671,7 +671,7 @@ def test_MantarrayProcessesMonitor__stores_firmware_versions_during_instrument_b
 ):
     monitor_thread, shared_values_dict, _, _ = test_monitor
 
-    # Tanner (12/28/20): RunningFIFOSimulator ignores the name of bitfile given, so we can mock this out so it will pass in Cloud9
+    # Tanner (12/28/20): RunningFIFOSimulator ignores the name of bit file given, so we can mock this out so it will pass in Cloud9
     mocker.patch.object(
         process_manager, "get_latest_firmware", autospec=True, return_value=None
     )

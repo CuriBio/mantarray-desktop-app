@@ -26,7 +26,7 @@ from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
-from mantarray_file_manager import COMPUTER_NAME_HASH
+from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
@@ -83,7 +83,7 @@ GENERIC_START_RECORDING_COMMAND: Dict[str, Any] = {
         "adc_offsets": GENERIC_ADC_OFFSET_VALUES,
         PLATE_BARCODE_UUID: "MA200440001",
         BACKEND_LOG_UUID: uuid.UUID("9a3d03f2-1f5a-4ecd-b843-0dc9ecde5f67"),
-        COMPUTER_NAME_HASH: hashlib.sha512(
+        COMPUTER_NAME_HASH_UUID: hashlib.sha512(
             socket.gethostname().encode(encoding="UTF-8")
         ).hexdigest(),
         BARCODE_IS_FROM_SCANNER_UUID: True,
@@ -209,7 +209,7 @@ def fixture_four_board_file_writer_process():
         yield fw_items_dict
 
         if not fw_process.is_alive():
-            # Eli (2/10/20): it is important in windows based systems to make sure to close the files before deleting them. be careful about this when running tests in a linux dev environment
+            # Eli (2/10/20): it is important in windows based systems to make sure to close the files before deleting them. be careful about this when running tests in a Linux development environment
             fw_process.close_all_files()
 
 

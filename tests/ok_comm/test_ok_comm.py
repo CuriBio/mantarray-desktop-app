@@ -117,7 +117,7 @@ def test_parse_data_frame__six_channels_32_bit__single_sample_index(
     data_bytes.extend([0x0D, 0x0E, 0x0F, 0x10])  # channel 2 reading
     data_bytes.extend([0x11, 0x12, 0x13, 0x14])  # channel 3 reading
     data_bytes.extend([0x15, 0x16, 0x17, 0x18])  # channel 4 reading
-    data_bytes.extend([0x19, 0x1A, 0x1B, 0x1C])  # chxannel 5 reading
+    data_bytes.extend([0x19, 0x1A, 0x1B, 0x1C])  # channel 5 reading
     actual = parse_data_frame(data_bytes, "six_channels_32_bit__single_sample_index")
 
     sample_index = 0x04030201 * TIMESTEP_CONVERSION_FACTOR
@@ -258,21 +258,21 @@ def test_parse_sensor_bytes(
 
 def test_parse_sensor_bytes_performance():
     # 5000 iterations
-    # parsing sensor bytes, adc metadata, and little endian int24
+    # parsing sensor bytes, ADC metadata, and little endian int24
     #
-    # started at:                       30867322
-    # 1. converting to cython:           4758391
-    # 2. cpdef functions:                2846122
-    # 3. line_trace=False:               2672362
-    # 4. better function arg typing:     1477277
-    # 5. more cdef variables:             808056
+    # started at:                           30867322
+    # 1. converting to cython:               4758391
+    # 2. cpdef functions:                    2846122  # pylint:disable=wrong-spelling-in-comment # Eli (4/8/21): I don't want to add cpdef to the overall dictionary of words to ignore
+    # 3. line_trace=False:                   2672362
+    # 4. better typing of function args:     1477277
+    # 5. more cdef variables:                 808056  # pylint:disable=wrong-spelling-in-comment # Eli (4/8/21): I don't want to add cdef to the overall dictionary of words to ignore
 
     test_bytearray = bytearray([0x02, 0xF6, 0x85, 0x77])
     start = time.perf_counter_ns()
     for _ in range(5000):
         parse_sensor_bytes(test_bytearray)
     dur = time.perf_counter_ns() - start
-    # print(f"Duration (ns): {dur}")
+    # print(f"Duration (ns): {dur}") # pylint:disable=wrong-spelling-in-comment # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
     assert dur < 10000000
 
 
@@ -300,7 +300,7 @@ def test_build_file_writer_objects_performance():
     dur = time.perf_counter_ns() - start
 
     ns_per_iter = dur / num_iterations
-    # print(f"ns per iterations: {ns_per_iter}")
+    # print(f"ns per iterations: {ns_per_iter}") # pylint:disable=wrong-spelling-in-comment # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
     assert (
         ns_per_iter < 450000000
     )  # Eli (10/20/20): bumped up from 300000000 to 450000000 because it was running a bit slow on windows in Github CI
@@ -342,7 +342,7 @@ def test_build_file_writer_objects__raises_error__when_first_data_frame_period_o
     # Tanner (7/10/20) When the error is raised, the queue is closed before it finishes writing to Pipe, so mock to avoid error in test
     mocker.patch.object(ok_comm, "put_log_message_into_queue", autospec=True)
     q = Queue()
-    first_data_frame_size = DATA_FRAME_SIZE_WORDS * 4  # num bytes in a word
+    first_data_frame_size = DATA_FRAME_SIZE_WORDS * 4  # number of bytes in a word
     test_bytearray = produce_data(1, 0)[:first_data_frame_size]
     test_bytearray.extend(produce_data(1, test_data_frame_period))
     expected_error_string = f"Detected period between first two data frames of FIFO read: {test_data_frame_period * TIMESTEP_CONVERSION_FACTOR} does not matched expected value: {DATA_FRAME_PERIOD}. Actual time indices: 0x0, {hex(test_data_frame_period * TIMESTEP_CONVERSION_FACTOR)}"
@@ -375,7 +375,7 @@ def test_build_file_writer_objects__logs_warning__when_first_data_frame_period_o
         ok_comm, "put_log_message_into_queue", autospec=True
     )
     expected_queue = Queue()
-    first_data_frame_size = DATA_FRAME_SIZE_WORDS * 4  # num bytes in a word
+    first_data_frame_size = DATA_FRAME_SIZE_WORDS * 4  # number of bytes in a word
     test_bytearray = produce_data(1, 0)[:first_data_frame_size]
     test_bytearray.extend(produce_data(1, test_data_frame_period))
 
@@ -642,6 +642,16 @@ def test_OkCommunicationProcess_super_is_called_during_init(mocker):
     mocked_init.assert_called_once_with(error_queue, logging_level=logging.INFO)
 
 
+def test_OkCommunicationProcess_setup_before_loop__calls_super(
+    four_board_comm_process, mocker
+):
+    spied_setup = mocker.spy(InfiniteProcess, "_setup_before_loop")
+
+    ok_process = four_board_comm_process["ok_process"]
+    invoke_process_run_and_check_errors(ok_process, perform_setup_before_loop=True)
+    spied_setup.assert_called_once()
+
+
 def test_OkCommunicationProcess_get_board_connections_list__returns_sequence_same_length_as_queues_in_init(
     four_board_comm_process,
 ):
@@ -687,8 +697,8 @@ def test_OkCommunicationProcess_soft_stop_not_allowed_if_communication_from_main
         "bit_file_name": patched_firmware_folder,
     }
     # The first communication will be processed, but if there is a second one in the queue then the soft stop should be disabled
-    board_queues[0][0].put(dummy_communication)
-    board_queues[0][0].put(dummy_communication)
+    board_queues[0][0].put_nowait(dummy_communication)
+    board_queues[0][0].put_nowait(dummy_communication)
     confirm_queue_is_eventually_of_size(
         board_queues[0][0], 2, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
@@ -716,7 +726,7 @@ def test_OkCommunicationProcess_run__raises_error_if_communication_type_is_inval
     expected_returned_communication = {
         "communication_type": "fake_comm_type",
     }
-    input_queue.put(copy.deepcopy(expected_returned_communication))
+    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
     assert is_queue_eventually_not_empty(input_queue) is True
     with pytest.raises(
         UnrecognizedCommTypeFromMainToInstrumentError, match="fake_comm_type"
@@ -899,9 +909,9 @@ def test_OkCommunicationProcess__hard_stop__drains_all_queues_and_returns__all_i
     for i, board in enumerate(board_queues):
         for j, queue in enumerate(board):
             item = expected[i][j]
-            queue.put(item)
+            queue.put_nowait(item)
     assert is_queue_eventually_not_empty(board_queues[3][2]) is True
-    error_queue.put(expected_error)
+    error_queue.put_nowait(expected_error)
     assert is_queue_eventually_of_size(error_queue, 1) is True
 
     actual = ok_process.hard_stop()
@@ -951,7 +961,7 @@ def test_OkCommunicationProcess_run__raises_error_if_mantarray_naming_command_is
         "communication_type": "mantarray_naming",
         "command": "fake_command",
     }
-    input_queue.put(copy.deepcopy(expected_returned_communication))
+    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
     assert is_queue_eventually_not_empty(input_queue) is True
     with pytest.raises(UnrecognizedMantarrayNamingCommandError, match="fake_command"):
         invoke_process_run_and_check_errors(ok_process)
@@ -974,7 +984,7 @@ def test_OkCommunicationProcess_run__correctly_sets_mantarray_serial_number(
         "command": "set_mantarray_serial_number",
         "mantarray_serial_number": expected_serial_number,
     }
-    input_queue.put(copy.deepcopy(expected_returned_communication))
+    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
     assert is_queue_eventually_not_empty(input_queue) is True
 
     invoke_process_run_and_check_errors(ok_process)
@@ -989,6 +999,11 @@ def test_OkCommunicationProcess_run__correctly_sets_mantarray_serial_number(
             RunningFIFOSimulator.default_mantarray_serial_number,
             "",
             "returns empty string with Simulator serial number",
+        ),
+        (
+            "M02101900",
+            "",
+            "returns empty string with 2021 serial number",
         ),
         (
             "M02-36700",
@@ -1014,11 +1029,6 @@ def test_OkCommunicationProcess_run__correctly_sets_mantarray_serial_number(
             "M01901900",
             "Serial Number contains invalid year: '19'",
             "returns error message with year 19",
-        ),
-        (
-            "M02101900",
-            "Serial Number contains invalid year: '21'",
-            "returns error message with year 21",
         ),
         (
             "M02000000",
@@ -1063,7 +1073,7 @@ def test_OkCommunicationProcess_run__correctly_sets_mantarray_nickname_without_s
         "command": "set_mantarray_nickname",
         "mantarray_nickname": expected_nickname,
     }
-    input_queue.put(copy.deepcopy(expected_returned_communication))
+    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
     assert is_queue_eventually_not_empty(input_queue) is True
 
     invoke_process_run_and_check_errors(ok_process)
@@ -1089,7 +1099,7 @@ def test_OkCommunicationProcess_run__correctly_sets_mantarray_nickname_with_vali
         "command": "set_mantarray_nickname",
         "mantarray_nickname": expected_nickname,
     }
-    input_queue.put(copy.deepcopy(expected_returned_communication))
+    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
     assert is_queue_eventually_not_empty(input_queue) is True
 
     invoke_process_run_and_check_errors(ok_process)
@@ -1179,14 +1189,16 @@ def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_
     comm_to_main_queue = running_process_items["board_queues"][0][1]
 
     ok_process.pause()  # pause so it can be asserted that both commands populate ok_comm's input queue
-    input_queue.put(
+    input_queue.put_nowait(
         {
             "communication_type": "debug_console",
             "command": "initialize_board",
             "bit_file_name": None,
         }
     )
-    input_queue.put(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
+    input_queue.put_nowait(
+        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
+    )
     confirm_queue_is_eventually_of_size(input_queue, 2)
     ok_process.resume()
     ok_process.soft_stop()
@@ -1214,14 +1226,16 @@ def test_OkCommunicationProcess_teardown_after_loop__logs_message_indicating_acq
     simulator = RunningFIFOSimulator()
     ok_process.set_board_connection(0, simulator)
 
-    input_queue.put(
+    input_queue.put_nowait(
         {
             "communication_type": "debug_console",
             "command": "initialize_board",
             "bit_file_name": None,
         }
     )
-    input_queue.put(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
+    input_queue.put_nowait(
+        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
+    )
     confirm_queue_is_eventually_of_size(
         input_queue, 2, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
@@ -1277,7 +1291,7 @@ def test_OkCommunicationProcess_boot_up_instrument__with_real_board__raises_erro
         "suppress_error": False,
         "allow_board_reinitialization": False,
     }
-    board_queues[0][0].put(boot_up_comm)
+    board_queues[0][0].put_nowait(boot_up_comm)
     assert is_queue_eventually_not_empty(board_queues[0][0]) is True
 
     expected_error_msg = f"File name: {patched_firmware_folder}, Version from wire_out value: {expected_wire_out_version}"
@@ -1318,7 +1332,7 @@ def test_OkCommunicationProcess_boot_up_instrument__with_real_board__does_not_ra
         "suppress_error": False,
         "allow_board_reinitialization": False,
     }
-    board_queues[0][0].put(boot_up_comm)
+    board_queues[0][0].put_nowait(boot_up_comm)
     assert is_queue_eventually_not_empty(board_queues[0][0]) is True
     invoke_process_run_and_check_errors(ok_process)
 

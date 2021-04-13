@@ -144,7 +144,7 @@ def test_ServerThread__Given_the_server_thread_is_running__When_it_is_hard_stopp
 ):
     # since the current implementation uses _teardown_after_l
     st, _, _ = running_server_thread
-    # confirm the pre-condition
+    # confirm the precondition
     assert get_the_server_thread() == st
     st.hard_stop()
     with pytest.raises(ServerThreadNotInitializedError):
@@ -158,7 +158,7 @@ def test_ServerThread__Given_the_server_thread_is_running__When_it_is_soft_stopp
     running_server_thread,
 ):
     st, _, _ = running_server_thread
-    # confirm the pre-condition
+    # confirm the precondition
     assert get_the_server_thread() == st
     st.soft_stop()
     confirm_parallelism_is_stopped(st, timeout_seconds=1)

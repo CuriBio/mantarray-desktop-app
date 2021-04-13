@@ -461,7 +461,7 @@ def test_send_single_get_num_words_fifo_command__gets_processed(
     expected_num_words = DATA_FRAME_SIZE_WORDS * DATA_FRAMES_PER_ROUND_ROBIN
     test_bytearray = bytearray(expected_num_words * 4)
     fifo = Queue()
-    fifo.put(test_bytearray)
+    fifo.put_nowait(test_bytearray)
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
     simulator = FrontPanelSimulator(queues)
     simulator.initialize_board()
@@ -777,7 +777,7 @@ def test_read_from_fifo_command__is_received_by_ok_comm__with_correct_num_words_
 ):
     test_bytearray = produce_data(1, 0)
     fifo = Queue()
-    fifo.put(test_bytearray)
+    fifo.put_nowait(test_bytearray)
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
     simulator = FrontPanelSimulator(queues)
     simulator.initialize_board()
@@ -821,7 +821,7 @@ def test_send_single_read_from_fifo_command__gets_processed_with_correct_num_wor
     test_bytearray = produce_data(1, 0)
 
     fifo = Queue()
-    fifo.put(test_bytearray)
+    fifo.put_nowait(test_bytearray)
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
     simulator = FrontPanelSimulator(queues)
     simulator.initialize_board()
@@ -980,7 +980,7 @@ def test_send_single_read_wire_out_command__gets_processed(
     expected_ep_addr = 7
     wire_queue = Queue()
     expected_wire_out_response = 33
-    wire_queue.put(expected_wire_out_response)
+    wire_queue.put_nowait(expected_wire_out_response)
 
     simulator = FrontPanelSimulator({"wire_outs": {expected_ep_addr: wire_queue}})
     simulator.initialize_board()
@@ -1144,7 +1144,7 @@ def test_send_single_set_mantarray_serial_number_command__gets_processed_and_sto
     test_process_manager.hard_stop_and_join_processes()
 
 
-@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS * 2)
 @pytest.mark.slow
 def test_send_single_boot_up_command__gets_processed_and_sets_system_status_to_instrument_initializing(
     patched_xem_scripts_folder,
@@ -1898,7 +1898,7 @@ def test_after_request__redacts_mantarray_nicknames_from_start_recording_log_mes
 def test_server__redacts_nickname_parameter_from_set_mantarray_nickname_route(
     running_server_thread, mocker
 ):
-    # Tanner (1/27/21): calling this route so werkzeug will have to instantiate its logger to log the route called. An issue has occured where werkzeug_internal._logger was still None when trying to spy it
+    # Tanner (1/27/21): calling this route so werkzeug will have to instantiate its logger to log the route called. An issue has occurred where werkzeug_internal._logger was still None when trying to spy it
     response = requests.get(f"{get_api_endpoint()}health_check")
     assert response.status_code == 200
 
@@ -1924,7 +1924,7 @@ def test_server__redacts_nickname_parameter_from_set_mantarray_nickname_route(
 def test_server__does_not_modify_log_message_for_route_not_containing_sensitive_info_in_params(
     running_server_thread, mocker
 ):
-    # Tanner (1/27/21): calling this route so werkzeug will have to instantiate its logger to log the route called. An issue has occured where werkzeug_internal._logger was still None when trying to spy it
+    # Tanner (1/27/21): calling this route so werkzeug will have to instantiate its logger to log the route called. An issue has occurred where werkzeug_internal._logger was still None when trying to spy it
     response = requests.get(f"{get_api_endpoint()}health_check")
     assert response.status_code == 200
 
@@ -1938,5 +1938,5 @@ def test_server__does_not_modify_log_message_for_route_not_containing_sensitive_
     assert response.status_code == 200
     time.sleep(
         0.1
-    )  # Eli (1/25/21) it appears sometimes it can take a non-zero amount of time after the status code occurs for the werkzeug to make the log entry. There was a case where it only had 'http' in the entry when the assertion was made. https://github.com/CuriBio/mantarray-desktop-app/runs/1762884429?check_suite_focus=true
+    )  # Eli (1/25/21) it appears sometimes it can take a non-zero amount of time after the status code occurs for the werkzeug to make the log entry. There was a case where it only had 'HTTP' in the entry when the assertion was made. https://github.com/CuriBio/mantarray-desktop-app/runs/1762884429?check_suite_focus=true
     assert expected_route_call in spied_werkzeug_logger_info.call_args_list[0][0][1]

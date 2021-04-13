@@ -42,7 +42,7 @@ from immutabledict import immutabledict
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
-from mantarray_file_manager import COMPUTER_NAME_HASH
+from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
@@ -129,7 +129,7 @@ def get_server_address_components() -> Tuple[str, str, int]:
     """Get Flask server address components.
 
     Returns:
-        protocol (i.e. http), host (i.e. 127.0.0.1), port (i.e. 4567)
+        protocol (i.e. HTTP), host (i.e. 127.0.0.1), port (i.e. 4567)
     """
     try:
         port_number = get_the_server_thread().get_port_number()
@@ -163,7 +163,7 @@ def queue_command_to_instrument_comm(comm_dict: Dict[str, Any]) -> Response:
         .get_communication_to_instrument_comm_queue(0)
     )
     comm_dict = dict(comm_dict)  # make a mutable version to pass into ok_comm
-    to_instrument_comm_queue.put(comm_dict)
+    to_instrument_comm_queue.put_nowait(comm_dict)
     response = Response(json.dumps(comm_dict), mimetype="application/json")
 
     return response
@@ -181,7 +181,7 @@ def queue_command_to_main(comm_dict: Dict[str, Any]) -> Response:
         copy.deepcopy(comm_dict)
     )  # Eli (12/8/20): make a copy since sometimes this dictionary can be mutated after the communication gets passed elsewhere. This is relevant since this is a thread queue. Queues between true processes get pickled and in essence already get copied
     # Eli (12/8/20): immutable dicts cannot be JSON serialized, so make a regular dict copy
-    to_main_queue.put(comm_dict)
+    to_main_queue.put_nowait(comm_dict)
     response = Response(json.dumps(comm_dict), mimetype="application/json")
 
     return response
@@ -443,7 +443,7 @@ def start_recording() -> Response:
         "is_hardware_test_recording": is_hardware_test_recording,
         "metadata_to_copy_onto_main_file_attributes": {
             BACKEND_LOG_UUID: shared_values_dict["log_file_uuid"],
-            COMPUTER_NAME_HASH: shared_values_dict["computer_name_hash"],
+            COMPUTER_NAME_HASH_UUID: shared_values_dict["computer_name_hash"],
             HARDWARE_TEST_RECORDING_UUID: is_hardware_test_recording,
             UTC_BEGINNING_DATA_ACQUISTION_UUID: timestamp_of_sample_idx_zero,
             START_RECORDING_TIME_INDEX_UUID: begin_timepoint,
@@ -486,7 +486,7 @@ def start_recording() -> Response:
         comm_dict["active_well_indices"] = list(range(24))
 
     to_main_queue = get_server_to_main_queue()
-    to_main_queue.put(
+    to_main_queue.put_nowait(
         copy.deepcopy(comm_dict)
     )  # Eli (3/16/20): apparently when using multiprocessing.Queue you have to be careful when modifying values put into the queue because they might still be editable. So making a copy first
     for this_attr_name, this_attr_value in list(
@@ -578,11 +578,11 @@ def stop_managed_acquisition() -> Response:
     to_da_queue = (
         server_thread.queue_container().get_communication_queue_from_main_to_data_analyzer()
     )
-    to_da_queue.put(comm_dict)
+    to_da_queue.put_nowait(comm_dict)
     to_file_writer_queue = (
         server_thread.queue_container().get_communication_queue_from_main_to_file_writer()
     )
-    to_file_writer_queue.put(comm_dict)
+    to_file_writer_queue.put_nowait(comm_dict)
 
     response = queue_command_to_instrument_comm(comm_dict)
     return response
@@ -668,7 +668,7 @@ def queue_activate_trigger_in() -> Response:
 
 @flask_app.route("/insert_xem_command_into_queue/comm_delay", methods=["GET"])
 def queue_comm_delay() -> Response:
-    """Queue up a command delay comms to the XEM for a given period of time.
+    """Queue a command delay communication to the XEM for a period of time.
 
     Mainly to be used in XEM scripting when delays between commands are necessary.
 
@@ -728,7 +728,7 @@ def queue_set_device_id() -> Response:
 
     Do not use this route to set Mantarray Device Nicknames or Serial Numbers.
 
-    This route should be used cautiously as it will overwrite an exisiting Mantarray serial number / ID stored in the XEM.
+    This route should be used cautiously as it will overwrite an existing Mantarray serial number / ID stored in the XEM.
 
     Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/set_device_id?new_id=""
     """
@@ -1007,7 +1007,7 @@ def after_request(response: Response) -> Response:
     return response
 
 
-# TODO (Eli 11/3/20): refactor stdlib utils to separate some of the more generic multiprocessing functionality out of the "InfiniteLooping" mixin so that it could be included here without all the other things
+# TODO (Eli 11/3/20): refactor :package:`stdlib-utils` to separate some of the more generic multiprocessing functionality out of the "InfiniteLooping" mixin so that it could be included here without all the other things
 class ServerThread(InfiniteThread):
     """Thread to run the Flask server."""
 

@@ -21,6 +21,8 @@ from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_INDEX
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_TYPE_INDEX
+from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
+from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 import stdlib_utils
 from stdlib_utils import confirm_queue_is_eventually_empty as stdlib_c_q_is_e_e
 from stdlib_utils import confirm_queue_is_eventually_of_size as stdlib_c_q_is_e_of_s
@@ -79,7 +81,7 @@ def handle_putting_multiple_objects_into_empty_queue(
     timeout_seconds: Union[float, int] = QUEUE_CHECK_TIMEOUT_SECONDS,
 ) -> None:
     for next_obj in objs:
-        the_queue.put(next_obj)
+        the_queue.put_nowait(next_obj)
     confirm_queue_is_eventually_of_size(the_queue, len(objs))
     start = perf_counter()
     while perf_counter() - start < QUEUE_EMPTY_CHECK_TIMEOUT_SECONDS:
@@ -156,6 +158,7 @@ def assert_serial_packet_is_expected(
     module_id: int,
     packet_type: int,
     additional_bytes: bytes = bytes(0),
+    timestamp: Optional[int] = None,
 ) -> None:
     assert full_packet[SERIAL_COMM_MODULE_ID_INDEX] == module_id
     assert full_packet[SERIAL_COMM_PACKET_TYPE_INDEX] == packet_type
@@ -165,6 +168,13 @@ def assert_serial_packet_is_expected(
         ]
         == additional_bytes
     )
+    if timestamp is not None:
+        actual_timestamp_bytes = full_packet[
+            SERIAL_COMM_TIMESTAMP_BYTES_INDEX : SERIAL_COMM_TIMESTAMP_BYTES_INDEX
+            + SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+        ]
+        actual_timestamp = int.from_bytes(actual_timestamp_bytes, byteorder="little")
+        assert actual_timestamp == timestamp
 
 
 def get_full_packet_size_from_packet_body_size(packet_body_size: int) -> int:

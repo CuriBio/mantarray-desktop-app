@@ -38,7 +38,7 @@ class InstrumentCommProcess(InfiniteProcess, metaclass=abc.ABCMeta):
     """Process that controls communication with Mantarray instruments.
 
     Args:
-        board_queues: A tuple (the max number of instrument board connections should be pre-defined, so not a mutable list) of tuples of 3 queues. The first queue is for input/communication from the main thread to this sub process, second queue is for communication from this process back to the main thread. Third queue is for streaming communication (largely fo raw data) to the process that controls writing to disk.
+        board_queues: A tuple (the max number of instrument board connections should be predefined, so not a mutable list) of tuples of 3 queues. The first queue is for input/communication from the main thread to this sub process, second queue is for communication from this process back to the main thread. Third queue is for streaming communication (largely of raw data) to the process that controls writing to disk.
         fatal_error_reporter: A queue that reports back any unhandled errors that have caused the process to stop.
         suppress_setup_communication_to_main: if set to true (often during unit testing), messages during the _setup_before_loop will not be put into the queue to communicate back to the main process
     """

@@ -87,7 +87,7 @@ def test_parse_scripting_log__calls_resource_path_correctly(mocker):
     )
 
     def side_effect(*args, **kwargs):
-        # Tanner (4/14/20): we want to call resource_path unmocked, but need to patch it to get the return value needed for testing
+        # Tanner (4/14/20): we want to truly call resource_path (not mocked), but need to patch it to get the return value needed for testing
         resource_path(*args, **kwargs)
         return mocked_path_str
 
@@ -239,14 +239,14 @@ def test_gain_value_is_parsed_and_saved_when_running_start_up_script(
     )
     ok_comm_process.set_board_connection(0, simulator)
 
-    to_ok_comm_queue.put(
+    to_ok_comm_queue.put_nowait(
         {"communication_type": "xem_scripts", "script_type": "start_up"}
     )
     assert is_queue_eventually_not_empty(to_ok_comm_queue) is True
     invoke_process_run_and_check_errors(ok_comm_process)
 
     assert is_queue_eventually_not_empty(from_ok_comm_queue) is True
-    # Tanner (6/12/20): num iterations should be 3 here because xem_scripts sends 3 messages to main, and the third one will contain the gain value
+    # Tanner (6/12/20): number of iterations should be 3 here because xem_scripts sends 3 messages to main, and the third one will contain the gain value
     invoke_process_run_and_check_errors(monitor_thread, num_iterations=3)
 
     assert shared_values_dict["adc_gain"] == 16
@@ -285,10 +285,10 @@ def test_offset_values_are_parsed_and_saved_when_running_start_calibration_scrip
             ep_addr_val = ch_idx * 6 + adc_idx
             wire_outs[ep_addr_val] = Queue()
             val = convert_wire_value(well_idx * 2)
-            wire_outs[ep_addr_val].put(val)
+            wire_outs[ep_addr_val].put_nowait(val)
             wire_outs[ep_addr_val + 6] = Queue()
             val = convert_wire_value(well_idx * 2 + 1)
-            wire_outs[ep_addr_val + 6].put(val)
+            wire_outs[ep_addr_val + 6].put_nowait(val)
 
     simulator = RunningFIFOSimulator({"wire_outs": wire_outs})
     simulator.initialize_board()
@@ -311,14 +311,14 @@ def test_offset_values_are_parsed_and_saved_when_running_start_calibration_scrip
     )
     ok_comm_process.set_board_connection(0, simulator)
 
-    to_ok_comm_queue.put(
+    to_ok_comm_queue.put_nowait(
         {"communication_type": "xem_scripts", "script_type": "start_calibration"}
     )
     assert is_queue_eventually_not_empty(to_ok_comm_queue) is True
     invoke_process_run_and_check_errors(ok_comm_process)
 
     assert is_queue_eventually_not_empty(from_ok_comm_queue) is True
-    # Tanner (6/26/20): num iterations should be 49 here because xem_scripts sends one scripting message followed by 48 offset values to main
+    # Tanner (6/26/20): number of iterations should be 49 here because xem_scripts sends one scripting message followed by 48 offset values to main
     invoke_process_run_and_check_errors(monitor_thread, num_iterations=49)
 
     assert shared_values_dict["adc_offsets"][0]["construct"] == 0
@@ -360,7 +360,7 @@ def test_OkCommunicationProcess_xem_scripts__allows_errors_to_propagate(
     mocked_simulator.initialize_board()
     ok_process.set_board_connection(0, mocked_simulator)
 
-    board_queues[0][0].put(
+    board_queues[0][0].put_nowait(
         {"communication_type": "xem_scripts", "script_type": test_script}
     )
     assert is_queue_eventually_not_empty(board_queues[0][0])

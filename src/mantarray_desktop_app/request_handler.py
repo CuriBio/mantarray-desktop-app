@@ -14,7 +14,7 @@ if (
 class MantarrayRequestHandler(WSGIRequestHandler):
     """Almost identical to WSGIRequestHandler.
 
-    This handler will remove sensitive params from log messages.
+    This handler will remove sensitive parameters from log messages.
     """
 
     # pylint: disable=arguments-differ  # Tanner (1/20/21): The original param was `type` instead of `type_` which overrides the python builtin `type`
@@ -31,7 +31,7 @@ class MantarrayRequestHandler(WSGIRequestHandler):
             args_list = list(args)
             args_list[0] = scrubbed_msg
             args = tuple(args_list)
-        # Eli (3/9/21): Since Flask is running in multi-threaded mode, it might be possible that some log messages get garbled. It's not immediatley clear if Flask itself prevents this, or if the liklihood is prohibitively low to not worry about it, ...or what a robust way to pass the same threading.Lock() to this method as exists in the ServerThread itself. So for now we're not worrying about locking here and we'll see if it causes any issues with garbled logging.
+        # Eli (3/9/21): Since Flask is running in multi-threaded mode, it might be possible that some log messages get garbled. It's not immediately clear if Flask itself prevents this, or if the likelihood is prohibitively low to not worry about it, ...or what a robust way to pass the same threading.Lock() to this method as exists in the ServerThread itself. So for now we're not worrying about locking here and we'll see if it causes any issues with garbled logging.
         _log(
             type_,
             f"{self.address_string()} - - {message}\n",  # type: ignore  # Tanner (1/21/20): mypy is complaining that `address_string` is untyped

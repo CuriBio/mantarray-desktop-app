@@ -288,7 +288,7 @@ def test_main_entrypoint__correctly_assigns_shared_values_dictionary_to_process_
     patched_xem_scripts_folder,
     patched_firmware_folder,
 ):
-    # Eli (11/24/20): removed concept of process monitor singleton...hopfeully doesn't cause problems # Eli (3/11/20): there was a bug where we only passed an empty dict during the constructor of the ProcessMonitor in the main() function. So this test was created specifically to guard against that regression.
+    # Eli (11/24/20): removed concept of process monitor singleton...hopefully doesn't cause problems # Eli (3/11/20): there was a bug where we only passed an empty dict during the constructor of the ProcessMonitor in the main() function. So this test was created specifically to guard against that regression.
     app_info = fully_running_app_from_main_entrypoint([])
     port = get_server_port_number()
     confirm_port_in_use(port, timeout=5)

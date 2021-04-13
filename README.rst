@@ -1,3 +1,6 @@
+Dev Install (Linux):
+   - sudo apt-get install -y enchant
+
 .. image:: https://github.com/CuriBio/mantarray-desktop-app/workflows/Dev/badge.svg?branch=development
    :alt: Development Branch Build
 
