@@ -1001,6 +1001,11 @@ def test_OkCommunicationProcess_run__correctly_sets_mantarray_serial_number(
             "returns empty string with Simulator serial number",
         ),
         (
+            "M02101900",
+            "",
+            "returns empty string with 2021 serial number",
+        ),
+        (
             "M02-36700",
             "Serial Number contains invalid character: '-'",
             "returns error message with invalid character",
@@ -1021,14 +1026,9 @@ def test_OkCommunicationProcess_run__correctly_sets_mantarray_serial_number(
             "returns error message with invalid header",
         ),
         (
-            "M01901900",
-            "Serial Number contains invalid year: '19'",
-            "returns error message with year 19",
-        ),
-        (
-            "M02101900",
-            "Serial Number contains invalid year: '21'",
-            "returns error message with year 21",
+            "M02X01900",
+            "Serial Number contains invalid character: 'X'",
+            "returns error message with year 2X",
         ),
         (
             "M02000000",
