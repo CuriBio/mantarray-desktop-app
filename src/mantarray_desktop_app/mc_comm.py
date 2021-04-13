@@ -57,6 +57,7 @@ from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .exceptions import InstrumentFatalError
 from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import InstrumentSoftError
+from .exceptions import MantarrayInstrumentError
 from .exceptions import SerialCommCommandResponseTimeoutError
 from .exceptions import SerialCommHandshakeTimeoutError
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
@@ -116,6 +117,7 @@ class McCommunicationProcess(InstrumentCommProcess):
 
     def __init__(self, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
+        self._error: Optional[Exception] = None
         self._is_instrument_in_error_state = False
         self._is_registered_with_serial_comm: List[bool] = [False] * len(
             self._board_queues
@@ -155,15 +157,28 @@ class McCommunicationProcess(InstrumentCommProcess):
                 sleep(0.1)
 
     def _teardown_after_loop(self) -> None:
+        board_idx = 0
         log_msg = f"Microcontroller Communication Process beginning teardown at {_get_formatted_utc_now()}"
         put_log_message_into_queue(
             logging.INFO,
             log_msg,
-            self._board_queues[0][1],
+            self._board_queues[board_idx][1],
             self.get_logging_level(),
         )
-        board = self._board_connections[0]
+        board = self._board_connections[board_idx]
         if board is not None:
+            if self._error is not None and not isinstance(
+                self._error, MantarrayInstrumentError
+            ):
+                # if error occurred in software, send dump EEPROM command and wait for instrument to respond to command before flushing serial data. If the firmware caught an error in itself the EEPROM contents should already be logged and this command can be skipped here
+                self._send_data_packet(
+                    board_idx,
+                    SERIAL_COMM_MAIN_MODULE_ID,
+                    SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+                    bytes([SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE]),
+                )
+                sleep(1)
+            # flush and log remaining serial data
             remaining_serial_data = bytes(0)
             while board.in_waiting > 0:
                 remaining_serial_data += board.read(
@@ -175,7 +190,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             put_log_message_into_queue(
                 logging.INFO,
                 serial_data_flush_msg,
-                self._board_queues[0][1],
+                self._board_queues[board_idx][1],
                 self.get_logging_level(),
             )
             if (
@@ -184,6 +199,10 @@ class McCommunicationProcess(InstrumentCommProcess):
                 board.hard_stop()  # hard stop to drain all queues of simulator
                 board.join()
         super()._teardown_after_loop()
+
+    def _report_fatal_error(self, the_err: Exception) -> None:
+        self._error = the_err
+        super()._report_fatal_error(the_err)
 
     def is_registered_with_serial_comm(self, board_idx: int) -> bool:
         """Mainly for use in testing."""
