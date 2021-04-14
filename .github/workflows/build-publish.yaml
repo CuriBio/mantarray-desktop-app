@@ -66,7 +66,6 @@ jobs:
         run: |
           git config user.name "GitHub Actions"
           git config user.email noreply@github.com
-          echo "tag=${{steps.check-tag.outputs.TAG}}abc"
 
       - name: Create release tag
         if: steps.check-tag.outputs.TAG == ''
@@ -78,17 +77,6 @@ jobs:
         run: |
           git fetch --tags
           git checkout tags/${{github.event.inputs.release_tag}}
-
-      - name: Create release branch
-        run: git checkout -b release/${{ github.event.inputs.release_tag }}
-
-      - name: Init git config
-        run: |
-          git config user.name "GitHub Actions"
-          git config user.email noreply@github.com
-
-      - name: Push new branch
-        run: git push origin release/${{ github.event.inputs.release_tag }}
 
       - name: Set up Python
         uses: actions/setup-python@v2
