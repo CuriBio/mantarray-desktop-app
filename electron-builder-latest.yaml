@@ -51,9 +51,10 @@ files:
 #   - "!setup.py"
 win:
   target: "nsis"
-  artifactName: "MantarrayController-Setup-${version}.${ext}"
+  artifactName: "MantarrayController-Setup-latest-${version}.${ext}"
 publish:
   provider: "s3"
   bucket: "downloads.curibio.com"
+  path: "software"
   channel: "latest"
   region: "us-east-1"

@@ -55,5 +55,6 @@ win:
 publish:
   provider: "s3"
   bucket: "downloads.curibio.com"
+  path: "software"
   channel: "alpha"
   region: "us-east-1"
