@@ -42,10 +42,10 @@ import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
 from ..fixtures import fixture_patch_print
-from ..fixtures_mc_comm import DEFAULT_SIMULATOR_STATUS_CODE
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process_no_handshake
 from ..fixtures_mc_comm import set_connection_and_register_simulator
+from ..fixtures_mc_simulator import DEFAULT_SIMULATOR_STATUS_CODE
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..helpers import handle_putting_multiple_objects_into_empty_queue
@@ -501,12 +501,10 @@ def test_McCommunicationProcess__raises_error_if_fatal_error_code_received_from_
     )
 
     # put simulator in fatal error code state
-    set_status_code_command = (
-        {
-            "command": "set_status_code",
-            "status_code": SERIAL_COMM_FATAL_ERROR_CODE,
-        },
-    )
+    set_status_code_command = {
+        "command": "set_status_code",
+        "status_code": SERIAL_COMM_FATAL_ERROR_CODE,
+    }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         set_status_code_command,
         testing_queue,
@@ -518,7 +516,7 @@ def test_McCommunicationProcess__raises_error_if_fatal_error_code_received_from_
     assert str(simulator.get_eeprom_bytes()) in str(exc_info.value)
 
 
-def test_McCommunicationProcess__when_instrument_has_soft_error_retrieves_eeprom_dump_then_raises_error_and_logs_eeprom_contents(
+def test_McCommunicationProcess__when_instrument_has_soft_error__retrieves_eeprom_dump_then_raises_error_and_logs_eeprom_contents(
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
     patch_print,

@@ -5,7 +5,6 @@ import time
 
 from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import McCommunicationProcess
-from mantarray_desktop_app import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 import pytest
 import serial
 from stdlib_utils import drain_queue
@@ -15,10 +14,6 @@ from stdlib_utils import QUEUE_CHECK_TIMEOUT_SECONDS
 from .fixtures import generate_board_and_error_queues
 from .fixtures_mc_simulator import MantarrayMcSimulatorNoBeacons
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
-
-
-DEFAULT_SIMULATOR_STATUS_CODE = bytes(SERIAL_COMM_STATUS_CODE_LENGTH_BYTES)
-HANDSHAKE_RESPONSE_SIZE_BYTES = 24
 
 
 def set_connection_and_register_simulator(

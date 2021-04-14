@@ -33,12 +33,12 @@ from stdlib_utils import invoke_process_run_and_check_errors
 
 from ..fixtures import fixture_patch_print
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
-from ..fixtures_mc_comm import DEFAULT_SIMULATOR_STATUS_CODE
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process_no_handshake
 from ..fixtures_mc_comm import fixture_patch_comports
 from ..fixtures_mc_comm import fixture_patch_serial_connection
 from ..fixtures_mc_comm import set_connection_and_register_simulator
+from ..fixtures_mc_simulator import DEFAULT_SIMULATOR_STATUS_CODE
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..helpers import assert_serial_packet_is_expected
@@ -459,8 +459,11 @@ def test_McCommunicationProcess__does_not_send_handshakes_while_instrument_is_re
 ):
     mc_process = four_board_mc_comm_process["mc_process"]
     board_queues = four_board_mc_comm_process["board_queues"]
-    simulator = mantarray_mc_simulator["simulator"]
     input_queue = board_queues[0][0]
+    simulator = mantarray_mc_simulator["simulator"]
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process, mantarray_mc_simulator
+    )
 
     mocker.patch.object(
         mc_simulator,
@@ -474,11 +477,6 @@ def test_McCommunicationProcess__does_not_send_handshakes_while_instrument_is_re
         autospec=True,
         side_effect=[0, SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS],
     )
-    spied_write = mocker.spy(simulator, "write")
-
-    set_connection_and_register_simulator(
-        four_board_mc_comm_process, mantarray_mc_simulator
-    )
     reboot_command = {
         "communication_type": "to_instrument",
         "command": "reboot",
@@ -486,7 +484,9 @@ def test_McCommunicationProcess__does_not_send_handshakes_while_instrument_is_re
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(reboot_command), input_queue
     )
-    # run mc_process to sent reboot command and simulator to start reboot
+
+    spied_write = mocker.spy(simulator, "write")
+    # run mc_process to send reboot command and simulator to start reboot
     invoke_process_run_and_check_errors(mc_process)
     assert spied_write.call_count == 1
     invoke_process_run_and_check_errors(simulator)

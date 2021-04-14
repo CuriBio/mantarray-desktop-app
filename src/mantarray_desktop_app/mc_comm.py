@@ -268,7 +268,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         board = self._board_connections[board_idx]
         if board is None:
             raise NotImplementedError(
-                "Board should not be None when processing a command from main"
+                "Board should not be None when sending a command to it"
             )
         board.write(data_packet)
 
