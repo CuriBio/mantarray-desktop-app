@@ -275,7 +275,7 @@ jobs:
           pipenv run python .github/workflows/vcn.py authenticate "dist-python/mantarray-flask/mantarray-flask.exe"
 
       - name: Build Full Electron App
-        run: pipenv run npm run build-alpha
+        run: pipenv run npm run build-${{github.event.inputs.release_channel}}
 
       - name: Digitally Signing the installation and win_unpacked EXE files
         if: matrix.IS_DEPLOYMENT_CONFIG == true
