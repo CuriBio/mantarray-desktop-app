@@ -3,7 +3,6 @@ import copy
 import logging
 from multiprocessing import Queue
 from random import randint
-import time
 from zlib import crc32
 
 from freezegun import freeze_time
@@ -76,9 +75,10 @@ from ..fixtures_mc_comm import fixture_four_board_mc_comm_process
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process_no_handshake
 from ..fixtures_mc_comm import fixture_patch_comports
 from ..fixtures_mc_comm import fixture_patch_serial_connection
+from ..fixtures_mc_comm import set_connection_and_register_simulator
+from ..fixtures_mc_comm import sleep_side_effect
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
-from ..fixtures_mc_simulator import MantarrayMcSimulatorNoBeacons
 from ..helpers import assert_queue_is_eventually_not_empty
 from ..helpers import assert_serial_packet_is_expected
 from ..helpers import confirm_queue_is_eventually_empty
@@ -101,40 +101,6 @@ HANDSHAKE_RESPONSE_SIZE_BYTES = 24
 
 
 # TODO Tanner (4/1/21): refactor this test file into multiple test files
-
-
-def set_connection_and_register_simulator(
-    mc_process_fixture,
-    simulator_fixture,
-) -> None:
-    """Send a single status beacon in order to register magic word.
-
-    Sets connection on board index 0.
-    """
-    mc_process = mc_process_fixture["mc_process"]
-    output_queue = mc_process_fixture["board_queues"][0][1]
-    simulator = simulator_fixture["simulator"]
-    testing_queue = simulator_fixture["testing_queue"]
-
-    num_iterations = 1
-    if not isinstance(simulator, MantarrayMcSimulatorNoBeacons):
-        # first iteration to send possibly truncated beacon
-        invoke_process_run_and_check_errors(simulator)
-        num_iterations += 1  # Tanner (4/6/21): May need to run two iterations in case the first beacon is not truncated. Not doing this will cause issues with output_queue later on
-    # send single non-truncated beacon and then register with mc_process
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "send_single_beacon"}, testing_queue
-    )
-    invoke_process_run_and_check_errors(simulator)
-    mc_process.set_board_connection(0, simulator)
-    invoke_process_run_and_check_errors(mc_process, num_iterations=num_iterations)
-    # remove status code log message(s)
-    drain_queue(output_queue)
-
-
-def sleep_side_effect(*args) -> None:
-    """Side effect for mocking sleep when called in between queue checks."""
-    time.sleep(QUEUE_CHECK_TIMEOUT_SECONDS)
 
 
 def test_McCommunicationProcess_super_is_called_during_init(mocker):
