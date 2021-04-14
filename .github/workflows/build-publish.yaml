@@ -56,16 +56,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      # – name: Create release branch
-      #   run: git checkout -b release/${{ github.event.inputs.release_tag }}
+      - name: Check release tag
+        id: check-tag
+        run: |
+          git fetch --tags
+          echo "::set-output name=TAG::$(git tag -l ${{ github.event.inputs.release_tag }})"
 
-      # – name: Initialize mandatory git config
-      #   run: |
-      #    git config user.name "GitHub Actions"
-      #    git config user.email noreply@github.com
+      - name: Init git config
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email noreply@github.com
+          echo "tag=${{steps.check-tag.outputs.TAG}}abc"
 
-      # – name: Push new branch
-      #   run: git push origin release/${{ github.event.inputs.release_tag }}
+      - name: Create release tag
+        if: steps.check-tag.outputs.TAG == ''
+        run: |
+          git tag -a ${{github.event.inputs.release_tag}} -m "release ${{ github.event.inputs.release_tag }}"
+          git push origin ${{github.event.inputs.release_tag}}
+
+      - name: Checkout tag
+        run: |
+          git fetch --tags
+          git checkout tags/${{github.event.inputs.release_tag}}
 
       - name: Create release branch
         run: git checkout -b release/${{ github.event.inputs.release_tag }}
