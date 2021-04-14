@@ -145,6 +145,7 @@ from .exceptions import InvalidDataFramePeriodError
 from .exceptions import InvalidDataTypeFromOkCommError
 from .exceptions import InvalidScriptCommandError
 from .exceptions import LocalServerPortAlreadyInUseError
+from .exceptions import MantarrayInstrumentError
 from .exceptions import MismatchedScriptTypeError
 from .exceptions import MultiprocessingNotSetToSpawnError
 from .exceptions import RecordingFolderDoesNotExistError
@@ -461,6 +462,7 @@ __all__ = [
     "SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE",
     "SERIAL_COMM_FATAL_ERROR_CODE",
     "SERIAL_COMM_SOFT_ERROR_CODE",
+    "MantarrayInstrumentError",
     "InstrumentFatalError",
     "InstrumentSoftError",
 ]

@@ -3,6 +3,7 @@ import copy
 import logging
 from multiprocessing import Queue
 from random import randint
+import time
 from zlib import crc32
 
 from freezegun import freeze_time
@@ -12,6 +13,7 @@ from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import InstrumentFatalError
 from mantarray_desktop_app import InstrumentRebootTimeoutError
 from mantarray_desktop_app import InstrumentSoftError
+from mantarray_desktop_app import MantarrayInstrumentError
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import MAX_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app import mc_comm
@@ -21,6 +23,7 @@ from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import SERIAL_COMM_BAUD_RATE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_FATAL_ERROR_CODE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
@@ -127,6 +130,11 @@ def set_connection_and_register_simulator(
     invoke_process_run_and_check_errors(mc_process, num_iterations=num_iterations)
     # remove status code log message(s)
     drain_queue(output_queue)
+
+
+def sleep_side_effect(*args) -> None:
+    """Side effect for mocking sleep when called in between queue checks."""
+    time.sleep(QUEUE_CHECK_TIMEOUT_SECONDS)
 
 
 def test_McCommunicationProcess_super_is_called_during_init(mocker):
@@ -238,7 +246,7 @@ def test_McCommunicationProcess_hard_stop__clears_all_queues_and_returns_lists_o
     assert actual["board_0"]["instrument_comm_to_file_writer"] == [expected[0][2]]
 
 
-def test_OkCommunicationProcess_soft_stop_not_allowed_if_communication_from_main_still_in_queue(
+def test_McCommunicationProcess_soft_stop_not_allowed_if_communication_from_main_still_in_queue(
     four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
 ):
     mc_process = four_board_mc_comm_process["mc_process"]
@@ -261,7 +269,7 @@ def test_OkCommunicationProcess_soft_stop_not_allowed_if_communication_from_main
     assert mc_process.is_stopped() is False
 
 
-def test_OkCommunicationProcess_soft_stop_not_allowed_if_waiting_for_command_response_from_instrument(
+def test_McCommunicationProcess_soft_stop_not_allowed_if_waiting_for_command_response_from_instrument(
     four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
 ):
     mc_process = four_board_mc_comm_process["mc_process"]
@@ -298,7 +306,7 @@ def test_McCommunicationProcess_teardown_after_loop__sets_teardown_complete_even
 
 
 @freeze_time("2021-03-19 12:53:30.654321")
-def test_OkCommunicationProcess_teardown_after_loop__puts_teardown_log_message_into_queue(
+def test_McCommunicationProcess_teardown_after_loop__puts_teardown_log_message_into_queue(
     four_board_mc_comm_process,
 ):
     mc_process = four_board_mc_comm_process["mc_process"]
@@ -318,11 +326,161 @@ def test_OkCommunicationProcess_teardown_after_loop__puts_teardown_log_message_i
     )
 
 
+def test_McCommunicationProcess_teardown_after_loop__flushes_and_logs_remaining_serial_data__and_requests_eeprom_dump_if_error_occurred_in_mc_comm(
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+    mocker,
+    patch_print,
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    output_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+
+    mocked_write = mocker.patch.object(simulator, "write", autospec=True)
+    mocked_sleep = mocker.patch.object(
+        mc_comm, "sleep", autospec=True, side_effect=sleep_side_effect
+    )
+
+    # add one data packet with bad magic word to raise error and additional bytes to flush from simulator
+    test_read_bytes = [
+        bytes(8),  # bad magic word
+        bytes(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES),  # start of additional bytes
+        bytes(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES),
+        bytes(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES // 2),  # arbitrary final length
+    ]
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {
+            "command": "add_read_bytes",
+            "read_bytes": test_read_bytes,
+        },
+        testing_queue,
+    )
+    invoke_process_run_and_check_errors(simulator)
+    # read beacon then flush remaining serial data
+    with pytest.raises(SerialCommIncorrectMagicWordFromMantarrayError):
+        invoke_process_run_and_check_errors(
+            mc_process,
+            perform_teardown_after_loop=True,
+        )
+    assert simulator.in_waiting == 0
+    # check that log message contains remaining data
+    teardown_messages = drain_queue(output_queue)
+    actual = teardown_messages[-1]
+    assert (
+        "message" in actual
+    ), f"Correct message not found. Full message dict: {actual}"
+    expected_bytes = bytes(
+        int(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES * 2.5)
+    )  # EEPROM bytes will not show up since simulator is not running while mc_process is in _teardown_after_loop. Assert that dump EEPROM command was sent instead
+    assert str(expected_bytes) in actual["message"]
+    # check that dump EEPROM command was sent
+    assert_serial_packet_is_expected(
+        mocked_write.call_args[0][0],
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+        bytes([SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE]),
+    )
+    # check that mc_process slept for 1 second prior to reading from simulator
+    mocked_sleep.assert_called_once_with(1)
+
+
+def test_McCommunicationProcess_teardown_after_loop__does_not_request_eeprom_dump_if_an_instrument_error_occurred(
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+    mocker,
+    patch_print,
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    output_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+
+    mocked_write = mocker.patch.object(simulator, "write", autospec=True)
+    mocked_sleep = mocker.patch.object(
+        mc_comm, "sleep", autospec=True, side_effect=sleep_side_effect
+    )
+
+    # put simulator in error state before sending beacon
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {
+            "command": "set_status_code",
+            "status_code": SERIAL_COMM_FATAL_ERROR_CODE,
+        },
+        testing_queue,
+    )
+    invoke_process_run_and_check_errors(simulator)
+    # add one beacon for mc_process to read normally
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "send_single_beacon"},
+        testing_queue,
+    )
+    invoke_process_run_and_check_errors(simulator)
+    # add read bytes to flush from simulator
+    test_read_bytes = [
+        bytes(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES),
+        bytes(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES),
+        bytes(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES // 2),  # arbitrary final length
+    ]
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {
+            "command": "add_read_bytes",
+            "read_bytes": test_read_bytes,
+        },
+        testing_queue,
+    )
+    invoke_process_run_and_check_errors(simulator)
+    # read beacon, raise, error, then flush remaining serial data
+    with pytest.raises(MantarrayInstrumentError):
+        invoke_process_run_and_check_errors(
+            mc_process,
+            perform_teardown_after_loop=True,
+        )
+    # check that all data was flushed here
+    assert simulator.in_waiting == 0
+    # check that dump EEPROM command was not sent and no sleep was performed
+    mocked_write.assert_not_called()
+    mocked_sleep.assert_not_called()
+    # drain queue to prevent BrokenPipeErrors
+    drain_queue(output_queue)
+
+
+def test_McCommunicationProcess_teardown_after_loop__does_not_request_eeprom_dump_if_no_errors_occured(
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    output_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+
+    mocked_write = mocker.patch.object(simulator, "write", autospec=True)
+    mocked_sleep = mocker.patch.object(
+        mc_comm, "sleep", autospec=True, side_effect=sleep_side_effect
+    )
+
+    # run one iteration then teardown
+    invoke_process_run_and_check_errors(
+        mc_process,
+        perform_teardown_after_loop=True,
+    )
+    # check that dump EEPROM command was not sent and no sleep was performed
+    mocked_write.assert_not_called()
+    mocked_sleep.assert_not_called()
+    # drain queue to prevent BrokenPipeErrors
+    drain_queue(output_queue)
+
+
 @pytest.mark.slow
 @pytest.mark.timeout(15)
-def test_OkCommunicationProcess_teardown_after_loop__stops_running_simulator(
-    four_board_mc_comm_process,
-):
+def test_McCommunicationProcess_teardown_after_loop__stops_running_simulator():
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
     mc_process = McCommunicationProcess(
         board_queues, error_queue, suppress_setup_communication_to_main=True
@@ -1564,7 +1722,8 @@ def test_McCommunicationProcess__automatically_sends_time_set_command_when_recei
 
 
 def test_McCommunicationProcess__processes_dump_eeprom_command(
-    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     board_queues = four_board_mc_comm_process_no_handshake["board_queues"]
@@ -1598,7 +1757,6 @@ def test_McCommunicationProcess__processes_dump_eeprom_command(
 def test_McCommunicationProcess__raises_error_if_fatal_error_code_received_from_instrument__and_logs_eeprom_contents_included_in_status_beacon(
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
-    mocker,
     patch_print,
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
@@ -1626,7 +1784,6 @@ def test_McCommunicationProcess__raises_error_if_fatal_error_code_received_from_
 def test_McCommunicationProcess__when_instrument_has_soft_error_retrieves_eeprom_dump_then_raises_error_and_logs_eeprom_contents(
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
-    mocker,
     patch_print,
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
