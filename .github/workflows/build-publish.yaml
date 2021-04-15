@@ -1,5 +1,5 @@
 # Based on https://github.com/prettier/prettier/blob/master/.github/workflows/dev-test.yml
-name: Publish
+name: Release and Publish to s3
 
 # TODO (Eli 12/11/20): try and create a separate job for testing the exe that just transfers over the artifacts...somehow...will be hard since exe tests import things from the installed python package...but there were errors where it seemed like it ran in GitHub but then downloading and running locally it couldn't find the Cython imports when opening the EXE
 
@@ -10,6 +10,10 @@ on:
         description: "Release tag"
         required: true
         default: ""
+      release_channel:
+        description: "Release channel"
+        required: true
+        defauilt: "alpha"
       randomlyseed:
         description: "Pytest Randomly Seed"
         required: false
@@ -20,8 +24,6 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - "ubuntu-18.04"
-          - "ubuntu-20.04"
           - "windows-2019"
         python-version:
           - 3.8
@@ -29,11 +31,6 @@ jobs:
         node-version:
           - 14
         include:
-          # only enable coverage on the fastest job
-          - os: "ubuntu-20.04"
-            python-version: "3.8"
-            node-version: "14"
-            IS_FASTEST_JOB: true
           - os: "windows-2019"
             python-version: "3.8"
             node-version: "14"
@@ -51,8 +48,28 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v2
-        with:
-          fetch-depth: 1
+
+      - name: Check release tag
+        id: check-tag
+        run: |
+          git fetch --tags
+          echo "::set-output name=TAG::$(git tag -l ${{ github.event.inputs.release_tag }})"
+
+      - name: Init git config
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email noreply@github.com
+
+      - name: Create release tag
+        if: steps.check-tag.outputs.TAG == ''
+        run: |
+          git tag -a ${{github.event.inputs.release_tag}} -m "release ${{ github.event.inputs.release_tag }}"
+          git push origin ${{github.event.inputs.release_tag}}
+
+      - name: Checkout tag
+        run: |
+          git fetch --tags
+          git checkout tags/${{github.event.inputs.release_tag}}
 
       - name: Set up Python
         uses: actions/setup-python@v2
@@ -90,26 +107,9 @@ jobs:
           restore-keys: |
             ${{ matrix.os }}-${{ matrix.python-version }}-build-${{ env.cache-name }}-
 
-      - name: Cache Pre-commit hooks
-        uses: actions/cache@v2.1.4
-        env:
-          cache-name: cache-pre-commit-hooks
-        if: matrix.IS_FASTEST_JOB == true
-        with:
-          path: ~/.precommit_cache # Eli (10/22/20): Having the pre-commit cache inside the repo creates problems with Pytest detecting test files inside the cache
-          key: ${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-${{ hashFiles('**/.pre-commit-config.yaml') }}
-          restore-keys: |
-            ${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-
-
       - name: Display Chrome version (Windows)
         if: runner.os == 'Windows'
         run: (Get-Item (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe').'(Default)').VersionInfo
-
-      - name: Display Chrome version (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          google-chrome --version
-          chromedriver --version
 
       - name: Get Version
         id: software-version
@@ -156,21 +156,6 @@ jobs:
       - name: Install NPM Dependencies
         run: pipenv run npm ci --cache .npm_cache/
 
-      - name: Run pre-commit hooks
-        if: matrix.IS_FASTEST_JOB == true
-        env:
-          PRE_COMMIT_HOME: ~/.precommit_cache
-        # only enable pre-commit on the fastest job. When pipenv runs an install, even using --deploy, it makes tweaks...somehow...to the Pipfile
-        run: |
-          pipenv run pre-commit install
-          pipenv run pre-commit run -a
-
-      - name: Move OpalKelly .so file to needed location (Linux)
-        if: runner.os == 'Linux' # Eli (10/20/20): not sure if copying to both locations is needed...but it's working and haven't checked which is required...should theoretically only be one needed
-        run: |
-          sudo cp .venv/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/local/lib
-          sudo cp .venv/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/lib
-
       - name: Download the firmware files from AWS S3
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_USER_ACCESS_KEY }}
@@ -197,20 +182,8 @@ jobs:
         timeout-minutes: 40
         run: pipenv run pytest -xsvv --cov-report=xml --include-slow-tests --full-ci --randomly-seed=${{ github.event.inputs.randomlyseed }}
 
-      - name: Confirm Sphinx Docs build correctly
-        # only check Sphinx docs build on the fastest job
-        if: matrix.IS_FASTEST_JOB == true
-        run: pipenv run sh make_sphinx_fail_on_error.sh
-
       - name: Run Jest Tests
         run: npm run test:unit -- --ci
-
-      - name: Confirm no extra files generated by this test suite
-        if: matrix.IS_FASTEST_JOB == true
-        env:
-          PRE_COMMIT_HOME: ./.precommit_cache
-        # only enable pre-commit on the fastest job
-        run: pipenv run pre-commit run git-dirty -a
 
       - name: Insert the Build Number and Software Version into the code (Windows)
         if: runner.os == 'Windows'
@@ -220,15 +193,6 @@ jobs:
           echo $env:build_number
           ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHTIMESTAMPDURINGBUILD',"$(Get-Date -Format 'yyMMddHHmmss')--$env:build_number") | Set-Content -Path src\mantarray_desktop_app\constants.py
           ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHVERSIONDURINGBUILD',"${{steps.software-version.outputs.prop}}") | Set-Content -Path src\mantarray_desktop_app\constants.py
-
-      - name: Insert the Build Number and Software Version into the code (Linux)
-        if: runner.os == 'Linux'
-        env:
-          build_number: ${{ github.run_number }}
-        run: |
-          echo $build_number
-          sed -i 's/REPLACETHISWITHTIMESTAMPDURINGBUILD/'"$(date +'%y%m%d%H%M%S')"'--$build_number/g' src/mantarray_desktop_app/constants.py
-          sed -i 's/REPLACETHISWITHVERSIONDURINGBUILD/'"${{steps.software-version.outputs.prop}}"'/g' src/mantarray_desktop_app/constants.py
 
       - name: Compile the Python Executable
         run: pipenv run pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=dist-python --workpath=build-python
@@ -251,7 +215,7 @@ jobs:
           pipenv run python .github/workflows/vcn.py authenticate "dist-python/mantarray-flask/mantarray-flask.exe"
 
       - name: Build Full Electron App
-        run: pipenv run npm run build
+        run: pipenv run npm run build-${{github.event.inputs.release_channel}}
 
       - name: Digitally Signing the installation and win_unpacked EXE files
         if: matrix.IS_DEPLOYMENT_CONFIG == true
@@ -264,16 +228,9 @@ jobs:
           pipenv run python .github/workflows/vcn.py authenticate "dist/${{steps.product-name.outputs.prop}}-Setup-${{steps.software-version.outputs.prop}}.exe"
           pipenv run python .github/workflows/vcn.py authenticate "dist/win-unpacked/Mantarray Controller.exe"
 
-      - name: Archive Installer File
-        if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v2
-        with:
-          name: installer--${{ matrix.os }}--${{ matrix.node-version }}--${{ matrix.python-version }}
-          path: "dist/Mantarray*.exe"
-
-      - name: Archive Dist Folder
-        if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v2
-        with:
-          name: dist--${{ matrix.os }}--${{ matrix.node-version }}--${{ matrix.python-version }}
-          path: "dist/**/*"
+      - name: S3 Publisher
+        if: matrix.IS_DEPLOYMENT_CONFIG == true
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_GIT_PUBLISH_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_GIT_PUBLISH_SECRET_KEY }}
+        run: pipenv run node s3_publish.js --file="${{steps.product-name.outputs.prop}}-Setup-${{github.event.inputs.release_channel}}-${{steps.software-version.outputs.prop}}.exe" --buildDir=./dist/ --channel=${{github.event.inputs.release_channel}}
