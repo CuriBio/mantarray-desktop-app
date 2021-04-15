@@ -23,6 +23,7 @@ CURRENT_SOFTWARE_VERSION = "REPLACETHISWITHVERSIONDURINGBUILD"
 
 COMPILED_EXE_BUILD_TIMESTAMP = "REPLACETHISWITHTIMESTAMPDURINGBUILD"
 
+# Tanner (4/15/21): the latest version lives in mantarray-file-manager. This value represents the file version that is being created by the desktop app. When new mantarray-file-manager updates are brought into the desktop app, these values will differ indicating that mantarray_desktop_app.file_writer needs to be updated to match the new file version
 CURRENT_HDF5_FILE_FORMAT_VERSION = "0.4.1"
 
 DEFAULT_SERVER_PORT_NUMBER = 4567
