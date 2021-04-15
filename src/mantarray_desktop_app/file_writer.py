@@ -25,10 +25,14 @@ from labware_domain_models import LabwareDefinition
 from mantarray_file_manager import ADC_REF_OFFSET_UUID
 from mantarray_file_manager import ADC_TISSUE_OFFSET_UUID
 from mantarray_file_manager import IS_FILE_ORIGINAL_UNTRIMMED_UUID
+from mantarray_file_manager import MantarrayH5FileCreator
 from mantarray_file_manager import METADATA_UUID_DESCRIPTIONS
+from mantarray_file_manager import ORIGINAL_FILE_VERSION_UUID
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import REF_SAMPLING_PERIOD_UUID
+from mantarray_file_manager import REFERENCE_SENSOR_READINGS
 from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
+from mantarray_file_manager import TISSUE_SENSOR_READINGS
 from mantarray_file_manager import TOTAL_WELL_COUNT_UUID
 from mantarray_file_manager import TRIMMED_TIME_FROM_ORIGINAL_END_UUID
 from mantarray_file_manager import TRIMMED_TIME_FROM_ORIGINAL_START_UUID
@@ -59,18 +63,6 @@ from .exceptions import UnrecognizedCommandFromMainToFileWriterError
 GENERIC_24_WELL_DEFINITION = LabwareDefinition(row_count=4, column_count=6)
 
 
-class MantarrayH5FileCreator(
-    h5py.File
-):  # pylint: disable=too-many-ancestors # Eli (7/28/20): I don't see a way around this...we need to subclass h5py File
-    def __init__(self, file_name: str) -> None:
-        super().__init__(
-            file_name,
-            "w",
-            libver="latest",  # Eli (2/9/20) tried to specify this ('earliest', 'v110') to be more backward compatible but it didn't work for unknown reasons (gave error when trying to set swmr_mode=True)
-            userblock_size=512,  # minimum size is 512 bytes
-        )
-
-
 def _get_formatted_utc_now() -> str:
     return datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
 
@@ -79,14 +71,14 @@ def get_tissue_dataset_from_file(
     the_file: h5py.File,
 ) -> h5py.Dataset:
     """Return the dataset for tissue sensor data from the H5 file object."""
-    return the_file["tissue_sensor_readings"]
+    return the_file[TISSUE_SENSOR_READINGS]
 
 
 def get_reference_dataset_from_file(
     the_file: h5py.File,
 ) -> h5py.Dataset:
     """Return the dataset for reference sensor data from the H5 file object."""
-    return the_file["reference_sensor_readings"]
+    return the_file[REFERENCE_SENSOR_READINGS]
 
 
 def get_data_slice_within_timepoints(
@@ -355,8 +347,6 @@ class FileWriterProcess(InfiniteProcess):
         )
         sub_dir_name = f"{barcode}__{recording_start_timestamp_str}"
 
-        # if not self._file_directory:
-        #     raise NotImplementedError("file directory should always be a string")
         file_folder_dir = os.path.join(
             os.path.abspath(self._file_directory), sub_dir_name
         )
@@ -373,10 +363,12 @@ class FileWriterProcess(InfiniteProcess):
                 f"{sub_dir_name}__{GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(this_well_idx)}.h5",
             )
             this_file = MantarrayH5FileCreator(
-                file_path,
+                file_path, file_format_version=CURRENT_HDF5_FILE_FORMAT_VERSION
             )
             self._open_files[0][this_well_idx] = this_file
-            this_file.attrs["File Format Version"] = CURRENT_HDF5_FILE_FORMAT_VERSION
+            this_file.attrs[
+                str(ORIGINAL_FILE_VERSION_UUID)
+            ] = CURRENT_HDF5_FILE_FORMAT_VERSION
             this_file.attrs[
                 str(WELL_NAME_UUID)
             ] = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(this_well_idx)
@@ -423,14 +415,14 @@ class FileWriterProcess(InfiniteProcess):
             )
 
             this_file.create_dataset(
-                "reference_sensor_readings",
+                REFERENCE_SENSOR_READINGS,
                 (0,),
                 maxshape=(100 * 3600 * 12,),
                 dtype="int32",
                 chunks=True,
             )
             this_file.create_dataset(
-                "tissue_sensor_readings",
+                TISSUE_SENSOR_READINGS,
                 (0,),
                 maxshape=(100 * 3600 * 12,),
                 dtype="int32",

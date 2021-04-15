@@ -54,12 +54,14 @@ from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
 from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
+from mantarray_file_manager import FILE_FORMAT_VERSION_METADATA_KEY
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
 from mantarray_file_manager import IS_FILE_ORIGINAL_UNTRIMMED_UUID
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
 from mantarray_file_manager import METADATA_UUID_DESCRIPTIONS
+from mantarray_file_manager import ORIGINAL_FILE_VERSION_UUID
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import REF_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import REFERENCE_VOLTAGE_UUID
@@ -509,7 +511,11 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                         == COMPILED_EXE_BUILD_TIMESTAMP
                     )
                     assert (
-                        this_file_attrs["File Format Version"]
+                        this_file_attrs[str(ORIGINAL_FILE_VERSION_UUID)]
+                        == CURRENT_HDF5_FILE_FORMAT_VERSION
+                    )
+                    assert (
+                        this_file_attrs[FILE_FORMAT_VERSION_METADATA_KEY]
                         == CURRENT_HDF5_FILE_FORMAT_VERSION
                     )
                     assert this_file_attrs[
