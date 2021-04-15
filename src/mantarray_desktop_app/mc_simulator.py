@@ -169,7 +169,9 @@ class MantarrayMcSimulator(InfiniteProcess):
         """
         if len(self._leftover_read_bytes) == 0:
             try:
-                self._leftover_read_bytes = self._output_queue.get_nowait()
+                self._leftover_read_bytes = self._output_queue.get(
+                    timeout=self._read_timeout_seconds
+                )
             except queue.Empty:
                 return 0
         return len(self._leftover_read_bytes)

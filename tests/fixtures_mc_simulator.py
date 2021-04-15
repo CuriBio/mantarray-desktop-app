@@ -2,10 +2,29 @@
 from multiprocessing import Queue
 import time
 
+from mantarray_desktop_app import convert_to_status_code_bytes
+from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import MantarrayMcSimulator
+from mantarray_desktop_app import SERIAL_COMM_BOOT_UP_CODE
+from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 import pytest
 from stdlib_utils import drain_queue
 from stdlib_utils import QUEUE_CHECK_TIMEOUT_SECONDS
+
+
+STATUS_BEACON_SIZE_BYTES = 28
+HANDSHAKE_RESPONSE_SIZE_BYTES = 36
+
+TEST_HANDSHAKE_TIMESTAMP = 12345
+TEST_HANDSHAKE = create_data_packet(
+    TEST_HANDSHAKE_TIMESTAMP,
+    SERIAL_COMM_MAIN_MODULE_ID,
+    SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
+    bytes(0),
+)
+
+DEFAULT_SIMULATOR_STATUS_CODE = convert_to_status_code_bytes(SERIAL_COMM_BOOT_UP_CODE)
 
 
 class MantarrayMcSimulatorSleepAfterWrite(MantarrayMcSimulator):
