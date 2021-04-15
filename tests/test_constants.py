@@ -254,7 +254,7 @@ def test_CURRENT_HDF5_FILE_FORMAT_VERSION():
     )
     assert (
         CURRENT_HDF5_FILE_FORMAT_VERSION == latest_hdf5_file_format_version
-    ), "FileWriterProcess needs an update to match newly created files with the latest file version from mantarray-file-manager. Make the changes then update CURRENT_HDF5_FILE_FORMAT_VERSION to match the latest version"
+    ), "FileWriterProcess needs an update to match file format with the latest file version from mantarray-file-manager. Make the changes then update CURRENT_HDF5_FILE_FORMAT_VERSION to match the latest version"
 
 
 def test_COMPILED_EXE_BUILD_TIMESTAMP():
