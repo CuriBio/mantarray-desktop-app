@@ -29,9 +29,13 @@ from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_STREAM_MODE_CHANGED_BYTE
+from mantarray_desktop_app import SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE
 from mantarray_desktop_app import SERIAL_COMM_TIME_SYNC_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import SerialCommTooManyMissedHandshakesError
@@ -49,6 +53,7 @@ from ..fixtures_mc_simulator import DEFAULT_SIMULATOR_STATUS_CODE
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import HANDSHAKE_RESPONSE_SIZE_BYTES
+from ..fixtures_mc_simulator import set_simulator_idle_ready
 from ..fixtures_mc_simulator import STATUS_BEACON_SIZE_BYTES
 from ..fixtures_mc_simulator import TEST_HANDSHAKE
 from ..fixtures_mc_simulator import TEST_HANDSHAKE_TIMESTAMP
@@ -436,13 +441,7 @@ def test_MantarrayMcSimulator__raises_error_if_too_many_consecutive_handshake_pe
     mantarray_mc_simulator_no_beacon, mocker, patch_print
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
-
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "set_status_code", "status_code": SERIAL_COMM_IDLE_READY_CODE},
-        testing_queue,
-    )
-    invoke_process_run_and_check_errors(simulator)
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     mocker.patch.object(
         mc_simulator,
@@ -696,3 +695,89 @@ def test_MantarrayMcSimulator__when_in_fatal_error_state__does_not_respond_to_co
         + simulator.get_eeprom_bytes(),
     )
     assert simulator.in_waiting == 0
+
+
+def test_MantarrayMcSimulator__processes_start_data_streaming_command(
+    mantarray_mc_simulator_no_beacon, mocker
+):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+
+    # need to send command once before data is being streamed and once after to test the response in both cases
+    for response_byte_value in (
+        SERIAL_COMM_STREAM_MODE_CHANGED_BYTE,
+        SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE,
+    ):
+        # send start streaming command
+        expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+        test_start_data_streaming_command = create_data_packet(
+            expected_pc_timestamp,
+            SERIAL_COMM_MAIN_MODULE_ID,
+            SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+            bytes([SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE]),
+        )
+        simulator.write(test_start_data_streaming_command)
+        invoke_process_run_and_check_errors(simulator)
+        # assert response is correct
+        command_response_size = get_full_packet_size_from_packet_body_size(
+            SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1
+        )
+        command_response = simulator.read(size=command_response_size)
+        assert_serial_packet_is_expected(
+            command_response,
+            SERIAL_COMM_MAIN_MODULE_ID,
+            SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+            additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp)
+            + bytes([response_byte_value]),
+        )
+
+
+def test_MantarrayMcSimulator__processes_stop_data_streaming_command(
+    mantarray_mc_simulator_no_beacon, mocker
+):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+
+    dummy_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+    test_start_data_streaming_command = create_data_packet(
+        dummy_timestamp,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+        bytes([SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE]),
+    )
+    simulator.write(test_start_data_streaming_command)
+    invoke_process_run_and_check_errors(simulator)
+    # remove start data streaming response
+    command_response = simulator.read(
+        size=get_full_packet_size_from_packet_body_size(
+            SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1
+        )
+    )
+
+    # need to send command once while data is being streamed and once after it stops to test the response in both cases
+    for response_byte_value in (
+        SERIAL_COMM_STREAM_MODE_CHANGED_BYTE,
+        SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE,
+    ):
+        # send stop streaming command
+        expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+        test_start_data_streaming_command = create_data_packet(
+            expected_pc_timestamp,
+            SERIAL_COMM_MAIN_MODULE_ID,
+            SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+            bytes([SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE]),
+        )
+        simulator.write(test_start_data_streaming_command)
+        invoke_process_run_and_check_errors(simulator)
+        # assert response is correct
+        command_response_size = get_full_packet_size_from_packet_body_size(
+            SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1
+        )
+        command_response = simulator.read(size=command_response_size)
+        assert_serial_packet_is_expected(
+            command_response,
+            SERIAL_COMM_MAIN_MODULE_ID,
+            SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+            additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp)
+            + bytes([response_byte_value]),
+        )
