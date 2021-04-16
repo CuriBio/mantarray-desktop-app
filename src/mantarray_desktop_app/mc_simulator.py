@@ -458,6 +458,8 @@ class MantarrayMcSimulator(InfiniteProcess):
             for key, value in test_comm["metadata_values"].items():
                 value_bytes = convert_to_metadata_bytes(value)
                 self._metadata_dict[key.bytes] = value_bytes
+        elif command == "set_data_streaming_status":
+            self._is_streaming_data = test_comm["data_streaming_status"]
         else:
             raise UnrecognizedSimulatorTestCommandError(command)
 

@@ -142,6 +142,7 @@ from .exceptions import FirstManagedReadLessThanOneRoundRobinError
 from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
 from .exceptions import ImproperlyFormattedUserAccountUUIDError
 from .exceptions import InstrumentCommIncorrectHeaderError
+from .exceptions import InstrumentDataStreamingAlreadyStartedError
 from .exceptions import InstrumentFatalError
 from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import InstrumentSoftError
@@ -473,4 +474,5 @@ __all__ = [
     "SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE",
     "SERIAL_COMM_STREAM_MODE_CHANGED_BYTE",
     "SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE",
+    "InstrumentDataStreamingAlreadyStartedError",
 ]

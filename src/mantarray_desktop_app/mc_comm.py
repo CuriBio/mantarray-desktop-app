@@ -55,6 +55,7 @@ from .constants import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from .exceptions import InstrumentDataStreamingAlreadyStartedError
 from .exceptions import InstrumentFatalError
 from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import InstrumentSoftError
@@ -511,8 +512,9 @@ class McCommunicationProcess(InstrumentCommProcess):
                     )
                 prev_command["eeprom_contents"] = response_data
             elif prev_command["command"] == "start_data_streaming":
+                if bool(int.from_bytes(response_data, byteorder="little")):
+                    raise InstrumentDataStreamingAlreadyStartedError()
                 prev_command["timestamp"] = _get_formatted_utc_now()
-
             del prev_command[
                 "timepoint"
             ]  # main process does not need to know the timepoint and is not expecting this key in the dictionary returned to it
