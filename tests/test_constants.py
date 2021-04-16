@@ -115,6 +115,7 @@ from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
 from mantarray_desktop_app import VALID_CONFIG_SETTINGS
 from mantarray_desktop_app import VALID_SCRIPTING_COMMANDS
 from mantarray_desktop_app import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
+import mantarray_file_manager.constants
 import numpy as np
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 
@@ -248,7 +249,12 @@ def test_sensors_and_mappings():
 
 
 def test_CURRENT_HDF5_FILE_FORMAT_VERSION():
-    assert CURRENT_HDF5_FILE_FORMAT_VERSION == "0.4.1"
+    latest_hdf5_file_format_version = (
+        mantarray_file_manager.constants.CURRENT_HDF5_FILE_FORMAT_VERSION
+    )
+    assert (
+        CURRENT_HDF5_FILE_FORMAT_VERSION == latest_hdf5_file_format_version
+    ), "FileWriterProcess needs an update to match file format with the latest file version from mantarray-file-manager. Make the changes then update CURRENT_HDF5_FILE_FORMAT_VERSION to match the latest version"
 
 
 def test_COMPILED_EXE_BUILD_TIMESTAMP():
