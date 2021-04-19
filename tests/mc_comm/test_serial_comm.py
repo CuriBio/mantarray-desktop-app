@@ -425,7 +425,7 @@ def test_McCommunicationProcess__raises_error_if_command_response_not_received_w
 
     expected_command = "get_metadata"
     test_command_dict = {
-        "communication_type": "to_instrument",
+        "communication_type": "metadata_comm",
         "command": expected_command,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(

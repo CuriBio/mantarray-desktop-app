@@ -400,6 +400,7 @@ def test_McCommunicationProcess__automatically_sends_time_set_command_when_recei
     confirm_queue_is_eventually_of_size(output_queue, 1)
     message_to_main = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert message_to_main == {
+        "communication_type": "to_instrument",
         "command": "set_time",
         "message": "Instrument time synced with PC",
     }
@@ -429,7 +430,7 @@ def test_McCommunicationProcess__waits_until_instrument_is_done_rebooting_to_sen
         "command": "reboot",
     }
     test_command = {
-        "communication_type": "to_instrument",
+        "communication_type": "metadata_comm",
         "command": "get_metadata",
     }
     handle_putting_multiple_objects_into_empty_queue(
@@ -560,3 +561,47 @@ def test_McCommunicationProcess__raises_error_if_reboot_takes_longer_than_maximu
     # run mc_process to raise error after reboot period has elapsed and confirm error is raised
     with pytest.raises(InstrumentRebootTimeoutError):
         invoke_process_run_and_check_errors(mc_process)
+
+
+def test_McCommunicationProcess__requests_metadata_from_instrument_after_it_initially_reaches_idle_ready_state(
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    output_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
+    simulator = mantarray_mc_simulator["simulator"]
+    testing_queue = mantarray_mc_simulator["testing_queue"]
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator
+    )
+
+    mocker.patch.object(  # Tanner (4/6/21): Need to prevent automatic beacons without interrupting the beacons sent after status code updates
+        mc_simulator,
+        "_get_secs_since_last_status_beacon",
+        return_value=0,
+        autospec=True,
+    )
+
+    # put simulator in time sync ready status and send beacon
+    test_commands = [
+        {"command": "set_status_code", "status_code": SERIAL_COMM_TIME_SYNC_READY_CODE},
+        {"command": "send_single_beacon"},
+    ]
+    handle_putting_multiple_objects_into_empty_queue(test_commands, testing_queue)
+
+    invoke_process_run_and_check_errors(simulator, num_iterations=2)
+    # read status beacon and send time sync command
+    invoke_process_run_and_check_errors(mc_process)
+    # process command and switch to idle ready state
+    invoke_process_run_and_check_errors(simulator)
+
+    # run mc_process twice to process set time command response then trigger automatic collection of metadata
+    invoke_process_run_and_check_errors(mc_process, num_iterations=2)
+    # process get metadata command
+    invoke_process_run_and_check_errors(simulator)
+    # send metadata to main
+    invoke_process_run_and_check_errors(mc_process)
+    # check that metadata was sent to main
+    to_main_items = drain_queue(output_queue)
+    metadata_comm = to_main_items[-1]
+    assert metadata_comm["communication_type"] == "metadata_comm"
+    assert metadata_comm["metadata"] == MantarrayMcSimulator.default_metadata_values

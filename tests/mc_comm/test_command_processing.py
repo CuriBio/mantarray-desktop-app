@@ -121,7 +121,7 @@ def test_McCommunicationProcess__processes_get_metadata_command(
     )
 
     expected_response = {
-        "communication_type": "to_instrument",
+        "communication_type": "metadata_comm",
         "command": "get_metadata",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -156,7 +156,7 @@ def test_McCommunicationProcess__processes_commands_from_main_when_process_is_fu
         "mantarray_nickname": expected_nickname,
     }
     expected_response = {
-        "communication_type": "to_instrument",
+        "communication_type": "metadata_comm",
         "command": "get_metadata",
     }
     handle_putting_multiple_objects_into_empty_queue(
@@ -200,7 +200,7 @@ def test_McCommunicationProcess__processes_command_response_when_packet_received
     invoke_process_run_and_check_errors(simulator)
 
     test_command = {
-        "communication_type": "to_instrument",
+        "communication_type": "metadata_comm",
         "command": "get_metadata",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
