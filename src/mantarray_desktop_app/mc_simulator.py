@@ -207,6 +207,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         eeprom_dict = {
             "Status Code": self._status_code,
             "Time Sync Value received from PC (microseconds)": self._baseline_time_usec,
+            "Is Streaming Data": self._is_streaming_data,
         }
         return bytes(
             f" Simulator EEPROM Contents: {str(eeprom_dict)}", encoding="ascii"
