@@ -48,12 +48,16 @@ from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_SOFT_ERROR_CODE
+from .constants import SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
+from .constants import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from .exceptions import InstrumentDataStreamingAlreadyStartedError
+from .exceptions import InstrumentDataStreamingAlreadyStoppedError
 from .exceptions import InstrumentFatalError
 from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import InstrumentSoftError
@@ -337,6 +341,10 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._is_waiting_for_reboot = True
             elif comm_from_main["command"] == "dump_eeprom":
                 bytes_to_send = bytes([SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE])
+            elif comm_from_main["command"] == "start_data_streaming":
+                bytes_to_send = bytes([SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE])
+            elif comm_from_main["command"] == "stop_data_streaming":
+                bytes_to_send = bytes([SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE])
             else:
                 raise UnrecognizedCommandFromMainToMcCommError(
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
@@ -507,6 +515,13 @@ class McCommunicationProcess(InstrumentCommProcess):
                         f"Instrument EEPROM contents: {str(response_data)}"
                     )
                 prev_command["eeprom_contents"] = response_data
+            elif prev_command["command"] == "start_data_streaming":
+                if bool(int.from_bytes(response_data, byteorder="little")):
+                    raise InstrumentDataStreamingAlreadyStartedError()
+                prev_command["timestamp"] = _get_formatted_utc_now()
+            elif prev_command["command"] == "stop_data_streaming":
+                if bool(int.from_bytes(response_data, byteorder="little")):
+                    raise InstrumentDataStreamingAlreadyStoppedError()
 
             del prev_command[
                 "timepoint"

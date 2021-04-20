@@ -7,9 +7,12 @@ from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import SERIAL_COMM_BOOT_UP_CODE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_IDLE_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 import pytest
 from stdlib_utils import drain_queue
+from stdlib_utils import invoke_process_run_and_check_errors
+from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty
 from stdlib_utils import QUEUE_CHECK_TIMEOUT_SECONDS
 
 
@@ -56,6 +59,16 @@ class MantarrayMcSimulatorSleepAfterWrite(MantarrayMcSimulator):
         raise NotImplementedError(
             "This class is only for unit tests not requiring a running process"
         )
+
+
+def set_simulator_idle_ready(simulator_fixture):
+    simulator = simulator_fixture["simulator"]
+    testing_queue = simulator_fixture["testing_queue"]
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "set_status_code", "status_code": SERIAL_COMM_IDLE_READY_CODE},
+        testing_queue,
+    )
+    invoke_process_run_and_check_errors(simulator)
 
 
 @pytest.fixture(scope="function", name="mantarray_mc_simulator")

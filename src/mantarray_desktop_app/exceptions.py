@@ -190,6 +190,14 @@ class InstrumentRebootTimeoutError(Exception):
     pass
 
 
+class InstrumentDataStreamingAlreadyStartedError(Exception):
+    pass
+
+
+class InstrumentDataStreamingAlreadyStoppedError(Exception):
+    pass
+
+
 class MantarrayInstrumentError(Exception):
     """Errors occurring on the Mantarray instrument itself."""
 

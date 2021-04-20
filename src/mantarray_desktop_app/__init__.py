@@ -107,10 +107,14 @@ from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_SOFT_ERROR_CODE
+from .constants import SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
+from .constants import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
+from .constants import SERIAL_COMM_STREAM_MODE_CHANGED_BYTE
+from .constants import SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from .constants import SERIAL_COMM_TIMESTAMP_EPOCH
@@ -138,6 +142,8 @@ from .exceptions import FirstManagedReadLessThanOneRoundRobinError
 from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
 from .exceptions import ImproperlyFormattedUserAccountUUIDError
 from .exceptions import InstrumentCommIncorrectHeaderError
+from .exceptions import InstrumentDataStreamingAlreadyStartedError
+from .exceptions import InstrumentDataStreamingAlreadyStoppedError
 from .exceptions import InstrumentFatalError
 from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import InstrumentSoftError
@@ -465,4 +471,10 @@ __all__ = [
     "MantarrayInstrumentError",
     "InstrumentFatalError",
     "InstrumentSoftError",
+    "SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE",
+    "SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE",
+    "SERIAL_COMM_STREAM_MODE_CHANGED_BYTE",
+    "SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE",
+    "InstrumentDataStreamingAlreadyStartedError",
+    "InstrumentDataStreamingAlreadyStoppedError",
 ]

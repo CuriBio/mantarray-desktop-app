@@ -51,8 +51,10 @@ from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
+from .constants import SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+from .constants import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
@@ -152,6 +154,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._time_of_last_comm_from_pc_secs: Optional[float] = None
         self._reboot_time_secs: Optional[float] = None
         self._boot_up_time_secs: Optional[float] = None
+        self._is_streaming_data = False
         self._leftover_read_bytes = bytes(0)
         self._read_timeout_seconds = read_timeout_seconds
         self._metadata_dict: Dict[bytes, bytes] = dict()
@@ -327,6 +330,14 @@ class MantarrayMcSimulator(InfiniteProcess):
             command_byte = comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX]
             if command_byte == SERIAL_COMM_REBOOT_COMMAND_BYTE:
                 self._reboot_time_secs = perf_counter()
+            elif command_byte == SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE:
+                response_byte = int(self._is_streaming_data)
+                response_body += bytes([response_byte])
+                self._is_streaming_data = True
+            elif command_byte == SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE:
+                response_byte = int(not self._is_streaming_data)
+                response_body += bytes([response_byte])
+                self._is_streaming_data = False
             elif command_byte == SERIAL_COMM_GET_METADATA_COMMAND_BYTE:
                 metadata_bytes = bytes(0)
                 for key, value in self._metadata_dict.items():
@@ -447,6 +458,8 @@ class MantarrayMcSimulator(InfiniteProcess):
             for key, value in test_comm["metadata_values"].items():
                 value_bytes = convert_to_metadata_bytes(value)
                 self._metadata_dict[key.bytes] = value_bytes
+        elif command == "set_data_streaming_status":
+            self._is_streaming_data = test_comm["data_streaming_status"]
         else:
             raise UnrecognizedSimulatorTestCommandError(command)
 
