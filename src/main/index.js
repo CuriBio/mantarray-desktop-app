@@ -1,7 +1,9 @@
 /* globals INCLUDE_RESOURCES_PATH */
 import { app } from "electron";
+const autoUpdater = require("electron-updater");
 const log = require("electron-log");
 const path = require("path");
+const features = require("./features.json");
 const now = new Date();
 const utc_month = (now.getUTCMonth() + 1).toString().padStart(2, "0"); // Eli (3/29/21) for some reason getUTCMonth returns a zero-based number, while everything else is a month, so adjusting here
 const filename_prefix = `mantarray_log__${now.getUTCFullYear()}_${utc_month}_${now
@@ -175,6 +177,11 @@ app.on("window-all-closed", function () {
 // let win_handler = null;
 app.on("ready", () => {
   console.log("ready in index.js");
+  if (features.autoupdate) {
+    autoUpdater.checkForUpdatesAndNotify();
+  } else {
+    console.log("Autoupdate feature disabled");
+  }
 });
 
 // This is another place to handle events after all windows are closed
