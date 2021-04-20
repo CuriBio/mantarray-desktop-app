@@ -122,7 +122,6 @@ class McCommunicationProcess(InstrumentCommProcess):
 
     def __init__(self, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
-        self._board_connection_set_manually = [False] * len(self._board_queues)
         self._error: Optional[Exception] = None
         self._is_instrument_in_error_state = False
         self._is_registered_with_serial_comm: List[bool] = [False] * len(
@@ -216,10 +215,6 @@ class McCommunicationProcess(InstrumentCommProcess):
         is_registered: bool = self._is_registered_with_serial_comm[board_idx]
         return is_registered
 
-    def set_board_connection(self, board_idx: int, board: MantarrayMcSimulator) -> None:
-        super().set_board_connection(board_idx, board)
-        self._board_connection_set_manually[board_idx] = True
-
     def create_connections_to_all_available_boards(self) -> None:
         """Create initial connections to boards.
 
@@ -256,7 +251,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                     Queue(),
                     Queue(),
                 )
-            self._board_connections[i] = serial_obj
+            self.set_board_connection(i, serial_obj)
             msg["is_connected"] = not isinstance(serial_obj, MantarrayMcSimulator)
             msg["timestamp"] = _get_formatted_utc_now()
             to_main_queue.put_nowait(msg)
