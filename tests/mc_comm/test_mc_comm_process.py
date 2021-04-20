@@ -159,7 +159,7 @@ def test_McCommunicationProcess_soft_stop_not_allowed_if_communication_from_main
     mc_process = four_board_mc_comm_process["mc_process"]
     board_queues = four_board_mc_comm_process["board_queues"]
     dummy_communication = {
-        "communication_type": "to_instrument",
+        "communication_type": "metadata_comm",
         "command": "get_metadata",
     }
     items_to_put_in_queue = [copy.deepcopy(dummy_communication)] * 3
@@ -182,7 +182,7 @@ def test_McCommunicationProcess_soft_stop_not_allowed_if_waiting_for_command_res
     mc_process = four_board_mc_comm_process["mc_process"]
     board_queues = four_board_mc_comm_process["board_queues"]
     test_communication = {
-        "communication_type": "to_instrument",
+        "communication_type": "metadata_comm",
         "command": "get_metadata",
     }
     set_connection_and_register_simulator(

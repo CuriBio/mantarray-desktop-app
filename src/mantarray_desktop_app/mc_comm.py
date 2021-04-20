@@ -34,6 +34,7 @@ from .constants import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
+from .constants import SERIAL_COMM_IDLE_READY_CODE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
@@ -126,6 +127,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._is_registered_with_serial_comm: List[bool] = [False] * len(
             self._board_queues
         )
+        self._auto_get_metadata = False
         self._time_of_last_handshake_secs: Optional[float] = None
         self._time_of_last_beacon_secs: Optional[float] = None
         self._commands_awaiting_response: Deque[  # pylint: disable=unsubscriptable-object
@@ -250,7 +252,6 @@ class McCommunicationProcess(InstrumentCommProcess):
                     Queue(),
                 )
             self.set_board_connection(i, serial_obj)
-            # TODO Tanner (3/15/21): At some point during this process starting up, need to get serial number and nickname (maybe just all metadata?) and return to main since it can't be done until magic word is registered
             msg["is_connected"] = not isinstance(serial_obj, MantarrayMcSimulator)
             msg["timestamp"] = _get_formatted_utc_now()
             to_main_queue.put_nowait(msg)
@@ -334,9 +335,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
                 )
         elif communication_type == "to_instrument":
-            if comm_from_main["command"] == "get_metadata":
-                bytes_to_send = bytes([SERIAL_COMM_GET_METADATA_COMMAND_BYTE])
-            elif comm_from_main["command"] == "reboot":
+            if comm_from_main["command"] == "reboot":
                 bytes_to_send = bytes([SERIAL_COMM_REBOOT_COMMAND_BYTE])
                 self._is_waiting_for_reboot = True
             elif comm_from_main["command"] == "dump_eeprom":
@@ -349,6 +348,8 @@ class McCommunicationProcess(InstrumentCommProcess):
                 raise UnrecognizedCommandFromMainToMcCommError(
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
                 )
+        elif communication_type == "metadata_comm":
+            bytes_to_send = bytes([SERIAL_COMM_GET_METADATA_COMMAND_BYTE])
         else:
             raise UnrecognizedCommandFromMainToMcCommError(
                 f"Invalid communication_type: {communication_type}"
@@ -477,7 +478,11 @@ class McCommunicationProcess(InstrumentCommProcess):
                     bytes([SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE]),
                 )
                 self._commands_awaiting_response.append(
-                    {"command": "dump_eeprom", "timepoint": perf_counter()}
+                    {
+                        "communication_type": "to_instrument",
+                        "command": "dump_eeprom",
+                        "timepoint": perf_counter(),
+                    }
                 )
                 self._is_instrument_in_error_state = True
             elif status_code == SERIAL_COMM_TIME_SYNC_READY_CODE:
@@ -489,8 +494,29 @@ class McCommunicationProcess(InstrumentCommProcess):
                     + convert_to_timestamp_bytes(get_serial_comm_timestamp()),
                 )
                 self._commands_awaiting_response.append(
-                    {"command": "set_time", "timepoint": perf_counter()}
+                    {
+                        "communication_type": "to_instrument",
+                        "command": "set_time",
+                        "timepoint": perf_counter(),
+                    }
                 )
+                self._auto_get_metadata = True
+            elif status_code == SERIAL_COMM_IDLE_READY_CODE and self._auto_get_metadata:
+                self._send_data_packet(
+                    board_idx,
+                    SERIAL_COMM_MAIN_MODULE_ID,
+                    SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+                    bytes([SERIAL_COMM_GET_METADATA_COMMAND_BYTE])
+                    + convert_to_timestamp_bytes(get_serial_comm_timestamp()),
+                )
+                self._commands_awaiting_response.append(
+                    {
+                        "communication_type": "metadata_comm",
+                        "command": "get_metadata",
+                        "timepoint": perf_counter(),
+                    }
+                )
+                self._auto_get_metadata = False
         elif packet_type == SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE:
             response_data = packet_body[SERIAL_COMM_TIMESTAMP_LENGTH_BYTES:]
             if not self._commands_awaiting_response:
