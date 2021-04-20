@@ -144,7 +144,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         self.start_processes()
 
     def boot_up_instrument(self, load_firmware_file: bool = True) -> Dict[str, Any]:
-        """Boot up the Mantarray instrument.
+        """Boot up a Mantarray Beta 1 instrument.
 
         It is assumed that 'bit_file_name' will be a path to a real .bit
         firmware file whose name follows the format:

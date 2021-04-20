@@ -409,6 +409,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 continue
             self._handle_error_in_subprocess(iter_process, communication)
 
+        # make sure system status is up to date
         if (
             self._values_to_share_to_server["system_status"]
             == SERVER_INITIALIZING_STATE
@@ -425,15 +426,13 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 load_firmware_file=self._load_firmware_file
             )
 
+        # check/handle comm from the server and each subprocess
         self._check_and_handle_instrument_comm_to_main_queue()
         self._check_and_handle_file_writer_to_main_queue()
         self._check_and_handle_data_analyzer_to_main_queue()
         self._check_and_handle_server_to_main_queue()
 
-        to_instrument_comm = self._process_manager.queue_container().get_communication_to_instrument_comm_queue(
-            0
-        )
-
+        # handle barcode polling. This should be removed once the physical instrument is able to detect plate placement/removal on its own
         if self._last_barcode_clear_time is None:
             self._last_barcode_clear_time = _get_barcode_clear_time()
         if (
