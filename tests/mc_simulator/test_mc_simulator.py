@@ -9,16 +9,20 @@ from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
+from mantarray_desktop_app import SamplingPeriodChangeWhileDataStreamingError
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_IDLE_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_BYTE_LOOKUP_TABLE
+from mantarray_desktop_app import SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from mantarray_desktop_app import SerialCommInvalidSamplingPeriodError
 from mantarray_desktop_app import UnrecognizedSimulatorTestCommandError
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 from mantarray_file_manager import BOOTUP_COUNTER_UUID
@@ -39,6 +43,7 @@ from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import fixture_runnable_mantarray_mc_simulator
 from ..fixtures_mc_simulator import HANDSHAKE_RESPONSE_SIZE_BYTES
+from ..fixtures_mc_simulator import set_simulator_idle_ready
 from ..fixtures_mc_simulator import STATUS_BEACON_SIZE_BYTES
 from ..fixtures_mc_simulator import TEST_HANDSHAKE
 from ..helpers import assert_serial_packet_is_expected
@@ -607,3 +612,60 @@ def test_MantarrayMcSimulator__accepts_time_sync_along_with_status_code_update__
         timestamp=(expected_time_usecs + spied_get_us.spy_return)
         // MICROSECONDS_PER_CENTIMILLISECOND,
     )
+
+
+def test_MantarrayMcSimulator__raises_error_when_change_sensors_axes_sampling_period_command_received_with_invalid_sampling_period(
+    mantarray_mc_simulator_no_beacon, mocker
+):
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    # send command with invalid sampling period
+    test_sensor_axis_id = SERIAL_COMM_SENSOR_AXIS_BYTE_LOOKUP_TABLE["B"]["Z"]
+    bad_sampling_period = 1001
+    test_well_idx = 0
+    dummy_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+    turn_axis_on_command = create_data_packet(
+        dummy_timestamp,
+        test_well_idx + 1,
+        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+        bytes([SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE, test_sensor_axis_id])
+        + bad_sampling_period.to_bytes(2, byteorder="little"),
+    )
+    simulator.write(turn_axis_on_command)
+    # process command and raise error with given sampling period
+    with pytest.raises(
+        SerialCommInvalidSamplingPeriodError, match=str(bad_sampling_period)
+    ):
+        invoke_process_run_and_check_errors(simulator)
+
+
+def test_MantarrayMcSimulator__raises_error_when_change_sensors_axes_sampling_period_command_received_while_data_is_streaming(
+    mantarray_mc_simulator_no_beacon, mocker
+):
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+
+    # enable data streaming
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "set_data_streaming_status", "data_streaming_status": True},
+        testing_queue,
+    )
+    invoke_process_run_and_check_errors(simulator)
+    # send command with invalid sampling period
+    test_sensor_axis_id = SERIAL_COMM_SENSOR_AXIS_BYTE_LOOKUP_TABLE["C"]["Y"]
+    test_sampling_period = 11000
+    test_well_idx = 0
+    dummy_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+    turn_axis_on_command = create_data_packet(
+        dummy_timestamp,
+        test_well_idx + 1,
+        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+        bytes([SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE, test_sensor_axis_id])
+        + test_sampling_period.to_bytes(2, byteorder="little"),
+    )
+    simulator.write(turn_axis_on_command)
+    # process command and raise error with given sampling period
+    with pytest.raises(SamplingPeriodChangeWhileDataStreamingError):
+        invoke_process_run_and_check_errors(simulator)

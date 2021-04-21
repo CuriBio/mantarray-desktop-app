@@ -26,6 +26,8 @@ from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_BYTE_LOOKUP_TABLE
+from mantarray_desktop_app import SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
@@ -781,3 +783,52 @@ def test_MantarrayMcSimulator__processes_stop_data_streaming_command(
             additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp)
             + bytes([response_byte_value]),
         )
+
+
+def test_MantarrayMcSimulator__processes_change_sensors_axes_sampling_period_command(
+    mantarray_mc_simulator_no_beacon, mocker
+):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+
+    test_sensor_axis_id = SERIAL_COMM_SENSOR_AXIS_BYTE_LOOKUP_TABLE["A"]["X"]
+    expected_sampling_period = 1000
+    expected_well_idx = 0
+    # assert that axis is not enabled (sampling period of 0)
+    assert (
+        simulator.get_well_recording_id_sampling_period(
+            expected_well_idx, test_sensor_axis_id
+        )
+        == 0
+    )
+    # send command to turn axis on
+    expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+    turn_axis_on_command = create_data_packet(
+        expected_pc_timestamp,
+        expected_well_idx + 1,
+        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+        bytes([SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE, test_sensor_axis_id])
+        + expected_sampling_period.to_bytes(2, byteorder="little"),
+    )
+    simulator.write(turn_axis_on_command)
+    # process command and enable axis
+    invoke_process_run_and_check_errors(simulator)
+    # assert command response is correct (only do this once)
+    command_response = simulator.read(
+        size=get_full_packet_size_from_packet_body_size(
+            SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+        )
+    )
+    assert_serial_packet_is_expected(
+        command_response,
+        expected_well_idx + 1,
+        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+        additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp),
+    )
+    # assert that axis sampling period is updated
+    assert (
+        simulator.get_well_recording_id_sampling_period(
+            expected_well_idx, test_sensor_axis_id
+        )
+        == expected_sampling_period
+    )

@@ -29,6 +29,7 @@ from stdlib_utils import SECONDS_TO_SLEEP_BETWEEN_CHECKING_QUEUE_SIZE
 
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
+from .constants import MICROSECONDS_PER_MILLISECOND
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BOOT_UP_CODE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
@@ -48,6 +49,7 @@ from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
+from .constants import SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
@@ -58,6 +60,8 @@ from .constants import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from .exceptions import SamplingPeriodChangeWhileDataStreamingError
+from .exceptions import SerialCommInvalidSamplingPeriodError
 from .exceptions import SerialCommTooManyMissedHandshakesError
 from .exceptions import UnrecognizedSerialCommModuleIdError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
@@ -142,11 +146,13 @@ class MantarrayMcSimulator(InfiniteProcess):
         testing_queue: Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
         logging_level: int = logging.INFO,
         read_timeout_seconds: Union[int, float] = 0,
+        num_wells: int = 24,
     ) -> None:
         super().__init__(fatal_error_reporter, logging_level=logging_level)
         self._output_queue = output_queue
         self._input_queue = input_queue
         self._testing_queue = testing_queue
+        self._num_wells = num_wells
         self._baseline_time_usec: Optional[int] = None
         self._timepoint_of_time_sync_us: Optional[int] = None
         self._time_of_last_status_beacon_secs: Optional[float] = None
@@ -155,6 +161,8 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._reboot_time_secs: Optional[float] = None
         self._boot_up_time_secs: Optional[float] = None
         self._is_streaming_data = False
+        self._sampling_periods: Dict[int, Dict[int, int]] = dict()
+        self._reset_sampling_periods()
         self._leftover_read_bytes = bytes(0)
         self._read_timeout_seconds = read_timeout_seconds
         self._metadata_dict: Dict[bytes, bytes] = dict()
@@ -188,6 +196,12 @@ class MantarrayMcSimulator(InfiniteProcess):
                 metadata_value
             )
 
+    def _reset_sampling_periods(self) -> None:
+        for well_idx in range(self._num_wells):
+            self._sampling_periods[well_idx] = dict()
+            for sensor_axis_id in range(9):
+                self._sampling_periods[well_idx][sensor_axis_id] = 0
+
     def _get_us_since_time_sync(self) -> int:
         return (
             0
@@ -208,10 +222,17 @@ class MantarrayMcSimulator(InfiniteProcess):
             "Status Code": self._status_code,
             "Time Sync Value received from PC (microseconds)": self._baseline_time_usec,
             "Is Streaming Data": self._is_streaming_data,
+            "Sampling Periods": self._sampling_periods,
         }
         return bytes(
             f" Simulator EEPROM Contents: {str(eeprom_dict)}", encoding="ascii"
         )
+
+    def get_well_recording_id_sampling_period(
+        self, well_idx: int, sensor_axis_id: int
+    ) -> int:
+        """Mainly for use in unit tests."""
+        return self._sampling_periods[well_idx][sensor_axis_id]
 
     def _send_data_packet(
         self,
@@ -306,6 +327,8 @@ class MantarrayMcSimulator(InfiniteProcess):
         module_id = comm_from_pc[SERIAL_COMM_MODULE_ID_INDEX]
         if module_id == SERIAL_COMM_MAIN_MODULE_ID:
             self._process_main_module_command(comm_from_pc)
+        elif module_id <= self._num_wells:
+            self._process_well_sensor_command(module_id, comm_from_pc)
         else:
             raise UnrecognizedSerialCommModuleIdError(module_id)
 
@@ -377,6 +400,37 @@ class MantarrayMcSimulator(InfiniteProcess):
         # update status code (if an update is necessary) after sending command response
         if status_code_update is not None:
             self._update_status_code(status_code_update)
+
+    def _process_well_sensor_command(self, module_id: int, comm_from_pc: bytes) -> None:
+        timestamp_from_pc_bytes = comm_from_pc[
+            SERIAL_COMM_TIMESTAMP_BYTES_INDEX : SERIAL_COMM_TIMESTAMP_BYTES_INDEX
+            + SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+        ]
+        response_body = timestamp_from_pc_bytes
+        command_byte = comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX]
+        if command_byte == SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE:
+            if self._is_streaming_data:
+                raise SamplingPeriodChangeWhileDataStreamingError()
+            well_index = module_id - 1
+            sensor_axis_id = comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 1]
+            sampling_period = int.from_bytes(
+                comm_from_pc[
+                    SERIAL_COMM_ADDITIONAL_BYTES_INDEX
+                    + 2 : SERIAL_COMM_ADDITIONAL_BYTES_INDEX
+                    + 4
+                ],
+                byteorder="little",
+            )
+            if sampling_period % MICROSECONDS_PER_MILLISECOND != 0:
+                raise SerialCommInvalidSamplingPeriodError(sampling_period)
+            self._sampling_periods[well_index][sensor_axis_id] = sampling_period
+        else:
+            raise NotImplementedError(command_byte)
+        self._send_data_packet(
+            module_id,
+            SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+            response_body,
+        )
 
     def _update_status_code(self, new_code: int) -> None:
         self._status_code = new_code

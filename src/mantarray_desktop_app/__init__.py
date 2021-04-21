@@ -62,6 +62,7 @@ from .constants import LIVE_VIEW_ACTIVE_STATE
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import MAX_POSSIBLE_CONNECTED_BOARDS
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
+from .constants import MICROSECONDS_PER_MILLISECOND
 from .constants import MIDSCALE_CODE
 from .constants import MILLIVOLTS_PER_VOLT
 from .constants import NANOSECONDS_PER_CENTIMILLISECOND
@@ -103,6 +104,8 @@ from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
+from .constants import SERIAL_COMM_SENSOR_AXIS_BYTE_LOOKUP_TABLE
+from .constants import SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
@@ -155,12 +158,14 @@ from .exceptions import MantarrayInstrumentError
 from .exceptions import MismatchedScriptTypeError
 from .exceptions import MultiprocessingNotSetToSpawnError
 from .exceptions import RecordingFolderDoesNotExistError
+from .exceptions import SamplingPeriodChangeWhileDataStreamingError
 from .exceptions import ScriptDoesNotContainEndCommandError
 from .exceptions import SerialCommCommandResponseTimeoutError
 from .exceptions import SerialCommHandshakeTimeoutError
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
 from .exceptions import SerialCommIncorrectChecksumFromPCError
 from .exceptions import SerialCommIncorrectMagicWordFromMantarrayError
+from .exceptions import SerialCommInvalidSamplingPeriodError
 from .exceptions import SerialCommMetadataValueTooLargeError
 from .exceptions import SerialCommPacketFromMantarrayTooSmallError
 from .exceptions import SerialCommPacketRegistrationReadEmptyError
@@ -477,4 +482,9 @@ __all__ = [
     "SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE",
     "InstrumentDataStreamingAlreadyStartedError",
     "InstrumentDataStreamingAlreadyStoppedError",
+    "SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE",
+    "SERIAL_COMM_SENSOR_AXIS_BYTE_LOOKUP_TABLE",
+    "MICROSECONDS_PER_MILLISECOND",
+    "SerialCommInvalidSamplingPeriodError",
+    "SamplingPeriodChangeWhileDataStreamingError",
 ]
