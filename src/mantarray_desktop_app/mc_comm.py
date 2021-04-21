@@ -45,6 +45,7 @@ from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
+from .constants import SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
@@ -124,6 +125,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         super().__init__(*args, **kwargs)
         self._error: Optional[Exception] = None
         self._is_instrument_in_error_state = False
+        self._num_wells = 24
         self._is_registered_with_serial_comm: List[bool] = [False] * len(
             self._board_queues
         )
@@ -246,10 +248,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             else:
                 msg["message"] = "No board detected. Creating simulator."
                 serial_obj = MantarrayMcSimulator(
-                    Queue(),
-                    Queue(),
-                    Queue(),
-                    Queue(),
+                    Queue(), Queue(), Queue(), Queue(), num_wells=self._num_wells
                 )
             self.set_board_connection(i, serial_obj)
             msg["is_connected"] = not isinstance(serial_obj, MantarrayMcSimulator)
@@ -321,6 +320,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         except queue.Empty:
             return
         board_idx = 0
+        module_id = SERIAL_COMM_MAIN_MODULE_ID
         bytes_to_send: bytes
 
         communication_type = comm_from_main["communication_type"]
@@ -344,6 +344,17 @@ class McCommunicationProcess(InstrumentCommProcess):
                 bytes_to_send = bytes([SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE])
             elif comm_from_main["command"] == "stop_data_streaming":
                 bytes_to_send = bytes([SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE])
+            elif comm_from_main["command"] == "change_sensor_axis_sampling_period":
+                module_id = comm_from_main["well_index"] + 1
+                bytes_to_send = bytes(
+                    [
+                        SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE,
+                        comm_from_main["sensor_axis_id"],
+                    ]
+                )
+                bytes_to_send += comm_from_main["sampling_period"].to_bytes(
+                    2, byteorder="little"
+                )
             else:
                 raise UnrecognizedCommandFromMainToMcCommError(
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
@@ -357,7 +368,7 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         self._send_data_packet(
             board_idx,
-            SERIAL_COMM_MAIN_MODULE_ID,
+            module_id,
             SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
             bytes_to_send,
         )
@@ -429,12 +440,12 @@ class McCommunicationProcess(InstrumentCommProcess):
                 f"Invalid packet length received: {packet_size}, Full Data Packet: {str(full_data_packet)}"
             )
         module_id = full_data_packet[SERIAL_COMM_MODULE_ID_INDEX]
-        if module_id == SERIAL_COMM_MAIN_MODULE_ID:
-            self._process_main_module_comm(full_data_packet)
+        if module_id <= self._num_wells:
+            self._process_comm_from_instrument(full_data_packet)
         else:
             raise UnrecognizedSerialCommModuleIdError(module_id)
 
-    def _process_main_module_comm(self, comm_from_instrument: bytes) -> None:
+    def _process_comm_from_instrument(self, comm_from_instrument: bytes) -> None:
         board_idx = 0
         packet_body = comm_from_instrument[
             SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES
