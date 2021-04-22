@@ -609,3 +609,19 @@ def test_MantarrayProcessesManager__are_subprocess_start_ups_complete__returns_f
             iter_process, "is_start_up_complete", autospec=True, return_value=True
         )
     assert test_process_manager.are_subprocess_start_ups_complete() is False
+
+
+def test_MantarrayProcessesManager__passes_beta_2_flag_to_subprocesses_other_than_instrument_comm(
+    mocker,
+):
+    expected_beta_2_flag = True
+    shared_values_dict = {"beta_2_mode": expected_beta_2_flag}
+    manager = MantarrayProcessesManager(values_to_share_to_server=shared_values_dict)
+
+    spied_fw_init = mocker.spy(FileWriterProcess, "__init__")
+    spied_da_init = mocker.spy(DataAnalyzerProcess, "__init__")
+
+    manager.create_processes()
+
+    assert spied_fw_init.call_args.kwargs["beta_2_mode"] is expected_beta_2_flag
+    assert spied_da_init.call_args.kwargs["beta_2_mode"] is expected_beta_2_flag

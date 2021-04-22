@@ -89,6 +89,8 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         queue_container = MantarrayQueueContainer()
         self._queue_container = queue_container
 
+        beta_2_mode = self._values_to_share_to_server["beta_2_mode"]
+
         self._server_thread = ServerThread(
             queue_container.get_communication_queue_from_server_to_main(),
             queue_container.get_server_error_queue(),
@@ -113,6 +115,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             queue_container.get_file_writer_error_queue(),
             file_directory=self._file_directory,
             logging_level=self._logging_level,
+            beta_2_mode=beta_2_mode,
         )
 
         self._data_analyzer_process = DataAnalyzerProcess(
@@ -121,6 +124,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             queue_container.get_communication_queue_from_data_analyzer_to_main(),
             queue_container.get_data_analyzer_error_queue(),
             logging_level=self._logging_level,
+            beta_2_mode=beta_2_mode,
         )
 
         self._all_processes = (
