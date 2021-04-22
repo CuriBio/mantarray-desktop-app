@@ -30,6 +30,7 @@ from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import SERVER_INITIALIZING_STATE
+from .exceptions import InvalidBeta2FlagOptionError
 from .exceptions import MultiprocessingNotSetToSpawnError
 from .process_manager import MantarrayProcessesManager
 from .process_monitor import MantarrayProcessesMonitor
@@ -149,7 +150,20 @@ def main(
         action="store_true",
         help="override any supplied expected software version and disable the check",
     )
+    parser.add_argument(
+        "--beta-2-mode",
+        action="store_true",
+        help="indicates the software will be connecting to a beta 2 mantarray instrument",
+    )
     parsed_args = parser.parse_args(command_line_args)
+
+    if parsed_args.beta_2_mode:
+        for invalid_beta_2_option, error_message in (
+            (parsed_args.no_load_firmware, "--no-load-firmware"),
+            (parsed_args.skip_mantarray_boot_up, "--skip-mantarray-boot-up"),
+        ):
+            if invalid_beta_2_option:
+                raise InvalidBeta2FlagOptionError(error_message)
 
     if parsed_args.log_level_debug:
         log_level = logging.DEBUG
@@ -166,8 +180,8 @@ def main(
     msg = f"Build timestamp/version: {COMPILED_EXE_BUILD_TIMESTAMP}"
     logger.info(msg)
     parsed_args_dict = copy.deepcopy(vars(parsed_args))
+    # Tanner (1/14/21): parsed_args_dict is only used to log the command line args at the moment, so initial_base64_settings can be deleted and log_file_dir can just be replaced here without affecting anything that actually needs the original value
     del parsed_args_dict["initial_base64_settings"]
-    # Tanner (1/14/21): parsed_args_dict is only used to log the command line args at the moment, so log_file_dir can just be replaced here without affecting anything that actually needs the original value
     parsed_args_dict["log_file_dir"] = scrubbed_path_to_log_folder
     msg = f"Command Line Args: {parsed_args_dict}".replace(
         r"\\",
@@ -205,6 +219,8 @@ def main(
         socket.gethostname().encode(encoding="UTF-8")
     ).hexdigest()
     shared_values_dict["computer_name_hash"] = computer_name_hash
+
+    shared_values_dict["beta_2_mode"] = parsed_args.beta_2_mode
 
     msg = f"Log File UUID: {log_file_uuid}"
     logger.info(msg)

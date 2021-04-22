@@ -22,6 +22,7 @@ from mantarray_desktop_app import get_api_endpoint
 from mantarray_desktop_app import get_server_port_number
 from mantarray_desktop_app import ImproperlyFormattedCustomerAccountUUIDError
 from mantarray_desktop_app import ImproperlyFormattedUserAccountUUIDError
+from mantarray_desktop_app import InvalidBeta2FlagOptionError
 from mantarray_desktop_app import main
 from mantarray_desktop_app import MantarrayProcessesManager
 from mantarray_desktop_app import MantarrayProcessesMonitor
@@ -145,6 +146,7 @@ def test_main__logs_command_line_arguments(mocker):
         "expected_software_version": None,
         "no_load_firmware": False,
         "skip_software_version_verification": False,
+        "beta_2_mode": False,
     }
     spied_info_logger.assert_any_call(
         f"Command Line Args: {expected_cmd_line_args_dict}"
@@ -316,9 +318,6 @@ def test_main_entrypoint__correctly_assigns_shared_values_dictionary_to_process_
     wait_for_subprocesses_to_start()
     assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
 
-    # the_process_monitor = get_mantarray_processes_monitor()
-    # assert isinstance(the_process_monitor, MantarrayProcessesMonitor)
-
     shared_values_dict = app_info["object_access_inside_main"][
         "values_to_share_to_server"
     ]
@@ -405,12 +404,16 @@ def test_main__stores_values_from_command_line_arguments(
         json_str = json.dumps(test_dict)
         b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
 
-        command_line_args = [f"--initial-base64-settings={b64_encoded}"]
+        command_line_args = [
+            f"--initial-base64-settings={b64_encoded}",
+            "--beta-2-mode",
+        ]
         app_info = fully_running_app_from_main_entrypoint(command_line_args)
 
         shared_values_dict = app_info["object_access_inside_main"][
             "values_to_share_to_server"
         ]
+        assert shared_values_dict["beta_2_mode"] is True
         actual_config_settings = shared_values_dict["config_settings"]
         assert (
             actual_config_settings["Customer Account ID"]
@@ -536,7 +539,7 @@ def test_main__puts_server_into_error_mode_if_expected_software_version_is_incor
 
 @pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 @pytest.mark.slow
-def test_main__When_launched_with_an_expected_software_version_but_also_the_flag_to_skip_the_check__Then_server_does_not_go_into_error_mode(
+def test_main__when_launched_with_an_expected_software_version_but_also_the_flag_to_skip_the_check__then_server_does_not_go_into_error_mode(
     fully_running_app_from_main_entrypoint, test_client
 ):
     fully_running_app_from_main_entrypoint(
@@ -559,3 +562,12 @@ def test_main__boots_up_instrument_without_a_bitfile_when_using_a_simulator__whe
     confirm_port_in_use(port, timeout=5)
     wait_for_subprocesses_to_start()
     assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
+
+
+def test_main__disallows_cmd_line_args_that_do_not_apply_to_beta_2__when_in_beta_2_mode():
+    with pytest.raises(InvalidBeta2FlagOptionError, match="--skip-mantarray-boot-up"):
+        main.main(
+            ["--skip-mantarray-boot-up", "--beta-2-mode", "--debug-test-post-build"]
+        )
+    with pytest.raises(InvalidBeta2FlagOptionError, match="--no-load-firmware"):
+        main.main(["--no-load-firmware", "--beta-2-mode", "--debug-test-post-build"])
