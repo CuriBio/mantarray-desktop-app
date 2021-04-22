@@ -7,6 +7,7 @@ from mantarray_desktop_app import DataAnalyzerProcess
 from mantarray_desktop_app import FileWriterProcess
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import MantarrayProcessesManager
+from mantarray_desktop_app import McCommunicationProcess
 from mantarray_desktop_app import OkCommunicationProcess
 from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import ServerThread
@@ -625,3 +626,20 @@ def test_MantarrayProcessesManager__passes_beta_2_flag_to_subprocesses_other_tha
 
     assert spied_fw_init.call_args.kwargs["beta_2_mode"] is expected_beta_2_flag
     assert spied_da_init.call_args.kwargs["beta_2_mode"] is expected_beta_2_flag
+
+    # clean up the ServerThread singleton
+    clear_the_server_thread()
+
+
+def test_MantarrayProcessesManager__creates_mc_comm_instead_of_ok_comm_when_beta_2_flag_is_set_true(
+    mocker,
+):
+    shared_values_dict = {"beta_2_mode": True}
+    manager = MantarrayProcessesManager(values_to_share_to_server=shared_values_dict)
+    manager.create_processes()
+
+    mc_comm_process = manager.get_instrument_process()
+    assert isinstance(mc_comm_process, McCommunicationProcess) is True
+
+    # clean up the ServerThread singleton
+    clear_the_server_thread()

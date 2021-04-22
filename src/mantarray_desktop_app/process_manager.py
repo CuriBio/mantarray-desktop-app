@@ -21,6 +21,7 @@ from .data_analyzer import DataAnalyzerProcess
 from .file_writer import FileWriterProcess
 from .firmware_manager import get_latest_firmware
 from .instrument_comm import InstrumentCommProcess
+from .mc_comm import McCommunicationProcess
 from .ok_comm import OkCommunicationProcess
 from .queue_container import MantarrayQueueContainer
 from .server import ServerThread
@@ -89,7 +90,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         queue_container = MantarrayQueueContainer()
         self._queue_container = queue_container
 
-        beta_2_mode = self._values_to_share_to_server["beta_2_mode"]
+        beta_2_mode = self._values_to_share_to_server.get("beta_2_mode", False)
 
         self._server_thread = ServerThread(
             queue_container.get_communication_queue_from_server_to_main(),
@@ -102,7 +103,10 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             ),
         )
 
-        self._instrument_communication_process = OkCommunicationProcess(
+        instrument_comm_process = (
+            OkCommunicationProcess if not beta_2_mode else McCommunicationProcess
+        )
+        self._instrument_communication_process = instrument_comm_process(  # type: ignore  # Tanner (4/22/21): mypy is unable to recognize that these are both InstrumentCommProcess sub-classes
             queue_container.get_instrument_comm_board_queues(),
             queue_container.get_instrument_communication_error_queue(),
             logging_level=self._logging_level,
