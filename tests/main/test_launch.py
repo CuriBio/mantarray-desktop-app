@@ -82,7 +82,9 @@ def test_main__stores_and_logs_port_number_from_command_line_arguments(
     )
 
 
-def test_main__handles_base64_command_line_argument_with_padding_issue(mocker):
+def test_main__handles_base64_command_line_argument_with_padding_issue__redacts_initial_base64_settings_from_log_messages(
+    mocker,
+):
     # Tanner (12/31/20): Need to mock this since the recording folder passed in --initial-base64-settings does not exist
     mocker.patch.object(os.path, "isdir", autospec=True, return_value=True)
 
@@ -93,11 +95,15 @@ def test_main__handles_base64_command_line_argument_with_padding_issue(mocker):
     spied_info_logger = mocker.spy(main.logger, "info")
     main.main(expected_command_line_args)
 
-    spied_info_logger.assert_any_call(
-        "Command Line Args: {'debug_test_post_build': True, 'log_level_debug': False, 'skip_mantarray_boot_up': False, 'port_number': None, 'log_file_dir': None, 'expected_software_version': None, 'no_load_firmware': False, 'skip_software_version_verification': False}"
-    )
+    for call_args in spied_info_logger.call_args_list:
+        if "Command Line Args:" in call_args[0][0]:
+            break
+    else:
+        assert False, "Command Line Args not found in any log message"
     for i, call_args in enumerate(spied_info_logger.call_args_list):
-        assert f"Call #{i}" and "initial_base64_settings" not in call_args[0]
+        assert (
+            "initial_base64_settings" not in call_args[0][0]
+        ), f"Error: initial_base64_settings found in call #{i}"
 
 
 def test_main__redacts_log_file_dir_from_log_message_of_command_line_args(mocker):
@@ -111,22 +117,37 @@ def test_main__redacts_log_file_dir_from_log_message_of_command_line_args(mocker
         )
 
         redacted_log_file_dir = redact_sensitive_info_from_path(expected_log_file_dir)
-        expected_msg = f"Command Line Args: {{'debug_test_post_build': True, 'log_level_debug': False, 'skip_mantarray_boot_up': False, 'port_number': None, 'log_file_dir': '{redacted_log_file_dir}', 'expected_software_version': None, 'no_load_firmware': False, 'skip_software_version_verification': False}}"  # Tanner (1/14/21): Double curly braces escape formatting in f-strings, although Cloud9's syntax highlighter does not seem to recognize this
-        spied_info_logger.assert_any_call(expected_msg)
+        for call_args in spied_info_logger.call_args_list:
+            if "Command Line Args:" in call_args[0][0]:
+                assert f"'log_file_dir': '{redacted_log_file_dir}'" in call_args[0][0]
+                break
+        else:
+            assert False, "Command Line Args not found in any log message"
 
 
 def test_main__logs_command_line_arguments(mocker):
-    expected_command_line_args = ["--debug-test-post-build", "--log-level-debug"]
+    test_command_line_args = ["--debug-test-post-build", "--log-level-debug"]
     spied_info_logger = mocker.spy(main.logger, "info")
     main_thread = threading.Thread(
         target=main.main,
-        args=[expected_command_line_args],
+        args=[test_command_line_args],
         name="thread_for_main_function_in_test",
     )
     main_thread.start()
     main_thread.join()
+
+    expected_cmd_line_args_dict = {
+        "debug_test_post_build": True,
+        "log_level_debug": True,
+        "skip_mantarray_boot_up": False,
+        "port_number": None,
+        "log_file_dir": None,
+        "expected_software_version": None,
+        "no_load_firmware": False,
+        "skip_software_version_verification": False,
+    }
     spied_info_logger.assert_any_call(
-        "Command Line Args: {'debug_test_post_build': True, 'log_level_debug': True, 'skip_mantarray_boot_up': False, 'port_number': None, 'log_file_dir': None, 'expected_software_version': None, 'no_load_firmware': False, 'skip_software_version_verification': False}"
+        f"Command Line Args: {expected_cmd_line_args_dict}"
     )
 
     for call_args in spied_info_logger.call_args_list:
