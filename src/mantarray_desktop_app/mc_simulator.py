@@ -475,6 +475,8 @@ class MantarrayMcSimulator(InfiniteProcess):
             return
 
         command = test_comm["command"]
+        if command == "raise_error":
+            raise test_comm["error"]
         if command == "send_single_beacon":
             self._send_data_packet(
                 SERIAL_COMM_MAIN_MODULE_ID,

@@ -14,6 +14,7 @@ from typing import Deque
 from typing import Dict
 from typing import List
 from typing import Optional
+from typing import Tuple
 from zlib import crc32
 
 from mantarray_file_manager import DATETIME_STR_FORMAT
@@ -112,6 +113,7 @@ def _get_secs_since_reboot_start(reboot_start_time: float) -> float:
     return perf_counter() - reboot_start_time
 
 
+# pylint: disable=too-many-instance-attributes
 class McCommunicationProcess(InstrumentCommProcess):
     """Process that controls communication with the Mantarray Beta 2 Board(s).
 
@@ -124,6 +126,12 @@ class McCommunicationProcess(InstrumentCommProcess):
     def __init__(self, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
         self._error: Optional[Exception] = None
+        self._in_simulation_mode = False
+        self._simulator_error_queues: List[
+            Optional[
+                Queue[Tuple[Exception, str]]  # pylint: disable=unsubscriptable-object
+            ]
+        ] = [None] * len(self._board_queues)
         self._is_instrument_in_error_state = False
         self._num_wells = 24
         self._is_registered_with_serial_comm: List[bool] = [False] * len(
@@ -204,6 +212,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             if (
                 isinstance(board, MantarrayMcSimulator) and board.is_alive()
             ):  # pragma: no cover  # Tanner (3/19/21): only need to stop and join if the board is a running simulator
+                # TODO log hard_stop return from simulator
                 board.hard_stop()  # hard stop to drain all queues of simulator
                 board.join()
         super()._teardown_after_loop()
@@ -255,6 +264,11 @@ class McCommunicationProcess(InstrumentCommProcess):
             msg["timestamp"] = _get_formatted_utc_now()
             to_main_queue.put_nowait(msg)
 
+    def set_board_connection(self, board_idx: int, board: MantarrayMcSimulator) -> None:
+        super().set_board_connection(board_idx, board)
+        self._in_simulation_mode = isinstance(board, MantarrayMcSimulator)
+        self._simulator_error_queues[board_idx] = board.get_fatal_error_reporter()
+
     def _send_data_packet(
         self,
         board_idx: int,
@@ -284,13 +298,18 @@ class McCommunicationProcess(InstrumentCommProcess):
         After reboot command is sent, no more commands should be sent until reboot completes.
         During instrument reboot, should only check for incoming data make sure no commands are awaiting a response.
 
-        1. Process next communication from main. This process's highest priority is to be responsive to the main process and should check for messages from main first. These messages will let this process know when to send commands to the instrument.
-        2. Send handshake to instrument when necessary. Second highest priority is to let the instrument know that this process and the rest of the software are alive and responsive.
-        3. Process data coming from the instrument. Processing data coming from the instrument is the highest priority task after sending data to it.
-        4. Make sure the beacon is not overdue, unless instrument is rebooting. If the beacon is overdue, it's reasonable to assume something caused the instrument to stop working. This task should happen after handling of sending/receiving data from the instrument and main process.
-        5. Make sure commands are not overdue. This task should happen after the instrument has been determined to be working properly.
-        6. If rebooting, make sure that the reboot has not taken longer than the max allowed reboot time.
+        1. Before doing anything, simulator errors must be checked for. If they go unchecked before performing comm with the simulator, and error may be raised in this process that masks the simulator's error which is actually the root of the problem.
+        2. Process next communication from main. This process's next highest priority is to be responsive to the main process and should check for messages from main first. These messages will let this process know when to send commands to the instrument.
+        3. Send handshake to instrument when necessary. Third highest priority is to let the instrument know that this process and the rest of the software are alive and responsive.
+        4. Process data coming from the instrument. Processing data coming from the instrument is the highest priority task after sending data to it.
+        5. Make sure the beacon is not overdue, unless instrument is rebooting. If the beacon is overdue, it's reasonable to assume something caused the instrument to stop working. This task should happen after handling of sending/receiving data from the instrument and main process.
+        6. Make sure commands are not overdue. This task should happen after the instrument has been determined to be working properly.
+        7. If rebooting, make sure that the reboot has not taken longer than the max allowed reboot time.
         """
+        if self._in_simulation_mode:
+            if self._check_simulator_error():
+                self.stop()
+                return
         if not self._is_waiting_for_reboot:
             self._process_next_communication_from_main()
             self._handle_sending_handshake()
@@ -652,3 +671,17 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._board_queues[0][1],
             self.get_logging_level(),
         )
+
+    def _check_simulator_error(self) -> bool:
+        board_idx = 0
+        simulator_error_queue = self._simulator_error_queues[board_idx]
+        if simulator_error_queue is None:  # making mypy happy
+            raise NotImplementedError("simulator_error_queue should never be None here")
+
+        if simulator_error_queue.empty():
+            return False
+        simulator_error_tuple = simulator_error_queue.get(
+            timeout=5  # Tanner (4/22/21): setting an arbitrary, very high value here to prevent possible hanging, even though if the queue is not empty it should not hang indefinitely
+        )
+        self._report_fatal_error(simulator_error_tuple[0])
+        return True
