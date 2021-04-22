@@ -5,6 +5,7 @@ from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
+from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_BYTE_LOOKUP_TABLE
 from mantarray_desktop_app import UnrecognizedCommandFromMainToMcCommError
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
@@ -19,6 +20,7 @@ from ..fixtures_mc_comm import fixture_four_board_mc_comm_process_no_handshake
 from ..fixtures_mc_comm import set_connection_and_register_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
+from ..fixtures_mc_simulator import set_simulator_idle_ready
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import handle_putting_multiple_objects_into_empty_queue
@@ -299,4 +301,48 @@ def test_McCommunicationProcess__processes_dump_eeprom_command(
     confirm_queue_is_eventually_of_size(output_queue, 1)
     message_to_main = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     expected_response["eeprom_contents"] = simulator.get_eeprom_bytes()
+    assert message_to_main == expected_response
+
+
+def test_McCommunicationProcess__processes_change_sensors_axes_sampling_period_command(
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    board_queues = four_board_mc_comm_process_no_handshake["board_queues"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    input_queue = board_queues[0][0]
+    output_queue = board_queues[0][1]
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+
+    expected_sampling_period = 14000
+    expected_well_idx = 23
+    test_sensor_axis_id = SERIAL_COMM_SENSOR_AXIS_BYTE_LOOKUP_TABLE["A"]["Z"]
+    expected_response = {
+        "communication_type": "to_instrument",
+        "command": "change_sensor_axis_sampling_period",
+        "well_index": expected_well_idx,
+        "sensor_axis_id": test_sensor_axis_id,
+        "sampling_period": expected_sampling_period,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(expected_response), input_queue
+    )
+    # run mc_process to send command
+    invoke_process_run_and_check_errors(mc_process)
+    # run simulator to process command and send response
+    invoke_process_run_and_check_errors(simulator)
+    # assert that sampling period was updated
+    actual = simulator.get_well_recording_id_sampling_period(
+        expected_well_idx, test_sensor_axis_id
+    )
+    assert actual == expected_sampling_period
+    # run mc_process to process command response and send message back to main
+    invoke_process_run_and_check_errors(mc_process)
+    # confirm correct message sent to main
+    confirm_queue_is_eventually_of_size(output_queue, 1)
+    message_to_main = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert message_to_main == expected_response

@@ -186,6 +186,14 @@ class SerialCommHandshakeTimeoutError(Exception):
     pass
 
 
+class SerialCommInvalidSamplingPeriodError(Exception):
+    pass
+
+
+class SamplingPeriodChangeWhileDataStreamingError(Exception):
+    pass
+
+
 class InstrumentRebootTimeoutError(Exception):
     pass
 

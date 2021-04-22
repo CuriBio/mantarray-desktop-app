@@ -51,6 +51,7 @@ from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import MAX_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app import MAX_POSSIBLE_CONNECTED_BOARDS
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
+from mantarray_desktop_app import MICROSECONDS_PER_MILLISECOND
 from mantarray_desktop_app import MIDSCALE_CODE
 from mantarray_desktop_app import MILLIVOLTS_PER_VOLT
 from mantarray_desktop_app import NANOSECONDS_PER_CENTIMILLISECOND
@@ -91,6 +92,8 @@ from mantarray_desktop_app import SERIAL_COMM_PACKET_TYPE_INDEX
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
+from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_BYTE_LOOKUP_TABLE
+from mantarray_desktop_app import SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
@@ -186,6 +189,7 @@ def test_hardware_time_constants():
     assert TIMESTEP_CONVERSION_FACTOR == 5
     assert MICROSECONDS_PER_CENTIMILLISECOND == 10
     assert NANOSECONDS_PER_CENTIMILLISECOND == 10 ** 4
+    assert MICROSECONDS_PER_MILLISECOND == 10 ** 3
 
 
 def test_adc_reading_constants():
@@ -414,6 +418,7 @@ def test_serial_comm():
     assert SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE == 255
 
     assert SERIAL_COMM_REBOOT_COMMAND_BYTE == 0
+    assert SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE == 1
     assert SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE == 2
     assert SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE == 3
     assert SERIAL_COMM_GET_METADATA_COMMAND_BYTE == 6
@@ -432,3 +437,9 @@ def test_serial_comm():
     assert SERIAL_COMM_BOOT_UP_CODE == 3
     assert SERIAL_COMM_FATAL_ERROR_CODE == 4
     assert SERIAL_COMM_SOFT_ERROR_CODE == 5
+
+    assert SERIAL_COMM_SENSOR_AXIS_BYTE_LOOKUP_TABLE == {
+        "A": {"X": 0, "Y": 3, "Z": 6},
+        "B": {"X": 1, "Y": 4, "Z": 7},
+        "C": {"X": 2, "Y": 5, "Z": 8},
+    }

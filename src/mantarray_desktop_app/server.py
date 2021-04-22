@@ -375,6 +375,7 @@ def start_recording() -> Response:
         active_well_indices: [Optional, default=all 24] CSV of well indices to record from
         time_index: [Optional, int] centimilliseconds since acquisition began to start the recording at. Defaults to when this command is received
     """
+    # TODO Tanner (4/21/21): when route is added to set sampling periods, need to make sure that software is recording to file before passing command to McComm
     board_idx = 0
 
     if "barcode" not in request.args:
@@ -409,7 +410,6 @@ def start_recording() -> Response:
             status="403 Cannot make standard recordings after previously making hardware test recordings. Server and board must both be restarted before making any more standard recordings"
         )
         return response
-    # shared_values_dict["is_hardware_test_recording"] = is_hardware_test_recording
     adc_offsets: Dict[int, Dict[str, int]]
     if is_hardware_test_recording:
         adc_offsets = dict()
@@ -418,12 +418,9 @@ def start_recording() -> Response:
                 "construct": 0,
                 "ref": 0,
             }
-        # shared_values_dict["adc_offsets"] = adc_offsets
     else:
         adc_offsets = shared_values_dict["adc_offsets"]
     timestamp_of_sample_idx_zero = _get_timestamp_of_acquisition_sample_index_zero()
-
-    # shared_values_dict["system_status"] = RECORDING_STATE
 
     begin_timepoint: Union[int, float]
     timestamp_of_begin_recording = datetime.datetime.utcnow()
