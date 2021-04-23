@@ -5,6 +5,7 @@ from uuid import UUID
 
 from freezegun import freeze_time
 from mantarray_desktop_app import BUFFERING_STATE
+from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import process_manager
@@ -185,10 +186,11 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raise
         invoke_process_run_and_check_errors(monitor_thread)
 
 
-def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_start_calibration_by_updating_shared_values_dictionary_and_passing_command_to_instrument_comm(
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_start_calibration_by_updating_shared_values_dictionary_to_calibrating_state__and_passing_command_to_instrument_comm__when_in_beta_1_mode(
     test_process_manager, test_monitor
 ):
-    monitor_thread, _, _, _ = test_monitor
+    monitor_thread, svd, _, _ = test_monitor
+    svd["beta_2_mode"] = False
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -214,6 +216,33 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     confirm_queue_is_eventually_of_size(main_to_instrument_comm, 1)
     actual_comm = main_to_instrument_comm.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_comm == expected_comm
+
+
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_start_calibration_by_updating_shared_values_dictionary_directly_to_calibrated__when_in_beta_2_mode(
+    test_process_manager, test_monitor
+):
+    monitor_thread, svd, _, _ = test_monitor
+    svd["beta_2_mode"] = True
+
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+    expected_comm = {
+        "communication_type": "xem_scripts",
+        "script_type": "start_calibration",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        expected_comm, server_to_main_queue
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert is_queue_eventually_empty(server_to_main_queue) is True
+
+    assert svd["system_status"] == CALIBRATED_STATE
+
+    main_to_instrument_comm = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
+        0
+    )
+    confirm_queue_is_eventually_empty(main_to_instrument_comm)
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_boot_up_by_calling_process_manager_bootup(

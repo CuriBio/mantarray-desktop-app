@@ -104,6 +104,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         with self._lock:
             logger.info(msg)
 
+    # pylint: disable=too-many-branches  # Tanner (4/23/21): temporarily need to add more than the allowed number of branches in order to support Beta 1 mode during transition to Beta 2 mode
     def _check_and_handle_server_to_main_queue(self) -> None:
         process_manager = self._process_manager
         to_main_queue = (
@@ -176,8 +177,12 @@ class MantarrayProcessesMonitor(InfiniteThread):
             update_shared_dict(shared_values_dict, new_values)
         elif communication_type == "xem_scripts":
             # Tanner (12/28/20): start_calibration is the only xem_scripts command that will come from server. This comm type will be removed/replaced in beta 2 so not adding handling for unrecognized command.
-            shared_values_dict["system_status"] = CALIBRATING_STATE
-            self._put_communication_into_instrument_comm_queue(communication)
+            if shared_values_dict["beta_2_mode"]:
+                # Tanner (4/23/20): Mantarray Beta 2 does not have a calibrating state, so keeping this command for now but switching straight to calibrated state to ease the transition away from users running calibration
+                shared_values_dict["system_status"] = CALIBRATED_STATE
+            else:
+                shared_values_dict["system_status"] = CALIBRATING_STATE
+                self._put_communication_into_instrument_comm_queue(communication)
         elif communication_type == "recording":
             command = communication["command"]
             main_to_fw_queue = (
