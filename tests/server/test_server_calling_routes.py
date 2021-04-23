@@ -589,3 +589,31 @@ def test_route_with_no_url_rule__returns_error_message__and_logs_reponse_to_requ
     mocked_logger.assert_called_once_with(
         f"Response to HTTP Request in next log entry: {response.status}"
     )
+
+
+def test_insert_xem_command_into_queue_routes__return_error_code_and_message_if_called_in_beta_2_mode(
+    client_and_server_thread_and_shared_values, mocker
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+
+    spied_queue_set_device_id = mocker.spy(server, "queue_set_device_id")
+
+    shared_values_dict["beta_2_mode"] = True
+
+    response = test_client.get("/insert_xem_command_into_queue/set_device_id")
+    assert response.status_code == 403
+    assert response.status.endswith("Route cannot be called in beta 2 mode") is True
+
+    spied_queue_set_device_id.assert_not_called()
+
+
+def test_boot_up__return_error_code_and_message_if_called_in_beta_2_mode(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+
+    shared_values_dict["beta_2_mode"] = True
+
+    response = test_client.get("/boot_up")
+    assert response.status_code == 403
+    assert response.status.endswith("Route cannot be called in beta 2 mode") is True

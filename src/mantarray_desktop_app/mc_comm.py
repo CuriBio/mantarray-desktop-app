@@ -359,7 +359,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._is_waiting_for_reboot = True
             elif comm_from_main["command"] == "dump_eeprom":
                 bytes_to_send = bytes([SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE])
-            elif comm_from_main["command"] == "start_data_streaming":
+            elif comm_from_main["command"] == "start_managed_acquisition":
                 bytes_to_send = bytes([SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE])
             elif comm_from_main["command"] == "stop_data_streaming":
                 bytes_to_send = bytes([SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE])
@@ -571,7 +571,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                         f"Instrument EEPROM contents: {str(response_data)}"
                     )
                 prev_command["eeprom_contents"] = response_data
-            elif prev_command["command"] == "start_data_streaming":
+            elif prev_command["command"] == "start_managed_acquisition":
                 if bool(int.from_bytes(response_data, byteorder="little")):
                     raise InstrumentDataStreamingAlreadyStartedError()
                 prev_command["timestamp"] = _get_formatted_utc_now()
