@@ -19,6 +19,7 @@ from mantarray_desktop_app import UnrecognizedRecordingCommandError
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
+from ..fixtures import fixture_patch_print
 from ..fixtures import fixture_patch_subprocess_joins
 from ..fixtures import fixture_test_process_manager
 from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
@@ -35,6 +36,7 @@ __fixtures__ = [
     fixture_test_monitor,
     fixture_patch_connection_to_board,
     fixture_patch_subprocess_joins,
+    fixture_patch_print,
 ]
 
 
@@ -163,11 +165,8 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raises_error_if_unrecognized_mantarray_naming_command(
-    test_process_manager, test_monitor, mocker
+    test_process_manager, test_monitor, mocker, patch_print
 ):
-    mocker.patch(
-        "builtins.print", autospec=True
-    )  # don't print all the error messages to console
 
     monitor_thread, _, _, _ = test_monitor
 
@@ -275,11 +274,8 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raises_error_if_unrecognized_to_instrument_command(
-    test_process_manager, test_monitor, mocker
+    test_process_manager, test_monitor, mocker, patch_print
 ):
-    mocker.patch(
-        "builtins.print", autospec=True
-    )  # don't print all the error messages to console
 
     monitor_thread, _, _, _ = test_monitor
 
@@ -481,11 +477,8 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raises_error_if_unrecognized_recording_command(
-    test_process_manager, test_monitor, mocker
+    test_process_manager, test_monitor, mocker, patch_print
 ):
-    mocker.patch(
-        "builtins.print", autospec=True
-    )  # don't print all the error messages to console
 
     monitor_thread, _, _, _ = test_monitor
 
