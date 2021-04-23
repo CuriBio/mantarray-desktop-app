@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import logging
-from unittest.mock import ANY
 
 from mantarray_desktop_app import clear_the_server_thread
 from mantarray_desktop_app import DataAnalyzerProcess
@@ -334,7 +333,7 @@ def test_MantarrayProcessesManager__passes_file_directory_to_FileWriter():
 
 
 def test_MantarrayProcessesManager__passes_shared_values_dict_to_server():
-    expected_dict = {"some key": "some value"}
+    expected_dict = {"beta_2_mode": False}
     manager = MantarrayProcessesManager(values_to_share_to_server=expected_dict)
     manager.create_processes()
     assert (
@@ -480,21 +479,17 @@ def test_MantarrayProcessesManager__create_processes__passes_port_value_from_dic
 ):
     expected_port = 5432
     manager = MantarrayProcessesManager(
-        values_to_share_to_server={"server_port_number": expected_port}
+        values_to_share_to_server={
+            "server_port_number": expected_port,
+            "beta_2_mode": False,
+        }
     )
     spied_create_server_thread = mocker.spy(ServerThread, "__init__")
 
     manager.create_processes()
 
-    spied_create_server_thread.assert_called_once_with(
-        ANY,
-        ANY,
-        ANY,
-        ANY,
-        values_from_process_monitor=ANY,
-        port=expected_port,
-        logging_level=ANY,
-    )
+    spied_create_server_thread.assert_called_once()
+    assert spied_create_server_thread.call_args.kwargs["port"] == expected_port
 
     # clean up the ServerThread singleton
     clear_the_server_thread()

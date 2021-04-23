@@ -416,6 +416,7 @@ def start_recording() -> Response:
             status="403 Cannot make standard recordings after previously making hardware test recordings. Server and board must both be restarted before making any more standard recordings"
         )
         return response
+    # TODO Tanner (4/23/21): Need to update this route after Beta 2 file format is figured out
     adc_offsets: Dict[int, Dict[str, int]]
     if is_hardware_test_recording:
         adc_offsets = dict()

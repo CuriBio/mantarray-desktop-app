@@ -678,10 +678,10 @@ class McCommunicationProcess(InstrumentCommProcess):
         if simulator_error_queue is None:  # making mypy happy
             raise NotImplementedError("simulator_error_queue should never be None here")
 
-        if simulator_error_queue.empty():
-            return False
-        simulator_error_tuple = simulator_error_queue.get(
-            timeout=5  # Tanner (4/22/21): setting an arbitrary, very high value here to prevent possible hanging, even though if the queue is not empty it should not hang indefinitely
-        )
-        self._report_fatal_error(simulator_error_tuple[0])
-        return True
+        simulator_has_error = not simulator_error_queue.empty()
+        if simulator_has_error:
+            simulator_error_tuple = simulator_error_queue.get(
+                timeout=5  # Tanner (4/22/21): setting an arbitrary, very high value here to prevent possible hanging, even though if the queue is not empty it should not hang indefinitely
+            )
+            self._report_fatal_error(simulator_error_tuple[0])
+        return simulator_has_error

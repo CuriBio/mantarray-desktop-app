@@ -41,7 +41,8 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         self._instrument_communication_process: InstrumentCommProcess
         self._logging_level: int
         if values_to_share_to_server is None:
-            values_to_share_to_server = dict()
+            # Tanner (): values_to_share_to_server is only None during testing, so default to Beta 1 mode. Tests that need beta 2 mode should use the kwarg to provide a dict where this value is True
+            values_to_share_to_server = {"beta_2_mode": False}
 
         self._values_to_share_to_server = values_to_share_to_server
         self._server_thread: ServerThread
@@ -90,7 +91,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         queue_container = MantarrayQueueContainer()
         self._queue_container = queue_container
 
-        beta_2_mode = self._values_to_share_to_server.get("beta_2_mode", False)
+        beta_2_mode = self._values_to_share_to_server["beta_2_mode"]
 
         self._server_thread = ServerThread(
             queue_container.get_communication_queue_from_server_to_main(),
