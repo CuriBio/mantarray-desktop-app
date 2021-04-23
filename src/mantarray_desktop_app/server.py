@@ -73,6 +73,7 @@ from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import REFERENCE_VOLTAGE
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SYSTEM_STATUS_UUIDS
@@ -284,10 +285,14 @@ def set_mantarray_nickname() -> Response:
 
     Can be invoked by curl 'http://localhost:4567/set_mantarray_nickname?nickname=My Mantarray'
     """
+    shared_values_dict = _get_values_from_process_monitor()
+    max_num_bytes = (
+        SERIAL_COMM_METADATA_BYTES_LENGTH if shared_values_dict["beta_2_mode"] else 23
+    )
+
     nickname = request.args["nickname"]
-    # TODO Tanner (3/18/21): Need to eventually be able to determine if McComm is being used and adjust the max byte length to 32
-    if len(nickname.encode("utf-8")) > 23:
-        return Response(status="400 Nickname exceeds 23 bytes")
+    if len(nickname.encode("utf-8")) > max_num_bytes:
+        return Response(status=f"400 Nickname exceeds {max_num_bytes} bytes")
 
     comm_dict = {
         "communication_type": "mantarray_naming",
