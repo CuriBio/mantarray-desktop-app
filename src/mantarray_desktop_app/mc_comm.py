@@ -559,6 +559,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._log_status_code(status_code, "Handshake Response")
                 return
             if prev_command["command"] == "get_metadata":
+                prev_command["board_index"] = board_idx
                 prev_command["metadata"] = parse_metadata_bytes(response_data)
             elif prev_command["command"] == "reboot":
                 prev_command["message"] = "Instrument beginning reboot"

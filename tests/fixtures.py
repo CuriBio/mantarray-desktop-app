@@ -140,6 +140,25 @@ def fixture_test_process_manager(mocker):
     clear_the_server_thread()
 
 
+@pytest.fixture(scope="function", name="test_process_manager_beta_2_mode")
+def fixture_test_process_manager_beta_2_mode(mocker):
+    # TODO Tanner (4/23/21): remove this fixture once beta 1 is phased out
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        manager = MantarrayProcessesManager(
+            file_directory=tmp_dir, values_to_share_to_server={"beta_2_mode": True}
+        )
+        manager.create_processes()
+        yield manager
+
+        fw = manager.get_file_writer_process()
+        if not fw.is_alive():
+            # Eli (2/10/20): it is important in windows based systems to make sure to close the files before deleting them. be careful about this when running tests in a Linux development environment
+            fw.close_all_files()
+
+    # clean up the server singleton
+    clear_the_server_thread()
+
+
 def start_processes_and_wait_for_start_ups_to_complete(
     test_manager: MantarrayProcessesManager,
 ) -> None:

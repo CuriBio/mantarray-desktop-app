@@ -14,6 +14,8 @@ from typing import Tuple
 from typing import Union
 import uuid
 
+from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
+from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import InfiniteThread
 
@@ -323,6 +325,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
             self._values_to_share_to_server["in_simulation_mode"] = not communication[
                 "is_connected"
             ]
+            if self._values_to_share_to_server["beta_2_mode"]:
+                return
             self._values_to_share_to_server["mantarray_serial_number"] = {
                 board_idx: communication["mantarray_serial_number"]
             }
@@ -382,6 +386,18 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 "barcode_status": barcode_status,
                 "frontend_needs_barcode_update": True,
             }
+        elif communication_type == "metadata_comm":
+            board_idx = communication["board_index"]
+            self._values_to_share_to_server["instrument_metadata"] = {
+                board_idx: communication["metadata"]
+            }
+            # TODO Tanner (4/23/21): eventually these two following won't need there own fields as they will be accessible through the above entry in shared_values_dict. Need to keep these until Beta 1 is phased out though
+            self._values_to_share_to_server["mantarray_serial_number"] = {
+                board_idx: communication["metadata"][MANTARRAY_SERIAL_NUMBER_UUID]
+            }
+            self._values_to_share_to_server["mantarray_nickname"] = {
+                board_idx: communication["metadata"][MANTARRAY_NICKNAME_UUID]
+            }
 
     def _commands_for_each_run_iteration(self) -> None:
         """Execute additional commands inside the run loop."""
@@ -420,6 +436,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             == SERVER_INITIALIZING_STATE
         ):
             self._check_subprocess_start_up_statuses()
+        # TODO add correct transition of server ready state -> instrument initializing -> calibrated for beta 2 mode
         elif (
             self._values_to_share_to_server["system_status"] == SERVER_READY_STATE
             and self._boot_up_after_processes_start
@@ -443,6 +460,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         if (
             _get_dur_since_last_barcode_clear(self._last_barcode_clear_time)
             >= BARCODE_POLL_PERIOD
+            and not self._values_to_share_to_server["beta_2_mode"]
         ):
             to_instrument_comm = process_manager.queue_container().get_communication_to_instrument_comm_queue(
                 0

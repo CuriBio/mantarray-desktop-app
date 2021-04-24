@@ -856,3 +856,46 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
         assert okc_process.is_alive() is False
         assert fw_process.is_alive() is False
         assert da_process.is_alive() is False
+
+
+@pytest.mark.slow
+@pytest.mark.timeout(INTEGRATION_TEST_TIMEOUT)
+def test_full_datapath_and_recorded_files_in_beta_2_mode(
+    patched_xem_scripts_folder,
+    patched_firmware_folder,
+    fully_running_app_from_main_entrypoint,
+):
+    # TODO Tanner (4/23/21): This integration test does not actually test the full data path or recorded files yet. When that functionality is added for beta 2 mode, this test needs to be updated
+    app_info = fully_running_app_from_main_entrypoint(["--beta-2-mode"])
+    wait_for_subprocesses_to_start()
+    test_process_manager = app_info["object_access_inside_main"]["process_manager"]
+
+    assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
+
+    # Tanner (12/30/20): Calibrate instrument in order to start managed_acquisition
+    response = requests.get(f"{get_api_endpoint()}start_calibration")
+    assert response.status_code == 200
+    assert (
+        system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
+    )
+
+    # Tanner (12/30/20): Run managed_acquisition until in live_view state. This will confirm that data passed through the system completely
+    response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
+    assert response.status_code == 200
+    assert (
+        system_state_eventually_equals(
+            LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME
+        )
+        is True
+    )
+    response = requests.get(f"{get_api_endpoint()}stop_managed_acquisition")
+    assert response.status_code == 200
+    assert (
+        system_state_eventually_equals(
+            CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME
+        )
+        is True
+    )
+
+    # Tanner (12/29/20): Good to do this at the end of tests to make sure they don't cause problems with other integration tests
+    test_process_manager.hard_stop_and_join_processes()

@@ -137,6 +137,7 @@ def test_McCommunicationProcess__processes_get_metadata_command(
     invoke_process_run_and_check_errors(mc_process)
     confirm_queue_is_eventually_of_size(output_queue, 1)
     expected_response["metadata"] = MantarrayMcSimulator.default_metadata_values
+    expected_response["board_index"] = 0
     command_response = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert command_response == expected_response
 
@@ -157,12 +158,12 @@ def test_McCommunicationProcess__processes_commands_from_main_when_process_is_fu
         "command": "set_mantarray_nickname",
         "mantarray_nickname": expected_nickname,
     }
-    expected_response = {
+    test_command = {
         "communication_type": "metadata_comm",
         "command": "get_metadata",
     }
     handle_putting_multiple_objects_into_empty_queue(
-        [set_nickname_command, copy.deepcopy(expected_response)], input_queue
+        [set_nickname_command, copy.deepcopy(test_command)], input_queue
     )
     mc_process.start()
     confirm_queue_is_eventually_empty(  # Tanner (3/3/21): Using timeout longer than registration period here to give sufficient time to make sure queue is emptied

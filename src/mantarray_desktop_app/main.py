@@ -256,8 +256,12 @@ def main(
     object_access_for_testing["values_to_share_to_server"] = shared_values_dict
     process_manager.spawn_processes()
 
-    boot_up_after_processes_start = not parsed_args.skip_mantarray_boot_up
-    load_firmware_file = not parsed_args.no_load_firmware
+    boot_up_after_processes_start = (
+        not parsed_args.skip_mantarray_boot_up and not parsed_args.beta_2_mode
+    )
+    load_firmware_file = (
+        not parsed_args.no_load_firmware and not parsed_args.beta_2_mode
+    )
 
     the_lock = threading.Lock()
     process_monitor_error_queue: Queue[  # pylint: disable=unsubscriptable-object

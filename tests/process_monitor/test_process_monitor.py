@@ -15,6 +15,7 @@ from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
+from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import MantarrayProcessesMonitor
 from mantarray_desktop_app import ok_comm
 from mantarray_desktop_app import OUTGOING_DATA_BUFFER_SIZE
@@ -32,10 +33,12 @@ from stdlib_utils import invoke_process_run_and_check_errors
 from xem_wrapper import FrontPanelSimulator
 
 from ..fixtures import fixture_test_process_manager
+from ..fixtures import fixture_test_process_manager_beta_2_mode
 from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_ok_comm import fixture_patch_connection_to_board
 from ..fixtures_process_monitor import fixture_test_monitor
+from ..fixtures_process_monitor import fixture_test_monitor_beta_2_mode
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import is_queue_eventually_empty
@@ -44,7 +47,9 @@ from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_
 
 __fixtures__ = [
     fixture_test_process_manager,
+    fixture_test_process_manager_beta_2_mode,
     fixture_test_monitor,
+    fixture_test_monitor_beta_2_mode,
     fixture_patch_connection_to_board,
 ]
 
@@ -595,7 +600,7 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_calibrated_after_manag
     assert monitor_thread._data_dump_buffer_size == 0  # pylint:disable=protected-access
 
 
-def test_MantarrayProcessesMonitor__stores_device_information_after_connection(
+def test_MantarrayProcessesMonitor__stores_device_information_after_connection__in_beta_1_mode(
     test_monitor, test_process_manager
 ):
     monitor_thread, shared_values_dict, _, _ = test_monitor
@@ -607,7 +612,6 @@ def test_MantarrayProcessesMonitor__stores_device_information_after_connection(
 
     ok_comm_process.create_connections_to_all_available_boards()
     assert is_queue_eventually_not_empty(instrument_comm_to_main_queue) is True
-
     invoke_process_run_and_check_errors(monitor_thread)
 
     assert (
@@ -621,6 +625,60 @@ def test_MantarrayProcessesMonitor__stores_device_information_after_connection(
     assert (
         shared_values_dict["mantarray_nickname"][0]
         == RunningFIFOSimulator.default_mantarray_nickname
+    )
+
+
+def test_MantarrayProcessesMonitor__sets_in_simulation_mode_after_connection__in_beta_2_mode(
+    test_monitor_beta_2_mode, test_process_manager_beta_2_mode
+):
+    monitor_thread, shared_values_dict, _, _ = test_monitor_beta_2_mode
+
+    mc_comm_process = test_process_manager_beta_2_mode.get_instrument_process()
+    instrument_comm_to_main_queue = test_process_manager_beta_2_mode.queue_container().get_communication_queue_from_instrument_comm_to_main(
+        0
+    )
+
+    mc_comm_process.create_connections_to_all_available_boards()
+    assert is_queue_eventually_not_empty(instrument_comm_to_main_queue) is True
+    invoke_process_run_and_check_errors(monitor_thread)
+
+    assert shared_values_dict["in_simulation_mode"] is True
+
+
+def test_MantarrayProcessesMonitor__stores_device_information_from_metadata_comm__and_updates_system_status(
+    test_monitor_beta_2_mode, test_process_manager_beta_2_mode
+):
+    monitor_thread, shared_values_dict, _, _ = test_monitor_beta_2_mode
+
+    # TODO make sure this test starts with the system in instrument initializing status, assert after metadata is stored that system switches to calibration needed
+
+    board_idx = 0
+
+    instrument_comm_to_main_queue = test_process_manager_beta_2_mode.queue_container().get_communication_queue_from_instrument_comm_to_main(
+        board_idx
+    )
+
+    metadata_comm_dict = {
+        "communication_type": "metadata_comm",
+        "command": "get_metadata",
+        "metadata": MantarrayMcSimulator.default_metadata_values,
+        "board_index": board_idx,
+    }
+    instrument_comm_to_main_queue.put_nowait(metadata_comm_dict)
+    assert is_queue_eventually_not_empty(instrument_comm_to_main_queue) is True
+    invoke_process_run_and_check_errors(monitor_thread)
+
+    assert (
+        shared_values_dict["mantarray_serial_number"][board_idx]
+        == MantarrayMcSimulator.default_mantarray_serial_number
+    )
+    assert (
+        shared_values_dict["mantarray_nickname"][board_idx]
+        == MantarrayMcSimulator.default_mantarray_nickname
+    )
+    assert (
+        shared_values_dict["instrument_metadata"][board_idx]
+        == MantarrayMcSimulator.default_metadata_values
     )
 
 
