@@ -83,7 +83,7 @@ def test_main__stores_and_logs_port_number_from_command_line_arguments(
     )
 
 
-def test_main__handles_base64_command_line_argument_with_padding_issue__redacts_initial_base64_settings_from_log_messages(
+def test_main__handles_base64_command_line_argument_with_padding_issue__and_redacts_initial_base64_settings_from_log_messages(
     mocker,
 ):
     # Tanner (12/31/20): Need to mock this since the recording folder passed in --initial-base64-settings does not exist
@@ -406,14 +406,13 @@ def test_main__stores_values_from_command_line_arguments(
 
         command_line_args = [
             f"--initial-base64-settings={b64_encoded}",
-            "--beta-2-mode",
         ]
         app_info = fully_running_app_from_main_entrypoint(command_line_args)
 
         shared_values_dict = app_info["object_access_inside_main"][
             "values_to_share_to_server"
         ]
-        assert shared_values_dict["beta_2_mode"] is True
+        assert shared_values_dict["beta_2_mode"] is False
         actual_config_settings = shared_values_dict["config_settings"]
         assert (
             actual_config_settings["Customer Account ID"]

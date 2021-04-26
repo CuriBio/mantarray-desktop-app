@@ -15,6 +15,7 @@ from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Tuple
+from typing import Union
 from zlib import crc32
 
 from mantarray_file_manager import DATETIME_STR_FORMAT
@@ -264,10 +265,13 @@ class McCommunicationProcess(InstrumentCommProcess):
             msg["timestamp"] = _get_formatted_utc_now()
             to_main_queue.put_nowait(msg)
 
-    def set_board_connection(self, board_idx: int, board: MantarrayMcSimulator) -> None:
+    def set_board_connection(
+        self, board_idx: int, board: Union[MantarrayMcSimulator, serial.Serial]
+    ) -> None:
         super().set_board_connection(board_idx, board)
         self._in_simulation_mode = isinstance(board, MantarrayMcSimulator)
-        self._simulator_error_queues[board_idx] = board.get_fatal_error_reporter()
+        if self._in_simulation_mode:
+            self._simulator_error_queues[board_idx] = board.get_fatal_error_reporter()
 
     def _send_data_packet(
         self,

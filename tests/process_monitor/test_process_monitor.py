@@ -691,7 +691,10 @@ def test_MantarrayProcessesMonitor__calls_boot_up_only_once_after_subprocesses_s
 ):
     mocked_boot_up = mocker.patch.object(test_process_manager, "boot_up_instrument")
 
-    shared_values_dict = {"system_status": SERVER_READY_STATE}
+    shared_values_dict = {
+        "system_status": SERVER_READY_STATE,
+        "beta_2_mode": False,
+    }
     error_queue = error_queue = queue.Queue()
     the_lock = threading.Lock()
     monitor = MantarrayProcessesMonitor(
@@ -713,7 +716,10 @@ def test_MantarrayProcessesMonitor__doesnt_call_boot_up_after_subprocesses_start
 ):
     mocked_boot_up = mocker.patch.object(test_process_manager, "boot_up_instrument")
 
-    shared_values_dict = {"system_status": SERVER_READY_STATE}
+    shared_values_dict = {
+        "system_status": SERVER_READY_STATE,
+        "beta_2_mode": False,
+    }
     error_queue = error_queue = queue.Queue()
     the_lock = threading.Lock()
     monitor = MantarrayProcessesMonitor(

@@ -699,7 +699,7 @@ def test_MantarrayMcSimulator__when_in_fatal_error_state__does_not_respond_to_co
     assert simulator.in_waiting == 0
 
 
-def test_MantarrayMcSimulator__processes_start_managed_acquisition_command(
+def test_MantarrayMcSimulator__processes_start_data_streaming_command(
     mantarray_mc_simulator_no_beacon, mocker
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
@@ -712,13 +712,13 @@ def test_MantarrayMcSimulator__processes_start_managed_acquisition_command(
     ):
         # send start streaming command
         expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
-        test_start_managed_acquisition_command = create_data_packet(
+        test_start_data_streaming_command = create_data_packet(
             expected_pc_timestamp,
             SERIAL_COMM_MAIN_MODULE_ID,
             SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
             bytes([SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE]),
         )
-        simulator.write(test_start_managed_acquisition_command)
+        simulator.write(test_start_data_streaming_command)
         invoke_process_run_and_check_errors(simulator)
         # assert response is correct
         command_response_size = get_full_packet_size_from_packet_body_size(
@@ -741,13 +741,13 @@ def test_MantarrayMcSimulator__processes_stop_data_streaming_command(
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     dummy_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
-    test_start_managed_acquisition_command = create_data_packet(
+    test_start_data_streaming_command = create_data_packet(
         dummy_timestamp,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
         bytes([SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE]),
     )
-    simulator.write(test_start_managed_acquisition_command)
+    simulator.write(test_start_data_streaming_command)
     invoke_process_run_and_check_errors(simulator)
     # remove start data streaming response
     command_response = simulator.read(
@@ -763,13 +763,13 @@ def test_MantarrayMcSimulator__processes_stop_data_streaming_command(
     ):
         # send stop streaming command
         expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
-        test_start_managed_acquisition_command = create_data_packet(
+        test_start_data_streaming_command = create_data_packet(
             expected_pc_timestamp,
             SERIAL_COMM_MAIN_MODULE_ID,
             SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
             bytes([SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE]),
         )
-        simulator.write(test_start_managed_acquisition_command)
+        simulator.write(test_start_data_streaming_command)
         invoke_process_run_and_check_errors(simulator)
         # assert response is correct
         command_response_size = get_full_packet_size_from_packet_body_size(

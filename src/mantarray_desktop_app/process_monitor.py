@@ -325,7 +325,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 "is_connected"
             ]
             if self._values_to_share_to_server["beta_2_mode"]:
-                return
+                return  # Tanner (4/25/21): Beta 2 Mantarray Instrument cannot send these values until the board is completely initialized, so just returning here
             self._values_to_share_to_server["mantarray_serial_number"] = {
                 board_idx: communication["mantarray_serial_number"]
             }
@@ -463,7 +463,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         self._check_and_handle_data_analyzer_to_main_queue()
         self._check_and_handle_server_to_main_queue()
 
-        # handle barcode polling. This should be removed once the physical instrument is able to detect plate placement/removal on its own
+        # handle barcode polling. This should be removed once the physical instrument is able to detect plate placement/removal on its own. The Beta 2 instrument will be able to do this on its own from the start, so no need to send barcode comm in Beta 2 mode.
         if self._last_barcode_clear_time is None:
             self._last_barcode_clear_time = _get_barcode_clear_time()
         if (

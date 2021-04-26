@@ -12,6 +12,7 @@ from typing import Optional
 from typing import Tuple
 from typing import Union
 
+import serial
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from xem_wrapper import FrontPanelBase
@@ -86,7 +87,9 @@ class InstrumentCommProcess(InfiniteProcess, metaclass=abc.ABCMeta):
         pass
 
     def set_board_connection(
-        self, board_idx: int, board: Union[FrontPanelBase, MantarrayMcSimulator]
+        self,
+        board_idx: int,
+        board: Union[FrontPanelBase, MantarrayMcSimulator, serial.Serial],
     ) -> None:
         board_connections = self.get_board_connections_list()
         board_connections[board_idx] = board
