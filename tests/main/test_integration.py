@@ -879,13 +879,11 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
     )
 
-    # Tanner (12/30/20): Run managed_acquisition until in live_view state. This will confirm that data passed through the system completely
+    # Tanner (12/30/20): Run managed_acquisition to confirm system can reach buffering state. Will eventually confirm the system reaches live view active once the data path can handle beta 2 data
     response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
     assert response.status_code == 200
     assert (
-        system_state_eventually_equals(
-            LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME
-        )
+        system_state_eventually_equals(BUFFERING_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME)
         is True
     )
     response = requests.get(f"{get_api_endpoint()}stop_managed_acquisition")

@@ -29,6 +29,7 @@ from .constants import BARCODE_VALID_UUID
 from .constants import BUFFERING_STATE
 from .constants import CALIBRATED_STATE
 from .constants import CALIBRATING_STATE
+from .constants import CALIBRATION_NEEDED_STATE
 from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
 from .constants import RECORDING_STATE
@@ -149,7 +150,6 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 ]
             else:
                 raise UnrecognizedMantarrayNamingCommandError(command)
-
             self._put_communication_into_instrument_comm_queue(communication)
         elif communication_type == "shutdown":
             command = communication["command"]
@@ -157,7 +157,6 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._process_manager.soft_stop_processes_except_server()
             else:
                 self._process_manager.are_processes_stopped()
-
                 self._hard_stop_and_join_processes_and_log_leftovers()
         elif communication_type == "update_shared_values_dictionary":
             new_values = communication["content"]
@@ -391,7 +390,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             self._values_to_share_to_server["instrument_metadata"] = {
                 board_idx: communication["metadata"]
             }
-            # TODO Tanner (4/23/21): eventually these two following won't need there own fields as they will be accessible through the above entry in shared_values_dict. Need to keep these until Beta 1 is phased out though
+            # TODO Tanner (4/23/21): eventually these two following values won't need there own fields as they will be accessible through the above entry in shared_values_dict. Need to keep these until Beta 1 is phased out though
             self._values_to_share_to_server["mantarray_serial_number"] = {
                 board_idx: communication["metadata"][MANTARRAY_SERIAL_NUMBER_UUID]
             }
@@ -403,7 +402,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         """Execute additional commands inside the run loop."""
         process_manager = self._process_manager
 
-        # any potential errors should be handled first  # TODO Tanner (3/23/21): add story to include mc_simulator error queues here. Need to integrate McComm into the rest of the software and determine if it is running in simulation mode first
+        # any potential errors should be handled first
         for iter_error_queue, iter_process in (
             (
                 process_manager.queue_container().get_instrument_communication_error_queue(),
@@ -436,17 +435,27 @@ class MantarrayProcessesMonitor(InfiniteThread):
             == SERVER_INITIALIZING_STATE
         ):
             self._check_subprocess_start_up_statuses()
-        # TODO add correct transition of server ready state -> instrument initializing -> calibrated for beta 2 mode
+        elif self._values_to_share_to_server["system_status"] == SERVER_READY_STATE:
+            if self._values_to_share_to_server["beta_2_mode"]:
+                self._values_to_share_to_server[
+                    "system_status"
+                ] = INSTRUMENT_INITIALIZING_STATE
+            elif self._boot_up_after_processes_start:
+                self._values_to_share_to_server[
+                    "system_status"
+                ] = INSTRUMENT_INITIALIZING_STATE
+                process_manager.boot_up_instrument(
+                    load_firmware_file=self._load_firmware_file
+                )
         elif (
-            self._values_to_share_to_server["system_status"] == SERVER_READY_STATE
-            and self._boot_up_after_processes_start
+            self._values_to_share_to_server["system_status"]
+            == INSTRUMENT_INITIALIZING_STATE
+            and self._values_to_share_to_server["beta_2_mode"]
         ):
-            self._values_to_share_to_server[
-                "system_status"
-            ] = INSTRUMENT_INITIALIZING_STATE
-            process_manager.boot_up_instrument(
-                load_firmware_file=self._load_firmware_file
-            )
+            if "instrument_metadata" in self._values_to_share_to_server:
+                self._values_to_share_to_server[
+                    "system_status"
+                ] = CALIBRATION_NEEDED_STATE
 
         # check/handle comm from the server and each subprocess
         self._check_and_handle_instrument_comm_to_main_queue()

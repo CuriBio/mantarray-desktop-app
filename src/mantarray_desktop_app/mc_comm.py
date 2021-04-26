@@ -361,7 +361,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 bytes_to_send = bytes([SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE])
             elif comm_from_main["command"] == "start_managed_acquisition":
                 bytes_to_send = bytes([SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE])
-            elif comm_from_main["command"] == "stop_data_streaming":
+            elif comm_from_main["command"] == "stop_managed_acquisition":
                 bytes_to_send = bytes([SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE])
             elif comm_from_main["command"] == "change_sensor_axis_sampling_period":
                 module_id = comm_from_main["well_index"] + 1
@@ -576,7 +576,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 if bool(int.from_bytes(response_data, byteorder="little")):
                     raise InstrumentDataStreamingAlreadyStartedError()
                 prev_command["timestamp"] = _get_formatted_utc_now()
-            elif prev_command["command"] == "stop_data_streaming":
+            elif prev_command["command"] == "stop_managed_acquisition":
                 if bool(int.from_bytes(response_data, byteorder="little")):
                     raise InstrumentDataStreamingAlreadyStoppedError()
 

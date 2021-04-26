@@ -119,7 +119,7 @@ def test_McCommunicationProcess__processes_stop_data_streaming_command__when_dat
 
     expected_response = {
         "communication_type": "to_instrument",
-        "command": "stop_data_streaming",
+        "command": "stop_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(expected_response), from_main_queue
@@ -150,7 +150,7 @@ def test_McCommunicationProcess__processes_stpo_data_streaming_command__and_rais
 
     expected_response = {
         "communication_type": "to_instrument",
-        "command": "stop_data_streaming",
+        "command": "stop_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(expected_response), from_main_queue

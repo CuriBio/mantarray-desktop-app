@@ -14,6 +14,7 @@ from mantarray_desktop_app import BARCODE_VALID_UUID
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
+from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import MantarrayProcessesMonitor
@@ -649,8 +650,7 @@ def test_MantarrayProcessesMonitor__stores_device_information_from_metadata_comm
     test_monitor_beta_2_mode, test_process_manager_beta_2_mode
 ):
     monitor_thread, shared_values_dict, _, _ = test_monitor_beta_2_mode
-
-    # TODO make sure this test starts with the system in instrument initializing status, assert after metadata is stored that system switches to calibration needed
+    shared_values_dict["system_status"] = INSTRUMENT_INITIALIZING_STATE
 
     board_idx = 0
 
@@ -666,7 +666,11 @@ def test_MantarrayProcessesMonitor__stores_device_information_from_metadata_comm
     }
     instrument_comm_to_main_queue.put_nowait(metadata_comm_dict)
     assert is_queue_eventually_not_empty(instrument_comm_to_main_queue) is True
-    invoke_process_run_and_check_errors(monitor_thread)
+    invoke_process_run_and_check_errors(
+        monitor_thread,
+        num_iterations=2,  # one cycle to retrieve metadata, one cycle to update system_status
+    )
+    assert shared_values_dict["system_status"] == CALIBRATION_NEEDED_STATE
 
     assert (
         shared_values_dict["mantarray_serial_number"][board_idx]
