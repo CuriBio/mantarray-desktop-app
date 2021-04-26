@@ -9,6 +9,7 @@ Custom HTTP Error Codes:
 * 400 - Call to /update_settings with unexpected argument, invalid account UUID, or a recording directory that doesn't exist
 * 400 - Call to /insert_xem_command_into_queue/set_mantarray_serial_number with invalid serial_number parameter
 * 403 - Call to /start_recording with is_hardware_test_recording=False after calling route with is_hardware_test_recording=True (default value)
+* 403 - Call to any /insert_xem_command_into_queue/* route or /boot_up when in beta 2 mode
 * 404 - Route not implemented
 * 406 - Call to /start_managed_acquisition when Mantarray device does not have a serial number assigned to it
 * 406 - Call to /start_recording before customer_account_uuid and user_account_uuid are set
@@ -73,6 +74,7 @@ from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import REFERENCE_VOLTAGE
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SYSTEM_STATUS_UUIDS
@@ -152,7 +154,7 @@ def _get_values_from_process_monitor() -> Dict[str, Any]:
 
 
 def queue_command_to_instrument_comm(comm_dict: Dict[str, Any]) -> Response:
-    """Queue command to send to XEM and return response.
+    """Queue command to send to InstrumentCommProcess and return response.
 
     This is used by the test suite, so is not designated as private in
     order to make pylint happier.
@@ -284,10 +286,14 @@ def set_mantarray_nickname() -> Response:
 
     Can be invoked by curl 'http://localhost:4567/set_mantarray_nickname?nickname=My Mantarray'
     """
+    shared_values_dict = _get_values_from_process_monitor()
+    max_num_bytes = (
+        SERIAL_COMM_METADATA_BYTES_LENGTH if shared_values_dict["beta_2_mode"] else 23
+    )
+
     nickname = request.args["nickname"]
-    # TODO Tanner (3/18/21): Need to eventually be able to determine if McComm is being used and adjust the max byte length to 32
-    if len(nickname.encode("utf-8")) > 23:
-        return Response(status="400 Nickname exceeds 23 bytes")
+    if len(nickname.encode("utf-8")) > max_num_bytes:
+        return Response(status=f"400 Nickname exceeds {max_num_bytes} bytes")
 
     comm_dict = {
         "communication_type": "mantarray_naming",
@@ -375,7 +381,7 @@ def start_recording() -> Response:
         active_well_indices: [Optional, default=all 24] CSV of well indices to record from
         time_index: [Optional, int] centimilliseconds since acquisition began to start the recording at. Defaults to when this command is received
     """
-    # TODO Tanner (4/21/21): when route is added to set sampling periods, need to make sure that software is recording to file before passing command to McComm
+    # TODO Tanner (4/21/21): when the new route is added to set sampling periods, need to make sure that software isn't recording to file before passing command to McComm
     board_idx = 0
 
     if "barcode" not in request.args:
@@ -410,6 +416,7 @@ def start_recording() -> Response:
             status="403 Cannot make standard recordings after previously making hardware test recordings. Server and board must both be restarted before making any more standard recordings"
         )
         return response
+    # TODO Tanner (4/23/21): Need to update this route after Beta 2 file format is figured out
     adc_offsets: Dict[int, Dict[str, int]]
     if is_hardware_test_recording:
         adc_offsets = dict()
@@ -544,7 +551,7 @@ def stop_recording() -> Response:
 
 @flask_app.route("/start_managed_acquisition", methods=["GET"])
 def start_managed_acquisition() -> Response:
-    """Begin "managed" data acquisition on the XEM.
+    """Begin "managed" data acquisition on the Mantarray.
 
     Can be invoked by:
 
@@ -564,7 +571,7 @@ def start_managed_acquisition() -> Response:
 
 @flask_app.route("/stop_managed_acquisition", methods=["GET"])
 def stop_managed_acquisition() -> Response:
-    """Stop "managed" data acquisition on the XEM.
+    """Stop "managed" data acquisition on the Mantarray.
 
     Can be invoked by:
 
@@ -966,6 +973,18 @@ def shutdown() -> Response:
 def health_check() -> Response:
     # curl http://localhost:4567/health_check
     return Response(status=200)
+
+
+@flask_app.before_request
+def before_request() -> Optional[Response]:
+    rule = request.url_rule
+    if rule is None:
+        return None  # this will be caught and handled in after_request
+    if "insert_xem_command_into_queue" in rule.rule or "boot_up" in rule.rule:
+        shared_values_dict = _get_values_from_process_monitor()
+        if shared_values_dict["beta_2_mode"]:
+            return Response(status="403 Route cannot be called in beta 2 mode")
+    return None
 
 
 @flask_app.after_request

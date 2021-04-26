@@ -186,6 +186,7 @@ class FileWriterProcess(InfiniteProcess):
         ],
         file_directory: str = "",
         logging_level: int = logging.INFO,
+        beta_2_mode: bool = False,
     ):
         super().__init__(fatal_error_reporter, logging_level=logging_level)
         self._board_queues = board_queues
@@ -221,6 +222,7 @@ class FileWriterProcess(InfiniteProcess):
         self._iterations_since_last_logging = 0
         self._num_recorded_points: List[int] = list()
         self._recording_durations: List[float] = list()
+        self._beta_2_mode = beta_2_mode
 
     def get_recording_finalization_statuses(
         self,

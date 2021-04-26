@@ -456,3 +456,32 @@ def test_McCommunicationProcess__logs_status_codes_from_handshake_responses(
     confirm_queue_is_eventually_of_size(output_queue, 1)
     actual = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert str(expected_status_code) in actual["message"]
+
+
+def test_McCommunicationProcess__checks_for_simulator_errors_in_simulator_error_queue__and_if_error_is_present_sends_to_main_process_and_stops_itself(
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+    patch_print,
+):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    simulator_eq = mantarray_mc_simulator_no_beacon["error_queue"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+
+    error_msg = "something went wrong in the simulator"
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "raise_error", "error": ValueError(error_msg)}, testing_queue
+    )
+    # run simulator to raise error
+    simulator.run(num_iterations=1)
+    confirm_queue_is_eventually_of_size(
+        simulator_eq, 1, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    )
+    # run mc_process to pull out error and populate its own error queue
+    assert mc_process.is_stopped() is False
+    with pytest.raises(ValueError, match=error_msg):
+        invoke_process_run_and_check_errors(mc_process)
+    assert mc_process.is_stopped() is True

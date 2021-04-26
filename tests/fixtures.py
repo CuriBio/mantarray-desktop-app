@@ -71,9 +71,7 @@ def generate_board_and_error_queues(num_boards: int = 4):
 def fixture_generic_queue_container():
     qc = MantarrayQueueContainer()
     yield qc
-
-    # drain all the queues to avoid broken pipe errors
-    # ...maybe this is a bad idea and the things using it should take more responsibility...if the timeout is 1.1 seconds per queue this could get long quickly
+    # don't drain any queues in this fixture. Tests should drain queues themselves in order to avoid BrokenPipeErrors
 
 
 @pytest.fixture(scope="function", name="patch_print")
@@ -116,7 +114,6 @@ def fixture_fully_running_app_from_main_entrypoint(mocker):
 
     yield _foo
 
-    # yield main_thread
     # some tests may perform the shutdown on their own to assert things about the shutdown behavior. So only attempt shutdown if server is still running.
     if is_port_in_use(get_server_port_number()):
         response = requests.get(f"{get_api_endpoint()}shutdown")
@@ -131,6 +128,25 @@ def fixture_fully_running_app_from_main_entrypoint(mocker):
 def fixture_test_process_manager(mocker):
     with tempfile.TemporaryDirectory() as tmp_dir:
         manager = MantarrayProcessesManager(file_directory=tmp_dir)
+        manager.create_processes()
+        yield manager
+
+        fw = manager.get_file_writer_process()
+        if not fw.is_alive():
+            # Eli (2/10/20): it is important in windows based systems to make sure to close the files before deleting them. be careful about this when running tests in a Linux development environment
+            fw.close_all_files()
+
+    # clean up the server singleton
+    clear_the_server_thread()
+
+
+@pytest.fixture(scope="function", name="test_process_manager_beta_2_mode")
+def fixture_test_process_manager_beta_2_mode(mocker):
+    # TODO Tanner (4/23/21): remove this fixture once beta 1 is phased out
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        manager = MantarrayProcessesManager(
+            file_directory=tmp_dir, values_to_share_to_server={"beta_2_mode": True}
+        )
         manager.create_processes()
         yield manager
 

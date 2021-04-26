@@ -27,7 +27,7 @@ __fixtures__ = [
 ]
 
 
-def test_McCommunicationProcess__processes_start_data_streaming_command__when_data_not_already_streaming(
+def test_McCommunicationProcess__processes_start_managed_acquisition_command__when_data_not_already_streaming(
     four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
@@ -43,7 +43,7 @@ def test_McCommunicationProcess__processes_start_data_streaming_command__when_da
 
     expected_response = {
         "communication_type": "to_instrument",
-        "command": "start_data_streaming",
+        "command": "start_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(expected_response), from_main_queue
@@ -60,7 +60,7 @@ def test_McCommunicationProcess__processes_start_data_streaming_command__when_da
     assert command_response == expected_response
 
 
-def test_McCommunicationProcess__processes_start_data_streaming_command__and_raises_error_when_already_streaming(
+def test_McCommunicationProcess__processes_start_managed_acquisition_command__and_raises_error_when_already_streaming(
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
     patch_print,
@@ -83,7 +83,7 @@ def test_McCommunicationProcess__processes_start_data_streaming_command__and_rai
 
     expected_response = {
         "communication_type": "to_instrument",
-        "command": "start_data_streaming",
+        "command": "start_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(expected_response), from_main_queue
@@ -119,7 +119,7 @@ def test_McCommunicationProcess__processes_stop_data_streaming_command__when_dat
 
     expected_response = {
         "communication_type": "to_instrument",
-        "command": "stop_data_streaming",
+        "command": "stop_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(expected_response), from_main_queue
@@ -150,7 +150,7 @@ def test_McCommunicationProcess__processes_stpo_data_streaming_command__and_rais
 
     expected_response = {
         "communication_type": "to_instrument",
-        "command": "stop_data_streaming",
+        "command": "stop_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(expected_response), from_main_queue

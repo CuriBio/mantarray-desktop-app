@@ -21,6 +21,7 @@ from .data_analyzer import DataAnalyzerProcess
 from .file_writer import FileWriterProcess
 from .firmware_manager import get_latest_firmware
 from .instrument_comm import InstrumentCommProcess
+from .mc_comm import McCommunicationProcess
 from .ok_comm import OkCommunicationProcess
 from .queue_container import MantarrayQueueContainer
 from .server import ServerThread
@@ -40,7 +41,8 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         self._instrument_communication_process: InstrumentCommProcess
         self._logging_level: int
         if values_to_share_to_server is None:
-            values_to_share_to_server = dict()
+            # Tanner (4/23/21): 'values_to_share_to_server' kwarg is only None during testing, so default to Beta 1 mode. Tests that need beta 2 mode should use the kwarg to provide a dict where this value is True
+            values_to_share_to_server = {"beta_2_mode": False}
 
         self._values_to_share_to_server = values_to_share_to_server
         self._server_thread: ServerThread
@@ -89,6 +91,8 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         queue_container = MantarrayQueueContainer()
         self._queue_container = queue_container
 
+        beta_2_mode = self._values_to_share_to_server["beta_2_mode"]
+
         self._server_thread = ServerThread(
             queue_container.get_communication_queue_from_server_to_main(),
             queue_container.get_server_error_queue(),
@@ -100,7 +104,10 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             ),
         )
 
-        self._instrument_communication_process = OkCommunicationProcess(
+        instrument_comm_process = (
+            OkCommunicationProcess if not beta_2_mode else McCommunicationProcess
+        )
+        self._instrument_communication_process = instrument_comm_process(  # type: ignore  # Tanner (4/22/21): mypy is unable to recognize that these are both InstrumentCommProcess sub-classes
             queue_container.get_instrument_comm_board_queues(),
             queue_container.get_instrument_communication_error_queue(),
             logging_level=self._logging_level,
@@ -113,6 +120,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             queue_container.get_file_writer_error_queue(),
             file_directory=self._file_directory,
             logging_level=self._logging_level,
+            beta_2_mode=beta_2_mode,
         )
 
         self._data_analyzer_process = DataAnalyzerProcess(
@@ -121,6 +129,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             queue_container.get_communication_queue_from_data_analyzer_to_main(),
             queue_container.get_data_analyzer_error_queue(),
             logging_level=self._logging_level,
+            beta_2_mode=beta_2_mode,
         )
 
         self._all_processes = (

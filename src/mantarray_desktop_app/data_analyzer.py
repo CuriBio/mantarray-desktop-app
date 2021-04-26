@@ -90,6 +90,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             Tuple[Exception, str]
         ],
         logging_level: int = logging.INFO,
+        beta_2_mode: bool = False,
     ):
         super().__init__(fatal_error_reporter, logging_level=logging_level)
         self._board_queues = the_board_queues
@@ -105,6 +106,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
             tissue_sampling_period=CONSTRUCT_SENSOR_SAMPLING_PERIOD,
         )
+        self._beta_2_mode = beta_2_mode
 
     def get_calibration_settings(self) -> Union[None, Dict[Any, Any]]:
         return self._calibration_settings

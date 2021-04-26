@@ -14,6 +14,8 @@ from typing import Tuple
 from typing import Union
 import uuid
 
+from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
+from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import InfiniteThread
 
@@ -27,6 +29,7 @@ from .constants import BARCODE_VALID_UUID
 from .constants import BUFFERING_STATE
 from .constants import CALIBRATED_STATE
 from .constants import CALIBRATING_STATE
+from .constants import CALIBRATION_NEEDED_STATE
 from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
 from .constants import RECORDING_STATE
@@ -104,6 +107,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         with self._lock:
             logger.info(msg)
 
+    # pylint: disable=too-many-branches  # Tanner (4/23/21): temporarily need to add more than the allowed number of branches in order to support Beta 1 mode during transition to Beta 2 mode
     def _check_and_handle_server_to_main_queue(self) -> None:
         process_manager = self._process_manager
         to_main_queue = (
@@ -146,7 +150,6 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 ]
             else:
                 raise UnrecognizedMantarrayNamingCommandError(command)
-
             self._put_communication_into_instrument_comm_queue(communication)
         elif communication_type == "shutdown":
             command = communication["command"]
@@ -154,7 +157,6 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._process_manager.soft_stop_processes_except_server()
             else:
                 self._process_manager.are_processes_stopped()
-
                 self._hard_stop_and_join_processes_and_log_leftovers()
         elif communication_type == "update_shared_values_dictionary":
             new_values = communication["content"]
@@ -176,8 +178,12 @@ class MantarrayProcessesMonitor(InfiniteThread):
             update_shared_dict(shared_values_dict, new_values)
         elif communication_type == "xem_scripts":
             # Tanner (12/28/20): start_calibration is the only xem_scripts command that will come from server. This comm type will be removed/replaced in beta 2 so not adding handling for unrecognized command.
-            shared_values_dict["system_status"] = CALIBRATING_STATE
-            self._put_communication_into_instrument_comm_queue(communication)
+            if shared_values_dict["beta_2_mode"]:
+                # Tanner (4/23/20): Mantarray Beta 2 does not have a calibrating state, so keeping this command for now but switching straight to calibrated state to ease the transition away from users running calibration
+                shared_values_dict["system_status"] = CALIBRATED_STATE
+            else:
+                shared_values_dict["system_status"] = CALIBRATING_STATE
+                self._put_communication_into_instrument_comm_queue(communication)
         elif communication_type == "recording":
             command = communication["command"]
             main_to_fw_queue = (
@@ -318,6 +324,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
             self._values_to_share_to_server["in_simulation_mode"] = not communication[
                 "is_connected"
             ]
+            if self._values_to_share_to_server["beta_2_mode"]:
+                return  # Tanner (4/25/21): Beta 2 Mantarray Instrument cannot send these values until the board is completely initialized, so just returning here
             self._values_to_share_to_server["mantarray_serial_number"] = {
                 board_idx: communication["mantarray_serial_number"]
             }
@@ -377,12 +385,24 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 "barcode_status": barcode_status,
                 "frontend_needs_barcode_update": True,
             }
+        elif communication_type == "metadata_comm":
+            board_idx = communication["board_index"]
+            self._values_to_share_to_server["instrument_metadata"] = {
+                board_idx: communication["metadata"]
+            }
+            # TODO Tanner (4/23/21): eventually these two following values won't need there own fields as they will be accessible through the above entry in shared_values_dict. Need to keep these until Beta 1 is phased out though
+            self._values_to_share_to_server["mantarray_serial_number"] = {
+                board_idx: communication["metadata"][MANTARRAY_SERIAL_NUMBER_UUID]
+            }
+            self._values_to_share_to_server["mantarray_nickname"] = {
+                board_idx: communication["metadata"][MANTARRAY_NICKNAME_UUID]
+            }
 
     def _commands_for_each_run_iteration(self) -> None:
         """Execute additional commands inside the run loop."""
         process_manager = self._process_manager
 
-        # any potential errors should be handled first  # TODO Tanner (3/23/21): add story to include mc_simulator error queues here. Need to integrate McComm into the rest of the software and determine if it is running in simulation mode first
+        # any potential errors should be handled first
         for iter_error_queue, iter_process in (
             (
                 process_manager.queue_container().get_instrument_communication_error_queue(),
@@ -415,16 +435,27 @@ class MantarrayProcessesMonitor(InfiniteThread):
             == SERVER_INITIALIZING_STATE
         ):
             self._check_subprocess_start_up_statuses()
+        elif self._values_to_share_to_server["system_status"] == SERVER_READY_STATE:
+            if self._values_to_share_to_server["beta_2_mode"]:
+                self._values_to_share_to_server[
+                    "system_status"
+                ] = INSTRUMENT_INITIALIZING_STATE
+            elif self._boot_up_after_processes_start:
+                self._values_to_share_to_server[
+                    "system_status"
+                ] = INSTRUMENT_INITIALIZING_STATE
+                process_manager.boot_up_instrument(
+                    load_firmware_file=self._load_firmware_file
+                )
         elif (
-            self._values_to_share_to_server["system_status"] == SERVER_READY_STATE
-            and self._boot_up_after_processes_start
+            self._values_to_share_to_server["system_status"]
+            == INSTRUMENT_INITIALIZING_STATE
+            and self._values_to_share_to_server["beta_2_mode"]
         ):
-            self._values_to_share_to_server[
-                "system_status"
-            ] = INSTRUMENT_INITIALIZING_STATE
-            process_manager.boot_up_instrument(
-                load_firmware_file=self._load_firmware_file
-            )
+            if "instrument_metadata" in self._values_to_share_to_server:
+                self._values_to_share_to_server[
+                    "system_status"
+                ] = CALIBRATION_NEEDED_STATE
 
         # check/handle comm from the server and each subprocess
         self._check_and_handle_instrument_comm_to_main_queue()
@@ -432,12 +463,13 @@ class MantarrayProcessesMonitor(InfiniteThread):
         self._check_and_handle_data_analyzer_to_main_queue()
         self._check_and_handle_server_to_main_queue()
 
-        # handle barcode polling. This should be removed once the physical instrument is able to detect plate placement/removal on its own
+        # handle barcode polling. This should be removed once the physical instrument is able to detect plate placement/removal on its own. The Beta 2 instrument will be able to do this on its own from the start, so no need to send barcode comm in Beta 2 mode.
         if self._last_barcode_clear_time is None:
             self._last_barcode_clear_time = _get_barcode_clear_time()
         if (
             _get_dur_since_last_barcode_clear(self._last_barcode_clear_time)
             >= BARCODE_POLL_PERIOD
+            and not self._values_to_share_to_server["beta_2_mode"]
         ):
             to_instrument_comm = process_manager.queue_container().get_communication_to_instrument_comm_queue(
                 0

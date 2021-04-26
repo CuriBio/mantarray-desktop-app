@@ -78,6 +78,10 @@ class SystemStartUpError(Exception):
     pass
 
 
+class InvalidBeta2FlagOptionError(Exception):
+    pass
+
+
 class UnrecognizedMantarrayNamingCommandError(Exception):
     pass
 

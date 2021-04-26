@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 import logging
-from unittest.mock import ANY
 
 from mantarray_desktop_app import clear_the_server_thread
 from mantarray_desktop_app import DataAnalyzerProcess
 from mantarray_desktop_app import FileWriterProcess
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import MantarrayProcessesManager
+from mantarray_desktop_app import McCommunicationProcess
 from mantarray_desktop_app import OkCommunicationProcess
 from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import ServerThread
@@ -333,7 +333,7 @@ def test_MantarrayProcessesManager__passes_file_directory_to_FileWriter():
 
 
 def test_MantarrayProcessesManager__passes_shared_values_dict_to_server():
-    expected_dict = {"some key": "some value"}
+    expected_dict = {"beta_2_mode": False}
     manager = MantarrayProcessesManager(values_to_share_to_server=expected_dict)
     manager.create_processes()
     assert (
@@ -479,21 +479,17 @@ def test_MantarrayProcessesManager__create_processes__passes_port_value_from_dic
 ):
     expected_port = 5432
     manager = MantarrayProcessesManager(
-        values_to_share_to_server={"server_port_number": expected_port}
+        values_to_share_to_server={
+            "server_port_number": expected_port,
+            "beta_2_mode": False,
+        }
     )
     spied_create_server_thread = mocker.spy(ServerThread, "__init__")
 
     manager.create_processes()
 
-    spied_create_server_thread.assert_called_once_with(
-        ANY,
-        ANY,
-        ANY,
-        ANY,
-        values_from_process_monitor=ANY,
-        port=expected_port,
-        logging_level=ANY,
-    )
+    spied_create_server_thread.assert_called_once()
+    assert spied_create_server_thread.call_args.kwargs["port"] == expected_port
 
     # clean up the ServerThread singleton
     clear_the_server_thread()
@@ -609,3 +605,36 @@ def test_MantarrayProcessesManager__are_subprocess_start_ups_complete__returns_f
             iter_process, "is_start_up_complete", autospec=True, return_value=True
         )
     assert test_process_manager.are_subprocess_start_ups_complete() is False
+
+
+def test_MantarrayProcessesManager__passes_beta_2_flag_to_subprocesses_other_than_instrument_comm(
+    mocker,
+):
+    expected_beta_2_flag = True
+    shared_values_dict = {"beta_2_mode": expected_beta_2_flag}
+    manager = MantarrayProcessesManager(values_to_share_to_server=shared_values_dict)
+
+    spied_fw_init = mocker.spy(FileWriterProcess, "__init__")
+    spied_da_init = mocker.spy(DataAnalyzerProcess, "__init__")
+
+    manager.create_processes()
+
+    assert spied_fw_init.call_args.kwargs["beta_2_mode"] is expected_beta_2_flag
+    assert spied_da_init.call_args.kwargs["beta_2_mode"] is expected_beta_2_flag
+
+    # clean up the ServerThread singleton
+    clear_the_server_thread()
+
+
+def test_MantarrayProcessesManager__creates_mc_comm_instead_of_ok_comm_when_beta_2_flag_is_set_true(
+    mocker,
+):
+    shared_values_dict = {"beta_2_mode": True}
+    manager = MantarrayProcessesManager(values_to_share_to_server=shared_values_dict)
+    manager.create_processes()
+
+    mc_comm_process = manager.get_instrument_process()
+    assert isinstance(mc_comm_process, McCommunicationProcess) is True
+
+    # clean up the ServerThread singleton
+    clear_the_server_thread()

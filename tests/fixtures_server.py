@@ -48,6 +48,11 @@ def fixture_server_thread(generic_queue_container):
     )
 
     st = ServerThread(to_main_queue, error_queue, generic_queue_container)
+    shared_values_dict = (
+        st._values_from_process_monitor  # pylint:disable=protected-access
+    )
+    # Tanner (4/23/21): Many routes require this value to be in the shared values dictionary. It is normally set during app start up, so manually setting here
+    shared_values_dict["beta_2_mode"] = False
 
     yield st, to_main_queue, error_queue
     # drain queues to avoid broken pipe errors

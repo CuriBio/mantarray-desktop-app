@@ -114,22 +114,48 @@ def test_system_status__returns_correct_serial_number_and_nickname_in_dict_with_
 @pytest.mark.parametrize(
     ",".join(("test_nickname", "test_description")),
     [
-        ("123456789012345678901234", "raises error with no unicode characters"),
-        ("1234567890123456789012à", "raises error with unicode character"),
+        ("123456789012345678901234", "returns error with no unicode characters"),
+        ("1234567890123456789012à", "returns error with unicode character"),
     ],
 )
-def test_set_mantarray_serial_number__returns_error_code_and_message_if_serial_number_is_too_many_bytes(
+def test_set_mantarray_nickname__returns_error_code_and_message_if_nickname_is_too_many_bytes__in_beta_1_mode(
     test_nickname,
     test_description,
     client_and_server_thread_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
 
+    shared_values_dict["beta_2_mode"] = False
     shared_values_dict["mantarray_nickname"] = dict()
 
     response = test_client.get(f"/set_mantarray_nickname?nickname={test_nickname}")
     assert response.status_code == 400
     assert response.status.endswith("Nickname exceeds 23 bytes") is True
+
+
+@pytest.mark.parametrize(
+    ",".join(("test_nickname", "test_description")),
+    [
+        (
+            "123456789012345678901234567890123",
+            "returns error with no unicode characters",
+        ),
+        ("1234567890123456789012345678901à", "returns error with unicode character"),
+    ],
+)
+def test_set_mantarray_nickname__returns_error_code_and_message_if_nickname_is_too_many_bytes__in_beta_2_mode(
+    test_nickname,
+    test_description,
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["mantarray_nickname"] = dict()
+
+    response = test_client.get(f"/set_mantarray_nickname?nickname={test_nickname}")
+    assert response.status_code == 400
+    assert response.status.endswith("Nickname exceeds 32 bytes") is True
 
 
 def test_send_single_start_calibration_command__returns_200(
@@ -563,3 +589,31 @@ def test_route_with_no_url_rule__returns_error_message__and_logs_reponse_to_requ
     mocked_logger.assert_called_once_with(
         f"Response to HTTP Request in next log entry: {response.status}"
     )
+
+
+def test_insert_xem_command_into_queue_routes__return_error_code_and_message_if_called_in_beta_2_mode(
+    client_and_server_thread_and_shared_values, mocker
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+
+    spied_queue_set_device_id = mocker.spy(server, "queue_set_device_id")
+
+    shared_values_dict["beta_2_mode"] = True
+
+    response = test_client.get("/insert_xem_command_into_queue/set_device_id")
+    assert response.status_code == 403
+    assert response.status.endswith("Route cannot be called in beta 2 mode") is True
+
+    spied_queue_set_device_id.assert_not_called()
+
+
+def test_boot_up__return_error_code_and_message_if_called_in_beta_2_mode(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+
+    shared_values_dict["beta_2_mode"] = True
+
+    response = test_client.get("/boot_up")
+    assert response.status_code == 403
+    assert response.status.endswith("Route cannot be called in beta 2 mode") is True

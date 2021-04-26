@@ -150,6 +150,7 @@ from .exceptions import InstrumentDataStreamingAlreadyStoppedError
 from .exceptions import InstrumentFatalError
 from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import InstrumentSoftError
+from .exceptions import InvalidBeta2FlagOptionError
 from .exceptions import InvalidDataFramePeriodError
 from .exceptions import InvalidDataTypeFromOkCommError
 from .exceptions import InvalidScriptCommandError
@@ -487,4 +488,5 @@ __all__ = [
     "MICROSECONDS_PER_MILLISECOND",
     "SerialCommInvalidSamplingPeriodError",
     "SamplingPeriodChangeWhileDataStreamingError",
+    "InvalidBeta2FlagOptionError",
 ]
