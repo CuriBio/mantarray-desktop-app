@@ -7,6 +7,7 @@ from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import InstrumentFatalError
 from mantarray_desktop_app import InstrumentSoftError
+from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
@@ -20,6 +21,7 @@ from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
@@ -42,12 +44,14 @@ import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
 from ..fixtures import fixture_patch_print
+from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process_no_handshake
 from ..fixtures_mc_comm import set_connection_and_register_simulator
 from ..fixtures_mc_simulator import DEFAULT_SIMULATOR_STATUS_CODE
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
+from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import handle_putting_multiple_objects_into_empty_queue
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
@@ -546,3 +550,62 @@ def test_McCommunicationProcess__when_instrument_has_soft_error__retrieves_eepro
     with pytest.raises(InstrumentSoftError) as exc_info:
         invoke_process_run_and_check_errors(mc_process)
     assert str(simulator.get_eeprom_bytes()) in str(exc_info.value)
+
+
+@pytest.mark.parametrize(
+    "test_barcode,expected_valid_flag,test_description",
+    [
+        ("", None, "sends correct barcode comm when plate is removed"),
+        (
+            MantarrayMcSimulator.default_barcode,
+            True,
+            "sends correct barcode comm when plate with valid barcode is placed",
+        ),
+        (
+            "M$190190001",
+            False,
+            "sends correct barcode comm when plate with invalid barcode is placed",
+        ),
+    ],
+)
+def test_McCommunicationProcess__handles_barcode_comm(
+    test_barcode,
+    expected_valid_flag,
+    test_description,
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+    to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
+
+    # send plate event packet from simulator
+    was_plate_placed_byte = expected_valid_flag is not None
+    plate_event_packet = create_data_packet(
+        randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE),
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_PLATE_EVENT_PACKET_TYPE,
+        bytes([was_plate_placed_byte]) + bytes(test_barcode, encoding="ascii"),
+    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "add_read_bytes", "read_bytes": plate_event_packet},
+        testing_queue,
+    )
+    invoke_process_run_and_check_errors(simulator)
+    # process plate event packet and send barcode comm to main
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+    # check that comm was sent correctly
+    expected_barcode_comm = {
+        "communication_type": "barcode_comm",
+        "board_idx": 0,
+        "barcode": test_barcode,
+    }
+    if expected_valid_flag is not None:
+        expected_barcode_comm["valid"] = expected_valid_flag
+    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert actual == expected_barcode_comm

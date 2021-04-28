@@ -144,6 +144,32 @@ def get_current_software_version() -> str:
         return version
 
 
+# Tanner (12/30/20): Need to support this function until barcodes are no longer accepted in /start_recording route. Creating a wrapper function `check_barcode_is_valid` to make the transition easier once this function is removed
+def check_barcode_for_errors(barcode: str) -> str:
+    """Return error message if barcode contains an error."""
+    if len(barcode) > 11:
+        return "Barcode exceeds max length"
+    if len(barcode) < 10:
+        return "Barcode does not reach min length"
+    for char in barcode:
+        if not char.isalnum():
+            return f"Barcode contains invalid character: '{char}'"
+    if barcode[:2] not in ("MA", "MB", "ME"):
+        return f"Barcode contains invalid header: '{barcode[:2]}'"
+    if not barcode[2:4].isnumeric():
+        return f"Barcode contains invalid year: '{barcode[2:4]}'"
+    if not barcode[4:7].isnumeric() or int(barcode[4:7]) < 1 or int(barcode[4:7]) > 366:
+        return f"Barcode contains invalid Julian date: '{barcode[4:7]}'"
+    if not barcode[7:].isnumeric():
+        return f"Barcode contains nom-numeric string after Julian date: '{barcode[7:]}'"
+    return ""
+
+
+def check_barcode_is_valid(barcode: str) -> bool:
+    error_msg = check_barcode_for_errors(barcode)
+    return error_msg == ""
+
+
 def _trim_barcode(barcode: str) -> str:
     """Trim the trailing 1 or 2 ASCII NULL (0x00) characters off barcode."""
     if barcode[11] != chr(0):

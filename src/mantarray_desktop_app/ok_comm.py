@@ -64,6 +64,7 @@ from .fifo_simulator import RunningFIFOSimulator
 from .instrument_comm import InstrumentCommProcess
 from .mantarray_front_panel import MantarrayFrontPanel
 from .utils import _trim_barcode
+from .utils import check_barcode_is_valid
 
 if (
     6 < 9
@@ -71,32 +72,6 @@ if (
     from .data_parsing_cy import (  # pylint: disable=import-error # Tanner (8/25/20): unsure why pylint is unable to recognize cython import...
         parse_sensor_bytes,
     )
-
-
-# Tanner (12/30/20): Need to support this function until barcodes are no longer accepted in /start_recording route. Creating a wrapper function `_check_barcode_is_valid` to make the transition easier once this function is removed
-def check_barcode_for_errors(barcode: str) -> str:
-    """Return error message if barcode contains an error."""
-    if len(barcode) > 11:
-        return "Barcode exceeds max length"
-    if len(barcode) < 10:
-        return "Barcode does not reach min length"
-    for char in barcode:
-        if not char.isalnum():
-            return f"Barcode contains invalid character: '{char}'"
-    if barcode[:2] not in ("MA", "MB", "ME"):
-        return f"Barcode contains invalid header: '{barcode[:2]}'"
-    if not barcode[2:4].isnumeric():
-        return f"Barcode contains invalid year: '{barcode[2:4]}'"
-    if not barcode[4:7].isnumeric() or int(barcode[4:7]) < 1 or int(barcode[4:7]) > 366:
-        return f"Barcode contains invalid Julian date: '{barcode[4:7]}'"
-    if not barcode[7:].isnumeric():
-        return f"Barcode contains nom-numeric string after Julian date: '{barcode[7:]}'"
-    return ""
-
-
-def _check_barcode_is_valid(barcode: str) -> bool:
-    error_msg = check_barcode_for_errors(barcode)
-    return error_msg == ""
 
 
 def _get_formatted_utc_now() -> str:
@@ -687,7 +662,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
                 raise BarcodeScannerNotRespondingError()
 
             trimmed_barcode = _trim_barcode(barcode)
-            if _check_barcode_is_valid(trimmed_barcode):
+            if check_barcode_is_valid(trimmed_barcode):
                 self._send_barcode_to_main(board_idx, trimmed_barcode, True)
                 return
             if scan_attempt == 1:
