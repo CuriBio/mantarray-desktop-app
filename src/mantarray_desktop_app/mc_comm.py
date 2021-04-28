@@ -429,7 +429,9 @@ class McCommunicationProcess(InstrumentCommProcess):
             return
         if not self._is_registered_with_serial_comm[board_idx]:
             self._register_magic_word(board_idx)
-        elif board.in_waiting > 0:
+        elif (
+            board.in_waiting > 0
+        ):  # Tanner (4/27/21): If problems occur with reads not being large enough may need to make some min value is present first. 8 bytes for the magic word is probably a good value to start with
             magic_word_bytes = board.read(size=len(SERIAL_COMM_MAGIC_WORD_BYTES))
             if magic_word_bytes != SERIAL_COMM_MAGIC_WORD_BYTES:
                 raise SerialCommIncorrectMagicWordFromMantarrayError(

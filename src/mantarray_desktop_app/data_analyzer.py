@@ -215,7 +215,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         outgoing_data: Dict[str, Any] = {
             "waveform_data": {
                 "basic_data": {"waveform_data_points": None},
-                # TODO Tanner (4/21/20): Add "not basic" data once possible
+                # TODO Tanner (4/21/20): Add data_metrics once possible
                 "data_metrics": dict(),
             },
         }
@@ -245,7 +245,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                 # Tanner (4/23/20): json cannot by default serialize type numpy types, so we must use the item as native type
                 earliest_timepoint = compressed_data[0][0].item()
             if latest_timepoint is None or compressed_data[0][-1] > latest_timepoint:
-                # Tanner (4/23/20): json cannot by default serialize type numpy types, so we must use the item as native type
+                # Tanner (4/23/20): json cannot by default serialize numpy types, so we must use the item as native type
                 latest_timepoint = compressed_data[0][-1].item()
             self._data_buffer[well_index] = {
                 "construct_data": None,

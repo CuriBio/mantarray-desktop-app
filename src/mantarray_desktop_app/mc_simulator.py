@@ -48,6 +48,7 @@ from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
+from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from .constants import SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
@@ -122,6 +123,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         "TBD"  # TODO Tanner (3/17/21): implement this once the format is determined
     )
     default_firmware_version = "0.0.0"
+    default_barcode = "MA190190001"
     default_metadata_values: Dict[UUID, Any] = immutabledict(
         {
             BOOTUP_COUNTER_UUID: 0,
@@ -160,6 +162,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._time_of_last_comm_from_pc_secs: Optional[float] = None
         self._reboot_time_secs: Optional[float] = None
         self._boot_up_time_secs: Optional[float] = None
+        self._ready_to_send_barcode = False
         self._is_streaming_data = False
         self._sampling_periods: Dict[int, Dict[int, int]] = dict()
         self._reset_sampling_periods()
@@ -178,6 +181,7 @@ class MantarrayMcSimulator(InfiniteProcess):
 
         It does not represent the full number of bytes that can be read.
         """
+        # Tanner (4/28/21): If McComm ever has a need to know the true value of in_waiting, need to make this value accurate
         if len(self._leftover_read_bytes) == 0:
             try:
                 self._leftover_read_bytes = self._output_queue.get(
@@ -267,6 +271,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         4. Handle communication from the PC.
         5. Send a status beacon if enough time has passed since the previous one was sent.
         6. Check if the handshake from the PC Is overdue. This should be done after checking for data sent from the PC since the next packet might be a handshake.
+        7. Check if the barcode is ready to send. This is currently the lowest priority.
         """
         self._handle_test_comm()
         if self._status_code == SERIAL_COMM_FATAL_ERROR_CODE:
@@ -290,6 +295,13 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._handle_comm_from_pc()
         self._handle_status_beacon()
         self._check_handshake()
+        if self._ready_to_send_barcode:
+            self._send_data_packet(
+                SERIAL_COMM_MAIN_MODULE_ID,
+                SERIAL_COMM_PLATE_EVENT_PACKET_TYPE,
+                bytes([1]) + bytes(self.default_barcode, encoding="ascii"),
+            )
+            self._ready_to_send_barcode = False
 
     def _handle_reboot_completion(self) -> None:
         drain_queue(self._input_queue)
@@ -375,6 +387,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                 )
                 self._timepoint_of_time_sync_us = _perf_counter_us()
                 status_code_update = SERIAL_COMM_IDLE_READY_CODE
+                self._ready_to_send_barcode = True
             elif command_byte == SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE:
                 start_idx = SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 1
                 nickname_bytes = comm_from_pc[
