@@ -168,9 +168,18 @@ def create_sensor_axis_bitmask(config_dict: Dict[int, bool]) -> int:
 def create_magnetomer_config_bytes(config_dict: Dict[int, Dict[int, bool]]) -> bytes:
     bitshift = 16 - SERIAL_COMM_NUM_DATA_CHANNELS
     config_bytes = bytes(0)
-    for well_idx, well_config in config_dict.items():
-        config_bytes += bytes([well_idx + 1])
+    for module_id, well_config in config_dict.items():
+        config_bytes += bytes([module_id])
         config_bytes += (create_sensor_axis_bitmask(well_config) << bitshift).to_bytes(
             2, byteorder="big"
         )
     return config_bytes
+
+
+def convert_bitmask_to_config_dict(bitmask: int) -> Dict[int, bool]:
+    config_dict: Dict[int, bool] = dict()
+    bit = 1 << SERIAL_COMM_NUM_DATA_CHANNELS - 1
+    for sensor_axis_id in range(SERIAL_COMM_NUM_DATA_CHANNELS):
+        config_dict[sensor_axis_id] = bool(bitmask & bit)
+        bit >>= 1
+    return config_dict

@@ -3,6 +3,7 @@ import datetime
 from zlib import crc32
 
 from freezegun import freeze_time
+from mantarray_desktop_app import convert_bitmask_to_config_dict
 from mantarray_desktop_app import convert_metadata_bytes_to_str
 from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import create_data_packet
@@ -170,19 +171,8 @@ def test_get_serial_comm_timestamp__returns_microseconds_since_2021_01_01():
 
 
 def test_create_sensor_axis_bitmask__returns_correct_values():
-    test_well_config_dict = {
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: True,
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Y"]: False,
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Z"]: True,
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["X"]: True,
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["Y"]: False,
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["Z"]: True,
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["X"]: False,
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Y"]: True,
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: False,
-    }
     expected_bitmask = 0b101101010
-
+    test_well_config_dict = convert_bitmask_to_config_dict(expected_bitmask)
     actual = create_sensor_axis_bitmask(test_well_config_dict)
     assert bin(actual) == bin(expected_bitmask)
 
@@ -191,31 +181,40 @@ def test_create_magnetomer_config_bytes__returns_correct_values():
     num_wells = 24
     test_dict = create_magnetomer_config_dict(num_wells)
     # arbitrarily change values
-    for key in test_dict[0].keys():
-        test_dict[0][key] = False
-    test_dict[1] = {
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: True,
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Y"]: True,
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Z"]: True,
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["X"]: False,
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["Y"]: False,
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["Z"]: False,
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["X"]: True,
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Y"]: False,
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: False,
-    }
+    for key in test_dict[1].keys():
+        test_dict[1][key] = False
+    test_dict[2] = convert_bitmask_to_config_dict(0b111000100)
     bitshift = 16 - SERIAL_COMM_NUM_DATA_CHANNELS
     expected_uint16_bitmasks = [0, 0b111000100 << bitshift]
     expected_uint16_bitmasks.extend(
         [0b111111111 << bitshift for _ in range(num_wells - 2)]
     )
     actual = create_magnetomer_config_bytes(test_dict)
-    for well_idx in range(num_wells):
-        start_idx = well_idx * 3
+    for module_id in range(1, num_wells + 1):
+        start_idx = (module_id - 1) * 3
         assert (
-            actual[start_idx] == well_idx + 1
-        ), f"Incorrect module_id at idx: {well_idx}"
-        bitmask_bytes = expected_uint16_bitmasks[well_idx].to_bytes(2, byteorder="big")
+            actual[start_idx] == module_id
+        ), f"Incorrect module_id at idx: {module_id}"
+        bitmask_bytes = expected_uint16_bitmasks[module_id - 1].to_bytes(
+            2, byteorder="big"
+        )
         assert (
-            actual[start_idx + 1 : start_idx + 2] == bitmask_bytes
-        ), f"Incorrect bitmask bytes at idx: {well_idx}"
+            actual[start_idx + 1 : start_idx + 3] == bitmask_bytes
+        ), f"Incorrect bitmask bytes for module_id: {module_id}"
+
+
+def test_convert_bitmask_to_config_dict__returns_correct_values():
+    test_bitmask = 0b101010101
+    expected_config_dict = {
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: True,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Y"]: False,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Z"]: True,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["X"]: False,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["Y"]: True,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["Z"]: False,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["X"]: True,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Y"]: False,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: True,
+    }
+    actual = convert_bitmask_to_config_dict(test_bitmask)
+    assert actual == expected_config_dict

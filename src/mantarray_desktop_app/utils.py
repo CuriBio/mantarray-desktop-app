@@ -181,9 +181,9 @@ def _trim_barcode(barcode: str) -> str:
 
 def create_magnetomer_config_dict(num_wells: int) -> Dict[int, Dict[int, bool]]:
     magnetomer_config_dict = dict()
-    for well_idx in range(num_wells):
+    for module_id in range(1, num_wells + 1):
         well_dict = dict()
         for sensor_axis_id in range(9):
             well_dict[sensor_axis_id] = True
-        magnetomer_config_dict[well_idx] = well_dict
+        magnetomer_config_dict[module_id] = well_dict
     return magnetomer_config_dict

@@ -161,7 +161,6 @@ from .exceptions import MantarrayInstrumentError
 from .exceptions import MismatchedScriptTypeError
 from .exceptions import MultiprocessingNotSetToSpawnError
 from .exceptions import RecordingFolderDoesNotExistError
-from .exceptions import SamplingPeriodChangeWhileDataStreamingError
 from .exceptions import ScriptDoesNotContainEndCommandError
 from .exceptions import SerialCommCommandResponseTimeoutError
 from .exceptions import SerialCommHandshakeTimeoutError
@@ -222,6 +221,7 @@ from .ok_comm import parse_scripting_log_line
 from .process_manager import MantarrayProcessesManager
 from .process_monitor import MantarrayProcessesMonitor
 from .queue_container import MantarrayQueueContainer
+from .serial_comm_utils import convert_bitmask_to_config_dict
 from .serial_comm_utils import convert_metadata_bytes_to_str
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_status_code_bytes
@@ -492,11 +492,11 @@ __all__ = [
     "SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE",
     "MICROSECONDS_PER_MILLISECOND",
     "SerialCommInvalidSamplingPeriodError",
-    "SamplingPeriodChangeWhileDataStreamingError",
     "InvalidBeta2FlagOptionError",
     "SERIAL_COMM_PLATE_EVENT_PACKET_TYPE",
     "create_magnetomer_config_dict",
     "create_sensor_axis_bitmask",
     "create_magnetomer_config_bytes",
     "SERIAL_COMM_NUM_DATA_CHANNELS",
+    "convert_bitmask_to_config_dict",
 ]
