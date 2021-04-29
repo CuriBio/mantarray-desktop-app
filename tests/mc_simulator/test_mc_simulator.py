@@ -5,6 +5,7 @@ from random import randint
 
 from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import convert_to_status_code_bytes
+from mantarray_desktop_app import convert_to_timestamp_bytes
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
@@ -15,12 +16,15 @@ from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_IDLE_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
+from mantarray_desktop_app import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_BYTE_LOOKUP_TABLE
 from mantarray_desktop_app import SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_TIME_SYNC_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import SerialCommInvalidSamplingPeriodError
 from mantarray_desktop_app import UnrecognizedSimulatorTestCommandError
@@ -49,6 +53,7 @@ from ..fixtures_mc_simulator import TEST_HANDSHAKE
 from ..helpers import assert_serial_packet_is_expected
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
+from ..helpers import get_full_packet_size_from_packet_body_size
 from ..helpers import handle_putting_multiple_objects_into_empty_queue
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
@@ -68,6 +73,7 @@ def test_MantarrayMcSimulator__class_attributes():
     assert MantarrayMcSimulator.default_mantarray_serial_number == "M02001901"
     assert MantarrayMcSimulator.default_pcb_serial_number == "TBD"
     assert MantarrayMcSimulator.default_firmware_version == "0.0.0"
+    assert MantarrayMcSimulator.default_barcode == "MA190190001"
     assert MantarrayMcSimulator.default_metadata_values == {
         BOOTUP_COUNTER_UUID: 0,
         TOTAL_WORKING_HOURS_UUID: 0,
@@ -669,3 +675,46 @@ def test_MantarrayMcSimulator__raises_error_when_change_sensors_axes_sampling_pe
     # process command and raise error with given sampling period
     with pytest.raises(SamplingPeriodChangeWhileDataStreamingError):
         invoke_process_run_and_check_errors(simulator)
+
+
+def test_MantarrayMcSimulator__automatically_sends_plate_barcode_after_time_is_synced(
+    mantarray_mc_simulator_no_beacon,
+):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+
+    # put simulator in time sync ready status
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "set_status_code", "status_code": SERIAL_COMM_TIME_SYNC_READY_CODE},
+        testing_queue,
+    )
+    invoke_process_run_and_check_errors(simulator)
+    # send set time command
+    test_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+    test_set_time_command = create_data_packet(
+        test_pc_timestamp,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+        bytes([SERIAL_COMM_SET_TIME_COMMAND_BYTE])
+        + convert_to_timestamp_bytes(test_pc_timestamp),
+    )
+    simulator.write(test_set_time_command)
+    # process set time command and remove response
+    invoke_process_run_and_check_errors(simulator)
+    simulator.read(
+        size=get_full_packet_size_from_packet_body_size(
+            SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+        )
+    )
+    plate_event_packet_size = get_full_packet_size_from_packet_body_size(
+        1 + len(MantarrayMcSimulator.default_barcode)  # 1 byte for placed/removed flag
+    )
+    # assert plate event packet sent correctly
+    plate_event_packet = simulator.read(size=plate_event_packet_size)
+    assert_serial_packet_is_expected(
+        plate_event_packet,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_PLATE_EVENT_PACKET_TYPE,
+        additional_bytes=bytes([1])
+        + bytes(MantarrayMcSimulator.default_barcode, encoding="ascii"),
+    )

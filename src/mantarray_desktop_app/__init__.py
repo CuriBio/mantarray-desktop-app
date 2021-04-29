@@ -101,6 +101,7 @@ from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
+from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
@@ -210,7 +211,6 @@ from .mantarray_front_panel import MantarrayFrontPanelMixIn
 from .mc_comm import McCommunicationProcess
 from .mc_simulator import MantarrayMcSimulator
 from .ok_comm import build_file_writer_objects
-from .ok_comm import check_barcode_for_errors
 from .ok_comm import check_mantarray_serial_number
 from .ok_comm import execute_debug_console_command
 from .ok_comm import OkCommunicationProcess
@@ -236,6 +236,7 @@ from .server import get_the_server_thread
 from .server import ServerThread
 from .system_utils import system_state_eventually_equals
 from .system_utils import wait_for_subprocesses_to_start
+from .utils import check_barcode_for_errors
 from .utils import get_current_software_version
 from .utils import redact_sensitive_info_from_path
 
@@ -489,4 +490,5 @@ __all__ = [
     "SerialCommInvalidSamplingPeriodError",
     "SamplingPeriodChangeWhileDataStreamingError",
     "InvalidBeta2FlagOptionError",
+    "SERIAL_COMM_PLATE_EVENT_PACKET_TYPE",
 ]

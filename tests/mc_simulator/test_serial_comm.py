@@ -591,7 +591,11 @@ def test_MantarrayMcSimulator__processes_set_time_command(
         simulator,
         "_get_us_since_time_sync",
         autospec=True,
-        side_effect=[expected_command_response_time_us, expected_status_beacon_time_us],
+        side_effect=[
+            expected_command_response_time_us,
+            expected_status_beacon_time_us,
+            0,  # dummy val
+        ],
     )
 
     # send set time command

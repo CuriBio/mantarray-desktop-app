@@ -85,10 +85,10 @@ from .exceptions import LocalServerPortAlreadyInUseError
 from .exceptions import RecordingFolderDoesNotExistError
 from .exceptions import ServerThreadNotInitializedError
 from .exceptions import ServerThreadSingletonAlreadySetError
-from .ok_comm import check_barcode_for_errors
 from .ok_comm import check_mantarray_serial_number
 from .queue_container import MantarrayQueueContainer
 from .request_handler import MantarrayRequestHandler
+from .utils import check_barcode_for_errors
 from .utils import convert_request_args_to_config_dict
 from .utils import get_current_software_version
 from .utils import validate_settings

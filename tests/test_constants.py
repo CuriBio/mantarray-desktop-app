@@ -89,6 +89,7 @@ from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_INDEX
 from mantarray_desktop_app import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_TYPE_INDEX
+from mantarray_desktop_app import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
@@ -407,6 +408,7 @@ def test_serial_comm():
     assert SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE == 3
     assert SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE == 4
     assert SERIAL_COMM_HANDSHAKE_PACKET_TYPE == 4
+    assert SERIAL_COMM_PLATE_EVENT_PACKET_TYPE == 6
     assert SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE == 255
     assert SERIAL_COMM_REBOOT_COMMAND_BYTE == 0
     assert SERIAL_COMM_GET_METADATA_COMMAND_BYTE == 6

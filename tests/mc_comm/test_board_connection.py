@@ -594,8 +594,8 @@ def test_McCommunicationProcess__requests_metadata_from_instrument_after_it_init
     # process command and switch to idle ready state
     invoke_process_run_and_check_errors(simulator)
 
-    # run mc_process twice to process set time command response then trigger automatic collection of metadata
-    invoke_process_run_and_check_errors(mc_process, num_iterations=2)
+    # run mc_process 3 times to process set time command response, process barcode comm, then trigger automatic collection of metadata
+    invoke_process_run_and_check_errors(mc_process, num_iterations=3)
     # process get metadata command
     invoke_process_run_and_check_errors(simulator)
     # send metadata to main
