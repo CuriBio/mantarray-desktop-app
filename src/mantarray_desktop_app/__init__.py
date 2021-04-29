@@ -91,6 +91,7 @@ from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_IDLE_READY_CODE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
+from .constants import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MAX_DATA_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
@@ -99,14 +100,14 @@ from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
+from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
-from .constants import SERIAL_COMM_SENSOR_AXIS_BYTE_LOOKUP_TABLE
-from .constants import SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE
+from .constants import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
@@ -226,6 +227,8 @@ from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_status_code_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
 from .serial_comm_utils import create_data_packet
+from .serial_comm_utils import create_magnetomer_config_bytes
+from .serial_comm_utils import create_sensor_axis_bitmask
 from .serial_comm_utils import get_serial_comm_timestamp
 from .serial_comm_utils import parse_metadata_bytes
 from .serial_comm_utils import validate_checksum
@@ -237,6 +240,7 @@ from .server import ServerThread
 from .system_utils import system_state_eventually_equals
 from .system_utils import wait_for_subprocesses_to_start
 from .utils import check_barcode_for_errors
+from .utils import create_magnetomer_config_dict
 from .utils import get_current_software_version
 from .utils import redact_sensitive_info_from_path
 
@@ -484,11 +488,15 @@ __all__ = [
     "SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE",
     "InstrumentDataStreamingAlreadyStartedError",
     "InstrumentDataStreamingAlreadyStoppedError",
-    "SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE",
-    "SERIAL_COMM_SENSOR_AXIS_BYTE_LOOKUP_TABLE",
+    "SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE",
+    "SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE",
     "MICROSECONDS_PER_MILLISECOND",
     "SerialCommInvalidSamplingPeriodError",
     "SamplingPeriodChangeWhileDataStreamingError",
     "InvalidBeta2FlagOptionError",
     "SERIAL_COMM_PLATE_EVENT_PACKET_TYPE",
+    "create_magnetomer_config_dict",
+    "create_sensor_axis_bitmask",
+    "create_magnetomer_config_bytes",
+    "SERIAL_COMM_NUM_DATA_CHANNELS",
 ]

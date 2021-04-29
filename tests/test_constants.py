@@ -79,6 +79,7 @@ from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_IDLE_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
+from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_DATA_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
@@ -87,14 +88,14 @@ from mantarray_desktop_app import SERIAL_COMM_METADATA_BYTES_LENGTH
 from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_INDEX
 from mantarray_desktop_app import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
+from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_TYPE_INDEX
 from mantarray_desktop_app import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
-from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_BYTE_LOOKUP_TABLE
-from mantarray_desktop_app import SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
@@ -420,7 +421,7 @@ def test_serial_comm():
     assert SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE == 255
 
     assert SERIAL_COMM_REBOOT_COMMAND_BYTE == 0
-    assert SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE == 1
+    assert SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE == 1
     assert SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE == 2
     assert SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE == 3
     assert SERIAL_COMM_GET_METADATA_COMMAND_BYTE == 6
@@ -440,8 +441,9 @@ def test_serial_comm():
     assert SERIAL_COMM_FATAL_ERROR_CODE == 4
     assert SERIAL_COMM_SOFT_ERROR_CODE == 5
 
-    assert SERIAL_COMM_SENSOR_AXIS_BYTE_LOOKUP_TABLE == {
-        "A": {"X": 0, "Y": 3, "Z": 6},
-        "B": {"X": 1, "Y": 4, "Z": 7},
-        "C": {"X": 2, "Y": 5, "Z": 8},
+    assert SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE == {
+        "A": {"X": 0, "Y": 1, "Z": 2},
+        "B": {"X": 3, "Y": 4, "Z": 5},
+        "C": {"X": 6, "Y": 7, "Z": 8},
     }
+    assert SERIAL_COMM_NUM_DATA_CHANNELS == 9

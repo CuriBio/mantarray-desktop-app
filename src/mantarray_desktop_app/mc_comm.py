@@ -38,6 +38,7 @@ from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from .constants import SERIAL_COMM_IDLE_READY_CODE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
+from .constants import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
@@ -48,7 +49,6 @@ from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
-from .constants import SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
@@ -372,7 +372,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 module_id = comm_from_main["well_index"] + 1
                 bytes_to_send = bytes(
                     [
-                        SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE,
+                        SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE,
                         comm_from_main["sensor_axis_id"],
                     ]
                 )

@@ -7,6 +7,7 @@ from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import convert_to_status_code_bytes
 from mantarray_desktop_app import convert_to_timestamp_bytes
 from mantarray_desktop_app import create_data_packet
+from mantarray_desktop_app import create_magnetomer_config_dict
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
@@ -14,12 +15,12 @@ from mantarray_desktop_app import SamplingPeriodChangeWhileDataStreamingError
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_IDLE_READY_CODE
+from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
-from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_BYTE_LOOKUP_TABLE
-from mantarray_desktop_app import SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
@@ -83,6 +84,10 @@ def test_MantarrayMcSimulator__class_attributes():
         PCB_SERIAL_NUMBER_UUID: MantarrayMcSimulator.default_pcb_serial_number,
         MAIN_FIRMWARE_VERSION_UUID: MantarrayMcSimulator.default_firmware_version,
     }
+    assert (
+        MantarrayMcSimulator.default_24_well_magnetometer_config
+        == create_magnetomer_config_dict(24)
+    )
 
 
 def test_MantarrayMcSimulator__super_is_called_during_init__with_default_logging_value(
@@ -627,7 +632,7 @@ def test_MantarrayMcSimulator__raises_error_when_change_sensors_axes_sampling_pe
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     # send command with invalid sampling period
-    test_sensor_axis_id = SERIAL_COMM_SENSOR_AXIS_BYTE_LOOKUP_TABLE["B"]["Z"]
+    test_sensor_axis_id = SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["Z"]
     bad_sampling_period = 1001
     test_well_idx = 0
     dummy_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
@@ -635,7 +640,7 @@ def test_MantarrayMcSimulator__raises_error_when_change_sensors_axes_sampling_pe
         dummy_timestamp,
         test_well_idx + 1,
         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-        bytes([SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE, test_sensor_axis_id])
+        bytes([SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE, test_sensor_axis_id])
         + bad_sampling_period.to_bytes(2, byteorder="little"),
     )
     simulator.write(turn_axis_on_command)
@@ -660,7 +665,7 @@ def test_MantarrayMcSimulator__raises_error_when_change_sensors_axes_sampling_pe
     )
     invoke_process_run_and_check_errors(simulator)
     # send command with invalid sampling period
-    test_sensor_axis_id = SERIAL_COMM_SENSOR_AXIS_BYTE_LOOKUP_TABLE["C"]["Y"]
+    test_sensor_axis_id = SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Y"]
     test_sampling_period = 11000
     test_well_idx = 0
     dummy_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
@@ -668,7 +673,7 @@ def test_MantarrayMcSimulator__raises_error_when_change_sensors_axes_sampling_pe
         dummy_timestamp,
         test_well_idx + 1,
         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-        bytes([SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE, test_sensor_axis_id])
+        bytes([SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE, test_sensor_axis_id])
         + test_sampling_period.to_bytes(2, byteorder="little"),
     )
     simulator.write(turn_axis_on_command)

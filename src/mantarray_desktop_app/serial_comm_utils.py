@@ -21,6 +21,7 @@ from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
+from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIMESTAMP_EPOCH
@@ -154,3 +155,22 @@ def get_serial_comm_timestamp() -> int:
     return (
         datetime.datetime.now(tz=datetime.timezone.utc) - SERIAL_COMM_TIMESTAMP_EPOCH
     ) // datetime.timedelta(microseconds=1)
+
+
+def create_sensor_axis_bitmask(config_dict: Dict[int, bool]) -> int:
+    bitmask = 0
+    max_bit_shift = len(config_dict) - 1
+    for sensor_axis_id, config_value in config_dict.items():
+        bitmask += int(config_value) << (max_bit_shift - sensor_axis_id)
+    return bitmask
+
+
+def create_magnetomer_config_bytes(config_dict: Dict[int, Dict[int, bool]]) -> bytes:
+    bitshift = 16 - SERIAL_COMM_NUM_DATA_CHANNELS
+    config_bytes = bytes(0)
+    for well_idx, well_config in config_dict.items():
+        config_bytes += bytes([well_idx + 1])
+        config_bytes += (create_sensor_axis_bitmask(well_config) << bitshift).to_bytes(
+            2, byteorder="big"
+        )
+    return config_bytes

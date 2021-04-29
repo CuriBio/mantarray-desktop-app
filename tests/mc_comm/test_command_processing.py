@@ -5,7 +5,7 @@ from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
-from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_BYTE_LOOKUP_TABLE
+from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import UnrecognizedCommandFromMainToMcCommError
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
@@ -321,7 +321,7 @@ def test_McCommunicationProcess__processes_change_sensors_axes_sampling_period_c
 
     expected_sampling_period = 14000
     expected_well_idx = 23
-    test_sensor_axis_id = SERIAL_COMM_SENSOR_AXIS_BYTE_LOOKUP_TABLE["A"]["Z"]
+    test_sensor_axis_id = SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Z"]
     expected_response = {
         "communication_type": "to_instrument",
         "command": "change_sensor_axis_sampling_period",
