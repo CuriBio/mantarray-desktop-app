@@ -7,8 +7,8 @@ from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import convert_to_status_code_bytes
 from mantarray_desktop_app import convert_to_timestamp_bytes
 from mantarray_desktop_app import create_data_packet
-from mantarray_desktop_app import create_magnetomer_config_bytes
-from mantarray_desktop_app import create_magnetomer_config_dict
+from mantarray_desktop_app import create_magnetometer_config_bytes
+from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
@@ -85,7 +85,7 @@ def test_MantarrayMcSimulator__class_attributes():
     }
     assert (
         MantarrayMcSimulator.default_24_well_magnetometer_config
-        == create_magnetomer_config_dict(24)
+        == create_magnetometer_config_dict(24)
     )
 
 
@@ -640,7 +640,7 @@ def test_MantarrayMcSimulator__raises_error_when_magnetometer_config_command_rec
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     bad_sampling_period = 1001
-    magnetometer_config_bytes = create_magnetomer_config_bytes(
+    magnetometer_config_bytes = create_magnetometer_config_bytes(
         MantarrayMcSimulator.default_24_well_magnetometer_config
     )
     # send command with invalid sampling period

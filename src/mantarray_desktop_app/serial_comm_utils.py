@@ -165,7 +165,7 @@ def create_sensor_axis_bitmask(config_dict: Dict[int, bool]) -> int:
     return bitmask
 
 
-def create_magnetomer_config_bytes(config_dict: Dict[int, Dict[int, bool]]) -> bytes:
+def create_magnetometer_config_bytes(config_dict: Dict[int, Dict[int, bool]]) -> bytes:
     bitshift = 16 - SERIAL_COMM_NUM_DATA_CHANNELS
     config_bytes = bytes(0)
     for module_id, well_config in config_dict.items():

@@ -6,7 +6,7 @@ from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import convert_to_status_code_bytes
 from mantarray_desktop_app import convert_to_timestamp_bytes
 from mantarray_desktop_app import create_data_packet
-from mantarray_desktop_app import create_magnetomer_config_bytes
+from mantarray_desktop_app import create_magnetometer_config_bytes
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
@@ -820,7 +820,7 @@ def test_MantarrayMcSimulator__processes_change_magnetometer_config_command__whe
         SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Y"]: False,
         SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: False,
     }
-    magnetometer_config_bytes = create_magnetomer_config_bytes(expected_config_dict)
+    magnetometer_config_bytes = create_magnetometer_config_bytes(expected_config_dict)
     # send command to set magnetometer configuration
     expected_sampling_period = 1000
     expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
@@ -881,7 +881,7 @@ def test_MantarrayMcSimulator__processes_change_magnetometer_config_command__whe
         SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Y"]: False,
         SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: False,
     }
-    magnetometer_config_bytes = create_magnetomer_config_bytes(expected_config_dict)
+    magnetometer_config_bytes = create_magnetometer_config_bytes(expected_config_dict)
     # send command to set magnetometer configuration
     test_sampling_period = 1000
     expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)

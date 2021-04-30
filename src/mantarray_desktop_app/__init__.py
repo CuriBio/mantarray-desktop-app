@@ -227,7 +227,7 @@ from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_status_code_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
 from .serial_comm_utils import create_data_packet
-from .serial_comm_utils import create_magnetomer_config_bytes
+from .serial_comm_utils import create_magnetometer_config_bytes
 from .serial_comm_utils import create_sensor_axis_bitmask
 from .serial_comm_utils import get_serial_comm_timestamp
 from .serial_comm_utils import parse_metadata_bytes
@@ -240,7 +240,7 @@ from .server import ServerThread
 from .system_utils import system_state_eventually_equals
 from .system_utils import wait_for_subprocesses_to_start
 from .utils import check_barcode_for_errors
-from .utils import create_magnetomer_config_dict
+from .utils import create_magnetometer_config_dict
 from .utils import get_current_software_version
 from .utils import redact_sensitive_info_from_path
 
@@ -494,9 +494,9 @@ __all__ = [
     "SerialCommInvalidSamplingPeriodError",
     "InvalidBeta2FlagOptionError",
     "SERIAL_COMM_PLATE_EVENT_PACKET_TYPE",
-    "create_magnetomer_config_dict",
+    "create_magnetometer_config_dict",
     "create_sensor_axis_bitmask",
-    "create_magnetomer_config_bytes",
+    "create_magnetometer_config_bytes",
     "SERIAL_COMM_NUM_DATA_CHANNELS",
     "convert_bitmask_to_config_dict",
 ]

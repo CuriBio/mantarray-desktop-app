@@ -7,8 +7,8 @@ from mantarray_desktop_app import convert_bitmask_to_config_dict
 from mantarray_desktop_app import convert_metadata_bytes_to_str
 from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import create_data_packet
-from mantarray_desktop_app import create_magnetomer_config_bytes
-from mantarray_desktop_app import create_magnetomer_config_dict
+from mantarray_desktop_app import create_magnetometer_config_bytes
+from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import create_sensor_axis_bitmask
 from mantarray_desktop_app import get_serial_comm_timestamp
 from mantarray_desktop_app import MantarrayMcSimulator
@@ -177,9 +177,9 @@ def test_create_sensor_axis_bitmask__returns_correct_values():
     assert bin(actual) == bin(expected_bitmask)
 
 
-def test_create_magnetomer_config_bytes__returns_correct_values():
+def test_create_magnetometer_config_bytes__returns_correct_values():
     num_wells = 24
-    test_dict = create_magnetomer_config_dict(num_wells)
+    test_dict = create_magnetometer_config_dict(num_wells)
     # arbitrarily change values
     for key in test_dict[1].keys():
         test_dict[1][key] = False
@@ -189,7 +189,7 @@ def test_create_magnetomer_config_bytes__returns_correct_values():
     expected_uint16_bitmasks.extend(
         [0b111111111 << bitshift for _ in range(num_wells - 2)]
     )
-    actual = create_magnetomer_config_bytes(test_dict)
+    actual = create_magnetometer_config_bytes(test_dict)
     for module_id in range(1, num_wells + 1):
         start_idx = (module_id - 1) * 3
         assert (

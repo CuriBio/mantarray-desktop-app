@@ -73,7 +73,7 @@ from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_status_code_bytes
 from .serial_comm_utils import create_data_packet
 from .serial_comm_utils import validate_checksum
-from .utils import create_magnetomer_config_dict
+from .utils import create_magnetometer_config_dict
 
 
 MAGIC_WORD_LEN = len(SERIAL_COMM_MAGIC_WORD_BYTES)
@@ -141,7 +141,7 @@ class MantarrayMcSimulator(InfiniteProcess):
     default_24_well_magnetometer_config: Dict[  # pylint: disable=invalid-name # Tanner (4/29/21): can't think of a shorter name for this value
         int, Dict[int, bool]
     ] = immutabledict(
-        create_magnetomer_config_dict(24)
+        create_magnetometer_config_dict(24)
     )
 
     def __init__(
@@ -381,6 +381,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             elif command_byte == SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE:
                 response_body += self._update_magnetometer_config(comm_from_pc)
             elif command_byte == SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE:
+                # TODO Tanner (4/20/21): Once expected behavior is determined, add default sampling period or guard against starting data stream with no sampling period set
                 response_byte = int(self._is_streaming_data)
                 response_body += bytes([response_byte])
                 self._is_streaming_data = True

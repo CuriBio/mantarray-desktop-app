@@ -278,7 +278,6 @@ def main(
     )
 
     object_access_for_testing["process_monitor"] = process_monitor_thread
-    # set_mantarray_processes_monitor(process_monitor_thread)
     logger.info("Starting process monitor thread")
     process_monitor_thread.start()
     server_thread = process_manager.get_server_thread()
