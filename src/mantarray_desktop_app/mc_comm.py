@@ -83,6 +83,7 @@ from .exceptions import UnrecognizedSerialCommModuleIdError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .instrument_comm import InstrumentCommProcess
 from .mc_simulator import MantarrayMcSimulator
+from .serial_comm_utils import convert_bytes_to_config_dict
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
 from .serial_comm_utils import create_data_packet
@@ -577,8 +578,11 @@ class McCommunicationProcess(InstrumentCommProcess):
                     )
                 prev_command["eeprom_contents"] = response_data
             elif prev_command["command"] == "start_managed_acquisition":
-                if bool(int.from_bytes(response_data, byteorder="little")):
+                if response_data[0]:
                     raise InstrumentDataStreamingAlreadyStartedError()
+                prev_command["magnetometer_config"] = convert_bytes_to_config_dict(
+                    response_data[1:]
+                )
                 prev_command["timestamp"] = _get_formatted_utc_now()
             elif prev_command["command"] == "stop_managed_acquisition":
                 if bool(int.from_bytes(response_data, byteorder="little")):

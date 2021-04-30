@@ -4,6 +4,7 @@ from zlib import crc32
 
 from freezegun import freeze_time
 from mantarray_desktop_app import convert_bitmask_to_config_dict
+from mantarray_desktop_app import convert_bytes_to_config_dict
 from mantarray_desktop_app import convert_metadata_bytes_to_str
 from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import create_data_packet
@@ -178,8 +179,8 @@ def test_create_sensor_axis_bitmask__returns_correct_values():
 
 
 def test_create_magnetometer_config_bytes__returns_correct_values():
-    num_wells = 24
-    test_dict = create_magnetometer_config_dict(num_wells)
+    test_num_wells = 24
+    test_dict = create_magnetometer_config_dict(test_num_wells)
     # arbitrarily change values
     for key in test_dict[1].keys():
         test_dict[1][key] = False
@@ -187,10 +188,10 @@ def test_create_magnetometer_config_bytes__returns_correct_values():
     bitshift = 16 - SERIAL_COMM_NUM_DATA_CHANNELS
     expected_uint16_bitmasks = [0, 0b111000100 << bitshift]
     expected_uint16_bitmasks.extend(
-        [0b111111111 << bitshift for _ in range(num_wells - 2)]
+        [0b111111111 << bitshift for _ in range(test_num_wells - 2)]
     )
     actual = create_magnetometer_config_bytes(test_dict)
-    for module_id in range(1, num_wells + 1):
+    for module_id in range(1, test_num_wells + 1):
         start_idx = (module_id - 1) * 3
         assert (
             actual[start_idx] == module_id
@@ -217,4 +218,12 @@ def test_convert_bitmask_to_config_dict__returns_correct_values():
         SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: True,
     }
     actual = convert_bitmask_to_config_dict(test_bitmask)
+    assert actual == expected_config_dict
+
+
+def test_convert_bytes_to_config_dict__returns_correct_values():
+    test_num_wells = 24
+    expected_config_dict = create_magnetometer_config_dict(test_num_wells)
+    test_bytes = create_magnetometer_config_bytes(expected_config_dict)
+    actual = convert_bytes_to_config_dict(test_bytes)
     assert actual == expected_config_dict

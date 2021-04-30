@@ -305,7 +305,7 @@ def test_McCommunicationProcess__processes_dump_eeprom_command(
     assert message_to_main == expected_response
 
 
-def test_McCommunicationProcess__processes_change_magnetometer_config(
+def test_McCommunicationProcess__processes_change_magnetometer_config_command(
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
 ):

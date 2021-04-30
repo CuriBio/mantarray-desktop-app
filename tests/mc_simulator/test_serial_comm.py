@@ -729,16 +729,22 @@ def test_MantarrayMcSimulator__processes_start_data_streaming_command(
         simulator.write(test_start_data_streaming_command)
         invoke_process_run_and_check_errors(simulator)
         # assert response is correct
+        additional_bytes = convert_to_timestamp_bytes(expected_pc_timestamp) + bytes(
+            [response_byte_value]
+        )
+        if response_byte_value == SERIAL_COMM_STREAM_MODE_CHANGED_BYTE:
+            additional_bytes += create_magnetometer_config_bytes(
+                simulator.get_magnetometer_config()
+            )
         command_response_size = get_full_packet_size_from_packet_body_size(
-            SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1
+            len(additional_bytes)
         )
         command_response = simulator.read(size=command_response_size)
         assert_serial_packet_is_expected(
             command_response,
             SERIAL_COMM_MAIN_MODULE_ID,
             SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-            additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp)
-            + bytes([response_byte_value]),
+            additional_bytes=additional_bytes,
         )
 
 
@@ -760,7 +766,9 @@ def test_MantarrayMcSimulator__processes_stop_data_streaming_command(
     # remove start data streaming response
     command_response = simulator.read(
         size=get_full_packet_size_from_packet_body_size(
-            SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1
+            SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+            + 1
+            + len(create_magnetometer_config_bytes(simulator.get_magnetometer_config()))
         )
     )
 
@@ -849,8 +857,7 @@ def test_MantarrayMcSimulator__processes_change_magnetometer_config_command__whe
     )
     # assert that sampling period and configuration are updated
     assert simulator.get_sampling_period() == expected_sampling_period
-    updated_magnetometer_config = simulator.get_magnetometer_config()
-    assert updated_magnetometer_config == expected_config_dict
+    assert simulator.get_magnetometer_config() == expected_config_dict
 
 
 def test_MantarrayMcSimulator__processes_change_magnetometer_config_command__when_data_is_streaming(

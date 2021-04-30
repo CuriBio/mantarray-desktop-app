@@ -222,6 +222,7 @@ from .process_manager import MantarrayProcessesManager
 from .process_monitor import MantarrayProcessesMonitor
 from .queue_container import MantarrayQueueContainer
 from .serial_comm_utils import convert_bitmask_to_config_dict
+from .serial_comm_utils import convert_bytes_to_config_dict
 from .serial_comm_utils import convert_metadata_bytes_to_str
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_status_code_bytes
@@ -499,4 +500,5 @@ __all__ = [
     "create_magnetometer_config_bytes",
     "SERIAL_COMM_NUM_DATA_CHANNELS",
     "convert_bitmask_to_config_dict",
+    "convert_bytes_to_config_dict",
 ]

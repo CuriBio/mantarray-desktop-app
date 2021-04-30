@@ -49,7 +49,6 @@ from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
-from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
@@ -68,10 +67,11 @@ from .exceptions import SerialCommTooManyMissedHandshakesError
 from .exceptions import UnrecognizedSerialCommModuleIdError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .exceptions import UnrecognizedSimulatorTestCommandError
-from .serial_comm_utils import convert_bitmask_to_config_dict
+from .serial_comm_utils import convert_bytes_to_config_dict
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_status_code_bytes
 from .serial_comm_utils import create_data_packet
+from .serial_comm_utils import create_magnetometer_config_bytes
 from .serial_comm_utils import validate_checksum
 from .utils import create_magnetometer_config_dict
 
@@ -381,9 +381,13 @@ class MantarrayMcSimulator(InfiniteProcess):
             elif command_byte == SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE:
                 response_body += self._update_magnetometer_config(comm_from_pc)
             elif command_byte == SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE:
-                # TODO Tanner (4/20/21): Once expected behavior is determined, add default sampling period or guard against starting data stream with no sampling period set
+                # TODO Tanner (4/30/21): Once expected behavior is determined, add default sampling period or guard against starting data stream with no sampling period set
                 response_byte = int(self._is_streaming_data)
                 response_body += bytes([response_byte])
+                if not self._is_streaming_data:
+                    response_body += create_magnetometer_config_bytes(
+                        self._magnetometer_config
+                    )
                 self._is_streaming_data = True
             elif command_byte == SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE:
                 response_byte = int(not self._is_streaming_data)
@@ -447,18 +451,11 @@ class MantarrayMcSimulator(InfiniteProcess):
             raise SerialCommInvalidSamplingPeriodError(sampling_period)
         self._sampling_period = sampling_period
         # parse and store magnetometer configuration
-        magnetometer_config_bytes = comm_from_pc[
+        magnetometer_config_bytes = comm_from_pc[  #
             SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 3 : -SERIAL_COMM_CHECKSUM_LENGTH_BYTES
         ]
-        bitshift = 16 - SERIAL_COMM_NUM_DATA_CHANNELS
-        for config_block_idx in range(0, len(magnetometer_config_bytes), 3):
-            module_id = magnetometer_config_bytes[config_block_idx]
-            bitmask_bytes = magnetometer_config_bytes[
-                config_block_idx + 1 : config_block_idx + 3
-            ]
-            bitmask = int.from_bytes(bitmask_bytes, byteorder="big") >> bitshift
-            module_config_dict = convert_bitmask_to_config_dict(bitmask)
-            self._magnetometer_config[module_id] = module_config_dict
+        config_dict_updates = convert_bytes_to_config_dict(magnetometer_config_bytes)
+        self._magnetometer_config.update(config_dict_updates)
         return update_status_byte
 
     def _update_status_code(self, new_code: int) -> None:

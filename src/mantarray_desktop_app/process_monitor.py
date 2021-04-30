@@ -316,6 +316,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._values_to_share_to_server[
                     "utc_timestamps_of_beginning_of_data_acquisition"
                 ] = [communication["timestamp"]]
+                # TODO Tanner (4/30/21): Eventually need to store the magnetometer configuration received from the frontend and verify that the instrument's configuration in the start data streaming response matches.
             if command == "stop_managed_acquisition":
                 self._values_to_share_to_server["system_status"] = CALIBRATED_STATE
                 self._data_dump_buffer_size = 0
