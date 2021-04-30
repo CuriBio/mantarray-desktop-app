@@ -6,6 +6,8 @@ from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import convert_to_status_code_bytes
 from mantarray_desktop_app import convert_to_timestamp_bytes
 from mantarray_desktop_app import create_data_packet
+from mantarray_desktop_app import create_magnetometer_config_bytes
+from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import SERIAL_COMM_BOOT_UP_CODE
@@ -21,13 +23,13 @@ from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_IDLE_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
+from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
-from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_BYTE_LOOKUP_TABLE
-from mantarray_desktop_app import SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
@@ -288,10 +290,11 @@ def test_MantarrayMcSimulator__discards_commands_from_pc_during_reboot_period__a
     invoke_process_run_and_check_errors(simulator)
 
     # test that reboot response packet is sent
-    reboot_response_size = get_full_packet_size_from_packet_body_size(
-        SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+    reboot_response = simulator.read(
+        size=get_full_packet_size_from_packet_body_size(
+            SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+        )
     )
-    reboot_response = simulator.read(size=reboot_response_size)
     assert_serial_packet_is_expected(
         reboot_response,
         SERIAL_COMM_MAIN_MODULE_ID,
@@ -349,10 +352,11 @@ def test_MantarrayMcSimulator__does_not_send_status_beacon_while_rebooting(
     invoke_process_run_and_check_errors(simulator)
     # remove reboot response packet
     invoke_process_run_and_check_errors(simulator)
-    reboot_response_size = get_full_packet_size_from_packet_body_size(
-        SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+    reboot_response = simulator.read(
+        size=get_full_packet_size_from_packet_body_size(
+            SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+        )
     )
-    reboot_response = simulator.read(size=reboot_response_size)
     assert_serial_packet_is_expected(
         reboot_response,
         SERIAL_COMM_MAIN_MODULE_ID,
@@ -725,16 +729,22 @@ def test_MantarrayMcSimulator__processes_start_data_streaming_command(
         simulator.write(test_start_data_streaming_command)
         invoke_process_run_and_check_errors(simulator)
         # assert response is correct
+        additional_bytes = convert_to_timestamp_bytes(expected_pc_timestamp) + bytes(
+            [response_byte_value]
+        )
+        if response_byte_value == SERIAL_COMM_STREAM_MODE_CHANGED_BYTE:
+            additional_bytes += create_magnetometer_config_bytes(
+                simulator.get_magnetometer_config()
+            )
         command_response_size = get_full_packet_size_from_packet_body_size(
-            SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1
+            len(additional_bytes)
         )
         command_response = simulator.read(size=command_response_size)
         assert_serial_packet_is_expected(
             command_response,
             SERIAL_COMM_MAIN_MODULE_ID,
             SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-            additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp)
-            + bytes([response_byte_value]),
+            additional_bytes=additional_bytes,
         )
 
 
@@ -756,7 +766,9 @@ def test_MantarrayMcSimulator__processes_stop_data_streaming_command(
     # remove start data streaming response
     command_response = simulator.read(
         size=get_full_packet_size_from_packet_body_size(
-            SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1
+            SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+            + 1
+            + len(create_magnetometer_config_bytes(simulator.get_magnetometer_config()))
         )
     )
 
@@ -789,50 +801,124 @@ def test_MantarrayMcSimulator__processes_stop_data_streaming_command(
         )
 
 
-def test_MantarrayMcSimulator__processes_change_sensors_axes_sampling_period_command(
+def test_MantarrayMcSimulator__processes_change_magnetometer_config_command__when_data_is_not_streaming(
     mantarray_mc_simulator_no_beacon, mocker
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
-    test_sensor_axis_id = SERIAL_COMM_SENSOR_AXIS_BYTE_LOOKUP_TABLE["A"]["X"]
-    expected_sampling_period = 1000
-    expected_well_idx = 0
-    # assert that axis is not enabled (sampling period of 0)
+    # assert that sampling period has not been set
+    assert simulator.get_sampling_period() is None
     assert (
-        simulator.get_well_recording_id_sampling_period(
-            expected_well_idx, test_sensor_axis_id
-        )
-        == 0
+        simulator.get_magnetometer_config()
+        == MantarrayMcSimulator.default_24_well_magnetometer_config
     )
-    # send command to turn axis on
+    # set arbitrary configuration values
+    expected_config_dict = dict(
+        MantarrayMcSimulator.default_24_well_magnetometer_config
+    )
+    expected_config_dict[1] = {
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: False,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Y"]: False,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Z"]: True,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["X"]: False,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["Y"]: False,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["Z"]: False,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["X"]: True,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Y"]: False,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: False,
+    }
+    magnetometer_config_bytes = create_magnetometer_config_bytes(expected_config_dict)
+    # send command to set magnetometer configuration
+    expected_sampling_period = 1000
     expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
-    turn_axis_on_command = create_data_packet(
+    change_config_command = create_data_packet(
         expected_pc_timestamp,
-        expected_well_idx + 1,
+        SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-        bytes([SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE, test_sensor_axis_id])
-        + expected_sampling_period.to_bytes(2, byteorder="little"),
+        bytes([SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE])
+        + expected_sampling_period.to_bytes(2, byteorder="little")
+        + magnetometer_config_bytes,
     )
-    simulator.write(turn_axis_on_command)
-    # process command and enable axis
+    simulator.write(change_config_command)
+    # process command to update configuration and send response
     invoke_process_run_and_check_errors(simulator)
-    # assert command response is correct (only do this once)
+    # assert command response is correct
     command_response = simulator.read(
         size=get_full_packet_size_from_packet_body_size(
-            SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+            SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1
         )
     )
     assert_serial_packet_is_expected(
         command_response,
-        expected_well_idx + 1,
+        SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-        additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp),
+        additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp) + bytes([0]),
     )
-    # assert that axis sampling period is updated
-    assert (
-        simulator.get_well_recording_id_sampling_period(
-            expected_well_idx, test_sensor_axis_id
+    # assert that sampling period and configuration are updated
+    assert simulator.get_sampling_period() == expected_sampling_period
+    assert simulator.get_magnetometer_config() == expected_config_dict
+
+
+def test_MantarrayMcSimulator__processes_change_magnetometer_config_command__when_data_is_streaming(
+    mantarray_mc_simulator_no_beacon, mocker
+):
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+
+    # enable data streaming
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "set_data_streaming_status", "data_streaming_status": True},
+        testing_queue,
+    )
+    invoke_process_run_and_check_errors(simulator)
+    # set arbitrary configuration values
+    expected_config_dict = dict(
+        MantarrayMcSimulator.default_24_well_magnetometer_config
+    )
+    expected_config_dict[4] = {
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: False,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Y"]: True,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Z"]: True,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["X"]: False,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["Y"]: True,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["Z"]: False,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["X"]: True,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Y"]: False,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: False,
+    }
+    magnetometer_config_bytes = create_magnetometer_config_bytes(expected_config_dict)
+    # send command to set magnetometer configuration
+    test_sampling_period = 1000
+    expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+    change_config_command = create_data_packet(
+        expected_pc_timestamp,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+        bytes([SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE])
+        + test_sampling_period.to_bytes(2, byteorder="little")
+        + magnetometer_config_bytes,
+    )
+    simulator.write(change_config_command)
+    # process command and return response
+    invoke_process_run_and_check_errors(simulator)
+    # assert command response is correct
+    command_response = simulator.read(
+        size=get_full_packet_size_from_packet_body_size(
+            SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1
         )
-        == expected_sampling_period
+    )
+    assert_serial_packet_is_expected(
+        command_response,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+        additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp) + bytes([1]),
+    )
+    # assert that sampling period and configuration are unchanged
+    assert simulator.get_sampling_period() is None
+    updated_magnetometer_config = simulator.get_magnetometer_config()
+    assert (
+        updated_magnetometer_config
+        == MantarrayMcSimulator.default_24_well_magnetometer_config
     )

@@ -7,19 +7,19 @@ from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import convert_to_status_code_bytes
 from mantarray_desktop_app import convert_to_timestamp_bytes
 from mantarray_desktop_app import create_data_packet
+from mantarray_desktop_app import create_magnetometer_config_bytes
+from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
-from mantarray_desktop_app import SamplingPeriodChangeWhileDataStreamingError
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_IDLE_READY_CODE
+from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
-from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_BYTE_LOOKUP_TABLE
-from mantarray_desktop_app import SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
@@ -83,6 +83,10 @@ def test_MantarrayMcSimulator__class_attributes():
         PCB_SERIAL_NUMBER_UUID: MantarrayMcSimulator.default_pcb_serial_number,
         MAIN_FIRMWARE_VERSION_UUID: MantarrayMcSimulator.default_firmware_version,
     }
+    assert (
+        MantarrayMcSimulator.default_24_well_magnetometer_config
+        == create_magnetometer_config_dict(24)
+    )
 
 
 def test_MantarrayMcSimulator__super_is_called_during_init__with_default_logging_value(
@@ -463,6 +467,7 @@ def test_MantarrayMcSimulator__processes_testing_commands_during_reboot(
         autospec=True,
         return_value=AVERAGE_MC_REBOOT_DURATION_SECONDS - 1,
     )
+    spied_get_cms_since_init = mocker.spy(simulator, "get_cms_since_init")
 
     # send reboot command
     test_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
@@ -478,14 +483,17 @@ def test_MantarrayMcSimulator__processes_testing_commands_during_reboot(
 
     # remove reboot response packet
     invoke_process_run_and_check_errors(simulator)
-    expected_reboot_response = create_data_packet(
-        0,
+    reboot_response_size = get_full_packet_size_from_packet_body_size(
+        SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+    )
+    reboot_response = simulator.read(size=reboot_response_size)
+    assert_serial_packet_is_expected(
+        reboot_response,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-        test_timestamp.to_bytes(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES, byteorder="little"),
+        additional_bytes=convert_to_timestamp_bytes(test_timestamp),
+        timestamp=spied_get_cms_since_init.spy_return,
     )
-    reboot_response = simulator.read(size=len(expected_reboot_response))
-    assert reboot_response == expected_reboot_response
 
     # add read bytes as test command
     expected_item = b"the_item"
@@ -498,7 +506,7 @@ def test_MantarrayMcSimulator__processes_testing_commands_during_reboot(
     assert actual == expected_item
 
 
-def test_MantarrayMcSimulator__reset_status_code_after_rebooting(
+def test_MantarrayMcSimulator__resets_status_code_after_rebooting(
     mantarray_mc_simulator_no_beacon, mocker
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
@@ -511,6 +519,7 @@ def test_MantarrayMcSimulator__reset_status_code_after_rebooting(
         autospec=True,
         return_value=reboot_dur,
     )
+    spied_get_cms_since_init = mocker.spy(simulator, "get_cms_since_init")
 
     # set status code to known value
     test_status_code = 1738
@@ -522,7 +531,6 @@ def test_MantarrayMcSimulator__reset_status_code_after_rebooting(
         test_command, testing_queue
     )
     invoke_process_run_and_check_errors(simulator)
-
     # send reboot command
     test_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
     simulator.write(
@@ -534,23 +542,28 @@ def test_MantarrayMcSimulator__reset_status_code_after_rebooting(
         )
     )
     invoke_process_run_and_check_errors(simulator)
-
     # remove reboot response packet
     invoke_process_run_and_check_errors(simulator)
-    expected_reboot_response = create_data_packet(
-        0,
+    reboot_response_size = get_full_packet_size_from_packet_body_size(
+        SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+    )
+    reboot_response = simulator.read(size=reboot_response_size)
+    assert_serial_packet_is_expected(
+        reboot_response,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-        test_timestamp.to_bytes(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES, byteorder="little"),
+        additional_bytes=convert_to_timestamp_bytes(test_timestamp),
+        timestamp=spied_get_cms_since_init.spy_return,
     )
-    reboot_response = simulator.read(size=len(expected_reboot_response))
-    assert reboot_response == expected_reboot_response
-
+    # send handshake to test status code reset
     simulator.write(TEST_HANDSHAKE)
     invoke_process_run_and_check_errors(simulator)
     handshake_response = simulator.read(size=HANDSHAKE_RESPONSE_SIZE_BYTES)
     assert len(handshake_response) == HANDSHAKE_RESPONSE_SIZE_BYTES
-    assert handshake_response[-8:-4] == DEFAULT_SIMULATOR_STATUS_CODE
+    assert (
+        handshake_response[-8:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
+        == DEFAULT_SIMULATOR_STATUS_CODE
+    )
 
 
 def test_MantarrayMcSimulator__allows_metadata_to_be_set_through_testing_queue(
@@ -620,60 +633,31 @@ def test_MantarrayMcSimulator__accepts_time_sync_along_with_status_code_update__
     )
 
 
-def test_MantarrayMcSimulator__raises_error_when_change_sensors_axes_sampling_period_command_received_with_invalid_sampling_period(
-    mantarray_mc_simulator_no_beacon, mocker
+def test_MantarrayMcSimulator__raises_error_when_magnetometer_config_command_received_with_invalid_sampling_period(
+    mantarray_mc_simulator_no_beacon, mocker, patch_print
 ):
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
-    # send command with invalid sampling period
-    test_sensor_axis_id = SERIAL_COMM_SENSOR_AXIS_BYTE_LOOKUP_TABLE["B"]["Z"]
     bad_sampling_period = 1001
-    test_well_idx = 0
-    dummy_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
-    turn_axis_on_command = create_data_packet(
-        dummy_timestamp,
-        test_well_idx + 1,
-        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-        bytes([SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE, test_sensor_axis_id])
-        + bad_sampling_period.to_bytes(2, byteorder="little"),
+    magnetometer_config_bytes = create_magnetometer_config_bytes(
+        MantarrayMcSimulator.default_24_well_magnetometer_config
     )
-    simulator.write(turn_axis_on_command)
+    # send command with invalid sampling period
+    dummy_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+    change_config_command = create_data_packet(
+        dummy_timestamp,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+        bytes([SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE])
+        + bad_sampling_period.to_bytes(2, byteorder="little")
+        + magnetometer_config_bytes,
+    )
+    simulator.write(change_config_command)
     # process command and raise error with given sampling period
     with pytest.raises(
         SerialCommInvalidSamplingPeriodError, match=str(bad_sampling_period)
     ):
-        invoke_process_run_and_check_errors(simulator)
-
-
-def test_MantarrayMcSimulator__raises_error_when_change_sensors_axes_sampling_period_command_received_while_data_is_streaming(
-    mantarray_mc_simulator_no_beacon, mocker
-):
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
-    simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
-
-    # enable data streaming
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "set_data_streaming_status", "data_streaming_status": True},
-        testing_queue,
-    )
-    invoke_process_run_and_check_errors(simulator)
-    # send command with invalid sampling period
-    test_sensor_axis_id = SERIAL_COMM_SENSOR_AXIS_BYTE_LOOKUP_TABLE["C"]["Y"]
-    test_sampling_period = 11000
-    test_well_idx = 0
-    dummy_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
-    turn_axis_on_command = create_data_packet(
-        dummy_timestamp,
-        test_well_idx + 1,
-        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-        bytes([SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE, test_sensor_axis_id])
-        + test_sampling_period.to_bytes(2, byteorder="little"),
-    )
-    simulator.write(turn_axis_on_command)
-    # process command and raise error with given sampling period
-    with pytest.raises(SamplingPeriodChangeWhileDataStreamingError):
         invoke_process_run_and_check_errors(simulator)
 
 

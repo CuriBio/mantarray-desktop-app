@@ -21,6 +21,7 @@ from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
+from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIMESTAMP_EPOCH
@@ -42,6 +43,9 @@ METADATA_TYPES = immutabledict(
         PCB_SERIAL_NUMBER_UUID: str,
     }
 )
+BITMASK_SHIFT_VALUE = (
+    16 - SERIAL_COMM_NUM_DATA_CHANNELS
+)  # 16 for number of bits in int16
 
 
 def _get_checksum_bytes(packet: bytes) -> bytes:
@@ -154,3 +158,45 @@ def get_serial_comm_timestamp() -> int:
     return (
         datetime.datetime.now(tz=datetime.timezone.utc) - SERIAL_COMM_TIMESTAMP_EPOCH
     ) // datetime.timedelta(microseconds=1)
+
+
+def create_sensor_axis_bitmask(config_dict: Dict[int, bool]) -> int:
+    bitmask = 0
+    max_bit_shift = len(config_dict) - 1
+    for sensor_axis_id, config_value in config_dict.items():
+        bitmask += int(config_value) << (max_bit_shift - sensor_axis_id)
+    return bitmask
+
+
+def create_magnetometer_config_bytes(config_dict: Dict[int, Dict[int, bool]]) -> bytes:
+    config_bytes = bytes(0)
+    for module_id, well_config in config_dict.items():
+        config_bytes += bytes([module_id])
+        config_bytes += (
+            create_sensor_axis_bitmask(well_config) << BITMASK_SHIFT_VALUE
+        ).to_bytes(2, byteorder="big")
+    return config_bytes
+
+
+def convert_bitmask_to_config_dict(bitmask: int) -> Dict[int, bool]:
+    config_dict: Dict[int, bool] = dict()
+    bit = 1 << SERIAL_COMM_NUM_DATA_CHANNELS - 1
+    for sensor_axis_id in range(SERIAL_COMM_NUM_DATA_CHANNELS):
+        config_dict[sensor_axis_id] = bool(bitmask & bit)
+        bit >>= 1
+    return config_dict
+
+
+def convert_bytes_to_config_dict(
+    magnetometer_config_bytes: bytes,
+) -> Dict[int, Dict[int, bool]]:
+    """."""
+    config_dict: Dict[int, Dict[int, bool]] = dict()
+    for config_block_idx in range(0, len(magnetometer_config_bytes), 3):
+        module_id = magnetometer_config_bytes[config_block_idx]
+        bitmask_bytes = magnetometer_config_bytes[
+            config_block_idx + 1 : config_block_idx + 3
+        ]
+        bitmask = int.from_bytes(bitmask_bytes, byteorder="big") >> BITMASK_SHIFT_VALUE
+        config_dict[module_id] = convert_bitmask_to_config_dict(bitmask)
+    return config_dict

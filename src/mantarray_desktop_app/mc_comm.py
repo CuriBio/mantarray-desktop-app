@@ -38,6 +38,7 @@ from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from .constants import SERIAL_COMM_IDLE_READY_CODE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
+from .constants import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
@@ -48,7 +49,6 @@ from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
-from .constants import SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
@@ -83,9 +83,11 @@ from .exceptions import UnrecognizedSerialCommModuleIdError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .instrument_comm import InstrumentCommProcess
 from .mc_simulator import MantarrayMcSimulator
+from .serial_comm_utils import convert_bytes_to_config_dict
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
 from .serial_comm_utils import create_data_packet
+from .serial_comm_utils import create_magnetometer_config_bytes
 from .serial_comm_utils import get_serial_comm_timestamp
 from .serial_comm_utils import parse_metadata_bytes
 from .serial_comm_utils import validate_checksum
@@ -344,7 +346,6 @@ class McCommunicationProcess(InstrumentCommProcess):
         except queue.Empty:
             return
         board_idx = 0
-        module_id = SERIAL_COMM_MAIN_MODULE_ID
         bytes_to_send: bytes
 
         communication_type = comm_from_main["communication_type"]
@@ -368,16 +369,13 @@ class McCommunicationProcess(InstrumentCommProcess):
                 bytes_to_send = bytes([SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE])
             elif comm_from_main["command"] == "stop_managed_acquisition":
                 bytes_to_send = bytes([SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE])
-            elif comm_from_main["command"] == "change_sensor_axis_sampling_period":
-                module_id = comm_from_main["well_index"] + 1
-                bytes_to_send = bytes(
-                    [
-                        SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE,
-                        comm_from_main["sensor_axis_id"],
-                    ]
-                )
+            elif comm_from_main["command"] == "change_magnetometer_config":
+                bytes_to_send = bytes([SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE])
                 bytes_to_send += comm_from_main["sampling_period"].to_bytes(
                     2, byteorder="little"
+                )
+                bytes_to_send += create_magnetometer_config_bytes(
+                    comm_from_main["magnetometer_config"]
                 )
             else:
                 raise UnrecognizedCommandFromMainToMcCommError(
@@ -392,7 +390,7 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         self._send_data_packet(
             board_idx,
-            module_id,
+            SERIAL_COMM_MAIN_MODULE_ID,
             SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
             bytes_to_send,
         )
@@ -466,7 +464,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 f"Invalid packet length received: {packet_size}, Full Data Packet: {str(full_data_packet)}"
             )
         module_id = full_data_packet[SERIAL_COMM_MODULE_ID_INDEX]
-        if module_id <= self._num_wells:
+        if module_id == SERIAL_COMM_MAIN_MODULE_ID:
             self._process_comm_from_instrument(full_data_packet)
         else:
             raise UnrecognizedSerialCommModuleIdError(module_id)
@@ -580,8 +578,11 @@ class McCommunicationProcess(InstrumentCommProcess):
                     )
                 prev_command["eeprom_contents"] = response_data
             elif prev_command["command"] == "start_managed_acquisition":
-                if bool(int.from_bytes(response_data, byteorder="little")):
+                if response_data[0]:
                     raise InstrumentDataStreamingAlreadyStartedError()
+                prev_command["magnetometer_config"] = convert_bytes_to_config_dict(
+                    response_data[1:]
+                )
                 prev_command["timestamp"] = _get_formatted_utc_now()
             elif prev_command["command"] == "stop_managed_acquisition":
                 if bool(int.from_bytes(response_data, byteorder="little")):

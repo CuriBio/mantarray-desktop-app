@@ -2,10 +2,10 @@
 import copy
 
 from mantarray_desktop_app import convert_to_metadata_bytes
+from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
-from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_BYTE_LOOKUP_TABLE
 from mantarray_desktop_app import UnrecognizedCommandFromMainToMcCommError
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
@@ -305,7 +305,7 @@ def test_McCommunicationProcess__processes_dump_eeprom_command(
     assert message_to_main == expected_response
 
 
-def test_McCommunicationProcess__processes_change_sensors_axes_sampling_period_command(
+def test_McCommunicationProcess__processes_change_magnetometer_config_command(
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
 ):
@@ -319,14 +319,17 @@ def test_McCommunicationProcess__processes_change_sensors_axes_sampling_period_c
     )
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
+    test_num_wells = 24
+    # set arbitrary configuration and sampling period
+    expected_magnetometer_config = create_magnetometer_config_dict(test_num_wells)
+    for key in expected_magnetometer_config[9].keys():
+        expected_magnetometer_config[9][key] = False
     expected_sampling_period = 14000
-    expected_well_idx = 23
-    test_sensor_axis_id = SERIAL_COMM_SENSOR_AXIS_BYTE_LOOKUP_TABLE["A"]["Z"]
+    # send command to mc_process
     expected_response = {
         "communication_type": "to_instrument",
-        "command": "change_sensor_axis_sampling_period",
-        "well_index": expected_well_idx,
-        "sensor_axis_id": test_sensor_axis_id,
+        "command": "change_magnetometer_config",
+        "magnetometer_config": expected_magnetometer_config,
         "sampling_period": expected_sampling_period,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -336,11 +339,9 @@ def test_McCommunicationProcess__processes_change_sensors_axes_sampling_period_c
     invoke_process_run_and_check_errors(mc_process)
     # run simulator to process command and send response
     invoke_process_run_and_check_errors(simulator)
-    # assert that sampling period was updated
-    actual = simulator.get_well_recording_id_sampling_period(
-        expected_well_idx, test_sensor_axis_id
-    )
-    assert actual == expected_sampling_period
+    # assert that sampling period and configuration were updated
+    assert simulator.get_sampling_period() == expected_sampling_period
+    assert simulator.get_magnetometer_config() == expected_magnetometer_config
     # run mc_process to process command response and send message back to main
     invoke_process_run_and_check_errors(mc_process)
     # confirm correct message sent to main

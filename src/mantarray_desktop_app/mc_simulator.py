@@ -33,6 +33,7 @@ from .constants import MICROSECONDS_PER_MILLISECOND
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BOOT_UP_CODE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
+from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from .constants import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
 from .constants import SERIAL_COMM_FATAL_ERROR_CODE
@@ -43,6 +44,7 @@ from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_IDLE_READY_CODE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
+from .constants import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
@@ -50,7 +52,6 @@ from .constants import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
-from .constants import SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
@@ -61,16 +62,18 @@ from .constants import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
-from .exceptions import SamplingPeriodChangeWhileDataStreamingError
 from .exceptions import SerialCommInvalidSamplingPeriodError
 from .exceptions import SerialCommTooManyMissedHandshakesError
 from .exceptions import UnrecognizedSerialCommModuleIdError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .exceptions import UnrecognizedSimulatorTestCommandError
+from .serial_comm_utils import convert_bytes_to_config_dict
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_status_code_bytes
 from .serial_comm_utils import create_data_packet
+from .serial_comm_utils import create_magnetometer_config_bytes
 from .serial_comm_utils import validate_checksum
+from .utils import create_magnetometer_config_dict
 
 
 MAGIC_WORD_LEN = len(SERIAL_COMM_MAGIC_WORD_BYTES)
@@ -135,6 +138,11 @@ class MantarrayMcSimulator(InfiniteProcess):
             MAIN_FIRMWARE_VERSION_UUID: default_firmware_version,
         }
     )
+    default_24_well_magnetometer_config: Dict[  # pylint: disable=invalid-name # Tanner (4/29/21): can't think of a shorter name for this value
+        int, Dict[int, bool]
+    ] = immutabledict(
+        create_magnetometer_config_dict(24)
+    )
 
     def __init__(
         self,
@@ -150,28 +158,33 @@ class MantarrayMcSimulator(InfiniteProcess):
         read_timeout_seconds: Union[int, float] = 0,
         num_wells: int = 24,
     ) -> None:
+        # InfiniteProcess values
         super().__init__(fatal_error_reporter, logging_level=logging_level)
         self._output_queue = output_queue
         self._input_queue = input_queue
         self._testing_queue = testing_queue
+        # serial comm values
+        self._read_timeout_seconds = read_timeout_seconds
+        self._leftover_read_bytes = bytes(0)
+        # plate values
         self._num_wells = num_wells
-        self._baseline_time_usec: Optional[int] = None
-        self._timepoint_of_time_sync_us: Optional[int] = None
+        # simulator values (not set on boot up)
         self._time_of_last_status_beacon_secs: Optional[float] = None
         self._time_of_last_handshake_secs: Optional[float] = None
         self._time_of_last_comm_from_pc_secs: Optional[float] = None
-        self._reboot_time_secs: Optional[float] = None
-        self._boot_up_time_secs: Optional[float] = None
         self._ready_to_send_barcode = False
         self._is_streaming_data = False
-        self._sampling_periods: Dict[int, Dict[int, int]] = dict()
-        self._reset_sampling_periods()
-        self._leftover_read_bytes = bytes(0)
-        self._read_timeout_seconds = read_timeout_seconds
         self._metadata_dict: Dict[bytes, bytes] = dict()
         self._reset_metadata_dict()
+        # simulator values (set on boot up)
+        self._reboot_time_secs: Optional[float]
         self._status_code: int
-        self._reset_status_code()
+        self._magnetometer_config: Dict[int, Dict[int, bool]]
+        self._baseline_time_usec: Optional[int]
+        self._timepoint_of_time_sync_us: Optional[int]
+        self._sampling_period: Optional[int]
+        self._boot_up_time_secs: Optional[float] = None
+        self._handle_boot_up_config()
 
     @property
     def in_waiting(self) -> int:
@@ -191,8 +204,20 @@ class MantarrayMcSimulator(InfiniteProcess):
                 return 0
         return len(self._leftover_read_bytes)
 
-    def _reset_status_code(self) -> None:
+    def _handle_boot_up_config(self, reboot: bool = False) -> None:
+        self._reset_start_time()
+        self._reboot_time_secs = None
         self._status_code = SERIAL_COMM_BOOT_UP_CODE
+        self._reset_magnetometer_config()
+        self._baseline_time_usec = None
+        self._timepoint_of_time_sync_us = None
+        self._sampling_period = None
+        if reboot:
+            drain_queue(self._input_queue)
+            # only boot up time automatically after a reboot
+            self._boot_up_time_secs = perf_counter()
+            # after reboot, send status beacon to signal that reboot has completed
+            self._send_status_beacon(truncate=False)
 
     def _reset_metadata_dict(self) -> None:
         for uuid_key, metadata_value in self.default_metadata_values.items():
@@ -200,11 +225,8 @@ class MantarrayMcSimulator(InfiniteProcess):
                 metadata_value
             )
 
-    def _reset_sampling_periods(self) -> None:
-        for well_idx in range(self._num_wells):
-            self._sampling_periods[well_idx] = dict()
-            for sensor_axis_id in range(9):
-                self._sampling_periods[well_idx][sensor_axis_id] = 0
+    def _reset_magnetometer_config(self) -> None:
+        self._magnetometer_config = dict(self.default_24_well_magnetometer_config)
 
     def _get_us_since_time_sync(self) -> int:
         return (
@@ -226,17 +248,19 @@ class MantarrayMcSimulator(InfiniteProcess):
             "Status Code": self._status_code,
             "Time Sync Value received from PC (microseconds)": self._baseline_time_usec,
             "Is Streaming Data": self._is_streaming_data,
-            "Sampling Periods": self._sampling_periods,
+            "Sampling Period": self._sampling_period,
         }
         return bytes(
             f" Simulator EEPROM Contents: {str(eeprom_dict)}", encoding="ascii"
         )
 
-    def get_well_recording_id_sampling_period(
-        self, well_idx: int, sensor_axis_id: int
-    ) -> int:
+    def get_sampling_period(self) -> Optional[int]:
         """Mainly for use in unit tests."""
-        return self._sampling_periods[well_idx][sensor_axis_id]
+        return self._sampling_period
+
+    def get_magnetometer_config(self) -> Dict[int, Dict[int, bool]]:
+        """Mainly for use in unit tests."""
+        return self._magnetometer_config
 
     def _send_data_packet(
         self,
@@ -284,7 +308,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                 secs_since_reboot < AVERAGE_MC_REBOOT_DURATION_SECONDS
             ):  # Tanner (3/31/21): rebooting should be much faster than the maximum allowed time for rebooting, so arbitrarily picking a simulated reboot duration
                 return
-            self._handle_reboot_completion()
+            self._handle_boot_up_config(reboot=True)
         elif self._status_code == SERIAL_COMM_BOOT_UP_CODE:
             if self._boot_up_time_secs is None:
                 self._boot_up_time_secs = perf_counter()
@@ -302,16 +326,6 @@ class MantarrayMcSimulator(InfiniteProcess):
                 bytes([1]) + bytes(self.default_barcode, encoding="ascii"),
             )
             self._ready_to_send_barcode = False
-
-    def _handle_reboot_completion(self) -> None:
-        drain_queue(self._input_queue)
-        self._reset_start_time()
-        self._reboot_time_secs = None
-        self._reset_status_code()
-        self._send_status_beacon(truncate=False)
-        self._boot_up_time_secs = perf_counter()
-        self._baseline_time_usec = None
-        self._timepoint_of_time_sync_us = None
 
     def _handle_comm_from_pc(self) -> None:
         try:
@@ -339,8 +353,6 @@ class MantarrayMcSimulator(InfiniteProcess):
         module_id = comm_from_pc[SERIAL_COMM_MODULE_ID_INDEX]
         if module_id == SERIAL_COMM_MAIN_MODULE_ID:
             self._process_main_module_command(comm_from_pc)
-        elif module_id <= self._num_wells:
-            self._process_well_sensor_command(module_id, comm_from_pc)
         else:
             raise UnrecognizedSerialCommModuleIdError(module_id)
 
@@ -366,9 +378,16 @@ class MantarrayMcSimulator(InfiniteProcess):
             command_byte = comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX]
             if command_byte == SERIAL_COMM_REBOOT_COMMAND_BYTE:
                 self._reboot_time_secs = perf_counter()
+            elif command_byte == SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE:
+                response_body += self._update_magnetometer_config(comm_from_pc)
             elif command_byte == SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE:
+                # TODO Tanner (4/30/21): Once expected behavior is determined, add default sampling period or guard against starting data stream with no sampling period set
                 response_byte = int(self._is_streaming_data)
                 response_body += bytes([response_byte])
+                if not self._is_streaming_data:
+                    response_body += create_magnetometer_config_bytes(
+                        self._magnetometer_config
+                    )
                 self._is_streaming_data = True
             elif command_byte == SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE:
                 response_byte = int(not self._is_streaming_data)
@@ -414,36 +433,30 @@ class MantarrayMcSimulator(InfiniteProcess):
         if status_code_update is not None:
             self._update_status_code(status_code_update)
 
-    def _process_well_sensor_command(self, module_id: int, comm_from_pc: bytes) -> None:
-        timestamp_from_pc_bytes = comm_from_pc[
-            SERIAL_COMM_TIMESTAMP_BYTES_INDEX : SERIAL_COMM_TIMESTAMP_BYTES_INDEX
-            + SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
-        ]
-        response_body = timestamp_from_pc_bytes
-        command_byte = comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX]
-        if command_byte == SERIAL_COMM_SENSORS_AXES_COMMAND_BYTE:
-            if self._is_streaming_data:
-                raise SamplingPeriodChangeWhileDataStreamingError()
-            well_index = module_id - 1
-            sensor_axis_id = comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 1]
-            sampling_period = int.from_bytes(
-                comm_from_pc[
-                    SERIAL_COMM_ADDITIONAL_BYTES_INDEX
-                    + 2 : SERIAL_COMM_ADDITIONAL_BYTES_INDEX
-                    + 4
-                ],
-                byteorder="little",
-            )
-            if sampling_period % MICROSECONDS_PER_MILLISECOND != 0:
-                raise SerialCommInvalidSamplingPeriodError(sampling_period)
-            self._sampling_periods[well_index][sensor_axis_id] = sampling_period
-        else:
-            raise NotImplementedError(command_byte)
-        self._send_data_packet(
-            module_id,
-            SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-            response_body,
+    def _update_magnetometer_config(self, comm_from_pc: bytes) -> bytes:
+        update_status_byte = bytes([self._is_streaming_data])
+        if self._is_streaming_data:
+            # cannot change configuration while data is streaming, so return here
+            return update_status_byte
+        # check and set sampling period
+        sampling_period = int.from_bytes(
+            comm_from_pc[
+                SERIAL_COMM_ADDITIONAL_BYTES_INDEX
+                + 1 : SERIAL_COMM_ADDITIONAL_BYTES_INDEX
+                + 3
+            ],
+            byteorder="little",
         )
+        if sampling_period % MICROSECONDS_PER_MILLISECOND != 0:
+            raise SerialCommInvalidSamplingPeriodError(sampling_period)
+        self._sampling_period = sampling_period
+        # parse and store magnetometer configuration
+        magnetometer_config_bytes = comm_from_pc[  #
+            SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 3 : -SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+        ]
+        config_dict_updates = convert_bytes_to_config_dict(magnetometer_config_bytes)
+        self._magnetometer_config.update(config_dict_updates)
+        return update_status_byte
 
     def _update_status_code(self, new_code: int) -> None:
         self._status_code = new_code

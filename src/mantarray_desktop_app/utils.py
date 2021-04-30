@@ -177,3 +177,14 @@ def _trim_barcode(barcode: str) -> str:
     if barcode[10] != chr(0):
         return barcode[:11]
     return barcode[:10]
+
+
+def create_magnetometer_config_dict(num_wells: int) -> Dict[int, Dict[int, bool]]:
+    """Create default magnetometer configuration dictionary."""
+    magnetometer_config_dict = dict()
+    for module_id in range(1, num_wells + 1):
+        well_dict = dict()
+        for sensor_axis_id in range(9):
+            well_dict[sensor_axis_id] = True
+        magnetometer_config_dict[module_id] = well_dict
+    return magnetometer_config_dict
