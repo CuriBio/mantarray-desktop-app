@@ -2,8 +2,10 @@
 """Mantarray Microcontroller Simulator."""
 from __future__ import annotations
 
+import csv
 import logging
 from multiprocessing import Queue
+import os
 import queue
 import random
 import time
@@ -23,10 +25,16 @@ from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
 from mantarray_file_manager import PCB_SERIAL_NUMBER_UUID
 from mantarray_file_manager import TAMPER_FLAG_UUID
 from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
+from nptyping import NDArray
+import numpy as np
+from scipy import interpolate
 from stdlib_utils import drain_queue
+from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import InfiniteProcess
+from stdlib_utils import resource_path
 from stdlib_utils import SECONDS_TO_SLEEP_BETWEEN_CHECKING_QUEUE_SIZE
 
+from .constants import CENTIMILLISECONDS_PER_SECOND
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MICROSECONDS_PER_MILLISECOND
@@ -168,7 +176,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._leftover_read_bytes = bytes(0)
         # plate values
         self._num_wells = num_wells
-        # simulator values (not set on boot up)
+        # simulator values (not set in _handle_boot_up_config)
         self._time_of_last_status_beacon_secs: Optional[float] = None
         self._time_of_last_handshake_secs: Optional[float] = None
         self._time_of_last_comm_from_pc_secs: Optional[float] = None
@@ -176,13 +184,14 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._is_streaming_data = False
         self._metadata_dict: Dict[bytes, bytes] = dict()
         self._reset_metadata_dict()
-        # simulator values (set on boot up)
+        self._setup_data_interpolator()
+        # simulator values (set in _handle_boot_up_config)
         self._reboot_time_secs: Optional[float]
         self._status_code: int
         self._magnetometer_config: Dict[int, Dict[int, bool]]
         self._baseline_time_usec: Optional[int]
         self._timepoint_of_time_sync_us: Optional[int]
-        self._sampling_period: Optional[int]
+        self._sampling_period_us: Optional[int]
         self._boot_up_time_secs: Optional[float] = None
         self._handle_boot_up_config()
 
@@ -204,6 +213,27 @@ class MantarrayMcSimulator(InfiniteProcess):
                 return 0
         return len(self._leftover_read_bytes)
 
+    def _setup_data_interpolator(self) -> None:
+        """Set up the function to interpolate data.
+
+        This function is necessary to handle different sampling periods.
+
+        This function should only be called once.
+        """
+        relative_path = os.path.join("src", "simulated_data", "simulated_twitch.csv")
+        absolute_path = os.path.normcase(
+            os.path.join(get_current_file_abs_directory(), os.pardir, os.pardir)
+        )
+        file_path = resource_path(relative_path, base_path=absolute_path)
+        with open(file_path, newline="") as csvfile:
+            simulated_data_timepoints = next(csv.reader(csvfile, delimiter=","))
+            simulated_data_values = next(csv.reader(csvfile, delimiter=","))
+        self._interpolator = interpolate.interp1d(
+            np.array(simulated_data_timepoints, dtype=np.int64)
+            // MICROSECONDS_PER_CENTIMILLISECOND,
+            simulated_data_values,
+        )
+
     def _handle_boot_up_config(self, reboot: bool = False) -> None:
         self._reset_start_time()
         self._reboot_time_secs = None
@@ -211,7 +241,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._reset_magnetometer_config()
         self._baseline_time_usec = None
         self._timepoint_of_time_sync_us = None
-        self._sampling_period = None
+        self._sampling_period_us = None
         if reboot:
             drain_queue(self._input_queue)
             # only boot up time automatically after a reboot
@@ -248,19 +278,27 @@ class MantarrayMcSimulator(InfiniteProcess):
             "Status Code": self._status_code,
             "Time Sync Value received from PC (microseconds)": self._baseline_time_usec,
             "Is Streaming Data": self._is_streaming_data,
-            "Sampling Period": self._sampling_period,
+            "Sampling Period (microseconds)": self._sampling_period_us,
         }
         return bytes(
             f" Simulator EEPROM Contents: {str(eeprom_dict)}", encoding="ascii"
         )
 
-    def get_sampling_period(self) -> Optional[int]:
+    def get_sampling_period_us(self) -> Optional[int]:
         """Mainly for use in unit tests."""
-        return self._sampling_period
+        return self._sampling_period_us
 
     def get_magnetometer_config(self) -> Dict[int, Dict[int, bool]]:
         """Mainly for use in unit tests."""
         return self._magnetometer_config
+
+    def get_interpolated_data(self, sampling_period_us: int) -> NDArray[int]:
+        data_indices = np.arange(
+            0,
+            CENTIMILLISECONDS_PER_SECOND,
+            sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND,
+        )
+        return self._interpolator(data_indices)
 
     def _send_data_packet(
         self,
@@ -294,8 +332,9 @@ class MantarrayMcSimulator(InfiniteProcess):
         3. Check if rebooting. The simulator should not be responsive to any commands from the PC while it is rebooting.
         4. Handle communication from the PC.
         5. Send a status beacon if enough time has passed since the previous one was sent.
-        6. Check if the handshake from the PC Is overdue. This should be done after checking for data sent from the PC since the next packet might be a handshake.
-        7. Check if the barcode is ready to send. This is currently the lowest priority.
+        6. If streaming is on, check to see how many data packets are ready to be sent and send them if necessary.
+        7. Check if the handshake from the PC Is overdue. This should be done after checking for data sent from the PC since the next packet might be a handshake.
+        8. Check if the barcode is ready to send. This is currently the lowest priority.
         """
         self._handle_test_comm()
         if self._status_code == SERIAL_COMM_FATAL_ERROR_CODE:
@@ -318,6 +357,9 @@ class MantarrayMcSimulator(InfiniteProcess):
                 self._update_status_code(SERIAL_COMM_TIME_SYNC_READY_CODE)
         self._handle_comm_from_pc()
         self._handle_status_beacon()
+        # TODO:
+        # if self._is_streaming_data:
+        #     self._handle_data_packets()
         self._check_handshake()
         if self._ready_to_send_barcode:
             self._send_data_packet(
@@ -449,7 +491,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         )
         if sampling_period % MICROSECONDS_PER_MILLISECOND != 0:
             raise SerialCommInvalidSamplingPeriodError(sampling_period)
-        self._sampling_period = sampling_period
+        self._sampling_period_us = sampling_period
         # parse and store magnetometer configuration
         magnetometer_config_bytes = comm_from_pc[  #
             SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 3 : -SERIAL_COMM_CHECKSUM_LENGTH_BYTES
@@ -545,6 +587,9 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._is_streaming_data = test_comm["data_streaming_status"]
         else:
             raise UnrecognizedSimulatorTestCommandError(command)
+
+    def _handle_data_packets(self) -> None:
+        pass
 
     def read(self, size: int = 1) -> bytes:
         """Read the given number of bytes from the simulator."""
