@@ -363,7 +363,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         4. Handle communication from the PC.
         5. Send a status beacon if enough time has passed since the previous one was sent.
         6. If streaming is on, check to see how many data packets are ready to be sent and send them if necessary.
-        7. Check if the handshake from the PC Is overdue. This should be done after checking for data sent from the PC since the next packet might be a handshake.
+        7. Check if the handshake from the PC is overdue. This should be done after checking for data sent from the PC since the next packet might be a handshake.
         8. Check if the barcode is ready to send. This is currently the lowest priority.
         """
         self._handle_test_comm()

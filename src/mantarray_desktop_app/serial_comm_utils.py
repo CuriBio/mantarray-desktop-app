@@ -82,19 +82,25 @@ def validate_checksum(comm_from_pc: bytes) -> bool:
     return actual_checksum == expected_checksum
 
 
-def convert_to_metadata_bytes(value: Union[str, int]) -> bytes:
-    """Convert a value to the correct number of bytes for MCU metadata."""
-    # TODO Tanner (3/17/21): Need to be able to handle signed int values. This also includes determining if the int value should be signed, maybe a kwarg
+def convert_to_metadata_bytes(value: Union[str, int], signed: bool = False) -> bytes:
+    """Convert a value to the correct number of bytes for MCU metadata.
+
+    kwarg `signed` is ignored if the value is not an int.
+    """
     if isinstance(value, int):
-        if value < 0:
-            raise NotImplementedError(
-                "Signed integer values are currrently unsupported"
+        value_bytes: bytes
+        try:
+            value_bytes = value.to_bytes(
+                SERIAL_COMM_METADATA_BYTES_LENGTH,
+                byteorder="little",
+                signed=signed,
             )
-        if value > (1 << SERIAL_COMM_METADATA_BYTES_LENGTH) - 1:
+        except OverflowError as e:
+            signed_str = "Signed" if signed else "Unsigned"
             raise SerialCommMetadataValueTooLargeError(
-                f"Value: {value} cannot fit into {SERIAL_COMM_METADATA_BYTES_LENGTH} bytes"
-            )
-        return value.to_bytes(SERIAL_COMM_METADATA_BYTES_LENGTH, byteorder="little")
+                f"{signed_str} value: {value} cannot fit into {SERIAL_COMM_METADATA_BYTES_LENGTH} bytes"
+            ) from e
+        return value_bytes
     if isinstance(value, str):
         value_bytes = bytes(value, encoding="utf-8")
         if len(value_bytes) > SERIAL_COMM_METADATA_BYTES_LENGTH:
