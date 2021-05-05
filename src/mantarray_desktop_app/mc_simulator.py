@@ -53,10 +53,12 @@ from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_IDLE_READY_CODE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
+from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
+from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
@@ -112,6 +114,10 @@ def _get_secs_since_boot_up(start_time: float) -> float:
 
 def _get_secs_since_last_comm_from_pc(last_time: float) -> float:
     return perf_counter() - last_time
+
+
+def _get_us_since_last_data_packet(last_time_us: int) -> int:
+    return _perf_counter_us() - last_time_us
 
 
 # pylint: disable=too-many-instance-attributes
@@ -181,7 +187,9 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._time_of_last_handshake_secs: Optional[float] = None
         self._time_of_last_comm_from_pc_secs: Optional[float] = None
         self._ready_to_send_barcode = False
-        self._is_streaming_data = False
+        self._timepoint_of_last_data_packet_us: Optional[int] = None
+        self._simulated_data_index = 0
+        self._simulated_data: NDArray[np.int16] = np.array([], dtype=np.int16)
         self._metadata_dict: Dict[bytes, bytes] = dict()
         self._reset_metadata_dict()
         self._setup_data_interpolator()
@@ -191,9 +199,27 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._magnetometer_config: Dict[int, Dict[int, bool]]
         self._baseline_time_usec: Optional[int]
         self._timepoint_of_time_sync_us: Optional[int]
-        self._sampling_period_us: Optional[int]
+        self._sampling_period_us: int
         self._boot_up_time_secs: Optional[float] = None
         self._handle_boot_up_config()
+
+    @property
+    def _is_streaming_data(self) -> bool:
+        return self._timepoint_of_last_data_packet_us is not None
+
+    @_is_streaming_data.setter
+    def _is_streaming_data(self, value: bool) -> None:
+        if value:
+            self._timepoint_of_last_data_packet_us = _perf_counter_us()
+            self._simulated_data_index = 0
+            if self._sampling_period_us == 0:
+                # TODO Tanner (5/5/21): Need to determine what to do if sampling period is not set when data begins streaming
+                raise NotImplementedError(
+                    "sampling period must be set before streaming data"
+                )
+            self._simulated_data = self.get_interpolated_data(self._sampling_period_us)
+        else:
+            self._timepoint_of_last_data_packet_us = None
 
     @property
     def in_waiting(self) -> int:
@@ -229,7 +255,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             simulated_data_timepoints = next(csv.reader(csvfile, delimiter=","))
             simulated_data_values = next(csv.reader(csvfile, delimiter=","))
         self._interpolator = interpolate.interp1d(
-            np.array(simulated_data_timepoints, dtype=np.int64)
+            np.array(simulated_data_timepoints, dtype=np.uint64)
             // MICROSECONDS_PER_CENTIMILLISECOND,
             simulated_data_values,
         )
@@ -241,7 +267,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._reset_magnetometer_config()
         self._baseline_time_usec = None
         self._timepoint_of_time_sync_us = None
-        self._sampling_period_us = None
+        self._sampling_period_us = 0
         if reboot:
             drain_queue(self._input_queue)
             # only boot up time automatically after a reboot
@@ -284,7 +310,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             f" Simulator EEPROM Contents: {str(eeprom_dict)}", encoding="ascii"
         )
 
-    def get_sampling_period_us(self) -> Optional[int]:
+    def get_sampling_period_us(self) -> int:
         """Mainly for use in unit tests."""
         return self._sampling_period_us
 
@@ -292,13 +318,17 @@ class MantarrayMcSimulator(InfiniteProcess):
         """Mainly for use in unit tests."""
         return self._magnetometer_config
 
-    def get_interpolated_data(self, sampling_period_us: int) -> NDArray[int]:
+    def get_interpolated_data(self, sampling_period_us: int) -> NDArray[np.int16]:
+        """Return one second (one twitch) of interpolated data."""
         data_indices = np.arange(
             0,
             CENTIMILLISECONDS_PER_SECOND,
             sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND,
         )
-        return self._interpolator(data_indices)
+        return self._interpolator(data_indices).astype(np.int16)
+
+    def get_num_wells(self) -> int:
+        return self._num_wells
 
     def _send_data_packet(
         self,
@@ -357,9 +387,8 @@ class MantarrayMcSimulator(InfiniteProcess):
                 self._update_status_code(SERIAL_COMM_TIME_SYNC_READY_CODE)
         self._handle_comm_from_pc()
         self._handle_status_beacon()
-        # TODO:
-        # if self._is_streaming_data:
-        #     self._handle_data_packets()
+        if self._is_streaming_data:
+            self._handle_data_packets()
         self._check_handshake()
         if self._ready_to_send_barcode:
             self._send_data_packet(
@@ -584,12 +613,51 @@ class MantarrayMcSimulator(InfiniteProcess):
                 value_bytes = convert_to_metadata_bytes(value)
                 self._metadata_dict[key.bytes] = value_bytes
         elif command == "set_data_streaming_status":
+            self._sampling_period_us = test_comm.get("sampling_period", 10000)
             self._is_streaming_data = test_comm["data_streaming_status"]
         else:
             raise UnrecognizedSimulatorTestCommandError(command)
 
     def _handle_data_packets(self) -> None:
-        pass
+        """Send the required number of data packets.
+
+        Since this process iterates once per 10 ms, it is possible that
+        more than one data packet must be sent.
+        """
+        if self._timepoint_of_last_data_packet_us is None:  # making mypy happy
+            raise NotImplementedError(
+                "_timepoint_of_last_data_packet_us should never be None here"
+            )
+        us_since_last_data_packet = _get_us_since_last_data_packet(
+            self._timepoint_of_last_data_packet_us
+        )
+        simulated_data_len = len(self._simulated_data)
+        num_packets_to_send = us_since_last_data_packet // self._sampling_period_us
+        for packet_num in range(num_packets_to_send):
+            data_packet_body = (
+                (
+                    us_since_last_data_packet
+                    - (packet_num + 1) * self._sampling_period_us
+                )
+                // MICROSECONDS_PER_CENTIMILLISECOND
+            ).to_bytes(2, byteorder="little")
+            for well_idx in range(self._num_wells):
+                data_value = self._simulated_data[
+                    self._simulated_data_index
+                ] * np.int16(well_idx + 1)
+                data_value_bytes = data_value.tobytes()
+                for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS):
+                    if self._magnetometer_config[well_idx + 1][channel_id]:
+                        data_packet_body += data_value_bytes
+            self._send_data_packet(
+                SERIAL_COMM_MAIN_MODULE_ID,
+                SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE,
+                data_packet_body,
+            )
+            self._simulated_data_index = (
+                self._simulated_data_index + 1
+            ) % simulated_data_len
+        self._timepoint_of_last_data_packet_us = _perf_counter_us()
 
     def read(self, size: int = 1) -> bytes:
         """Read the given number of bytes from the simulator."""
