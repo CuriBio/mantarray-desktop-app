@@ -340,7 +340,7 @@ def test_McCommunicationProcess__processes_change_magnetometer_config_command(
     # run simulator to process command and send response
     invoke_process_run_and_check_errors(simulator)
     # assert that sampling period and configuration were updated
-    assert simulator.get_sampling_period() == expected_sampling_period
+    assert simulator.get_sampling_period_us() == expected_sampling_period
     assert simulator.get_magnetometer_config() == expected_magnetometer_config
     # run mc_process to process command response and send message back to main
     invoke_process_run_and_check_errors(mc_process)

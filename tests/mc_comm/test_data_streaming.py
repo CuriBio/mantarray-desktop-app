@@ -39,6 +39,12 @@ def test_McCommunicationProcess__processes_start_managed_acquisition_command__wh
     )
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
+    # set arbitrary sampling period
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "set_sampling_period", "sampling_period": 60000}, testing_queue
+    )
+
     spied_get_utc_now = mocker.spy(mc_comm, "_get_formatted_utc_now")
 
     expected_response = {

@@ -711,7 +711,12 @@ def test_MantarrayMcSimulator__processes_start_data_streaming_command(
     mantarray_mc_simulator_no_beacon, mocker
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+    # set arbitrary sampling period
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "set_sampling_period", "sampling_period": 10000}, testing_queue
+    )
 
     # need to send command once before data is being streamed and once after to test the response in both cases
     for response_byte_value in (
@@ -752,7 +757,12 @@ def test_MantarrayMcSimulator__processes_stop_data_streaming_command(
     mantarray_mc_simulator_no_beacon, mocker
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+    # set arbitrary sampling period
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "set_sampling_period", "sampling_period": 2000}, testing_queue
+    )
 
     dummy_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
     test_start_data_streaming_command = create_data_packet(
@@ -808,7 +818,7 @@ def test_MantarrayMcSimulator__processes_change_magnetometer_config_command__whe
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     # assert that sampling period has not been set
-    assert simulator.get_sampling_period() is None
+    assert simulator.get_sampling_period_us() == 0
     assert (
         simulator.get_magnetometer_config()
         == MantarrayMcSimulator.default_24_well_magnetometer_config
@@ -856,7 +866,7 @@ def test_MantarrayMcSimulator__processes_change_magnetometer_config_command__whe
         additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp) + bytes([0]),
     )
     # assert that sampling period and configuration are updated
-    assert simulator.get_sampling_period() == expected_sampling_period
+    assert simulator.get_sampling_period_us() == expected_sampling_period
     assert simulator.get_magnetometer_config() == expected_config_dict
 
 
@@ -868,8 +878,13 @@ def test_MantarrayMcSimulator__processes_change_magnetometer_config_command__whe
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
     # enable data streaming
+    test_sampling_period = 3000
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "set_data_streaming_status", "data_streaming_status": True},
+        {
+            "command": "set_data_streaming_status",
+            "data_streaming_status": True,
+            "sampling_period": test_sampling_period,
+        },
         testing_queue,
     )
     invoke_process_run_and_check_errors(simulator)
@@ -890,14 +905,14 @@ def test_MantarrayMcSimulator__processes_change_magnetometer_config_command__whe
     }
     magnetometer_config_bytes = create_magnetometer_config_bytes(expected_config_dict)
     # send command to set magnetometer configuration
-    test_sampling_period = 1000
+    ignored_sampling_period = 1000
     expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
     change_config_command = create_data_packet(
         expected_pc_timestamp,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
         bytes([SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE])
-        + test_sampling_period.to_bytes(2, byteorder="little")
+        + ignored_sampling_period.to_bytes(2, byteorder="little")
         + magnetometer_config_bytes,
     )
     simulator.write(change_config_command)
@@ -916,9 +931,11 @@ def test_MantarrayMcSimulator__processes_change_magnetometer_config_command__whe
         additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp) + bytes([1]),
     )
     # assert that sampling period and configuration are unchanged
-    assert simulator.get_sampling_period() is None
+    assert simulator.get_sampling_period_us() == test_sampling_period
     updated_magnetometer_config = simulator.get_magnetometer_config()
     assert (
         updated_magnetometer_config
         == MantarrayMcSimulator.default_24_well_magnetometer_config
     )
+
+    simulator.hard_stop()  # prevent BrokenPipeErrors

@@ -109,8 +109,8 @@ def test_MantarrayMcSimulator__sends_correct_timestamp_offset_and_data_points_in
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {
             "command": "set_data_streaming_status",
-            "data_streaming_status": True,
             "sampling_period": test_sampling_period,
+            "data_streaming_status": True,
         },
         testing_queue,
     )

@@ -615,6 +615,8 @@ class MantarrayMcSimulator(InfiniteProcess):
         elif command == "set_data_streaming_status":
             self._sampling_period_us = test_comm.get("sampling_period", 10000)
             self._is_streaming_data = test_comm["data_streaming_status"]
+        elif command == "set_sampling_period":
+            self._sampling_period_us = test_comm["sampling_period"]
         else:
             raise UnrecognizedSimulatorTestCommandError(command)
 
