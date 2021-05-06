@@ -80,6 +80,7 @@ from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_IDLE_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_DATA_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
@@ -406,6 +407,7 @@ def test_serial_comm():
 
     assert SERIAL_COMM_MAIN_MODULE_ID == 0
     assert SERIAL_COMM_STATUS_BEACON_PACKET_TYPE == 0
+    assert SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE == 1
     assert SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE == 3
     assert SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE == 4
     assert SERIAL_COMM_HANDSHAKE_PACKET_TYPE == 4

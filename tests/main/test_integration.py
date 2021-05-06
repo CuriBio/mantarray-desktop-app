@@ -879,21 +879,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
     )
 
-    # Tanner (12/30/20): Run managed_acquisition to confirm system can reach buffering state. Will eventually confirm the system reaches live view active once the data path can handle beta 2 data
-    response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
-    assert response.status_code == 200
-    assert (
-        system_state_eventually_equals(BUFFERING_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME)
-        is True
-    )
-    response = requests.get(f"{get_api_endpoint()}stop_managed_acquisition")
-    assert response.status_code == 200
-    assert (
-        system_state_eventually_equals(
-            CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME
-        )
-        is True
-    )
+    # Tanner (4/5/21): Once magnetometer configuration route is added, test can go to buffering state. Once data path is updated to handle beta 2 data, test can go to recording state
 
     # Tanner (12/29/20): Good to do this at the end of tests to make sure they don't cause problems with other integration tests
     test_process_manager.hard_stop_and_join_processes()

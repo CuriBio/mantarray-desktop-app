@@ -92,6 +92,7 @@ from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_IDLE_READY_CODE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
+from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MAX_DATA_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
@@ -501,4 +502,5 @@ __all__ = [
     "SERIAL_COMM_NUM_DATA_CHANNELS",
     "convert_bitmask_to_config_dict",
     "convert_bytes_to_config_dict",
+    "SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE",
 ]

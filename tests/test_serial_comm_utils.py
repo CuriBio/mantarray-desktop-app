@@ -25,10 +25,11 @@ from mantarray_desktop_app import SerialCommMetadataValueTooLargeError
 from mantarray_desktop_app import validate_checksum
 import pytest
 
+from .fixtures import fixture_patch_print
 from .fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 
 
-__fixtures__ = [fixture_mantarray_mc_simulator_no_beacon]
+__fixtures__ = [fixture_patch_print, fixture_mantarray_mc_simulator_no_beacon]
 
 
 def test_create_data_packet__creates_data_packet_bytes_correctly():
@@ -106,13 +107,32 @@ def test_convert_to_metadata_bytes__returns_correct_values(
     assert convert_to_metadata_bytes(test_value) == expected_bytes
 
 
-def test_convert_to_metadata_bytes__raises_error_with_integer_that_value_cannot_fit_in_max_number_of_bytes():
-    test_value = 1 << SERIAL_COMM_METADATA_BYTES_LENGTH
+def test_convert_to_metadata_bytes__raises_error_with_unsigned_integer_value_that_cannot_fit_in_allowed_number_of_bytes(
+    patch_print,
+):
+    test_value = 1 << (SERIAL_COMM_METADATA_BYTES_LENGTH * 8)
     with pytest.raises(SerialCommMetadataValueTooLargeError, match=str(test_value)):
-        convert_to_metadata_bytes(test_value)
+        convert_to_metadata_bytes(test_value, signed=False)
 
 
-def test_convert_to_metadata_bytes__raises_error_string_longer_than_max_number_of_bytes():
+def test_convert_to_metadata_bytes__raises_error_with_signed_integer_value_that_cannot_fit_in_allowed_number_of_bytes(
+    patch_print,
+):
+    test_positive_value = 1 << (SERIAL_COMM_METADATA_BYTES_LENGTH * 8 - 1)
+    with pytest.raises(
+        SerialCommMetadataValueTooLargeError, match=str(test_positive_value)
+    ):
+        convert_to_metadata_bytes(test_positive_value, signed=True)
+    test_negative_value = (-1 << (SERIAL_COMM_METADATA_BYTES_LENGTH * 8 - 1)) - 1
+    with pytest.raises(
+        SerialCommMetadataValueTooLargeError, match=str(test_negative_value)
+    ):
+        convert_to_metadata_bytes(test_negative_value, signed=True)
+
+
+def test_convert_to_metadata_bytes__raises_error_string_longer_than_max_number_of_bytes(
+    patch_print,
+):
     test_value = "T" * (SERIAL_COMM_METADATA_BYTES_LENGTH + 1)
     with pytest.raises(SerialCommMetadataValueTooLargeError, match=str(test_value)):
         convert_to_metadata_bytes(test_value)
