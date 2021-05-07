@@ -7,7 +7,7 @@
 
 # E203 is not PEP8 compliant -- should be ignored https://github.com/psf/black/issues/315
 
-max-line-length = 80
+max-line-length = 110
 select = C,E,F,W,B,B950
 ignore = E501,W503,E231,E203
 import-order-style = google
