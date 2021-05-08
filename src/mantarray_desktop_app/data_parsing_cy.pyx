@@ -1,10 +1,11 @@
 # distutils: language = c++
 # cython: language_level=3
 # Tanner (9/1/20): Make sure to set `linetrace=False` except when profiling cython code or creating annotation file. All performance tests should be timed without line tracing enabled. Cython files in this package can easily be recompiled with `pip install -e .`
-# cython: linetrace=False
+# cython: linetrace=True
 """Parsing data from Mantarray Hardware."""
 from libcpp.map cimport map
 from typing import Tuple
+from nptyping import NDArray
 
 from .constants import ADC_CH_TO_24_WELL_INDEX
 from .constants import ADC_CH_TO_IS_REF_SENSOR
@@ -73,7 +74,7 @@ cpdef int parse_little_endian_int24(unsigned char[3] data_bytes):
 
 # Beta 2 functions
 
-def read_data_packets(read_func, int num_packets_to_read) -> Tuple[np.array, np.array, int, bytes]:
+def read_data_packets(read_func, int num_packets_to_read, int num_channels_enabled) -> Tuple[NDArray, NDArray, int, bytes]:
     """Read the given number of data packets from the instrument.
 
     If data stream is interrupted by packet that is not part of the data stream,
@@ -82,6 +83,7 @@ def read_data_packets(read_func, int num_packets_to_read) -> Tuple[np.array, np.
     Args:
         read_func: a pointer to the read function of the instrument's serial interface
         num_packets_to_read: the desired number of packets to read
+        num_channels_enabled: the number of data channels (sensors/axes) enabled
 
     Returns:
         A tuple of the array of parsed timestamps, the array of parsed data, the number of data packets read, and the bytes of an interrupting packet from the instrument (will be empty if one was not read)
@@ -89,7 +91,7 @@ def read_data_packets(read_func, int num_packets_to_read) -> Tuple[np.array, np.
     pass
 
 
-cpdef (int, unsigned char, unsigned char) get_data_packet(char[:] data_buf):
+cpdef (int, unsigned char, unsigned char) get_data_packet(read_func, char[:] data_buf):
     """Read the next packet from the instrument. Load the packet body in the char buffer given
 
     Args:
@@ -99,4 +101,5 @@ cpdef (int, unsigned char, unsigned char) get_data_packet(char[:] data_buf):
     Returns:
         The timestamp, module ID, and packet type of the data packet
     """
-    pass
+    cdef char[:] a = bytearray(read_func(size=3))[:]
+    data_buf[:] = a[:]

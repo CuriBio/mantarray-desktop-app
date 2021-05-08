@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import copy
 
+from mantarray_desktop_app import get_data_packet
 from mantarray_desktop_app import InstrumentDataStreamingAlreadyStartedError
 from mantarray_desktop_app import InstrumentDataStreamingAlreadyStoppedError
 from mantarray_desktop_app import mc_comm
@@ -25,6 +26,23 @@ __fixtures__ = [
     fixture_four_board_mc_comm_process,
     fixture_four_board_mc_comm_process_no_handshake,
 ]
+
+
+def test_get_data_packet__loads_data_into_given_buffer(
+    mantarray_mc_simulator_no_beacon,
+):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+
+    expected_bytes = bytes([1, 2, 3])
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "add_read_bytes", "read_bytes": expected_bytes}, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator)
+
+    test_buffer = bytearray(3)
+    get_data_packet(simulator.read, test_buffer)
+    assert test_buffer == expected_bytes
 
 
 def test_McCommunicationProcess__processes_start_managed_acquisition_command__when_data_not_already_streaming(

@@ -94,6 +94,15 @@ from .serial_comm_utils import validate_checksum
 from .utils import check_barcode_is_valid
 
 
+# if (
+#     6 < 9
+# ):  # pragma: no cover # protect this from zimports deleting the pylint disable statement
+#     from .data_parsing_cy import (  # pylint: disable=import-error # Tanner (8/25/20): unsure why pylint is unable to recognize cython import
+#         read_data_packets,
+#         get_data_packet,
+#     )
+
+
 def _get_formatted_utc_now() -> str:
     return datetime.datetime.utcnow().strftime(DATETIME_STR_FORMAT)
 
