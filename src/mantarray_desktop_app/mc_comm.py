@@ -98,8 +98,7 @@ from .utils import check_barcode_is_valid
 #     6 < 9
 # ):  # pragma: no cover # protect this from zimports deleting the pylint disable statement
 #     from .data_parsing_cy import (  # pylint: disable=import-error # Tanner (8/25/20): unsure why pylint is unable to recognize cython import
-#         read_data_packets,
-#         get_data_packet,
+#         handle_data_packets,
 #     )
 
 

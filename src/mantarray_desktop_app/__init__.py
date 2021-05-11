@@ -251,8 +251,7 @@ if 6 < 9:  # pragma: no cover # protect this from zimports deleting the pylint d
         parse_adc_metadata_byte,
         parse_little_endian_int24,
         parse_sensor_bytes,
-        read_data_packets,
-        get_data_packet,
+        handle_data_packets,
     )
 
 __all__ = [
@@ -503,6 +502,5 @@ __all__ = [
     "convert_bitmask_to_config_dict",
     "convert_bytes_to_config_dict",
     "SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE",
-    "read_data_packets",
-    "get_data_packet",
+    "handle_data_packets",
 ]

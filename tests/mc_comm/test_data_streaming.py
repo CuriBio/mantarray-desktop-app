@@ -1,10 +1,16 @@
 # -*- coding: utf-8 -*-
 import copy
+import random
 
-from mantarray_desktop_app import get_data_packet
+from mantarray_desktop_app import create_data_packet
+from mantarray_desktop_app import handle_data_packets
 from mantarray_desktop_app import InstrumentDataStreamingAlreadyStartedError
 from mantarray_desktop_app import InstrumentDataStreamingAlreadyStoppedError
 from mantarray_desktop_app import mc_comm
+from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
+from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
+import numpy as np
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
@@ -17,6 +23,7 @@ from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import set_simulator_idle_ready
 from ..helpers import confirm_queue_is_eventually_of_size
+from ..helpers import get_full_packet_size_from_packet_body_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 __fixtures__ = [
@@ -28,21 +35,48 @@ __fixtures__ = [
 ]
 
 
-def test_get_data_packet__loads_data_into_given_buffer(
+def test_handle_data_packets__handles_two_full_data_packets_correctly(
     mantarray_mc_simulator_no_beacon,
 ):
-    simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+    test_num_wells = 24
+    num_data_points_per_packet = SERIAL_COMM_NUM_DATA_CHANNELS * test_num_wells
 
-    expected_bytes = bytes([1, 2, 3])
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "add_read_bytes", "read_bytes": expected_bytes}, testing_queue
+    expected_timestamps = np.array([1, 2], dtype=np.uint64)
+
+    expected_data_array = np.zeros((num_data_points_per_packet, 2), dtype=np.int16)
+    test_data_packets = bytes(0)
+    for packet_num in range(2):
+        test_data = [
+            random.randint(0, 65535)
+            for _ in range(SERIAL_COMM_NUM_DATA_CHANNELS * test_num_wells)
+        ]
+        expected_data_array[:, packet_num] = test_data
+
+        test_bytes = bytes(0)
+        for value in test_data:
+            test_bytes += value.to_bytes(2, byteorder="little")
+        test_data_packets += create_data_packet(
+            expected_timestamps[packet_num].item(),
+            SERIAL_COMM_MAIN_MODULE_ID,
+            SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE,
+            test_bytes,
+        )
+
+    data_packet_len = get_full_packet_size_from_packet_body_size(
+        num_data_points_per_packet * 2
     )
-    invoke_process_run_and_check_errors(simulator)
-
-    test_buffer = bytearray(3)
-    get_data_packet(simulator.read, test_buffer)
-    assert test_buffer == expected_bytes
+    (
+        actual_timestamps,
+        actual_data,
+        num_packets_read,
+        other_bytes,
+        unread_bytes,
+    ) = handle_data_packets(bytearray(test_data_packets), data_packet_len)
+    np.testing.assert_array_equal(actual_timestamps, expected_timestamps)
+    np.testing.assert_array_equal(actual_data, expected_data_array)
+    assert num_packets_read == 2
+    assert other_bytes == bytes(0)
+    assert unread_bytes == bytes(0)
 
 
 def test_McCommunicationProcess__processes_start_managed_acquisition_command__when_data_not_already_streaming(
