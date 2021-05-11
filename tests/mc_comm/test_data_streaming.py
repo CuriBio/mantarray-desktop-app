@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import copy
-import random
+from random import randint
 
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import handle_data_packets
@@ -9,6 +9,7 @@ from mantarray_desktop_app import InstrumentDataStreamingAlreadyStoppedError
 from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
+from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 import numpy as np
@@ -35,13 +36,28 @@ __fixtures__ = [
     fixture_four_board_mc_comm_process_no_handshake,
 ]
 
+TEST_NUM_WELLS = 24
+FULL_DATA_PACKET_LEN = get_full_packet_size_from_packet_body_size(
+    SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS * 2
+)
 
-def test_handle_data_packets__handles_two_full_data_packets_correctly(
-    mantarray_mc_simulator_no_beacon,
-):
-    test_num_wells = 24
+TEST_OTHER_TIMESTAMP = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+TEST_OTHER_PACKET = create_data_packet(
+    TEST_OTHER_TIMESTAMP,
+    SERIAL_COMM_MAIN_MODULE_ID,
+    SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
+    bytes(4),
+)
+TEST_OTHER_PACKET_INFO = (
+    SERIAL_COMM_MAIN_MODULE_ID,
+    SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
+    bytes(4),
+)
+
+
+def test_handle_data_packets__handles_two_full_data_packets_correctly():
     test_num_packets = 2
-    num_data_points_per_packet = SERIAL_COMM_NUM_DATA_CHANNELS * test_num_wells
+    num_data_points_per_packet = SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS
 
     expected_timestamps = np.array([1, 2], dtype=np.uint64)
 
@@ -51,14 +67,14 @@ def test_handle_data_packets__handles_two_full_data_packets_correctly(
     test_data_packets = bytes(0)
     for packet_num in range(test_num_packets):
         test_data = [
-            random.randint(0, 65535)
-            for _ in range(SERIAL_COMM_NUM_DATA_CHANNELS * test_num_wells)
+            randint(-0x8000, 0x7FFF)
+            for _ in range(SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS)
         ]
         expected_data_array[:, packet_num] = test_data
 
         test_bytes = bytes(0)
         for value in test_data:
-            test_bytes += value.to_bytes(2, byteorder="little")
+            test_bytes += value.to_bytes(2, byteorder="little", signed=True)
         test_data_packets += create_data_packet(
             expected_timestamps[packet_num].item(),
             SERIAL_COMM_MAIN_MODULE_ID,
@@ -66,16 +82,13 @@ def test_handle_data_packets__handles_two_full_data_packets_correctly(
             test_bytes,
         )
 
-    data_packet_len = get_full_packet_size_from_packet_body_size(
-        num_data_points_per_packet * test_num_packets
-    )
     (
         actual_timestamps,
         actual_data,
-        num_packets_read,
+        num_data_packets_read,
         other_packet_info,
         unread_bytes,
-    ) = handle_data_packets(bytearray(test_data_packets), data_packet_len)
+    ) = handle_data_packets(bytearray(test_data_packets), FULL_DATA_PACKET_LEN)
     assert actual_timestamps.shape[0] == test_num_packets + 1
     np.testing.assert_array_equal(
         actual_timestamps[:test_num_packets], expected_timestamps
@@ -84,51 +97,94 @@ def test_handle_data_packets__handles_two_full_data_packets_correctly(
     np.testing.assert_array_equal(
         actual_data[:, :test_num_packets], expected_data_array
     )
-    assert num_packets_read == test_num_packets
+    assert num_data_packets_read == test_num_packets
     assert other_packet_info is None
     assert unread_bytes is None
 
 
-def test_handle_data_packets__handles_single_with_incorrect_packet_type_correctly__when_all_channels_enabled(
-    mantarray_mc_simulator_no_beacon,
-):
-    test_num_wells = 24
-
-    expected_timestamp = 908
-    test_data_packet = create_data_packet(
-        expected_timestamp,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
-        bytes(4),
-    )
-
-    data_packet_len = get_full_packet_size_from_packet_body_size(
-        SERIAL_COMM_NUM_DATA_CHANNELS * test_num_wells * 2
-    )
+def test_handle_data_packets__handles_single_packet_with_incorrect_packet_type_correctly__when_all_channels_enabled():
     (
         actual_timestamps,
         actual_data,
-        num_packets_read,
+        num_data_packets_read,
         other_packet_info,
         unread_bytes,
-    ) = handle_data_packets(bytearray(test_data_packet), data_packet_len)
+    ) = handle_data_packets(bytearray(TEST_OTHER_PACKET), FULL_DATA_PACKET_LEN)
+
+    assert actual_timestamps.shape[0] == 1
+    assert actual_timestamps[0] == TEST_OTHER_TIMESTAMP
+    assert actual_data.shape[1] == 1
+    assert num_data_packets_read == 0
+    assert other_packet_info == TEST_OTHER_PACKET_INFO
+    assert unread_bytes == bytes(0)
+
+
+def test_handle_data_packets__handles_single_packet_with_incorrect_module_id_correctly__when_all_channels_enabled():
+    test_body_length = randint(0, 10)
+    expected_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+    test_data_packet = create_data_packet(
+        expected_timestamp,
+        255,  # arbitrary module ID, preferably one that doesn't exist
+        SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE,
+        bytes(test_body_length),
+    )
+
+    (
+        actual_timestamps,
+        actual_data,
+        num_data_packets_read,
+        other_packet_info,
+        unread_bytes,
+    ) = handle_data_packets(bytearray(test_data_packet), FULL_DATA_PACKET_LEN)
 
     assert actual_timestamps.shape[0] == 1
     assert actual_timestamps[0] == expected_timestamp
     assert actual_data.shape[1] == 1
-    assert num_packets_read == 0
+    assert num_data_packets_read == 0
     assert other_packet_info == (
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
-        bytes(4),
+        255,
+        SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE,
+        bytes(test_body_length),
     )
-    assert unread_bytes is None
+    assert unread_bytes == bytes(0)
+
+
+def test_handle_data_packets__handles_interrupting_packet_followed_by_data_packet__when_all_channels_enabled():
+    expected_unread_bytes = bytes(0)
+    data_bytes = bytes(0)
+    for _ in range(SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS):
+        data_bytes += randint(-0x8000, 0x7FFF).to_bytes(
+            2, byteorder="little", signed=True
+        )
+    expected_unread_bytes = create_data_packet(
+        randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE),
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE,
+        data_bytes,
+    )
+    test_bytes = TEST_OTHER_PACKET + expected_unread_bytes
+
+    (
+        actual_timestamps,
+        actual_data,
+        num_data_packets_read,
+        other_packet_info,
+        unread_bytes,
+    ) = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_LEN)
+
+    assert actual_timestamps.shape[0] == 2
+    assert actual_timestamps[0] == TEST_OTHER_TIMESTAMP
+    assert actual_data.shape[1] == 2
+    assert num_data_packets_read == 0
+    assert other_packet_info == TEST_OTHER_PACKET_INFO
+    assert unread_bytes == expected_unread_bytes
 
 
 # TODO:
-#     interrupt packet then data packet
 #     data packet then interrupt packet
 #     data packet then interrupt packet then data packet
+#     data packet with incorrect check sum value
+#     performance test
 
 
 def test_McCommunicationProcess__processes_start_managed_acquisition_command__when_data_not_already_streaming(
