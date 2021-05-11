@@ -49,6 +49,7 @@ TEST_OTHER_PACKET = create_data_packet(
     bytes(4),
 )
 TEST_OTHER_PACKET_INFO = (
+    TEST_OTHER_TIMESTAMP,
     SERIAL_COMM_MAIN_MODULE_ID,
     SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
     bytes(4),
@@ -56,16 +57,16 @@ TEST_OTHER_PACKET_INFO = (
 
 
 def test_handle_data_packets__handles_two_full_data_packets_correctly():
-    test_num_packets = 2
+    test_num_data_packets = 2
     num_data_points_per_packet = SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS
 
     expected_timestamps = np.array([1, 2], dtype=np.uint64)
 
     expected_data_array = np.zeros(
-        (num_data_points_per_packet, test_num_packets), dtype=np.int16
+        (num_data_points_per_packet, test_num_data_packets), dtype=np.int16
     )
     test_data_packets = bytes(0)
-    for packet_num in range(test_num_packets):
+    for packet_num in range(test_num_data_packets):
         test_data = [
             randint(-0x8000, 0x7FFF)
             for _ in range(SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS)
@@ -89,15 +90,15 @@ def test_handle_data_packets__handles_two_full_data_packets_correctly():
         other_packet_info,
         unread_bytes,
     ) = handle_data_packets(bytearray(test_data_packets), FULL_DATA_PACKET_LEN)
-    assert actual_timestamps.shape[0] == test_num_packets + 1
+    assert actual_timestamps.shape[0] == test_num_data_packets
     np.testing.assert_array_equal(
-        actual_timestamps[:test_num_packets], expected_timestamps
+        actual_timestamps[:test_num_data_packets], expected_timestamps
     )
-    assert actual_data.shape[1] == test_num_packets + 1
+    assert actual_data.shape[1] == test_num_data_packets
     np.testing.assert_array_equal(
-        actual_data[:, :test_num_packets], expected_data_array
+        actual_data[:, :test_num_data_packets], expected_data_array
     )
-    assert num_data_packets_read == test_num_packets
+    assert num_data_packets_read == test_num_data_packets
     assert other_packet_info is None
     assert unread_bytes is None
 
@@ -111,9 +112,8 @@ def test_handle_data_packets__handles_single_packet_with_incorrect_packet_type_c
         unread_bytes,
     ) = handle_data_packets(bytearray(TEST_OTHER_PACKET), FULL_DATA_PACKET_LEN)
 
-    assert actual_timestamps.shape[0] == 1
-    assert actual_timestamps[0] == TEST_OTHER_TIMESTAMP
-    assert actual_data.shape[1] == 1
+    assert actual_timestamps.shape[0] == 0
+    assert actual_data.shape[1] == 0
     assert num_data_packets_read == 0
     assert other_packet_info == TEST_OTHER_PACKET_INFO
     assert unread_bytes == bytes(0)
@@ -137,11 +137,11 @@ def test_handle_data_packets__handles_single_packet_with_incorrect_module_id_cor
         unread_bytes,
     ) = handle_data_packets(bytearray(test_data_packet), FULL_DATA_PACKET_LEN)
 
-    assert actual_timestamps.shape[0] == 1
-    assert actual_timestamps[0] == expected_timestamp
-    assert actual_data.shape[1] == 1
+    assert actual_timestamps.shape[0] == 0
+    assert actual_data.shape[1] == 0
     assert num_data_packets_read == 0
     assert other_packet_info == (
+        expected_timestamp,
         255,
         SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE,
         bytes(test_body_length),
@@ -172,17 +172,82 @@ def test_handle_data_packets__handles_interrupting_packet_followed_by_data_packe
         unread_bytes,
     ) = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_LEN)
 
-    assert actual_timestamps.shape[0] == 2
-    assert actual_timestamps[0] == TEST_OTHER_TIMESTAMP
-    assert actual_data.shape[1] == 2
+    assert actual_timestamps.shape[0] == 1
+    assert actual_data.shape[1] == 1
     assert num_data_packets_read == 0
     assert other_packet_info == TEST_OTHER_PACKET_INFO
     assert unread_bytes == expected_unread_bytes
 
 
+def test_handle_data_packets__handles_single_data_packet_followed_by_interrupting_packet__when_all_channels_enabled():
+    data_bytes = bytes(0)
+    expected_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+    for _ in range(SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS):
+        data_bytes += randint(-0x8000, 0x7FFF).to_bytes(
+            2, byteorder="little", signed=True
+        )
+    test_data_packet = create_data_packet(
+        expected_timestamp,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE,
+        data_bytes,
+    )
+    test_bytes = test_data_packet + TEST_OTHER_PACKET
+
+    (
+        actual_timestamps,
+        actual_data,
+        num_data_packets_read,
+        other_packet_info,
+        unread_bytes,
+    ) = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_LEN)
+
+    assert actual_timestamps.shape[0] == 1
+    assert actual_timestamps[0] == expected_timestamp
+    assert actual_data.shape[1] == 1
+    assert num_data_packets_read == 1
+    assert other_packet_info == TEST_OTHER_PACKET_INFO
+    assert unread_bytes == bytes(0)
+
+
+def test_handle_data_packets__handles_interrupting_packet_in_between_two_data_packets__when_all_channels_enabled():
+    test_num_data_packets = 2
+
+    expected_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+
+    test_data_packets = []
+    for _ in range(test_num_data_packets):
+        data_bytes = bytes(0)
+        for _ in range(SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS):
+            data_bytes += randint(-0x8000, 0x7FFF).to_bytes(
+                2, byteorder="little", signed=True
+            )
+        test_data_packet = create_data_packet(
+            expected_timestamp,
+            SERIAL_COMM_MAIN_MODULE_ID,
+            SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE,
+            data_bytes,
+        )
+        test_data_packets.append(test_data_packet)
+    test_bytes = test_data_packets[0] + TEST_OTHER_PACKET + test_data_packets[1]
+
+    (
+        actual_timestamps,
+        actual_data,
+        num_data_packets_read,
+        other_packet_info,
+        unread_bytes,
+    ) = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_LEN)
+
+    assert actual_timestamps.shape[0] == 2
+    assert actual_timestamps[0] == expected_timestamp
+    assert actual_data.shape[1] == 2
+    assert num_data_packets_read == 1
+    assert other_packet_info == TEST_OTHER_PACKET_INFO
+    assert unread_bytes == test_data_packets[1]
+
+
 # TODO:
-#     data packet then interrupt packet
-#     data packet then interrupt packet then data packet
 #     data packet with incorrect check sum value
 #     performance test
 

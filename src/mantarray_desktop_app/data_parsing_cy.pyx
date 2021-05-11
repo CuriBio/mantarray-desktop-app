@@ -126,8 +126,8 @@ def handle_data_packets(unsigned char[:] read_bytes, int data_packet_len) -> Tup
     cdef Packet *p
 
     # return values
-    cdef np.ndarray[np.uint64_t, ndim=1] timestamps = np.empty(num_data_packets_possible + 1, dtype=np.uint64)
-    cdef np.ndarray[np.int16_t, ndim=2] data = np.empty((num_data_channels, num_data_packets_possible + 1), dtype=np.int16)
+    cdef np.ndarray[np.uint64_t, ndim=1] timestamps = np.empty(num_data_packets_possible, dtype=np.uint64)
+    cdef np.ndarray[np.int16_t, ndim=2] data = np.empty((num_data_channels, num_data_packets_possible), dtype=np.int16)
     cdef int data_packet_idx = 0  # also represents numbers of data packets read. Will not increment after reading a "non-data" packet
     other_packet_info = None
     unread_bytes = None
@@ -136,8 +136,6 @@ def handle_data_packets(unsigned char[:] read_bytes, int data_packet_len) -> Tup
     cdef int channel_num
     while bytes_idx <= num_bytes - MIN_PACKET_SIZE:
         p = <Packet *> &read_bytes[bytes_idx]
-        # timestamp will added to array regardless of what kind of packet it is
-        timestamps[data_packet_idx] = p.timestamp
         # check CRC
         # TODO check CRC and raise error if one occurs
         # if this packet was not a data packet, need to set return values, break out of loop and return
@@ -147,12 +145,17 @@ def handle_data_packets(unsigned char[:] read_bytes, int data_packet_len) -> Tup
         ):
             # breaking out of loop here, so ok to incur reasonable amount of python overhead here
             other_bytes = bytearray(
-                read_bytes[SERIAL_COMM_ADDITIONAL_BYTES_INDEX_C_INT : bytes_idx + p.packet_len + 6]
+                read_bytes[
+                    bytes_idx + SERIAL_COMM_ADDITIONAL_BYTES_INDEX_C_INT
+                    : bytes_idx + p.packet_len + 6
+                ]
             )
-            other_packet_info = (p.module_id, p.packet_type, other_bytes)
+            other_packet_info = (p.timestamp, p.module_id, p.packet_type, other_bytes)
             unread_bytes = bytearray(read_bytes[bytes_idx + p.packet_len + 10:])
             break
-        # add data to numpy array
+        # add next timestamp to timestamp array
+        timestamps[data_packet_idx] = p.timestamp
+        # add next data points to data array
         for channel_num in range(num_data_channels):
             data[channel_num, data_packet_idx] = (&p.data + channel_num)[0]
         # increment idxs
