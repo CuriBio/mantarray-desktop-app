@@ -84,9 +84,7 @@ def attempt_to_get_recording_directory_from_new_dict(  # pylint:disable=invalid-
     return directory
 
 
-def update_shared_dict(
-    shared_values_dict: Dict[str, Any], new_info_dict: Dict[str, Any]
-) -> None:
+def update_shared_dict(shared_values_dict: Dict[str, Any], new_info_dict: Dict[str, Any]) -> None:
     """Update the dictionary and log any critical changes.
 
     Because this is a nested dictionary, make sure to flatten and then
@@ -98,14 +96,10 @@ def update_shared_dict(
     updated_shared_dict = unflatten(flattened_shared_dict)
     shared_values_dict.update(updated_shared_dict)
 
-    new_recording_directory: Optional[
-        str
-    ] = attempt_to_get_recording_directory_from_new_dict(new_info_dict)
+    new_recording_directory: Optional[str] = attempt_to_get_recording_directory_from_new_dict(new_info_dict)
 
     if new_recording_directory is not None:
-        scrubbed_recordings_dir = redact_sensitive_info_from_path(
-            new_recording_directory
-        )
+        scrubbed_recordings_dir = redact_sensitive_info_from_path(new_recording_directory)
         msg = f"Using directory for recording files: {scrubbed_recordings_dir}"
         logger.info(msg)
 

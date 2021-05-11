@@ -43,9 +43,7 @@ METADATA_TYPES = immutabledict(
         PCB_SERIAL_NUMBER_UUID: str,
     }
 )
-BITMASK_SHIFT_VALUE = (
-    16 - SERIAL_COMM_NUM_DATA_CHANNELS
-)  # 16 for number of bits in int16
+BITMASK_SHIFT_VALUE = 16 - SERIAL_COMM_NUM_DATA_CHANNELS  # 16 for number of bits in int16
 
 
 def _get_checksum_bytes(packet: bytes) -> bytes:
@@ -65,9 +63,7 @@ def create_data_packet(
     packet_length = len(packet_body) + SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 
     data_packet = SERIAL_COMM_MAGIC_WORD_BYTES
-    data_packet += packet_length.to_bytes(
-        SERIAL_COMM_PACKET_INFO_LENGTH_BYTES, byteorder="little"
-    )
+    data_packet += packet_length.to_bytes(SERIAL_COMM_PACKET_INFO_LENGTH_BYTES, byteorder="little")
     data_packet += packet_body
     data_packet += _get_checksum_bytes(data_packet)
     return data_packet
@@ -134,9 +130,7 @@ def parse_metadata_bytes(metadata_bytes: bytes) -> Dict[UUID, Any]:
 
     metadata_dict: Dict[UUID, Any] = dict()
     for this_metadata_idx in range(0, len(metadata_bytes), single_metadata_length):
-        this_metadata_bytes = metadata_bytes[
-            this_metadata_idx : this_metadata_idx + single_metadata_length
-        ]
+        this_metadata_bytes = metadata_bytes[this_metadata_idx : this_metadata_idx + single_metadata_length]
         this_value_bytes = this_metadata_bytes[uuid_bytes_length:]
         this_uuid = UUID(bytes=this_metadata_bytes[:uuid_bytes_length])
         metadata_type = METADATA_TYPES[this_uuid]
@@ -150,9 +144,7 @@ def parse_metadata_bytes(metadata_bytes: bytes) -> Dict[UUID, Any]:
 
 
 def convert_to_status_code_bytes(status_code: int) -> bytes:
-    return status_code.to_bytes(
-        SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little"
-    )
+    return status_code.to_bytes(SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little")
 
 
 def convert_to_timestamp_bytes(timestamp: int) -> bytes:
@@ -178,9 +170,9 @@ def create_magnetometer_config_bytes(config_dict: Dict[int, Dict[int, bool]]) ->
     config_bytes = bytes(0)
     for module_id, well_config in config_dict.items():
         config_bytes += bytes([module_id])
-        config_bytes += (
-            create_sensor_axis_bitmask(well_config) << BITMASK_SHIFT_VALUE
-        ).to_bytes(2, byteorder="big")
+        config_bytes += (create_sensor_axis_bitmask(well_config) << BITMASK_SHIFT_VALUE).to_bytes(
+            2, byteorder="big"
+        )
     return config_bytes
 
 
@@ -200,9 +192,7 @@ def convert_bytes_to_config_dict(
     config_dict: Dict[int, Dict[int, bool]] = dict()
     for config_block_idx in range(0, len(magnetometer_config_bytes), 3):
         module_id = magnetometer_config_bytes[config_block_idx]
-        bitmask_bytes = magnetometer_config_bytes[
-            config_block_idx + 1 : config_block_idx + 3
-        ]
+        bitmask_bytes = magnetometer_config_bytes[config_block_idx + 1 : config_block_idx + 3]
         bitmask = int.from_bytes(bitmask_bytes, byteorder="big") >> BITMASK_SHIFT_VALUE
         config_dict[module_id] = convert_bitmask_to_config_dict(bitmask)
     return config_dict

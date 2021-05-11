@@ -113,9 +113,7 @@ def get_data_slice_within_timepoints(
         try:
             last_valid_index_in_packet = next(
                 length_of_data - 1 - i
-                for i, time in enumerate(
-                    time_value_arr[0][first_valid_index_in_packet:][::-1]
-                )
+                for i, time in enumerate(time_value_arr[0][first_valid_index_in_packet:][::-1])
                 if time <= max_timepoint
             )
         except StopIteration as e:
@@ -177,9 +175,7 @@ class FileWriterProcess(InfiniteProcess):
             ],  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
             ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
         ],
-        from_main_queue: Queue[  # pylint: disable=unsubscriptable-object
-            Dict[str, Any]
-        ],
+        from_main_queue: Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
         to_main_queue: Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
         fatal_error_reporter: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
             Tuple[Exception, str]
@@ -206,12 +202,10 @@ class FileWriterProcess(InfiniteProcess):
             ...,  # noqa: W504 # flake8 doesn't understand the 3 dots for type definition
         ] = tuple(dict() for _ in range(len(self._board_queues)))
         self._is_recording = False
-        self._start_recording_timestamps: List[
-            Optional[Tuple[datetime.datetime, int]]
-        ] = list([None] * len(self._board_queues))
-        self._stop_recording_timestamps: List[Optional[int]] = list(
+        self._start_recording_timestamps: List[Optional[Tuple[datetime.datetime, int]]] = list(
             [None] * len(self._board_queues)
         )
+        self._stop_recording_timestamps: List[Optional[int]] = list([None] * len(self._board_queues))
         self._tissue_data_finalized_for_recording: Tuple[Dict[int, bool], ...] = tuple(
             [dict()] * len(self._board_queues)
         )
@@ -270,7 +264,9 @@ class FileWriterProcess(InfiniteProcess):
             self.get_logging_level(),
         )
         if self._board_has_open_files(0):
-            msg = "Data is still be written to file. Stopping recording and closing files to complete teardown"
+            msg = (
+                "Data is still be written to file. Stopping recording and closing files to complete teardown"
+            )
             put_log_message_into_queue(
                 logging.INFO,
                 msg,
@@ -288,10 +284,7 @@ class FileWriterProcess(InfiniteProcess):
         self._finalize_completed_files()
 
         self._iterations_since_last_logging += 1
-        if (
-            self._iterations_since_last_logging
-            >= FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
-        ):
+        if self._iterations_since_last_logging >= FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES:
             self._handle_performance_logging()
             self._iterations_since_last_logging = 0
 
@@ -336,22 +329,16 @@ class FileWriterProcess(InfiniteProcess):
             communication["timepoint_to_begin_recording_at"],
         )
         timedelta_to_recording_start = datetime.timedelta(
-            seconds=communication["timepoint_to_begin_recording_at"]
-            / CENTIMILLISECONDS_PER_SECOND
+            seconds=communication["timepoint_to_begin_recording_at"] / CENTIMILLISECONDS_PER_SECOND
         )
 
         recording_start_timestamp = (
-            attrs_to_copy[UTC_BEGINNING_DATA_ACQUISTION_UUID]
-            + timedelta_to_recording_start
+            attrs_to_copy[UTC_BEGINNING_DATA_ACQUISTION_UUID] + timedelta_to_recording_start
         )
-        recording_start_timestamp_str = (recording_start_timestamp).strftime(
-            "%Y_%m_%d_%H%M%S"
-        )
+        recording_start_timestamp_str = (recording_start_timestamp).strftime("%Y_%m_%d_%H%M%S")
         sub_dir_name = f"{barcode}__{recording_start_timestamp_str}"
 
-        file_folder_dir = os.path.join(
-            os.path.abspath(self._file_directory), sub_dir_name
-        )
+        file_folder_dir = os.path.join(os.path.abspath(self._file_directory), sub_dir_name)
         communication["abs_path_to_file_folder"] = file_folder_dir
         os.makedirs(file_folder_dir)
 
@@ -368,18 +355,14 @@ class FileWriterProcess(InfiniteProcess):
                 file_path, file_format_version=CURRENT_HDF5_FILE_FORMAT_VERSION
             )
             self._open_files[0][this_well_idx] = this_file
-            this_file.attrs[
-                str(ORIGINAL_FILE_VERSION_UUID)
-            ] = CURRENT_HDF5_FILE_FORMAT_VERSION
-            this_file.attrs[
-                str(WELL_NAME_UUID)
-            ] = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(this_well_idx)
+            this_file.attrs[str(ORIGINAL_FILE_VERSION_UUID)] = CURRENT_HDF5_FILE_FORMAT_VERSION
+            this_file.attrs[str(WELL_NAME_UUID)] = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(
+                this_well_idx
+            )
             (
                 this_row,
                 this_col,
-            ) = GENERIC_24_WELL_DEFINITION.get_row_and_column_from_well_index(
-                this_well_idx
-            )
+            ) = GENERIC_24_WELL_DEFINITION.get_row_and_column_from_well_index(this_well_idx)
             this_file.attrs[str(WELL_ROW_UUID)] = this_row
             this_file.attrs[str(WELL_COLUMN_UUID)] = this_col
             this_file.attrs[str(WELL_INDEX_UUID)] = this_well_idx
@@ -396,25 +379,17 @@ class FileWriterProcess(InfiniteProcess):
 
             for this_attr_name, this_attr_value in attrs_to_copy.items():
                 if this_attr_name == "adc_offsets":
-                    this_file.attrs[str(ADC_TISSUE_OFFSET_UUID)] = this_attr_value[
-                        this_well_idx
-                    ]["construct"]
-                    this_file.attrs[str(ADC_REF_OFFSET_UUID)] = this_attr_value[
-                        this_well_idx
-                    ]["ref"]
+                    this_file.attrs[str(ADC_TISSUE_OFFSET_UUID)] = this_attr_value[this_well_idx]["construct"]
+                    this_file.attrs[str(ADC_REF_OFFSET_UUID)] = this_attr_value[this_well_idx]["ref"]
                     continue
-                if METADATA_UUID_DESCRIPTIONS[this_attr_name].startswith(
-                    "UTC Timestamp"
-                ):
+                if METADATA_UUID_DESCRIPTIONS[this_attr_name].startswith("UTC Timestamp"):
                     this_attr_value = this_attr_value.strftime("%Y-%m-%d %H:%M:%S.%f")
                 this_attr_name = str(this_attr_name)
                 if isinstance(this_attr_value, UUID):
                     this_attr_value = str(this_attr_value)
                 this_file.attrs[this_attr_name] = this_attr_value
             # Tanner (6/12/20): We must convert UUIDs to strings to allow them to be compatible with H5 and JSON
-            this_file.attrs["Metadata UUID Descriptions"] = json.dumps(
-                str(METADATA_UUID_DESCRIPTIONS)
-            )
+            this_file.attrs["Metadata UUID Descriptions"] = json.dumps(str(METADATA_UUID_DESCRIPTIONS))
 
             this_file.create_dataset(
                 REFERENCE_SENSOR_READINGS,
@@ -483,9 +458,7 @@ class FileWriterProcess(InfiniteProcess):
                 {
                     "communication_type": "command_receipt",
                     "command": "start_recording",
-                    "timepoint_to_begin_recording_at": communication[
-                        "timepoint_to_begin_recording_at"
-                    ],
+                    "timepoint_to_begin_recording_at": communication["timepoint_to_begin_recording_at"],
                     "file_folder": communication["abs_path_to_file_folder"],
                 }
             )
@@ -496,9 +469,7 @@ class FileWriterProcess(InfiniteProcess):
                 {
                     "communication_type": "command_receipt",
                     "command": "stop_recording",
-                    "timepoint_to_stop_recording_at": communication[
-                        "timepoint_to_stop_recording_at"
-                    ],
+                    "timepoint_to_stop_recording_at": communication["timepoint_to_stop_recording_at"],
                 }
             )
         elif command == "stop_managed_acquisition":
@@ -528,9 +499,7 @@ class FileWriterProcess(InfiniteProcess):
         this_start_recording_timestamps = self._start_recording_timestamps[0]
         stop_recording_timestamp = self.get_stop_recording_timestamps()[0]
         if this_start_recording_timestamps is None:  # check needed for mypy to be happy
-            raise NotImplementedError(
-                "Something wrong in the code. This should never be none."
-            )
+            raise NotImplementedError("Something wrong in the code. This should never be none.")
 
         this_data = data_packet["data"]
         last_timepoint_in_data_packet = this_data[0, -1]
@@ -546,13 +515,8 @@ class FileWriterProcess(InfiniteProcess):
                 if is_reference_sensor:
                     well_indices = data_packet["reference_for_wells"]
                     for this_well_idx in well_indices:
-                        if (
-                            this_well_idx
-                            in self._reference_data_finalized_for_recording[0]
-                        ):
-                            self._reference_data_finalized_for_recording[0][
-                                this_well_idx
-                            ] = True
+                        if this_well_idx in self._reference_data_finalized_for_recording[0]:
+                            self._reference_data_finalized_for_recording[0][this_well_idx] = True
                 else:
                     this_well_idx = data_packet["well_index"]
                     self._tissue_data_finalized_for_recording[0][this_well_idx] = True
@@ -583,9 +547,7 @@ class FileWriterProcess(InfiniteProcess):
         if this_dataset.shape == (0,):
             this_file.attrs[recording_timestamp_attr_name] = (
                 this_start_recording_timestamps[0]
-                + datetime.timedelta(
-                    seconds=first_timepoint_of_new_data / CENTIMILLISECONDS_PER_SECOND
-                )
+                + datetime.timedelta(seconds=first_timepoint_of_new_data / CENTIMILLISECONDS_PER_SECOND)
             ).strftime("%Y-%m-%d %H:%M:%S.%f")
 
         previous_data_size = this_dataset.shape[0]
@@ -654,9 +616,7 @@ class FileWriterProcess(InfiniteProcess):
         data_packet_buffer = self._data_packet_buffers[0]
         if not data_packet_buffer:
             return
-        buffer_memory_size = (
-            data_packet_buffer[-1]["data"][0, 0] - data_packet_buffer[0]["data"][0, 0]
-        )
+        buffer_memory_size = data_packet_buffer[-1]["data"][0, 0] - data_packet_buffer[0]["data"][0, 0]
         if buffer_memory_size > FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS:
             data_packet_buffer.popleft()
 
@@ -666,9 +626,7 @@ class FileWriterProcess(InfiniteProcess):
         }
         performance_tracker = self.reset_performance_tracker()
         performance_metrics["percent_use"] = performance_tracker["percent_use"]
-        performance_metrics["longest_iterations"] = sorted(
-            performance_tracker["longest_iterations"]
-        )
+        performance_metrics["longest_iterations"] = sorted(performance_tracker["longest_iterations"])
         if len(self._percent_use_values) > 1:
             performance_metrics["percent_use_metrics"] = self.get_percent_use_metrics()
         if len(self._num_recorded_points) > 1 and len(self._recording_durations) > 1:

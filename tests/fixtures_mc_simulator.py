@@ -56,9 +56,7 @@ class MantarrayMcSimulatorSleepAfterWrite(MantarrayMcSimulator):
             time.sleep(self._sleep_after_write_seconds)
 
     def start(self) -> None:
-        raise NotImplementedError(
-            "This class is only for unit tests not requiring a running process"
-        )
+        raise NotImplementedError("This class is only for unit tests not requiring a running process")
 
 
 def set_simulator_idle_ready(simulator_fixture):
@@ -106,9 +104,7 @@ class MantarrayMcSimulatorNoBeacons(MantarrayMcSimulatorSleepAfterWrite):
 
     def start(self) -> None:
         # Tanner (2/24/21): Need to explicitly redefine this method since pylint considers this implementation to be abstract
-        raise NotImplementedError(
-            "This class is only for unit tests not requiring a running process"
-        )
+        raise NotImplementedError("This class is only for unit tests not requiring a running process")
 
 
 @pytest.fixture(scope="function", name="mantarray_mc_simulator_no_beacon")

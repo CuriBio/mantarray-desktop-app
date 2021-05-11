@@ -103,9 +103,7 @@ def is_queue_eventually_empty(
     the_queue: UnionOfThreadingAndMultiprocessingQueue,
     timeout_seconds: Union[float, int] = QUEUE_CHECK_TIMEOUT_SECONDS,
 ) -> bool:
-    output = stdlib_is_queue_eventually_empty(
-        the_queue, timeout_seconds=timeout_seconds
-    )
+    output = stdlib_is_queue_eventually_empty(the_queue, timeout_seconds=timeout_seconds)
     if not isinstance(output, bool):
         raise NotImplementedError(
             "not sure why mypy is unable to follow the definition of stdlib_is_queue_eventually_empty to know that it is typed as a bool return"
@@ -128,23 +126,13 @@ def is_queue_eventually_not_empty(
 def assert_queue_is_eventually_not_empty(
     the_queue: UnionOfThreadingAndMultiprocessingQueue,
 ) -> None:
-    assert (
-        is_queue_eventually_not_empty(
-            the_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_not_empty(the_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
 
 
 def assert_queue_is_eventually_empty(
     the_queue: UnionOfThreadingAndMultiprocessingQueue,
 ) -> None:
-    assert (
-        is_queue_eventually_empty(
-            the_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_empty(the_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
 
 
 def convert_after_request_log_msg_to_json(log_msg: str) -> Dict[Any, Any]:
@@ -163,10 +151,7 @@ def assert_serial_packet_is_expected(
     assert full_packet[SERIAL_COMM_MODULE_ID_INDEX] == module_id
     assert full_packet[SERIAL_COMM_PACKET_TYPE_INDEX] == packet_type
     assert (
-        full_packet[
-            SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES
-        ]
-        == additional_bytes
+        full_packet[SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES] == additional_bytes
     )
     if timestamp is not None:
         actual_timestamp_bytes = full_packet[

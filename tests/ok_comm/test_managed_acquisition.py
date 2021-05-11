@@ -78,15 +78,10 @@ def test_OkCommunicationProcess_run__processes_start_managed_acquisition_command
     actual = ok_comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_returned_communication
 
-    assert (
-        ok_process._is_managed_acquisition_running[0]  # pylint:disable=protected-access
-        is True
-    )
+    assert ok_process._is_managed_acquisition_running[0] is True  # pylint:disable=protected-access
     board_connections = ok_process.get_board_connections_list()
     assert board_connections[0].is_spi_running() is True
-    assert (
-        ok_process._is_first_managed_read[0] is True  # pylint:disable=protected-access
-    )
+    assert ok_process._is_first_managed_read[0] is True  # pylint:disable=protected-access
 
 
 def test_OkCommunicationProcess_run__processes_stop_managed_acquisition_command(
@@ -99,9 +94,7 @@ def test_OkCommunicationProcess_run__processes_stop_managed_acquisition_command(
     simulator.initialize_board()
     simulator.start_acquisition()
     ok_process.set_board_connection(0, simulator)
-    ok_process._is_managed_acquisition_running[  # pylint:disable=protected-access
-        0
-    ] = True
+    ok_process._is_managed_acquisition_running[0] = True  # pylint:disable=protected-access
 
     input_queue = board_queues[0][0]
     ok_comm_to_main = board_queues[0][1]
@@ -115,10 +108,7 @@ def test_OkCommunicationProcess_run__processes_stop_managed_acquisition_command(
     actual = ok_comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_returned_communication
 
-    assert (
-        ok_process._is_managed_acquisition_running[0]  # pylint:disable=protected-access
-        is False
-    )
+    assert ok_process._is_managed_acquisition_running[0] is False  # pylint:disable=protected-access
     board_connections = ok_process.get_board_connections_list()
     assert board_connections[0].is_spi_running() is False
 
@@ -126,9 +116,7 @@ def test_OkCommunicationProcess_run__processes_stop_managed_acquisition_command(
 def test_OkCommunicationProcess_run__raises_error_if_command_to_instrument_is_invalid(
     four_board_comm_process, mocker
 ):
-    mocker.patch(
-        "builtins.print", autospec=True
-    )  # don't print all the error messages to console
+    mocker.patch("builtins.print", autospec=True)  # don't print all the error messages to console
     ok_process = four_board_comm_process["ok_process"]
     board_queues = four_board_comm_process["board_queues"]
 
@@ -167,14 +155,8 @@ def test_OkCommunicationProcess_commands_for_each_run_iteration__sets_default_ti
     p._is_managed_acquisition_running[0] = True  # pylint:disable=protected-access
     invoke_process_run_and_check_errors(p)
 
-    assert (
-        p._time_of_last_fifo_read[0]  # pylint:disable=protected-access
-        == datetime.datetime.utcnow()
-    )
-    assert (
-        p._timepoint_of_last_fifo_read[0]  # pylint:disable=protected-access
-        == expected_timepoint
-    )
+    assert p._time_of_last_fifo_read[0] == datetime.datetime.utcnow()  # pylint:disable=protected-access
+    assert p._timepoint_of_last_fifo_read[0] == expected_timepoint  # pylint:disable=protected-access
 
 
 @freeze_time("2020-02-13 11:43:11.123456")
@@ -185,12 +167,8 @@ def test_OkCommunicationProcess_commands_for_each_run_iteration__removes_default
     simulator = FrontPanelSimulator({})
     simulator.initialize_board()
     p.set_board_connection(0, simulator)
-    p._time_of_last_fifo_read[  # pylint:disable=protected-access
-        0
-    ] = datetime.datetime.utcnow()
-    p._timepoint_of_last_fifo_read[  # pylint: disable=protected-access
-        0
-    ] = time.perf_counter()
+    p._time_of_last_fifo_read[0] = datetime.datetime.utcnow()  # pylint:disable=protected-access
+    p._timepoint_of_last_fifo_read[0] = time.perf_counter()  # pylint: disable=protected-access
     invoke_process_run_and_check_errors(p)
 
     assert p._time_of_last_fifo_read[0] is None  # pylint:disable=protected-access
@@ -214,31 +192,20 @@ def test_OkCommunicationProcess_commands_for_each_run_iteration__sends_fifo_read
     p._time_of_last_fifo_read[0] = datetime.datetime(  # pylint:disable=protected-access
         2020, 2, 13, 11, 43, 10, 123455
     )
-    p._timepoint_of_last_fifo_read[  # pylint: disable=protected-access
-        0
-    ] = time.perf_counter()
+    p._timepoint_of_last_fifo_read[0] = time.perf_counter()  # pylint: disable=protected-access
     invoke_process_run_and_check_errors(p)
 
     expected_well_idx = 0
-    test_value_1 = (
-        FIFO_READ_PRODUCER_DATA_OFFSET
-        + FIFO_READ_PRODUCER_WELL_AMPLITUDE
-        * (expected_well_idx + 1)
-        / 24
-        * 6
-        * signal.sawtooth(0 / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5)
-    )
+    test_value_1 = FIFO_READ_PRODUCER_DATA_OFFSET + FIFO_READ_PRODUCER_WELL_AMPLITUDE * (
+        expected_well_idx + 1
+    ) / 24 * 6 * signal.sawtooth(0 / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5)
     expected_first_dict_sent = {
         "is_reference_sensor": False,
         "well_index": expected_well_idx,
-        "data": np.array(
-            [[0], [int(test_value_1) - RAW_TO_SIGNED_CONVERSION_VALUE]], dtype=np.int32
-        ),
+        "data": np.array([[0], [int(test_value_1) - RAW_TO_SIGNED_CONVERSION_VALUE]], dtype=np.int32),
     }
     actual = board_queues[0][2].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert (
-        actual["is_reference_sensor"] == expected_first_dict_sent["is_reference_sensor"]
-    )
+    assert actual["is_reference_sensor"] == expected_first_dict_sent["is_reference_sensor"]
     assert actual["well_index"] == expected_first_dict_sent["well_index"]
     np.testing.assert_equal(actual["data"], expected_first_dict_sent["data"])
 
@@ -250,12 +217,7 @@ def test_OkCommunicationProcess_commands_for_each_run_iteration__does_not_send_f
     test_bytearray[:8] = build_header_magic_number_bytes(HEADER_MAGIC_NUMBER)
     fifo = Queue()
     fifo.put_nowait(test_bytearray)
-    assert (
-        is_queue_eventually_of_size(
-            fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_of_size(fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
     simulator = FrontPanelSimulator(queues)
     simulator.initialize_board()
@@ -266,15 +228,11 @@ def test_OkCommunicationProcess_commands_for_each_run_iteration__does_not_send_f
     p._time_of_last_fifo_read[0] = datetime.datetime(  # pylint:disable=protected-access
         2020, 2, 13, 11, 43, 10, 123456
     )
-    p._timepoint_of_last_fifo_read[  # pylint: disable=protected-access
-        0
-    ] = time.perf_counter()
+    p._timepoint_of_last_fifo_read[0] = time.perf_counter()  # pylint: disable=protected-access
     invoke_process_run_and_check_errors(p)
 
     assert (
-        is_queue_eventually_not_empty(
-            board_queues[0][2], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
+        is_queue_eventually_not_empty(board_queues[0][2], timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS)
         is False
     )
 
@@ -287,17 +245,10 @@ def test_OkCommunicationProcess_managed_acquisition__reads_at_least_one_prepopul
 
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
-    board_queues[0][0].put_nowait(
-        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
-    )
+    board_queues[0][0].put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
     fifo = Queue()
     fifo.put_nowait(produce_data(2, 0))
-    assert (
-        is_queue_eventually_of_size(
-            fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_of_size(fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
 
     simulator = FrontPanelSimulator(queues)
@@ -306,17 +257,13 @@ def test_OkCommunicationProcess_managed_acquisition__reads_at_least_one_prepopul
     to_main_queue = board_queues[0][1]
     invoke_process_run_and_check_errors(ok_process)
 
-    to_main_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pop out the receipt of the command
+    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pop out the receipt of the command
     assert to_main_queue.empty()
 
-    ok_process._time_of_last_fifo_read[  # pylint: disable=protected-access
-        0
-    ] = datetime.datetime(year=2000, month=12, day=2)
-    ok_process._timepoint_of_last_fifo_read[  # pylint: disable=protected-access
-        0
-    ] = time.perf_counter()
+    ok_process._time_of_last_fifo_read[0] = datetime.datetime(  # pylint: disable=protected-access
+        year=2000, month=12, day=2
+    )
+    ok_process._timepoint_of_last_fifo_read[0] = time.perf_counter()  # pylint: disable=protected-access
     invoke_process_run_and_check_errors(ok_process)
 
     words_msg = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -337,17 +284,10 @@ def test_OkCommunicationProcess_managed_acquisition__handles_ignoring_first_data
 
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
-    board_queues[0][0].put_nowait(
-        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
-    )
+    board_queues[0][0].put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
     fifo = Queue()
     fifo.put_nowait(produce_data(2, 0))
-    assert (
-        is_queue_eventually_of_size(
-            fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_of_size(fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
 
     simulator = FrontPanelSimulator(queues)
@@ -356,30 +296,19 @@ def test_OkCommunicationProcess_managed_acquisition__handles_ignoring_first_data
     to_file_writer_queue = board_queues[0][2]
     invoke_process_run_and_check_errors(ok_process)
 
-    ok_process._time_of_last_fifo_read[  # pylint: disable=protected-access
-        0
-    ] = datetime.datetime(year=2000, month=12, day=2)
-    ok_process._timepoint_of_last_fifo_read[  # pylint: disable=protected-access
-        0
-    ] = time.perf_counter()
-    invoke_process_run_and_check_errors(ok_process)
-    assert (
-        ok_process._is_first_managed_read[0]  # pylint: disable=protected-access
-        is False
+    ok_process._time_of_last_fifo_read[0] = datetime.datetime(  # pylint: disable=protected-access
+        year=2000, month=12, day=2
     )
+    ok_process._timepoint_of_last_fifo_read[0] = time.perf_counter()  # pylint: disable=protected-access
+    invoke_process_run_and_check_errors(ok_process)
+    assert ok_process._is_first_managed_read[0] is False  # pylint: disable=protected-access
 
     expected_well_idx = 0
-    test_value_1 = (
-        FIFO_READ_PRODUCER_DATA_OFFSET
-        + FIFO_READ_PRODUCER_WELL_AMPLITUDE
-        * (expected_well_idx + 1)
-        / 24
-        * 6
-        * signal.sawtooth(
-            (ROUND_ROBIN_PERIOD // TIMESTEP_CONVERSION_FACTOR)
-            / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD,
-            width=0.5,
-        )
+    test_value_1 = FIFO_READ_PRODUCER_DATA_OFFSET + FIFO_READ_PRODUCER_WELL_AMPLITUDE * (
+        expected_well_idx + 1
+    ) / 24 * 6 * signal.sawtooth(
+        (ROUND_ROBIN_PERIOD // TIMESTEP_CONVERSION_FACTOR) / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD,
+        width=0.5,
     )
     expected_first_dict_sent = {
         "is_reference_sensor": False,
@@ -393,9 +322,7 @@ def test_OkCommunicationProcess_managed_acquisition__handles_ignoring_first_data
         ),
     }
     actual = to_file_writer_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert (
-        actual["is_reference_sensor"] == expected_first_dict_sent["is_reference_sensor"]
-    )
+    assert actual["is_reference_sensor"] == expected_first_dict_sent["is_reference_sensor"]
     assert actual["well_index"] == expected_first_dict_sent["well_index"]
     np.testing.assert_equal(actual["data"], expected_first_dict_sent["data"])
 
@@ -404,25 +331,19 @@ def test_OkCommunicationProcess_managed_acquisition__handles_ignoring_first_data
     """test_read,expected_error,is_read_convertable,test_description""",
     [
         (
-            bytearray(
-                [1] * DATA_FRAME_SIZE_WORDS * DATA_FRAMES_PER_ROUND_ROBIN * 4 * 3
-            ),
+            bytearray([1] * DATA_FRAME_SIZE_WORDS * DATA_FRAMES_PER_ROUND_ROBIN * 4 * 3),
             InstrumentCommIncorrectHeaderError,
             True,
             "handles error correctly when no errors parsing into words",
         ),
         (
-            bytearray(
-                [1] * (DATA_FRAME_SIZE_WORDS * DATA_FRAMES_PER_ROUND_ROBIN * 4 * 3 + 1)
-            ),
+            bytearray([1] * (DATA_FRAME_SIZE_WORDS * DATA_FRAMES_PER_ROUND_ROBIN * 4 * 3 + 1)),
             struct.error,
             False,
             "handles error correctly when error raised parsing into words",
         ),
         (
-            bytearray(
-                [1] * (DATA_FRAME_SIZE_WORDS * DATA_FRAMES_PER_ROUND_ROBIN * 4 * 3 - 1)
-            ),
+            bytearray([1] * (DATA_FRAME_SIZE_WORDS * DATA_FRAMES_PER_ROUND_ROBIN * 4 * 3 - 1)),
             struct.error,
             False,
             "handles error correctly when error raised parsing into words",
@@ -437,21 +358,15 @@ def test_OkCommunicationProcess_managed_acquisition__logs_fifo_parsing_errors_an
     four_board_comm_process,
     mocker,
 ):
-    mocker.patch(
-        "builtins.print", autospec=True
-    )  # don't print all the error messages to console
+    mocker.patch("builtins.print", autospec=True)  # don't print all the error messages to console
     ok_process = four_board_comm_process["ok_process"]
     board_queues = four_board_comm_process["board_queues"]
 
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
-    board_queues[0][0].put_nowait(
-        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
-    )
+    board_queues[0][0].put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
     assert (
-        is_queue_eventually_of_size(
-            board_queues[0][0], 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
+        is_queue_eventually_of_size(board_queues[0][0], 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS)
         is True
     )
     fifo = Queue()
@@ -463,110 +378,59 @@ def test_OkCommunicationProcess_managed_acquisition__logs_fifo_parsing_errors_an
     comm_to_main = board_queues[0][1]
 
     fifo.put_nowait(test_read)
-    assert (
-        is_queue_eventually_of_size(
-            fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_of_size(fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
     invoke_process_run_and_check_errors(ok_process)
     comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pop out init message
-    assert (
-        is_queue_eventually_empty(
-            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
 
-    ok_process._time_of_last_fifo_read[  # pylint: disable=protected-access
-        0
-    ] = datetime.datetime(year=2000, month=12, day=2)
-    ok_process._timepoint_of_last_fifo_read[  # pylint: disable=protected-access
-        0
-    ] = time.perf_counter()
+    ok_process._time_of_last_fifo_read[0] = datetime.datetime(  # pylint: disable=protected-access
+        year=2000, month=12, day=2
+    )
+    ok_process._timepoint_of_last_fifo_read[0] = time.perf_counter()  # pylint: disable=protected-access
     with pytest.raises(expected_error):
         invoke_process_run_and_check_errors(ok_process)
-    assert (
-        is_queue_eventually_not_empty(
-            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_not_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
 
     for _ in range(10):
-        comm_to_main.get(
-            timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-        )  # pop expected log messages
+        comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pop expected log messages
         assert (
-            is_queue_eventually_not_empty(
-                comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-            )
-            is True
+            is_queue_eventually_not_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
         )
 
-    assert (
-        is_queue_eventually_not_empty(
-            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_not_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
     fifo_read_msg = comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    first_managed_read_length = len(test_read) - (
-        DATA_FRAME_SIZE_WORDS * DATA_FRAMES_PER_ROUND_ROBIN * 4
-    )
+    first_managed_read_length = len(test_read) - (DATA_FRAME_SIZE_WORDS * DATA_FRAMES_PER_ROUND_ROBIN * 4)
     assert f"{first_managed_read_length} bytes" in fifo_read_msg["message"]
     assert r"b'\x01\x01\x01\x01" in fifo_read_msg["message"]
 
-    assert (
-        is_queue_eventually_not_empty(
-            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_not_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
     error_msg = comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert "InstrumentCommIncorrectHeaderError" in error_msg["message"]
 
     if is_read_convertable:
         assert (
-            is_queue_eventually_not_empty(
-                comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-            )
-            is True
+            is_queue_eventually_not_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
         )
         hex_words_msg = comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
         assert "['0x1010101', '0x1010101'" in hex_words_msg["message"]
 
-    assert (
-        is_queue_eventually_empty(
-            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
 
 
 def test_OkCommunicationProcess_managed_acquisition__does_not_log_when_non_parsing_error_raised_after_first_managed_read(
     four_board_comm_process, mocker
 ):
-    mocker.patch(
-        "builtins.print", autospec=True
-    )  # don't print all the error messages to console
+    mocker.patch("builtins.print", autospec=True)  # don't print all the error messages to console
     ok_process = four_board_comm_process["ok_process"]
     board_queues = four_board_comm_process["board_queues"]
 
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
     ok_process._data_frame_format = "fake_format"  # pylint:disable=protected-access
 
-    board_queues[0][0].put_nowait(
-        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
-    )
+    board_queues[0][0].put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
     fifo = Queue()
     fifo.put_nowait(produce_data(1, 0))
-    assert (
-        is_queue_eventually_of_size(
-            fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_of_size(fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
 
     simulator = FrontPanelSimulator(queues)
@@ -576,65 +440,39 @@ def test_OkCommunicationProcess_managed_acquisition__does_not_log_when_non_parsi
 
     invoke_process_run_and_check_errors(ok_process)
     comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pop out init message
-    assert (
-        is_queue_eventually_empty(
-            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
 
-    ok_process._time_of_last_fifo_read[  # pylint: disable=protected-access
-        0
-    ] = datetime.datetime(year=2000, month=12, day=2)
-    ok_process._timepoint_of_last_fifo_read[  # pylint: disable=protected-access
-        0
-    ] = time.perf_counter()
+    ok_process._time_of_last_fifo_read[0] = datetime.datetime(  # pylint: disable=protected-access
+        year=2000, month=12, day=2
+    )
+    ok_process._timepoint_of_last_fifo_read[0] = time.perf_counter()  # pylint: disable=protected-access
     ok_process._is_first_managed_read[0] = False  # pylint:disable=protected-access
     with pytest.raises(UnrecognizedDataFrameFormatNameError):
         invoke_process_run_and_check_errors(ok_process)
 
     for _ in range(6):
         assert (
-            is_queue_eventually_not_empty(
-                comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-            )
-            is True
+            is_queue_eventually_not_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
         )
-        comm_to_main.get(
-            timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-        )  # pop out expected log messages
+        comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pop out expected log messages
 
-    assert (
-        is_queue_eventually_empty(
-            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
 
 
 def test_OkCommunicationProcess__raises_and_logs_error_if_first_managed_read_does_not_contain_at_least_one_round_robin(
     four_board_comm_process, mocker
 ):
-    mocker.patch(
-        "builtins.print", autospec=True
-    )  # don't print all the error messages to console
+    mocker.patch("builtins.print", autospec=True)  # don't print all the error messages to console
     test_bytearray = bytearray(0)
     ok_process = four_board_comm_process["ok_process"]
     board_queues = four_board_comm_process["board_queues"]
 
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
-    board_queues[0][0].put_nowait(
-        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
-    )
+    board_queues[0][0].put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
     fifo = Queue()
     fifo.put_nowait(test_bytearray)
-    assert (
-        is_queue_eventually_of_size(
-            fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_of_size(fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
 
     simulator = FrontPanelSimulator(queues)
@@ -644,58 +482,31 @@ def test_OkCommunicationProcess__raises_and_logs_error_if_first_managed_read_doe
 
     invoke_process_run_and_check_errors(ok_process)
     comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pop out init log message
-    assert (
-        is_queue_eventually_empty(
-            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
 
-    ok_process._time_of_last_fifo_read[  # pylint: disable=protected-access
-        0
-    ] = datetime.datetime(year=2000, month=12, day=2)
-    ok_process._timepoint_of_last_fifo_read[  # pylint: disable=protected-access
-        0
-    ] = time.perf_counter()
+    ok_process._time_of_last_fifo_read[0] = datetime.datetime(  # pylint: disable=protected-access
+        year=2000, month=12, day=2
+    )
+    ok_process._timepoint_of_last_fifo_read[0] = time.perf_counter()  # pylint: disable=protected-access
     with pytest.raises(FirstManagedReadLessThanOneRoundRobinError):
         invoke_process_run_and_check_errors(ok_process)
-    assert (
-        is_queue_eventually_not_empty(
-            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_not_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
 
     for _ in range(4):
-        comm_to_main.get(
-            timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-        )  # pop out expected log messages
+        comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pop out expected log messages
         assert (
-            is_queue_eventually_not_empty(
-                comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-            )
-            is True
+            is_queue_eventually_not_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
         )
 
     fifo_read_msg = comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert f"{len(test_bytearray)} bytes" in fifo_read_msg["message"]
     assert r"b''" in fifo_read_msg["message"]
 
-    assert (
-        is_queue_eventually_not_empty(
-            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_not_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
     error_msg = comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert "FirstManagedReadLessThanOneRoundRobinError" in error_msg["message"]
 
-    assert (
-        is_queue_eventually_empty(
-            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
 
 
 def test_OkCommunicationProcess_managed_acquisition__logs_fifo_parsing_errors_and_attempts_word_conversion_of_first_round_robin(
@@ -708,17 +519,10 @@ def test_OkCommunicationProcess_managed_acquisition__logs_fifo_parsing_errors_an
 
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
-    board_queues[0][0].put_nowait(
-        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
-    )
+    board_queues[0][0].put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
     fifo = Queue()
     fifo.put_nowait(test_read)
-    assert (
-        is_queue_eventually_of_size(
-            fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_of_size(fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
 
     simulator = FrontPanelSimulator(queues)
@@ -729,36 +533,19 @@ def test_OkCommunicationProcess_managed_acquisition__logs_fifo_parsing_errors_an
     invoke_process_run_and_check_errors(ok_process)
 
     comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pop out init message
-    assert (
-        is_queue_eventually_empty(
-            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
 
-    ok_process._time_of_last_fifo_read[  # pylint: disable=protected-access
-        0
-    ] = datetime.datetime(year=2000, month=12, day=2)
-    ok_process._timepoint_of_last_fifo_read[  # pylint: disable=protected-access
-        0
-    ] = time.perf_counter()
-    invoke_process_run_and_check_errors(ok_process)
-    assert (
-        is_queue_eventually_not_empty(
-            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
+    ok_process._time_of_last_fifo_read[0] = datetime.datetime(  # pylint: disable=protected-access
+        year=2000, month=12, day=2
     )
+    ok_process._timepoint_of_last_fifo_read[0] = time.perf_counter()  # pylint: disable=protected-access
+    invoke_process_run_and_check_errors(ok_process)
+    assert is_queue_eventually_not_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
 
     for _ in range(6):
-        comm_to_main.get(
-            timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-        )  # pop out expected log messages
+        comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pop out expected log messages
         assert (
-            is_queue_eventually_not_empty(
-                comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-            )
-            is True
+            is_queue_eventually_not_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
         )
 
     fifo_read_msg = comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -766,63 +553,37 @@ def test_OkCommunicationProcess_managed_acquisition__logs_fifo_parsing_errors_an
     assert f"{first_round_robin_len} bytes" in fifo_read_msg["message"]
     assert r"b'\x01\x01\x01\x01" in fifo_read_msg["message"]
 
-    assert (
-        is_queue_eventually_not_empty(
-            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_not_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
     error_msg = comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert "InstrumentCommIncorrectHeaderError" in error_msg["message"]
 
     for _ in range(2):
         assert (
-            is_queue_eventually_not_empty(
-                comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-            )
-            is True
+            is_queue_eventually_not_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
         )
-        comm_to_main.get(
-            timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-        )  # pop out expected log messages
+        comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pop out expected log messages
 
-    assert (
-        is_queue_eventually_empty(
-            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
 
 
 def test_OkCommunicationProcess_managed_acquisition__does_not_log_when_non_parsing_error_raised_with_first_round_robin(
     four_board_comm_process, mocker
 ):
-    mocker.patch(
-        "builtins.print", autospec=True
-    )  # don't print all the error messages to console
+    mocker.patch("builtins.print", autospec=True)  # don't print all the error messages to console
     ok_process = four_board_comm_process["ok_process"]
     board_queues = four_board_comm_process["board_queues"]
 
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
     ok_process._data_frame_format = "fake_format"  # pylint:disable=protected-access
 
-    board_queues[0][0].put_nowait(
-        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
-    )
+    board_queues[0][0].put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
     assert (
-        is_queue_eventually_of_size(
-            board_queues[0][0], 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
+        is_queue_eventually_of_size(board_queues[0][0], 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS)
         is True
     )
     fifo = Queue()
     fifo.put_nowait(produce_data(1, 0))
-    assert (
-        is_queue_eventually_of_size(
-            fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_of_size(fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
 
     simulator = FrontPanelSimulator(queues)
@@ -832,39 +593,22 @@ def test_OkCommunicationProcess_managed_acquisition__does_not_log_when_non_parsi
 
     invoke_process_run_and_check_errors(ok_process)
     comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pop out init message
-    assert (
-        is_queue_eventually_empty(
-            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
 
-    ok_process._time_of_last_fifo_read[  # pylint: disable=protected-access
-        0
-    ] = datetime.datetime(year=2000, month=12, day=2)
-    ok_process._timepoint_of_last_fifo_read[  # pylint: disable=protected-access
-        0
-    ] = time.perf_counter()
+    ok_process._time_of_last_fifo_read[0] = datetime.datetime(  # pylint: disable=protected-access
+        year=2000, month=12, day=2
+    )
+    ok_process._timepoint_of_last_fifo_read[0] = time.perf_counter()  # pylint: disable=protected-access
     with pytest.raises(UnrecognizedDataFrameFormatNameError):
         invoke_process_run_and_check_errors(ok_process)
 
     for _ in range(6):
         assert (
-            is_queue_eventually_not_empty(
-                comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-            )
-            is True
+            is_queue_eventually_not_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
         )
-        comm_to_main.get(
-            timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-        )  # pop out expected log messages
+        comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pop out expected log messages
 
-    assert (
-        is_queue_eventually_empty(
-            comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
 
 
 # pylint: disable=too-many-locals
@@ -879,22 +623,14 @@ def test_OkCommunicationProcess_managed_acquisition__logs_performance_metrics_af
         1 - expected_idle_time / (expected_stop_timepoint - expected_start_timepoint)
     )
     expected_percent_use_values = [40.1, 67.8, expected_latest_percent_use]
-    expected_longest_iterations = list(
-        range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES - 1)
-    )
+    expected_longest_iterations = list(range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES - 1))
 
-    test_data_parse_dur_values = [
-        0 for _ in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES * 2)
-    ]
-    test_read_dur_values = [
-        0 for _ in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES * 2)
-    ]
+    test_data_parse_dur_values = [0 for _ in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES * 2)]
+    test_read_dur_values = [0 for _ in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES * 2)]
     for i in range(1, INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES * 2, 2):
         test_data_parse_dur_values[i] = i
         test_read_dur_values[i] = i // 2 + 1
-    test_acquisition_values = [
-        20 for _ in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)
-    ]
+    test_acquisition_values = [20 for _ in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)]
     for i in range(1, INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES):
         test_acquisition_values[i] = test_acquisition_values[i - 1] + 10 * (i + 1)
 
@@ -907,9 +643,7 @@ def test_OkCommunicationProcess_managed_acquisition__logs_performance_metrics_af
         perf_counter_vals.append(test_acquisition_values[i // 2])
     mocker.patch.object(time, "perf_counter", side_effect=perf_counter_vals)
     mocker.patch.object(time, "perf_counter_ns", return_value=expected_stop_timepoint)
-    mocker.patch.object(
-        OkCommunicationProcess, "_is_ready_to_read_from_fifo", return_value=True
-    )
+    mocker.patch.object(OkCommunicationProcess, "_is_ready_to_read_from_fifo", return_value=True)
     mocker.patch.object(
         parallelism_framework,
         "calculate_iteration_time_ns",
@@ -919,27 +653,18 @@ def test_OkCommunicationProcess_managed_acquisition__logs_performance_metrics_af
 
     ok_process = four_board_comm_process["ok_process"]
     board_queues = four_board_comm_process["board_queues"]
-    ok_process._time_of_last_fifo_read[  # pylint: disable=protected-access
-        0
-    ] = datetime.datetime(2020, 5, 28, 12, 58, 0, 0)
+    ok_process._time_of_last_fifo_read[0] = datetime.datetime(  # pylint: disable=protected-access
+        2020, 5, 28, 12, 58, 0, 0
+    )
     ok_process._timepoint_of_last_fifo_read[0] = 10  # pylint: disable=protected-access
-    ok_process._idle_iteration_time_ns = (  # pylint: disable=protected-access
-        expected_idle_time
-    )
-    ok_process._minimum_iteration_duration_seconds = (  # pylint: disable=protected-access
-        0
-    )
+    ok_process._idle_iteration_time_ns = expected_idle_time  # pylint: disable=protected-access
+    ok_process._minimum_iteration_duration_seconds = 0  # pylint: disable=protected-access
     ok_process._start_timepoint_of_last_performance_measurement = (  # pylint: disable=protected-access
         expected_start_timepoint
     )
-    ok_process._percent_use_values = (  # pylint: disable=protected-access
-        expected_percent_use_values[:-1]
-    )
+    ok_process._percent_use_values = expected_percent_use_values[:-1]  # pylint: disable=protected-access
 
-    test_fifo_reads = [
-        produce_data(i + 2, 0)
-        for i in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)
-    ]
+    test_fifo_reads = [produce_data(i + 2, 0) for i in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)]
     fifo = Queue()
     for read in test_fifo_reads:
         fifo.put_nowait(read)
@@ -952,9 +677,7 @@ def test_OkCommunicationProcess_managed_acquisition__logs_performance_metrics_af
     simulator = FrontPanelSimulator(queues)
     simulator.initialize_board()
     ok_process.set_board_connection(0, simulator)
-    board_queues[0][0].put_nowait(
-        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
-    )
+    board_queues[0][0].put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
     confirm_queue_is_eventually_of_size(
         board_queues[0][0], 1, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
@@ -970,15 +693,9 @@ def test_OkCommunicationProcess_managed_acquisition__logs_performance_metrics_af
     actual = actual["message"]
 
     expected_num_bytes = [len(read) for read in test_fifo_reads]
-    expected_parsing_dur_values = [
-        i * 2 + 1 for i in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)
-    ]
-    expected_read_dur_values = [
-        i + 1 for i in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)
-    ]
-    expected_acquisition_values = [
-        10 * (i + 1) for i in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)
-    ]
+    expected_parsing_dur_values = [i * 2 + 1 for i in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)]
+    expected_read_dur_values = [i + 1 for i in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)]
+    expected_acquisition_values = [10 * (i + 1) for i in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)]
     assert actual["communication_type"] == "performance_metrics"
     assert "idle_iteration_time_ns" not in actual
     assert "start_timepoint_of_measurements" not in actual
@@ -998,32 +715,23 @@ def test_OkCommunicationProcess_managed_acquisition__logs_performance_metrics_af
         "max": max(expected_acquisition_values),
         "min": min(expected_acquisition_values),
         "stdev": round(stdev(expected_acquisition_values), 6),
-        "mean": round(
-            sum(expected_acquisition_values) / len(expected_acquisition_values), 6
-        ),
+        "mean": round(sum(expected_acquisition_values) / len(expected_acquisition_values), 6),
     }
     assert actual["data_parsing_duration"] == {
         "max": max(expected_parsing_dur_values),
         "min": min(expected_parsing_dur_values),
         "stdev": round(stdev(expected_parsing_dur_values), 6),
-        "mean": round(
-            sum(expected_parsing_dur_values) / len(expected_parsing_dur_values), 6
-        ),
+        "mean": round(sum(expected_parsing_dur_values) / len(expected_parsing_dur_values), 6),
     }
     assert actual["percent_use"] == expected_latest_percent_use
     assert actual["percent_use_metrics"] == {
         "max": max(expected_percent_use_values),
         "min": min(expected_percent_use_values),
         "stdev": round(stdev(expected_percent_use_values), 6),
-        "mean": round(
-            sum(expected_percent_use_values) / len(expected_percent_use_values), 6
-        ),
+        "mean": round(sum(expected_percent_use_values) / len(expected_percent_use_values), 6),
     }
     num_longest_iterations = ok_process.num_longest_iterations
-    assert (
-        actual["longest_iterations"]
-        == expected_longest_iterations[-num_longest_iterations:]
-    )
+    assert actual["longest_iterations"] == expected_longest_iterations[-num_longest_iterations:]
 
     # Tanner (5/29/20): Closing a queue while it is not empty (especially when very full) causes BrokePipeErrors, so flushing it before the test ends prevents this
     drain_queue(board_queues[0][2])
@@ -1033,19 +741,15 @@ def test_OkCommunicationProcess_managed_acquisition__logs_performance_metrics_af
 def test_OkCommunicationProcess_managed_acquisition__does_not_log_percent_use_metrics_in_first_logging_cycle(
     four_board_comm_process, mocker
 ):
-    mocker.patch.object(
-        OkCommunicationProcess, "_is_ready_to_read_from_fifo", return_value=True
-    )
+    mocker.patch.object(OkCommunicationProcess, "_is_ready_to_read_from_fifo", return_value=True)
 
     ok_process = four_board_comm_process["ok_process"]
     board_queues = four_board_comm_process["board_queues"]
-    ok_process._time_of_last_fifo_read[  # pylint: disable=protected-access
-        0
-    ] = datetime.datetime(2020, 7, 3, 9, 25, 0, 0)
-    ok_process._timepoint_of_last_fifo_read[0] = 10  # pylint: disable=protected-access
-    ok_process._minimum_iteration_duration_seconds = (  # pylint: disable=protected-access
-        0
+    ok_process._time_of_last_fifo_read[0] = datetime.datetime(  # pylint: disable=protected-access
+        2020, 7, 3, 9, 25, 0, 0
     )
+    ok_process._timepoint_of_last_fifo_read[0] = 10  # pylint: disable=protected-access
+    ok_process._minimum_iteration_duration_seconds = 0  # pylint: disable=protected-access
 
     fifo = Queue()
     for _ in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES):
@@ -1059,9 +763,7 @@ def test_OkCommunicationProcess_managed_acquisition__does_not_log_percent_use_me
     simulator = FrontPanelSimulator(queues)
     simulator.initialize_board()
     ok_process.set_board_connection(0, simulator)
-    board_queues[0][0].put_nowait(
-        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
-    )
+    board_queues[0][0].put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
     confirm_queue_is_eventually_of_size(
         board_queues[0][0], 1, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )

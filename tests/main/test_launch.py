@@ -54,9 +54,7 @@ __fixtures__ = [
 ]
 
 
-@pytest.fixture(
-    scope="function", name="confirm_monitor_found_no_errors_in_subprocesses"
-)
+@pytest.fixture(scope="function", name="confirm_monitor_found_no_errors_in_subprocesses")
 def fixture_confirm_monitor_found_no_errors_in_subprocesses(mocker):
     mocker_error_handling_for_subprocess = mocker.spy(
         MantarrayProcessesMonitor, "_handle_error_in_subprocess"
@@ -78,9 +76,7 @@ def test_main__stores_and_logs_port_number_from_command_line_arguments(
 
     actual = get_server_port_number()
     assert actual == expected_port_number
-    spied_info_logger.assert_any_call(
-        f"Using server port number: {expected_port_number}"
-    )
+    spied_info_logger.assert_any_call(f"Using server port number: {expected_port_number}")
 
 
 def test_main__handles_base64_command_line_argument_with_padding_issue__and_redacts_initial_base64_settings_from_log_messages(
@@ -148,9 +144,7 @@ def test_main__logs_command_line_arguments(mocker):
         "skip_software_version_verification": False,
         "beta_2_mode": False,
     }
-    spied_info_logger.assert_any_call(
-        f"Command Line Args: {expected_cmd_line_args_dict}"
-    )
+    spied_info_logger.assert_any_call(f"Command Line Args: {expected_cmd_line_args_dict}")
 
     for call_args in spied_info_logger.call_args_list:
         assert "initial_base64_settings" not in call_args[0]
@@ -165,9 +159,7 @@ def test_main_argparse_debug_test_post_build(mocker):
 
 @pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 def test_main_configures_logging(mocker):
-    mocked_configure_logging = mocker.patch.object(
-        main, "configure_logging", autospec=True
-    )
+    mocked_configure_logging = mocker.patch.object(main, "configure_logging", autospec=True)
     main.main(["--debug-test-post-build"])
     mocked_configure_logging.assert_called_once_with(
         path_to_log_folder=None, log_file_prefix="mantarray_log", log_level=logging.INFO
@@ -189,16 +181,10 @@ def test_main__logs_system_info__and_software_version_at_very_start(
     b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
     fully_running_app_from_main_entrypoint([f"--initial-base64-settings={b64_encoded}"])
 
-    expected_name_hash = hashlib.sha512(
-        socket.gethostname().encode(encoding="UTF-8")
-    ).hexdigest()
+    expected_name_hash = hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).hexdigest()
     spied_info_logger.assert_any_call(f"Log File UUID: {expected_uuid}")
-    spied_info_logger.assert_any_call(
-        f"SHA512 digest of Computer Name {expected_name_hash}"
-    )
-    spied_info_logger.assert_any_call(
-        f"Mantarray Controller v{CURRENT_SOFTWARE_VERSION} started"
-    )
+    spied_info_logger.assert_any_call(f"SHA512 digest of Computer Name {expected_name_hash}")
+    spied_info_logger.assert_any_call(f"Mantarray Controller v{CURRENT_SOFTWARE_VERSION} started")
     # spied_info_logger.assert_any_call(assert CURRENT_SOFTWARE_VERSION in spied_info_logger.call_args_list[2][0][0]
 
     uname = platform.uname()
@@ -299,9 +285,7 @@ def test_main_can_launch_server_with_no_args_from_entrypoint__default_exe_execut
 
     shutdown_response = requests.get(f"{get_api_endpoint()}shutdown")
     assert shutdown_response.status_code == 200
-    confirm_port_available(
-        get_server_port_number(), timeout=5
-    )  # wait for shutdown to complete
+    confirm_port_available(get_server_port_number(), timeout=5)  # wait for shutdown to complete
 
 
 @pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS + 5)
@@ -318,9 +302,7 @@ def test_main_entrypoint__correctly_assigns_shared_values_dictionary_to_process_
     wait_for_subprocesses_to_start()
     assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
 
-    shared_values_dict = app_info["object_access_inside_main"][
-        "values_to_share_to_server"
-    ]
+    shared_values_dict = app_info["object_access_inside_main"]["values_to_share_to_server"]
     assert "in_simulation_mode" in shared_values_dict
 
 
@@ -351,9 +333,7 @@ def test_main__stores_and_logs_directory_for_log_files_from_command_line_argumen
     spied_info_logger = mocker.spy(main.logger, "info")
 
     expected_log_dir = r"C:\Users\Curi Bio\AppData\Local\Programs\MantarrayController"
-    expected_scrubbed_log_dir = expected_log_dir.replace(
-        "Curi Bio", "*" * len("Curi Bio")
-    )
+    expected_scrubbed_log_dir = expected_log_dir.replace("Curi Bio", "*" * len("Curi Bio"))
     command_line_args = [f"--log-file-dir={expected_log_dir}"]
     app_info = fully_running_app_from_main_entrypoint(command_line_args)
 
@@ -362,9 +342,7 @@ def test_main__stores_and_logs_directory_for_log_files_from_command_line_argumen
         log_file_prefix="mantarray_log",
         log_level=logging.INFO,
     )
-    spied_info_logger.assert_any_call(
-        f"Using directory for log files: {expected_scrubbed_log_dir}"
-    )
+    spied_info_logger.assert_any_call(f"Using directory for log files: {expected_scrubbed_log_dir}")
 
 
 @pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
@@ -384,16 +362,12 @@ def test_main__stores_and_logs_directory_for_log_files_from_command_line_argumen
         log_file_prefix="mantarray_log",
         log_level=logging.INFO,
     )
-    spied_info_logger.assert_any_call(
-        f"Using directory for log files: {expected_scrubbed_log_dir}"
-    )
+    spied_info_logger.assert_any_call(f"Using directory for log files: {expected_scrubbed_log_dir}")
 
 
 @pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 @pytest.mark.slow
-def test_main__stores_values_from_command_line_arguments(
-    mocker, fully_running_app_from_main_entrypoint
-):
+def test_main__stores_values_from_command_line_arguments(mocker, fully_running_app_from_main_entrypoint):
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         test_dict = {
             "customer_account_uuid": "14b9294a-9efb-47dd-a06e-8247e982e196",
@@ -409,24 +383,13 @@ def test_main__stores_values_from_command_line_arguments(
         ]
         app_info = fully_running_app_from_main_entrypoint(command_line_args)
 
-        shared_values_dict = app_info["object_access_inside_main"][
-            "values_to_share_to_server"
-        ]
+        shared_values_dict = app_info["object_access_inside_main"]["values_to_share_to_server"]
         assert shared_values_dict["beta_2_mode"] is False
         actual_config_settings = shared_values_dict["config_settings"]
-        assert (
-            actual_config_settings["Customer Account ID"]
-            == "14b9294a-9efb-47dd-a06e-8247e982e196"
-        )
+        assert actual_config_settings["Customer Account ID"] == "14b9294a-9efb-47dd-a06e-8247e982e196"
         assert actual_config_settings["Recording Directory"] == expected_recordings_dir
-        assert (
-            actual_config_settings["User Account ID"]
-            == "0288efbc-7705-4946-8815-02701193f766"
-        )
-        assert (
-            shared_values_dict["log_file_uuid"]
-            == "91dbb151-0867-44da-a595-bd303f91927d"
-        )
+        assert actual_config_settings["User Account ID"] == "0288efbc-7705-4946-8815-02701193f766"
+        assert shared_values_dict["log_file_uuid"] == "91dbb151-0867-44da-a595-bd303f91927d"
         assert (
             shared_values_dict["computer_name_hash"]
             == hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).hexdigest()
@@ -439,9 +402,7 @@ def test_main__generates_log_file_uuid_if_none_passed_in_cmd_line_args(
     mocker, fully_running_app_from_main_entrypoint
 ):
     expected_log_file_uuid = uuid.UUID("ab2e730b-8be5-440b-81f8-b268c7fb3584")
-    mocker.patch.object(
-        uuid, "uuid4", autospec=True, return_value=expected_log_file_uuid
-    )
+    mocker.patch.object(uuid, "uuid4", autospec=True, return_value=expected_log_file_uuid)
 
     test_dict = {
         "customer_account_uuid": "14b9294a-9efb-47dd-a06e-8247e982e196",
@@ -453,9 +414,7 @@ def test_main__generates_log_file_uuid_if_none_passed_in_cmd_line_args(
     command_line_args = [f"--initial-base64-settings={b64_encoded}"]
     app_info = fully_running_app_from_main_entrypoint(command_line_args)
 
-    shared_values_dict = app_info["object_access_inside_main"][
-        "values_to_share_to_server"
-    ]
+    shared_values_dict = app_info["object_access_inside_main"]["values_to_share_to_server"]
 
     assert shared_values_dict["log_file_uuid"] == expected_log_file_uuid
 
@@ -498,25 +457,19 @@ def test_main_can_launch_server_and_processes_and_initial_boot_up_of_ok_comm_pro
 
     expected_initiated_str = "OpalKelly Communication Process initiated at"
     assert any(
-        (
-            expected_initiated_str in call[0][0]
-            for call in mocked_process_monitor_info_logger.call_args_list
-        )
+        (expected_initiated_str in call[0][0] for call in mocked_process_monitor_info_logger.call_args_list)
     )
-    expected_connection_str = "Communication from the OpalKelly Controller: {'communication_type': 'board_connection_status_change'"
+    expected_connection_str = (
+        "Communication from the OpalKelly Controller: {'communication_type': 'board_connection_status_change'"
+    )
     time.sleep(
         0.5
     )  # Eli (12/9/20): There was periodic failure of asserting that this log message had been made, so trying to sleep a tiny amount to allow more time for the log message to be processed
     assert any(
-        (
-            expected_connection_str in call[0][0]
-            for call in mocked_process_monitor_info_logger.call_args_list
-        )
+        (expected_connection_str in call[0][0] for call in mocked_process_monitor_info_logger.call_args_list)
     )
 
-    mocked_main_info_logger.assert_any_call(
-        f"Build timestamp/version: {COMPILED_EXE_BUILD_TIMESTAMP}"
-    )
+    mocked_main_info_logger.assert_any_call(f"Build timestamp/version: {COMPILED_EXE_BUILD_TIMESTAMP}")
 
 
 @pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
@@ -530,10 +483,7 @@ def test_main__puts_server_into_error_mode_if_expected_software_version_is_incor
 
     response = test_client.get("/system_status")
     assert response.status_code == 520
-    assert (
-        response.status.endswith("Versions of Electron and Flask EXEs do not match")
-        is True
-    )
+    assert response.status.endswith("Versions of Electron and Flask EXEs do not match") is True
 
 
 @pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
@@ -565,8 +515,6 @@ def test_main__boots_up_instrument_without_a_bitfile_when_using_a_simulator__whe
 
 def test_main__disallows_cmd_line_args_that_do_not_apply_to_beta_2__when_in_beta_2_mode():
     with pytest.raises(InvalidBeta2FlagOptionError, match="--skip-mantarray-boot-up"):
-        main.main(
-            ["--skip-mantarray-boot-up", "--beta-2-mode", "--debug-test-post-build"]
-        )
+        main.main(["--skip-mantarray-boot-up", "--beta-2-mode", "--debug-test-post-build"])
     with pytest.raises(InvalidBeta2FlagOptionError, match="--no-load-firmware"):
         main.main(["--no-load-firmware", "--beta-2-mode", "--debug-test-post-build"])

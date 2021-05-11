@@ -64,9 +64,7 @@ def test_McCommunicationProcess__raises_error_when_receiving_invalid_command_fro
     mc_process = four_board_mc_comm_process["mc_process"]
     input_queue = four_board_mc_comm_process["board_queues"][0][0]
 
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_comm, input_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_comm, input_queue)
     with pytest.raises(UnrecognizedCommandFromMainToMcCommError) as exc_info:
         invoke_process_run_and_check_errors(mc_process)
     assert test_comm["communication_type"] in str(exc_info.value)
@@ -206,9 +204,7 @@ def test_McCommunicationProcess__processes_command_response_when_packet_received
         "communication_type": "metadata_comm",
         "command": "get_metadata",
     }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_command, input_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, input_queue)
     # send command to simulator and read status beacon sent before command response
     invoke_process_run_and_check_errors(mc_process)
     invoke_process_run_and_check_errors(simulator)
@@ -241,9 +237,7 @@ def test_McCommunicationProcess__processes_reboot_command(
         autospec=True,
         side_effect=[AVERAGE_MC_REBOOT_DURATION_SECONDS],
     )
-    set_connection_and_register_simulator(
-        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator
-    )
+    set_connection_and_register_simulator(four_board_mc_comm_process_no_handshake, mantarray_mc_simulator)
 
     expected_response = {
         "communication_type": "to_instrument",

@@ -134,9 +134,7 @@ def test_OkCommunicationProcess__waits_appropriate_amount_of_time_after_clearing
 def test_OkCommunicationProcess__raises_error_if_barcode_buffer_not_cleared_after_sending_clear_command__and_doesnt_start_scan(
     four_board_comm_process, mocker, test_barcode_simulator
 ):
-    mocker.patch(
-        "builtins.print", autospec=True
-    )  # don't print all the error messages to console
+    mocker.patch("builtins.print", autospec=True)  # don't print all the error messages to console
 
     expected_barcode = "not clear"
 
@@ -178,9 +176,7 @@ def test_OkCommunicationProcess__checks_barcode_value_after_appropriate_amount_o
     board_queues = four_board_comm_process["board_queues"]
     input_queue = board_queues[0][0]
 
-    simulator, mocked_get = test_barcode_simulator(
-        [CLEARED_BARCODE_VALUE, TEST_11_CHAR_BARCODE]
-    )
+    simulator, mocked_get = test_barcode_simulator([CLEARED_BARCODE_VALUE, TEST_11_CHAR_BARCODE])
     ok_process.set_board_connection(0, simulator)
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -255,9 +251,7 @@ def test_OkCommunicationProcess__sends_message_to_main_if_valid_barcode_received
 def test_OkCommunicationProcess__raises_error_if_barcode_scanner_does_not_respond(
     four_board_comm_process, mocker, test_barcode_simulator
 ):
-    mocker.patch(
-        "builtins.print", autospec=True
-    )  # don't print all the error messages to console
+    mocker.patch("builtins.print", autospec=True)  # don't print all the error messages to console
 
     expected_barcode = CLEARED_BARCODE_VALUE
 
@@ -294,9 +288,7 @@ def test_OkCommunicationProcess__logs_that_no_plate_was_detected_if_barcode_scan
         autospec=True,
         side_effect=[0, BARCODE_GET_SCAN_WAIT_SECONDS],
     )
-    mocked_put = mocker.patch.object(
-        ok_comm, "put_log_message_into_queue", autospec=True
-    )
+    mocked_put = mocker.patch.object(ok_comm, "put_log_message_into_queue", autospec=True)
 
     ok_process = four_board_comm_process["ok_process"]
     board_queues = four_board_comm_process["board_queues"]
@@ -335,9 +327,7 @@ def test_OkCommunicationProcess__logs_that_invalid_barcode_received_if_barcode_s
         autospec=True,
         side_effect=[0, BARCODE_GET_SCAN_WAIT_SECONDS],
     )
-    mocked_put = mocker.patch.object(
-        ok_comm, "put_log_message_into_queue", autospec=True
-    )
+    mocked_put = mocker.patch.object(ok_comm, "put_log_message_into_queue", autospec=True)
 
     ok_process = four_board_comm_process["ok_process"]
     board_queues = four_board_comm_process["board_queues"]

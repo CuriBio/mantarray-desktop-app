@@ -11,9 +11,7 @@ from stdlib_utils import get_current_file_abs_directory
 
 
 def test_get_current_software_version__Given_code_is_not_bundled__When_the_function_is_called__Then_it_returns_version_from_package_json():
-    path_to_package_json = os.path.join(
-        get_current_file_abs_directory(), os.pardir, "package.json"
-    )
+    path_to_package_json = os.path.join(get_current_file_abs_directory(), os.pardir, "package.json")
     with open(path_to_package_json) as in_file:
         parsed_json = json.load(in_file)
         expected = parsed_json["version"]

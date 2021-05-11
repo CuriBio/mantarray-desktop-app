@@ -90,9 +90,7 @@ def test_parse_data_frame__two_channels_32_bit__single_sample_index__with_refere
     data_bytes.extend([10, 11, 12, 13])  # channel 0 reading
     data_bytes.extend([14, 15, 16, 17])  # channel 1 reference
     data_bytes.extend([18, 19, 20, 21])  # channel 1 reading
-    actual = parse_data_frame(
-        data_bytes, "two_channels_32_bit__single_sample_index__with_reference"
-    )
+    actual = parse_data_frame(data_bytes, "two_channels_32_bit__single_sample_index__with_reference")
 
     channel_0 = np.zeros((1, 3), dtype=np.int32)
     channel_0[0] = [84148994, 218893066, 151521030]
@@ -108,9 +106,7 @@ def test_parse_data_frame__two_channels_32_bit__single_sample_index__with_refere
 def test_parse_data_frame__six_channels_32_bit__single_sample_index(
     patch_check_header,
 ):
-    data_bytes = bytearray(
-        [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
-    )  # magic header
+    data_bytes = bytearray([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])  # magic header
     data_bytes.extend([0x01, 0x02, 0x03, 0x04])  # sample index
     data_bytes.extend([0x05, 0x06, 0x07, 0x08])  # channel 0 reading
     data_bytes.extend([0x09, 0x0A, 0x0B, 0x0C])  # channel 1 reading
@@ -153,9 +149,7 @@ def test_parse_adc_metadata_byte(
     expected_error_status,
     test_description,
 ):
-    actual_adc_num, actual_adc_ch_num, actual_error_status = parse_adc_metadata_byte(
-        test_metadata_byte
-    )
+    actual_adc_num, actual_adc_ch_num, actual_error_status = parse_adc_metadata_byte(test_metadata_byte)
     assert actual_adc_num == expected_adc_num
     assert actual_adc_ch_num == expected_adc_ch_num
     assert actual_error_status is expected_error_status
@@ -306,9 +300,7 @@ def test_build_file_writer_objects_performance():
     )  # Eli (10/20/20): bumped up from 300000000 to 450000000 because it was running a bit slow on windows in Github CI
 
 
-def test_build_file_writer_objects__raises_error_if_format_name_not_recognized(
-    patch_check_header, mocker
-):
+def test_build_file_writer_objects__raises_error_if_format_name_not_recognized(patch_check_header, mocker):
     # Tanner (5/21/20) When the error is raised, the queue is closed before it finishes writing to Pipe, so mock to avoid error in test
     mocker.patch.object(ok_comm, "put_log_message_into_queue", autospec=True)
     q = Queue()
@@ -371,9 +363,7 @@ def test_build_file_writer_objects__raises_error__when_first_data_frame_period_o
 def test_build_file_writer_objects__logs_warning__when_first_data_frame_period_of_read_is_not_expected_value_and_logging_level_is_debug(
     test_data_frame_period, test_description, mocker
 ):
-    mocked_put = mocker.patch.object(
-        ok_comm, "put_log_message_into_queue", autospec=True
-    )
+    mocked_put = mocker.patch.object(ok_comm, "put_log_message_into_queue", autospec=True)
     expected_queue = Queue()
     first_data_frame_size = DATA_FRAME_SIZE_WORDS * 4  # number of bytes in a word
     test_bytearray = produce_data(1, 0)[:first_data_frame_size]
@@ -416,8 +406,7 @@ def test_build_file_writer_objects__returns_correct_values__with_six_channel_for
             # add header
             test_bytearray.extend(build_header_magic_number_bytes(HEADER_MAGIC_NUMBER))
             sample_index = (
-                cycle * ROUND_ROBIN_PERIOD // TIMESTEP_CONVERSION_FACTOR
-                + frame * DATA_FRAME_PERIOD
+                cycle * ROUND_ROBIN_PERIOD // TIMESTEP_CONVERSION_FACTOR + frame * DATA_FRAME_PERIOD
             )
             # add sample index
             test_bytearray.extend(struct.pack("<L", sample_index))
@@ -446,9 +435,7 @@ def test_build_file_writer_objects__returns_correct_values__with_six_channel_for
                     key = ADC_CH_TO_24_WELL_INDEX[adc_num][adc_ch_num]
                 # add data appropriately
                 if expected[key]["data"] is not None:
-                    expected[key]["data"] = np.concatenate(
-                        (expected[key]["data"], data), axis=1
-                    )
+                    expected[key]["data"] = np.concatenate((expected[key]["data"], data), axis=1)
                 else:
                     expected[key]["data"] = data
     actual_queue = Queue()
@@ -460,15 +447,10 @@ def test_build_file_writer_objects__returns_correct_values__with_six_channel_for
     )
 
     for key in expected:
-        assert (
-            actual[key]["is_reference_sensor"] is expected[key]["is_reference_sensor"]
-        )
+        assert actual[key]["is_reference_sensor"] is expected[key]["is_reference_sensor"]
 
         if isinstance(key, str):
-            assert (
-                actual[key]["reference_for_wells"]
-                == expected[key]["reference_for_wells"]
-            )
+            assert actual[key]["reference_for_wells"] == expected[key]["reference_for_wells"]
         else:
             assert actual[key]["well_index"] == expected[key]["well_index"]
 
@@ -589,9 +571,7 @@ def test_build_file_writer_objects__correctly_parses_a_real_data_cycle_from_jaso
     for frame in range(8):
         sample_idx = int(DATA_FROM_JASON[(frame * 9) + 2], 16)
         for adc in range(6):
-            data_word = bytearray(
-                struct.pack("<L", int(DATA_FROM_JASON[(frame * 9) + 3 + adc], 16))
-            )
+            data_word = bytearray(struct.pack("<L", int(DATA_FROM_JASON[(frame * 9) + 3 + adc], 16)))
             is_reference_sensor, index, sensor_value = parse_sensor_bytes(data_word)
             data = np.array(
                 [[sample_idx * TIMESTEP_CONVERSION_FACTOR], [sensor_value]],
@@ -599,9 +579,7 @@ def test_build_file_writer_objects__correctly_parses_a_real_data_cycle_from_jaso
             )
             key = f"ref{index}" if is_reference_sensor else index
             if expected_dict[key]["data"] is not None:
-                expected_dict[key]["data"] = np.concatenate(
-                    (expected_dict[key]["data"], data), axis=1
-                )
+                expected_dict[key]["data"] = np.concatenate((expected_dict[key]["data"], data), axis=1)
             else:
                 expected_dict[key]["data"] = data
 
@@ -619,16 +597,10 @@ def test_build_file_writer_objects__correctly_parses_a_real_data_cycle_from_jaso
         logging.DEBUG,
     )
     for key in expected_dict:
-        assert (
-            actual[key]["is_reference_sensor"]
-            is expected_dict[key]["is_reference_sensor"]
-        )
+        assert actual[key]["is_reference_sensor"] is expected_dict[key]["is_reference_sensor"]
 
         if isinstance(key, str):
-            assert (
-                actual[key]["reference_for_wells"]
-                == expected_dict[key]["reference_for_wells"]
-            )
+            assert actual[key]["reference_for_wells"] == expected_dict[key]["reference_for_wells"]
         else:
             assert actual[key]["well_index"] == expected_dict[key]["well_index"]
 
@@ -642,9 +614,7 @@ def test_OkCommunicationProcess_super_is_called_during_init(mocker):
     mocked_init.assert_called_once_with(error_queue, logging_level=logging.INFO)
 
 
-def test_OkCommunicationProcess_setup_before_loop__calls_super(
-    four_board_comm_process, mocker
-):
+def test_OkCommunicationProcess_setup_before_loop__calls_super(four_board_comm_process, mocker):
     spied_setup = mocker.spy(InfiniteProcess, "_setup_before_loop")
 
     ok_process = four_board_comm_process["ok_process"]
@@ -712,9 +682,7 @@ def test_OkCommunicationProcess_soft_stop_not_allowed_if_communication_from_main
 def test_OkCommunicationProcess_run__raises_error_if_communication_type_is_invalid(
     four_board_comm_process, mocker
 ):
-    mocker.patch(
-        "builtins.print", autospec=True
-    )  # don't print all the error messages to console
+    mocker.patch("builtins.print", autospec=True)  # don't print all the error messages to console
     ok_process = four_board_comm_process["ok_process"]
     board_queues = four_board_comm_process["board_queues"]
 
@@ -728,9 +696,7 @@ def test_OkCommunicationProcess_run__raises_error_if_communication_type_is_inval
     }
     input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
     assert is_queue_eventually_not_empty(input_queue) is True
-    with pytest.raises(
-        UnrecognizedCommTypeFromMainToInstrumentError, match="fake_comm_type"
-    ):
+    with pytest.raises(UnrecognizedCommTypeFromMainToInstrumentError, match="fake_comm_type"):
         invoke_process_run_and_check_errors(ok_process)
 
 
@@ -746,10 +712,7 @@ def test_OkCommunicationProcess_run_sends_initial_communication_to_main_during_s
     assert is_queue_eventually_not_empty(comm_to_main) is True
     actual_msg = comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_msg["communication_type"] == "log"
-    assert (
-        actual_msg["message"]
-        == "OpalKelly Communication Process initiated at 2020-02-12 14:10:11.123456"
-    )
+    assert actual_msg["message"] == "OpalKelly Communication Process initiated at 2020-02-12 14:10:11.123456"
 
 
 def test_OkCommunicationProcess__sets_up_board_connection_when_run(
@@ -793,9 +756,7 @@ def test_OkCommunicationProcess__puts_message_into_queue_for_successful_board_co
     p = OkCommunicationProcess(board_queues, error_queue)
     invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
     ok_comm_to_main = board_queues[0][1]
-    ok_comm_to_main.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pop out initial boot-up message
+    ok_comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pop out initial boot-up message
 
     assert is_queue_eventually_not_empty(ok_comm_to_main) is True
     msg = ok_comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -803,10 +764,7 @@ def test_OkCommunicationProcess__puts_message_into_queue_for_successful_board_co
     assert msg["is_connected"] is True
     assert msg["board_index"] == 0
     assert msg["timestamp"] == "2020-02-13 11:43:11.123456"
-    assert (
-        msg["mantarray_serial_number"]
-        == RunningFIFOSimulator.default_mantarray_serial_number
-    )
+    assert msg["mantarray_serial_number"] == RunningFIFOSimulator.default_mantarray_serial_number
     assert msg["mantarray_nickname"] == RunningFIFOSimulator.default_mantarray_nickname
     assert msg["xem_serial_number"] == RunningFIFOSimulator.default_xem_serial_number
     board_0 = p.get_board_connections_list()[0]
@@ -830,19 +788,14 @@ def test_OkCommunicationProcess__puts_message_into_queue_for_unsuccessful_board_
 
     invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
     ok_comm_to_main = board_queues[0][1]
-    ok_comm_to_main.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pop out initial boot-up message
+    ok_comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pop out initial boot-up message
 
     assert is_queue_eventually_not_empty(ok_comm_to_main) is True
     msg = ok_comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert msg["communication_type"] == "board_connection_status_change"
     assert msg["is_connected"] is False
     assert msg["message"] == "No board detected. Creating simulator."
-    assert (
-        msg["mantarray_serial_number"]
-        == RunningFIFOSimulator.default_mantarray_serial_number
-    )
+    assert msg["mantarray_serial_number"] == RunningFIFOSimulator.default_mantarray_serial_number
     assert msg["mantarray_nickname"] == RunningFIFOSimulator.default_mantarray_nickname
     assert msg["xem_serial_number"] == RunningFIFOSimulator.default_xem_serial_number
 
@@ -886,16 +839,12 @@ def test_OkCommunicationProcess__hard_stop__passes_timeout_arg_to_super_hard_sto
     mocked_parent_hard_stop = mocker.patch.object(
         InfiniteProcess, "hard_stop", autospec=True, return_value=expected_return
     )
-    mocked_front_panel_hard_stop = mocker.patch.object(
-        simulator, "hard_stop", autospec=True
-    )
+    mocked_front_panel_hard_stop = mocker.patch.object(simulator, "hard_stop", autospec=True)
 
     expected_timeout = 1.1
     actual_return = ok_process.hard_stop(timeout=expected_timeout)
     assert actual_return == expected_return
-    mocked_parent_hard_stop.assert_called_once_with(
-        ok_process, timeout=expected_timeout
-    )
+    mocked_parent_hard_stop.assert_called_once_with(ok_process, timeout=expected_timeout)
     mocked_front_panel_hard_stop.assert_called_once_with(timeout=expected_timeout)
 
 
@@ -947,9 +896,7 @@ def test_parse_gain__returns_correct_value(test_value, expected_gain, test_descr
 def test_OkCommunicationProcess_run__raises_error_if_mantarray_naming_command_is_invalid(
     four_board_comm_process, mocker
 ):
-    mocker.patch(
-        "builtins.print", autospec=True
-    )  # don't print all the error messages to console
+    mocker.patch("builtins.print", autospec=True)  # don't print all the error messages to console
     ok_process = four_board_comm_process["ok_process"]
     board_queues = four_board_comm_process["board_queues"]
 
@@ -1042,9 +989,7 @@ def test_OkCommunicationProcess_run__correctly_sets_mantarray_serial_number(
         ),
     ],
 )
-def test_check_mantarray_serial_number__returns_correct_values(
-    test_id, expected_value, test_description
-):
+def test_check_mantarray_serial_number__returns_correct_values(test_id, expected_value, test_description):
     actual = check_mantarray_serial_number(test_id)
     assert actual == expected_value
 
@@ -1148,9 +1093,7 @@ def test_OkCommunicationProcess_teardown_after_loop__sets_teardown_complete_even
     ok_process = four_board_comm_process["ok_process"]
 
     ok_process.soft_stop()
-    invoke_process_run_and_check_errors(
-        ok_process, num_iterations=1, perform_teardown_after_loop=True
-    )
+    invoke_process_run_and_check_errors(ok_process, num_iterations=1, perform_teardown_after_loop=True)
 
     assert ok_process.is_teardown_complete() is True
 
@@ -1164,9 +1107,7 @@ def test_OkCommunicationProcess_teardown_after_loop__puts_teardown_log_message_i
     comm_to_main_queue = board_queues[0][1]
 
     ok_process.soft_stop()
-    invoke_process_run_and_check_errors(
-        ok_process, num_iterations=1, perform_teardown_after_loop=True
-    )
+    invoke_process_run_and_check_errors(ok_process, num_iterations=1, perform_teardown_after_loop=True)
     assert is_queue_eventually_not_empty(comm_to_main_queue)
 
     actual = comm_to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -1196,9 +1137,7 @@ def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_
             "bit_file_name": None,
         }
     )
-    input_queue.put_nowait(
-        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
-    )
+    input_queue.put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
     confirm_queue_is_eventually_of_size(input_queue, 2)
     ok_process.resume()
     ok_process.soft_stop()
@@ -1233,15 +1172,11 @@ def test_OkCommunicationProcess_teardown_after_loop__logs_message_indicating_acq
             "bit_file_name": None,
         }
     )
-    input_queue.put_nowait(
-        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
-    )
+    input_queue.put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
     confirm_queue_is_eventually_of_size(
         input_queue, 2, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
-    invoke_process_run_and_check_errors(
-        ok_process, num_iterations=2, perform_teardown_after_loop=True
-    )
+    invoke_process_run_and_check_errors(ok_process, num_iterations=2, perform_teardown_after_loop=True)
 
     confirm_queue_is_eventually_of_size(comm_to_main_queue, 4)
     # get the last item in the queue
@@ -1262,17 +1197,13 @@ def test_OkCommunicationProcess_boot_up_instrument__with_real_board__raises_erro
     patched_firmware_folder,
     mocker,
 ):
-    mocker.patch(
-        "builtins.print", autospec=True
-    )  # don't print all the error messages to console
+    mocker.patch("builtins.print", autospec=True)  # don't print all the error messages to console
     ok_process = four_board_comm_process["ok_process"]
     board_queues = four_board_comm_process["board_queues"]
 
     dummy_xem = okCFrontPanel()
     mocker.patch.object(dummy_xem, "ConfigureFPGA", autospec=True, return_value=0)
-    mocker.patch.object(
-        dummy_xem, "IsFrontPanelEnabled", autospec=True, return_value=True
-    )
+    mocker.patch.object(dummy_xem, "IsFrontPanelEnabled", autospec=True, return_value=True)
     fp_board = MantarrayFrontPanel(dummy_xem)
 
     expected_wire_out_version = "-1"
@@ -1294,7 +1225,9 @@ def test_OkCommunicationProcess_boot_up_instrument__with_real_board__raises_erro
     board_queues[0][0].put_nowait(boot_up_comm)
     assert is_queue_eventually_not_empty(board_queues[0][0]) is True
 
-    expected_error_msg = f"File name: {patched_firmware_folder}, Version from wire_out value: {expected_wire_out_version}"
+    expected_error_msg = (
+        f"File name: {patched_firmware_folder}, Version from wire_out value: {expected_wire_out_version}"
+    )
     with pytest.raises(FirmwareFileNameDoesNotMatchWireOutVersionError) as exc_info:
         invoke_process_run_and_check_errors(ok_process)
     # Tanner (7/26/20): using match=expected_error_msg as a kwarg in pytest.raises wasn't working in windows because it always treats "\" as a regex escape character, even in an r-string. Not sure if there is a better way around this than making the following assertion
@@ -1311,9 +1244,7 @@ def test_OkCommunicationProcess_boot_up_instrument__with_real_board__does_not_ra
 
     dummy_xem = okCFrontPanel()
     mocker.patch.object(dummy_xem, "ConfigureFPGA", autospec=True, return_value=0)
-    mocker.patch.object(
-        dummy_xem, "IsFrontPanelEnabled", autospec=True, return_value=True
-    )
+    mocker.patch.object(dummy_xem, "IsFrontPanelEnabled", autospec=True, return_value=True)
     fp_board = MantarrayFrontPanel(dummy_xem)
 
     expected_wire_out_version = "2.3.4"

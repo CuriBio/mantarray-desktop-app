@@ -60,17 +60,13 @@ def test_create_data_packet__creates_data_packet_bytes_correctly():
 
 def test_validate_checksum__returns_true_when_checksum_is_correct():
     test_bytes = bytes([1, 2, 3, 4, 5])
-    test_bytes += crc32(test_bytes).to_bytes(
-        SERIAL_COMM_CHECKSUM_LENGTH_BYTES, byteorder="little"
-    )
+    test_bytes += crc32(test_bytes).to_bytes(SERIAL_COMM_CHECKSUM_LENGTH_BYTES, byteorder="little")
     assert validate_checksum(test_bytes) is True
 
 
 def test_validate_checksum__returns_false_when_checksum_is_incorrect():
     test_bytes = bytes([1, 2, 3, 4, 5])
-    test_bytes += (crc32(test_bytes) - 1).to_bytes(
-        SERIAL_COMM_CHECKSUM_LENGTH_BYTES, byteorder="little"
-    )
+    test_bytes += (crc32(test_bytes) - 1).to_bytes(SERIAL_COMM_CHECKSUM_LENGTH_BYTES, byteorder="little")
     assert validate_checksum(test_bytes) is False
 
 
@@ -101,9 +97,7 @@ def test_validate_checksum__returns_false_when_checksum_is_incorrect():
         ),
     ],
 )
-def test_convert_to_metadata_bytes__returns_correct_values(
-    test_value, expected_bytes, test_description
-):
+def test_convert_to_metadata_bytes__returns_correct_values(test_value, expected_bytes, test_description):
     assert convert_to_metadata_bytes(test_value) == expected_bytes
 
 
@@ -119,14 +113,10 @@ def test_convert_to_metadata_bytes__raises_error_with_signed_integer_value_that_
     patch_print,
 ):
     test_positive_value = 1 << (SERIAL_COMM_METADATA_BYTES_LENGTH * 8 - 1)
-    with pytest.raises(
-        SerialCommMetadataValueTooLargeError, match=str(test_positive_value)
-    ):
+    with pytest.raises(SerialCommMetadataValueTooLargeError, match=str(test_positive_value)):
         convert_to_metadata_bytes(test_positive_value, signed=True)
     test_negative_value = (-1 << (SERIAL_COMM_METADATA_BYTES_LENGTH * 8 - 1)) - 1
-    with pytest.raises(
-        SerialCommMetadataValueTooLargeError, match=str(test_negative_value)
-    ):
+    with pytest.raises(SerialCommMetadataValueTooLargeError, match=str(test_negative_value)):
         convert_to_metadata_bytes(test_negative_value, signed=True)
 
 
@@ -160,9 +150,7 @@ def test_convert_to_metadata_bytes__raises_error_string_longer_than_max_number_o
         ),
     ],
 )
-def test_convert_metadata_bytes_to_str__returns_correct_string(
-    test_bytes, expected_str, test_description
-):
+def test_convert_metadata_bytes_to_str__returns_correct_string(test_bytes, expected_str, test_description):
     # make sure test_bytes are correct length before sending them through function
     test_bytes += b"\x00" * (SERIAL_COMM_METADATA_BYTES_LENGTH - len(test_bytes))
     actual_str = convert_metadata_bytes_to_str(test_bytes)
@@ -207,18 +195,12 @@ def test_create_magnetometer_config_bytes__returns_correct_values():
     test_dict[2] = convert_bitmask_to_config_dict(0b111000100)
     bitshift = 16 - SERIAL_COMM_NUM_DATA_CHANNELS
     expected_uint16_bitmasks = [0, 0b111000100 << bitshift]
-    expected_uint16_bitmasks.extend(
-        [0b111111111 << bitshift for _ in range(test_num_wells - 2)]
-    )
+    expected_uint16_bitmasks.extend([0b111111111 << bitshift for _ in range(test_num_wells - 2)])
     actual = create_magnetometer_config_bytes(test_dict)
     for module_id in range(1, test_num_wells + 1):
         start_idx = (module_id - 1) * 3
-        assert (
-            actual[start_idx] == module_id
-        ), f"Incorrect module_id at idx: {module_id}"
-        bitmask_bytes = expected_uint16_bitmasks[module_id - 1].to_bytes(
-            2, byteorder="big"
-        )
+        assert actual[start_idx] == module_id, f"Incorrect module_id at idx: {module_id}"
+        bitmask_bytes = expected_uint16_bitmasks[module_id - 1].to_bytes(2, byteorder="big")
         assert (
             actual[start_idx + 1 : start_idx + 3] == bitmask_bytes
         ), f"Incorrect bitmask bytes for module_id: {module_id}"

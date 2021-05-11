@@ -18,10 +18,12 @@ def download_vcn() -> None:
 
 
 def _set_vcn_environment_parameters() -> None:
-    my_config = Config(  # based on https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html
-        region_name="us-east-1",
-        signature_version="v4",
-        retries={"max_attempts": 10, "mode": "standard"},
+    my_config = (
+        Config(  # based on https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html
+            region_name="us-east-1",
+            signature_version="v4",
+            retries={"max_attempts": 10, "mode": "standard"},
+        )
     )
 
     ssm_client = boto3.client("ssm", config=my_config)
@@ -31,17 +33,15 @@ def _set_vcn_environment_parameters() -> None:
         ("vcn_username", "VCN_USER"),
     ):
         # Eli (12/16/20): ran into odd permission errors trying to use `get_parameter`, so switching to `get_parameters`
-        value = ssm_client.get_parameters(
-            Names=[f"/CodeBuild/general/{param_name}"], WithDecryption=True
-        )["Parameters"][0]["Value"]
+        value = ssm_client.get_parameters(Names=[f"/CodeBuild/general/{param_name}"], WithDecryption=True)[
+            "Parameters"
+        ][0]["Value"]
         os.environ[environ_name.upper()] = value
 
 
 def _run_subprocess(args: Union[str, List[str]]) -> None:
     print(f"About to run with args: {args}")  # allow-print
-    results = subprocess.run(  # nosec # B603 shell is True, but input is secure
-        args, shell=True
-    )
+    results = subprocess.run(args, shell=True)  # nosec # B603 shell is True, but input is secure
     if results.returncode != 0:
         sys.exit(results.returncode)
 

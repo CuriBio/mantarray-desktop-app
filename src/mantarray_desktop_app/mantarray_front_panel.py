@@ -44,14 +44,10 @@ class MantarrayFrontPanelMixIn:
             )
 
     def clear_barcode_scanner(self) -> None:
-        self.activate_trigger_in(
-            BARCODE_SCANNER_TRIGGER_IN_ADDRESS, CLEAR_BARCODE_TRIG_BIT
-        )
+        self.activate_trigger_in(BARCODE_SCANNER_TRIGGER_IN_ADDRESS, CLEAR_BARCODE_TRIG_BIT)
 
     def start_barcode_scan(self) -> None:
-        self.activate_trigger_in(
-            BARCODE_SCANNER_TRIGGER_IN_ADDRESS, START_BARCODE_SCAN_TRIG_BIT
-        )
+        self.activate_trigger_in(BARCODE_SCANNER_TRIGGER_IN_ADDRESS, START_BARCODE_SCAN_TRIG_BIT)
 
     def get_barcode(self) -> str:
         """Convert 3 32-bit wire out values to a barcode string."""
@@ -62,9 +58,7 @@ class MantarrayFrontPanelMixIn:
             self.read_wire_out(BARCODE_SCANNER_BOTTOM_WIRE_OUT_ADDRESS),
         ]
         for word in barcode_words:
-            barcode_str += struct.unpack("<4s", struct.pack(">I", word))[0].decode(
-                "utf-8"
-            )
+            barcode_str += struct.unpack("<4s", struct.pack(">I", word))[0].decode("utf-8")
         return barcode_str
 
 

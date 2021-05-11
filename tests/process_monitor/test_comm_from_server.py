@@ -54,19 +54,14 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         "command": "set_mantarray_nickname",
         "mantarray_nickname": expected_nickname,
     }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        expected_comm, server_to_main_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_comm, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
 
-    assert (
-        test_process_manager.get_values_to_share_to_server()["mantarray_nickname"][0]
-        == expected_nickname
-    )
+    assert test_process_manager.get_values_to_share_to_server()["mantarray_nickname"][0] == expected_nickname
 
-    main_to_instrument_comm = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        0
+    main_to_instrument_comm = (
+        test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     )
     confirm_queue_is_eventually_of_size(main_to_instrument_comm, 1)
     actual_comm = main_to_instrument_comm.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -88,16 +83,11 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         "command": "set_mantarray_nickname",
         "mantarray_nickname": expected_nickname,
     }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        expected_comm, server_to_main_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_comm, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
 
-    assert (
-        test_process_manager.get_values_to_share_to_server()["mantarray_nickname"][0]
-        == expected_nickname
-    )
+    assert test_process_manager.get_values_to_share_to_server()["mantarray_nickname"][0] == expected_nickname
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_serial_number_setting_by_setting_shared_values_dictionary_and_passing_command_to_instrument_comm(
@@ -114,21 +104,16 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         "command": "set_mantarray_serial_number",
         "mantarray_serial_number": expected_serial,
     }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        expected_comm, server_to_main_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_comm, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     assert is_queue_eventually_empty(server_to_main_queue) is True
 
     assert (
-        test_process_manager.get_values_to_share_to_server()["mantarray_serial_number"][
-            0
-        ]
-        == expected_serial
+        test_process_manager.get_values_to_share_to_server()["mantarray_serial_number"][0] == expected_serial
     )
 
-    main_to_instrument_comm = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        0
+    main_to_instrument_comm = (
+        test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     )
     confirm_queue_is_eventually_of_size(main_to_instrument_comm, 1)
     actual_comm = main_to_instrument_comm.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -150,17 +135,12 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         "command": "set_mantarray_serial_number",
         "mantarray_serial_number": expected_serial,
     }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        expected_comm, server_to_main_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_comm, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     assert is_queue_eventually_empty(server_to_main_queue) is True
 
     assert (
-        test_process_manager.get_values_to_share_to_server()["mantarray_serial_number"][
-            0
-        ]
-        == expected_serial
+        test_process_manager.get_values_to_share_to_server()["mantarray_serial_number"][0] == expected_serial
     )
 
 
@@ -178,9 +158,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raise
         "communication_type": "mantarray_naming",
         "command": expected_command,
     }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        expected_comm, server_to_main_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_comm, server_to_main_queue)
     with pytest.raises(UnrecognizedMantarrayNamingCommandError, match=expected_command):
         invoke_process_run_and_check_errors(monitor_thread)
 
@@ -198,19 +176,14 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         "communication_type": "xem_scripts",
         "script_type": "start_calibration",
     }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        expected_comm, server_to_main_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_comm, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     assert is_queue_eventually_empty(server_to_main_queue) is True
 
-    assert (
-        test_process_manager.get_values_to_share_to_server()["system_status"]
-        == CALIBRATING_STATE
-    )
+    assert test_process_manager.get_values_to_share_to_server()["system_status"] == CALIBRATING_STATE
 
-    main_to_instrument_comm = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        0
+    main_to_instrument_comm = (
+        test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     )
     confirm_queue_is_eventually_of_size(main_to_instrument_comm, 1)
     actual_comm = main_to_instrument_comm.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -230,16 +203,14 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         "communication_type": "xem_scripts",
         "script_type": "start_calibration",
     }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        expected_comm, server_to_main_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_comm, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     assert is_queue_eventually_empty(server_to_main_queue) is True
 
     assert svd["system_status"] == CALIBRATED_STATE
 
-    main_to_instrument_comm = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        0
+    main_to_instrument_comm = (
+        test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     )
     confirm_queue_is_eventually_empty(main_to_instrument_comm)
 
@@ -249,9 +220,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 ):
     monitor_thread, _, _, _ = test_monitor
 
-    mocker.patch.object(
-        process_manager, "get_latest_firmware", autospec=True, return_value=None
-    )
+    mocker.patch.object(process_manager, "get_latest_firmware", autospec=True, return_value=None)
 
     spied_boot_up_instrument = mocker.spy(test_process_manager, "boot_up_instrument")
     server_to_main_queue = (
@@ -261,9 +230,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         "communication_type": "to_instrument",
         "command": "boot_up",
     }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        expected_comm, server_to_main_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_comm, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     assert is_queue_eventually_empty(server_to_main_queue) is True
 
@@ -287,9 +254,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raise
         "communication_type": "to_instrument",
         "command": expected_command,
     }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        expected_comm, server_to_main_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_comm, server_to_main_queue)
     with pytest.raises(UnrecognizedCommandToInstrumentError, match=expected_command):
         invoke_process_run_and_check_errors(monitor_thread)
 
@@ -312,16 +277,14 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     shared_values_dict = test_process_manager.get_values_to_share_to_server()
     assert shared_values_dict["system_status"] == BUFFERING_STATE
 
-    main_to_instrument_comm = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        0
+    main_to_instrument_comm = (
+        test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     )
     confirm_queue_is_eventually_of_size(main_to_instrument_comm, 1)
     actual_comm = main_to_instrument_comm.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_comm == START_MANAGED_ACQUISITION_COMMUNICATION
 
-    main_to_da = (
-        test_process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
-    )
+    main_to_da = test_process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
     confirm_queue_is_eventually_of_size(main_to_da, 1)
     actual_comm = main_to_da.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_comm == START_MANAGED_ACQUISITION_COMMUNICATION
@@ -348,17 +311,12 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         "communication_type": "update_shared_values_dictionary",
         "content": {"config_settings": {"User Account ID": new_id}},
     }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        communication, server_to_main_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     assert is_queue_eventually_empty(server_to_main_queue) is True
 
     assert (
-        test_process_manager.get_values_to_share_to_server()["config_settings"][
-            "User Account ID"
-        ]
-        == new_id
+        test_process_manager.get_values_to_share_to_server()["config_settings"]["User Account ID"] == new_id
     )
 
 
@@ -374,14 +332,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         communication = {
             "communication_type": "update_shared_values_dictionary",
-            "content": {
-                "config_settings": {"Recording Directory": expected_recordings_dir}
-            },
+            "content": {"config_settings": {"Recording Directory": expected_recordings_dir}},
         }
 
-        put_object_into_queue_and_raise_error_if_eventually_still_empty(
-            communication, server_to_main_queue
-        )
+        put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
 
         invoke_process_run_and_check_errors(monitor_thread)
 
@@ -409,9 +363,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         "command": "stop_recording",
         "timepoint_to_stop_recording_at": expected_timepoint,
     }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        communication, server_to_main_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     assert is_queue_eventually_empty(server_to_main_queue) is True
     main_to_fw_queue = (
@@ -421,16 +373,11 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
     actual = main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == communication
-    assert (
-        test_process_manager.get_values_to_share_to_server()["system_status"]
-        == LIVE_VIEW_ACTIVE_STATE
-    )
+    assert test_process_manager.get_values_to_share_to_server()["system_status"] == LIVE_VIEW_ACTIVE_STATE
 
 
 @freeze_time(
-    datetime.datetime(
-        year=2020, month=11, day=16, hour=15, minute=14, second=44, microsecond=890122
-    )
+    datetime.datetime(year=2020, month=11, day=16, hour=15, minute=14, second=44, microsecond=890122)
 )
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_start_recording__in_hardware_test_mode__by_passing_command_to_file_writer__and_setting_status_to_recording__and_updating_adc_offsets(
     test_process_manager, test_monitor
@@ -454,9 +401,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         "is_hardware_test_recording": True,
         "metadata_to_copy_onto_main_file_attributes": {"adc_offsets": adc_offsets},
     }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        communication, server_to_main_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     assert is_queue_eventually_empty(server_to_main_queue) is True
     main_to_fw_queue = (
@@ -497,9 +442,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raise
         "communication_type": "recording",
         "command": expected_command,
     }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        communication, server_to_main_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
     with pytest.raises(UnrecognizedRecordingCommandError, match=expected_command):
         invoke_process_run_and_check_errors(monitor_thread)
 
@@ -521,9 +464,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         "communication_type": "shutdown",
         "command": "soft_stop",
     }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        communication, server_to_main_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     assert is_queue_eventually_empty(server_to_main_queue) is True
 
@@ -550,9 +491,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         "communication_type": "shutdown",
         "command": "hard_stop",
     }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        communication, server_to_main_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     assert is_queue_eventually_empty(server_to_main_queue) is True
     mocked_are_processes_stopped.assert_called_once()
@@ -592,9 +531,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     mocked_fw_is_stopped = mocker.patch.object(
         fw_process, "is_stopped", autospec=True, side_effect=[False, True]
     )
-    mocked_da_is_stopped = mocker.patch.object(
-        da_process, "is_stopped", autospec=True, return_value=False
-    )
+    mocked_da_is_stopped = mocker.patch.object(da_process, "is_stopped", autospec=True, return_value=False)
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -604,9 +541,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         "communication_type": "shutdown",
         "command": "hard_stop",
     }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        communication, server_to_main_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
 
     mocked_counter = mocker.patch.object(
         process_manager,
@@ -651,18 +586,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     expected_da_item = "item 3"
     expected_server_item = "item 4"
 
-    mocker.patch.object(
-        okc_process, "hard_stop", autospec=True, return_value=expected_okc_item
-    )
-    mocker.patch.object(
-        fw_process, "hard_stop", autospec=True, return_value=expected_fw_item
-    )
-    mocker.patch.object(
-        da_process, "hard_stop", autospec=True, return_value=expected_da_item
-    )
-    mocker.patch.object(
-        server_thread, "hard_stop", autospec=True, return_value=expected_server_item
-    )
+    mocker.patch.object(okc_process, "hard_stop", autospec=True, return_value=expected_okc_item)
+    mocker.patch.object(fw_process, "hard_stop", autospec=True, return_value=expected_fw_item)
+    mocker.patch.object(da_process, "hard_stop", autospec=True, return_value=expected_da_item)
+    mocker.patch.object(server_thread, "hard_stop", autospec=True, return_value=expected_server_item)
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -672,9 +599,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         "communication_type": "shutdown",
         "command": "hard_stop",
     }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        communication, server_to_main_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
 
     mocker.patch.object(
         process_manager,
@@ -683,9 +608,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         side_effect=[0, SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS],
     )
 
-    mocked_monitor_logger_error = mocker.patch.object(
-        process_monitor.logger, "error", autospec=True
-    )
+    mocked_monitor_logger_error = mocker.patch.object(process_monitor.logger, "error", autospec=True)
 
     invoke_process_run_and_check_errors(monitor_thread)
 

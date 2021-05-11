@@ -93,11 +93,7 @@ def test_send_single_initialize_board_command_with_bit_file__populates_queue(
     )
     assert response.status_code == 200
 
-    comm_queue = (
-        test_server.queue_container().get_communication_to_instrument_comm_queue(
-            board_idx
-        )
-    )
+    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(board_idx)
 
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -122,11 +118,7 @@ def test_send_single_initialize_board_command_without_bit_file__populates_queue(
     response = test_client.get("/insert_xem_command_into_queue/initialize_board")
     assert response.status_code == 200
 
-    comm_queue = (
-        test_server.queue_container().get_communication_to_instrument_comm_queue(
-            board_idx
-        )
-    )
+    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(board_idx)
 
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -150,9 +142,7 @@ def test_send_single_get_status_command__populates_queue(
     response = test_client.get("/insert_xem_command_into_queue/get_status")
     assert response.status_code == 200
 
-    comm_queue = (
-        test_server.queue_container().get_communication_to_instrument_comm_queue(0)
-    )
+    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -175,9 +165,7 @@ def test_send_single_activate_trigger_in_command__populates_queue(
     )
     assert response.status_code == 200
 
-    comm_queue = (
-        test_server.queue_container().get_communication_to_instrument_comm_queue(0)
-    )
+    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -204,9 +192,7 @@ def test_send_single_activate_trigger_in_command__using_hex_notation__populates_
     )
     assert response.status_code == 200
 
-    comm_queue = (
-        test_server.queue_container().get_communication_to_instrument_comm_queue(0)
-    )
+    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -233,9 +219,7 @@ def test_send_single_comm_delay_command__populates_queue(
     )
     assert response.status_code == 200
 
-    comm_queue = (
-        test_server.queue_container().get_communication_to_instrument_comm_queue(0)
-    )
+    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -256,9 +240,7 @@ def test_send_single_get_num_words_fifo_command__populates_queue(
     response = test_client.get("/insert_xem_command_into_queue/get_num_words_fifo")
     assert response.status_code == 200
 
-    comm_queue = (
-        test_server.queue_container().get_communication_to_instrument_comm_queue(0)
-    )
+    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -276,14 +258,10 @@ def test_send_single_set_device_id_command__populates_queue(
     test_server, _, _ = test_server_info
 
     test_id = "Mantarray XEM"
-    response = test_client.get(
-        f"/insert_xem_command_into_queue/set_device_id?new_id={test_id}"
-    )
+    response = test_client.get(f"/insert_xem_command_into_queue/set_device_id?new_id={test_id}")
     assert response.status_code == 200
 
-    comm_queue = (
-        test_server.queue_container().get_communication_to_instrument_comm_queue(0)
-    )
+    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -305,9 +283,7 @@ def test_send_single_stop_acquisition_command__populates_queue(
     response = test_client.get("/insert_xem_command_into_queue/stop_acquisition")
     assert response.status_code == 200
 
-    comm_queue = (
-        test_server.queue_container().get_communication_to_instrument_comm_queue(0)
-    )
+    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -327,9 +303,7 @@ def test_send_single_start_acquisition_command__populates_queue(
     response = test_client.get("/insert_xem_command_into_queue/start_acquisition")
     assert response.status_code == 200
 
-    comm_queue = (
-        test_server.queue_container().get_communication_to_instrument_comm_queue(0)
-    )
+    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -349,9 +323,7 @@ def test_send_single_get_serial_number_command__populates_queue(
     response = test_client.get("/insert_xem_command_into_queue/get_serial_number")
     assert response.status_code == 200
 
-    comm_queue = (
-        test_server.queue_container().get_communication_to_instrument_comm_queue(0)
-    )
+    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -371,9 +343,7 @@ def test_send_single_get_device_id_command__populates_queue(
     response = test_client.get("/insert_xem_command_into_queue/get_device_id")
     assert response.status_code == 200
 
-    comm_queue = (
-        test_server.queue_container().get_communication_to_instrument_comm_queue(0)
-    )
+    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -393,9 +363,7 @@ def test_send_single_is_spi_running_command__populates_queue(
     response = test_client.get("/insert_xem_command_into_queue/is_spi_running")
     assert response.status_code == 200
 
-    comm_queue = (
-        test_server.queue_container().get_communication_to_instrument_comm_queue(0)
-    )
+    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -412,13 +380,9 @@ def test_send_single_read_from_fifo_command__populates_queue(
     test_client, test_server_info, _ = client_and_server_thread_and_shared_values
     test_server, _, _ = test_server_info
 
-    response = test_client.get(
-        "/insert_xem_command_into_queue/read_from_fifo?num_words_to_log=72"
-    )
+    response = test_client.get("/insert_xem_command_into_queue/read_from_fifo?num_words_to_log=72")
     assert response.status_code == 200
-    comm_queue = (
-        test_server.queue_container().get_communication_to_instrument_comm_queue(0)
-    )
+    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -435,14 +399,10 @@ def test_send_single_read_from_fifo_command_with_hex_notation__populates_queue(
     test_client, test_server_info, _ = client_and_server_thread_and_shared_values
     test_server, _, _ = test_server_info
 
-    response = test_client.get(
-        "/insert_xem_command_into_queue/read_from_fifo?num_words_to_log=0x48"
-    )
+    response = test_client.get("/insert_xem_command_into_queue/read_from_fifo?num_words_to_log=0x48")
     assert response.status_code == 200
 
-    comm_queue = (
-        test_server.queue_container().get_communication_to_instrument_comm_queue(0)
-    )
+    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -466,9 +426,7 @@ def test_send_single_set_wire_in_command__populates_queue(
         f"/insert_xem_command_into_queue/set_wire_in?ep_addr={expected_ep_addr}&value={expected_value}&mask={expected_mask}"
     )
     assert response.status_code == 200
-    comm_queue = (
-        test_server.queue_container().get_communication_to_instrument_comm_queue(0)
-    )
+    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -499,9 +457,7 @@ def test_send_single_set_wire_in_command__using_hex_notation__populates_queue(
     )
     assert response.status_code == 200
 
-    comm_queue = (
-        test_server.queue_container().get_communication_to_instrument_comm_queue(0)
-    )
+    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -528,9 +484,7 @@ def test_send_single_xem_scripts_command__populates_queue(
     response = test_client.get(f"/xem_scripts?script_type={expected_script_type}")
     assert response.status_code == 200
 
-    comm_queue = (
-        test_server.queue_container().get_communication_to_instrument_comm_queue(0)
-    )
+    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "xem_scripts"
@@ -548,16 +502,10 @@ def test_send_single_read_wire_out_command__populates_queue__and_logs_response(
     board_idx = 0
     expected_ep_addr = 6
     mocked_logger = mocker.patch.object(server.logger, "info", autospec=True)
-    response = test_client.get(
-        f"/insert_xem_command_into_queue/read_wire_out?ep_addr={expected_ep_addr}"
-    )
+    response = test_client.get(f"/insert_xem_command_into_queue/read_wire_out?ep_addr={expected_ep_addr}")
     assert response.status_code == 200
 
-    comm_queue = (
-        test_server.queue_container().get_communication_to_instrument_comm_queue(
-            board_idx
-        )
-    )
+    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(board_idx)
     assert is_queue_eventually_of_size(comm_queue, 1) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -581,16 +529,10 @@ def test_send_single_read_wire_out_command_with_hex_notation__populates_queue(
 
     board_idx = 0
     expected_ep_addr = "0x6"
-    response = test_client.get(
-        f"/insert_xem_command_into_queue/read_wire_out?ep_addr={expected_ep_addr}"
-    )
+    response = test_client.get(f"/insert_xem_command_into_queue/read_wire_out?ep_addr={expected_ep_addr}")
     assert response.status_code == 200
 
-    comm_queue = (
-        test_server.queue_container().get_communication_to_instrument_comm_queue(
-            board_idx
-        )
-    )
+    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(board_idx)
     assert is_queue_eventually_of_size(comm_queue, 1) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -617,11 +559,7 @@ def test_send_single_read_wire_out_command_with_description__populates_queue(
     )
     assert response.status_code == 200
 
-    comm_queue = (
-        test_server.queue_container().get_communication_to_instrument_comm_queue(
-            board_idx
-        )
-    )
+    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(board_idx)
     assert is_queue_eventually_of_size(comm_queue, 1) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -645,21 +583,15 @@ def test_send_single_stop_managed_acquisition_command__populates_queues(
     response = test_client.get("/stop_managed_acquisition")
     assert response.status_code == 200
 
-    to_instrument_comm_queue = (
-        test_server.queue_container().get_communication_to_instrument_comm_queue(0)
-    )
+    to_instrument_comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
     assert is_queue_eventually_of_size(to_instrument_comm_queue, 1) is True
-    comm_to_instrument_comm = to_instrument_comm_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )
+    comm_to_instrument_comm = to_instrument_comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert comm_to_instrument_comm["communication_type"] == "to_instrument"
     assert comm_to_instrument_comm["command"] == "stop_managed_acquisition"
     response_json = response.get_json()
     assert response_json["command"] == "stop_managed_acquisition"
 
-    to_file_writer_queue = (
-        test_server.queue_container().get_communication_queue_from_main_to_file_writer()
-    )
+    to_file_writer_queue = test_server.queue_container().get_communication_queue_from_main_to_file_writer()
     assert is_queue_eventually_not_empty(to_file_writer_queue) is True
     comm_to_da = to_file_writer_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert comm_to_da["communication_type"] == "to_instrument"
@@ -667,9 +599,7 @@ def test_send_single_stop_managed_acquisition_command__populates_queues(
     response_json = response.get_json()
     assert response_json["command"] == "stop_managed_acquisition"
 
-    to_da_queue = (
-        test_server.queue_container().get_communication_queue_from_main_to_data_analyzer()
-    )
+    to_da_queue = test_server.queue_container().get_communication_queue_from_main_to_data_analyzer()
     assert is_queue_eventually_of_size(to_da_queue, 1) is True
     comm_to_da = to_da_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert comm_to_da["communication_type"] == "to_instrument"
@@ -748,9 +678,7 @@ def test_send_single_start_managed_acquisition_command__populates_queues(
 
 
 @freeze_time(
-    datetime.datetime(
-        year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332597
-    )
+    datetime.datetime(year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332597)
     + datetime.timedelta(
         seconds=GENERIC_STOP_RECORDING_COMMAND["timepoint_to_stop_recording_at"]
         / CENTIMILLISECONDS_PER_SECOND
@@ -770,9 +698,7 @@ def test_stop_recording_command__is_received_by_main__with_default__utcnow_recor
         year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332597
     )
 
-    shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [
-        expected_acquisition_timestamp
-    ]
+    shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [expected_acquisition_timestamp]
 
     server_to_main_queue = test_server.get_queue_to_main()
     response = test_client.get("/stop_recording")
@@ -798,47 +724,38 @@ def test_start_recording_command__populates_queue__with_correct_adc_offset_value
     for well_idx in range(24):
         expected_adc_offsets[well_idx] = {"construct": 0, "ref": 0}
 
-    barcode = GENERIC_START_RECORDING_COMMAND[
-        "metadata_to_copy_onto_main_file_attributes"
-    ][PLATE_BARCODE_UUID]
+    barcode = GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+        PLATE_BARCODE_UUID
+    ]
     response = test_client.get(f"/start_recording?barcode={barcode}")
     assert response.status_code == 200
 
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     confirm_queue_is_eventually_of_size(comm_queue, 1)
 
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
-    assert (
-        communication["metadata_to_copy_onto_main_file_attributes"]["adc_offsets"]
-        == expected_adc_offsets
-    )
+    assert communication["metadata_to_copy_onto_main_file_attributes"]["adc_offsets"] == expected_adc_offsets
 
 
 def test_start_recording_command__populates_queue__with_given_time_index_parameter(
     test_process_manager, test_client, generic_start_recording_info_in_shared_dict
 ):
     expected_time_index = 1000
-    barcode = GENERIC_START_RECORDING_COMMAND[
-        "metadata_to_copy_onto_main_file_attributes"
-    ][PLATE_BARCODE_UUID]
+    barcode = GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+        PLATE_BARCODE_UUID
+    ]
     response = test_client.get(
         f"/start_recording?barcode={barcode}&time_index={expected_time_index}&is_hardware_test_recording=false"
     )
     assert response.status_code == 200
 
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
     assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][
-            START_RECORDING_TIME_INDEX_UUID
-        ]
+        communication["metadata_to_copy_onto_main_file_attributes"][START_RECORDING_TIME_INDEX_UUID]
         == expected_time_index
     )
     assert communication["timepoint_to_begin_recording_at"] == expected_time_index
@@ -847,17 +764,15 @@ def test_start_recording_command__populates_queue__with_given_time_index_paramet
 def test_start_recording_command__populates_queue__with_correctly_parsed_set_of_well_indices(
     test_process_manager, test_client, generic_start_recording_info_in_shared_dict
 ):
-    expected_barcode = GENERIC_START_RECORDING_COMMAND[
-        "metadata_to_copy_onto_main_file_attributes"
-    ][PLATE_BARCODE_UUID]
+    expected_barcode = GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+        PLATE_BARCODE_UUID
+    ]
     response = test_client.get(
         f"/start_recording?barcode={expected_barcode}&active_well_indices=0,5,8&is_hardware_test_recording=False"
     )
     assert response.status_code == 200
 
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
@@ -901,27 +816,21 @@ def test_start_recording_command__correctly_sets_barcode_from_scanner_value(
     if scanned_barcode is None:
         del generic_start_recording_info_in_shared_dict["barcodes"]
     else:
-        generic_start_recording_info_in_shared_dict["barcodes"][board_idx][
-            "plate_barcode"
-        ] = scanned_barcode
+        generic_start_recording_info_in_shared_dict["barcodes"][board_idx]["plate_barcode"] = scanned_barcode
 
     response = test_client.get(
         f"/start_recording?barcode={user_entered_barcode}&is_hardware_test_recording=False"
     )
     assert response.status_code == 200
 
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
 
 
 @freeze_time(
-    datetime.datetime(
-        year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332598
-    )
+    datetime.datetime(year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332598)
     + datetime.timedelta(
         seconds=GENERIC_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
         / CENTIMILLISECONDS_PER_SECOND
@@ -930,159 +839,104 @@ def test_start_recording_command__correctly_sets_barcode_from_scanner_value(
 def test_start_recording_command__populates_queue__with_defaults__24_wells__utcnow_recording_start_time__and_metadata(
     test_process_manager, test_client, generic_start_recording_info_in_shared_dict
 ):
-    expected_acquisition_timestamp = (
-        datetime.datetime(  # pylint: disable=duplicate-code
-            year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332598
-        )
+    expected_acquisition_timestamp = datetime.datetime(  # pylint: disable=duplicate-code
+        year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332598
     )
-    expected_recording_timepoint = GENERIC_START_RECORDING_COMMAND[
-        "timepoint_to_begin_recording_at"
-    ]
+    expected_recording_timepoint = GENERIC_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
     expected_recording_timestamp = expected_acquisition_timestamp + datetime.timedelta(
         seconds=(expected_recording_timepoint / CENTIMILLISECONDS_PER_SECOND)
     )
 
-    generic_start_recording_info_in_shared_dict[
-        "utc_timestamps_of_beginning_of_data_acquisition"
-    ] = [expected_acquisition_timestamp]
+    generic_start_recording_info_in_shared_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [
+        expected_acquisition_timestamp
+    ]
 
-    expected_barcode = GENERIC_START_RECORDING_COMMAND[
-        "metadata_to_copy_onto_main_file_attributes"
-    ][PLATE_BARCODE_UUID]
+    expected_barcode = GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+        PLATE_BARCODE_UUID
+    ]
     response = test_client.get(
         f"/start_recording?barcode={expected_barcode}&is_hardware_test_recording=false"
     )
     assert response.status_code == 200
 
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
 
     assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][
-            UTC_BEGINNING_DATA_ACQUISTION_UUID
-        ]
+        communication["metadata_to_copy_onto_main_file_attributes"][UTC_BEGINNING_DATA_ACQUISTION_UUID]
         == expected_acquisition_timestamp
     )
     assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][
-            UTC_BEGINNING_RECORDING_UUID
-        ]
+        communication["metadata_to_copy_onto_main_file_attributes"][UTC_BEGINNING_RECORDING_UUID]
         == expected_recording_timestamp
     )
     assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][
-            CUSTOMER_ACCOUNT_ID_UUID
-        ]
-        == generic_start_recording_info_in_shared_dict["config_settings"][
-            "Customer Account ID"
-        ]
+        communication["metadata_to_copy_onto_main_file_attributes"][CUSTOMER_ACCOUNT_ID_UUID]
+        == generic_start_recording_info_in_shared_dict["config_settings"]["Customer Account ID"]
     )
     assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][
-            USER_ACCOUNT_ID_UUID
-        ]
-        == generic_start_recording_info_in_shared_dict["config_settings"][
-            "User Account ID"
-        ]
+        communication["metadata_to_copy_onto_main_file_attributes"][USER_ACCOUNT_ID_UUID]
+        == generic_start_recording_info_in_shared_dict["config_settings"]["User Account ID"]
     )
     assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][
-            START_RECORDING_TIME_INDEX_UUID
-        ]
+        communication["metadata_to_copy_onto_main_file_attributes"][START_RECORDING_TIME_INDEX_UUID]
         == expected_recording_timepoint
     )
     assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][
-            SOFTWARE_BUILD_NUMBER_UUID
-        ]
+        communication["metadata_to_copy_onto_main_file_attributes"][SOFTWARE_BUILD_NUMBER_UUID]
         == COMPILED_EXE_BUILD_TIMESTAMP
     )
     assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][
-            SOFTWARE_RELEASE_VERSION_UUID
-        ]
+        communication["metadata_to_copy_onto_main_file_attributes"][SOFTWARE_RELEASE_VERSION_UUID]
         == CURRENT_SOFTWARE_VERSION
     )
     assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][
-            MAIN_FIRMWARE_VERSION_UUID
-        ]
+        communication["metadata_to_copy_onto_main_file_attributes"][MAIN_FIRMWARE_VERSION_UUID]
         == generic_start_recording_info_in_shared_dict["main_firmware_version"][0]
     )
     assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][
-            SLEEP_FIRMWARE_VERSION_UUID
-        ]
+        communication["metadata_to_copy_onto_main_file_attributes"][SLEEP_FIRMWARE_VERSION_UUID]
         == generic_start_recording_info_in_shared_dict["sleep_firmware_version"][0]
     )
     assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][
-            XEM_SERIAL_NUMBER_UUID
-        ]
+        communication["metadata_to_copy_onto_main_file_attributes"][XEM_SERIAL_NUMBER_UUID]
         == generic_start_recording_info_in_shared_dict["xem_serial_number"][0]
     )
     assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][
-            MANTARRAY_SERIAL_NUMBER_UUID
-        ]
+        communication["metadata_to_copy_onto_main_file_attributes"][MANTARRAY_SERIAL_NUMBER_UUID]
         == generic_start_recording_info_in_shared_dict["mantarray_serial_number"][0]
     )
     assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][
-            MANTARRAY_NICKNAME_UUID
-        ]
+        communication["metadata_to_copy_onto_main_file_attributes"][MANTARRAY_NICKNAME_UUID]
         == generic_start_recording_info_in_shared_dict["mantarray_nickname"][0]
     )
     assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][
-            REFERENCE_VOLTAGE_UUID
-        ]
+        communication["metadata_to_copy_onto_main_file_attributes"][REFERENCE_VOLTAGE_UUID]
         == REFERENCE_VOLTAGE
     )
     assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][
-            ADC_GAIN_SETTING_UUID
-        ]
+        communication["metadata_to_copy_onto_main_file_attributes"][ADC_GAIN_SETTING_UUID]
         == generic_start_recording_info_in_shared_dict["adc_gain"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"]["adc_offsets"]
         == generic_start_recording_info_in_shared_dict["adc_offsets"]
     )
-    assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_UUID]
-        == expected_barcode
-    )
-    assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][
-            HARDWARE_TEST_RECORDING_UUID
-        ]
-        is False
-    )
+    assert communication["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_UUID] == expected_barcode
+    assert communication["metadata_to_copy_onto_main_file_attributes"][HARDWARE_TEST_RECORDING_UUID] is False
 
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][BACKEND_LOG_UUID]
-        == GENERIC_START_RECORDING_COMMAND[
-            "metadata_to_copy_onto_main_file_attributes"
-        ][BACKEND_LOG_UUID]
+        == GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][BACKEND_LOG_UUID]
     )
-    assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][
-            BARCODE_IS_FROM_SCANNER_UUID
-        ]
-        is True
-    )
+    assert communication["metadata_to_copy_onto_main_file_attributes"][BARCODE_IS_FROM_SCANNER_UUID] is True
     assert (  # pylint: disable=duplicate-code
-        communication["metadata_to_copy_onto_main_file_attributes"][
+        communication["metadata_to_copy_onto_main_file_attributes"][COMPUTER_NAME_HASH_UUID]
+        == GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
             COMPUTER_NAME_HASH_UUID
         ]
-        == GENERIC_START_RECORDING_COMMAND[
-            "metadata_to_copy_onto_main_file_attributes"
-        ][COMPUTER_NAME_HASH_UUID]
     )
     assert set(communication["active_well_indices"]) == set(range(24))
     assert (

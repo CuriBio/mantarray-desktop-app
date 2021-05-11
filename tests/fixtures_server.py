@@ -43,14 +43,10 @@ def _clean_up_server_thread(st, to_main_queue, error_queue) -> None:
 @pytest.fixture(scope="function", name="server_thread")
 def fixture_server_thread(generic_queue_container):
     error_queue = generic_queue_container.get_server_error_queue()
-    to_main_queue = (
-        generic_queue_container.get_communication_queue_from_server_to_main()
-    )
+    to_main_queue = generic_queue_container.get_communication_queue_from_server_to_main()
 
     st = ServerThread(to_main_queue, error_queue, generic_queue_container)
-    shared_values_dict = (
-        st._values_from_process_monitor  # pylint:disable=protected-access
-    )
+    shared_values_dict = st._values_from_process_monitor  # pylint:disable=protected-access
     # Tanner (4/23/21): Many routes require this value to be in the shared values dictionary. It is normally set during app start up, so manually setting here
     shared_values_dict["beta_2_mode"] = False
 
@@ -81,9 +77,7 @@ def fixture_test_client():
 def fixture_client_and_server_thread_and_shared_values(server_thread, test_client):
 
     st, _, _ = server_thread
-    shared_values_dict = (
-        st._values_from_process_monitor  # pylint:disable=protected-access
-    )
+    shared_values_dict = st._values_from_process_monitor  # pylint:disable=protected-access
     yield test_client, server_thread, shared_values_dict
 
 
@@ -94,9 +88,7 @@ def fixture_running_server_thread(server_thread):
         DEFAULT_SERVER_PORT_NUMBER
     )  # confirm port is not already active prior to starting test
     st.start()
-    confirm_port_in_use(
-        DEFAULT_SERVER_PORT_NUMBER, timeout=3
-    )  # wait for server to boot up
+    confirm_port_in_use(DEFAULT_SERVER_PORT_NUMBER, timeout=3)  # wait for server to boot up
     yield server_thread
 
     # clean up
@@ -110,9 +102,9 @@ def fixture_generic_start_recording_info_in_shared_dict(
     _, shared_values_dict, _, _ = test_monitor
 
     board_idx = 0
-    timestamp = GENERIC_START_RECORDING_COMMAND[
-        "metadata_to_copy_onto_main_file_attributes"
-    ][UTC_BEGINNING_DATA_ACQUISTION_UUID]
+    timestamp = GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+        UTC_BEGINNING_DATA_ACQUISTION_UUID
+    ]
     shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [timestamp]
     shared_values_dict["config_settings"] = {
         "Customer Account ID": CURI_BIO_ACCOUNT_UUID,
@@ -125,19 +117,13 @@ def fixture_generic_start_recording_info_in_shared_dict(
             "construct": well_idx * 2,
             "ref": well_idx * 2 + 1,
         }
-    shared_values_dict["main_firmware_version"] = {
-        board_idx: RunningFIFOSimulator.default_firmware_version
-    }
+    shared_values_dict["main_firmware_version"] = {board_idx: RunningFIFOSimulator.default_firmware_version}
     shared_values_dict["sleep_firmware_version"] = {board_idx: 2.0}
-    shared_values_dict["xem_serial_number"] = {
-        board_idx: RunningFIFOSimulator.default_xem_serial_number
-    }
+    shared_values_dict["xem_serial_number"] = {board_idx: RunningFIFOSimulator.default_xem_serial_number}
     shared_values_dict["mantarray_serial_number"] = {
         board_idx: RunningFIFOSimulator.default_mantarray_serial_number
     }
-    shared_values_dict["mantarray_nickname"] = {
-        board_idx: RunningFIFOSimulator.default_mantarray_nickname
-    }
+    shared_values_dict["mantarray_nickname"] = {board_idx: RunningFIFOSimulator.default_mantarray_nickname}
     shared_values_dict["log_file_uuid"] = GENERIC_START_RECORDING_COMMAND[
         "metadata_to_copy_onto_main_file_attributes"
     ][BACKEND_LOG_UUID]
@@ -146,9 +132,9 @@ def fixture_generic_start_recording_info_in_shared_dict(
     ][COMPUTER_NAME_HASH_UUID]
     shared_values_dict["barcodes"] = {
         board_idx: {
-            "plate_barcode": GENERIC_START_RECORDING_COMMAND[
-                "metadata_to_copy_onto_main_file_attributes"
-            ][PLATE_BARCODE_UUID]
+            "plate_barcode": GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+                PLATE_BARCODE_UUID
+            ]
         }
     }
     yield shared_values_dict

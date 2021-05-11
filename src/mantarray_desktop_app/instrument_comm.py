@@ -63,12 +63,10 @@ class InstrumentCommProcess(InfiniteProcess, metaclass=abc.ABCMeta):
     ):
         super().__init__(fatal_error_reporter, logging_level=logging_level)
         self._board_queues = board_queues
-        self._board_connections: List[
-            Union[None, okCFrontPanel, MantarrayMcSimulator]
-        ] = [None] * len(self._board_queues)
-        self._suppress_setup_communication_to_main = (
-            suppress_setup_communication_to_main
+        self._board_connections: List[Union[None, okCFrontPanel, MantarrayMcSimulator]] = [None] * len(
+            self._board_queues
         )
+        self._suppress_setup_communication_to_main = suppress_setup_communication_to_main
 
     def hard_stop(self, timeout: Optional[float] = None) -> Dict[str, Any]:
         return_value: Dict[str, Any] = super().hard_stop(timeout=timeout)

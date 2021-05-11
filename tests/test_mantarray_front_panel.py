@@ -75,9 +75,7 @@ def test_MantarrayFrontPanel__get_firmware_version_returns_expected_value_from_c
         autospec=True,
         return_value=0x00000102,
     )
-    mocker.patch.object(
-        dummy_xem, "IsFrontPanelEnabled", autospec=True, return_value=True
-    )
+    mocker.patch.object(dummy_xem, "IsFrontPanelEnabled", autospec=True, return_value=True)
     mocker.patch.object(dummy_xem, "UpdateWireOuts", autospec=True, return_value=True)
 
     mantarray_fp = MantarrayFrontPanel(dummy_xem)
@@ -124,19 +122,13 @@ def test_MantarrayFrontPanel__clear_barcode_scanner__calls_activate_trigger_in_c
 ):
     dummy_xem = okCFrontPanel()
     mantarray_fp = MantarrayFrontPanel(dummy_xem)
-    mocked_ati = mocker.patch.object(
-        dummy_xem, "ActivateTriggerIn", autospec=True, return_value=0
-    )
-    mocker.patch.object(
-        dummy_xem, "IsFrontPanelEnabled", autospec=True, return_value=True
-    )
+    mocked_ati = mocker.patch.object(dummy_xem, "ActivateTriggerIn", autospec=True, return_value=0)
+    mocker.patch.object(dummy_xem, "IsFrontPanelEnabled", autospec=True, return_value=True)
 
     mantarray_fp.initialize_board()
     mantarray_fp.clear_barcode_scanner()
 
-    mocked_ati.assert_called_once_with(
-        BARCODE_SCANNER_TRIGGER_IN_ADDRESS, CLEAR_BARCODE_TRIG_BIT
-    )
+    mocked_ati.assert_called_once_with(BARCODE_SCANNER_TRIGGER_IN_ADDRESS, CLEAR_BARCODE_TRIG_BIT)
 
 
 def test_MantarrayFrontPanel__get_barcode__raises_error_if_board_not_initialized(
@@ -168,9 +160,7 @@ def test_MantarrayFrontPanel__get_barcode__calls_read_wire_out_correctly__and_re
     mocked_get_wire = mocker.patch.object(
         dummy_xem, "GetWireOutValue", autospec=True, side_effect=get_wire_out_se
     )
-    mocker.patch.object(
-        dummy_xem, "IsFrontPanelEnabled", autospec=True, return_value=True
-    )
+    mocker.patch.object(dummy_xem, "IsFrontPanelEnabled", autospec=True, return_value=True)
     mocker.patch.object(dummy_xem, "UpdateWireOuts", autospec=True, return_value=True)
 
     mantarray_fp.initialize_board()
@@ -191,12 +181,8 @@ def test_MantarrayFrontPanel__get_barcode_returns_cleared_value_correctly(mocker
     def get_wire_out_se(ep_addr):
         return 0
 
-    mocker.patch.object(
-        dummy_xem, "GetWireOutValue", autospec=True, side_effect=get_wire_out_se
-    )
-    mocker.patch.object(
-        dummy_xem, "IsFrontPanelEnabled", autospec=True, return_value=True
-    )
+    mocker.patch.object(dummy_xem, "GetWireOutValue", autospec=True, side_effect=get_wire_out_se)
+    mocker.patch.object(dummy_xem, "IsFrontPanelEnabled", autospec=True, return_value=True)
     mocker.patch.object(dummy_xem, "UpdateWireOuts", autospec=True, return_value=True)
 
     mantarray_fp.initialize_board()
@@ -218,16 +204,10 @@ def test_MantarrayFrontPanel__start_barcode_scan__calls_activate_trigger_in_corr
 ):
     dummy_xem = okCFrontPanel()
     mantarray_fp = MantarrayFrontPanel(dummy_xem)
-    mocked_ati = mocker.patch.object(
-        dummy_xem, "ActivateTriggerIn", autospec=True, return_value=0
-    )
-    mocker.patch.object(
-        dummy_xem, "IsFrontPanelEnabled", autospec=True, return_value=True
-    )
+    mocked_ati = mocker.patch.object(dummy_xem, "ActivateTriggerIn", autospec=True, return_value=0)
+    mocker.patch.object(dummy_xem, "IsFrontPanelEnabled", autospec=True, return_value=True)
 
     mantarray_fp.initialize_board()
     mantarray_fp.start_barcode_scan()
 
-    mocked_ati.assert_called_once_with(
-        BARCODE_SCANNER_TRIGGER_IN_ADDRESS, START_BARCODE_SCAN_TRIG_BIT
-    )
+    mocked_ati.assert_called_once_with(BARCODE_SCANNER_TRIGGER_IN_ADDRESS, START_BARCODE_SCAN_TRIG_BIT)

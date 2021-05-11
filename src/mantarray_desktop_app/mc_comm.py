@@ -133,15 +133,11 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._error: Optional[Exception] = None
         self._in_simulation_mode = False
         self._simulator_error_queues: List[
-            Optional[
-                Queue[Tuple[Exception, str]]  # pylint: disable=unsubscriptable-object
-            ]
+            Optional[Queue[Tuple[Exception, str]]]  # pylint: disable=unsubscriptable-object
         ] = [None] * len(self._board_queues)
         self._is_instrument_in_error_state = False
         self._num_wells = 24
-        self._is_registered_with_serial_comm: List[bool] = [False] * len(
-            self._board_queues
-        )
+        self._is_registered_with_serial_comm: List[bool] = [False] * len(self._board_queues)
         self._auto_get_metadata = False
         self._time_of_last_handshake_secs: Optional[float] = None
         self._time_of_last_beacon_secs: Optional[float] = None
@@ -188,9 +184,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         )
         board = self._board_connections[board_idx]
         if board is not None:
-            if self._error is not None and not isinstance(
-                self._error, MantarrayInstrumentError
-            ):
+            if self._error is not None and not isinstance(self._error, MantarrayInstrumentError):
                 # if error occurred in software, send dump EEPROM command and wait for instrument to respond to command before flushing serial data. If the firmware caught an error in itself the EEPROM contents should already be logged and this command can be skipped here
                 self._send_data_packet(
                     board_idx,
@@ -202,12 +196,8 @@ class McCommunicationProcess(InstrumentCommProcess):
             # flush and log remaining serial data
             remaining_serial_data = bytes(0)
             while board.in_waiting > 0:
-                remaining_serial_data += board.read(
-                    size=SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
-                )
-            serial_data_flush_msg = (
-                f"Remaining Serial Data {str(remaining_serial_data)}"
-            )
+                remaining_serial_data += board.read(size=SERIAL_COMM_MAX_PACKET_LENGTH_BYTES)
+            serial_data_flush_msg = f"Remaining Serial Data {str(remaining_serial_data)}"
             put_log_message_into_queue(
                 logging.INFO,
                 serial_data_flush_msg,
@@ -268,9 +258,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             msg["timestamp"] = _get_formatted_utc_now()
             to_main_queue.put_nowait(msg)
 
-    def set_board_connection(
-        self, board_idx: int, board: Union[MantarrayMcSimulator, serial.Serial]
-    ) -> None:
+    def set_board_connection(self, board_idx: int, board: Union[MantarrayMcSimulator, serial.Serial]) -> None:
         super().set_board_connection(board_idx, board)
         self._in_simulation_mode = isinstance(board, MantarrayMcSimulator)
         if self._in_simulation_mode:
@@ -292,9 +280,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         )
         board = self._board_connections[board_idx]
         if board is None:
-            raise NotImplementedError(
-                "Board should not be None when sending a command to it"
-            )
+            raise NotImplementedError("Board should not be None when sending a command to it")
         board.write(data_packet)
 
     def _commands_for_each_run_iteration(self) -> None:
@@ -352,9 +338,9 @@ class McCommunicationProcess(InstrumentCommProcess):
         if communication_type == "mantarray_naming":
             if comm_from_main["command"] == "set_mantarray_nickname":
                 nickname = comm_from_main["mantarray_nickname"]
-                bytes_to_send = bytes(
-                    [SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE]
-                ) + convert_to_metadata_bytes(nickname)
+                bytes_to_send = bytes([SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE]) + convert_to_metadata_bytes(
+                    nickname
+                )
             else:
                 raise UnrecognizedCommandFromMainToMcCommError(
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
@@ -371,12 +357,8 @@ class McCommunicationProcess(InstrumentCommProcess):
                 bytes_to_send = bytes([SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE])
             elif comm_from_main["command"] == "change_magnetometer_config":
                 bytes_to_send = bytes([SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE])
-                bytes_to_send += comm_from_main["sampling_period"].to_bytes(
-                    2, byteorder="little"
-                )
-                bytes_to_send += create_magnetometer_config_bytes(
-                    comm_from_main["magnetometer_config"]
-                )
+                bytes_to_send += comm_from_main["sampling_period"].to_bytes(2, byteorder="little")
+                bytes_to_send += create_magnetometer_config_bytes(comm_from_main["magnetometer_config"])
             else:
                 raise UnrecognizedCommandFromMainToMcCommError(
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
@@ -404,9 +386,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         if self._time_of_last_handshake_secs is None:
             self._send_handshake(board_idx)
             return
-        seconds_elapsed = _get_secs_since_last_handshake(
-            self._time_of_last_handshake_secs
-        )
+        seconds_elapsed = _get_secs_since_last_handshake(self._time_of_last_handshake_secs)
         if seconds_elapsed >= SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS:
             self._send_handshake(board_idx)
 
@@ -433,9 +413,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         ):  # Tanner (4/27/21): If problems occur with reads not being large enough may need to make some min value is present first. 8 bytes for the magic word is probably a good value to start with
             magic_word_bytes = board.read(size=len(SERIAL_COMM_MAGIC_WORD_BYTES))
             if magic_word_bytes != SERIAL_COMM_MAGIC_WORD_BYTES:
-                raise SerialCommIncorrectMagicWordFromMantarrayError(
-                    str(magic_word_bytes)
-                )
+                raise SerialCommIncorrectMagicWordFromMantarrayError(str(magic_word_bytes))
         else:
             return
         packet_size_bytes = board.read(size=SERIAL_COMM_PACKET_INFO_LENGTH_BYTES)
@@ -444,14 +422,10 @@ class McCommunicationProcess(InstrumentCommProcess):
         # TODO Tanner (3/15/21): eventually make sure the expected number of bytes are read
 
         # validate checksum before handling the communication. Need to reconstruct the whole packet to get the correct checksum
-        full_data_packet = (
-            SERIAL_COMM_MAGIC_WORD_BYTES + packet_size_bytes + data_packet_bytes
-        )
+        full_data_packet = SERIAL_COMM_MAGIC_WORD_BYTES + packet_size_bytes + data_packet_bytes
         is_checksum_valid = validate_checksum(full_data_packet)
         if not is_checksum_valid:
-            calculated_checksum = crc32(
-                full_data_packet[:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
-            )
+            calculated_checksum = crc32(full_data_packet[:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES])
             received_checksum = int.from_bytes(
                 full_data_packet[-SERIAL_COMM_CHECKSUM_LENGTH_BYTES:],
                 byteorder="little",
@@ -500,9 +474,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._log_status_code(status_code, "Status Beacon")
             if status_code == SERIAL_COMM_FATAL_ERROR_CODE:
                 eeprom_contents = packet_body[SERIAL_COMM_STATUS_CODE_LENGTH_BYTES:]
-                raise InstrumentFatalError(
-                    f"Instrument EEPROM contents: {str(eeprom_contents)}"
-                )
+                raise InstrumentFatalError(f"Instrument EEPROM contents: {str(eeprom_contents)}")
             if status_code == SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE:
                 raise SerialCommHandshakeTimeoutError()
             if status_code == SERIAL_COMM_SOFT_ERROR_CODE:
@@ -573,16 +545,12 @@ class McCommunicationProcess(InstrumentCommProcess):
                 prev_command["message"] = "Instrument time synced with PC"
             elif prev_command["command"] == "dump_eeprom":
                 if self._is_instrument_in_error_state:
-                    raise InstrumentSoftError(
-                        f"Instrument EEPROM contents: {str(response_data)}"
-                    )
+                    raise InstrumentSoftError(f"Instrument EEPROM contents: {str(response_data)}")
                 prev_command["eeprom_contents"] = response_data
             elif prev_command["command"] == "start_managed_acquisition":
                 if response_data[0]:
                     raise InstrumentDataStreamingAlreadyStartedError()
-                prev_command["magnetometer_config"] = convert_bytes_to_config_dict(
-                    response_data[1:]
-                )
+                prev_command["magnetometer_config"] = convert_bytes_to_config_dict(response_data[1:])
                 prev_command["timestamp"] = _get_formatted_utc_now()
             elif prev_command["command"] == "stop_managed_acquisition":
                 if bool(int.from_bytes(response_data, byteorder="little")):
@@ -657,9 +625,7 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _handle_beacon_tracking(self) -> None:
         if self._time_of_last_beacon_secs is None:
             return
-        secs_since_last_beacon_received = _get_secs_since_last_beacon(
-            self._time_of_last_beacon_secs
-        )
+        secs_since_last_beacon_received = _get_secs_since_last_beacon(self._time_of_last_beacon_secs)
         if (
             secs_since_last_beacon_received >= SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
             and not self._is_waiting_for_reboot
@@ -670,9 +636,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         if not self._commands_awaiting_response:
             return
         oldest_command = self._commands_awaiting_response[0]
-        secs_since_command_sent = _get_secs_since_command_sent(
-            oldest_command["timepoint"]
-        )
+        secs_since_command_sent = _get_secs_since_command_sent(oldest_command["timepoint"])
         if secs_since_command_sent >= SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS:
             raise SerialCommCommandResponseTimeoutError(oldest_command["command"])
 

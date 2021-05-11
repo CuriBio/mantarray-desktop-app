@@ -67,9 +67,7 @@ __fixtures__ = [
 
 
 def test_MantarrayMcSimulator__class_attributes():
-    assert (
-        MantarrayMcSimulator.default_mantarray_nickname == "Mantarray Simulator (MCU)"
-    )
+    assert MantarrayMcSimulator.default_mantarray_nickname == "Mantarray Simulator (MCU)"
     assert MantarrayMcSimulator.default_mantarray_serial_number == "M02001901"
     assert MantarrayMcSimulator.default_pcb_serial_number == "TBD"
     assert MantarrayMcSimulator.default_firmware_version == "0.0.0"
@@ -83,10 +81,7 @@ def test_MantarrayMcSimulator__class_attributes():
         PCB_SERIAL_NUMBER_UUID: MantarrayMcSimulator.default_pcb_serial_number,
         MAIN_FIRMWARE_VERSION_UUID: MantarrayMcSimulator.default_firmware_version,
     }
-    assert (
-        MantarrayMcSimulator.default_24_well_magnetometer_config
-        == create_magnetometer_config_dict(24)
-    )
+    assert MantarrayMcSimulator.default_24_well_magnetometer_config == create_magnetometer_config_dict(24)
 
 
 def test_MantarrayMcSimulator__super_is_called_during_init__with_default_logging_value(
@@ -117,9 +112,9 @@ def test_MantarrayMcSimulator__init__sets_default_metadata_values(
     assert metadata_dict[MANTARRAY_NICKNAME_UUID.bytes] == convert_to_metadata_bytes(
         MantarrayMcSimulator.default_mantarray_nickname
     )
-    assert metadata_dict[
-        MANTARRAY_SERIAL_NUMBER_UUID.bytes
-    ] == convert_to_metadata_bytes(MantarrayMcSimulator.default_mantarray_serial_number)
+    assert metadata_dict[MANTARRAY_SERIAL_NUMBER_UUID.bytes] == convert_to_metadata_bytes(
+        MantarrayMcSimulator.default_mantarray_serial_number
+    )
     assert metadata_dict[MAIN_FIRMWARE_VERSION_UUID.bytes] == convert_to_metadata_bytes(
         MantarrayMcSimulator.default_firmware_version
     )
@@ -128,9 +123,7 @@ def test_MantarrayMcSimulator__init__sets_default_metadata_values(
     )
 
 
-def test_MantarrayMcSimulator_setup_before_loop__calls_super(
-    mantarray_mc_simulator, mocker
-):
+def test_MantarrayMcSimulator_setup_before_loop__calls_super(mantarray_mc_simulator, mocker):
     spied_setup = mocker.spy(InfiniteProcess, "_setup_before_loop")
 
     simulator = mantarray_mc_simulator["simulator"]
@@ -162,19 +155,13 @@ def test_MantarrayMcSimulator_hard_stop__clears_all_queues_and_returns_lists_of_
     confirm_queue_is_eventually_of_size(testing_queue, 2)
 
     test_input_item = b"some more bytes"
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_input_item, input_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_input_item, input_queue)
 
     test_output_item = b"some more bytes"
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_output_item, output_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_output_item, output_queue)
 
     test_error_item = {"test_error": "an error"}
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_error_item, error_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_error_item, error_queue)
 
     actual = simulator.hard_stop()
     assert actual["fatal_error_reporter"] == [test_error_item]
@@ -199,9 +186,7 @@ def test_MantarrayMcSimulator_read__gets_next_available_bytes(
 
     expected_bytes = b"expected_item"
     test_item = {"command": "add_read_bytes", "read_bytes": expected_bytes}
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_item, testing_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_item, testing_queue)
     invoke_process_run_and_check_errors(simulator)
     actual_item = simulator.read(size=len(expected_bytes))
     assert actual_item == expected_bytes
@@ -226,9 +211,7 @@ def test_MantarrayMcSimulator_in_waiting__getter_returns_number_of_bytes_availab
 
     test_bytes = b"1234567890"
     test_item = {"command": "add_read_bytes", "read_bytes": test_bytes}
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_item, testing_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_item, testing_queue)
     invoke_process_run_and_check_errors(simulator)
     assert simulator.in_waiting == 10
 
@@ -260,9 +243,7 @@ def test_MantarrayMcSimulator_write__puts_object_into_input_queue__with_no_sleep
     output_queue = Queue()
     error_queue = Queue()
     testing_queue = Queue()
-    simulator = MantarrayMcSimulator(
-        input_queue, output_queue, error_queue, testing_queue
-    )
+    simulator = MantarrayMcSimulator(input_queue, output_queue, error_queue, testing_queue)
 
     test_item = b"input_item"
     simulator.write(test_item)
@@ -285,9 +266,7 @@ def test_MantarrayMcSimulator__handles_reads_of_size_less_than_next_packet_in_qu
     item_2 = b"second_item"
 
     test_comm = {"command": "add_read_bytes", "read_bytes": [item_1, item_2]}
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_comm, testing_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_comm, testing_queue)
     invoke_process_run_and_check_errors(simulator, 1)
     confirm_queue_is_eventually_empty(testing_queue)
 
@@ -316,9 +295,7 @@ def test_MantarrayMcSimulator__handles_reads_of_size_less_than_next_packet_in_qu
     test_size_diff_2 = 1
     test_item = b"first_item"
     test_dict = {"command": "add_read_bytes", "read_bytes": test_item}
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_dict, testing_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_dict, testing_queue)
     invoke_process_run_and_check_errors(simulator)
 
     expected_1 = test_item[:-test_size_diff_1]
@@ -400,9 +377,7 @@ def test_MantarrayMcSimulator__handles_reads_of_size_greater_than_next_packet_in
 
     test_item = b"the_item"
     test_dict = {"command": "add_read_bytes", "read_bytes": test_item}
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_dict, testing_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_dict, testing_queue)
     invoke_process_run_and_check_errors(simulator)
 
     expected_1 = test_item
@@ -421,9 +396,7 @@ def test_MantarrayMcSimulator__raises_error_if_unrecognized_test_command_is_rece
 
     expected_command = "bad_command"
     test_item = {"command": expected_command}
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_item, testing_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_item, testing_queue)
     with pytest.raises(UnrecognizedSimulatorTestCommandError, match=expected_command):
         invoke_process_run_and_check_errors(simulator)
 
@@ -439,9 +412,7 @@ def test_MantarrayMcSimulator__allows_status_code_to_be_set_through_testing_queu
         "command": "set_status_code",
         "status_code": expected_status_code,
     }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_command, testing_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, testing_queue)
     invoke_process_run_and_check_errors(simulator)
 
     simulator.write(TEST_HANDSHAKE)
@@ -451,9 +422,7 @@ def test_MantarrayMcSimulator__allows_status_code_to_be_set_through_testing_queu
     status_code_end = len(handshake_response) - SERIAL_COMM_CHECKSUM_LENGTH_BYTES
     status_code_start = status_code_end - SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
     actual_status_code_bytes = handshake_response[status_code_start:status_code_end]
-    assert actual_status_code_bytes == convert_to_status_code_bytes(
-        expected_status_code
-    )
+    assert actual_status_code_bytes == convert_to_status_code_bytes(expected_status_code)
 
 
 def test_MantarrayMcSimulator__processes_testing_commands_during_reboot(
@@ -483,9 +452,7 @@ def test_MantarrayMcSimulator__processes_testing_commands_during_reboot(
 
     # remove reboot response packet
     invoke_process_run_and_check_errors(simulator)
-    reboot_response_size = get_full_packet_size_from_packet_body_size(
-        SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
-    )
+    reboot_response_size = get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES)
     reboot_response = simulator.read(size=reboot_response_size)
     assert_serial_packet_is_expected(
         reboot_response,
@@ -498,17 +465,13 @@ def test_MantarrayMcSimulator__processes_testing_commands_during_reboot(
     # add read bytes as test command
     expected_item = b"the_item"
     test_dict = {"command": "add_read_bytes", "read_bytes": expected_item}
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_dict, testing_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_dict, testing_queue)
     invoke_process_run_and_check_errors(simulator)
     actual = simulator.read(size=len(expected_item))
     assert actual == expected_item
 
 
-def test_MantarrayMcSimulator__resets_status_code_after_rebooting(
-    mantarray_mc_simulator_no_beacon, mocker
-):
+def test_MantarrayMcSimulator__resets_status_code_after_rebooting(mantarray_mc_simulator_no_beacon, mocker):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
@@ -527,9 +490,7 @@ def test_MantarrayMcSimulator__resets_status_code_after_rebooting(
         "command": "set_status_code",
         "status_code": test_status_code,
     }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_command, testing_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, testing_queue)
     invoke_process_run_and_check_errors(simulator)
     # send reboot command
     test_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
@@ -544,9 +505,7 @@ def test_MantarrayMcSimulator__resets_status_code_after_rebooting(
     invoke_process_run_and_check_errors(simulator)
     # remove reboot response packet
     invoke_process_run_and_check_errors(simulator)
-    reboot_response_size = get_full_packet_size_from_packet_body_size(
-        SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
-    )
+    reboot_response_size = get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES)
     reboot_response = simulator.read(size=reboot_response_size)
     assert_serial_packet_is_expected(
         reboot_response,
@@ -560,10 +519,7 @@ def test_MantarrayMcSimulator__resets_status_code_after_rebooting(
     invoke_process_run_and_check_errors(simulator)
     handshake_response = simulator.read(size=HANDSHAKE_RESPONSE_SIZE_BYTES)
     assert len(handshake_response) == HANDSHAKE_RESPONSE_SIZE_BYTES
-    assert (
-        handshake_response[-8:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
-        == DEFAULT_SIMULATOR_STATUS_CODE
-    )
+    assert handshake_response[-8:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES] == DEFAULT_SIMULATOR_STATUS_CODE
 
 
 def test_MantarrayMcSimulator__allows_metadata_to_be_set_through_testing_queue(
@@ -577,9 +533,7 @@ def test_MantarrayMcSimulator__allows_metadata_to_be_set_through_testing_queue(
         MANTARRAY_NICKNAME_UUID: "New Nickname",
     }
     test_command = {"command": "set_metadata", "metadata_values": expected_metadata}
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_command, testing_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, testing_queue)
     invoke_process_run_and_check_errors(simulator)
 
     actual_metadata = simulator.get_metadata_dict()
@@ -591,9 +545,9 @@ def test_MantarrayMcSimulator__allows_metadata_to_be_set_through_testing_queue(
         expected_metadata[MANTARRAY_NICKNAME_UUID]
     )
     # Check that at least one other value is not changed
-    assert actual_metadata[
-        MANTARRAY_SERIAL_NUMBER_UUID.bytes
-    ] == convert_to_metadata_bytes(MantarrayMcSimulator.default_mantarray_serial_number)
+    assert actual_metadata[MANTARRAY_SERIAL_NUMBER_UUID.bytes] == convert_to_metadata_bytes(
+        MantarrayMcSimulator.default_mantarray_serial_number
+    )
 
 
 def test_MantarrayMcSimulator__accepts_time_sync_along_with_status_code_update__if_status_code_is_set_to_state_following_time_sync(
@@ -613,9 +567,7 @@ def test_MantarrayMcSimulator__accepts_time_sync_along_with_status_code_update__
         "status_code": SERIAL_COMM_IDLE_READY_CODE,
         "baseline_time": expected_time_usecs,
     }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_command, testing_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, testing_queue)
     invoke_process_run_and_check_errors(simulator)
     # send status beacon to verify timestamp is set
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -628,8 +580,7 @@ def test_MantarrayMcSimulator__accepts_time_sync_along_with_status_code_update__
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
         additional_bytes=convert_to_status_code_bytes(SERIAL_COMM_IDLE_READY_CODE),
-        timestamp=(expected_time_usecs + spied_get_us.spy_return)
-        // MICROSECONDS_PER_CENTIMILLISECOND,
+        timestamp=(expected_time_usecs + spied_get_us.spy_return) // MICROSECONDS_PER_CENTIMILLISECOND,
     )
 
 
@@ -655,9 +606,7 @@ def test_MantarrayMcSimulator__raises_error_when_magnetometer_config_command_rec
     )
     simulator.write(change_config_command)
     # process command and raise error with given sampling period
-    with pytest.raises(
-        SerialCommInvalidSamplingPeriodError, match=str(bad_sampling_period)
-    ):
+    with pytest.raises(SerialCommInvalidSamplingPeriodError, match=str(bad_sampling_period)):
         invoke_process_run_and_check_errors(simulator)
 
 
@@ -679,17 +628,12 @@ def test_MantarrayMcSimulator__automatically_sends_plate_barcode_after_time_is_s
         test_pc_timestamp,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-        bytes([SERIAL_COMM_SET_TIME_COMMAND_BYTE])
-        + convert_to_timestamp_bytes(test_pc_timestamp),
+        bytes([SERIAL_COMM_SET_TIME_COMMAND_BYTE]) + convert_to_timestamp_bytes(test_pc_timestamp),
     )
     simulator.write(test_set_time_command)
     # process set time command and remove response
     invoke_process_run_and_check_errors(simulator)
-    simulator.read(
-        size=get_full_packet_size_from_packet_body_size(
-            SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
-        )
-    )
+    simulator.read(size=get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES))
     plate_event_packet_size = get_full_packet_size_from_packet_body_size(
         1 + len(MantarrayMcSimulator.default_barcode)  # 1 byte for placed/removed flag
     )
@@ -699,6 +643,5 @@ def test_MantarrayMcSimulator__automatically_sends_plate_barcode_after_time_is_s
         plate_event_packet,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_PLATE_EVENT_PACKET_TYPE,
-        additional_bytes=bytes([1])
-        + bytes(MantarrayMcSimulator.default_barcode, encoding="ascii"),
+        additional_bytes=bytes([1]) + bytes(MantarrayMcSimulator.default_barcode, encoding="ascii"),
     )
