@@ -39,9 +39,7 @@ def test_FIFOReadProducer__super_is_called_during_init(mocker):
 
 def test_FIFOReadProducer__sleeps_for_correct_duration_every_cycle(mocker):
     test_iteration_time_ns = 10
-    expected_sleep_time = (
-        FIFO_READ_PRODUCER_SLEEP_DURATION - test_iteration_time_ns / 10 ** 9
-    )
+    expected_sleep_time = FIFO_READ_PRODUCER_SLEEP_DURATION - test_iteration_time_ns / 10 ** 9
 
     mocked_sleep = mocker.patch.object(
         time, "sleep", autospec=True
@@ -74,8 +72,7 @@ def test_FIFOReadProducer__increments_sample_idx_by_correct_number_of_round_robi
     assert producer_thread._sample_index == 0  # pylint: disable=protected-access
     invoke_process_run_and_check_errors(producer_thread)
     assert (
-        producer_thread._sample_index  # pylint: disable=protected-access
-        * TIMESTEP_CONVERSION_FACTOR
+        producer_thread._sample_index * TIMESTEP_CONVERSION_FACTOR  # pylint: disable=protected-access
         == FIFO_READ_PRODUCER_CYCLES_PER_ITERATION * ROUND_ROBIN_PERIOD
     )
 
@@ -87,8 +84,7 @@ def test_FIFOReadProducer__puts_sawtooth_waveform_in_data_out_queue_each_iterati
     expected_read_1 = produce_data(FIFO_READ_PRODUCER_CYCLES_PER_ITERATION, 0)
     expected_read_2 = produce_data(
         FIFO_READ_PRODUCER_CYCLES_PER_ITERATION,
-        (FIFO_READ_PRODUCER_CYCLES_PER_ITERATION * ROUND_ROBIN_PERIOD)
-        // TIMESTEP_CONVERSION_FACTOR,
+        (FIFO_READ_PRODUCER_CYCLES_PER_ITERATION * ROUND_ROBIN_PERIOD) // TIMESTEP_CONVERSION_FACTOR,
     )
 
     data_out_queue = queue.Queue()
@@ -150,24 +146,14 @@ def test_produce_data__returns_correct_bytearray_with_given_num_cycles_and_start
                 t = sample_index
                 if is_ref_sensor:
                     amplitude = FIFO_READ_PRODUCER_REF_AMPLITUDE * (adc_num + 1)
-                    data_value = (
-                        FIFO_READ_PRODUCER_DATA_OFFSET
-                        + amplitude
-                        * signal.sawtooth(
-                            t / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5
-                        )
+                    data_value = FIFO_READ_PRODUCER_DATA_OFFSET + amplitude * signal.sawtooth(
+                        t / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5
                     )
                 else:
-                    scaling_factor = (
-                        (ADC_CH_TO_24_WELL_INDEX[adc_num][adc_ch_num] + 1) / 24 * 6
-                    )
+                    scaling_factor = (ADC_CH_TO_24_WELL_INDEX[adc_num][adc_ch_num] + 1) / 24 * 6
                     amplitude = FIFO_READ_PRODUCER_WELL_AMPLITUDE * scaling_factor
-                    data_value = (
-                        FIFO_READ_PRODUCER_DATA_OFFSET
-                        + amplitude
-                        * signal.sawtooth(
-                            t / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5
-                        )
+                    data_value = FIFO_READ_PRODUCER_DATA_OFFSET + amplitude * signal.sawtooth(
+                        t / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5
                     )
                 test_data_byte = struct.pack("<L", int(data_value))
                 expected_data.extend(test_data_byte[:3])
@@ -180,9 +166,7 @@ def test_FIFOReadProducter_hard_stop__drains_the_fifo_queue():
     data_out_queue = queue.Queue()
     error_queue = queue.Queue()
     producer_thread = FIFOReadProducer(data_out_queue, error_queue, threading.Lock())
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        "blah", data_out_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty("blah", data_out_queue)
     actual_stop_results = producer_thread.hard_stop()
     assert is_queue_eventually_empty(data_out_queue)
 

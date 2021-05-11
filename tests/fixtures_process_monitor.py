@@ -17,9 +17,7 @@ def fixture_test_monitor(test_process_manager):
     the_dict["system_status"] = SERVER_INITIALIZING_STATE
     error_queue = error_queue = queue.Queue()
     the_lock = threading.Lock()
-    monitor = MantarrayProcessesMonitor(
-        the_dict, test_process_manager, error_queue, the_lock
-    )
+    monitor = MantarrayProcessesMonitor(the_dict, test_process_manager, error_queue, the_lock)
     yield monitor, the_dict, error_queue, the_lock
 
     # cleanup queues to avoid BrokenPipe errors
@@ -33,9 +31,7 @@ def fixture_test_monitor_beta_2_mode(test_process_manager_beta_2_mode):
     the_dict["system_status"] = SERVER_INITIALIZING_STATE
     error_queue = error_queue = queue.Queue()
     the_lock = threading.Lock()
-    monitor = MantarrayProcessesMonitor(
-        the_dict, test_process_manager_beta_2_mode, error_queue, the_lock
-    )
+    monitor = MantarrayProcessesMonitor(the_dict, test_process_manager_beta_2_mode, error_queue, the_lock)
     yield monitor, the_dict, error_queue, the_lock
 
     # cleanup queues to avoid BrokenPipe errors

@@ -66,9 +66,7 @@ from .mantarray_front_panel import MantarrayFrontPanel
 from .utils import _trim_barcode
 from .utils import check_barcode_is_valid
 
-if (
-    6 < 9
-):  # pragma: no cover # protect this from zimports deleting the pylint disable statement
+if 6 < 9:  # pragma: no cover # protect this from zimports deleting the pylint disable statement
     from .data_parsing_cy import (  # pylint: disable=import-error # Tanner (8/25/20): unsure why pylint is unable to recognize cython import...
         parse_sensor_bytes,
     )
@@ -90,9 +88,7 @@ def execute_debug_console_command(
     command = communication["command"]
     if command == "initialize_board":
         bit_file_name = communication["bit_file_name"]
-        allow_board_reinitialization = communication.get(
-            "allow_board_reinitialization", False
-        )
+        allow_board_reinitialization = communication.get("allow_board_reinitialization", False)
         callable_to_execute = functools.partial(
             front_panel.initialize_board,
             bit_file_name=bit_file_name,
@@ -119,9 +115,7 @@ def execute_debug_console_command(
     elif command == "set_wire_in":
         callable_to_execute = _create_set_wire_in_callable(front_panel, communication)
     elif command == "activate_trigger_in":
-        callable_to_execute = _create_activate_trigger_in_callable(
-            front_panel, communication
-        )
+        callable_to_execute = _create_activate_trigger_in_callable(front_panel, communication)
     elif command == "get_num_words_fifo":
         callable_to_execute = functools.partial(front_panel.get_num_words_fifo)
     elif command == "get_status":
@@ -145,9 +139,7 @@ def execute_debug_console_command(
     if callable_to_execute is None:
         raise UnrecognizedDebugConsoleCommandError(communication)
     try:
-        response: Union[
-            None, int, str, Dict[str, Any], List[str]
-        ] = callable_to_execute()
+        response: Union[None, int, str, Dict[str, Any], List[str]] = callable_to_execute()
     except Exception as e:  # pylint: disable=broad-except # The deliberate goal of this is to catch everything and return the error
         suppress_error = communication.get("suppress_error", False)
         if suppress_error:
@@ -157,9 +149,7 @@ def execute_debug_console_command(
     return response
 
 
-def _create_set_wire_in_callable(
-    front_panel: FrontPanelBase, communication: Dict[str, Any]
-) -> partial[None]:
+def _create_set_wire_in_callable(front_panel: FrontPanelBase, communication: Dict[str, Any]) -> partial[None]:
     """Create a callable for set_wire_in."""
     ep_addr = communication["ep_addr"]
     value = communication["value"]
@@ -291,7 +281,9 @@ def build_file_writer_objects(
         first_frame_sample_idx: int
         for frame_idx, frame in enumerate(data_frames):
             formatted_data = parse_data_frame(frame, data_format_name)
-            msg = f"Timestamp: {_get_formatted_utc_now()} Parsed data frame index {frame_idx}: {formatted_data}"
+            msg = (
+                f"Timestamp: {_get_formatted_utc_now()} Parsed data frame index {frame_idx}: {formatted_data}"
+            )
             if frame_idx == 0:
                 first_frame_sample_idx = formatted_data[0][0]
             elif frame_idx == 1:
@@ -305,9 +297,7 @@ def build_file_writer_objects(
                 sample_index = formatted_data[ch_num][0]
                 # parse sensor_data
                 sensor_data_bytes = formatted_data[ch_num][1]
-                is_reference_sensor, index, sensor_value = parse_sensor_bytes(
-                    sensor_data_bytes
-                )
+                is_reference_sensor, index, sensor_value = parse_sensor_bytes(sensor_data_bytes)
                 # add data to correct channel or reference key in dict
                 key = f"ref{index}" if is_reference_sensor else index
                 if channel_dicts[key]["data"] is not None:
@@ -317,9 +307,7 @@ def build_file_writer_objects(
                     channel_dicts[key]["data"] = [[sample_index], [sensor_value]]
         for key in channel_dicts:
             # Tanner (8/26/20): concatenating arrays is slow, so using faster append method of python lists until all data is added then converting to array.
-            channel_dicts[key]["data"] = np.array(
-                channel_dicts[key]["data"], dtype=np.int32
-            )
+            channel_dicts[key]["data"] = np.array(channel_dicts[key]["data"], dtype=np.int32)
         return channel_dicts
 
     raise UnrecognizedDataFrameFormatNameError(data_format_name)
@@ -371,9 +359,7 @@ def parse_scripting_log_line(log_line: str) -> Dict[str, Any]:
     num_args = len(args)
     for i in range(num_args):
         arg = args[i]
-        value = (
-            values[i] if arg in ("script_type", "description") else int(values[i], 0)
-        )
+        value = values[i] if arg in ("script_type", "description") else int(values[i], 0)
         command_dict[arg] = value
 
     return command_dict
@@ -383,9 +369,7 @@ def parse_scripting_log(script_type: str) -> Dict[str, Any]:
     """Parse a log to run to create a sequence of XEM commands."""
     file_name = f"xem_{script_type}.txt"
     relative_path = os.path.join("src", "xem_scripts", file_name)
-    absolute_path = os.path.normcase(
-        os.path.join(get_current_file_abs_directory(), os.pardir, os.pardir)
-    )
+    absolute_path = os.path.normcase(os.path.join(get_current_file_abs_directory(), os.pardir, os.pardir))
     file_path = resource_path(relative_path, base_path=absolute_path)
 
     command_list: List[Dict[str, Any]] = list()
@@ -445,12 +429,8 @@ class OkCommunicationProcess(InstrumentCommProcess):
     def __init__(self, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
         self._data_frame_format = "six_channels_32_bit__single_sample_index"
-        self._time_of_last_fifo_read: List[Union[None, datetime.datetime]] = [
-            None
-        ] * len(self._board_queues)
-        self._timepoint_of_last_fifo_read: List[Union[None, float]] = [None] * len(
-            self._board_queues
-        )
+        self._time_of_last_fifo_read: List[Union[None, datetime.datetime]] = [None] * len(self._board_queues)
+        self._timepoint_of_last_fifo_read: List[Union[None, float]] = [None] * len(self._board_queues)
         self._reads_since_last_logging: List[int] = [0] * len(self._board_queues)
         self._is_managed_acquisition_running = [False] * len(self._board_queues)
         self._is_first_managed_read = [False] * len(self._board_queues)
@@ -532,9 +512,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
             self._is_managed_acquisition_running[0] = False
             board_connections = self.get_board_connections_list()
             if board_connections[0] is None:
-                raise NotImplementedError(
-                    "Board should not be None while managed acquisition is running"
-                )
+                raise NotImplementedError("Board should not be None while managed acquisition is running")
             board_connections[0].stop_acquisition()
         super()._teardown_after_loop()
 
@@ -545,9 +523,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
         if self._is_managed_acquisition_running[0]:
             board_connections = self.get_board_connections_list()
             if board_connections[0] is None:
-                raise NotImplementedError(
-                    "Board should not be None while managed acquisition is running"
-                )
+                raise NotImplementedError("Board should not be None while managed acquisition is running")
             now = datetime.datetime.utcnow()
             if self._time_of_last_fifo_read[0] is None:
                 # Use now if no previous reads
@@ -566,15 +542,10 @@ class OkCommunicationProcess(InstrumentCommProcess):
                 self._reads_since_last_logging[0] += 1
 
                 now_timepoint = time.perf_counter()
-                duration_between_acquisition = (
-                    now_timepoint - self._timepoint_of_last_fifo_read[0]
-                )
+                duration_between_acquisition = now_timepoint - self._timepoint_of_last_fifo_read[0]
                 self._durations_between_acquisition.append(duration_between_acquisition)
 
-                if (
-                    self._reads_since_last_logging[0]
-                    >= self._performance_logging_cycles
-                ):
+                if self._reads_since_last_logging[0] >= self._performance_logging_cycles:
                     self._handle_performance_logging()
                     self._reads_since_last_logging[0] = 0
                 self._timepoint_of_last_fifo_read[0] = now_timepoint
@@ -588,9 +559,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
             raise NotImplementedError(
                 "_reads_since_last_logging should always be an int value while managed acquisition is running"
             )
-        return now - self._time_of_last_fifo_read[0] > datetime.timedelta(
-            seconds=self._fifo_read_period
-        )
+        return now - self._time_of_last_fifo_read[0] > datetime.timedelta(seconds=self._fifo_read_period)
 
     def _process_next_communication_from_main(self) -> None:
         """Process the next communication sent from the main process.
@@ -619,9 +588,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
             board_idx = 0
             board = self.get_board_connections_list()[board_idx]
             if board is None:
-                raise NotImplementedError(
-                    "Board should not be None when communicating with barcode scanner"
-                )
+                raise NotImplementedError("Board should not be None when communicating with barcode scanner")
             if not board.is_board_initialized():
                 # Tanner (12/10/20): This is to handle --skip-mantarray-boot-up which will not automatically initialize the board
                 self._send_barcode_to_main(board_idx, "", False)
@@ -640,9 +607,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
         board_idx = 0
         board = self.get_board_connections_list()[board_idx]
         if board is None:
-            raise NotImplementedError(
-                "Board should not be None when communicating with barcode scanner"
-            )
+            raise NotImplementedError("Board should not be None when communicating with barcode scanner")
 
         if isinstance(board, FrontPanelSimulator):
             barcode = board.get_barcode()
@@ -694,9 +659,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
             self._is_barcode_cleared[scan_attempt] = True
             board.start_barcode_scan()
 
-    def _send_barcode_to_main(
-        self, board_idx: int, barcode: str, is_valid: bool
-    ) -> None:
+    def _send_barcode_to_main(self, board_idx: int, barcode: str, is_valid: bool) -> None:
         comm_to_main_queue = self._board_queues[0][1]
         barcode_comm_dict: Dict[str, Union[str, bool, int]] = {
             "communication_type": "barcode_comm",
@@ -727,9 +690,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
     def _boot_up_instrument(self, this_communication: Dict[str, Any]) -> None:
         board = self.get_board_connections_list()[0]
         if board is None:
-            raise NotImplementedError(
-                "Board should not be None when booting up instrument"
-            )
+            raise NotImplementedError("Board should not be None when booting up instrument")
         execute_debug_console_command(board, this_communication)
         this_communication["board_index"] = 0
 
@@ -738,9 +699,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
             bit_file_name = this_communication["bit_file_name"]
             # Tanner (7/27/20): it is assumed that only paths to bit files with valid names will passed into this function. If a messy error occurs here, check that the name of bit file is properly formatted (mantarray_#_#_#.bit) and that the path exists
             version_in_file_name = (
-                os.path.splitext(os.path.split(bit_file_name)[1])[0]
-                .split("_", 1)[1]
-                .replace("_", ".")
+                os.path.splitext(os.path.split(bit_file_name)[1])[0].split("_", 1)[1].replace("_", ".")
             )
             if version_in_file_name != main_firmware_version:
                 raise FirmwareFileNameDoesNotMatchWireOutVersionError(
@@ -757,9 +716,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
         response_queue = self._board_queues[0][1]
         board = self.get_board_connections_list()[0]
         if board is None:
-            raise NotImplementedError(
-                "Board should not be None when starting/stopping managed acquisition"
-            )
+            raise NotImplementedError("Board should not be None when starting/stopping managed acquisition")
         if this_communication["command"] == "start_managed_acquisition":
             self._is_managed_acquisition_running[0] = True
             self._is_first_managed_read[0] = True
@@ -787,20 +744,14 @@ class OkCommunicationProcess(InstrumentCommProcess):
             command = command_dict["command"]
             callable_to_execute = None
             if command == "set_wire_in":
-                callable_to_execute = _create_set_wire_in_callable(
-                    front_panel, command_dict
-                )
+                callable_to_execute = _create_set_wire_in_callable(front_panel, command_dict)
                 description = command_dict.get("description", "")
                 if ADC_GAIN_DESCRIPTION_TAG in description and gain_value is None:
                     gain_value = parse_gain(command_dict["value"])
             elif command == "read_wire_out":
-                callable_to_execute = _create_read_wire_out_callable(
-                    front_panel, command_dict
-                )
+                callable_to_execute = _create_read_wire_out_callable(front_panel, command_dict)
             elif command == "activate_trigger_in":
-                callable_to_execute = _create_activate_trigger_in_callable(
-                    front_panel, command_dict
-                )
+                callable_to_execute = _create_activate_trigger_in_callable(front_panel, command_dict)
 
             if command == "comm_delay":
                 comm_delay_command_response = _comm_delay(command_dict)
@@ -826,9 +777,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
                         wire_out_response["description"] = description
                     response_queue.put_nowait(wire_out_response)
             else:
-                raise NotImplementedError(
-                    "callable_to_execute should only be None if command == comm_delay"
-                )
+                raise NotImplementedError("callable_to_execute should only be None if command == comm_delay")
         done_message: Dict[str, Union[str, int]] = {
             "communication_type": "xem_scripts",
             "response": f"'{script_type}' script complete.",
@@ -848,9 +797,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
         response_queue = self._board_queues[0][1]
         board = self.get_board_connections_list()[0]
         if board is None:
-            raise NotImplementedError(
-                "Board should not be None when setting a new nickname or serial number"
-            )
+            raise NotImplementedError("Board should not be None when setting a new nickname or serial number")
         if this_communication["command"] == "set_mantarray_nickname":
             nickname = this_communication["mantarray_nickname"]
             device_id = board.get_device_id()
@@ -870,9 +817,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
         """Pull data from the XEM FIFO, reformat, and push it to the queue."""
         board = self.get_board_connections_list()[0]
         if board is None:
-            raise NotImplementedError(
-                "Board should not be None while managed acquisition is running"
-            )
+            raise NotImplementedError("Board should not be None while managed acquisition is running")
         logging_threshold = self.get_logging_level()
         comm_to_main_queue = self._board_queues[0][1]
 
@@ -915,9 +860,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
         )
 
         if self._is_first_managed_read[0]:
-            first_round_robin_len = (
-                DATA_FRAME_SIZE_WORDS * DATA_FRAMES_PER_ROUND_ROBIN * 4
-            )
+            first_round_robin_len = DATA_FRAME_SIZE_WORDS * DATA_FRAMES_PER_ROUND_ROBIN * 4
             if len(raw_data) < first_round_robin_len:
                 e = FirstManagedReadLessThanOneRoundRobinError()
                 self._log_fifo_read_and_error(logging.ERROR, raw_data, e)
@@ -971,9 +914,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
         for data in channel_dicts.values():
             self._board_queues[0][2].put_nowait(data)
 
-    def _log_fifo_read_and_error(
-        self, logging_level: int, fifo_read: bytearray, error: Exception
-    ) -> None:
+    def _log_fifo_read_and_error(self, logging_level: int, fifo_read: bytearray, error: Exception) -> None:
         stack_trace = get_formatted_stack_trace(error)
         put_log_message_into_queue(
             logging_level,
@@ -1023,9 +964,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
 
         tracker = self.reset_performance_tracker()
         performance_metrics["percent_use"] = tracker["percent_use"]
-        performance_metrics["longest_iterations"] = sorted(
-            tracker["longest_iterations"]
-        )
+        performance_metrics["longest_iterations"] = sorted(tracker["longest_iterations"])
         if len(self._percent_use_values) > 1:
             performance_metrics["percent_use_metrics"] = self.get_percent_use_metrics()
         put_log_message_into_queue(

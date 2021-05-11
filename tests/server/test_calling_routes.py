@@ -100,9 +100,7 @@ def test_system_status__returns_correct_serial_number_and_nickname_in_dict_with_
 
     response_json = response.get_json()
     if expected_serial:
-        assert (
-            response_json["mantarray_serial_number"][str(board_idx)] == expected_serial
-        )
+        assert response_json["mantarray_serial_number"][str(board_idx)] == expected_serial
     else:
         assert response_json["mantarray_serial_number"] == ""
     if expected_nickname:
@@ -167,9 +165,7 @@ def test_send_single_start_calibration_command__returns_200(
 
 
 def test_dev_begin_hardware_script__returns_correct_response(test_client):
-    response = test_client.get(
-        "/development/begin_hardware_script?script_type=ENUM&version=integer"
-    )
+    response = test_client.get("/development/begin_hardware_script?script_type=ENUM&version=integer")
     assert response.status_code == 200
 
 
@@ -230,9 +226,7 @@ def test_server__handles_logging_after_request_when_get_available_data_is_called
             }
         }
     )
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_data, data_out_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data, data_out_queue)
 
     response = test_client.get("/get_available_data")
     assert response.status_code == 200
@@ -309,10 +303,7 @@ def test_start_managed_acquisition__returns_error_code_and_message_if_mantarray_
 
     response = test_client.get("/start_managed_acquisition")
     assert response.status_code == 406
-    assert (
-        response.status.endswith("Mantarray has not been assigned a Serial Number")
-        is True
-    )
+    assert response.status.endswith("Mantarray has not been assigned a Serial Number") is True
 
 
 @pytest.mark.parametrize(
@@ -335,12 +326,7 @@ def test_update_settings__returns_error_message_for_invalid_customer_account_uui
 ):
     response = test_client.get(f"/update_settings?customer_account_uuid={test_uuid}")
     assert response.status_code == 400
-    assert (
-        response.status.endswith(
-            f"{repr(ImproperlyFormattedCustomerAccountUUIDError(test_uuid))}"
-        )
-        is True
-    )
+    assert response.status.endswith(f"{repr(ImproperlyFormattedCustomerAccountUUIDError(test_uuid))}") is True
 
 
 def test_update_settings__returns_error_message_when_recording_directory_does_not_exist(
@@ -349,10 +335,7 @@ def test_update_settings__returns_error_message_when_recording_directory_does_no
     test_dir = "fake_dir/fake_sub_dir"
     response = test_client.get(f"/update_settings?recording_directory={test_dir}")
     assert response.status_code == 400
-    assert (
-        response.status.endswith(f"{repr(RecordingFolderDoesNotExistError(test_dir))}")
-        is True
-    )
+    assert response.status.endswith(f"{repr(RecordingFolderDoesNotExistError(test_dir))}") is True
 
 
 def test_update_settings__returns_error_message_when_unexpected_argument_is_given(
@@ -382,12 +365,7 @@ def test_update_settings__returns_error_message_for_invalid_user_account_uuid(
 ):
     response = test_client.get(f"/update_settings?user_account_uuid={test_uuid}")
     assert response.status_code == 400
-    assert (
-        response.status.endswith(
-            f"{repr(ImproperlyFormattedUserAccountUUIDError(test_uuid))}"
-        )
-        is True
-    )
+    assert response.status.endswith(f"{repr(ImproperlyFormattedUserAccountUUIDError(test_uuid))}") is True
 
 
 def test_route_error_message_is_logged(mocker, test_client):
@@ -405,22 +383,16 @@ def test_start_recording__returns_no_error_message_with_multiple_hardware_test_r
     test_client,
     generic_start_recording_info_in_shared_dict,
 ):
-    response = test_client.get(
-        "/start_recording?barcode=MA200440001&is_hardware_test_recording=True"
-    )
+    response = test_client.get("/start_recording?barcode=MA200440001&is_hardware_test_recording=True")
     assert response.status_code == 200
-    response = test_client.get(
-        "/start_recording?barcode=MA200440001&is_hardware_test_recording=True"
-    )
+    response = test_client.get("/start_recording?barcode=MA200440001&is_hardware_test_recording=True")
     assert response.status_code == 200
 
 
 def test_start_recording__returns_error_code_and_message_if_user_account_id_not_set(
     test_client, test_monitor, generic_start_recording_info_in_shared_dict
 ):
-    generic_start_recording_info_in_shared_dict["config_settings"][
-        "User Account ID"
-    ] = ""
+    generic_start_recording_info_in_shared_dict["config_settings"]["User Account ID"] = ""
     response = test_client.get("/start_recording?barcode=MA200440001")
     assert response.status_code == 406
     assert response.status.endswith("User Account ID has not yet been set") is True
@@ -429,9 +401,7 @@ def test_start_recording__returns_error_code_and_message_if_user_account_id_not_
 def test_start_recording__returns_error_code_and_message_if_customer_account_id_not_set(
     test_client, test_monitor, generic_start_recording_info_in_shared_dict
 ):
-    generic_start_recording_info_in_shared_dict["config_settings"][
-        "Customer Account ID"
-    ] = ""
+    generic_start_recording_info_in_shared_dict["config_settings"]["Customer Account ID"] = ""
     response = test_client.get("/start_recording?barcode=MA200440001")
     assert response.status_code == 406
     assert response.status.endswith("Customer Account ID has not yet been set") is True
@@ -577,18 +547,14 @@ def test_start_recording__allows_correct_barcode_headers(
     assert response.status_code == 200
 
 
-def test_route_with_no_url_rule__returns_error_message__and_logs_reponse_to_request(
-    test_client, mocker
-):
+def test_route_with_no_url_rule__returns_error_message__and_logs_reponse_to_request(test_client, mocker):
     mocked_logger = mocker.spy(server.logger, "info")
 
     response = test_client.get("/fake_route")
     assert response.status_code == 404
     assert response.status.endswith("Route not implemented") is True
 
-    mocked_logger.assert_called_once_with(
-        f"Response to HTTP Request in next log entry: {response.status}"
-    )
+    mocked_logger.assert_called_once_with(f"Response to HTTP Request in next log entry: {response.status}")
 
 
 def test_insert_xem_command_into_queue_routes__return_error_code_and_message_if_called_in_beta_2_mode(

@@ -136,9 +136,7 @@ class MantarrayMcSimulator(InfiniteProcess):
 
     default_mantarray_nickname = "Mantarray Simulator (MCU)"
     default_mantarray_serial_number = "M02001901"
-    default_pcb_serial_number = (
-        "TBD"  # TODO Tanner (3/17/21): implement this once the format is determined
-    )
+    default_pcb_serial_number = "TBD"  # TODO Tanner (3/17/21): implement this once the format is determined
     default_firmware_version = "0.0.0"
     default_barcode = "MA190190001"
     default_metadata_values: Dict[UUID, Any] = immutabledict(
@@ -164,9 +162,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             bytes
         ],  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
         output_queue: Queue[bytes],  # pylint: disable=unsubscriptable-object
-        fatal_error_reporter: Queue[  # pylint: disable=unsubscriptable-object
-            Dict[str, Any]
-        ],
+        fatal_error_reporter: Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
         testing_queue: Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
         logging_level: int = logging.INFO,
         read_timeout_seconds: Union[int, float] = 0,
@@ -214,9 +210,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._simulated_data_index = 0
             if self._sampling_period_us == 0:
                 # TODO Tanner (5/5/21): Need to determine what to do if sampling period is not set when data begins streaming
-                raise NotImplementedError(
-                    "sampling period must be set before streaming data"
-                )
+                raise NotImplementedError("sampling period must be set before streaming data")
             self._simulated_data = self.get_interpolated_data(self._sampling_period_us)
         else:
             self._timepoint_of_last_data_packet_us = None
@@ -232,9 +226,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         # Tanner (4/28/21): If McComm ever has a need to know the true value of in_waiting, need to make this value accurate
         if len(self._leftover_read_bytes) == 0:
             try:
-                self._leftover_read_bytes = self._output_queue.get(
-                    timeout=self._read_timeout_seconds
-                )
+                self._leftover_read_bytes = self._output_queue.get(timeout=self._read_timeout_seconds)
             except queue.Empty:
                 return 0
         return len(self._leftover_read_bytes)
@@ -247,16 +239,13 @@ class MantarrayMcSimulator(InfiniteProcess):
         This function should only be called once.
         """
         relative_path = os.path.join("src", "simulated_data", "simulated_twitch.csv")
-        absolute_path = os.path.normcase(
-            os.path.join(get_current_file_abs_directory(), os.pardir, os.pardir)
-        )
+        absolute_path = os.path.normcase(os.path.join(get_current_file_abs_directory(), os.pardir, os.pardir))
         file_path = resource_path(relative_path, base_path=absolute_path)
         with open(file_path, newline="") as csvfile:
             simulated_data_timepoints = next(csv.reader(csvfile, delimiter=","))
             simulated_data_values = next(csv.reader(csvfile, delimiter=","))
         self._interpolator = interpolate.interp1d(
-            np.array(simulated_data_timepoints, dtype=np.uint64)
-            // MICROSECONDS_PER_CENTIMILLISECOND,
+            np.array(simulated_data_timepoints, dtype=np.uint64) // MICROSECONDS_PER_CENTIMILLISECOND,
             simulated_data_values,
         )
 
@@ -277,9 +266,7 @@ class MantarrayMcSimulator(InfiniteProcess):
 
     def _reset_metadata_dict(self) -> None:
         for uuid_key, metadata_value in self.default_metadata_values.items():
-            self._metadata_dict[uuid_key.bytes] = convert_to_metadata_bytes(
-                metadata_value
-            )
+            self._metadata_dict[uuid_key.bytes] = convert_to_metadata_bytes(metadata_value)
 
     def _reset_magnetometer_config(self) -> None:
         self._magnetometer_config = dict(self.default_24_well_magnetometer_config)
@@ -306,9 +293,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             "Is Streaming Data": self._is_streaming_data,
             "Sampling Period (microseconds)": self._sampling_period_us,
         }
-        return bytes(
-            f" Simulator EEPROM Contents: {str(eeprom_dict)}", encoding="ascii"
-        )
+        return bytes(f" Simulator EEPROM Contents: {str(eeprom_dict)}", encoding="ascii")
 
     def get_sampling_period_us(self) -> int:
         """Mainly for use in unit tests."""
@@ -344,9 +329,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             else (self._baseline_time_usec + self._get_us_since_time_sync())
             // MICROSECONDS_PER_CENTIMILLISECOND
         )
-        data_packet = create_data_packet(
-            timestamp, module_id, packet_type, data_to_send
-        )
+        data_packet = create_data_packet(timestamp, module_id, packet_type, data_to_send)
         if truncate:
             trunc_index = random.randint(  # nosec B311 # Tanner (2/4/21): Bandit blacklisted this pseudo-random generator for cryptographic security reasons that do not apply to the desktop app.
                 0, len(data_packet) - 1
@@ -430,9 +413,7 @@ class MantarrayMcSimulator(InfiniteProcess):
     def _check_handshake_timeout(self) -> None:
         if self._time_of_last_comm_from_pc_secs is None:
             return
-        secs_since_last_comm_from_pc = _get_secs_since_last_comm_from_pc(
-            self._time_of_last_comm_from_pc_secs
-        )
+        secs_since_last_comm_from_pc = _get_secs_since_last_comm_from_pc(self._time_of_last_comm_from_pc_secs)
         if secs_since_last_comm_from_pc >= SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS:
             self._update_status_code(SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE)
 
@@ -456,9 +437,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                 response_byte = int(self._is_streaming_data)
                 response_body += bytes([response_byte])
                 if not self._is_streaming_data:
-                    response_body += create_magnetometer_config_bytes(
-                        self._magnetometer_config
-                    )
+                    response_body += create_magnetometer_config_bytes(self._magnetometer_config)
                 self._is_streaming_data = True
             elif command_byte == SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE:
                 response_byte = int(not self._is_streaming_data)
@@ -472,17 +451,13 @@ class MantarrayMcSimulator(InfiniteProcess):
             elif command_byte == SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE:
                 response_body += self.get_eeprom_bytes()
             elif command_byte == SERIAL_COMM_SET_TIME_COMMAND_BYTE:
-                self._baseline_time_usec = int.from_bytes(
-                    response_body, byteorder="little"
-                )
+                self._baseline_time_usec = int.from_bytes(response_body, byteorder="little")
                 self._timepoint_of_time_sync_us = _perf_counter_us()
                 status_code_update = SERIAL_COMM_IDLE_READY_CODE
                 self._ready_to_send_barcode = True
             elif command_byte == SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE:
                 start_idx = SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 1
-                nickname_bytes = comm_from_pc[
-                    start_idx : start_idx + SERIAL_COMM_METADATA_BYTES_LENGTH
-                ]
+                nickname_bytes = comm_from_pc[start_idx : start_idx + SERIAL_COMM_METADATA_BYTES_LENGTH]
                 self._metadata_dict[MANTARRAY_NICKNAME_UUID.bytes] = nickname_bytes
             else:
                 # TODO Tanner (3/4/21): Determine what to do if command_byte, module_id, or packet_type are incorrect. It may make more sense to respond with a message rather than raising an error
@@ -511,11 +486,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             return update_status_byte
         # check and set sampling period
         sampling_period = int.from_bytes(
-            comm_from_pc[
-                SERIAL_COMM_ADDITIONAL_BYTES_INDEX
-                + 1 : SERIAL_COMM_ADDITIONAL_BYTES_INDEX
-                + 3
-            ],
+            comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 1 : SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 3],
             byteorder="little",
         )
         if sampling_period % MICROSECONDS_PER_MILLISECOND != 0:
@@ -537,9 +508,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         if self._time_of_last_status_beacon_secs is None:
             self._send_status_beacon(truncate=True)
             return
-        seconds_elapsed = _get_secs_since_last_status_beacon(
-            self._time_of_last_status_beacon_secs
-        )
+        seconds_elapsed = _get_secs_since_last_status_beacon(self._time_of_last_status_beacon_secs)
         if seconds_elapsed >= SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS:
             self._send_status_beacon(truncate=False)
 
@@ -555,13 +524,10 @@ class MantarrayMcSimulator(InfiniteProcess):
     def _check_handshake(self) -> None:
         if self._time_of_last_handshake_secs is None:
             return
-        time_of_last_handshake_secs = _get_secs_since_last_handshake(
-            self._time_of_last_handshake_secs
-        )
+        time_of_last_handshake_secs = _get_secs_since_last_handshake(self._time_of_last_handshake_secs)
         if (
             time_of_last_handshake_secs
-            >= SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
-            * SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
+            >= SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS * SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
         ):
             raise SerialCommTooManyMissedHandshakesError()
 
@@ -605,8 +571,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                 self._send_data_packet(
                     SERIAL_COMM_MAIN_MODULE_ID,
                     SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
-                    convert_to_status_code_bytes(self._status_code)
-                    + self.get_eeprom_bytes(),
+                    convert_to_status_code_bytes(self._status_code) + self.get_eeprom_bytes(),
                 )
         elif command == "set_metadata":
             for key, value in test_comm["metadata_values"].items():
@@ -627,26 +592,17 @@ class MantarrayMcSimulator(InfiniteProcess):
         more than one data packet must be sent.
         """
         if self._timepoint_of_last_data_packet_us is None:  # making mypy happy
-            raise NotImplementedError(
-                "_timepoint_of_last_data_packet_us should never be None here"
-            )
-        us_since_last_data_packet = _get_us_since_last_data_packet(
-            self._timepoint_of_last_data_packet_us
-        )
+            raise NotImplementedError("_timepoint_of_last_data_packet_us should never be None here")
+        us_since_last_data_packet = _get_us_since_last_data_packet(self._timepoint_of_last_data_packet_us)
         simulated_data_len = len(self._simulated_data)
         num_packets_to_send = us_since_last_data_packet // self._sampling_period_us
         for packet_num in range(num_packets_to_send):
             data_packet_body = (
-                (
-                    us_since_last_data_packet
-                    - (packet_num + 1) * self._sampling_period_us
-                )
+                (us_since_last_data_packet - (packet_num + 1) * self._sampling_period_us)
                 // MICROSECONDS_PER_CENTIMILLISECOND
             ).to_bytes(2, byteorder="little")
             for well_idx in range(self._num_wells):
-                data_value = self._simulated_data[
-                    self._simulated_data_index
-                ] * np.int16(well_idx + 1)
+                data_value = self._simulated_data[self._simulated_data_index] * np.int16(well_idx + 1)
                 data_value_bytes = data_value.tobytes()
                 for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS):
                     if self._magnetometer_config[well_idx + 1][channel_id]:
@@ -656,9 +612,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                 SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE,
                 data_packet_body,
             )
-            self._simulated_data_index = (
-                self._simulated_data_index + 1
-            ) % simulated_data_len
+            self._simulated_data_index = (self._simulated_data_index + 1) % simulated_data_len
         self._timepoint_of_last_data_packet_us = _perf_counter_us()
 
     def read(self, size: int = 1) -> bytes:

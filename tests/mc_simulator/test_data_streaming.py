@@ -40,9 +40,7 @@ def test_MantarrayMcSimulator__get_interpolated_data_returns_correct_value(
     simulator = mantarray_mc_simulator["simulator"]
 
     relative_path = os.path.join("src", "simulated_data", "simulated_twitch.csv")
-    absolute_path = os.path.normcase(
-        os.path.join(get_current_file_abs_directory(), os.pardir, os.pardir)
-    )
+    absolute_path = os.path.normcase(os.path.join(get_current_file_abs_directory(), os.pardir, os.pardir))
     file_path = resource_path(relative_path, base_path=absolute_path)
     with open(file_path, newline="") as csvfile:
         simulated_data_timepoints = next(csv.reader(csvfile, delimiter=","))
@@ -50,8 +48,7 @@ def test_MantarrayMcSimulator__get_interpolated_data_returns_correct_value(
 
     test_sampling_period = 1000
     expected_data = interpolate.interp1d(
-        np.array(simulated_data_timepoints, dtype=np.uint64)
-        // MICROSECONDS_PER_CENTIMILLISECOND,
+        np.array(simulated_data_timepoints, dtype=np.uint64) // MICROSECONDS_PER_CENTIMILLISECOND,
         simulated_data_values,
     )(
         np.arange(
@@ -128,8 +125,7 @@ def test_MantarrayMcSimulator__sends_correct_timestamp_offset_and_data_points_in
             data_packet[SERIAL_COMM_MODULE_ID_INDEX] == SERIAL_COMM_MAIN_MODULE_ID
         ), f"Incorrect module ID in packet {packet_num + 1}"
         assert (
-            data_packet[SERIAL_COMM_PACKET_TYPE_INDEX]
-            == SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
+            data_packet[SERIAL_COMM_PACKET_TYPE_INDEX] == SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
         ), f"Incorrect packet type in packet {packet_num + 1}"
 
         idx = SERIAL_COMM_ADDITIONAL_BYTES_INDEX
@@ -137,19 +133,13 @@ def test_MantarrayMcSimulator__sends_correct_timestamp_offset_and_data_points_in
         expected_offset = (
             test_us_since_last_data_packet - (packet_num + 1) * test_sampling_period
         ) // MICROSECONDS_PER_CENTIMILLISECOND
-        timestamp_offset = int.from_bytes(
-            data_packet[idx : idx + 2], byteorder="little"
-        )
-        assert (
-            timestamp_offset == expected_offset
-        ), f"Incorrect timestamp offset in packet {packet_num + 1}"
+        timestamp_offset = int.from_bytes(data_packet[idx : idx + 2], byteorder="little")
+        assert timestamp_offset == expected_offset, f"Incorrect timestamp offset in packet {packet_num + 1}"
         for well_idx in range(num_wells):
             expected_sensor_value = expected_waveform[packet_num] * (well_idx + 1)
             for channel_id in test_channels:
                 idx += 2
-                sensor_value = int.from_bytes(
-                    data_packet[idx : idx + 2], byteorder="little", signed=True
-                )
+                sensor_value = int.from_bytes(data_packet[idx : idx + 2], byteorder="little", signed=True)
                 assert (
                     sensor_value == expected_sensor_value
                 ), f"Incorrect sensor value for channel ID {channel_id} well {well_idx} in packet {packet_num + 1}"

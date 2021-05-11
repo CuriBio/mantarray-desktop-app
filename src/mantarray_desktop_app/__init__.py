@@ -246,9 +246,7 @@ from .utils import create_magnetometer_config_dict
 from .utils import get_current_software_version
 from .utils import redact_sensitive_info_from_path
 
-if (
-    6 < 9
-):  # pragma: no cover # protect this from zimports deleting the pylint disable statement
+if 6 < 9:  # pragma: no cover # protect this from zimports deleting the pylint disable statement
     from .data_parsing_cy import (  # pylint: disable=import-error # Tanner (8/25/20) unsure why pylint is unable to recognize cython import...
         parse_adc_metadata_byte,
         parse_little_endian_int24,

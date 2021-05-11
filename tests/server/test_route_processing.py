@@ -102,22 +102,16 @@ def test_send_single_set_mantarray_nickname_command__gets_processed_and_stores_n
     invoke_process_run_and_check_errors(monitor_thread)
 
     test_process_manager.soft_stop_processes()
-    confirm_parallelism_is_stopped(
-        ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
-    )
+    confirm_parallelism_is_stopped(ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 
     assert shared_values_dict["mantarray_nickname"][0] == expected_nickname
-    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        0
-    )
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
-        0
+    comm_from_ok_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
     )
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull out the initial boot-up message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull out the initial boot-up message
     assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
     communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "mantarray_naming"
@@ -155,20 +149,14 @@ def test_send_single_start_calibration_command__gets_processed_and_sets_system_s
         timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
     )
 
-    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        0
-    )
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
-        0
+    comm_from_ok_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
     )
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull out the initial boot-up message
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull initialize board response message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull out the initial boot-up message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull initialize board response message
 
     assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
 
@@ -211,34 +199,22 @@ def test_send_single_initialize_board_command_with_bit_file__gets_processed(
     assert response.status_code == 200
 
     test_process_manager.soft_stop_processes()
-    confirm_parallelism_is_stopped(
-        ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
-    )
-    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        board_idx
-    )
+    confirm_parallelism_is_stopped(ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(board_idx)
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
-        board_idx
+    comm_from_ok_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(board_idx)
     )
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull out the initial boot-up message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull out the initial boot-up message
 
     assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
-    initialize_board_communication = comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )
+    initialize_board_communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert initialize_board_communication["command"] == "initialize_board"
     assert initialize_board_communication["bit_file_name"] == expected_bit_file_name
     assert initialize_board_communication["allow_board_reinitialization"] is False
-    get_status_communication = comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )
-    assert (
-        get_status_communication["response"]["bit_file_name"] == expected_bit_file_name
-    )
+    get_status_communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert get_status_communication["response"]["bit_file_name"] == expected_bit_file_name
 
     # clean up
     test_process_manager.hard_stop_and_join_processes()
@@ -269,28 +245,20 @@ def test_send_single_initialize_board_command_without_bit_file__gets_processed(
         timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
     )
 
-    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        board_idx
-    )
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(board_idx)
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
-        board_idx
+    comm_from_ok_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(board_idx)
     )
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull out the initial boot-up message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull out the initial boot-up message
 
     assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
-    initialize_board_communication = comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )
+    initialize_board_communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert initialize_board_communication["command"] == "initialize_board"
     assert initialize_board_communication["bit_file_name"] is None
     assert initialize_board_communication["allow_board_reinitialization"] is False
-    get_status_communication = comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )
+    get_status_communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert get_status_communication["response"]["bit_file_name"] is None
 
     # clean up
@@ -328,40 +296,28 @@ def test_send_single_initialize_board_command_with_reinitialization__gets_proces
         timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
     )
 
-    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        board_idx
-    )
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(board_idx)
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
-        board_idx
+    comm_from_ok_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(board_idx)
     )
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull out the initial boot-up message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull out the initial boot-up message
 
     assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
-    initialize_board_communication = comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )
+    initialize_board_communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert initialize_board_communication["command"] == "initialize_board"
     assert initialize_board_communication["bit_file_name"] == expected_bit_file_name
     assert initialize_board_communication["allow_board_reinitialization"] is True
-    get_status_communication = comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )
-    assert (
-        get_status_communication["response"]["bit_file_name"] == expected_bit_file_name
-    )
+    get_status_communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert get_status_communication["response"]["bit_file_name"] == expected_bit_file_name
 
     # clean up
     test_process_manager.hard_stop_and_join_processes()
 
 
 @pytest.mark.slow
-def test_send_single_activate_trigger_in_command__gets_processed(
-    test_process_manager, test_client
-):
+def test_send_single_activate_trigger_in_command__gets_processed(test_process_manager, test_client):
     expected_ep_addr = 10
     expected_bit = 0x00000001
 
@@ -384,17 +340,13 @@ def test_send_single_activate_trigger_in_command__gets_processed(
         timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
     )
 
-    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        0
-    )
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
-        0
+    comm_from_ok_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
     )
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull out the initial boot-up message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull out the initial boot-up message
 
     assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
 
@@ -408,9 +360,7 @@ def test_send_single_activate_trigger_in_command__gets_processed(
 
 
 @pytest.mark.slow
-def test_send_single_comm_delay_command__gets_processed(
-    test_process_manager, test_client
-):
+def test_send_single_comm_delay_command__gets_processed(test_process_manager, test_client):
     expected_num_millis = 100
 
     test_process_manager.start_processes()
@@ -426,38 +376,28 @@ def test_send_single_comm_delay_command__gets_processed(
         timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
     )
 
-    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        0
-    )
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
-        0
+    comm_from_ok_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
     )
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull out the initial boot-up message
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull out the board connection message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull out the initial boot-up message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull out the board connection message
 
     assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
 
     communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "comm_delay"
     assert communication["num_milliseconds"] == expected_num_millis
-    assert (
-        communication["response"] == f"Delayed for {expected_num_millis} milliseconds"
-    )
+    assert communication["response"] == f"Delayed for {expected_num_millis} milliseconds"
 
     # clean up
     test_process_manager.hard_stop_and_join_processes()
 
 
 @pytest.mark.slow
-def test_send_single_get_num_words_fifo_command__gets_processed(
-    test_process_manager, test_client
-):
+def test_send_single_get_num_words_fifo_command__gets_processed(test_process_manager, test_client):
     expected_num_words = DATA_FRAME_SIZE_WORDS * DATA_FRAMES_PER_ROUND_ROBIN
     test_bytearray = bytearray(expected_num_words * 4)
     fifo = Queue()
@@ -475,20 +415,14 @@ def test_send_single_get_num_words_fifo_command__gets_processed(
     assert response.status_code == 200
 
     test_process_manager.soft_stop_processes()
-    confirm_parallelism_is_stopped(
-        ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
-    )
-    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        0
-    )
+    confirm_parallelism_is_stopped(ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
-        0
+    comm_from_ok_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
     )
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull out the initial boot-up message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull out the initial boot-up message
 
     assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
     communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -501,9 +435,7 @@ def test_send_single_get_num_words_fifo_command__gets_processed(
 
 
 @pytest.mark.slow
-def test_send_single_set_device_id_command__gets_processed(
-    test_process_manager, test_client
-):
+def test_send_single_set_device_id_command__gets_processed(test_process_manager, test_client):
     test_id = "Mantarray XEM"
     simulator = FrontPanelSimulator({})
 
@@ -512,27 +444,19 @@ def test_send_single_set_device_id_command__gets_processed(
 
     test_process_manager.start_processes()
 
-    response = test_client.get(
-        f"/insert_xem_command_into_queue/set_device_id?new_id={test_id}"
-    )
+    response = test_client.get(f"/insert_xem_command_into_queue/set_device_id?new_id={test_id}")
     assert response.status_code == 200
 
     test_process_manager.soft_stop_processes()
-    confirm_parallelism_is_stopped(
-        ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
-    )
+    confirm_parallelism_is_stopped(ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 
-    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        0
-    )
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
-        0
+    comm_from_ok_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
     )
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull out the initial boot-up message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull out the initial boot-up message
 
     assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
 
@@ -545,9 +469,7 @@ def test_send_single_set_device_id_command__gets_processed(
 
 
 @pytest.mark.slow
-def test_send_single_stop_acquisition_command__gets_processed(
-    test_process_manager, test_client
-):
+def test_send_single_stop_acquisition_command__gets_processed(test_process_manager, test_client):
     simulator = FrontPanelSimulator({})
     simulator.initialize_board()
     simulator.start_acquisition()
@@ -567,26 +489,18 @@ def test_send_single_stop_acquisition_command__gets_processed(
         timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
     )
 
-    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        0
-    )
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
-        0
+    comm_from_ok_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
     )
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull out the initial boot-up message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull out the initial boot-up message
 
     assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
-    stop_acquisition_communication = comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )
+    stop_acquisition_communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert stop_acquisition_communication["command"] == "stop_acquisition"
-    get_status_communication = comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )
+    get_status_communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert get_status_communication["response"]["is_spi_running"] is False
 
     # clean up
@@ -594,9 +508,7 @@ def test_send_single_stop_acquisition_command__gets_processed(
 
 
 @pytest.mark.slow
-def test_send_single_start_acquisition_command__gets_processed(
-    test_process_manager, test_client
-):
+def test_send_single_start_acquisition_command__gets_processed(test_process_manager, test_client):
     simulator = FrontPanelSimulator({})
     simulator.initialize_board()
     ok_process = test_process_manager.get_instrument_process()
@@ -610,30 +522,20 @@ def test_send_single_start_acquisition_command__gets_processed(
     assert response.status_code == 200
 
     test_process_manager.soft_stop_processes()
-    confirm_parallelism_is_stopped(
-        ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
-    )
+    confirm_parallelism_is_stopped(ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 
-    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        0
-    )
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
-        0
+    comm_from_ok_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
     )
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull out the initial boot-up message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull out the initial boot-up message
     assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
-    start_acquisition_communication = comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )
+    start_acquisition_communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
     assert start_acquisition_communication["command"] == "start_acquisition"
-    get_status_communication = comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )
+    get_status_communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert get_status_communication["response"]["is_spi_running"] is True
 
     # clean up
@@ -641,9 +543,7 @@ def test_send_single_start_acquisition_command__gets_processed(
 
 
 @pytest.mark.slow
-def test_send_single_get_serial_number_command__gets_processed(
-    test_process_manager, test_client
-):
+def test_send_single_get_serial_number_command__gets_processed(test_process_manager, test_client):
     simulator = FrontPanelSimulator({})
 
     ok_process = test_process_manager.get_instrument_process()
@@ -655,20 +555,14 @@ def test_send_single_get_serial_number_command__gets_processed(
     assert response.status_code == 200
 
     test_process_manager.soft_stop_processes()
-    confirm_parallelism_is_stopped(
-        ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
-    )
-    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        0
-    )
+    confirm_parallelism_is_stopped(ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
-        0
+    comm_from_ok_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
     )
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull out the initial boot-up message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull out the initial boot-up message
 
     assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
     communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -680,9 +574,7 @@ def test_send_single_get_serial_number_command__gets_processed(
 
 
 @pytest.mark.slow
-def test_send_single_get_device_id_command__gets_processed(
-    test_process_manager, test_client
-):
+def test_send_single_get_device_id_command__gets_processed(test_process_manager, test_client):
     simulator = FrontPanelSimulator({})
     expected_id = "Mantarray XEM"
     simulator.set_device_id(expected_id)
@@ -701,17 +593,13 @@ def test_send_single_get_device_id_command__gets_processed(
         timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
     )
 
-    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        0
-    )
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
-        0
+    comm_from_ok_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
     )
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull out the initial boot-up message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull out the initial boot-up message
 
     assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
     communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -724,9 +612,7 @@ def test_send_single_get_device_id_command__gets_processed(
 
 @pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 @pytest.mark.slow
-def test_send_single_is_spi_running_command__gets_processed(
-    test_process_manager, test_client
-):
+def test_send_single_is_spi_running_command__gets_processed(test_process_manager, test_client):
     simulator = FrontPanelSimulator({})
     simulator.initialize_board()
     ok_process = test_process_manager.get_instrument_process()
@@ -738,22 +624,16 @@ def test_send_single_is_spi_running_command__gets_processed(
     assert response.status_code == 200
 
     test_process_manager.soft_stop_processes()
-    confirm_parallelism_is_stopped(
-        ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
-    )
+    confirm_parallelism_is_stopped(ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 
-    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        0
-    )
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
 
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
-        0
+    comm_from_ok_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
     )
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull out the initial boot-up message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull out the initial boot-up message
     assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
 
     communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -784,9 +664,7 @@ def test_read_from_fifo_command__is_received_by_ok_comm__with_correct_num_words_
     simulator.start_acquisition()
     ok_process = test_process_manager.get_instrument_process()
     ok_process.set_board_connection(0, simulator)
-    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        0
-    )
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
 
     response = test_client.get(
         f"/insert_xem_command_into_queue/read_from_fifo?num_words_to_log={test_num_words_to_log}"
@@ -800,8 +678,8 @@ def test_read_from_fifo_command__is_received_by_ok_comm__with_correct_num_words_
 
     confirm_queue_is_eventually_empty(comm_queue)
 
-    instrument_comm_to_main = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
-        0
+    instrument_comm_to_main = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
     )
     assert is_queue_eventually_not_empty(instrument_comm_to_main) is True
 
@@ -837,21 +715,15 @@ def test_send_single_read_from_fifo_command__gets_processed_with_correct_num_wor
     assert response.status_code == 200
 
     test_process_manager.soft_stop_processes()
-    confirm_parallelism_is_stopped(
-        ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
-    )
+    confirm_parallelism_is_stopped(ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 
-    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        0
-    )
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
-        0
+    comm_from_ok_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
     )
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull out the initial boot-up message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull out the initial boot-up message
 
     total_num_words = len(test_bytearray) // 4
     test_words = struct.unpack(f"<{total_num_words}L", test_bytearray)
@@ -870,9 +742,7 @@ def test_send_single_read_from_fifo_command__gets_processed_with_correct_num_wor
 
 @pytest.mark.slow
 @pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
-def test_send_single_set_wire_in_command__gets_processed(
-    test_process_manager, test_client
-):
+def test_send_single_set_wire_in_command__gets_processed(test_process_manager, test_client):
     expected_ep_addr = 6
     expected_value = 0x00000011
     expected_mask = 0x00000011
@@ -891,20 +761,14 @@ def test_send_single_set_wire_in_command__gets_processed(
     assert response.status_code == 200
 
     test_process_manager.soft_stop_processes()
-    confirm_parallelism_is_stopped(
-        ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
-    )
-    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        0
-    )
+    confirm_parallelism_is_stopped(ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
-        0
+    comm_from_ok_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
     )
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull out the initial boot-up message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull out the initial boot-up message
 
     assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
 
@@ -932,27 +796,17 @@ def test_send_xem_scripts_command__gets_processed(
     assert response.status_code == 200
 
     test_process_manager.soft_stop_processes()
-    confirm_parallelism_is_stopped(
-        ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
-    )
+    confirm_parallelism_is_stopped(ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 
-    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        0
-    )
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
-        0
+    comm_from_ok_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
     )
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull out the initial boot-up message
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull ok_comm connect to board message
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull initialize board response message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull out the initial boot-up message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull ok_comm connect to board message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull initialize board response message
 
     assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
 
@@ -973,9 +827,7 @@ def test_send_xem_scripts_command__gets_processed(
 
 
 @pytest.mark.slow
-def test_send_single_read_wire_out_command__gets_processed(
-    test_process_manager, test_client
-):
+def test_send_single_read_wire_out_command__gets_processed(test_process_manager, test_client):
     board_idx = 0
     expected_ep_addr = 7
     wire_queue = Queue()
@@ -989,28 +841,20 @@ def test_send_single_read_wire_out_command__gets_processed(
 
     test_process_manager.start_processes()
 
-    test_route = (
-        f"/insert_xem_command_into_queue/read_wire_out?ep_addr={expected_ep_addr}"
-    )
+    test_route = f"/insert_xem_command_into_queue/read_wire_out?ep_addr={expected_ep_addr}"
     response = test_client.get(test_route)
     assert response.status_code == 200
 
     test_process_manager.soft_stop_processes()
-    confirm_parallelism_is_stopped(
-        ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
-    )
+    confirm_parallelism_is_stopped(ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 
-    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        board_idx
-    )
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(board_idx)
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
-        board_idx
+    comm_from_ok_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(board_idx)
     )
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull out the initial boot-up message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull out the initial boot-up message
 
     assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
     communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -1024,9 +868,7 @@ def test_send_single_read_wire_out_command__gets_processed(
 
 
 @pytest.mark.slow
-def test_send_single_stop_managed_acquisition_command__gets_processed(
-    test_process_manager, test_client
-):
+def test_send_single_stop_managed_acquisition_command__gets_processed(test_process_manager, test_client):
     simulator = FrontPanelSimulator({})
     simulator.initialize_board()
     simulator.start_acquisition()
@@ -1040,9 +882,7 @@ def test_send_single_stop_managed_acquisition_command__gets_processed(
     assert response.status_code == 200
 
     test_process_manager.soft_stop_processes()
-    confirm_parallelism_is_stopped(
-        ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
-    )
+    confirm_parallelism_is_stopped(ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
     confirm_parallelism_is_stopped(
         test_process_manager.get_file_writer_process(),
         timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
@@ -1052,8 +892,8 @@ def test_send_single_stop_managed_acquisition_command__gets_processed(
         timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
     )
 
-    to_instrument_comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        0
+    to_instrument_comm_queue = (
+        test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     )
     confirm_queue_is_eventually_empty(to_instrument_comm_queue)
 
@@ -1062,17 +902,13 @@ def test_send_single_stop_managed_acquisition_command__gets_processed(
     )
     confirm_queue_is_eventually_empty(to_file_writer_queue)
 
-    to_da_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
-    )
+    to_da_queue = test_process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
     confirm_queue_is_eventually_empty(to_da_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
-        0
+    comm_from_ok_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
     )
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull out the initial boot-up message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull out the initial boot-up message
     assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
     communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "stop_managed_acquisition"
@@ -1119,20 +955,14 @@ def test_send_single_set_mantarray_serial_number_command__gets_processed_and_sto
 
     assert shared_values_dict["mantarray_serial_number"][0] == expected_serial_number
 
-    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        0
-    )
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
-        0
+    comm_from_ok_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
     )
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull out the initial boot-up message
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull ok_comm connect to board message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull out the initial boot-up message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull ok_comm connect to board message
 
     assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
     communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -1164,15 +994,11 @@ def test_send_single_boot_up_command__gets_processed_and_sets_system_status_to_i
     response = test_client.get("/boot_up")
     assert response.status_code == 200
 
-    server_to_main = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    server_to_main = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     confirm_queue_is_eventually_of_size(server_to_main, 1)
 
     instrument_process = test_process_manager.get_instrument_process()
-    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        0
-    )
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     instrument_process.pause()  # pause so that it can be confirmed that an item gets put into the Instrument Process' queue
     invoke_process_run_and_check_errors(monitor_thread)
     assert is_queue_eventually_not_empty(comm_queue) is True
@@ -1187,20 +1013,14 @@ def test_send_single_boot_up_command__gets_processed_and_sets_system_status_to_i
     )
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
-        0
+    comm_from_ok_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
     )
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull out the initial boot-up message
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull ok_comm connect to board message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull out the initial boot-up message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull ok_comm connect to board message
 
     assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
-    initialize_board_communication = comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )
+    initialize_board_communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert initialize_board_communication["command"] == "initialize_board"
     assert expected_bit_file_name in initialize_board_communication["bit_file_name"]
     assert initialize_board_communication["allow_board_reinitialization"] is False
@@ -1222,9 +1042,7 @@ def test_send_single_boot_up_command__populates_ok_comm_error_queue_if_bit_file_
 ):
     monitor_thread, _, _, _ = test_monitor
 
-    mocker.patch.object(
-        process_manager, "get_latest_firmware", autospec=True, return_value="fake.bit"
-    )
+    mocker.patch.object(process_manager, "get_latest_firmware", autospec=True, return_value="fake.bit")
 
     test_process_manager.start_processes()
     response = test_client.get("/boot_up")
@@ -1232,9 +1050,7 @@ def test_send_single_boot_up_command__populates_ok_comm_error_queue_if_bit_file_
     invoke_process_run_and_check_errors(monitor_thread)
     shared_values_dict = test_process_manager.get_values_to_share_to_server()
     assert shared_values_dict["system_status"] == INSTRUMENT_INITIALIZING_STATE
-    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        0
-    )
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
 
     test_process_manager.soft_stop_processes()
@@ -1244,9 +1060,7 @@ def test_send_single_boot_up_command__populates_ok_comm_error_queue_if_bit_file_
     )
     assert is_queue_eventually_not_empty(comm_queue) is True
 
-    ok_comm_error_queue = (
-        test_process_manager.queue_container().get_instrument_communication_error_queue()
-    )
+    ok_comm_error_queue = test_process_manager.queue_container().get_instrument_communication_error_queue()
     assert is_queue_eventually_not_empty(ok_comm_error_queue) is True
 
     error_info = ok_comm_error_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -1254,18 +1068,12 @@ def test_send_single_boot_up_command__populates_ok_comm_error_queue_if_bit_file_
     assert isinstance(actual_exception, OpalKellyFileNotFoundError) is True
     assert "fake.bit" in str(actual_exception)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
-        0
+    comm_from_ok_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
     )
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull out the initial boot-up message
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull ok_comm connect to board message
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull ok_comm teardown message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull out the initial boot-up message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull ok_comm connect to board message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull ok_comm teardown message
     confirm_queue_is_eventually_empty(comm_from_ok_queue)
 
     # clean up
@@ -1290,12 +1098,8 @@ def test_send_single_start_managed_acquisition_command__sets_system_status_to_bu
     ok_process.set_board_connection(0, simulator)
 
     dummy_data = {"well_index": 0, "data": [[0, 1], [100, 200]]}
-    outgoing_data_queue = (
-        test_process_manager.queue_container().get_data_analyzer_data_out_queue()
-    )
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        dummy_data, outgoing_data_queue
-    )
+    outgoing_data_queue = test_process_manager.queue_container().get_data_analyzer_data_out_queue()
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(dummy_data, outgoing_data_queue)
 
     test_process_manager.start_processes()
 
@@ -1316,29 +1120,21 @@ def test_send_single_start_managed_acquisition_command__sets_system_status_to_bu
         timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
     )
 
-    instrument_error_queue = (
-        test_process_manager.queue_container().get_instrument_communication_error_queue()
-    )
+    instrument_error_queue = test_process_manager.queue_container().get_instrument_communication_error_queue()
     confirm_queue_is_eventually_empty(instrument_error_queue)
 
-    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        0
-    )
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     confirm_queue_is_eventually_empty(comm_queue)
 
-    to_da_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
-    )
+    to_da_queue = test_process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
     confirm_queue_is_eventually_empty(to_da_queue)
 
     confirm_queue_is_eventually_empty(outgoing_data_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
-        0
+    comm_from_ok_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
     )
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull out the initial boot-up message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull out the initial boot-up message
     assert_queue_is_eventually_not_empty(
         comm_from_ok_queue
     )  # Eli (11/12/20): specifically using "not empty" instead of checking an exact size, because after calling soft_stop a variety of teardown messages get put into the queue
@@ -1382,26 +1178,13 @@ def test_update_settings__stores_values_in_shared_values_dict__and_recordings_fo
         assert response.status_code == 200
         invoke_process_run_and_check_errors(monitor_thread)
 
-        assert (
-            shared_values_dict["config_settings"]["Customer Account ID"]
-            == expected_customer_uuid
-        )
-        assert (
-            shared_values_dict["config_settings"]["Recording Directory"]
-            == expected_recordings_dir
-        )
-        assert (
-            shared_values_dict["config_settings"]["User Account ID"]
-            == expected_user_uuid
-        )
+        assert shared_values_dict["config_settings"]["Customer Account ID"] == expected_customer_uuid
+        assert shared_values_dict["config_settings"]["Recording Directory"] == expected_recordings_dir
+        assert shared_values_dict["config_settings"]["User Account ID"] == expected_user_uuid
         assert test_process_manager.get_file_directory() == expected_recordings_dir
 
-        scrubbed_recordings_dir = redact_sensitive_info_from_path(
-            expected_recordings_dir
-        )
-        spied_utils_logger.assert_any_call(
-            f"Using directory for recording files: {scrubbed_recordings_dir}"
-        )
+        scrubbed_recordings_dir = redact_sensitive_info_from_path(expected_recordings_dir)
+        spied_utils_logger.assert_any_call(f"Using directory for recording files: {scrubbed_recordings_dir}")
 
     queue_from_main_to_file_writer = (
         test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
@@ -1424,12 +1207,8 @@ def test_update_settings__replaces_curi_with_default_account_uuids(
 
     invoke_process_run_and_check_errors(monitor_thread)
 
-    assert shared_values_dict["config_settings"]["Customer Account ID"] == str(
-        CURI_BIO_ACCOUNT_UUID
-    )
-    assert shared_values_dict["config_settings"]["User Account ID"] == str(
-        CURI_BIO_USER_ACCOUNT_ID
-    )
+    assert shared_values_dict["config_settings"]["Customer Account ID"] == str(CURI_BIO_ACCOUNT_UUID)
+    assert shared_values_dict["config_settings"]["User Account ID"] == str(CURI_BIO_USER_ACCOUNT_ID)
 
 
 def test_update_settings__replaces_only_new_values_in_shared_values_dict(
@@ -1444,18 +1223,11 @@ def test_update_settings__replaces_only_new_values_in_shared_values_dict(
         "Customer Account ID": "2dc06596-9cea-46a2-9ddd-a0d8a0f13584",
         "User Account ID": expected_user_uuid,
     }
-    response = test_client.get(
-        f"/update_settings?customer_account_uuid={expected_customer_uuid}"
-    )
+    response = test_client.get(f"/update_settings?customer_account_uuid={expected_customer_uuid}")
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
-    assert (
-        shared_values_dict["config_settings"]["Customer Account ID"]
-        == expected_customer_uuid
-    )
-    assert (
-        shared_values_dict["config_settings"]["User Account ID"] == expected_user_uuid
-    )
+    assert shared_values_dict["config_settings"]["Customer Account ID"] == expected_customer_uuid
+    assert shared_values_dict["config_settings"]["User Account ID"] == expected_user_uuid
 
 
 @pytest.mark.slow
@@ -1466,9 +1238,7 @@ def test_single_update_settings_command_with_recording_dir__gets_processed_by_Fi
 
     test_process_manager.start_processes()
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
-        response = test_client.get(
-            f"/update_settings?recording_directory={expected_recordings_dir}"
-        )
+        response = test_client.get(f"/update_settings?recording_directory={expected_recordings_dir}")
         assert response.status_code == 200
         invoke_process_run_and_check_errors(monitor_thread)
         test_process_manager.soft_stop_processes()
@@ -1503,9 +1273,7 @@ def test_stop_recording_command__sets_system_status_to_live_view_active(
     expected_acquisition_timestamp = datetime.datetime(
         year=2020, month=6, day=2, hour=17, minute=9, second=22, microsecond=362490
     )
-    shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [
-        expected_acquisition_timestamp
-    ]
+    shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [expected_acquisition_timestamp]
 
     response = test_client.get("/stop_recording")
     assert response.status_code == 200
@@ -1531,14 +1299,10 @@ def test_stop_recording_command__is_received_by_file_writer__with_given_time_ind
     expected_acquisition_timestamp = datetime.datetime(
         year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332597
     )
-    shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [
-        expected_acquisition_timestamp
-    ]
+    shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [expected_acquisition_timestamp]
 
     expected_time_index = 1000
-    comm_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
-    )
+    comm_queue = test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
     response = test_client.get(f"/stop_recording?time_index={expected_time_index}")
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
@@ -1571,14 +1335,10 @@ def test_start_recording__returns_error_code_and_message_if_called_with_is_hardw
 ):
     monitor_thread, _, _, _ = test_monitor
 
-    response = test_client.get(
-        "/start_recording?barcode=MA200440001&is_hardware_test_recording=True"
-    )
+    response = test_client.get("/start_recording?barcode=MA200440001&is_hardware_test_recording=True")
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
-    response = test_client.get(
-        "/start_recording?barcode=MA200440001&is_hardware_test_recording=False"
-    )
+    response = test_client.get("/start_recording?barcode=MA200440001&is_hardware_test_recording=False")
     assert response.status_code == 403
     assert (
         response.status.endswith(
@@ -1607,9 +1367,7 @@ def test_start_recording_command__gets_processed_with_given_time_index_parameter
         GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
             UTC_BEGINNING_DATA_ACQUISTION_UUID
         ]
-        + datetime.timedelta(
-            seconds=(expected_time_index / CENTIMILLISECONDS_PER_SECOND)
-        )
+        + datetime.timedelta(seconds=(expected_time_index / CENTIMILLISECONDS_PER_SECOND))
     ).strftime("%Y_%m_%d_%H%M%S")
     generic_start_recording_info_in_shared_dict[  # pylint: disable=duplicate-code
         "utc_timestamps_of_beginning_of_data_acquisition"
@@ -1621,21 +1379,16 @@ def test_start_recording_command__gets_processed_with_given_time_index_parameter
 
     test_process_manager.start_processes()
 
-    expected_barcode = GENERIC_START_RECORDING_COMMAND[
-        "metadata_to_copy_onto_main_file_attributes"
-    ][PLATE_BARCODE_UUID]
+    expected_barcode = GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+        PLATE_BARCODE_UUID
+    ]
     response = test_client.get(
         f"/start_recording?barcode={expected_barcode}&active_well_indices=3&time_index={expected_time_index}"
     )
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
-    assert (
-        generic_start_recording_info_in_shared_dict["system_status"] == RECORDING_STATE
-    )
-    assert (
-        generic_start_recording_info_in_shared_dict["is_hardware_test_recording"]
-        is True
-    )
+    assert generic_start_recording_info_in_shared_dict["system_status"] == RECORDING_STATE
+    assert generic_start_recording_info_in_shared_dict["is_hardware_test_recording"] is True
 
     test_process_manager.soft_stop_processes()
     confirm_parallelism_is_stopped(
@@ -1648,9 +1401,7 @@ def test_start_recording_command__gets_processed_with_given_time_index_parameter
     confirm_queue_is_eventually_empty(error_queue)
 
     file_dir = test_process_manager.get_file_writer_process().get_file_directory()
-    actual_files = os.listdir(
-        os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}")
-    )
+    actual_files = os.listdir(os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}"))
     assert actual_files == [f"{expected_barcode}__{timestamp_str}__D1.h5"]
 
     # clean up
@@ -1692,21 +1443,16 @@ def test_start_recording_command__gets_processed__and_creates_a_file__and_update
 
     test_process_manager.start_processes()
 
-    expected_barcode = GENERIC_START_RECORDING_COMMAND[
-        "metadata_to_copy_onto_main_file_attributes"
-    ][PLATE_BARCODE_UUID]
+    expected_barcode = GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+        PLATE_BARCODE_UUID
+    ]
     response = test_client.get(
         f"/start_recording?barcode={expected_barcode}&active_well_indices=3&is_hardware_test_recording=False"
     )
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
-    assert (
-        generic_start_recording_info_in_shared_dict["system_status"] == RECORDING_STATE
-    )
-    assert (
-        generic_start_recording_info_in_shared_dict["is_hardware_test_recording"]
-        is False
-    )
+    assert generic_start_recording_info_in_shared_dict["system_status"] == RECORDING_STATE
+    assert generic_start_recording_info_in_shared_dict["is_hardware_test_recording"] is False
 
     test_process_manager.soft_stop_processes()
     confirm_parallelism_is_stopped(
@@ -1719,9 +1465,7 @@ def test_start_recording_command__gets_processed__and_creates_a_file__and_update
     confirm_queue_is_eventually_empty(error_queue)
 
     file_dir = test_process_manager.get_file_writer_process().get_file_directory()
-    actual_files = os.listdir(
-        os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}")
-    )
+    actual_files = os.listdir(os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}"))
     assert actual_files == [f"{expected_barcode}__2020_02_09_190935__D1.h5"]
 
     # clean up
@@ -1729,9 +1473,7 @@ def test_start_recording_command__gets_processed__and_creates_a_file__and_update
 
 
 @pytest.mark.slow
-def test_send_single_get_status_command__gets_processed(
-    test_process_manager, test_client
-):
+def test_send_single_get_status_command__gets_processed(test_process_manager, test_client):
     expected_response = {
         "is_spi_running": False,
         "is_board_initialized": False,
@@ -1748,20 +1490,14 @@ def test_send_single_get_status_command__gets_processed(
     assert response.status_code == 200
 
     test_process_manager.soft_stop_processes()
-    confirm_parallelism_is_stopped(
-        ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
-    )
-    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        0
-    )
+    confirm_parallelism_is_stopped(ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
+    comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     confirm_queue_is_eventually_empty(comm_queue)
 
-    comm_from_ok_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
-        0
+    comm_from_ok_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
     )
-    comm_from_ok_queue.get(
-        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pull out the initial boot-up message
+    comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pull out the initial boot-up message
 
     assert is_queue_eventually_not_empty(comm_from_ok_queue) is True
     communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -1838,9 +1574,7 @@ def test_after_request__redacts_mantarray_nicknames_from_system_status_log_messa
     expected_redaction_1 = "*" * len(expected_nickname_1)
     expected_redaction_2 = "*" * len(expected_nickname_2)
     expected_logged_dict = {"0": expected_redaction_1, "1": expected_redaction_2}
-    logged_json = convert_after_request_log_msg_to_json(
-        spied_server_logger.call_args_list[0][0][0]
-    )
+    logged_json = convert_after_request_log_msg_to_json(spied_server_logger.call_args_list[0][0][0])
     assert logged_json["mantarray_nickname"] == expected_logged_dict
 
 
@@ -1858,9 +1592,7 @@ def test_after_request__redacts_mantarray_nickname_from_set_mantarray_nickname_l
     assert response_json["mantarray_nickname"] == expected_nickname
 
     expected_redaction = "*" * len(expected_nickname)
-    logged_json = convert_after_request_log_msg_to_json(
-        spied_server_logger.call_args_list[0][0][0]
-    )
+    logged_json = convert_after_request_log_msg_to_json(spied_server_logger.call_args_list[0][0][0])
     assert logged_json["mantarray_nickname"] == expected_redaction
 
 
@@ -1870,34 +1602,24 @@ def test_after_request__redacts_mantarray_nicknames_from_start_recording_log_mes
     board_idx = 0
     spied_server_logger = mocker.spy(server.logger, "info")
 
-    expected_nickname = generic_start_recording_info_in_shared_dict[
-        "mantarray_nickname"
-    ][board_idx]
+    expected_nickname = generic_start_recording_info_in_shared_dict["mantarray_nickname"][board_idx]
     response = test_client.get("/start_recording?barcode=MA200440001")
     assert response.status_code == 200
     response_json = response.get_json()
     assert (
-        response_json["metadata_to_copy_onto_main_file_attributes"][
-            str(MANTARRAY_NICKNAME_UUID)
-        ]
+        response_json["metadata_to_copy_onto_main_file_attributes"][str(MANTARRAY_NICKNAME_UUID)]
         == expected_nickname
     )
 
     expected_redaction = "*" * len(expected_nickname)
-    logged_json = convert_after_request_log_msg_to_json(
-        spied_server_logger.call_args_list[0][0][0]
-    )
+    logged_json = convert_after_request_log_msg_to_json(spied_server_logger.call_args_list[0][0][0])
     assert (
-        logged_json["metadata_to_copy_onto_main_file_attributes"][
-            str(MANTARRAY_NICKNAME_UUID)
-        ]
+        logged_json["metadata_to_copy_onto_main_file_attributes"][str(MANTARRAY_NICKNAME_UUID)]
         == expected_redaction
     )
 
 
-def test_server__redacts_nickname_parameter_from_set_mantarray_nickname_route(
-    running_server_thread, mocker
-):
+def test_server__redacts_nickname_parameter_from_set_mantarray_nickname_route(running_server_thread, mocker):
     # Tanner (1/27/21): calling this route so werkzeug will have to instantiate its logger to log the route called. An issue has occurred where werkzeug_internal._logger was still None when trying to spy it
     response = requests.get(f"{get_api_endpoint()}health_check")
     assert response.status_code == 200
@@ -1908,9 +1630,7 @@ def test_server__redacts_nickname_parameter_from_set_mantarray_nickname_route(
     )
 
     test_nickname = "Secret Mantarray Name"
-    response = requests.get(
-        f"{get_api_endpoint()}set_mantarray_nickname?nickname={test_nickname}"
-    )
+    response = requests.get(f"{get_api_endpoint()}set_mantarray_nickname?nickname={test_nickname}")
     assert response.status_code == 200
 
     redacted_nickname = "*" * len(test_nickname)

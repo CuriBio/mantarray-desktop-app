@@ -60,9 +60,7 @@ DEFAULT_USER_CONFIG = immutabledict(
         "User Account ID": "",
     }
 )
-VALID_CONFIG_SETTINGS = frozenset(
-    ["customer_account_uuid", "user_account_uuid", "recording_directory"]
-)
+VALID_CONFIG_SETTINGS = frozenset(["customer_account_uuid", "user_account_uuid", "recording_directory"])
 
 DATA_FRAME_PERIOD = 20  # in centimilliseconds
 ROUND_ROBIN_PERIOD = DATA_FRAME_PERIOD * DATA_FRAMES_PER_ROUND_ROBIN
@@ -79,9 +77,7 @@ FIFO_READ_PRODUCER_CYCLES_PER_ITERATION = (
 FIFO_READ_PRODUCER_SLEEP_DURATION = (
     FIFO_READ_PRODUCER_CYCLES_PER_ITERATION * ROUND_ROBIN_PERIOD
 ) / CENTIMILLISECONDS_PER_SECOND
-FIFO_READ_PRODUCER_SAWTOOTH_PERIOD = (
-    CENTIMILLISECONDS_PER_SECOND // TIMESTEP_CONVERSION_FACTOR
-) / (
+FIFO_READ_PRODUCER_SAWTOOTH_PERIOD = (CENTIMILLISECONDS_PER_SECOND // TIMESTEP_CONVERSION_FACTOR) / (
     2 * np.pi
 )  # in board timesteps (1/5 of a centimillisecond)
 FIFO_READ_PRODUCER_DATA_OFFSET = 0x800000
@@ -117,9 +113,7 @@ VALID_SCRIPTING_COMMANDS = frozenset(
         "start_calibration",
     ]
 )
-ADC_GAIN_DESCRIPTION_TAG = (
-    "adc_gain_setting"  # specifically used for parsing gain value from xem_scripts
-)
+ADC_GAIN_DESCRIPTION_TAG = "adc_gain_setting"  # specifically used for parsing gain value from xem_scripts
 ADC_OFFSET_DESCRIPTION_TAG = (
     "adc_offset_reading"  # specifically used for parsing offset values from xem_scripts
 )
@@ -216,9 +210,7 @@ SYSTEM_STATUS_UUIDS = immutabledict(
     {
         SERVER_INITIALIZING_STATE: uuid.UUID("04471bcf-1a00-4a0d-83c8-4160622f9a25"),
         SERVER_READY_STATE: uuid.UUID("8e24ef4d-2353-4e9d-aa32-4346126e73e3"),
-        INSTRUMENT_INITIALIZING_STATE: uuid.UUID(
-            "d2e3d386-b760-4c9a-8b2d-410362ff11c4"
-        ),
+        INSTRUMENT_INITIALIZING_STATE: uuid.UUID("d2e3d386-b760-4c9a-8b2d-410362ff11c4"),
         CALIBRATION_NEEDED_STATE: uuid.UUID("009301eb-625c-4dc4-9e92-1a4d0762465f"),
         CALIBRATING_STATE: uuid.UUID("43c08fc5-ca2f-4dcd-9dff-5e9324cb5dbf"),
         CALIBRATED_STATE: uuid.UUID("b480373b-9466-4fa0-92a6-fa5f8e340d30"),
@@ -240,9 +232,7 @@ MAX_MC_REBOOT_DURATION_SECONDS = 5
 
 SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES = 3
 
-SERIAL_COMM_TIMESTAMP_EPOCH = datetime.datetime(
-    year=2021, month=1, day=1, tzinfo=datetime.timezone.utc
-)
+SERIAL_COMM_TIMESTAMP_EPOCH = datetime.datetime(year=2021, month=1, day=1, tzinfo=datetime.timezone.utc)
 
 SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS = 5
 SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS = 5
@@ -271,9 +261,7 @@ SERIAL_COMM_MAX_DATA_LENGTH_BYTES = (
 )
 SERIAL_COMM_MAX_TIMESTAMP_VALUE = 2 ** (8 * SERIAL_COMM_TIMESTAMP_LENGTH_BYTES) - 1
 
-SERIAL_COMM_TIMESTAMP_BYTES_INDEX = (
-    len(SERIAL_COMM_MAGIC_WORD_BYTES) + SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
-)
+SERIAL_COMM_TIMESTAMP_BYTES_INDEX = len(SERIAL_COMM_MAGIC_WORD_BYTES) + SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 SERIAL_COMM_MODULE_ID_INDEX = 18
 SERIAL_COMM_PACKET_TYPE_INDEX = 19
 SERIAL_COMM_ADDITIONAL_BYTES_INDEX = 20

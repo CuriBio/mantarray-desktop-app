@@ -65,35 +65,27 @@ __fixtures__ = [
         ),
     ],
 )
-def test_parse_scripting_log_line__correctly_parses_log_line(
-    test_log_line, expected_dict, test_description
-):
+def test_parse_scripting_log_line__correctly_parses_log_line(test_log_line, expected_dict, test_description):
     actual = parse_scripting_log_line(test_log_line)
     assert actual == expected_dict
 
 
 def test_parse_scripting_log_line__raises_error_if_line_contains_invalid_command():
     test_log_line = '[2020-03-31 23:50:32,641 UTC] werkzeug-{_internal.py:113} INFO - 127.0.0.1 - - [31/Mar/2020 16:50:32] " [37mGET /insert_xem_command_into_queue/fake_command?ep_addr=0x41 HTTP/1.1 [0m" 200 -'
-    with pytest.raises(
-        InvalidScriptCommandError, match="Invalid scripting command: 'fake_command'"
-    ):
+    with pytest.raises(InvalidScriptCommandError, match="Invalid scripting command: 'fake_command'"):
         parse_scripting_log_line(test_log_line)
 
 
 def test_parse_scripting_log__calls_resource_path_correctly(mocker):
     test_script = "test_script"
-    mocked_path_str = os.path.join(
-        "tests", "test_xem_scripts", f"xem_{test_script}.txt"
-    )
+    mocked_path_str = os.path.join("tests", "test_xem_scripts", f"xem_{test_script}.txt")
 
     def side_effect(*args, **kwargs):
         # Tanner (4/14/20): we want to truly call resource_path (not mocked), but need to patch it to get the return value needed for testing
         resource_path(*args, **kwargs)
         return mocked_path_str
 
-    mocked_path = mocker.patch.object(
-        ok_comm, "resource_path", autospec=True, side_effect=side_effect
-    )
+    mocked_path = mocker.patch.object(ok_comm, "resource_path", autospec=True, side_effect=side_effect)
 
     parse_scripting_log(test_script)
 
@@ -106,22 +98,14 @@ def test_parse_scripting_log__calls_resource_path_correctly(mocker):
             os.pardir,
         )
     )
-    expected_relative_path = os.path.join(
-        "src", "xem_scripts", f"xem_{test_script}.txt"
-    )
-    mocked_path.assert_called_once_with(
-        expected_relative_path, base_path=expected_base_path
-    )
+    expected_relative_path = os.path.join("src", "xem_scripts", f"xem_{test_script}.txt")
+    mocked_path.assert_called_once_with(expected_relative_path, base_path=expected_base_path)
 
 
 def test_parse_scripting_log__raises_error_if_script_types_dont_match(mocker):
     test_script = "test_error"
-    mocked_path_str = os.path.join(
-        "tests", "test_xem_scripts", f"xem_{test_script}.txt"
-    )
-    mocker.patch.object(
-        ok_comm, "resource_path", autospec=True, return_value=mocked_path_str
-    )
+    mocked_path_str = os.path.join("tests", "test_xem_scripts", f"xem_{test_script}.txt")
+    mocker.patch.object(ok_comm, "resource_path", autospec=True, return_value=mocked_path_str)
     with pytest.raises(
         MismatchedScriptTypeError,
         match=f"Script type in log: 'test_script' does not match file name: '{test_script}'",
@@ -133,12 +117,8 @@ def test_parse_scripting_log__raises_error_if_script_does_not_contain_end_hardwa
     mocker,
 ):
     test_script = "test_no_end_hardware"
-    mocked_path_str = os.path.join(
-        "tests", "test_xem_scripts", f"xem_{test_script}.txt"
-    )
-    mocker.patch.object(
-        ok_comm, "resource_path", autospec=True, return_value=mocked_path_str
-    )
+    mocked_path_str = os.path.join("tests", "test_xem_scripts", f"xem_{test_script}.txt")
+    mocker.patch.object(ok_comm, "resource_path", autospec=True, return_value=mocked_path_str)
     with pytest.raises(ScriptDoesNotContainEndCommandError):
         parse_scripting_log(test_script)
 
@@ -148,12 +128,8 @@ def test_parse_scripting_log__correctly_parses_and_returns_commands_from_xem_tes
 ):
     test_script = "test_script"
 
-    mocked_path_str = os.path.join(
-        "tests", "test_xem_scripts", f"xem_{test_script}.txt"
-    )
-    mocker.patch.object(
-        ok_comm, "resource_path", autospec=True, return_value=mocked_path_str
-    )
+    mocked_path_str = os.path.join("tests", "test_xem_scripts", f"xem_{test_script}.txt")
+    mocker.patch.object(ok_comm, "resource_path", autospec=True, return_value=mocked_path_str)
 
     expected_return_dict = dict()
     expected_return_dict["script_type"] = test_script
@@ -161,26 +137,20 @@ def test_parse_scripting_log__correctly_parses_and_returns_commands_from_xem_tes
 
     expected_command_list = list()
     expected_return_dict["command_list"] = expected_command_list
-    expected_command_list.append(
-        {"command": "set_wire_in", "ep_addr": 0, "value": 4, "mask": 4}
-    )
+    expected_command_list.append({"command": "set_wire_in", "ep_addr": 0, "value": 4, "mask": 4})
     expected_command_list.append({"command": "comm_delay", "num_milliseconds": 10})
     expected_command_list.append(
         {"command": "read_wire_out", "ep_addr": 35, "description": "test_description"}
     )
     expected_command_list.append({"command": "read_wire_out", "ep_addr": 36})
-    expected_command_list.append(
-        {"command": "activate_trigger_in", "ep_addr": 65, "bit": 2}
-    )
+    expected_command_list.append({"command": "activate_trigger_in", "ep_addr": 65, "bit": 2})
 
     actual = parse_scripting_log(test_script)
     assert actual == expected_return_dict
 
 
 def test_all_xem_scripts_are_present_and_parse_without_error():
-    script_dir = os.path.join(
-        get_current_file_abs_directory(), os.pardir, os.pardir, "src", "xem_scripts"
-    )
+    script_dir = os.path.join(get_current_file_abs_directory(), os.pardir, os.pardir, "src", "xem_scripts")
     script_list = list()
     for file in os.listdir(script_dir):
         if file.endswith(".txt"):
@@ -209,8 +179,7 @@ def test_real_start_up_script__contains_gain_value_description_tag():
     for adc_idx in range(6):
         for ch_idx in range(8):
             assert (
-                f"{ADC_GAIN_DESCRIPTION_TAG}__adc_index_{adc_idx}__channel_index_{ch_idx}"
-                in description_list
+                f"{ADC_GAIN_DESCRIPTION_TAG}__adc_index_{adc_idx}__channel_index_{ch_idx}" in description_list
             )
 
 
@@ -221,27 +190,19 @@ def test_gain_value_is_parsed_and_saved_when_running_start_up_script(
     simulator = RunningFIFOSimulator()
     simulator.initialize_board()
 
-    mocked_path_str = os.path.join(
-        "tests", "test_xem_scripts", f"xem_{test_script}.txt"
-    )
-    mocker.patch.object(
-        ok_comm, "resource_path", autospec=True, return_value=mocked_path_str
-    )
+    mocked_path_str = os.path.join("tests", "test_xem_scripts", f"xem_{test_script}.txt")
+    mocker.patch.object(ok_comm, "resource_path", autospec=True, return_value=mocked_path_str)
 
     monitor_thread, shared_values_dict, _, _ = test_monitor
 
     ok_comm_process = test_process_manager.get_instrument_process()
-    from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
-        0
+    from_ok_comm_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
     )
-    to_ok_comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        0
-    )
+    to_ok_comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     ok_comm_process.set_board_connection(0, simulator)
 
-    to_ok_comm_queue.put_nowait(
-        {"communication_type": "xem_scripts", "script_type": "start_up"}
-    )
+    to_ok_comm_queue.put_nowait({"communication_type": "xem_scripts", "script_type": "start_up"})
     assert is_queue_eventually_not_empty(to_ok_comm_queue) is True
     invoke_process_run_and_check_errors(ok_comm_process)
 
@@ -293,27 +254,19 @@ def test_offset_values_are_parsed_and_saved_when_running_start_calibration_scrip
     simulator = RunningFIFOSimulator({"wire_outs": wire_outs})
     simulator.initialize_board()
 
-    mocked_path_str = os.path.join(
-        "tests", "test_xem_scripts", f"xem_{test_script}.txt"
-    )
-    mocker.patch.object(
-        ok_comm, "resource_path", autospec=True, return_value=mocked_path_str
-    )
+    mocked_path_str = os.path.join("tests", "test_xem_scripts", f"xem_{test_script}.txt")
+    mocker.patch.object(ok_comm, "resource_path", autospec=True, return_value=mocked_path_str)
 
     monitor_thread, shared_values_dict, _, _ = test_monitor
 
     ok_comm_process = test_process_manager.get_instrument_process()
-    from_ok_comm_queue = test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
-        0
+    from_ok_comm_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
     )
-    to_ok_comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(
-        0
-    )
+    to_ok_comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     ok_comm_process.set_board_connection(0, simulator)
 
-    to_ok_comm_queue.put_nowait(
-        {"communication_type": "xem_scripts", "script_type": "start_calibration"}
-    )
+    to_ok_comm_queue.put_nowait({"communication_type": "xem_scripts", "script_type": "start_calibration"})
     assert is_queue_eventually_not_empty(to_ok_comm_queue) is True
     invoke_process_run_and_check_errors(ok_comm_process)
 
@@ -331,20 +284,12 @@ def test_offset_values_are_parsed_and_saved_when_running_start_calibration_scrip
     assert shared_values_dict["adc_offsets"][23]["ref"] == 47
 
 
-def test_OkCommunicationProcess_xem_scripts__allows_errors_to_propagate(
-    mocker, four_board_comm_process
-):
-    mocker.patch(
-        "builtins.print", autospec=True
-    )  # don't print all the error messages to console
+def test_OkCommunicationProcess_xem_scripts__allows_errors_to_propagate(mocker, four_board_comm_process):
+    mocker.patch("builtins.print", autospec=True)  # don't print all the error messages to console
 
     test_script = "test_script"
-    mocked_path_str = os.path.join(
-        "tests", "test_xem_scripts", f"xem_{test_script}.txt"
-    )
-    mocker.patch.object(
-        ok_comm, "resource_path", autospec=True, return_value=mocked_path_str
-    )
+    mocked_path_str = os.path.join("tests", "test_xem_scripts", f"xem_{test_script}.txt")
+    mocker.patch.object(ok_comm, "resource_path", autospec=True, return_value=mocked_path_str)
 
     ok_process = four_board_comm_process["ok_process"]
     board_queues = four_board_comm_process["board_queues"]
@@ -360,9 +305,7 @@ def test_OkCommunicationProcess_xem_scripts__allows_errors_to_propagate(
     mocked_simulator.initialize_board()
     ok_process.set_board_connection(0, mocked_simulator)
 
-    board_queues[0][0].put_nowait(
-        {"communication_type": "xem_scripts", "script_type": test_script}
-    )
+    board_queues[0][0].put_nowait({"communication_type": "xem_scripts", "script_type": test_script})
     assert is_queue_eventually_not_empty(board_queues[0][0])
 
     with pytest.raises(OkHardwareUnsupportedFeatureError):

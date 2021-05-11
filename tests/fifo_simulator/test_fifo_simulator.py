@@ -68,9 +68,7 @@ def test_RunningFIFOSimulator__init__sets_default_simulated_device_id(fifo_simul
     assert actual == expected_id
 
 
-def test_RunningFIFOSimulator__super_called_during_initialize_board_with_correct_args(
-    mocker, fifo_simulator
-):
+def test_RunningFIFOSimulator__super_called_during_initialize_board_with_correct_args(mocker, fifo_simulator):
     mocked_super_init_board = mocker.spy(FrontPanelSimulator, "initialize_board")
 
     assert mocked_super_init_board.call_count == 0
@@ -90,9 +88,7 @@ def test_RunningFIFOSimulator__raises_error_if_bit_file_is_given_that_cannot_be_
         fifo_simulator.initialize_board(bit_file_name="fake.bit")
 
 
-def test_RunningFIFOSimulator__allows_board_reinitialization_with_kwarg(
-    mocker, fifo_simulator
-):
+def test_RunningFIFOSimulator__allows_board_reinitialization_with_kwarg(mocker, fifo_simulator):
     mocked_super_init_board = mocker.spy(FrontPanelSimulator, "initialize_board")
 
     fifo_simulator.initialize_board()
@@ -109,12 +105,8 @@ def test_RunningFIFOSimulator__initialize_board__creates_threading_utils(
 ):
     fifo_simulator.initialize_board()
 
-    producer_error_queue = (
-        fifo_simulator._producer_error_queue  # pylint: disable=protected-access
-    )
-    producer_data_queue = (
-        fifo_simulator._producer_data_queue  # pylint: disable=protected-access
-    )
+    producer_error_queue = fifo_simulator._producer_error_queue  # pylint: disable=protected-access
+    producer_data_queue = fifo_simulator._producer_data_queue  # pylint: disable=protected-access
     lock = fifo_simulator._lock  # pylint: disable=protected-access
 
     assert isinstance(producer_error_queue, queue.Queue)
@@ -127,22 +119,14 @@ def test_RunningFIFOSimulator__initialize_board__does_not_recreate_threading_uti
 ):
     fifo_simulator.initialize_board()
 
-    producer_error_queue_1 = (
-        fifo_simulator._producer_error_queue  # pylint: disable=protected-access
-    )
-    producer_data_queue_1 = (
-        fifo_simulator._producer_data_queue  # pylint: disable=protected-access
-    )
+    producer_error_queue_1 = fifo_simulator._producer_error_queue  # pylint: disable=protected-access
+    producer_data_queue_1 = fifo_simulator._producer_data_queue  # pylint: disable=protected-access
     lock_1 = fifo_simulator._lock  # pylint: disable=protected-access
 
     fifo_simulator.initialize_board(allow_board_reinitialization=True)
 
-    producer_error_queue_2 = (
-        fifo_simulator._producer_error_queue  # pylint: disable=protected-access
-    )
-    producer_data_queue_2 = (
-        fifo_simulator._producer_data_queue  # pylint: disable=protected-access
-    )
+    producer_error_queue_2 = fifo_simulator._producer_error_queue  # pylint: disable=protected-access
+    producer_data_queue_2 = fifo_simulator._producer_data_queue  # pylint: disable=protected-access
     lock_2 = fifo_simulator._lock  # pylint: disable=protected-access
 
     assert producer_error_queue_1 is producer_error_queue_2
@@ -159,9 +143,7 @@ def test_RunningFIFOSimulator__super_called_during_start_spi_acquisition(mocker)
     fifo_simulator.start_acquisition()
     assert mocked_super_start.call_count == 1
 
-    producer_thread = (
-        fifo_simulator._fifo_read_producer  # pylint: disable=protected-access
-    )
+    producer_thread = fifo_simulator._fifo_read_producer  # pylint: disable=protected-access
     producer_thread.soft_stop()
     producer_thread.join()
 
@@ -174,9 +156,7 @@ def test_RunningFIFOSimulator__start_spi_acquisition_creates_and_starts_fifo_rea
 ):
     fifo_simulator.initialize_board()
     fifo_simulator.start_acquisition()
-    producer_thread = (
-        fifo_simulator._fifo_read_producer  # pylint: disable=protected-access
-    )
+    producer_thread = fifo_simulator._fifo_read_producer  # pylint: disable=protected-access
     assert producer_thread.is_alive() is True
 
     producer_thread.soft_stop()
@@ -187,9 +167,7 @@ def test_RunningFIFOSimulator__queue_from_read_producer_gets_populated_after_sta
     fifo_simulator,
 ):
     fifo_simulator.initialize_board()
-    queue_from_read_producer = (
-        fifo_simulator._producer_data_queue  # pylint: disable=protected-access
-    )
+    queue_from_read_producer = fifo_simulator._producer_data_queue  # pylint: disable=protected-access
 
     assert is_queue_eventually_empty(queue_from_read_producer) is True
     fifo_simulator.start_acquisition()
@@ -198,9 +176,7 @@ def test_RunningFIFOSimulator__queue_from_read_producer_gets_populated_after_sta
     fifo_simulator.stop_acquisition()
 
 
-def test_RunningFIFOSimulator__super_called_during_stop_spi_acquisition(
-    mocker, fifo_simulator
-):
+def test_RunningFIFOSimulator__super_called_during_stop_spi_acquisition(mocker, fifo_simulator):
     mocked_super_stop = mocker.spy(FrontPanelSimulator, "stop_acquisition")
     fifo_simulator.initialize_board()
     fifo_simulator.start_acquisition()
@@ -215,18 +191,12 @@ def test_RunningFIFOSimulator__stop_spi_acquisition__stops_and_joins_fifo_read_t
 ):
     fifo_simulator.initialize_board()
     fifo_simulator.start_acquisition()
-    running_producer_thread = (
-        fifo_simulator._fifo_read_producer  # pylint: disable=protected-access
-    )
-    producer_queue = (
-        fifo_simulator._producer_data_queue  # pylint: disable=protected-access
-    )
+    running_producer_thread = fifo_simulator._fifo_read_producer  # pylint: disable=protected-access
+    producer_queue = fifo_simulator._producer_data_queue  # pylint: disable=protected-access
     spied_is_stopped = mocker.spy(running_producer_thread, "is_stopped")
 
     fifo_simulator.stop_acquisition()
-    stopped_producer_thread = (
-        fifo_simulator._fifo_read_producer  # pylint: disable=protected-access
-    )
+    stopped_producer_thread = fifo_simulator._fifo_read_producer  # pylint: disable=protected-access
 
     assert spied_is_stopped.call_count > 0
     assert producer_queue.empty() is True
@@ -241,9 +211,7 @@ def test_RunningFIFOSimulator__read_from_fifo__reads_all_data_from_input_data_qu
     fifo_simulator.stop_acquisition()
     fifo_simulator.read_from_fifo()
 
-    queue_from_read_producer = (
-        fifo_simulator._producer_data_queue  # pylint: disable=protected-access
-    )
+    queue_from_read_producer = fifo_simulator._producer_data_queue  # pylint: disable=protected-access
     assert is_queue_eventually_empty(queue_from_read_producer) is True
 
 
@@ -269,9 +237,7 @@ def test_RunningFIFOSimulator__read_from_fifo__returns_all_data_from_producer_as
     assert len(data_read) == expected_num_bytes
 
 
-def test_RunningFIFOSimulator__FPBase_get_called_during_get_num_words_fifo(
-    mocker, fifo_simulator
-):
+def test_RunningFIFOSimulator__FPBase_get_called_during_get_num_words_fifo(mocker, fifo_simulator):
     mocked_base_get = mocker.spy(FrontPanelBase, "get_num_words_fifo")
     fifo_simulator.initialize_board()
     assert mocked_base_get.call_count == 0
@@ -308,9 +274,7 @@ def test_RunningFIFOSimulator__add_data_cycles__raises_error_if_spi_running(
     with pytest.raises(AttemptToAddCyclesWhileSPIRunningError):
         fifo_simulator.add_data_cycles(1)
 
-    producer_thread = (
-        fifo_simulator._fifo_read_producer  # pylint: disable=protected-access
-    )
+    producer_thread = fifo_simulator._fifo_read_producer  # pylint: disable=protected-access
     producer_thread.soft_stop()
     producer_thread.join()
 
@@ -405,10 +369,7 @@ def test_RunningFIFOSimulator__get_firmware_version__returns_correct_value(
     fifo_simulator,
 ):
     fifo_simulator.initialize_board()
-    assert (
-        fifo_simulator.get_firmware_version()
-        == RunningFIFOSimulator.default_firmware_version
-    )
+    assert fifo_simulator.get_firmware_version() == RunningFIFOSimulator.default_firmware_version
 
 
 def test_RunningFIFOSimulator__can_be_started_and_restarted(fifo_simulator):
@@ -445,9 +406,7 @@ def test_RunningFIFOSimulator_hard_stop__hard_stops_the_read_producer_during_man
     assert spied_producer_hard_stop.call_count == 1
 
 
-def test_RunningFIFOSimulator_hard_stop__passes_timeout_kwarg_to_read_producer(
-    mocker, fifo_simulator
-):
+def test_RunningFIFOSimulator_hard_stop__passes_timeout_kwarg_to_read_producer(mocker, fifo_simulator):
     fifo_simulator.initialize_board()
     fifo_simulator.start_acquisition()
 

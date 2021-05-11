@@ -165,9 +165,7 @@ def test_McCommunicationProcess_register_magic_word__registers_magic_word_in_ser
         DEFAULT_SIMULATOR_STATUS_CODE,
     )
     test_item = {"command": "add_read_bytes", "read_bytes": test_bytes}
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_item, testing_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_item, testing_queue)
     invoke_process_run_and_check_errors(simulator)
 
     invoke_process_run_and_check_errors(mc_process)
@@ -194,9 +192,7 @@ def test_McCommunicationProcess_register_magic_word__registers_magic_word_in_ser
         DEFAULT_SIMULATOR_STATUS_CODE,
     )
     test_item = {"command": "add_read_bytes", "read_bytes": [test_bytes, test_bytes]}
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_item, testing_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_item, testing_queue)
     invoke_process_run_and_check_errors(simulator)
 
     invoke_process_run_and_check_errors(mc_process)
@@ -218,9 +214,7 @@ def test_McCommunicationProcess_register_magic_word__registers_with_magic_word_i
 
     # Arbitrarily slice the magic word across multiple reads and add empty reads to simulate no bytes being available to read
     test_read_values = [SERIAL_COMM_MAGIC_WORD_BYTES[:4]]
-    test_read_values.extend(
-        [bytes(0) for _ in range(SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS - 1)]
-    )
+    test_read_values.extend([bytes(0) for _ in range(SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS - 1)])
     test_read_values.append(SERIAL_COMM_MAGIC_WORD_BYTES[4:])
     # add a real data packet after but remove magic word
     dummy_timestamp = 0
@@ -236,13 +230,9 @@ def test_McCommunicationProcess_register_magic_word__registers_with_magic_word_i
     ]
     test_read_values.append(packet_length_bytes)
     test_read_values.append(
-        test_packet[
-            len(SERIAL_COMM_MAGIC_WORD_BYTES) + SERIAL_COMM_PACKET_INFO_LENGTH_BYTES :
-        ]
+        test_packet[len(SERIAL_COMM_MAGIC_WORD_BYTES) + SERIAL_COMM_PACKET_INFO_LENGTH_BYTES :]
     )
-    mocked_read = mocker.patch.object(
-        simulator, "read", autospec=True, side_effect=test_read_values
-    )
+    mocked_read = mocker.patch.object(simulator, "read", autospec=True, side_effect=test_read_values)
 
     board_idx = 0
     mc_process.set_board_connection(board_idx, simulator)
@@ -251,9 +241,7 @@ def test_McCommunicationProcess_register_magic_word__registers_with_magic_word_i
     assert mc_process.is_registered_with_serial_comm(board_idx) is True
 
     # Assert it reads once initially then once per second until status beacon period is reached (a new packet should be available by then). Tanner (3/16/21): changed == to >= in the next line because others parts of mc_comm may call read after the magic word is registered
-    assert (
-        len(mocked_read.call_args_list) >= SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS + 1
-    )
+    assert len(mocked_read.call_args_list) >= SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS + 1
     assert mocked_read.call_args_list[0] == mocker.call(size=8)
     assert mocked_read.call_args_list[1] == mocker.call(size=4)
     assert mocked_read.call_args_list[2] == mocker.call(size=4)
@@ -282,9 +270,7 @@ def test_McCommunicationProcess_register_magic_word__raises_error_if_less_than_8
     # Arbitrarily slice the magic word in first read and add empty reads to simulate no bytes being available to read
     expected_partial_bytes = SERIAL_COMM_MAGIC_WORD_BYTES[:-1]
     test_read_values = [expected_partial_bytes]
-    test_read_values.extend(
-        [bytes(0) for _ in range(SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS + 4)]
-    )
+    test_read_values.extend([bytes(0) for _ in range(SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS + 4)])
     # need to mock read here to have better control over the reads going into McComm
     mocker.patch.object(simulator, "read", autospec=True, side_effect=test_read_values)
 
@@ -331,9 +317,7 @@ def test_McCommunicationProcess_register_magic_word__raises_error_if_search_exce
 
     # Add arbitrary first 8 bytes and then enough arbitrary bytes to reach a max size data packet length to raise error
     test_read_values = [bytes(8)]
-    test_read_values.extend(
-        [bytes(1) for _ in range(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES + 1)]
-    )
+    test_read_values.extend([bytes(1) for _ in range(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES + 1)])
     # need to mock read here to have better control over the reads going into McComm
     mocker.patch.object(simulator, "read", autospec=True, side_effect=test_read_values)
 
@@ -422,9 +406,7 @@ def test_McCommunicationProcess__waits_until_instrument_is_done_rebooting_to_sen
         side_effect=[AVERAGE_MC_REBOOT_DURATION_SECONDS],
     )
 
-    set_connection_and_register_simulator(
-        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator
-    )
+    set_connection_and_register_simulator(four_board_mc_comm_process_no_handshake, mantarray_mc_simulator)
     reboot_command = {
         "communication_type": "to_instrument",
         "command": "reboot",
@@ -462,9 +444,7 @@ def test_McCommunicationProcess__does_not_send_handshakes_while_instrument_is_re
     board_queues = four_board_mc_comm_process["board_queues"]
     input_queue = board_queues[0][0]
     simulator = mantarray_mc_simulator["simulator"]
-    set_connection_and_register_simulator(
-        four_board_mc_comm_process, mantarray_mc_simulator
-    )
+    set_connection_and_register_simulator(four_board_mc_comm_process, mantarray_mc_simulator)
 
     mocker.patch.object(
         mc_simulator,
@@ -503,9 +483,7 @@ def test_McCommunicationProcess__does_not_check_for_overdue_status_beacons_after
     board_queues = four_board_mc_comm_process["board_queues"]
     simulator = mantarray_mc_simulator["simulator"]
     input_queue = board_queues[0][0]
-    set_connection_and_register_simulator(
-        four_board_mc_comm_process, mantarray_mc_simulator
-    )
+    set_connection_and_register_simulator(four_board_mc_comm_process, mantarray_mc_simulator)
 
     mocked_get_secs = mocker.patch.object(
         mc_comm,
@@ -537,9 +515,7 @@ def test_McCommunicationProcess__raises_error_if_reboot_takes_longer_than_maximu
     board_queues = four_board_mc_comm_process_no_handshake["board_queues"]
     simulator = mantarray_mc_simulator["simulator"]
     input_queue = board_queues[0][0]
-    set_connection_and_register_simulator(
-        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator
-    )
+    set_connection_and_register_simulator(four_board_mc_comm_process_no_handshake, mantarray_mc_simulator)
 
     mocker.patch.object(
         mc_comm,
@@ -570,9 +546,7 @@ def test_McCommunicationProcess__requests_metadata_from_instrument_after_it_init
     output_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
     simulator = mantarray_mc_simulator["simulator"]
     testing_queue = mantarray_mc_simulator["testing_queue"]
-    set_connection_and_register_simulator(
-        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator
-    )
+    set_connection_and_register_simulator(four_board_mc_comm_process_no_handshake, mantarray_mc_simulator)
 
     mocker.patch.object(  # Tanner (4/6/21): Need to prevent automatic beacons without interrupting the beacons sent after status code updates
         mc_simulator,

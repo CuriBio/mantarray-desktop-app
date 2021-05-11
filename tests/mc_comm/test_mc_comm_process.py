@@ -51,9 +51,7 @@ def test_McCommunicationProcess_super_is_called_during_init(mocker):
     mocked_init.assert_called_once_with(error_queue, logging_level=logging.INFO)
 
 
-def test_McCommunicationProcess_setup_before_loop__calls_super(
-    four_board_mc_comm_process, mocker
-):
+def test_McCommunicationProcess_setup_before_loop__calls_super(four_board_mc_comm_process, mocker):
     spied_setup = mocker.spy(InfiniteProcess, "_setup_before_loop")
 
     mc_process = four_board_mc_comm_process["mc_process"]
@@ -96,9 +94,7 @@ def test_McCommunicationProcess_setup_before_loop__connects_to_boards__and_sends
 @pytest.mark.timeout(15)
 def test_McCommunicationProcess_setup_before_loop__does_not_send_message_to_main_when_setup_comm_is_suppressed():
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
-    mc_process = McCommunicationProcess(
-        board_queues, error_queue, suppress_setup_communication_to_main=True
-    )
+    mc_process = McCommunicationProcess(board_queues, error_queue, suppress_setup_communication_to_main=True)
     assert mc_process.get_board_connections_list() == [None] * 4
     invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
     populated_connections_list = mc_process.get_board_connections_list()
@@ -109,9 +105,7 @@ def test_McCommunicationProcess_setup_before_loop__does_not_send_message_to_main
     to_main_queue_items = drain_queue(board_queues[0][1])
     for item in to_main_queue_items:
         if "message" in item:
-            assert (
-                "Microcontroller Communication Process initiated" not in item["message"]
-            )
+            assert "Microcontroller Communication Process initiated" not in item["message"]
 
     # simulator is automatically started by mc_comm during setup_before_loop. Need to hard stop here since there is no access to the simulator's queues which must be drained before joining
     populated_connections_list[0].hard_stop()
@@ -164,12 +158,8 @@ def test_McCommunicationProcess_soft_stop_not_allowed_if_communication_from_main
     }
     items_to_put_in_queue = [copy.deepcopy(dummy_communication)] * 3
     # The first two commands will be processed, but if there is a third one in the queue then the soft stop should be disabled
-    handle_putting_multiple_objects_into_empty_queue(
-        items_to_put_in_queue, board_queues[0][0]
-    )
-    set_connection_and_register_simulator(
-        four_board_mc_comm_process, mantarray_mc_simulator_no_beacon
-    )
+    handle_putting_multiple_objects_into_empty_queue(items_to_put_in_queue, board_queues[0][0])
+    set_connection_and_register_simulator(four_board_mc_comm_process, mantarray_mc_simulator_no_beacon)
     # attempt to soft stop and confirm process does not stop
     mc_process.soft_stop()
     invoke_process_run_and_check_errors(mc_process)
@@ -185,13 +175,9 @@ def test_McCommunicationProcess_soft_stop_not_allowed_if_waiting_for_command_res
         "communication_type": "metadata_comm",
         "command": "get_metadata",
     }
-    set_connection_and_register_simulator(
-        four_board_mc_comm_process, mantarray_mc_simulator_no_beacon
-    )
+    set_connection_and_register_simulator(four_board_mc_comm_process, mantarray_mc_simulator_no_beacon)
     # send command but do not process it in simulator
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_communication, board_queues[0][0]
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_communication, board_queues[0][0])
     invoke_process_run_and_check_errors(mc_process)
     # attempt to soft stop and confirm process does not stop
     mc_process.soft_stop()
@@ -205,9 +191,7 @@ def test_McCommunicationProcess_teardown_after_loop__sets_teardown_complete_even
     mc_process = four_board_mc_comm_process["mc_process"]
 
     mc_process.soft_stop()
-    invoke_process_run_and_check_errors(
-        mc_process, num_iterations=1, perform_teardown_after_loop=True
-    )
+    invoke_process_run_and_check_errors(mc_process, num_iterations=1, perform_teardown_after_loop=True)
 
     assert mc_process.is_teardown_complete() is True
 
@@ -221,9 +205,7 @@ def test_McCommunicationProcess_teardown_after_loop__puts_teardown_log_message_i
     comm_to_main_queue = board_queues[0][1]
 
     mc_process.soft_stop()
-    invoke_process_run_and_check_errors(
-        mc_process, num_iterations=1, perform_teardown_after_loop=True
-    )
+    invoke_process_run_and_check_errors(mc_process, num_iterations=1, perform_teardown_after_loop=True)
     confirm_queue_is_eventually_of_size(comm_to_main_queue, 1)
 
     actual = comm_to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -248,9 +230,7 @@ def test_McCommunicationProcess_teardown_after_loop__flushes_and_logs_remaining_
     )
 
     mocked_write = mocker.patch.object(simulator, "write", autospec=True)
-    mocked_sleep = mocker.patch.object(
-        mc_comm, "sleep", autospec=True, side_effect=sleep_side_effect
-    )
+    mocked_sleep = mocker.patch.object(mc_comm, "sleep", autospec=True, side_effect=sleep_side_effect)
 
     # add one data packet with bad magic word to raise error and additional bytes to flush from simulator
     test_read_bytes = [
@@ -277,9 +257,7 @@ def test_McCommunicationProcess_teardown_after_loop__flushes_and_logs_remaining_
     # check that log message contains remaining data
     teardown_messages = drain_queue(output_queue)
     actual = teardown_messages[-1]
-    assert (
-        "message" in actual
-    ), f"Correct message not found. Full message dict: {actual}"
+    assert "message" in actual, f"Correct message not found. Full message dict: {actual}"
     expected_bytes = bytes(
         int(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES * 2.5)
     )  # EEPROM bytes will not show up since simulator is not running while mc_process is in _teardown_after_loop. Assert that dump EEPROM command was sent instead
@@ -310,9 +288,7 @@ def test_McCommunicationProcess_teardown_after_loop__does_not_request_eeprom_dum
     )
 
     mocked_write = mocker.patch.object(simulator, "write", autospec=True)
-    mocked_sleep = mocker.patch.object(
-        mc_comm, "sleep", autospec=True, side_effect=sleep_side_effect
-    )
+    mocked_sleep = mocker.patch.object(mc_comm, "sleep", autospec=True, side_effect=sleep_side_effect)
 
     # put simulator in error state before sending beacon
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -369,9 +345,7 @@ def test_McCommunicationProcess_teardown_after_loop__does_not_request_eeprom_dum
     )
 
     mocked_write = mocker.patch.object(simulator, "write", autospec=True)
-    mocked_sleep = mocker.patch.object(
-        mc_comm, "sleep", autospec=True, side_effect=sleep_side_effect
-    )
+    mocked_sleep = mocker.patch.object(mc_comm, "sleep", autospec=True, side_effect=sleep_side_effect)
 
     # run one iteration then teardown
     invoke_process_run_and_check_errors(
@@ -389,9 +363,7 @@ def test_McCommunicationProcess_teardown_after_loop__does_not_request_eeprom_dum
 @pytest.mark.timeout(15)
 def test_McCommunicationProcess_teardown_after_loop__stops_running_simulator():
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
-    mc_process = McCommunicationProcess(
-        board_queues, error_queue, suppress_setup_communication_to_main=True
-    )
+    mc_process = McCommunicationProcess(board_queues, error_queue, suppress_setup_communication_to_main=True)
     invoke_process_run_and_check_errors(
         mc_process,
         num_iterations=1,
@@ -441,9 +413,7 @@ def test_McCommunicationProcess__logs_status_codes_from_handshake_responses(
     output_queue = four_board_mc_comm_process["board_queues"][0][1]
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
-    set_connection_and_register_simulator(
-        four_board_mc_comm_process, mantarray_mc_simulator_no_beacon
-    )
+    set_connection_and_register_simulator(four_board_mc_comm_process, mantarray_mc_simulator_no_beacon)
 
     expected_status_code = 1234
     put_object_into_queue_and_raise_error_if_eventually_still_empty(

@@ -16,9 +16,7 @@ __fixtures__ = [
 def test_get_server_port_number__returns_default_port_number_if_server_never_instantiated(
     mocker,
 ):
-    mocker.patch.object(
-        main, "get_the_server_thread", autospec=True, side_effect=NameError
-    )
+    mocker.patch.object(main, "get_the_server_thread", autospec=True, side_effect=NameError)
     assert get_server_port_number() == DEFAULT_SERVER_PORT_NUMBER
 
 
@@ -31,13 +29,9 @@ def test_get_server_port_number__returns_port_number_from_server_if_instantiated
     generic_queue_container,
 ):
     error_queue = generic_queue_container.get_server_error_queue()
-    to_main_queue = (
-        generic_queue_container.get_communication_queue_from_server_to_main()
-    )
+    to_main_queue = generic_queue_container.get_communication_queue_from_server_to_main()
     expected_port = 4321
-    st = ServerThread(
-        to_main_queue, error_queue, generic_queue_container, port=expected_port
-    )
+    st = ServerThread(to_main_queue, error_queue, generic_queue_container, port=expected_port)
 
     assert get_server_port_number() == expected_port
 

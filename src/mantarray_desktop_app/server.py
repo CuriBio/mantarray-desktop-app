@@ -160,9 +160,7 @@ def queue_command_to_instrument_comm(comm_dict: Dict[str, Any]) -> Response:
     order to make pylint happier.
     """
     to_instrument_comm_queue = (
-        get_the_server_thread()
-        .queue_container()
-        .get_communication_to_instrument_comm_queue(0)
+        get_the_server_thread().queue_container().get_communication_to_instrument_comm_queue(0)
     )
     comm_dict = dict(comm_dict)  # make a mutable version to pass into ok_comm
     to_instrument_comm_queue.put_nowait(comm_dict)
@@ -222,8 +220,7 @@ def system_status() -> Response:
     shared_values_dict = _get_values_from_process_monitor()
     if (
         "expected_software_version" in shared_values_dict
-        and shared_values_dict["expected_software_version"]
-        != get_current_software_version()
+        and shared_values_dict["expected_software_version"] != get_current_software_version()
     ):
         return Response(status="520 Versions of Electron and Flask EXEs do not match")
 
@@ -233,21 +230,15 @@ def system_status() -> Response:
         "ui_status_code": str(SYSTEM_STATUS_UUIDS[status]),
         # Tanner (7/1/20): this route may be called before process_monitor adds the following values to shared_values_dict, so default values are needed
         "in_simulation_mode": shared_values_dict.get("in_simulation_mode", False),
-        "mantarray_serial_number": shared_values_dict.get(
-            "mantarray_serial_number", ""
-        ),
+        "mantarray_serial_number": shared_values_dict.get("mantarray_serial_number", ""),
         "mantarray_nickname": shared_values_dict.get("mantarray_nickname", ""),
     }
     if (
         "barcodes" in shared_values_dict
         and shared_values_dict["barcodes"][board_idx]["frontend_needs_barcode_update"]
     ):
-        status_dict["plate_barcode"] = shared_values_dict["barcodes"][board_idx][
-            "plate_barcode"
-        ]
-        status_dict["barcode_status"] = str(
-            shared_values_dict["barcodes"][board_idx]["barcode_status"]
-        )
+        status_dict["plate_barcode"] = shared_values_dict["barcodes"][board_idx]["plate_barcode"]
+        status_dict["barcode_status"] = str(shared_values_dict["barcodes"][board_idx]["barcode_status"])
         queue_command_to_main(
             {
                 "communication_type": "barcode_read_receipt",
@@ -287,9 +278,7 @@ def set_mantarray_nickname() -> Response:
     Can be invoked by curl 'http://localhost:4567/set_mantarray_nickname?nickname=My Mantarray'
     """
     shared_values_dict = _get_values_from_process_monitor()
-    max_num_bytes = (
-        SERIAL_COMM_METADATA_BYTES_LENGTH if shared_values_dict["beta_2_mode"] else 23
-    )
+    max_num_bytes = SERIAL_COMM_METADATA_BYTES_LENGTH if shared_values_dict["beta_2_mode"] else 23
 
     nickname = request.args["nickname"]
     if len(nickname.encode("utf-8")) > max_num_bytes:
@@ -408,10 +397,7 @@ def start_recording() -> Response:
             "false",
         )
 
-    if (
-        shared_values_dict.get("is_hardware_test_recording", False)
-        and not is_hardware_test_recording
-    ):
+    if shared_values_dict.get("is_hardware_test_recording", False) and not is_hardware_test_recording:
         response = Response(
             status="403 Cannot make standard recordings after previously making hardware test recordings. Server and board must both be restarted before making any more standard recordings"
         )
@@ -435,9 +421,7 @@ def start_recording() -> Response:
         begin_timepoint = int(request.args["time_index"])
     else:
         time_since_index_0 = timestamp_of_begin_recording - timestamp_of_sample_idx_zero
-        begin_timepoint = (
-            time_since_index_0.total_seconds() * CENTIMILLISECONDS_PER_SECOND
-        )
+        begin_timepoint = time_since_index_0.total_seconds() * CENTIMILLISECONDS_PER_SECOND
 
     are_barcodes_matching = _check_scanned_barcode_vs_user_value(barcode)
 
@@ -452,27 +436,15 @@ def start_recording() -> Response:
             UTC_BEGINNING_DATA_ACQUISTION_UUID: timestamp_of_sample_idx_zero,
             START_RECORDING_TIME_INDEX_UUID: begin_timepoint,
             UTC_BEGINNING_RECORDING_UUID: timestamp_of_begin_recording,
-            CUSTOMER_ACCOUNT_ID_UUID: shared_values_dict["config_settings"][
-                "Customer Account ID"
-            ],
-            USER_ACCOUNT_ID_UUID: shared_values_dict["config_settings"][
-                "User Account ID"
-            ],
+            CUSTOMER_ACCOUNT_ID_UUID: shared_values_dict["config_settings"]["Customer Account ID"],
+            USER_ACCOUNT_ID_UUID: shared_values_dict["config_settings"]["User Account ID"],
             SOFTWARE_BUILD_NUMBER_UUID: COMPILED_EXE_BUILD_TIMESTAMP,
             SOFTWARE_RELEASE_VERSION_UUID: CURRENT_SOFTWARE_VERSION,
-            MAIN_FIRMWARE_VERSION_UUID: shared_values_dict["main_firmware_version"][
-                board_idx
-            ],
-            SLEEP_FIRMWARE_VERSION_UUID: shared_values_dict["sleep_firmware_version"][
-                board_idx
-            ],
+            MAIN_FIRMWARE_VERSION_UUID: shared_values_dict["main_firmware_version"][board_idx],
+            SLEEP_FIRMWARE_VERSION_UUID: shared_values_dict["sleep_firmware_version"][board_idx],
             XEM_SERIAL_NUMBER_UUID: shared_values_dict["xem_serial_number"][board_idx],
-            MANTARRAY_SERIAL_NUMBER_UUID: shared_values_dict["mantarray_serial_number"][
-                board_idx
-            ],
-            MANTARRAY_NICKNAME_UUID: shared_values_dict["mantarray_nickname"][
-                board_idx
-            ],
+            MANTARRAY_SERIAL_NUMBER_UUID: shared_values_dict["mantarray_serial_number"][board_idx],
+            MANTARRAY_NICKNAME_UUID: shared_values_dict["mantarray_nickname"][board_idx],
             REFERENCE_VOLTAGE_UUID: REFERENCE_VOLTAGE,
             ADC_GAIN_SETTING_UUID: shared_values_dict["adc_gain"],
             "adc_offsets": adc_offsets,
@@ -483,9 +455,7 @@ def start_recording() -> Response:
     }
 
     if "active_well_indices" in request.args:
-        comm_dict["active_well_indices"] = [
-            int(x) for x in request.args["active_well_indices"].split(",")
-        ]
+        comm_dict["active_well_indices"] = [int(x) for x in request.args["active_well_indices"].split(",")]
     else:
         comm_dict["active_well_indices"] = list(range(24))
 
@@ -500,16 +470,12 @@ def start_recording() -> Response:
             continue
         if METADATA_UUID_DESCRIPTIONS[this_attr_name].startswith("UTC Timestamp"):
             this_attr_value = this_attr_value.strftime("%Y-%m-%dT%H:%M:%S.%f")
-            comm_dict["metadata_to_copy_onto_main_file_attributes"][
-                this_attr_name
-            ] = this_attr_value
+            comm_dict["metadata_to_copy_onto_main_file_attributes"][this_attr_name] = this_attr_value
         if isinstance(this_attr_value, UUID):
             this_attr_value = str(this_attr_value)
         del comm_dict["metadata_to_copy_onto_main_file_attributes"][this_attr_name]
         this_attr_name = str(this_attr_name)
-        comm_dict["metadata_to_copy_onto_main_file_attributes"][
-            this_attr_name
-        ] = this_attr_value
+        comm_dict["metadata_to_copy_onto_main_file_attributes"][this_attr_name] = this_attr_value
 
     response = Response(json.dumps(comm_dict), mimetype="application/json")
 
@@ -539,9 +505,7 @@ def stop_recording() -> Response:
         stop_timepoint = int(request.args["time_index"])
     else:
         time_since_index_0 = datetime.datetime.utcnow() - timestamp_of_sample_idx_zero
-        stop_timepoint = (
-            time_since_index_0.total_seconds() * CENTIMILLISECONDS_PER_SECOND
-        )
+        stop_timepoint = time_since_index_0.total_seconds() * CENTIMILLISECONDS_PER_SECOND
     comm_dict["timepoint_to_stop_recording_at"] = stop_timepoint
 
     response = queue_command_to_main(comm_dict)
@@ -559,9 +523,7 @@ def start_managed_acquisition() -> Response:
     """
     shared_values_dict = _get_values_from_process_monitor()
     if not shared_values_dict["mantarray_serial_number"][0]:
-        response = Response(
-            status="406 Mantarray has not been assigned a Serial Number"
-        )
+        response = Response(status="406 Mantarray has not been assigned a Serial Number")
         return response
 
     response = queue_command_to_main(START_MANAGED_ACQUISITION_COMMUNICATION)
@@ -579,13 +541,9 @@ def stop_managed_acquisition() -> Response:
     """
     comm_dict = STOP_MANAGED_ACQUISITION_COMMUNICATION
     server_thread = get_the_server_thread()
-    to_da_queue = (
-        server_thread.queue_container().get_communication_queue_from_main_to_data_analyzer()
-    )
+    to_da_queue = server_thread.queue_container().get_communication_queue_from_main_to_data_analyzer()
     to_da_queue.put_nowait(comm_dict)
-    to_file_writer_queue = (
-        server_thread.queue_container().get_communication_queue_from_main_to_file_writer()
-    )
+    to_file_writer_queue = server_thread.queue_container().get_communication_queue_from_main_to_file_writer()
     to_file_writer_queue.put_nowait(comm_dict)
 
     response = queue_command_to_instrument_comm(comm_dict)
@@ -593,9 +551,7 @@ def stop_managed_acquisition() -> Response:
 
 
 # Single "debug console" commands to send to XEM
-@flask_app.route(
-    "/insert_xem_command_into_queue/set_mantarray_serial_number", methods=["GET"]
-)
+@flask_app.route("/insert_xem_command_into_queue/set_mantarray_serial_number", methods=["GET"])
 def set_mantarray_serial_number() -> Response:
     """Set the serial number of the Mantarray device.
 
@@ -631,9 +587,7 @@ def queue_initialize_board() -> Response:
     Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/initialize_board?bit_file_name=main.bit&allow_board_reinitialization=False
     """
     bit_file_name = request.args.get("bit_file_name", None)
-    allow_board_reinitialization = request.args.get(
-        "allow_board_reinitialization", False
-    )
+    allow_board_reinitialization = request.args.get("allow_board_reinitialization", False)
     if isinstance(allow_board_reinitialization, str):
         allow_board_reinitialization = allow_board_reinitialization == "True"
     comm_dict = {
@@ -962,9 +916,7 @@ def stop_server() -> str:
 def shutdown() -> Response:
     # curl http://localhost:4567/shutdown
     queue_command_to_main({"communication_type": "shutdown", "command": "soft_stop"})
-    response = queue_command_to_main(
-        {"communication_type": "shutdown", "command": "hard_stop"}
-    )
+    response = queue_command_to_main({"communication_type": "shutdown", "command": "hard_stop"})
     shutdown_server()
     return response
 
@@ -1002,13 +954,11 @@ def after_request(response: Response) -> Response:
             for board in mantarray_nicknames:
                 mantarray_nicknames[board] = "*" * len(mantarray_nicknames[board])
         if "set_mantarray_nickname" in rule.rule:
-            response_json["mantarray_nickname"] = "*" * len(
-                response_json["mantarray_nickname"]
-            )
+            response_json["mantarray_nickname"] = "*" * len(response_json["mantarray_nickname"])
         if "start_recording" in rule.rule:
-            mantarray_nickname = response_json[
-                "metadata_to_copy_onto_main_file_attributes"
-            ][str(MANTARRAY_NICKNAME_UUID)]
+            mantarray_nickname = response_json["metadata_to_copy_onto_main_file_attributes"][
+                str(MANTARRAY_NICKNAME_UUID)
+            ]
             response_json["metadata_to_copy_onto_main_file_attributes"][
                 str(MANTARRAY_NICKNAME_UUID)
             ] = "*" * len(mantarray_nickname)
@@ -1151,9 +1101,7 @@ class ServerThread(InfiniteThread):
         queue_items = dict()
 
         queue_items["to_main"] = drain_queue(self._to_main_queue)
-        queue_items["from_data_analyzer"] = drain_queue(
-            self.get_data_analyzer_data_out_queue()
-        )
+        queue_items["from_data_analyzer"] = drain_queue(self.get_data_analyzer_data_out_queue())
         return queue_items
 
     def _teardown_after_loop(self) -> None:

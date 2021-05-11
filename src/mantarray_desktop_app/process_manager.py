@@ -99,14 +99,10 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             queue_container,
             logging_level=self._logging_level,
             values_from_process_monitor=self._values_to_share_to_server,
-            port=self._values_to_share_to_server.get(
-                "server_port_number", DEFAULT_SERVER_PORT_NUMBER
-            ),
+            port=self._values_to_share_to_server.get("server_port_number", DEFAULT_SERVER_PORT_NUMBER),
         )
 
-        instrument_comm_process = (
-            OkCommunicationProcess if not beta_2_mode else McCommunicationProcess
-        )
+        instrument_comm_process = OkCommunicationProcess if not beta_2_mode else McCommunicationProcess
         self._instrument_communication_process = instrument_comm_process(  # type: ignore  # Tanner (4/22/21): mypy is unable to recognize that these are both InstrumentCommProcess sub-classes
             queue_container.get_instrument_comm_board_queues(),
             queue_container.get_instrument_communication_error_queue(),
@@ -162,13 +158,9 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         bit_file_name = None
         if load_firmware_file:
             bit_file_name = get_latest_firmware()
-        to_instrument_comm_queue = (
-            self.queue_container().get_communication_to_instrument_comm_queue(0)
-        )
+        to_instrument_comm_queue = self.queue_container().get_communication_to_instrument_comm_queue(0)
 
-        self.get_values_to_share_to_server()[
-            "system_status"
-        ] = INSTRUMENT_INITIALIZING_STATE
+        self.get_values_to_share_to_server()["system_status"] = INSTRUMENT_INITIALIZING_STATE
         boot_up_dict = {
             "communication_type": "boot_up_instrument",
             "command": "initialize_board",

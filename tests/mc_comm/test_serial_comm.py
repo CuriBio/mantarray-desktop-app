@@ -88,14 +88,10 @@ def test_McCommunicationProcess__raises_error_if_magic_word_is_incorrect_in_pack
         "command": "add_read_bytes",
         "read_bytes": [test_bytes_1, test_bytes_2],
     }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_item, testing_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_item, testing_queue)
     invoke_process_run_and_check_errors(simulator)
 
-    with pytest.raises(
-        SerialCommIncorrectMagicWordFromMantarrayError, match=str(bad_magic_word)
-    ):
+    with pytest.raises(SerialCommIncorrectMagicWordFromMantarrayError, match=str(bad_magic_word)):
         # First iteration registers magic word, next iteration receive incorrect magic word
         invoke_process_run_and_check_errors(mc_process, num_iterations=2)
 
@@ -117,9 +113,7 @@ def test_McCommunicationProcess__raises_error_if_checksum_in_data_packet_sent_fr
     )
     # set checksum bytes to an arbitrary incorrect value
     bad_checksum = 1234
-    bad_checksum_bytes = bad_checksum.to_bytes(
-        SERIAL_COMM_CHECKSUM_LENGTH_BYTES, byteorder="little"
-    )
+    bad_checksum_bytes = bad_checksum.to_bytes(SERIAL_COMM_CHECKSUM_LENGTH_BYTES, byteorder="little")
     test_bytes = test_bytes[:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES] + bad_checksum_bytes
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {
@@ -135,9 +129,7 @@ def test_McCommunicationProcess__raises_error_if_checksum_in_data_packet_sent_fr
     with pytest.raises(SerialCommIncorrectChecksumFromInstrumentError) as exc_info:
         invoke_process_run_and_check_errors(mc_process)
 
-    expected_checksum = int.from_bytes(
-        test_bytes[-SERIAL_COMM_CHECKSUM_LENGTH_BYTES:], byteorder="little"
-    )
+    expected_checksum = int.from_bytes(test_bytes[-SERIAL_COMM_CHECKSUM_LENGTH_BYTES:], byteorder="little")
     assert str(bad_checksum) in exc_info.value.args[0]
     assert str(expected_checksum) in exc_info.value.args[0]
     assert str(test_bytes) in exc_info.value.args[0]
@@ -153,14 +145,10 @@ def test_McCommunicationProcess__raises_error_if_not_enough_bytes_in_packet_sent
     dummy_timestamp_bytes = bytes(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES)
     bad_packet_length = SERIAL_COMM_MIN_PACKET_SIZE_BYTES - 1
     test_packet = SERIAL_COMM_MAGIC_WORD_BYTES
-    test_packet += bad_packet_length.to_bytes(
-        SERIAL_COMM_PACKET_INFO_LENGTH_BYTES, byteorder="little"
-    )
+    test_packet += bad_packet_length.to_bytes(SERIAL_COMM_PACKET_INFO_LENGTH_BYTES, byteorder="little")
     test_packet += dummy_timestamp_bytes
     test_packet += bytes([SERIAL_COMM_MAIN_MODULE_ID])
-    test_packet += crc32(test_packet).to_bytes(
-        SERIAL_COMM_CHECKSUM_LENGTH_BYTES, byteorder="little"
-    )
+    test_packet += crc32(test_packet).to_bytes(SERIAL_COMM_CHECKSUM_LENGTH_BYTES, byteorder="little")
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {
             "command": "add_read_bytes",
@@ -287,9 +275,7 @@ def test_McCommunicationProcess__includes_correct_timestamp_in_packets_sent_to_i
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     spied_write = mocker.spy(simulator, "write")
 
-    set_connection_and_register_simulator(
-        four_board_mc_comm_process, mantarray_mc_simulator_no_beacon
-    )
+    set_connection_and_register_simulator(four_board_mc_comm_process, mantarray_mc_simulator_no_beacon)
     test_nickname = "anything"
     set_nickname_command = {
         "communication_type": "mantarray_naming",
@@ -306,8 +292,7 @@ def test_McCommunicationProcess__includes_correct_timestamp_in_packets_sent_to_i
         expected_timestamp // MICROSECONDS_PER_CENTIMILLISECOND,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-        bytes([SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE])
-        + convert_to_metadata_bytes(test_nickname),
+        bytes([SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE]) + convert_to_metadata_bytes(test_nickname),
     )
     spied_write.assert_called_with(expected_data_packet)
 
@@ -326,9 +311,7 @@ def test_McCommunicationProcess__sends_handshake_every_5_seconds__and_includes_c
         0,
         CENTIMILLISECONDS_PER_SECOND * SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS,
     ]
-    mocker.patch.object(
-        mc_comm, "get_serial_comm_timestamp", autospec=True, side_effect=expected_durs
-    )
+    mocker.patch.object(mc_comm, "get_serial_comm_timestamp", autospec=True, side_effect=expected_durs)
     mocker.patch.object(
         mc_comm,
         "_get_secs_since_last_handshake",
@@ -341,9 +324,7 @@ def test_McCommunicationProcess__sends_handshake_every_5_seconds__and_includes_c
         ],
     )
 
-    set_connection_and_register_simulator(
-        four_board_mc_comm_process, mantarray_mc_simulator_no_beacon
-    )
+    set_connection_and_register_simulator(four_board_mc_comm_process, mantarray_mc_simulator_no_beacon)
     # send handshake
     invoke_process_run_and_check_errors(mc_process)
     expected_handshake_1 = create_data_packet(
@@ -432,9 +413,7 @@ def test_McCommunicationProcess__raises_error_if_command_response_not_received_w
         "communication_type": "metadata_comm",
         "command": expected_command,
     }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_command_dict, input_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command_dict, input_queue)
 
     # send command but do not run simulator so command response is not sent
     invoke_process_run_and_check_errors(mc_process)

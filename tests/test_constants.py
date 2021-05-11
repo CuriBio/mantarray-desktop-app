@@ -174,9 +174,7 @@ def test_running_fifo_simulator_constants():
         (FIFO_READ_PRODUCER_CYCLES_PER_ITERATION * ROUND_ROBIN_PERIOD) / 100000
     )
     assert FIFO_READ_PRODUCER_CYCLES_PER_ITERATION == 20
-    assert FIFO_READ_PRODUCER_SAWTOOTH_PERIOD == (
-        (100000 // TIMESTEP_CONVERSION_FACTOR) / (2 * np.pi)
-    )
+    assert FIFO_READ_PRODUCER_SAWTOOTH_PERIOD == ((100000 // TIMESTEP_CONVERSION_FACTOR) / (2 * np.pi))
     assert FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE == 0xFFFFFFFF
     assert RAW_TO_SIGNED_CONVERSION_VALUE == 2 ** 23
     assert FIFO_READ_PRODUCER_DATA_OFFSET == 0x800000
@@ -260,9 +258,7 @@ def test_sensors_and_mappings():
 
 
 def test_CURRENT_HDF5_FILE_FORMAT_VERSION():
-    latest_hdf5_file_format_version = (
-        mantarray_file_manager.constants.CURRENT_HDF5_FILE_FORMAT_VERSION
-    )
+    latest_hdf5_file_format_version = mantarray_file_manager.constants.CURRENT_HDF5_FILE_FORMAT_VERSION
     assert (
         CURRENT_HDF5_FILE_FORMAT_VERSION == latest_hdf5_file_format_version
     ), "FileWriterProcess needs an update to match file format with the latest file version from mantarray-file-manager. Make the changes then update CURRENT_HDF5_FILE_FORMAT_VERSION to match the latest version"
@@ -327,9 +323,7 @@ def test_system_status_uuids():
     assert SYSTEM_STATUS_UUIDS == {
         SERVER_INITIALIZING_STATE: uuid.UUID("04471bcf-1a00-4a0d-83c8-4160622f9a25"),
         SERVER_READY_STATE: uuid.UUID("8e24ef4d-2353-4e9d-aa32-4346126e73e3"),
-        INSTRUMENT_INITIALIZING_STATE: uuid.UUID(
-            "d2e3d386-b760-4c9a-8b2d-410362ff11c4"
-        ),
+        INSTRUMENT_INITIALIZING_STATE: uuid.UUID("d2e3d386-b760-4c9a-8b2d-410362ff11c4"),
         CALIBRATION_NEEDED_STATE: uuid.UUID("009301eb-625c-4dc4-9e92-1a4d0762465f"),
         CALIBRATING_STATE: uuid.UUID("43c08fc5-ca2f-4dcd-9dff-5e9324cb5dbf"),
         CALIBRATED_STATE: uuid.UUID("b480373b-9466-4fa0-92a6-fa5f8e340d30"),
@@ -392,10 +386,7 @@ def test_serial_comm():
         + SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
         + SERIAL_COMM_CHECKSUM_LENGTH_BYTES
     )
-    assert (
-        SERIAL_COMM_MAX_TIMESTAMP_VALUE
-        == 2 ** (8 * SERIAL_COMM_TIMESTAMP_LENGTH_BYTES) - 1
-    )
+    assert SERIAL_COMM_MAX_TIMESTAMP_VALUE == 2 ** (8 * SERIAL_COMM_TIMESTAMP_LENGTH_BYTES) - 1
 
     assert (
         SERIAL_COMM_TIMESTAMP_BYTES_INDEX

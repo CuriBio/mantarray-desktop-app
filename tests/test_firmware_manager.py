@@ -19,9 +19,7 @@ def test_sort_firmware_files__returns_sorted_list_of_all_firmware_files(mocker):
         "test_2_3_4.bit",
     ]
     mocked_path_str = os.path.join("tests", "test_firmware")
-    mocked_path = mocker.patch.object(
-        firmware_manager, "resource_path", return_value=mocked_path_str
-    )
+    mocked_path = mocker.patch.object(firmware_manager, "resource_path", return_value=mocked_path_str)
 
     actual = sort_firmware_files()
     expected_base_path = os.path.normcase(
@@ -37,9 +35,7 @@ def test_sort_firmware_files__returns_sorted_list_of_all_firmware_files(mocker):
     os.path.join(expected_base_path, expected_relative_path)
     expected_file_list = expected_file_names
 
-    mocked_path.assert_called_once_with(
-        expected_relative_path, base_path=expected_base_path
-    )
+    mocked_path.assert_called_once_with(expected_relative_path, base_path=expected_base_path)
     assert actual == expected_file_list
 
 
@@ -80,9 +76,7 @@ def test_get_latest_firmware__returns_correct_path_to_latest_firmware_file(mocke
     )
 
     mocked_path_str = os.path.join("tests", "test_firmware")
-    mocked_path = mocker.patch.object(
-        firmware_manager, "resource_path", return_value=mocked_path_str
-    )
+    mocked_path = mocker.patch.object(firmware_manager, "resource_path", return_value=mocked_path_str)
 
     expected_latest_file_path = os.path.join(mocked_path_str, "test_2_3_4.bit")
     actual = get_latest_firmware()
