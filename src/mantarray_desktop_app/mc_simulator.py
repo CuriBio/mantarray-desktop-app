@@ -8,7 +8,6 @@ from multiprocessing import Queue
 import os
 import queue
 import random
-import time
 from time import perf_counter
 from time import perf_counter_ns
 from typing import Any
@@ -32,7 +31,6 @@ from stdlib_utils import drain_queue
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import resource_path
-from stdlib_utils import SECONDS_TO_SLEEP_BETWEEN_CHECKING_QUEUE_SIZE
 
 from .constants import CENTIMILLISECONDS_PER_SECOND
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
@@ -632,12 +630,28 @@ class MantarrayMcSimulator(InfiniteProcess):
                 read_bytes += next_bytes
             except queue.Empty:
                 pass
-            time.sleep(SECONDS_TO_SLEEP_BETWEEN_CHECKING_QUEUE_SIZE)
         # if this read exceeds given size then store extra bytes for the next read
         if len(read_bytes) > size:
             size_diff = len(read_bytes) - size
             self._leftover_read_bytes = read_bytes[-size_diff:]
             read_bytes = read_bytes[:-size_diff]
+        return read_bytes
+
+    def read_all(self) -> bytes:
+        """Read all available bytes from the simulator."""
+        read_bytes = bytes(0)
+        if len(self._leftover_read_bytes) > 0:
+            read_bytes = self._leftover_read_bytes
+            self._leftover_read_bytes = bytes(0)
+        start = perf_counter()
+        read_dur_secs = 0.0
+        while read_dur_secs <= self._read_timeout_seconds:
+            read_dur_secs = perf_counter() - start
+            try:
+                next_bytes = self._output_queue.get_nowait()
+                read_bytes += next_bytes
+            except queue.Empty:
+                pass
         return read_bytes
 
     def write(self, input_item: bytes) -> None:

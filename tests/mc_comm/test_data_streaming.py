@@ -125,6 +125,12 @@ def test_handle_data_packets__handles_single_with_incorrect_packet_type_correctl
     assert unread_bytes is None
 
 
+# TODO:
+#     interrupt packet then data packet
+#     data packet then interrupt packet
+#     data packet then interrupt packet then data packet
+
+
 def test_McCommunicationProcess__processes_start_managed_acquisition_command__when_data_not_already_streaming(
     four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
 ):

@@ -201,6 +201,51 @@ def test_MantarrayMcSimulator_read__returns_empty_bytes_if_no_bytes_to_read(
     assert actual_item == expected_item
 
 
+def test_MantarrayMcSimulator_read_all__gets_all_available_bytes(
+    mantarray_mc_simulator_no_beacon,
+):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+
+    test_reads = [b"11111", b"222"]
+    expected_bytes = test_reads[0] + test_reads[1]
+    test_item = {"command": "add_read_bytes", "read_bytes": expected_bytes}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_item, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator)
+    actual_item = simulator.read_all()
+    assert actual_item == expected_bytes
+
+
+def test_MantarrayMcSimulator_read_all__gets_all_available_bytes__after_partial_read(
+    mantarray_mc_simulator_no_beacon,
+):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+
+    test_reads = [b"11111", b"222"]
+    expected_bytes = test_reads[0] + test_reads[1]
+    test_item = {"command": "add_read_bytes", "read_bytes": expected_bytes}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_item, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator)
+
+    test_read_size = 3
+    actual_item = simulator.read_all()
+    assert actual_item == expected_bytes[test_read_size:]
+
+
+def test_MantarrayMcSimulator_read_all__returns_empty_bytes_if_no_bytes_to_read(
+    mantarray_mc_simulator,
+):
+    simulator = mantarray_mc_simulator["simulator"]
+    actual_item = simulator.read_all()
+    expected_item = bytes(0)
+    assert actual_item == expected_item
+
+
 def test_MantarrayMcSimulator_in_waiting__getter_returns_number_of_bytes_available_for_read__and_does_not_affect_read_sizes(
     mantarray_mc_simulator_no_beacon,
 ):
@@ -234,11 +279,9 @@ def test_MantarrayMcSimulator_in_waiting__setter_raises_error(
         simulator.in_waiting = 0
 
 
-def test_MantarrayMcSimulator_write__puts_object_into_input_queue__with_no_sleep_after_write(
+def test_MantarrayMcSimulator_write__puts_object_into_input_queue(
     mocker,
 ):
-    spied_sleep = mocker.spy(mc_simulator.time, "sleep")
-
     input_queue = Queue()
     output_queue = Queue()
     error_queue = Queue()
@@ -251,8 +294,6 @@ def test_MantarrayMcSimulator_write__puts_object_into_input_queue__with_no_sleep
     # Tanner (1/28/21): removing item from queue to avoid BrokenPipeError
     actual_item = input_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_item == test_item
-
-    spied_sleep.assert_not_called()
 
 
 def test_MantarrayMcSimulator__handles_reads_of_size_less_than_next_packet_in_queue__when_queue_is_not_empty(

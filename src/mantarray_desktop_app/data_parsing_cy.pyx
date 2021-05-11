@@ -92,10 +92,10 @@ cdef int SERIAL_COMM_MAIN_MODULE_ID_C_INT = SERIAL_COMM_MAIN_MODULE_ID
 cdef int SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE_C_INT = SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 cdef int MIN_PACKET_SIZE = 24
 
-cdef struct Packet:
+cdef packed struct Packet:
     unsigned char magic[8]
     uint16_t packet_len
-    uint8_t timestamp[8]  # Tanner (5/10/21): uint64_t can only align to mem addr divisible by 8, so have to use uint8_t here and cast later
+    uint64_t timestamp
     uint8_t module_id
     uint8_t packet_type
     int16_t data
@@ -137,16 +137,14 @@ def handle_data_packets(unsigned char[:] read_bytes, int data_packet_len) -> Tup
     while bytes_idx <= num_bytes - MIN_PACKET_SIZE:
         p = <Packet *> &read_bytes[bytes_idx]
 
-        ts = (<uint64_t *> &p.timestamp[0])[0]
-        # print(ts)
-        timestamps[data_packet_idx] = ts
+        timestamps[data_packet_idx] = p.timestamp
 
         # TODO check CRC
 
         # if p.module_id != SERIAL_COMM_MAIN_MODULE_ID_C_INT:
         #     break
         if p.packet_type != SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE_C_INT:
-            # breaking out of loop + function here, so ok to incur reasonable amount of python overhead here
+            # breaking out of loop and function here, so ok to incur reasonable amount of python overhead here
             other_bytes = bytearray(p.packet_len - 14)
             for packet_body_idx in range(p.packet_len - 14):
                 other_bytes[packet_body_idx] = (<uint8_t *> &p.data + packet_body_idx)[0]
