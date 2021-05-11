@@ -6,9 +6,12 @@
 from libcpp.map cimport map
 from typing import Tuple
 
-from .constants import ADC_CH_TO_24_WELL_INDEX, SERIAL_COMM_MAGIC_WORD_BYTES
+from .constants import ADC_CH_TO_24_WELL_INDEX
 from .constants import ADC_CH_TO_IS_REF_SENSOR
 from .constants import RAW_TO_SIGNED_CONVERSION_VALUE
+from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
+from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
+from .constants import SERIAL_COMM_MAIN_MODULE_ID
 
 # Beta 1
 
@@ -115,6 +118,9 @@ def handle_data_packets(unsigned char[:] read_bytes, int data_packet_len) -> Tup
 
     cdef int data_packet_idx = 0
     cdef int bytes_idx = 0
+    cdef int packet_body_idx = 0
+    other_packet_info = None
+    unread_bytes = None
 
     cdef int num_bytes = len(read_bytes)
     cdef int num_data_packets_possible = num_bytes // data_packet_len
@@ -124,33 +130,40 @@ def handle_data_packets(unsigned char[:] read_bytes, int data_packet_len) -> Tup
     cdef uint64_t ts
     cdef Packet *p
 
-    cdef np.ndarray[np.uint64_t, ndim=1] timestamps = np.empty(num_data_packets_possible, dtype=np.uint64)
-    cdef np.ndarray[np.int16_t, ndim=2] data = np.empty((num_data_channels, num_data_packets_possible), dtype=np.int16)
+    cdef np.ndarray[np.uint64_t, ndim=1] timestamps = np.empty(num_data_packets_possible + 1, dtype=np.uint64)
+    cdef np.ndarray[np.int16_t, ndim=2] data = np.empty((num_data_channels, num_data_packets_possible + 1), dtype=np.int16)
 
     cdef int channel_num
-    while bytes_idx <= num_bytes - data_packet_len:
+    while bytes_idx <= num_bytes - MIN_PACKET_SIZE:
         p = <Packet *> &read_bytes[bytes_idx]
 
         ts = (<uint64_t *> &p.timestamp[0])[0]
+        # print(ts)
         timestamps[data_packet_idx] = ts
+
+        # TODO check CRC
 
         # if p.module_id != SERIAL_COMM_MAIN_MODULE_ID_C_INT:
         #     break
-        # elif p.packet_type != SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE_C_INT:
-        #     break
+        if p.packet_type != SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE_C_INT:
+            # breaking out of loop + function here, so ok to incur reasonable amount of python overhead here
+            other_bytes = bytearray(p.packet_len - 14)
+            for packet_body_idx in range(p.packet_len - 14):
+                other_bytes[packet_body_idx] = (<uint8_t *> &p.data + packet_body_idx)[0]
+            other_packet_info = (p.module_id, p.packet_type, other_bytes)
+            break
 
         for channel_num in range(num_data_channels):
             data[channel_num, data_packet_idx] = (&p.data + channel_num)[0]
         data_packet_idx += 1
         bytes_idx += data_packet_len
 
-    # TODO test crc32. should also check crc 32 of packets that aren't data packets
     return (
         timestamps,
         data,
         data_packet_idx,
-        bytes(0),
-        bytes(0)
+        other_packet_info,
+        unread_bytes,
     )
 
 
