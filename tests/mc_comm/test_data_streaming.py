@@ -43,7 +43,7 @@ FULL_DATA_PACKET_LEN = get_full_packet_size_from_packet_body_size(
     SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS * 2
 )
 
-TEST_OTHER_TIMESTAMP = 1  # randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+TEST_OTHER_TIMESTAMP = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
 TEST_OTHER_PACKET = create_data_packet(
     TEST_OTHER_TIMESTAMP,
     SERIAL_COMM_MAIN_MODULE_ID,
@@ -64,15 +64,10 @@ def test_handle_data_packets__handles_two_full_data_packets_correctly():
 
     expected_timestamps = np.array([1, 2], dtype=np.uint64)
 
-    expected_data_array = np.zeros(
-        (num_data_points_per_packet, test_num_data_packets), dtype=np.int16
-    )
+    expected_data_array = np.zeros((num_data_points_per_packet, test_num_data_packets), dtype=np.int16)
     test_data_packets = bytes(0)
     for packet_num in range(test_num_data_packets):
-        test_data = [
-            randint(-0x8000, 0x7FFF)
-            for _ in range(SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS)
-        ]
+        test_data = [randint(-0x8000, 0x7FFF) for _ in range(SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS)]
         expected_data_array[:, packet_num] = test_data
 
         test_bytes = bytes(0)
@@ -94,13 +89,9 @@ def test_handle_data_packets__handles_two_full_data_packets_correctly():
     ) = handle_data_packets(bytearray(test_data_packets), FULL_DATA_PACKET_LEN)
 
     assert actual_timestamps.shape[0] == test_num_data_packets
-    np.testing.assert_array_equal(
-        actual_timestamps[:test_num_data_packets], expected_timestamps
-    )
+    np.testing.assert_array_equal(actual_timestamps[:test_num_data_packets], expected_timestamps)
     assert actual_data.shape[1] == test_num_data_packets
-    np.testing.assert_array_equal(
-        actual_data[:, :test_num_data_packets], expected_data_array
-    )
+    np.testing.assert_array_equal(actual_data[:, :test_num_data_packets], expected_data_array)
     assert num_data_packets_read == test_num_data_packets
     assert other_packet_info is None
     assert unread_bytes is None
@@ -156,9 +147,7 @@ def test_handle_data_packets__handles_interrupting_packet_followed_by_data_packe
     expected_unread_bytes = bytes(0)
     data_bytes = bytes(0)
     for _ in range(SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS):
-        data_bytes += randint(-0x8000, 0x7FFF).to_bytes(
-            2, byteorder="little", signed=True
-        )
+        data_bytes += randint(-0x8000, 0x7FFF).to_bytes(2, byteorder="little", signed=True)
     expected_unread_bytes = create_data_packet(
         randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE),
         SERIAL_COMM_MAIN_MODULE_ID,
@@ -186,9 +175,7 @@ def test_handle_data_packets__handles_single_data_packet_followed_by_interruptin
     data_bytes = bytes(0)
     expected_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
     for _ in range(SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS):
-        data_bytes += randint(-0x8000, 0x7FFF).to_bytes(
-            2, byteorder="little", signed=True
-        )
+        data_bytes += randint(-0x8000, 0x7FFF).to_bytes(2, byteorder="little", signed=True)
     test_data_packet = create_data_packet(
         expected_timestamp,
         SERIAL_COMM_MAIN_MODULE_ID,
@@ -222,9 +209,7 @@ def test_handle_data_packets__handles_interrupting_packet_in_between_two_data_pa
     for _ in range(test_num_data_packets):
         data_bytes = bytes(0)
         for _ in range(SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS):
-            data_bytes += randint(-0x8000, 0x7FFF).to_bytes(
-                2, byteorder="little", signed=True
-            )
+            data_bytes += randint(-0x8000, 0x7FFF).to_bytes(2, byteorder="little", signed=True)
         test_data_packet = create_data_packet(
             expected_timestamp,
             SERIAL_COMM_MAIN_MODULE_ID,
@@ -254,18 +239,12 @@ def test_handle_data_packets__raises_error_when_packet_from_instrument_has_incor
     patch_print,
 ):
     bad_checksum = 0
-    bad_checksum_bytes = bad_checksum.to_bytes(
-        SERIAL_COMM_CHECKSUM_LENGTH_BYTES, byteorder="little"
-    )
-    bad_packet = (
-        TEST_OTHER_PACKET[:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES] + bad_checksum_bytes
-    )
+    bad_checksum_bytes = bad_checksum.to_bytes(SERIAL_COMM_CHECKSUM_LENGTH_BYTES, byteorder="little")
+    bad_packet = TEST_OTHER_PACKET[:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES] + bad_checksum_bytes
     with pytest.raises(SerialCommIncorrectChecksumFromInstrumentError) as exc_info:
         handle_data_packets(bytearray(bad_packet), FULL_DATA_PACKET_LEN)
 
-    expected_checksum = int.from_bytes(
-        bad_packet[-SERIAL_COMM_CHECKSUM_LENGTH_BYTES:], byteorder="little"
-    )
+    expected_checksum = int.from_bytes(bad_packet[-SERIAL_COMM_CHECKSUM_LENGTH_BYTES:], byteorder="little")
     assert str(bad_checksum) in exc_info.value.args[0]
     assert str(expected_checksum) in exc_info.value.args[0]
     assert str(bytearray(bad_packet)) in exc_info.value.args[0]
