@@ -15,6 +15,7 @@ from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
+from .constants import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 
 # Beta 1
 
@@ -103,7 +104,7 @@ cdef int MAGIC_WORD_LEN = len(SERIAL_COMM_MAGIC_WORD_BYTES)
 cdef int SERIAL_COMM_MAIN_MODULE_ID_C_INT = SERIAL_COMM_MAIN_MODULE_ID
 cdef int SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE_C_INT = SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 cdef int SERIAL_COMM_ADDITIONAL_BYTES_INDEX_C_INT = SERIAL_COMM_ADDITIONAL_BYTES_INDEX
-cdef int MIN_PACKET_SIZE = 24
+cdef int MIN_PACKET_SIZE = SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 
 cdef packed struct Packet:
     unsigned char magic[8]
@@ -128,7 +129,7 @@ def handle_data_packets(
         data_packet_len: the length of a data packet
 
     Returns:
-        A tuple of the array of parsed timestamps, the array of parsed data, the number of data packets read, optional tuple containing info about the interrupting packet if one occured (timestamp, module ID, packet type, and packet body bytes), optional remaining unread bytes if there were any
+        A tuple of the array of parsed timestamps, the array of parsed data, the number of data packets read, optional tuple containing info about the interrupting packet if one occured (timestamp, module ID, packet type, and packet body bytes), the remaining unread bytes
     """
     # make sure data is C contiguous
     read_bytes = read_bytes.copy()
@@ -144,7 +145,6 @@ def handle_data_packets(
     cdef np.ndarray[np.int16_t, ndim=2] data = np.empty((num_data_channels, num_data_packets_possible), dtype=np.int16)
     cdef int data_packet_idx = 0  # also represents numbers of data packets read. Will not increment after reading a "non-data" packet
     other_packet_info = None
-    unread_bytes = None
 
     cdef unsigned int crc, original_crc
 
@@ -178,7 +178,8 @@ def handle_data_packets(
                 ]
             )
             other_packet_info = (p.timestamp, p.module_id, p.packet_type, other_bytes)
-            unread_bytes = bytearray(read_bytes[bytes_idx + p.packet_len + 10:])
+            # increment bytes_idx here as it will be used when returning the unread bytes
+            bytes_idx += p.packet_len + 10
             break
 
         # subtract offset from timestamp and add to timestamp array
@@ -190,12 +191,10 @@ def handle_data_packets(
         data_packet_idx += 1
         bytes_idx += data_packet_len
 
-    # TODO check for unread bytes here
-
     return (
         timestamps,
         data,
         data_packet_idx,
         other_packet_info,
-        unread_bytes,
+        bytearray(read_bytes[bytes_idx:]),
     )

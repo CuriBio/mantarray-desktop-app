@@ -41,7 +41,7 @@ from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
-from .constants import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
+from .constants import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
@@ -441,7 +441,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise SerialCommIncorrectChecksumFromInstrumentError(
                 f"Checksum Received: {received_checksum}, Checksum Calculated: {calculated_checksum}, Full Data Packet: {str(full_data_packet)}"
             )
-        if packet_size < SERIAL_COMM_MIN_PACKET_SIZE_BYTES:
+        if packet_size < SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES:
             raise SerialCommPacketFromMantarrayTooSmallError(
                 f"Invalid packet length received: {packet_size}, Full Data Packet: {str(full_data_packet)}"
             )

@@ -19,7 +19,7 @@ from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
-from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
+from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
@@ -143,7 +143,7 @@ def test_McCommunicationProcess__raises_error_if_not_enough_bytes_in_packet_sent
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
     dummy_timestamp_bytes = bytes(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES)
-    bad_packet_length = SERIAL_COMM_MIN_PACKET_SIZE_BYTES - 1
+    bad_packet_length = SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES - 1
     test_packet = SERIAL_COMM_MAGIC_WORD_BYTES
     test_packet += bad_packet_length.to_bytes(SERIAL_COMM_PACKET_INFO_LENGTH_BYTES, byteorder="little")
     test_packet += dummy_timestamp_bytes

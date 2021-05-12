@@ -86,7 +86,8 @@ from mantarray_desktop_app import SERIAL_COMM_MAX_DATA_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_METADATA_BYTES_LENGTH
-from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
+from mantarray_desktop_app import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_INDEX
 from mantarray_desktop_app import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
@@ -381,10 +382,16 @@ def test_serial_comm():
         - SERIAL_COMM_CHECKSUM_LENGTH_BYTES
         - 10
     )
-    assert SERIAL_COMM_MIN_PACKET_SIZE_BYTES == (
+    assert SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES == (
         SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
         + SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
         + SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+    )
+    assert (
+        SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
+        == SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
+        + SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
+        + len(SERIAL_COMM_MAGIC_WORD_BYTES)
     )
     assert SERIAL_COMM_MAX_TIMESTAMP_VALUE == 2 ** (8 * SERIAL_COMM_TIMESTAMP_LENGTH_BYTES) - 1
 
