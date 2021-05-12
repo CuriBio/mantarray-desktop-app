@@ -4,6 +4,7 @@
 # cython: linetrace=False
 """Parsing data from Mantarray Hardware."""
 from libcpp.map cimport map
+from typing import Optional
 from typing import Tuple
 
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
@@ -114,7 +115,9 @@ cdef packed struct Packet:
     int16_t data
 
 
-def handle_data_packets(unsigned char[:] read_bytes, int data_packet_len) -> Tuple[NDArray, NDArray, int, bytes, bytes]:
+def handle_data_packets(
+    unsigned char[:] read_bytes, int data_packet_len
+) -> Tuple[NDArray, NDArray, int, Optional[Tuple[int, int, int, bytearray]], Optional[bytearray]]:
     """Read the given number of data packets from the instrument.
 
     If data stream is interrupted by packet that is not part of the data stream,
