@@ -110,6 +110,7 @@ cdef packed struct Packet:
     uint64_t timestamp
     uint8_t module_id
     uint8_t packet_type
+    uint16_t timestamp_offset
     int16_t data
 
 
@@ -131,7 +132,7 @@ def handle_data_packets(unsigned char[:] read_bytes, int data_packet_len) -> Tup
 
     cdef int num_bytes = len(read_bytes)
     cdef int num_data_packets_possible = num_bytes // data_packet_len
-    cdef int num_data_channels = (data_packet_len - MIN_PACKET_SIZE) // 2
+    cdef int num_data_channels = (data_packet_len - MIN_PACKET_SIZE - 2) // 2
 
     cdef Packet *p
 
@@ -148,18 +149,20 @@ def handle_data_packets(unsigned char[:] read_bytes, int data_packet_len) -> Tup
     cdef int channel_num
     while bytes_idx <= num_bytes - MIN_PACKET_SIZE:
         p = <Packet *> &read_bytes[bytes_idx]
+
         # get actual CRC value from packet
-        original_crc = (<uint32_t *> ((<uint8_t *> &p.data) + p.packet_len - 14))[0]
+        original_crc = (<uint32_t *> ((<uint8_t *> &p.timestamp_offset) + p.packet_len - 14))[0]
         # calculate expected CRC value
         crc = crc32(0, Z_NULL, 0)
         crc = crc32(crc, <uint8_t *> &p.magic, p.packet_len + 6)
-        # check that actual CRC is the expected value
+        # check that actual CRC is the expected value. Do this before checking if it is a data packet
         if crc != original_crc:
             # raising error here, so can incur reasonable amount of python overhead
             full_data_packet = bytearray(read_bytes[bytes_idx : bytes_idx + p.packet_len + 10])
             raise SerialCommIncorrectChecksumFromInstrumentError(
                 f"Checksum Received: {original_crc}, Checksum Calculated: {crc}, Full Data Packet: {str(full_data_packet)}"
             )
+
         # if this packet was not a data packet, need to set return values, break out of loop and return
         if (
             p.module_id != SERIAL_COMM_MAIN_MODULE_ID_C_INT
@@ -174,8 +177,9 @@ def handle_data_packets(unsigned char[:] read_bytes, int data_packet_len) -> Tup
             other_packet_info = (p.timestamp, p.module_id, p.packet_type, other_bytes)
             unread_bytes = bytearray(read_bytes[bytes_idx + p.packet_len + 10:])
             break
-        # add next timestamp to timestamp array
-        timestamps[data_packet_idx] = p.timestamp
+
+        # subtract offset from timestamp and add to timestamp array
+        timestamps[data_packet_idx] = p.timestamp - p.timestamp_offset
         # add next data points to data array
         for channel_num in range(num_data_channels):
             data[channel_num, data_packet_idx] = (&p.data + channel_num)[0]
@@ -190,24 +194,3 @@ def handle_data_packets(unsigned char[:] read_bytes, int data_packet_len) -> Tup
         other_packet_info,
         unread_bytes,
     )
-
-
-
-# cpdef (int, unsigned char, unsigned char) get_data_packet(read_func, char[:] data_buf):
-#     """Read the next packet from the instrument. Load the packet body in the char buffer given
-
-#     Args:
-#         read_func: a pointer to the read function of the instrument's serial interface
-#         data_buf: a buffer to load the packet body into
-
-#     Returns:
-#         The timestamp, module ID, and packet type of the data packet
-#     """
-#     magic_word_bytes = read_func(size=MAGIC_WORD_LEN)  # TODO check this value
-#     packet_length_bytes = read_func(size=2)
-#     packet_length = int.from_bytes(packet_size_bytes, byteorder="little")
-#     cdef char[:] read_bytes = bytearray(read_func(size=packet_length))[:]
-
-
-#     data_buf[:] = read_bytes[:]
-#     return 0,0,0

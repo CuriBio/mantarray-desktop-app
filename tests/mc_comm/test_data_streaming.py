@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import copy
 from random import randint
+import time
 
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import handle_data_packets
@@ -40,7 +41,7 @@ __fixtures__ = [
 
 TEST_NUM_WELLS = 24
 FULL_DATA_PACKET_LEN = get_full_packet_size_from_packet_body_size(
-    SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS * 2
+    (SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS * 2) + 2
 )
 
 TEST_OTHER_TIMESTAMP = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
@@ -62,7 +63,9 @@ def test_handle_data_packets__handles_two_full_data_packets_correctly():
     test_num_data_packets = 2
     num_data_points_per_packet = SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS
 
-    expected_timestamps = np.array([1, 2], dtype=np.uint64)
+    expected_packet_timestamps = np.array([5, 6], dtype=np.uint64)
+    expected_timestamp_offsets = np.array([2, 1], dtype=np.uint64)
+    expected_data_timestamps = expected_packet_timestamps - expected_timestamp_offsets
 
     expected_data_array = np.zeros((num_data_points_per_packet, test_num_data_packets), dtype=np.int16)
     test_data_packets = bytes(0)
@@ -70,11 +73,11 @@ def test_handle_data_packets__handles_two_full_data_packets_correctly():
         test_data = [randint(-0x8000, 0x7FFF) for _ in range(SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS)]
         expected_data_array[:, packet_num] = test_data
 
-        test_bytes = bytes(0)
+        test_bytes = expected_timestamp_offsets[packet_num].item().to_bytes(2, byteorder="little")
         for value in test_data:
             test_bytes += value.to_bytes(2, byteorder="little", signed=True)
         test_data_packets += create_data_packet(
-            expected_timestamps[packet_num].item(),
+            expected_packet_timestamps[packet_num].item(),
             SERIAL_COMM_MAIN_MODULE_ID,
             SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE,
             test_bytes,
@@ -89,9 +92,9 @@ def test_handle_data_packets__handles_two_full_data_packets_correctly():
     ) = handle_data_packets(bytearray(test_data_packets), FULL_DATA_PACKET_LEN)
 
     assert actual_timestamps.shape[0] == test_num_data_packets
-    np.testing.assert_array_equal(actual_timestamps[:test_num_data_packets], expected_timestamps)
+    np.testing.assert_array_equal(actual_timestamps, expected_data_timestamps)
     assert actual_data.shape[1] == test_num_data_packets
-    np.testing.assert_array_equal(actual_data[:, :test_num_data_packets], expected_data_array)
+    np.testing.assert_array_equal(actual_data, expected_data_array)
     assert num_data_packets_read == test_num_data_packets
     assert other_packet_info is None
     assert unread_bytes is None
@@ -144,8 +147,7 @@ def test_handle_data_packets__handles_single_packet_with_incorrect_module_id_cor
 
 
 def test_handle_data_packets__handles_interrupting_packet_followed_by_data_packet__when_all_channels_enabled():
-    expected_unread_bytes = bytes(0)
-    data_bytes = bytes(0)
+    data_bytes = bytes(2)
     for _ in range(SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS):
         data_bytes += randint(-0x8000, 0x7FFF).to_bytes(2, byteorder="little", signed=True)
     expected_unread_bytes = create_data_packet(
@@ -172,7 +174,7 @@ def test_handle_data_packets__handles_interrupting_packet_followed_by_data_packe
 
 
 def test_handle_data_packets__handles_single_data_packet_followed_by_interrupting_packet__when_all_channels_enabled():
-    data_bytes = bytes(0)
+    data_bytes = bytes(2)
     expected_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
     for _ in range(SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS):
         data_bytes += randint(-0x8000, 0x7FFF).to_bytes(2, byteorder="little", signed=True)
@@ -207,7 +209,7 @@ def test_handle_data_packets__handles_interrupting_packet_in_between_two_data_pa
 
     test_data_packets = []
     for _ in range(test_num_data_packets):
-        data_bytes = bytes(0)
+        data_bytes = bytes(2)
         for _ in range(SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS):
             data_bytes += randint(-0x8000, 0x7FFF).to_bytes(2, byteorder="little", signed=True)
         test_data_packet = create_data_packet(
@@ -250,8 +252,48 @@ def test_handle_data_packets__raises_error_when_packet_from_instrument_has_incor
     assert str(bytearray(bad_packet)) in exc_info.value.args[0]
 
 
-# TODO:
-#     performance test
+def test_handle_data_packets__performance_test():
+    # start:                            1391397
+
+    test_num_data_packets = 1000  # one second of data at max sampling frequency
+    num_data_points_per_packet = SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS
+
+    expected_data_array = np.zeros((num_data_points_per_packet, test_num_data_packets), dtype=np.int16)
+    test_data_packets = bytes(0)
+    for packet_num in range(test_num_data_packets):
+        test_data = [randint(-0x8000, 0x7FFF) for _ in range(SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS)]
+        expected_data_array[:, packet_num] = test_data
+
+        test_bytes = bytes(2)
+        for value in test_data:
+            test_bytes += value.to_bytes(2, byteorder="little", signed=True)
+        test_data_packets += create_data_packet(
+            packet_num,
+            SERIAL_COMM_MAIN_MODULE_ID,
+            SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE,
+            test_bytes,
+        )
+
+    start = time.perf_counter_ns()
+    (
+        actual_timestamps,
+        actual_data,
+        num_data_packets_read,
+        other_packet_info,
+        unread_bytes,
+    ) = handle_data_packets(bytearray(test_data_packets), FULL_DATA_PACKET_LEN)
+    dur = time.perf_counter_ns() - start
+    # print(f"Dur (ns): {dur}, (seconds): {dur / 10 ** 9}") # pylint:disable=wrong-spelling-in-comment # Tanner (5/11/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
+
+    assert dur < 1000000000
+    # good to also assert the entire second of data was parsed correctly
+    assert actual_timestamps.shape[0] == test_num_data_packets
+    np.testing.assert_array_equal(actual_timestamps, list(range(test_num_data_packets)))
+    assert actual_data.shape[1] == test_num_data_packets
+    np.testing.assert_array_equal(actual_data, expected_data_array)
+    assert num_data_packets_read == test_num_data_packets
+    assert other_packet_info is None
+    assert unread_bytes is None
 
 
 def test_McCommunicationProcess__processes_start_managed_acquisition_command__when_data_not_already_streaming(
