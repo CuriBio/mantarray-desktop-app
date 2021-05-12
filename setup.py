@@ -3,6 +3,7 @@
 
 import os
 
+import numpy
 from setuptools import Extension
 from setuptools import find_packages
 from setuptools import setup
@@ -38,5 +39,6 @@ setup(
     license="MIT",
     packages=find_packages("src"),
     package_dir={"": "src"},
+    include_dirs=[numpy.get_include()],
     ext_modules=extensions,
 )
