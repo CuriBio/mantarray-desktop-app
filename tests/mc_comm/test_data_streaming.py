@@ -7,11 +7,13 @@ from mantarray_desktop_app import handle_data_packets
 from mantarray_desktop_app import InstrumentDataStreamingAlreadyStartedError
 from mantarray_desktop_app import InstrumentDataStreamingAlreadyStoppedError
 from mantarray_desktop_app import mc_comm
+from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
+from mantarray_desktop_app import SerialCommIncorrectChecksumFromInstrumentError
 import numpy as np
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
@@ -41,7 +43,7 @@ FULL_DATA_PACKET_LEN = get_full_packet_size_from_packet_body_size(
     SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS * 2
 )
 
-TEST_OTHER_TIMESTAMP = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+TEST_OTHER_TIMESTAMP = 1  # randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
 TEST_OTHER_PACKET = create_data_packet(
     TEST_OTHER_TIMESTAMP,
     SERIAL_COMM_MAIN_MODULE_ID,
@@ -90,6 +92,7 @@ def test_handle_data_packets__handles_two_full_data_packets_correctly():
         other_packet_info,
         unread_bytes,
     ) = handle_data_packets(bytearray(test_data_packets), FULL_DATA_PACKET_LEN)
+
     assert actual_timestamps.shape[0] == test_num_data_packets
     np.testing.assert_array_equal(
         actual_timestamps[:test_num_data_packets], expected_timestamps
@@ -247,8 +250,28 @@ def test_handle_data_packets__handles_interrupting_packet_in_between_two_data_pa
     assert unread_bytes == test_data_packets[1]
 
 
+def test_handle_data_packets__raises_error_when_packet_from_instrument_has_incorrect_crc32_checksum(
+    patch_print,
+):
+    bad_checksum = 0
+    bad_checksum_bytes = bad_checksum.to_bytes(
+        SERIAL_COMM_CHECKSUM_LENGTH_BYTES, byteorder="little"
+    )
+    bad_packet = (
+        TEST_OTHER_PACKET[:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES] + bad_checksum_bytes
+    )
+    with pytest.raises(SerialCommIncorrectChecksumFromInstrumentError) as exc_info:
+        handle_data_packets(bytearray(bad_packet), FULL_DATA_PACKET_LEN)
+
+    expected_checksum = int.from_bytes(
+        bad_packet[-SERIAL_COMM_CHECKSUM_LENGTH_BYTES:], byteorder="little"
+    )
+    assert str(bad_checksum) in exc_info.value.args[0]
+    assert str(expected_checksum) in exc_info.value.args[0]
+    assert str(bytearray(bad_packet)) in exc_info.value.args[0]
+
+
 # TODO:
-#     data packet with incorrect check sum value
 #     performance test
 
 

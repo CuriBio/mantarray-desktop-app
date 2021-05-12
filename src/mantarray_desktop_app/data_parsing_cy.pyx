@@ -6,6 +6,7 @@
 from libcpp.map cimport map
 from typing import Tuple
 
+from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
 from .constants import ADC_CH_TO_24_WELL_INDEX
 from .constants import ADC_CH_TO_IS_REF_SENSOR
 from .constants import RAW_TO_SIGNED_CONVERSION_VALUE
@@ -77,15 +78,24 @@ cpdef int parse_little_endian_int24(unsigned char[3] data_bytes):
 
 # Beta 2
 
+from libc.stdint cimport int16_t
 from libc.stdint cimport uint8_t
 from libc.stdint cimport uint16_t
-from libc.stdint cimport int16_t
+from libc.stdint cimport uint32_t
 from libc.stdint cimport uint64_t
 from nptyping import NDArray
 # import numpy correctly
 import numpy as np
 cimport numpy as np
 np.import_array()
+
+cdef extern from "zlib.h":
+    ctypedef unsigned char Bytef
+    ctypedef unsigned long uLong
+    ctypedef unsigned int uInt
+
+    uLong crc32(uLong, Bytef*, uInt)
+    Bytef* Z_NULL
 
 
 cdef int MAGIC_WORD_LEN = len(SERIAL_COMM_MAGIC_WORD_BYTES)
@@ -132,12 +142,24 @@ def handle_data_packets(unsigned char[:] read_bytes, int data_packet_len) -> Tup
     other_packet_info = None
     unread_bytes = None
 
+    cdef unsigned int crc, original_crc
+
     cdef int bytes_idx = 0
     cdef int channel_num
     while bytes_idx <= num_bytes - MIN_PACKET_SIZE:
         p = <Packet *> &read_bytes[bytes_idx]
-        # check CRC
-        # TODO check CRC and raise error if one occurs
+        # get actual CRC value from packet
+        original_crc = (<uint32_t *> ((<uint8_t *> &p.data) + p.packet_len - 14))[0]
+        # calculate expected CRC value
+        crc = crc32(0, Z_NULL, 0)
+        crc = crc32(crc, <uint8_t *> &p.magic, p.packet_len + 6)
+        # check that actual CRC is the expected value
+        if crc != original_crc:
+            # raising error here, so can incur reasonable amount of python overhead
+            full_data_packet = bytearray(read_bytes[bytes_idx : bytes_idx + p.packet_len + 10])
+            raise SerialCommIncorrectChecksumFromInstrumentError(
+                f"Checksum Received: {original_crc}, Checksum Calculated: {crc}, Full Data Packet: {str(full_data_packet)}"
+            )
         # if this packet was not a data packet, need to set return values, break out of loop and return
         if (
             p.module_id != SERIAL_COMM_MAIN_MODULE_ID_C_INT
@@ -146,8 +168,7 @@ def handle_data_packets(unsigned char[:] read_bytes, int data_packet_len) -> Tup
             # breaking out of loop here, so ok to incur reasonable amount of python overhead here
             other_bytes = bytearray(
                 read_bytes[
-                    bytes_idx + SERIAL_COMM_ADDITIONAL_BYTES_INDEX_C_INT
-                    : bytes_idx + p.packet_len + 6
+                    bytes_idx + SERIAL_COMM_ADDITIONAL_BYTES_INDEX_C_INT : bytes_idx + p.packet_len + 6
                 ]
             )
             other_packet_info = (p.timestamp, p.module_id, p.packet_type, other_bytes)
