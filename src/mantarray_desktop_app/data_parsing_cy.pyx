@@ -120,15 +120,15 @@ def handle_data_packets(
 ) -> Tuple[NDArray, NDArray, int, Optional[Tuple[int, int, int, bytearray]], Optional[bytearray]]:
     """Read the given number of data packets from the instrument.
 
-    If data stream is interrupted by packet that is not part of the data stream,
-    the packet bytes will be returned and the data arrays will not be full.
+    If data stream is interrupted by a packet that is not part of the data stream,
+    a tuple of info about the interrupting packet will be returned and the first two data arrays will not be full.
 
     Args:
         read_bytes: an array of all bytes waiting to be parsed. Not gauranteed to all be bytes in a data packet
         data_packet_len: the length of a data packet
 
     Returns:
-        A tuple of the array of parsed timestamps, the array of parsed data, the number of data packets read, the bytes from the packet body of an interrupting packet from the instrument (will be empty if one was not read), the remaining unread bytes
+        A tuple of the array of parsed timestamps, the array of parsed data, the number of data packets read, optional tuple containing info about the interrupting packet if one occured (timestamp, module ID, packet type, and packet body bytes), optional remaining unread bytes if there were any
     """
     # make sure data is C contiguous
     read_bytes = read_bytes.copy()
@@ -160,13 +160,13 @@ def handle_data_packets(
         crc = crc32(crc, <uint8_t *> &p.magic, p.packet_len + 6)
         # check that actual CRC is the expected value. Do this before checking if it is a data packet
         if crc != original_crc:
-            # raising error here, so can incur reasonable amount of python overhead
+            # raising error here, so ok to incur reasonable amount of python overhead here
             full_data_packet = bytearray(read_bytes[bytes_idx : bytes_idx + p.packet_len + 10])
             raise SerialCommIncorrectChecksumFromInstrumentError(
                 f"Checksum Received: {original_crc}, Checksum Calculated: {crc}, Full Data Packet: {str(full_data_packet)}"
             )
 
-        # if this packet was not a data packet, need to set return values, break out of loop and return
+        # if this packet was not a data packet then need to set optional return values, break out of loop, and return
         if (
             p.module_id != SERIAL_COMM_MAIN_MODULE_ID_C_INT
             or p.packet_type != SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE_C_INT
@@ -189,6 +189,8 @@ def handle_data_packets(
         # increment idxs
         data_packet_idx += 1
         bytes_idx += data_packet_len
+
+    # TODO check for unread bytes here
 
     return (
         timestamps,
