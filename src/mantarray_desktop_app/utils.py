@@ -179,6 +179,6 @@ def create_magnetometer_config_dict(num_wells: int) -> Dict[int, Dict[int, bool]
     for module_id in range(1, num_wells + 1):
         well_dict = dict()
         for sensor_axis_id in range(9):
-            well_dict[sensor_axis_id] = True
+            well_dict[sensor_axis_id] = False
         magnetometer_config_dict[module_id] = well_dict
     return magnetometer_config_dict

@@ -224,11 +224,12 @@ def test_MantarrayMcSimulator_read_all__gets_all_available_bytes__after_partial_
 
     test_reads = [b"11111", b"222"]
     expected_bytes = test_reads[0] + test_reads[1]
-    test_item = {"command": "add_read_bytes", "read_bytes": expected_bytes}
+    test_item = {"command": "add_read_bytes", "read_bytes": test_reads}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_item, testing_queue)
     invoke_process_run_and_check_errors(simulator)
 
     test_read_size = 3
+    simulator.read(size=test_read_size)
     actual_item = simulator.read_all()
     assert actual_item == expected_bytes[test_read_size:]
 

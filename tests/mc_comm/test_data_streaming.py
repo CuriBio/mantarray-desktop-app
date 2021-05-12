@@ -284,6 +284,7 @@ def test_handle_data_packets__raises_error_when_packet_from_instrument_has_incor
 
 
 def test_handle_data_packets__performance_test():
+    # One second of data, max sampling rate, all data channels on
     # start:                            1391397
 
     test_num_data_packets = 1000  # one second of data at max sampling frequency
