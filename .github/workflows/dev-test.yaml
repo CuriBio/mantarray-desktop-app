@@ -134,6 +134,10 @@ jobs:
           echo ${{steps.software-version.outputs.prop}}
           echo ${{steps.product-name.outputs.prop}}
 
+      - name: install zlib (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y libz-dev
+
       - name: Install pipenv # no known reason for this specific version of pipenv, just pinning it for good practice
         run: pip install pipenv==2020.11.15
 
