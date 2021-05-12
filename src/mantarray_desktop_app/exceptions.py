@@ -194,6 +194,10 @@ class SerialCommInvalidSamplingPeriodError(Exception):
     pass
 
 
+class MagnetometerConfigUpdateWhileDataStreamingError(Exception):
+    pass
+
+
 class InstrumentRebootTimeoutError(Exception):
     pass
 

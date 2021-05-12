@@ -66,6 +66,7 @@ from .exceptions import InstrumentDataStreamingAlreadyStoppedError
 from .exceptions import InstrumentFatalError
 from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import InstrumentSoftError
+from .exceptions import MagnetometerConfigUpdateWhileDataStreamingError
 from .exceptions import MantarrayInstrumentError
 from .exceptions import SerialCommCommandResponseTimeoutError
 from .exceptions import SerialCommHandshakeTimeoutError
@@ -156,6 +157,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._time_of_reboot_start: Optional[
             float
         ] = None  # Tanner (4/1/21): This value will be None until this process receives a response to a reboot command. It will be set back to None after receiving a status beacon upon reboot completion
+        self._is_data_streaming = False
 
     def _setup_before_loop(self) -> None:
         super()._setup_before_loop()
@@ -360,10 +362,14 @@ class McCommunicationProcess(InstrumentCommProcess):
             elif comm_from_main["command"] == "dump_eeprom":
                 bytes_to_send = bytes([SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE])
             elif comm_from_main["command"] == "start_managed_acquisition":
+                self._is_data_streaming = True
                 bytes_to_send = bytes([SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE])
             elif comm_from_main["command"] == "stop_managed_acquisition":
+                self._is_data_streaming = False
                 bytes_to_send = bytes([SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE])
             elif comm_from_main["command"] == "change_magnetometer_config":
+                if self._is_data_streaming:
+                    raise MagnetometerConfigUpdateWhileDataStreamingError()
                 bytes_to_send = bytes([SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE])
                 bytes_to_send += comm_from_main["sampling_period"].to_bytes(2, byteorder="little")
                 bytes_to_send += create_magnetometer_config_bytes(comm_from_main["magnetometer_config"])

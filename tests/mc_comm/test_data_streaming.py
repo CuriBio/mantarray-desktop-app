@@ -7,6 +7,7 @@ from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import handle_data_packets
 from mantarray_desktop_app import InstrumentDataStreamingAlreadyStartedError
 from mantarray_desktop_app import InstrumentDataStreamingAlreadyStoppedError
+from mantarray_desktop_app import MagnetometerConfigUpdateWhileDataStreamingError
 from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
@@ -368,6 +369,34 @@ def test_McCommunicationProcess__processes_start_managed_acquisition_command__wh
     assert command_response == expected_response
 
 
+def test_McCommunicationProcess__raises_error_when_change_magnetometer_config_command_received_while_data_is_streaming(
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker, patch_print
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    from_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][0]
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+
+    # start data streaming
+    start_command = {
+        "communication_type": "to_instrument",
+        "command": "start_managed_acquisition",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
+    invoke_process_run_and_check_errors(mc_process)
+    # attempt to change magnetometer configuration and assert error is raised
+    change_config_command = {
+        "communication_type": "to_instrument",
+        "command": "change_magnetometer_config",
+        "sampling_period": 65000,  # arbitrary value
+        "magnetometer_config": {},
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(change_config_command, from_main_queue)
+    with pytest.raises(MagnetometerConfigUpdateWhileDataStreamingError):
+        invoke_process_run_and_check_errors(mc_process)
+
+
 def test_McCommunicationProcess__processes_start_managed_acquisition_command__and_raises_error_when_already_streaming(
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
@@ -443,7 +472,7 @@ def test_McCommunicationProcess__processes_stop_data_streaming_command__when_dat
     assert command_response == expected_response
 
 
-def test_McCommunicationProcess__processes_stpo_data_streaming_command__and_raises_error_when_not_streaming(
+def test_McCommunicationProcess__processes_stop_data_streaming_command__and_raises_error_when_not_streaming(
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
     patch_print,

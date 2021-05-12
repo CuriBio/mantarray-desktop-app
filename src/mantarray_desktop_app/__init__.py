@@ -159,6 +159,7 @@ from .exceptions import InvalidDataFramePeriodError
 from .exceptions import InvalidDataTypeFromOkCommError
 from .exceptions import InvalidScriptCommandError
 from .exceptions import LocalServerPortAlreadyInUseError
+from .exceptions import MagnetometerConfigUpdateWhileDataStreamingError
 from .exceptions import MantarrayInstrumentError
 from .exceptions import MismatchedScriptTypeError
 from .exceptions import MultiprocessingNotSetToSpawnError
@@ -505,4 +506,5 @@ __all__ = [
     "SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE",
     "handle_data_packets",
     "SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES",
+    "MagnetometerConfigUpdateWhileDataStreamingError",
 ]
