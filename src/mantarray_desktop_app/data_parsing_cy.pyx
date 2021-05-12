@@ -90,8 +90,7 @@ import numpy as np
 cimport numpy as np
 np.import_array()
 
-#include "../zlib-1.2.11/zlib.h"
-cdef extern from "../zlib-1.2.11/zlib.h":
+cdef extern from "../zlib/zlib.h":
     ctypedef unsigned char Bytef
     ctypedef unsigned long uLong
     ctypedef unsigned int uInt
