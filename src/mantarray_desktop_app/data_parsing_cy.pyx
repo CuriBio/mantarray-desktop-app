@@ -79,7 +79,6 @@ cpdef int parse_little_endian_int24(unsigned char[3] data_bytes):
 
 
 # Beta 2
-
 from libc.stdint cimport int16_t
 from libc.stdint cimport uint8_t
 from libc.stdint cimport uint16_t
@@ -91,7 +90,8 @@ import numpy as np
 cimport numpy as np
 np.import_array()
 
-cdef extern from "zlib.h":
+#include "../zlib-1.2.11/zlib.h"
+cdef extern from "../zlib-1.2.11/zlib.h":
     ctypedef unsigned char Bytef
     ctypedef unsigned long uLong
     ctypedef unsigned int uInt

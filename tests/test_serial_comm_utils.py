@@ -214,6 +214,7 @@ def test_convert_bitmask_to_config_dict__returns_correct_values():
         SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Z"]: True,
         SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["X"]: False,
         SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["Y"]: True,
+        # pylint: disable=duplicate-code
         SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["Z"]: False,
         SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["X"]: True,
         SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Y"]: False,
