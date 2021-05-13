@@ -313,6 +313,15 @@ class MantarrayMcSimulator(InfiniteProcess):
     def get_num_wells(self) -> int:
         return self._num_wells
 
+    def _get_timestamp(self) -> int:
+        timestamp: int = (
+            self.get_cms_since_init()
+            if self._baseline_time_usec is None
+            else (self._baseline_time_usec + self._get_us_since_time_sync())
+            // MICROSECONDS_PER_CENTIMILLISECOND
+        )
+        return timestamp
+
     def _send_data_packet(
         self,
         module_id: int,
@@ -321,12 +330,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         truncate: bool = False,
     ) -> None:
         # TODO Tanner (4/7/21): convert timestamp to microseconds once real board makes the switch
-        timestamp = (
-            self.get_cms_since_init()
-            if self._baseline_time_usec is None
-            else (self._baseline_time_usec + self._get_us_since_time_sync())
-            // MICROSECONDS_PER_CENTIMILLISECOND
-        )
+        timestamp = self._get_timestamp()
         data_packet = create_data_packet(timestamp, module_id, packet_type, data_to_send)
         if truncate:
             trunc_index = random.randint(  # nosec B311 # Tanner (2/4/21): Bandit blacklisted this pseudo-random generator for cryptographic security reasons that do not apply to the desktop app.
@@ -369,7 +373,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._handle_comm_from_pc()
         self._handle_status_beacon()
         if self._is_streaming_data:
-            self._handle_data_packets()
+            self._handle_sending_data_packets()
         self._check_handshake()
         if self._ready_to_send_barcode:
             self._send_data_packet(
@@ -583,7 +587,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         else:
             raise UnrecognizedSimulatorTestCommandError(command)
 
-    def _handle_data_packets(self) -> None:
+    def _handle_sending_data_packets(self) -> None:
         """Send the required number of data packets.
 
         Since this process iterates once per 10 ms, it is possible that
@@ -600,6 +604,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                 // MICROSECONDS_PER_CENTIMILLISECOND
             ).to_bytes(2, byteorder="little")
             for well_idx in range(self._num_wells):
+                # TODO Tanner (5/13/21): can probably optimize this by checking if the well has any sensors on before making data
                 data_value = self._simulated_data[self._simulated_data_index] * np.int16(well_idx + 1)
                 data_value_bytes = data_value.tobytes()
                 for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS):

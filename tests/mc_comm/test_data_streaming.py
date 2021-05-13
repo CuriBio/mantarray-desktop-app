@@ -3,12 +3,15 @@ import copy
 from random import randint
 import time
 
+from mantarray_desktop_app import convert_bitmask_to_config_dict
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import handle_data_packets
 from mantarray_desktop_app import InstrumentDataStreamingAlreadyStartedError
 from mantarray_desktop_app import InstrumentDataStreamingAlreadyStoppedError
 from mantarray_desktop_app import MagnetometerConfigUpdateWhileDataStreamingError
 from mantarray_desktop_app import mc_comm
+from mantarray_desktop_app import mc_simulator
+from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
@@ -31,6 +34,7 @@ from ..fixtures_mc_comm import set_connection_and_register_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import set_simulator_idle_ready
+from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import get_full_packet_size_from_packet_body_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -61,6 +65,42 @@ TEST_OTHER_PACKET_INFO = (
     SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
     bytes(4),
 )
+
+
+def set_magnetometer_config_and_start_streaming(
+    mc_fixture,
+    simulator,
+    magnetometer_config,
+    sampling_period,
+):
+    mc_process = mc_fixture["mc_process"]
+    from_main_queue = mc_fixture["board_queues"][0][0]
+    to_main_queue = mc_fixture["board_queues"][0][1]
+    config_command = {
+        "communication_type": "to_instrument",
+        "command": "change_magnetometer_config",
+        "magnetometer_config": magnetometer_config,
+        "sampling_period": sampling_period,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(config_command, from_main_queue)
+    # send command, process command, process command response
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+
+    start_command = {
+        "communication_type": "to_instrument",
+        "command": "start_managed_acquisition",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
+    # send command, process command, process command response
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
 
 def test_handle_data_packets__handles_two_full_data_packets_correctly():
@@ -401,7 +441,7 @@ def test_McCommunicationProcess__raises_error_when_change_magnetometer_config_co
         "communication_type": "to_instrument",
         "command": "change_magnetometer_config",
         "sampling_period": 65000,  # arbitrary value
-        "magnetometer_config": {},
+        "magnetometer_config": dict(),
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(change_config_command, from_main_queue)
     with pytest.raises(MagnetometerConfigUpdateWhileDataStreamingError):
@@ -510,3 +550,114 @@ def test_McCommunicationProcess__processes_stop_data_streaming_command__and_rais
     # run mc_process to check command response and raise error
     with pytest.raises(InstrumentDataStreamingAlreadyStoppedError):
         invoke_process_run_and_check_errors(mc_process)
+
+
+def test_McCommunicationProcess__reads_all_bytes_from_intsrument__and_does_not_parse_bytes_if_not_enough_are_present(
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+    mocker,
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    to_fw_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][2]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    test_sampling_period_us = 25000  # arbitrary value
+    # mocking to ensure only one data packet is sent
+    mocker.patch.object(
+        mc_simulator,
+        "_get_us_since_last_data_packet",
+        autospec=True,
+        side_effect=[0, test_sampling_period_us],
+    )
+
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+    set_magnetometer_config_and_start_streaming(
+        four_board_mc_comm_process_no_handshake,
+        simulator,
+        {},
+        test_sampling_period_us,  # arbitrary value
+    )
+
+    # mocking in order to produce incomplete data packet
+    mocker.patch.object(
+        mc_simulator,
+        "create_data_packet",
+        autospec=True,
+        return_value=bytes(SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES - 1),
+    )
+    spied_handle = mocker.spy(mc_comm, "handle_data_packets")
+    spied_read_all = mocker.spy(simulator, "read_all")
+
+    # send data
+    invoke_process_run_and_check_errors(simulator)
+    assert simulator.in_waiting == SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES - 1
+    # read data
+    invoke_process_run_and_check_errors(mc_process)
+    spied_read_all.assert_called_once()
+    spied_handle.assert_not_called()
+    confirm_queue_is_eventually_empty(to_fw_queue)
+
+
+def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_data_to_file_writer_correctly(
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+    mocker,
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    to_fw_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][2]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    test_num_packets = 10
+    test_sampling_period_us = 35000  # arbitrary value
+    # mocking to ensure only one data packet is sent
+    mocker.patch.object(
+        mc_simulator,
+        "_get_us_since_last_data_packet",
+        autospec=True,
+        side_effect=[0, test_sampling_period_us * test_num_packets],
+    )
+
+    test_config_dict = dict()
+    for well_idx in range(10, 16):  # turn on one channel of wells 10-15
+        test_config_dict[well_idx] = convert_bitmask_to_config_dict(1)
+    expected_sensor_axis_id = SERIAL_COMM_NUM_DATA_CHANNELS - 1
+
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+    set_magnetometer_config_and_start_streaming(
+        four_board_mc_comm_process_no_handshake,
+        simulator,
+        test_config_dict,
+        test_sampling_period_us,
+    )
+
+    test_sampling_period_cms = test_sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND
+    max_timestamp_cms = test_sampling_period_cms * test_num_packets
+    # mocking to ensure only one data packet is sent
+    mocked_timestamps = [max_timestamp_cms - test_sampling_period_cms] * test_num_packets
+    mocker.patch.object(simulator, "_get_timestamp", autospec=True, side_effect=mocked_timestamps)
+
+    simulated_data = simulator.get_interpolated_data(test_sampling_period_us)
+    expected_fw_item = {
+        "timestamps": np.array(
+            list(range(0, max_timestamp_cms, test_sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND)),
+            np.uint64,
+        )
+    }
+    for well_idx in range(10, 16):
+        channel_dict = {expected_sensor_axis_id: simulated_data[:test_num_packets] * np.int16(well_idx)}
+        expected_fw_item[well_idx] = channel_dict
+
+    invoke_process_run_and_check_errors(simulator)
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(to_fw_queue, 1)
+    actual_fw_item = to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    for key, expected_array in expected_fw_item.items():
+        actual = actual_fw_item[key]
+        if key != "timestamps":
+            actual = actual[expected_sensor_axis_id]
+            expected_array = expected_array[expected_sensor_axis_id]
+        np.testing.assert_array_equal(actual, expected_array, err_msg=f"Failure at '{key}' key")
