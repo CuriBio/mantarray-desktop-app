@@ -425,9 +425,17 @@ def test_McCommunicationProcess__raises_error_when_change_magnetometer_config_co
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     from_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][0]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
+
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "set_sampling_period", "sampling_period": 5000}, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator)
 
     # start data streaming
     start_command = {
@@ -435,6 +443,8 @@ def test_McCommunicationProcess__raises_error_when_change_magnetometer_config_co
         "command": "start_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
     invoke_process_run_and_check_errors(mc_process)
     # attempt to change magnetometer configuration and assert error is raised
     change_config_command = {
@@ -545,7 +555,6 @@ def test_McCommunicationProcess__processes_stop_data_streaming_command__and_rais
     )
     # run mc_process one iteration to send start command
     invoke_process_run_and_check_errors(mc_process)
-    # run mc_simulator once to process command and send response
     invoke_process_run_and_check_errors(simulator)
     # run mc_process to check command response and raise error
     with pytest.raises(InstrumentDataStreamingAlreadyStoppedError):
@@ -600,7 +609,7 @@ def test_McCommunicationProcess__reads_all_bytes_from_intsrument__and_does_not_p
     confirm_queue_is_eventually_empty(to_fw_queue)
 
 
-def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_data_to_file_writer_correctly(
+def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_data_to_file_writer_correctly__when_one_second_of_data_is_present(
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
     mocker,
@@ -609,8 +618,8 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
     to_fw_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][2]
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
-    test_num_packets = 10
-    test_sampling_period_us = 35000  # arbitrary value
+    test_sampling_period_us = 10000  # specifically chosen so that there are 100 data packets in one second
+    test_num_packets = int(1e6 // test_sampling_period_us)
     # mocking to ensure only one data packet is sent
     mocker.patch.object(
         mc_simulator,
@@ -636,17 +645,14 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
 
     test_sampling_period_cms = test_sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND
     max_timestamp_cms = test_sampling_period_cms * test_num_packets
-    # mocking to ensure only one data packet is sent
-    mocked_timestamps = [max_timestamp_cms - test_sampling_period_cms] * test_num_packets
-    mocker.patch.object(simulator, "_get_timestamp", autospec=True, side_effect=mocked_timestamps)
+    expected_timestamps = list(
+        range(0, max_timestamp_cms, test_sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND)
+    )
+    mocker.patch.object(simulator, "_get_timestamp", autospec=True, side_effect=expected_timestamps)
+    mocker.patch.object(simulator, "_get_timestamp_offset", autospec=True, return_value=0)
 
     simulated_data = simulator.get_interpolated_data(test_sampling_period_us)
-    expected_fw_item = {
-        "timestamps": np.array(
-            list(range(0, max_timestamp_cms, test_sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND)),
-            np.uint64,
-        )
-    }
+    expected_fw_item = {"timestamps": np.array(expected_timestamps, np.uint64)}
     for well_idx in range(10, 16):
         channel_dict = {expected_sensor_axis_id: simulated_data[:test_num_packets] * np.int16(well_idx)}
         expected_fw_item[well_idx] = channel_dict

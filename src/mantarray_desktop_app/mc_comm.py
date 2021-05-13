@@ -159,7 +159,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._is_data_streaming = False
         self._magnetometer_config: Dict[int, Dict[int, bool]] = dict()
         self._num_data_channels_on = 0
-        self._sampling_period = 0
+        self._sampling_period_us = 0
 
     def _setup_before_loop(self) -> None:
         super()._setup_before_loop()
@@ -299,10 +299,10 @@ class McCommunicationProcess(InstrumentCommProcess):
     ) -> None:
         self._magnetometer_config = magnetometer_config
         num_data_channels_on = 0
-        for well_idx, config_dict in magnetometer_config.items():
+        for config_dict in magnetometer_config.values():
             num_data_channels_on += sum(config_dict.values())
         self._num_data_channels_on = num_data_channels_on
-        self._sampling_period = sampling_period
+        self._sampling_period_us = sampling_period
 
     def _commands_for_each_run_iteration(self) -> None:
         """Ordered actions to perform each iteration.
@@ -659,24 +659,23 @@ class McCommunicationProcess(InstrumentCommProcess):
         if board is None:
             raise NotImplementedError("board should never be None here")
 
-        read_bytes = board.read_all()
         packet_len = SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES + self._num_data_channels_on * 2 + 2
-        # self._magnetometer_config
-        # self._num_data_channels_on
-        # self._sampling_period
-        if len(read_bytes) < SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES:
+        num_bytes_per_second = packet_len * int(1e6 // self._sampling_period_us)
+
+        read_bytes = board.read_all()
+        if len(read_bytes) < num_bytes_per_second:
             # TODO handle leftover bytes
             return
         (
             actual_timestamps,
             actual_data,
             num_data_packets_read,
-            other_packet_info,
-            unread_bytes,
+            _,  # other_packet_info,
+            _,  # unread_bytes,
         ) = handle_data_packets(bytearray(read_bytes), packet_len)
         # TODO handle leftover bytes
 
-        # create dict to send to file writer
+        # create dict and send to file writer
         fw_item: Dict[Any, Any] = {"timestamps": actual_timestamps[:num_data_packets_read]}
         data_idx = 0
         for well_idx, config_dict in self._magnetometer_config.items():
@@ -689,8 +688,6 @@ class McCommunicationProcess(InstrumentCommProcess):
                 well_dict[sensor_axis_id] = actual_data[data_idx]
                 data_idx += 1
             fw_item[well_idx] = well_dict
-
-        # send data to file writer
         to_fw_queue = self._board_queues[0][2]
         to_fw_queue.put_nowait(fw_item)
 

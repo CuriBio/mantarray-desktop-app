@@ -598,11 +598,13 @@ class MantarrayMcSimulator(InfiniteProcess):
         us_since_last_data_packet = _get_us_since_last_data_packet(self._timepoint_of_last_data_packet_us)
         simulated_data_len = len(self._simulated_data)
         num_packets_to_send = us_since_last_data_packet // self._sampling_period_us
+        if num_packets_to_send == 0:
+            return
+        data_packet_bytes = bytes(0)
         for packet_num in range(num_packets_to_send):
-            data_packet_body = (
-                (us_since_last_data_packet - (packet_num + 1) * self._sampling_period_us)
-                // MICROSECONDS_PER_CENTIMILLISECOND
-            ).to_bytes(2, byteorder="little")
+            data_packet_body = self._get_timestamp_offset(us_since_last_data_packet, packet_num).to_bytes(
+                2, byteorder="little"
+            )
             for well_idx in range(self._num_wells):
                 # TODO Tanner (5/13/21): can probably optimize this by checking if the well has any sensors on before making data
                 data_value = self._simulated_data[self._simulated_data_index] * np.int16(well_idx + 1)
@@ -610,13 +612,21 @@ class MantarrayMcSimulator(InfiniteProcess):
                 for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS):
                     if self._magnetometer_config[well_idx + 1][channel_id]:
                         data_packet_body += data_value_bytes
-            self._send_data_packet(
+            data_packet_bytes += create_data_packet(
+                self._get_timestamp(),
                 SERIAL_COMM_MAIN_MODULE_ID,
                 SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE,
                 data_packet_body,
             )
             self._simulated_data_index = (self._simulated_data_index + 1) % simulated_data_len
+        # not using self._send_data_packet here because it is more efficient to send all bytes at once
+        self._output_queue.put_nowait(data_packet_bytes)
         self._timepoint_of_last_data_packet_us = _perf_counter_us()
+
+    def _get_timestamp_offset(self, us_since_last_data_packet: int, packet_num: int) -> int:
+        return (
+            us_since_last_data_packet - (packet_num + 1) * self._sampling_period_us
+        ) // MICROSECONDS_PER_CENTIMILLISECOND
 
     def read(self, size: int = 1) -> bytes:
         """Read the given number of bytes from the simulator."""
