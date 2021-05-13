@@ -10,6 +10,7 @@ from mantarray_desktop_app import InstrumentDataStreamingAlreadyStoppedError
 from mantarray_desktop_app import MagnetometerConfigUpdateWhileDataStreamingError
 from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
@@ -17,6 +18,7 @@ from mantarray_desktop_app import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SerialCommIncorrectChecksumFromInstrumentError
+from mantarray_desktop_app import SerialCommIncorrectMagicWordFromMantarrayError
 import numpy as np
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
@@ -269,6 +271,15 @@ def test_handle_data_packets__handles_interrupting_packet_in_between_two_data_pa
     assert unread_bytes == test_data_packets[1]
 
 
+def test_handle_data_packets__raises_error_when_packet_from_instrument_has_incorrect_magic_word(
+    patch_print,
+):
+    bad_magic_word_bytes = b"NOT CURI"
+    bad_packet = bad_magic_word_bytes + TEST_OTHER_PACKET[len(SERIAL_COMM_MAGIC_WORD_BYTES) :]
+    with pytest.raises(SerialCommIncorrectMagicWordFromMantarrayError, match=str(bad_magic_word_bytes)):
+        handle_data_packets(bytearray(bad_packet), FULL_DATA_PACKET_LEN)
+
+
 def test_handle_data_packets__raises_error_when_packet_from_instrument_has_incorrect_crc32_checksum(
     patch_print,
 ):
@@ -286,7 +297,7 @@ def test_handle_data_packets__raises_error_when_packet_from_instrument_has_incor
 
 def test_handle_data_packets__performance_test():
     # One second of data, max sampling rate, all data channels on
-    # start:                            1391397
+    # start:                            1397497
 
     test_num_data_packets = 1000  # one second of data at max sampling frequency
     num_data_points_per_packet = SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS
@@ -316,7 +327,7 @@ def test_handle_data_packets__performance_test():
         unread_bytes,
     ) = handle_data_packets(bytearray(test_data_packets), FULL_DATA_PACKET_LEN)
     dur = time.perf_counter_ns() - start
-    # print(f"Dur (ns): {dur}, (seconds): {dur / 10 ** 9}") # pylint:disable=wrong-spelling-in-comment # Tanner (5/11/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
+    # print(f"Dur (ns): {dur}, (seconds): {dur / 10 ** 9}")  # pylint:disable=wrong-spelling-in-comment # Tanner (5/11/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
 
     assert dur < 1000000000
     # good to also assert the entire second of data was parsed correctly

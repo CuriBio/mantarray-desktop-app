@@ -7,7 +7,6 @@ from libcpp.map cimport map
 from typing import Optional
 from typing import Tuple
 
-from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
 from .constants import ADC_CH_TO_24_WELL_INDEX
 from .constants import ADC_CH_TO_IS_REF_SENSOR
 from .constants import RAW_TO_SIGNED_CONVERSION_VALUE
@@ -16,6 +15,8 @@ from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
+from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
+from .exceptions import SerialCommIncorrectMagicWordFromMantarrayError
 
 # Beta 1
 
@@ -84,6 +85,8 @@ from libc.stdint cimport uint8_t
 from libc.stdint cimport uint16_t
 from libc.stdint cimport uint32_t
 from libc.stdint cimport uint64_t
+from libc.string cimport strncpy
+from libc.string cimport strcmp
 from nptyping import NDArray
 # import numpy correctly
 import numpy as np
@@ -99,14 +102,15 @@ cdef extern from "../zlib/zlib.h":
     Bytef* Z_NULL
 
 
-cdef int MAGIC_WORD_LEN = len(SERIAL_COMM_MAGIC_WORD_BYTES)
+cdef char[9] MAGIC_WORD = SERIAL_COMM_MAGIC_WORD_BYTES + bytes(1)
+cdef int MAGIC_WORD_LEN = len(SERIAL_COMM_MAGIC_WORD_BYTES)  # 8
 cdef int SERIAL_COMM_MAIN_MODULE_ID_C_INT = SERIAL_COMM_MAIN_MODULE_ID
 cdef int SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE_C_INT = SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 cdef int SERIAL_COMM_ADDITIONAL_BYTES_INDEX_C_INT = SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 cdef int MIN_PACKET_SIZE = SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 
 cdef packed struct Packet:
-    unsigned char magic[8]
+    char magic[8]
     uint16_t packet_len
     uint64_t timestamp
     uint8_t module_id
@@ -146,11 +150,17 @@ def handle_data_packets(
     other_packet_info = None
 
     cdef unsigned int crc, original_crc
+    cdef char[9] magic_word
 
     cdef int bytes_idx = 0
     cdef int channel_num
     while bytes_idx <= num_bytes - MIN_PACKET_SIZE:
         p = <Packet *> &read_bytes[bytes_idx]
+
+        # check that magic word is correct
+        strncpy(magic_word, p.magic, MAGIC_WORD_LEN);
+        if strcmp(magic_word, MAGIC_WORD):
+            raise SerialCommIncorrectMagicWordFromMantarrayError(str(magic_word))
 
         # get actual CRC value from packet
         original_crc = (<uint32_t *> ((<uint8_t *> &p.timestamp_offset) + p.packet_len - 14))[0]
