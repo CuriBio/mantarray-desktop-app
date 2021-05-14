@@ -86,7 +86,7 @@ from libc.stdint cimport uint16_t
 from libc.stdint cimport uint32_t
 from libc.stdint cimport uint64_t
 from libc.string cimport strncpy
-from libc.string cimport strcmp
+from libc.string cimport strncmp
 from nptyping import NDArray
 # import numpy correctly
 import numpy as np
@@ -151,6 +151,7 @@ def handle_data_packets(
 
     cdef unsigned int crc, original_crc
     cdef char[9] magic_word
+    magic_word[8] = 0
 
     cdef int bytes_idx = 0
     cdef int channel_num
@@ -159,7 +160,7 @@ def handle_data_packets(
 
         # check that magic word is correct
         strncpy(magic_word, p.magic, MAGIC_WORD_LEN);
-        if strcmp(magic_word, MAGIC_WORD):
+        if strncmp(magic_word, MAGIC_WORD, MAGIC_WORD_LEN) != 0:
             raise SerialCommIncorrectMagicWordFromMantarrayError(str(magic_word))
 
         # get actual CRC value from packet
