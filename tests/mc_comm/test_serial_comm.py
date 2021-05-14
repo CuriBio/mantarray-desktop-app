@@ -19,7 +19,7 @@ from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
-from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
+from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
@@ -143,7 +143,7 @@ def test_McCommunicationProcess__raises_error_if_not_enough_bytes_in_packet_sent
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
     dummy_timestamp_bytes = bytes(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES)
-    bad_packet_length = SERIAL_COMM_MIN_PACKET_SIZE_BYTES - 1
+    bad_packet_length = SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES - 1
     test_packet = SERIAL_COMM_MAGIC_WORD_BYTES
     test_packet += bad_packet_length.to_bytes(SERIAL_COMM_PACKET_INFO_LENGTH_BYTES, byteorder="little")
     test_packet += dummy_timestamp_bytes
@@ -365,11 +365,12 @@ def test_McCommunicationProcess__raises_error_when_receiving_untracked_command_r
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
     test_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+    test_timestamp_bytes = bytes(8)  # 8 arbitrary bytes in place of timestamp of command sent from PC
     test_command_response = create_data_packet(
         test_timestamp,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-        bytes(8),  # 8 arbitrary bytes in place of timestamp of command sent from PC
+        test_timestamp_bytes,
     )
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"command": "add_read_bytes", "read_bytes": test_command_response},
@@ -380,7 +381,9 @@ def test_McCommunicationProcess__raises_error_when_receiving_untracked_command_r
     mc_process.set_board_connection(0, simulator)
     with pytest.raises(SerialCommUntrackedCommandResponseError) as exc_info:
         invoke_process_run_and_check_errors(mc_process)
-    assert str(test_command_response) in str(exc_info.value)
+    assert str(SERIAL_COMM_MAIN_MODULE_ID) in str(exc_info.value)
+    assert str(SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE) in str(exc_info.value)
+    assert str(test_timestamp_bytes) in str(exc_info.value)
 
 
 def test_McCommunicationProcess__raises_error_if_command_response_not_received_within_command_response_wait_period(

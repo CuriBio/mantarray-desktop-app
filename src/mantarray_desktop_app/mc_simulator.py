@@ -8,7 +8,6 @@ from multiprocessing import Queue
 import os
 import queue
 import random
-import time
 from time import perf_counter
 from time import perf_counter_ns
 from typing import Any
@@ -32,7 +31,6 @@ from stdlib_utils import drain_queue
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import resource_path
-from stdlib_utils import SECONDS_TO_SLEEP_BETWEEN_CHECKING_QUEUE_SIZE
 
 from .constants import CENTIMILLISECONDS_PER_SECOND
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
@@ -209,7 +207,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._timepoint_of_last_data_packet_us = _perf_counter_us()
             self._simulated_data_index = 0
             if self._sampling_period_us == 0:
-                # TODO Tanner (5/5/21): Need to determine what to do if sampling period is not set when data begins streaming
+                # TODO Tanner (5/13/21): Need to determine what to do if sampling period is not set when data begins streaming
                 raise NotImplementedError("sampling period must be set before streaming data")
             self._simulated_data = self.get_interpolated_data(self._sampling_period_us)
         else:
@@ -315,6 +313,15 @@ class MantarrayMcSimulator(InfiniteProcess):
     def get_num_wells(self) -> int:
         return self._num_wells
 
+    def _get_timestamp(self) -> int:
+        timestamp: int = (
+            self.get_cms_since_init()
+            if self._baseline_time_usec is None
+            else (self._baseline_time_usec + self._get_us_since_time_sync())
+            // MICROSECONDS_PER_CENTIMILLISECOND
+        )
+        return timestamp
+
     def _send_data_packet(
         self,
         module_id: int,
@@ -323,12 +330,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         truncate: bool = False,
     ) -> None:
         # TODO Tanner (4/7/21): convert timestamp to microseconds once real board makes the switch
-        timestamp = (
-            self.get_cms_since_init()
-            if self._baseline_time_usec is None
-            else (self._baseline_time_usec + self._get_us_since_time_sync())
-            // MICROSECONDS_PER_CENTIMILLISECOND
-        )
+        timestamp = self._get_timestamp()
         data_packet = create_data_packet(timestamp, module_id, packet_type, data_to_send)
         if truncate:
             trunc_index = random.randint(  # nosec B311 # Tanner (2/4/21): Bandit blacklisted this pseudo-random generator for cryptographic security reasons that do not apply to the desktop app.
@@ -371,7 +373,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._handle_comm_from_pc()
         self._handle_status_beacon()
         if self._is_streaming_data:
-            self._handle_data_packets()
+            self._handle_sending_data_packets()
         self._check_handshake()
         if self._ready_to_send_barcode:
             self._send_data_packet(
@@ -433,7 +435,6 @@ class MantarrayMcSimulator(InfiniteProcess):
             elif command_byte == SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE:
                 response_body += self._update_magnetometer_config(comm_from_pc)
             elif command_byte == SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE:
-                # TODO Tanner (4/30/21): Once expected behavior is determined, add default sampling period or guard against starting data stream with no sampling period set
                 response_byte = int(self._is_streaming_data)
                 response_body += bytes([response_byte])
                 if not self._is_streaming_data:
@@ -585,7 +586,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         else:
             raise UnrecognizedSimulatorTestCommandError(command)
 
-    def _handle_data_packets(self) -> None:
+    def _handle_sending_data_packets(self) -> None:
         """Send the required number of data packets.
 
         Since this process iterates once per 10 ms, it is possible that
@@ -596,24 +597,36 @@ class MantarrayMcSimulator(InfiniteProcess):
         us_since_last_data_packet = _get_us_since_last_data_packet(self._timepoint_of_last_data_packet_us)
         simulated_data_len = len(self._simulated_data)
         num_packets_to_send = us_since_last_data_packet // self._sampling_period_us
+        if num_packets_to_send == 0:
+            return
+        data_packet_bytes = bytes(0)
         for packet_num in range(num_packets_to_send):
-            data_packet_body = (
-                (us_since_last_data_packet - (packet_num + 1) * self._sampling_period_us)
-                // MICROSECONDS_PER_CENTIMILLISECOND
-            ).to_bytes(2, byteorder="little")
+            data_packet_body = self._get_timestamp_offset(us_since_last_data_packet, packet_num).to_bytes(
+                2, byteorder="little"
+            )
             for well_idx in range(self._num_wells):
+                if not any(self._magnetometer_config[well_idx + 1].values()):
+                    continue
                 data_value = self._simulated_data[self._simulated_data_index] * np.int16(well_idx + 1)
                 data_value_bytes = data_value.tobytes()
                 for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS):
                     if self._magnetometer_config[well_idx + 1][channel_id]:
                         data_packet_body += data_value_bytes
-            self._send_data_packet(
+            data_packet_bytes += create_data_packet(
+                self._get_timestamp(),
                 SERIAL_COMM_MAIN_MODULE_ID,
                 SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE,
                 data_packet_body,
             )
             self._simulated_data_index = (self._simulated_data_index + 1) % simulated_data_len
+        # not using self._send_data_packet here because it is more efficient to send all bytes at once
+        self._output_queue.put_nowait(data_packet_bytes)
         self._timepoint_of_last_data_packet_us = _perf_counter_us()
+
+    def _get_timestamp_offset(self, us_since_last_data_packet: int, packet_num: int) -> int:
+        return (
+            us_since_last_data_packet - (packet_num + 1) * self._sampling_period_us
+        ) // MICROSECONDS_PER_CENTIMILLISECOND
 
     def read(self, size: int = 1) -> bytes:
         """Read the given number of bytes from the simulator."""
@@ -632,12 +645,28 @@ class MantarrayMcSimulator(InfiniteProcess):
                 read_bytes += next_bytes
             except queue.Empty:
                 pass
-            time.sleep(SECONDS_TO_SLEEP_BETWEEN_CHECKING_QUEUE_SIZE)
         # if this read exceeds given size then store extra bytes for the next read
         if len(read_bytes) > size:
             size_diff = len(read_bytes) - size
             self._leftover_read_bytes = read_bytes[-size_diff:]
             read_bytes = read_bytes[:-size_diff]
+        return read_bytes
+
+    def read_all(self) -> bytes:
+        """Read all available bytes from the simulator."""
+        read_bytes = bytes(0)
+        if len(self._leftover_read_bytes) > 0:
+            read_bytes = self._leftover_read_bytes
+            self._leftover_read_bytes = bytes(0)
+        start = perf_counter()
+        read_dur_secs = 0.0
+        while read_dur_secs <= self._read_timeout_seconds:
+            read_dur_secs = perf_counter() - start
+            try:
+                next_bytes = self._output_queue.get_nowait()
+                read_bytes += next_bytes
+            except queue.Empty:
+                pass
         return read_bytes
 
     def write(self, input_item: bytes) -> None:

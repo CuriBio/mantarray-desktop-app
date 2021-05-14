@@ -98,7 +98,8 @@ from .constants import SERIAL_COMM_MAX_DATA_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
-from .constants import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
+from .constants import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
+from .constants import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
@@ -158,6 +159,7 @@ from .exceptions import InvalidDataFramePeriodError
 from .exceptions import InvalidDataTypeFromOkCommError
 from .exceptions import InvalidScriptCommandError
 from .exceptions import LocalServerPortAlreadyInUseError
+from .exceptions import MagnetometerConfigUpdateWhileDataStreamingError
 from .exceptions import MantarrayInstrumentError
 from .exceptions import MismatchedScriptTypeError
 from .exceptions import MultiprocessingNotSetToSpawnError
@@ -251,6 +253,7 @@ if 6 < 9:  # pragma: no cover # protect this from zimports deleting the pylint d
         parse_adc_metadata_byte,
         parse_little_endian_int24,
         parse_sensor_bytes,
+        handle_data_packets,
     )
 
 __all__ = [
@@ -449,7 +452,7 @@ __all__ = [
     "convert_metadata_bytes_to_str",
     "SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS",
     "UnrecognizedCommandFromMainToMcCommError",
-    "SERIAL_COMM_MIN_PACKET_SIZE_BYTES",
+    "SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES",
     "SerialCommPacketFromMantarrayTooSmallError",
     "SERIAL_COMM_PACKET_INFO_LENGTH_BYTES",
     "SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS",
@@ -501,4 +504,7 @@ __all__ = [
     "convert_bitmask_to_config_dict",
     "convert_bytes_to_config_dict",
     "SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE",
+    "handle_data_packets",
+    "SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES",
+    "MagnetometerConfigUpdateWhileDataStreamingError",
 ]

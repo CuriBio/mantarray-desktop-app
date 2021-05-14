@@ -191,11 +191,13 @@ def test_create_magnetometer_config_bytes__returns_correct_values():
     test_dict = create_magnetometer_config_dict(test_num_wells)
     # arbitrarily change values
     for key in test_dict[1].keys():
-        test_dict[1][key] = False
+        test_dict[1][key] = True
     test_dict[2] = convert_bitmask_to_config_dict(0b111000100)
+    # create expected bit-masks
     bitshift = 16 - SERIAL_COMM_NUM_DATA_CHANNELS
-    expected_uint16_bitmasks = [0, 0b111000100 << bitshift]
-    expected_uint16_bitmasks.extend([0b111111111 << bitshift for _ in range(test_num_wells - 2)])
+    expected_uint16_bitmasks = [0b111111111 << bitshift, 0b111000100 << bitshift]
+    expected_uint16_bitmasks.extend([0 for _ in range(test_num_wells - 2)])
+    # test actual bytes
     actual = create_magnetometer_config_bytes(test_dict)
     for module_id in range(1, test_num_wells + 1):
         start_idx = (module_id - 1) * 3
@@ -214,6 +216,7 @@ def test_convert_bitmask_to_config_dict__returns_correct_values():
         SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Z"]: True,
         SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["X"]: False,
         SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["Y"]: True,
+        # pylint: disable=duplicate-code
         SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["Z"]: False,
         SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["X"]: True,
         SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Y"]: False,

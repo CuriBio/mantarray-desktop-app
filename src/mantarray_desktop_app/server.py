@@ -521,6 +521,7 @@ def start_managed_acquisition() -> Response:
 
     `curl http://localhost:4567/start_managed_acquisition`
     """
+    # TODO Tanner (5/12/21): When beta 2 route is added to change magnetometer configuration, need to make sure that data is not streaming first. Should return error code if data is streaming
     shared_values_dict = _get_values_from_process_monitor()
     if not shared_values_dict["mantarray_serial_number"][0]:
         response = Response(status="406 Mantarray has not been assigned a Serial Number")

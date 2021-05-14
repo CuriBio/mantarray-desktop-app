@@ -188,7 +188,7 @@ def convert_bitmask_to_config_dict(bitmask: int) -> Dict[int, bool]:
 def convert_bytes_to_config_dict(
     magnetometer_config_bytes: bytes,
 ) -> Dict[int, Dict[int, bool]]:
-    """."""
+    """Covert bytes from the instrument to a configuration dictionary."""
     config_dict: Dict[int, Dict[int, bool]] = dict()
     for config_block_idx in range(0, len(magnetometer_config_bytes), 3):
         module_id = magnetometer_config_bytes[config_block_idx]
