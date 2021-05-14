@@ -1,5 +1,5 @@
 Dev Install:
-   - After installing pipenv: ``pipenv run python .github/workflows/run_zlib_download.py``
+   - After seting up pipenv: ``pipenv run python .github/workflows/run_zlib_download.py``
    - (Linux): ``sudo apt-get install -y enchant``
 
 .. image:: https://github.com/CuriBio/mantarray-desktop-app/workflows/Dev/badge.svg?branch=development

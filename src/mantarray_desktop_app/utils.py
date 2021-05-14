@@ -19,6 +19,7 @@ from stdlib_utils import is_frozen_as_exe
 from .constants import CURI_BIO_ACCOUNT_UUID
 from .constants import CURI_BIO_USER_ACCOUNT_ID
 from .constants import CURRENT_SOFTWARE_VERSION
+from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
 from .exceptions import ImproperlyFormattedUserAccountUUIDError
 from .exceptions import RecordingFolderDoesNotExistError
@@ -174,11 +175,15 @@ def _trim_barcode(barcode: str) -> str:
 
 
 def create_magnetometer_config_dict(num_wells: int) -> Dict[int, Dict[int, bool]]:
-    """Create default magnetometer configuration dictionary."""
+    """Create default magnetometer configuration dictionary.
+
+    The default magnetometer state is off, represented in this dict by
+    False.
+    """
     magnetometer_config_dict = dict()
     for module_id in range(1, num_wells + 1):
         well_dict = dict()
-        for sensor_axis_id in range(9):
+        for sensor_axis_id in range(SERIAL_COMM_NUM_DATA_CHANNELS):
             well_dict[sensor_axis_id] = False
         magnetometer_config_dict[module_id] = well_dict
     return magnetometer_config_dict

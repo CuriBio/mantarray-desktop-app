@@ -379,7 +379,6 @@ class McCommunicationProcess(InstrumentCommProcess):
             elif comm_from_main["command"] == "start_managed_acquisition":
                 bytes_to_send = bytes([SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE])
             elif comm_from_main["command"] == "stop_managed_acquisition":
-                self._is_data_streaming = False
                 bytes_to_send = bytes([SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE])
             elif comm_from_main["command"] == "change_magnetometer_config":
                 self._set_magnetometer_config(
@@ -440,7 +439,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         if not self._is_registered_with_serial_comm[board_idx]:
             self._register_magic_word(board_idx)
         elif (
-            board.in_waiting > 0  # TODO change this to min packet size
+            board.in_waiting > 0  # TODO Tanner (5/14/21): consider changing this to min packet size
         ):  # Tanner (4/27/21): If problems occur with reads not being large enough may need to make some min value is present first. 8 bytes for the magic word is probably a good value to start with
             magic_word_bytes = board.read(size=len(SERIAL_COMM_MAGIC_WORD_BYTES))
             if magic_word_bytes != SERIAL_COMM_MAGIC_WORD_BYTES:
@@ -591,6 +590,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             elif prev_command["command"] == "stop_managed_acquisition":
                 if bool(int.from_bytes(response_data, byteorder="little")):
                     raise InstrumentDataStreamingAlreadyStoppedError()
+                self._is_data_streaming = False
 
             del prev_command[
                 "timepoint"
@@ -697,9 +697,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         # check for interrupting packet
         if other_packet_info is not None:
             self._process_comm_from_instrument(
-                other_packet_info[1],
-                other_packet_info[2],
-                other_packet_info[3],
+                *other_packet_info[1:],
             )
 
     def _handle_beacon_tracking(self) -> None:
