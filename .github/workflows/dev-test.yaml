@@ -129,6 +129,9 @@ jobs:
           path: "package.json"
           prop_path: "name"
 
+      - name: Download the firmware files from AWS S3
+        run: pipenv run python .github/workflows/run_zlib_download.py
+
       - name: Display Extracted Software Version and Product Name
         run: |
           echo ${{steps.software-version.outputs.prop}}

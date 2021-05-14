@@ -50,9 +50,9 @@ prof/
 __pycache__/
 
 # Cython
-**/src/mantarray_desktop_app/*.cpp
-**/src/mantarray_desktop_app/*.c
-**/src/mantarray_desktop_app/*.so
+*.cpp
+*.c
+*.so
 *.html
 
 # Venv
