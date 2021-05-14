@@ -156,10 +156,11 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._time_of_reboot_start: Optional[
             float
         ] = None  # Tanner (4/1/21): This value will be None until this process receives a response to a reboot command. It will be set back to None after receiving a status beacon upon reboot completion
-        self._is_data_streaming = False
         self._magnetometer_config: Dict[int, Dict[int, bool]] = dict()
         self._num_data_channels_on = 0
         self._sampling_period_us = 0
+        self._is_data_streaming = False
+        self._data_packet_cache = bytes(0)
 
     def _setup_before_loop(self) -> None:
         super()._setup_before_loop()
@@ -469,21 +470,25 @@ class McCommunicationProcess(InstrumentCommProcess):
             )
         module_id = full_data_packet[SERIAL_COMM_MODULE_ID_INDEX]
         if module_id == SERIAL_COMM_MAIN_MODULE_ID:
-            self._process_comm_from_instrument(full_data_packet)
+            self._process_comm_from_instrument(
+                module_id,
+                full_data_packet[SERIAL_COMM_PACKET_TYPE_INDEX],
+                full_data_packet[SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES],
+            )
         else:
             raise UnrecognizedSerialCommModuleIdError(module_id)
 
-    def _process_comm_from_instrument(self, comm_from_instrument: bytes) -> None:
-        board_idx = 0
-        packet_body = comm_from_instrument[
-            SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES
-        ]
-
-        packet_type = comm_from_instrument[SERIAL_COMM_PACKET_TYPE_INDEX]
+    def _process_comm_from_instrument(
+        self,
+        module_id: int,
+        packet_type: int,
+        packet_body: bytes,
+    ) -> None:
         if packet_type == SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE:
             returned_packet = SERIAL_COMM_MAGIC_WORD_BYTES + packet_body
             raise SerialCommIncorrectChecksumFromPCError(returned_packet)
 
+        board_idx = 0
         if packet_type == SERIAL_COMM_STATUS_BEACON_PACKET_TYPE:
             self._time_of_last_beacon_secs = perf_counter()
             if (
@@ -558,7 +563,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             response_data = packet_body[SERIAL_COMM_TIMESTAMP_LENGTH_BYTES:]
             if not self._commands_awaiting_response:
                 raise SerialCommUntrackedCommandResponseError(
-                    f"Full Data Packet: {str(comm_from_instrument)}"
+                    f"Module ID: {module_id}, Packet Type ID: {packet_type}, Packet Body: {str(packet_body)}"
                 )
             prev_command = self._commands_awaiting_response.popleft()
             if prev_command["command"] == "handshake":
@@ -605,7 +610,6 @@ class McCommunicationProcess(InstrumentCommProcess):
                 barcode_comm["valid"] = check_barcode_is_valid(barcode)
             self._board_queues[board_idx][1].put_nowait(barcode_comm)
         else:
-            module_id = comm_from_instrument[SERIAL_COMM_MODULE_ID_INDEX]
             raise UnrecognizedSerialCommPacketTypeError(
                 f"Packet Type ID: {packet_type} is not defined for Module ID: {module_id}"
             )
@@ -662,34 +666,41 @@ class McCommunicationProcess(InstrumentCommProcess):
         packet_len = SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES + self._num_data_channels_on * 2 + 2
         num_bytes_per_second = packet_len * int(1e6 // self._sampling_period_us)
 
-        read_bytes = board.read_all()
-        if len(read_bytes) < num_bytes_per_second:
-            # TODO handle leftover bytes
+        self._data_packet_cache += board.read_all()
+        if len(self._data_packet_cache) < num_bytes_per_second:
             return
+
         (
             actual_timestamps,
             actual_data,
             num_data_packets_read,
-            _,  # other_packet_info,
-            _,  # unread_bytes,
-        ) = handle_data_packets(bytearray(read_bytes), packet_len)
-        # TODO handle leftover bytes
+            other_packet_info,
+            unread_bytes,
+        ) = handle_data_packets(bytearray(self._data_packet_cache), packet_len)
+        self._data_packet_cache = unread_bytes
 
         # create dict and send to file writer
         fw_item: Dict[Any, Any] = {"timestamps": actual_timestamps[:num_data_packets_read]}
         data_idx = 0
-        for well_idx, config_dict in self._magnetometer_config.items():
+        for module_id, config_dict in self._magnetometer_config.items():
             if not any(config_dict.values()):
                 continue
             well_dict = dict()
             for sensor_axis_id, is_channel_on in config_dict.items():
                 if not is_channel_on:
                     continue
-                well_dict[sensor_axis_id] = actual_data[data_idx]
+                well_dict[sensor_axis_id] = actual_data[data_idx][:num_data_packets_read]
                 data_idx += 1
-            fw_item[well_idx] = well_dict
+            fw_item[module_id - 1] = well_dict
         to_fw_queue = self._board_queues[0][2]
         to_fw_queue.put_nowait(fw_item)
+        # check for interrupting packet
+        if other_packet_info is not None:
+            self._process_comm_from_instrument(
+                other_packet_info[1],
+                other_packet_info[2],
+                other_packet_info[3],
+            )
 
     def _handle_beacon_tracking(self) -> None:
         if self._time_of_last_beacon_secs is None:

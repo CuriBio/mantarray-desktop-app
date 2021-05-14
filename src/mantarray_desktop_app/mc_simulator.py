@@ -207,7 +207,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._timepoint_of_last_data_packet_us = _perf_counter_us()
             self._simulated_data_index = 0
             if self._sampling_period_us == 0:
-                # TODO Tanner (5/5/21): Need to determine what to do if sampling period is not set when data begins streaming
+                # TODO Tanner (5/13/21): Need to determine what to do if sampling period is not set when data begins streaming
                 raise NotImplementedError("sampling period must be set before streaming data")
             self._simulated_data = self.get_interpolated_data(self._sampling_period_us)
         else:
@@ -435,7 +435,6 @@ class MantarrayMcSimulator(InfiniteProcess):
             elif command_byte == SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE:
                 response_body += self._update_magnetometer_config(comm_from_pc)
             elif command_byte == SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE:
-                # TODO Tanner (4/30/21): Once expected behavior is determined, add default sampling period or guard against starting data stream with no sampling period set
                 response_byte = int(self._is_streaming_data)
                 response_body += bytes([response_byte])
                 if not self._is_streaming_data:
@@ -606,7 +605,8 @@ class MantarrayMcSimulator(InfiniteProcess):
                 2, byteorder="little"
             )
             for well_idx in range(self._num_wells):
-                # TODO Tanner (5/13/21): can probably optimize this by checking if the well has any sensors on before making data
+                if not any(self._magnetometer_config[well_idx + 1].values()):
+                    continue
                 data_value = self._simulated_data[self._simulated_data_index] * np.int16(well_idx + 1)
                 data_value_bytes = data_value.tobytes()
                 for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS):

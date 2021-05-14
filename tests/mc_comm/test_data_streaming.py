@@ -628,14 +628,16 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
         side_effect=[0, test_sampling_period_us * test_num_packets],
     )
 
-    test_config_dict = dict()
-    for well_idx in range(10, 16):  # turn on one channel of wells 10-15
-        test_config_dict[well_idx] = convert_bitmask_to_config_dict(1)
     expected_sensor_axis_id = SERIAL_COMM_NUM_DATA_CHANNELS - 1
 
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
+
+    test_config_dict = dict()
+    for well_idx in range(0, 24):
+        bitmask_int = int(10 <= well_idx <= 15)  # turn on one channel of wells 10-15
+        test_config_dict[well_idx + 1] = convert_bitmask_to_config_dict(bitmask_int)
     set_magnetometer_config_and_start_streaming(
         four_board_mc_comm_process_no_handshake,
         simulator,
@@ -654,16 +656,109 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
     simulated_data = simulator.get_interpolated_data(test_sampling_period_us)
     expected_fw_item = {"timestamps": np.array(expected_timestamps, np.uint64)}
     for well_idx in range(10, 16):
-        channel_dict = {expected_sensor_axis_id: simulated_data[:test_num_packets] * np.int16(well_idx)}
+        channel_dict = {expected_sensor_axis_id: simulated_data[:test_num_packets] * np.int16(well_idx + 1)}
         expected_fw_item[well_idx] = channel_dict
 
     invoke_process_run_and_check_errors(simulator)
     invoke_process_run_and_check_errors(mc_process)
     confirm_queue_is_eventually_of_size(to_fw_queue, 1)
     actual_fw_item = to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert actual_fw_item.keys() == expected_fw_item.keys()
     for key, expected_array in expected_fw_item.items():
         actual = actual_fw_item[key]
         if key != "timestamps":
             actual = actual[expected_sensor_axis_id]
             expected_array = expected_array[expected_sensor_axis_id]
         np.testing.assert_array_equal(actual, expected_array, err_msg=f"Failure at '{key}' key")
+
+
+def test_McCommunicationProcess__handles_one_second_read_with_interrupting_packet_correctly(
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+    mocker,
+):
+    # pylint: disable=too-many-locals  # Tanner (5/13/21): a lot of locals variables needed for this test
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    to_fw_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][2]
+    to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+
+    test_sampling_period_us = 10000  # specifically chosen so that there are 100 data packets in one second
+    test_num_packets = int(1.5e6 // test_sampling_period_us)
+    # mocking to ensure only one data packet is sent
+    mocker.patch.object(
+        mc_simulator,
+        "_get_us_since_last_data_packet",
+        autospec=True,
+        side_effect=[0, test_sampling_period_us * test_num_packets, 0],
+    )
+
+    expected_sensor_axis_id = SERIAL_COMM_NUM_DATA_CHANNELS - 1
+
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+
+    test_config_dict = dict()
+    for well_idx in range(0, 24):
+        bitmask_int = int(10 <= well_idx <= 15)  # turn on one channel of wells 10-15
+        test_config_dict[well_idx + 1] = convert_bitmask_to_config_dict(bitmask_int)
+    set_magnetometer_config_and_start_streaming(
+        four_board_mc_comm_process_no_handshake,
+        simulator,
+        test_config_dict,
+        test_sampling_period_us,
+    )
+
+    test_sampling_period_cms = test_sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND
+    max_timestamp_cms = test_sampling_period_cms * test_num_packets
+    expected_timestamps = list(
+        range(0, max_timestamp_cms, test_sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND)
+    )
+    mocker.patch.object(simulator, "_get_timestamp", autospec=True, side_effect=expected_timestamps)
+    mocker.patch.object(simulator, "_get_timestamp_offset", autospec=True, return_value=0)
+
+    simulated_data = simulator.get_interpolated_data(test_sampling_period_us)
+    expected_fw_item = {"timestamps": np.array(expected_timestamps, np.uint64)}
+    for well_idx in range(10, 16):
+        channel_data = np.concatenate((simulated_data, simulated_data[: test_num_packets // 3]))
+        channel_dict = {expected_sensor_axis_id: channel_data * np.int16(well_idx + 1)}
+        expected_fw_item[well_idx] = channel_dict
+
+    # insert status beacon after 1/3 of data
+    invoke_process_run_and_check_errors(simulator)
+    read_bytes = simulator.read_all()
+    read_bytes = read_bytes[: len(read_bytes) // 3] + TEST_OTHER_PACKET + read_bytes[len(read_bytes) // 3 :]
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "add_read_bytes", "read_bytes": read_bytes}, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator)
+
+    # populate mc_comm output queues
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(to_fw_queue, 1)
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(to_fw_queue, 2)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+    # test message to main from interrupting packet
+    actual_beacon_log_msg = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    expected_status_code = int.from_bytes(TEST_OTHER_PACKET_INFO[3], byteorder="little")
+    assert str(expected_status_code) in actual_beacon_log_msg["message"]
+    # test data going to file_writer
+    for item_idx in range(2):
+        actual_fw_item = to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+        assert actual_fw_item.keys() == expected_fw_item.keys()
+
+        start_idx = 0 if item_idx == 0 else test_num_packets // 3
+        stop_idx = test_num_packets // 3 if item_idx == 0 else test_num_packets
+        for key, expected_array in expected_fw_item.items():
+            actual = actual_fw_item[key]
+            if key != "timestamps":
+                actual = actual[expected_sensor_axis_id]
+                expected_array = expected_array[expected_sensor_axis_id]
+            np.testing.assert_array_equal(
+                actual,
+                expected_array[start_idx:stop_idx],
+                err_msg=f"Failure at item idx {item_idx} at '{key}' key",
+            )
