@@ -33,11 +33,11 @@ import pytest
 from ..fixtures import fixture_generic_queue_container
 from ..fixtures import fixture_test_process_manager
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
-from ..fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
+from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from ..fixtures_process_monitor import fixture_test_monitor
 from ..fixtures_server import fixture_client_and_server_thread_and_shared_values
-from ..fixtures_server import fixture_generic_start_recording_info_in_shared_dict
+from ..fixtures_server import fixture_generic_beta_1_start_recording_info_in_shared_dict
 from ..fixtures_server import fixture_server_thread
 from ..fixtures_server import fixture_test_client
 from ..helpers import confirm_queue_is_eventually_of_size
@@ -49,7 +49,7 @@ __fixtures__ = [
     fixture_server_thread,
     fixture_generic_queue_container,
     fixture_test_client,
-    fixture_generic_start_recording_info_in_shared_dict,
+    fixture_generic_beta_1_start_recording_info_in_shared_dict,
     fixture_test_process_manager,
     fixture_test_monitor,
 ]
@@ -718,13 +718,13 @@ def test_stop_recording_command__is_received_by_main__with_default__utcnow_recor
 
 
 def test_start_recording_command__populates_queue__with_correct_adc_offset_values_if_is_hardware_test_recording_is_true(
-    test_process_manager, test_client, generic_start_recording_info_in_shared_dict
+    test_process_manager, test_client, generic_beta_1_start_recording_info_in_shared_dict
 ):
     expected_adc_offsets = dict()
     for well_idx in range(24):
         expected_adc_offsets[well_idx] = {"construct": 0, "ref": 0}
 
-    barcode = GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+    barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
     response = test_client.get(f"/start_recording?barcode={barcode}")
@@ -739,10 +739,10 @@ def test_start_recording_command__populates_queue__with_correct_adc_offset_value
 
 
 def test_start_recording_command__populates_queue__with_given_time_index_parameter(
-    test_process_manager, test_client, generic_start_recording_info_in_shared_dict
+    test_process_manager, test_client, generic_beta_1_start_recording_info_in_shared_dict
 ):
     expected_time_index = 1000
-    barcode = GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+    barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
     response = test_client.get(
@@ -762,9 +762,9 @@ def test_start_recording_command__populates_queue__with_given_time_index_paramet
 
 
 def test_start_recording_command__populates_queue__with_correctly_parsed_set_of_well_indices(
-    test_process_manager, test_client, generic_start_recording_info_in_shared_dict
+    test_process_manager, test_client, generic_beta_1_start_recording_info_in_shared_dict
 ):
-    expected_barcode = GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+    expected_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
     response = test_client.get(
@@ -808,15 +808,17 @@ def test_start_recording_command__correctly_sets_barcode_from_scanner_value(
     user_entered_barcode,
     expected_result,
     test_description,
-    generic_start_recording_info_in_shared_dict,
+    generic_beta_1_start_recording_info_in_shared_dict,
     test_process_manager,
     test_client,
 ):
     board_idx = 0
     if scanned_barcode is None:
-        del generic_start_recording_info_in_shared_dict["barcodes"]
+        del generic_beta_1_start_recording_info_in_shared_dict["barcodes"]
     else:
-        generic_start_recording_info_in_shared_dict["barcodes"][board_idx]["plate_barcode"] = scanned_barcode
+        generic_beta_1_start_recording_info_in_shared_dict["barcodes"][board_idx][
+            "plate_barcode"
+        ] = scanned_barcode
 
     response = test_client.get(
         f"/start_recording?barcode={user_entered_barcode}&is_hardware_test_recording=False"
@@ -832,26 +834,26 @@ def test_start_recording_command__correctly_sets_barcode_from_scanner_value(
 @freeze_time(
     datetime.datetime(year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332598)
     + datetime.timedelta(
-        seconds=GENERIC_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
+        seconds=GENERIC_BETA_1_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
         / CENTIMILLISECONDS_PER_SECOND
     )
 )
 def test_start_recording_command__populates_queue__with_defaults__24_wells__utcnow_recording_start_time__and_metadata(
-    test_process_manager, test_client, generic_start_recording_info_in_shared_dict
+    test_process_manager, test_client, generic_beta_1_start_recording_info_in_shared_dict
 ):
     expected_acquisition_timestamp = datetime.datetime(  # pylint: disable=duplicate-code
         year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332598
     )
-    expected_recording_timepoint = GENERIC_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
+    expected_recording_timepoint = GENERIC_BETA_1_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
     expected_recording_timestamp = expected_acquisition_timestamp + datetime.timedelta(
         seconds=(expected_recording_timepoint / CENTIMILLISECONDS_PER_SECOND)
     )
 
-    generic_start_recording_info_in_shared_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [
+    generic_beta_1_start_recording_info_in_shared_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [
         expected_acquisition_timestamp
     ]
 
-    expected_barcode = GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+    expected_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
     response = test_client.get(
@@ -874,11 +876,11 @@ def test_start_recording_command__populates_queue__with_defaults__24_wells__utcn
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][CUSTOMER_ACCOUNT_ID_UUID]
-        == generic_start_recording_info_in_shared_dict["config_settings"]["Customer Account ID"]
+        == generic_beta_1_start_recording_info_in_shared_dict["config_settings"]["Customer Account ID"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][USER_ACCOUNT_ID_UUID]
-        == generic_start_recording_info_in_shared_dict["config_settings"]["User Account ID"]
+        == generic_beta_1_start_recording_info_in_shared_dict["config_settings"]["User Account ID"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][START_RECORDING_TIME_INDEX_UUID]
@@ -894,23 +896,23 @@ def test_start_recording_command__populates_queue__with_defaults__24_wells__utcn
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][MAIN_FIRMWARE_VERSION_UUID]
-        == generic_start_recording_info_in_shared_dict["main_firmware_version"][0]
+        == generic_beta_1_start_recording_info_in_shared_dict["main_firmware_version"][0]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][SLEEP_FIRMWARE_VERSION_UUID]
-        == generic_start_recording_info_in_shared_dict["sleep_firmware_version"][0]
+        == generic_beta_1_start_recording_info_in_shared_dict["sleep_firmware_version"][0]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][XEM_SERIAL_NUMBER_UUID]
-        == generic_start_recording_info_in_shared_dict["xem_serial_number"][0]
+        == generic_beta_1_start_recording_info_in_shared_dict["xem_serial_number"][0]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][MANTARRAY_SERIAL_NUMBER_UUID]
-        == generic_start_recording_info_in_shared_dict["mantarray_serial_number"][0]
+        == generic_beta_1_start_recording_info_in_shared_dict["mantarray_serial_number"][0]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][MANTARRAY_NICKNAME_UUID]
-        == generic_start_recording_info_in_shared_dict["mantarray_nickname"][0]
+        == generic_beta_1_start_recording_info_in_shared_dict["mantarray_nickname"][0]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][REFERENCE_VOLTAGE_UUID]
@@ -918,30 +920,32 @@ def test_start_recording_command__populates_queue__with_defaults__24_wells__utcn
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][ADC_GAIN_SETTING_UUID]
-        == generic_start_recording_info_in_shared_dict["adc_gain"]
+        == generic_beta_1_start_recording_info_in_shared_dict["adc_gain"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"]["adc_offsets"]
-        == generic_start_recording_info_in_shared_dict["adc_offsets"]
+        == generic_beta_1_start_recording_info_in_shared_dict["adc_offsets"]
     )
     assert communication["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_UUID] == expected_barcode
     assert communication["metadata_to_copy_onto_main_file_attributes"][HARDWARE_TEST_RECORDING_UUID] is False
 
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][BACKEND_LOG_UUID]
-        == GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][BACKEND_LOG_UUID]
+        == GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+            BACKEND_LOG_UUID
+        ]
     )
     assert communication["metadata_to_copy_onto_main_file_attributes"][BARCODE_IS_FROM_SCANNER_UUID] is True
     assert (  # pylint: disable=duplicate-code
         communication["metadata_to_copy_onto_main_file_attributes"][COMPUTER_NAME_HASH_UUID]
-        == GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+        == GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
             COMPUTER_NAME_HASH_UUID
         ]
     )
     assert set(communication["active_well_indices"]) == set(range(24))
     assert (
         communication["timepoint_to_begin_recording_at"]
-        == GENERIC_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
+        == GENERIC_BETA_1_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
     )
     response_json = response.get_json()
     assert response_json["command"] == "start_recording"

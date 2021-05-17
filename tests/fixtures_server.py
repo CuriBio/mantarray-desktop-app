@@ -19,7 +19,7 @@ from stdlib_utils import confirm_port_in_use
 from .fixtures import fixture_generic_queue_container
 from .fixtures import fixture_patch_print
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
-from .fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
+from .fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from .fixtures_process_monitor import fixture_test_monitor
 
 __fixtures__ = [
@@ -95,14 +95,14 @@ def fixture_running_server_thread(server_thread):
     st.hard_stop()
 
 
-@pytest.fixture(scope="function", name="generic_start_recording_info_in_shared_dict")
-def fixture_generic_start_recording_info_in_shared_dict(
+@pytest.fixture(scope="function", name="generic_beta_1_start_recording_info_in_shared_dict")
+def fixture_generic_beta_1_start_recording_info_in_shared_dict(
     test_monitor,
 ):
     _, shared_values_dict, _, _ = test_monitor
 
     board_idx = 0
-    timestamp = GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+    timestamp = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         UTC_BEGINNING_DATA_ACQUISTION_UUID
     ]
     shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [timestamp]
@@ -124,17 +124,17 @@ def fixture_generic_start_recording_info_in_shared_dict(
         board_idx: RunningFIFOSimulator.default_mantarray_serial_number
     }
     shared_values_dict["mantarray_nickname"] = {board_idx: RunningFIFOSimulator.default_mantarray_nickname}
-    shared_values_dict["log_file_uuid"] = GENERIC_START_RECORDING_COMMAND[
+    shared_values_dict["log_file_uuid"] = GENERIC_BETA_1_START_RECORDING_COMMAND[
         "metadata_to_copy_onto_main_file_attributes"
     ][BACKEND_LOG_UUID]
-    shared_values_dict["computer_name_hash"] = GENERIC_START_RECORDING_COMMAND[
+    shared_values_dict["computer_name_hash"] = GENERIC_BETA_1_START_RECORDING_COMMAND[
         "metadata_to_copy_onto_main_file_attributes"
     ][COMPUTER_NAME_HASH_UUID]
     shared_values_dict["barcodes"] = {
         board_idx: {
-            "plate_barcode": GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-                PLATE_BARCODE_UUID
-            ]
+            "plate_barcode": GENERIC_BETA_1_START_RECORDING_COMMAND[
+                "metadata_to_copy_onto_main_file_attributes"
+            ][PLATE_BARCODE_UUID]
         }
     }
     yield shared_values_dict

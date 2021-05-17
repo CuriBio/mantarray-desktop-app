@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-
+import copy
 import datetime
 import hashlib
 from multiprocessing import Queue
@@ -20,24 +20,29 @@ from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import FileWriterProcess
+from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
+from mantarray_file_manager import BOOTUP_COUNTER_UUID
 from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
+from mantarray_file_manager import PCB_SERIAL_NUMBER_UUID
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import REFERENCE_VOLTAGE_UUID
 from mantarray_file_manager import SLEEP_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
 from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
 from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
+from mantarray_file_manager import TAMPER_FLAG_UUID
+from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
 from mantarray_file_manager import USER_ACCOUNT_ID_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
@@ -56,7 +61,7 @@ for well_idx in range(24):
         "construct": well_idx * 2,
         "ref": well_idx * 2 + 1,
     }
-GENERIC_START_RECORDING_COMMAND: Dict[str, Any] = {
+GENERIC_BASE_START_RECORDING_COMMAND: Dict[str, Any] = {
     "command": "start_recording",
     "timepoint_to_begin_recording_at": 298518 * 125,
     "metadata_to_copy_onto_main_file_attributes": {
@@ -73,11 +78,6 @@ GENERIC_START_RECORDING_COMMAND: Dict[str, Any] = {
         USER_ACCOUNT_ID_UUID: CURI_BIO_USER_ACCOUNT_ID,
         SOFTWARE_BUILD_NUMBER_UUID: COMPILED_EXE_BUILD_TIMESTAMP,
         SOFTWARE_RELEASE_VERSION_UUID: CURRENT_SOFTWARE_VERSION,
-        MAIN_FIRMWARE_VERSION_UUID: RunningFIFOSimulator.default_firmware_version,
-        SLEEP_FIRMWARE_VERSION_UUID: "0.0.0",
-        XEM_SERIAL_NUMBER_UUID: RunningFIFOSimulator.default_xem_serial_number,
-        MANTARRAY_SERIAL_NUMBER_UUID: RunningFIFOSimulator.default_mantarray_serial_number,
-        MANTARRAY_NICKNAME_UUID: RunningFIFOSimulator.default_mantarray_nickname,
         REFERENCE_VOLTAGE_UUID: REFERENCE_VOLTAGE,
         ADC_GAIN_SETTING_UUID: 32,
         "adc_offsets": GENERIC_ADC_OFFSET_VALUES,
@@ -88,6 +88,28 @@ GENERIC_START_RECORDING_COMMAND: Dict[str, Any] = {
     },
     "active_well_indices": set(range(24)),
 }
+GENERIC_BETA_1_START_RECORDING_COMMAND = copy.deepcopy(GENERIC_BASE_START_RECORDING_COMMAND)
+GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"].update(
+    {
+        MAIN_FIRMWARE_VERSION_UUID: RunningFIFOSimulator.default_firmware_version,
+        SLEEP_FIRMWARE_VERSION_UUID: "0.0.0",
+        MANTARRAY_SERIAL_NUMBER_UUID: RunningFIFOSimulator.default_mantarray_serial_number,
+        MANTARRAY_NICKNAME_UUID: RunningFIFOSimulator.default_mantarray_nickname,
+        XEM_SERIAL_NUMBER_UUID: RunningFIFOSimulator.default_xem_serial_number,
+    }
+)
+GENERIC_BETA_2_START_RECORDING_COMMAND = copy.deepcopy(GENERIC_BASE_START_RECORDING_COMMAND)
+GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"].update(
+    {
+        MAIN_FIRMWARE_VERSION_UUID: MantarrayMcSimulator.default_firmware_version,
+        MANTARRAY_SERIAL_NUMBER_UUID: MantarrayMcSimulator.default_mantarray_serial_number,
+        MANTARRAY_NICKNAME_UUID: MantarrayMcSimulator.default_mantarray_nickname,
+        BOOTUP_COUNTER_UUID: MantarrayMcSimulator.default_metadata_values[BOOTUP_COUNTER_UUID],
+        TOTAL_WORKING_HOURS_UUID: MantarrayMcSimulator.default_metadata_values[TOTAL_WORKING_HOURS_UUID],
+        TAMPER_FLAG_UUID: MantarrayMcSimulator.default_metadata_values[TAMPER_FLAG_UUID],
+        PCB_SERIAL_NUMBER_UUID: MantarrayMcSimulator.default_pcb_serial_number,
+    }
+)
 
 GENERIC_STOP_RECORDING_COMMAND: Dict[str, Any] = {
     "communication_type": "recording",
@@ -121,7 +143,7 @@ def open_the_generic_h5_file(
     file_dir: str, well_name: str = "A2"
 ) -> h5py._hl.files.File:  # pylint: disable=protected-access # this is the only type definition Eli (2/24/20) could find for a File
     timestamp_str = "2020_02_09_190935"
-    barcode = GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+    barcode = GENERIC_BASE_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
 
@@ -138,7 +160,7 @@ def open_the_generic_h5_file(
 
 def open_the_generic_h5_file_as_WellFile(file_dir: str, well_name: str = "A2") -> WellFile:
     timestamp_str = "2020_02_09_190935"
-    barcode = GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+    barcode = GENERIC_BASE_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
 

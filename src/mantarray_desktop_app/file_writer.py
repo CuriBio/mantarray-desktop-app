@@ -398,6 +398,13 @@ class FileWriterProcess(InfiniteProcess):
                 dtype="int32",
                 chunks=True,
             )
+            # this_file.create_dataset(
+            #     REFERENCE_SENSOR_READINGS,
+            #     (9,0),
+            #     maxshape=(9, 100 * 3600 * 12),
+            #     dtype="int16",
+            #     chunks=True,
+            # )
             this_file.create_dataset(
                 TISSUE_SENSOR_READINGS,
                 (0,),
@@ -462,7 +469,6 @@ class FileWriterProcess(InfiniteProcess):
                     "file_folder": communication["abs_path_to_file_folder"],
                 }
             )
-
         elif command == "stop_recording":
             self._process_stop_recording_command(communication)
             to_main.put_nowait(
@@ -507,10 +513,9 @@ class FileWriterProcess(InfiniteProcess):
         timepoint_to_start_recording_at = this_start_recording_timestamps[1]
         if last_timepoint_in_data_packet < timepoint_to_start_recording_at:
             return
+
         is_reference_sensor = data_packet["is_reference_sensor"]
-
         if stop_recording_timestamp is not None:
-
             if last_timepoint_in_data_packet >= stop_recording_timestamp:
                 if is_reference_sensor:
                     well_indices = data_packet["reference_for_wells"]
@@ -520,7 +525,6 @@ class FileWriterProcess(InfiniteProcess):
                 else:
                     this_well_idx = data_packet["well_index"]
                     self._tissue_data_finalized_for_recording[0][this_well_idx] = True
-
             if first_timepoint_in_data_packet >= stop_recording_timestamp:
                 return
 
@@ -549,10 +553,8 @@ class FileWriterProcess(InfiniteProcess):
                 this_start_recording_timestamps[0]
                 + datetime.timedelta(seconds=first_timepoint_of_new_data / CENTIMILLISECONDS_PER_SECOND)
             ).strftime("%Y-%m-%d %H:%M:%S.%f")
-
         previous_data_size = this_dataset.shape[0]
         this_dataset.resize((previous_data_size + new_data.shape[0],))
-
         this_dataset[previous_data_size:] = new_data
 
         self._latest_data_timepoints[0][this_well_idx] = last_timepoint_of_new_data
@@ -570,15 +572,11 @@ class FileWriterProcess(InfiniteProcess):
         except queue.Empty:
             return
 
-        to_main = self._to_main_queue
-
-        logging_threshold = self.get_logging_level()
-
         put_log_message_into_queue(
             logging.DEBUG,
             f"Timestamp: {_get_formatted_utc_now()} Received a data packet from OpalKelly Controller: {data_packet}",
-            to_main,
-            logging_threshold,
+            self._to_main_queue,
+            self.get_logging_level(),
         )
 
         if not isinstance(data_packet, dict):

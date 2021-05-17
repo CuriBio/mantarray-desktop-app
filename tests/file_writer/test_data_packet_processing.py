@@ -19,8 +19,8 @@ from stdlib_utils import invoke_process_run_and_check_errors
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_file_writer import fixture_four_board_file_writer_process
 from ..fixtures_file_writer import fixture_running_four_board_file_writer_process
+from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_REFERENCE_SENSOR_DATA_PACKET
-from ..fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_TISSUE_DATA_PACKET
 from ..fixtures_file_writer import open_the_generic_h5_file
@@ -72,7 +72,7 @@ def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_if_the_
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
+    this_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [3]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         this_command,
@@ -118,7 +118,7 @@ def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_if_the_
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
+    this_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [4]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         this_command,
@@ -169,7 +169,7 @@ def test_FileWriterProcess__process_next_data_packet__does_not_write_tissue_data
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
+    this_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [4]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         this_command,
@@ -208,7 +208,7 @@ def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_for_two
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
+    this_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [4]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         this_command,
@@ -268,7 +268,7 @@ def test_FileWriterProcess__process_next_data_packet__writes_reference_data_to_a
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    this_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
+    this_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [4, 0]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         this_command,
@@ -328,7 +328,7 @@ def test_FileWriterProcess__process_next_data_packet__does_not_add_a_data_packet
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
+    start_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
     start_command["active_well_indices"] = [4]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         start_command,
@@ -398,7 +398,7 @@ def test_FileWriterProcess__process_next_data_packet__adds_part_of_a_data_packet
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
+    start_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
     start_command["active_well_indices"] = [4]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         start_command,
@@ -472,7 +472,7 @@ def test_FileWriterProcess__process_next_data_packet__adds_a_data_packet_before_
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
+    start_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
     start_command["active_well_indices"] = [4]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         start_command,
@@ -545,7 +545,7 @@ def test_FileWriterProcess__process_next_data_packet__updates_dict_of_time_index
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
-    start_recording_command = copy.deepcopy(GENERIC_START_RECORDING_COMMAND)
+    start_recording_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
     start_recording_command["timepoint_to_begin_recording_at"] = 0
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         start_recording_command,
