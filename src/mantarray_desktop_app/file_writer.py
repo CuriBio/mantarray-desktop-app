@@ -51,12 +51,14 @@ from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
 
 from .constants import CONSTRUCT_SENSOR_SAMPLING_PERIOD
-from .constants import CURRENT_HDF5_FILE_FORMAT_VERSION
+from .constants import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
+from .constants import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from .constants import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
 from .constants import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from .constants import ROUND_ROBIN_PERIOD
+from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .exceptions import InvalidDataTypeFromOkCommError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
 
@@ -245,6 +247,10 @@ class FileWriterProcess(InfiniteProcess):
     def get_file_latest_timepoint(self, well_idx: int) -> int:
         return self._latest_data_timepoints[0][well_idx]
 
+    def set_beta_2_mode(self) -> None:
+        """For use in unit tests."""
+        self._beta_2_mode = True
+
     def is_recording(self) -> bool:
         return self._is_recording
 
@@ -319,6 +325,7 @@ class FileWriterProcess(InfiniteProcess):
                 del self._open_files[0][this_well_idx]
 
     def _process_start_recording_command(self, communication: Dict[str, Any]) -> None:
+        # pylint: disable=too-many-locals  # Tanner (5/17/21): many variables are needed to create files with all the necessary metadata
         self._is_recording = True
 
         attrs_to_copy = communication["metadata_to_copy_onto_main_file_attributes"]
@@ -351,11 +358,14 @@ class FileWriterProcess(InfiniteProcess):
                 sub_dir_name,
                 f"{sub_dir_name}__{GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(this_well_idx)}.h5",
             )
-            this_file = MantarrayH5FileCreator(
-                file_path, file_format_version=CURRENT_HDF5_FILE_FORMAT_VERSION
+            file_version = (
+                CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
+                if self._beta_2_mode
+                else CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
             )
+            this_file = MantarrayH5FileCreator(file_path, file_format_version=file_version)
             self._open_files[0][this_well_idx] = this_file
-            this_file.attrs[str(ORIGINAL_FILE_VERSION_UUID)] = CURRENT_HDF5_FILE_FORMAT_VERSION
+            this_file.attrs[str(ORIGINAL_FILE_VERSION_UUID)] = file_version
             this_file.attrs[str(WELL_NAME_UUID)] = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(
                 this_well_idx
             )
@@ -391,25 +401,22 @@ class FileWriterProcess(InfiniteProcess):
             # Tanner (6/12/20): We must convert UUIDs to strings to allow them to be compatible with H5 and JSON
             this_file.attrs["Metadata UUID Descriptions"] = json.dumps(str(METADATA_UUID_DESCRIPTIONS))
 
+            max_data_len = 100 * 3600 * 12
+            data_shape = (SERIAL_COMM_NUM_DATA_CHANNELS, 0) if self._beta_2_mode else (0,)
+            dtype = "int16" if self._beta_2_mode else "int32"
+            maxshape = (SERIAL_COMM_NUM_DATA_CHANNELS, max_data_len) if self._beta_2_mode else (max_data_len,)
             this_file.create_dataset(
                 REFERENCE_SENSOR_READINGS,
-                (0,),
-                maxshape=(100 * 3600 * 12,),
-                dtype="int32",
+                data_shape,
+                maxshape=maxshape,
+                dtype=dtype,
                 chunks=True,
             )
-            # this_file.create_dataset(
-            #     REFERENCE_SENSOR_READINGS,
-            #     (9,0),
-            #     maxshape=(9, 100 * 3600 * 12),
-            #     dtype="int16",
-            #     chunks=True,
-            # )
             this_file.create_dataset(
                 TISSUE_SENSOR_READINGS,
-                (0,),
-                maxshape=(100 * 3600 * 12,),
-                dtype="int32",
+                data_shape,
+                maxshape=maxshape,
+                dtype=dtype,
                 chunks=True,
             )
             this_file.swmr_mode = True

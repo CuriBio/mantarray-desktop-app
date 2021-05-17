@@ -29,7 +29,8 @@ from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import CONSTRUCT_SENSORS_PER_REF_SENSOR
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
-from mantarray_desktop_app import CURRENT_HDF5_FILE_FORMAT_VERSION
+from mantarray_desktop_app import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
+from mantarray_desktop_app import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from mantarray_desktop_app import DATA_FRAME_PERIOD
@@ -258,11 +259,20 @@ def test_sensors_and_mappings():
         assert ADC_CH_TO_24_WELL_INDEX[adc_num][ch_num] == well_idx
 
 
-def test_CURRENT_HDF5_FILE_FORMAT_VERSION():
-    latest_hdf5_file_format_version = mantarray_file_manager.constants.CURRENT_HDF5_FILE_FORMAT_VERSION
+def test_current_file_versions():
+    latest_beta1_hdf5_file_format_version = (
+        mantarray_file_manager.constants.CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
+    )
     assert (
-        CURRENT_HDF5_FILE_FORMAT_VERSION == latest_hdf5_file_format_version
-    ), "FileWriterProcess needs an update to match file format with the latest file version from mantarray-file-manager. Make the changes then update CURRENT_HDF5_FILE_FORMAT_VERSION to match the latest version"
+        CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION == latest_beta1_hdf5_file_format_version
+    ), "FileWriterProcess needs an update to match the beta 1 file format with the latest file version from mantarray-file-manager. Make the changes then update CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION to match the latest version"
+
+    latest_beta2_hdf5_file_format_version = (
+        mantarray_file_manager.constants.CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
+    )
+    assert (
+        CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION == latest_beta2_hdf5_file_format_version
+    ), "FileWriterProcess needs an update to match the beta 2 file format with the latest file version from mantarray-file-manager. Make the changes then update CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION to match the latest version"
 
 
 def test_COMPILED_EXE_BUILD_TIMESTAMP():

@@ -8,22 +8,26 @@ from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
-from mantarray_desktop_app import CURRENT_HDF5_FILE_FORMAT_VERSION
+from mantarray_desktop_app import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
+from mantarray_desktop_app import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import DATA_FRAME_PERIOD
 from mantarray_desktop_app import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
 from mantarray_desktop_app import get_reference_dataset_from_file
 from mantarray_desktop_app import get_tissue_dataset_from_file
+from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import REF_INDEX_TO_24_WELL_INDEX
 from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import RunningFIFOSimulator
+from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import ADC_REF_OFFSET_UUID
 from mantarray_file_manager import ADC_TISSUE_OFFSET_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
+from mantarray_file_manager import BOOTUP_COUNTER_UUID
 from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import FILE_FORMAT_VERSION_METADATA_KEY
@@ -34,6 +38,7 @@ from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
 from mantarray_file_manager import METADATA_UUID_DESCRIPTIONS
 from mantarray_file_manager import ORIGINAL_FILE_VERSION_UUID
+from mantarray_file_manager import PCB_SERIAL_NUMBER_UUID
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import REF_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import REFERENCE_VOLTAGE_UUID
@@ -41,8 +46,10 @@ from mantarray_file_manager import SLEEP_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
 from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
 from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
+from mantarray_file_manager import TAMPER_FLAG_UUID
 from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import TOTAL_WELL_COUNT_UUID
+from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
 from mantarray_file_manager import TRIMMED_TIME_FROM_ORIGINAL_END_UUID
 from mantarray_file_manager import TRIMMED_TIME_FROM_ORIGINAL_START_UUID
 from mantarray_file_manager import USER_ACCOUNT_ID_UUID
@@ -62,6 +69,7 @@ from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_file_writer import fixture_four_board_file_writer_process
 from ..fixtures_file_writer import fixture_running_four_board_file_writer_process
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
+from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_REFERENCE_SENSOR_DATA_PACKET
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_TISSUE_DATA_PACKET
@@ -82,7 +90,16 @@ __fixtures__ = [
 
 
 @pytest.mark.timeout(6)
+@pytest.mark.parametrize(
+    "test_beta_version,test_description",
+    [
+        (1, "beta 1 mode"),
+        (2, "beta 2 mode"),
+    ],
+)
 def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_index__and_supplied_metadata__set_to_swmr_mode__when_receiving_communication_to_start_recording(
+    test_beta_version,
+    test_description,
     four_board_file_writer_process,
 ):
     # Creating 24 files takes a few seconds, so also test that all the metadata and other things are set during this single test
@@ -90,14 +107,28 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
+    # set up expected values
+    if test_beta_version == 2:
+        file_writer_process.set_beta_2_mode()
+    start_recording_command = (
+        GENERIC_BETA_1_START_RECORDING_COMMAND
+        if test_beta_version == 1
+        else GENERIC_BETA_2_START_RECORDING_COMMAND
+    )
+    data_shape = (0,) if test_beta_version == 1 else (SERIAL_COMM_NUM_DATA_CHANNELS, 0)
+    data_type = np.int32 if test_beta_version == 1 else np.int16
+    simulator_class = RunningFIFOSimulator if test_beta_version == 1 else MantarrayMcSimulator
+    file_version = (
+        CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
+        if test_beta_version == 1
+        else CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
+    )
+
     timestamp_str = "2020_02_09_190935"
-    expected_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+    expected_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
-
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        GENERIC_BETA_1_START_RECORDING_COMMAND, from_main_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
 
     actual_set_of_files = set(os.listdir(os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}")))
@@ -128,17 +159,18 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
             ),
             "r",
         )
-        assert this_file.attrs[str(ORIGINAL_FILE_VERSION_UUID)] == CURRENT_HDF5_FILE_FORMAT_VERSION
-        assert this_file.attrs[FILE_FORMAT_VERSION_METADATA_KEY] == CURRENT_HDF5_FILE_FORMAT_VERSION
+        # test metadata present in both beta versions
+        assert this_file.attrs[str(ORIGINAL_FILE_VERSION_UUID)] == file_version
+        assert this_file.attrs[FILE_FORMAT_VERSION_METADATA_KEY] == file_version
         assert bool(this_file.attrs[str(HARDWARE_TEST_RECORDING_UUID)]) is False
         assert this_file.attrs[str(UTC_BEGINNING_DATA_ACQUISTION_UUID)] == "2020-02-09 19:03:22.332597"
         assert (
             this_file.attrs[str(START_RECORDING_TIME_INDEX_UUID)]
-            == GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+            == start_recording_command["metadata_to_copy_onto_main_file_attributes"][
                 START_RECORDING_TIME_INDEX_UUID
             ]
         )
-        assert this_file.attrs[str(UTC_BEGINNING_RECORDING_UUID)] == GENERIC_BETA_1_START_RECORDING_COMMAND[
+        assert this_file.attrs[str(UTC_BEGINNING_RECORDING_UUID)] == start_recording_command[
             "metadata_to_copy_onto_main_file_attributes"
         ][UTC_BEGINNING_RECORDING_UUID].strftime("%Y-%m-%d %H:%M:%S.%f")
         assert this_file.attrs[str(CUSTOMER_ACCOUNT_ID_UUID)] == str(CURI_BIO_ACCOUNT_UUID)
@@ -146,31 +178,25 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         actual_build_id = this_file.attrs[str(SOFTWARE_BUILD_NUMBER_UUID)]
         assert actual_build_id == COMPILED_EXE_BUILD_TIMESTAMP
         assert this_file.attrs[str(SOFTWARE_RELEASE_VERSION_UUID)] == CURRENT_SOFTWARE_VERSION
-        assert (
-            this_file.attrs[str(MAIN_FIRMWARE_VERSION_UUID)] == RunningFIFOSimulator.default_firmware_version
-        )
-        assert this_file.attrs[str(SLEEP_FIRMWARE_VERSION_UUID)] == "0.0.0"
-        assert this_file.attrs[str(XEM_SERIAL_NUMBER_UUID)] == RunningFIFOSimulator.default_xem_serial_number
-        assert (
-            this_file.attrs[str(MANTARRAY_NICKNAME_UUID)] == RunningFIFOSimulator.default_mantarray_nickname
-        )
+        assert this_file.attrs[str(MAIN_FIRMWARE_VERSION_UUID)] == simulator_class.default_firmware_version
+        assert this_file.attrs[str(MANTARRAY_NICKNAME_UUID)] == simulator_class.default_mantarray_nickname
         assert (
             this_file.attrs[str(MANTARRAY_SERIAL_NUMBER_UUID)]
-            == RunningFIFOSimulator.default_mantarray_serial_number
+            == simulator_class.default_mantarray_serial_number
         )
         assert this_file.attrs[str(REFERENCE_VOLTAGE_UUID)] == REFERENCE_VOLTAGE
         assert this_file.attrs[str(ADC_GAIN_SETTING_UUID)] == 32
         assert (
             this_file.attrs[str(ADC_TISSUE_OFFSET_UUID)]
-            == GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-                "adc_offsets"
-            ][well_idx]["construct"]
+            == start_recording_command["metadata_to_copy_onto_main_file_attributes"]["adc_offsets"][well_idx][
+                "construct"
+            ]
         )
         assert (
             this_file.attrs[str(ADC_REF_OFFSET_UUID)]
-            == GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-                "adc_offsets"
-            ][well_idx]["ref"]
+            == start_recording_command["metadata_to_copy_onto_main_file_attributes"]["adc_offsets"][well_idx][
+                "ref"
+            ]
         )
 
         assert this_file.attrs["Metadata UUID Descriptions"] == json.dumps(str(METADATA_UUID_DESCRIPTIONS))
@@ -196,21 +222,41 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         )
         assert (
             this_file.attrs[str(COMPUTER_NAME_HASH_UUID)]
-            == GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-                COMPUTER_NAME_HASH_UUID
-            ]
+            == start_recording_command["metadata_to_copy_onto_main_file_attributes"][COMPUTER_NAME_HASH_UUID]
         )
         assert (
             bool(this_file.attrs[str(BARCODE_IS_FROM_SCANNER_UUID)])
-            is GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+            is start_recording_command["metadata_to_copy_onto_main_file_attributes"][
                 BARCODE_IS_FROM_SCANNER_UUID
             ]
         )
-
-        assert get_reference_dataset_from_file(this_file).shape == (0,)
-        assert get_reference_dataset_from_file(this_file).dtype == "int32"
-        assert get_tissue_dataset_from_file(this_file).shape == (0,)
-        assert get_tissue_dataset_from_file(this_file).dtype == "int32"
+        # test metadata values not present in both beta versions
+        if test_beta_version == 1:
+            assert this_file.attrs[str(SLEEP_FIRMWARE_VERSION_UUID)] == "0.0.0"
+            assert (
+                this_file.attrs[str(XEM_SERIAL_NUMBER_UUID)] == RunningFIFOSimulator.default_xem_serial_number
+            )
+        else:
+            assert (
+                this_file.attrs[str(BOOTUP_COUNTER_UUID)]
+                == MantarrayMcSimulator.default_metadata_values[BOOTUP_COUNTER_UUID]
+            )
+            assert (
+                this_file.attrs[str(TOTAL_WORKING_HOURS_UUID)]
+                == MantarrayMcSimulator.default_metadata_values[TOTAL_WORKING_HOURS_UUID]
+            )
+            assert (
+                this_file.attrs[str(TAMPER_FLAG_UUID)]
+                == MantarrayMcSimulator.default_metadata_values[TAMPER_FLAG_UUID]
+            )
+            assert (
+                this_file.attrs[str(PCB_SERIAL_NUMBER_UUID)] == MantarrayMcSimulator.default_pcb_serial_number
+            )
+        # test data sets
+        assert get_reference_dataset_from_file(this_file).shape == data_shape
+        assert get_reference_dataset_from_file(this_file).dtype == data_type
+        assert get_tissue_dataset_from_file(this_file).shape == data_shape
+        assert get_tissue_dataset_from_file(this_file).dtype == data_type
 
 
 @pytest.mark.timeout(4)

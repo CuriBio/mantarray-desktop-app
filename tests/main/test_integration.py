@@ -18,7 +18,7 @@ from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
-from mantarray_desktop_app import CURRENT_HDF5_FILE_FORMAT_VERSION
+from mantarray_desktop_app import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from mantarray_desktop_app import DATA_FRAME_PERIOD
@@ -433,10 +433,12 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                     assert bool(this_file_attrs[str(HARDWARE_TEST_RECORDING_UUID)]) is False
                     assert this_file_attrs[str(SOFTWARE_BUILD_NUMBER_UUID)] == COMPILED_EXE_BUILD_TIMESTAMP
                     assert (
-                        this_file_attrs[str(ORIGINAL_FILE_VERSION_UUID)] == CURRENT_HDF5_FILE_FORMAT_VERSION
+                        this_file_attrs[str(ORIGINAL_FILE_VERSION_UUID)]
+                        == CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
                     )
                     assert (
-                        this_file_attrs[FILE_FORMAT_VERSION_METADATA_KEY] == CURRENT_HDF5_FILE_FORMAT_VERSION
+                        this_file_attrs[FILE_FORMAT_VERSION_METADATA_KEY]
+                        == CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
                     )
                     assert this_file_attrs[str(UTC_BEGINNING_DATA_ACQUISTION_UUID)] == expected_time.strftime(
                         "%Y-%m-%d %H:%M:%S.%f"
@@ -739,7 +741,13 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
     assert response.status_code == 200
     assert system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
 
-    # Tanner (4/5/21): Once magnetometer configuration route is added, test can go to buffering state. Once data path is updated to handle beta 2 data, test can go to recording state
+    # TODO Tanner (12/30/20): Run managed_acquisition to confirm system can reach buffering state. Will eventually confirm the system reaches live view active once the data path can handle beta 2 data
+    response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
+    assert response.status_code == 200
+    assert system_state_eventually_equals(BUFFERING_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
+    response = requests.get(f"{get_api_endpoint()}stop_managed_acquisition")
+    assert response.status_code == 200
+    assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
 
     # Tanner (12/29/20): Good to do this at the end of tests to make sure they don't cause problems with other integration tests
     test_process_manager.hard_stop_and_join_processes()
