@@ -27,7 +27,7 @@ from ..fixtures_file_writer import open_the_generic_h5_file
 from ..fixtures_file_writer import open_the_generic_h5_file_as_WellFile
 from ..helpers import assert_queue_is_eventually_empty
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
-from ..parsed_channel_data_packets import SIMPLE_CONSTRUCT_DATA_FROM_WELL_0
+from ..parsed_channel_data_packets import SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0
 
 
 __fixtures__ = [
@@ -44,7 +44,7 @@ def test_FileWriterProcess__passes_data_packet_through_to_output_queue(
     board_queues = four_board_file_writer_process["board_queues"]
     error_queue = four_board_file_writer_process["error_queue"]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        SIMPLE_CONSTRUCT_DATA_FROM_WELL_0,
+        SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0,
         board_queues[0][0],
     )
 
@@ -56,8 +56,8 @@ def test_FileWriterProcess__passes_data_packet_through_to_output_queue(
     assert_queue_is_eventually_empty(error_queue)
 
     out_data = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    np.testing.assert_array_equal(out_data["data"], SIMPLE_CONSTRUCT_DATA_FROM_WELL_0["data"])
-    assert out_data["well_index"] == SIMPLE_CONSTRUCT_DATA_FROM_WELL_0["well_index"]
+    np.testing.assert_array_equal(out_data["data"], SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0["data"])
+    assert out_data["well_index"] == SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0["well_index"]
 
     # clean up
     fw_process.hard_stop()

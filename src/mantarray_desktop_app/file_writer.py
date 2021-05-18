@@ -401,6 +401,7 @@ class FileWriterProcess(InfiniteProcess):
             # Tanner (6/12/20): We must convert UUIDs to strings to allow them to be compatible with H5 and JSON
             this_file.attrs["Metadata UUID Descriptions"] = json.dumps(str(METADATA_UUID_DESCRIPTIONS))
 
+            # Tanner (5/17/21): Not sure what 100 * 3600 * 12 represents, should make it a constant or add comment if/when it is determined
             max_data_len = 100 * 3600 * 12
             data_shape = (SERIAL_COMM_NUM_DATA_CHANNELS, 0) if self._beta_2_mode else (0,)
             dtype = "int16" if self._beta_2_mode else "int32"
@@ -419,6 +420,7 @@ class FileWriterProcess(InfiniteProcess):
                 dtype=dtype,
                 chunks=True,
             )
+            # TODO Tanner (5/17/21): figure out if another data set needs to be created for timestamps. If so, figure out what shape it needs as well
             this_file.swmr_mode = True
 
             tissue_status[0][this_well_idx] = False
@@ -597,16 +599,25 @@ class FileWriterProcess(InfiniteProcess):
         output_queue = self._board_queues[0][1]
         output_queue.put_nowait(data_packet)
 
-        self._num_recorded_points.append(data_packet["data"].shape[1])
-        start = time.perf_counter()
-        self._handle_recording_of_packet(data_packet)
-        recording_dur = time.perf_counter() - start
-        self._recording_durations.append(recording_dur)
+        # Tanner (5/17/21): This block was not previously wrapped in this if statement. If issues start occurring with recorded data or performance metrics, check here
+        if self._is_recording or self._board_has_open_files(0):
+            if self._beta_2_mode:
+                pass  # TODO:  self._num_recorded_points.append(data_packet["timestamps"].shape[0])
+            else:
+                self._num_recorded_points.append(data_packet["data"].shape[1])
+            start = time.perf_counter()
+            self._handle_recording_of_packet(data_packet)
+            recording_dur = time.perf_counter() - start
+            self._recording_durations.append(recording_dur)
 
         if not input_queue.empty():
             self._process_can_be_soft_stopped = False
 
     def _handle_recording_of_packet(self, data_packet: Dict[str, Any]) -> None:
+        well_indices_to_process: Any  # TODO type this correctly
+        if self._beta_2_mode:
+            return  # TODO
+        # else:
         is_reference_sensor = data_packet["is_reference_sensor"]
         if is_reference_sensor:
             well_indices_to_process = data_packet["reference_for_wells"]
@@ -621,7 +632,14 @@ class FileWriterProcess(InfiniteProcess):
         data_packet_buffer = self._data_packet_buffers[0]
         if not data_packet_buffer:
             return
-        buffer_memory_size = data_packet_buffer[-1]["data"][0, 0] - data_packet_buffer[0]["data"][0, 0]
+
+        buffer_memory_size: int
+        if self._beta_2_mode:
+            buffer_memory_size = (
+                data_packet_buffer[-1]["timestamps"][0] - data_packet_buffer[0]["timestamps"][0]
+            )
+        else:
+            buffer_memory_size = data_packet_buffer[-1]["data"][0, 0] - data_packet_buffer[0]["data"][0, 0]
         if buffer_memory_size > FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS:
             data_packet_buffer.popleft()
 

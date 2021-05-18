@@ -80,7 +80,8 @@ from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import is_queue_eventually_empty
 from ..helpers import is_queue_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
-from ..parsed_channel_data_packets import SIMPLE_CONSTRUCT_DATA_FROM_WELL_0
+from ..parsed_channel_data_packets import SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0
+from ..parsed_channel_data_packets import SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS
 
 
 __fixtures__ = [
@@ -237,6 +238,7 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
                 this_file.attrs[str(XEM_SERIAL_NUMBER_UUID)] == RunningFIFOSimulator.default_xem_serial_number
             )
         else:
+            # TODO add magnetometer configuration
             assert (
                 this_file.attrs[str(BOOTUP_COUNTER_UUID)]
                 == MantarrayMcSimulator.default_metadata_values[BOOTUP_COUNTER_UUID]
@@ -547,7 +549,7 @@ def test_FileWriterProcess__begins_building_data_buffer_when_managed_acquisition
 
     expected_num_items = 3
     for _ in range(expected_num_items):
-        board_queues[0][0].put_nowait(SIMPLE_CONSTRUCT_DATA_FROM_WELL_0)
+        board_queues[0][0].put_nowait(SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0)
     confirm_queue_is_eventually_of_size(
         board_queues[0][0],
         expected_num_items,
@@ -555,12 +557,11 @@ def test_FileWriterProcess__begins_building_data_buffer_when_managed_acquisition
     )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=expected_num_items)
-
     actual_num_items = len(file_writer_process._data_packet_buffers[0])  # pylint: disable=protected-access
     assert actual_num_items == expected_num_items
 
 
-def test_FileWriterProcess__removes_packets_from_data_buffer_that_are_older_than_buffer_memory_size(
+def test_FileWriterProcess__removes_beta_1_packets_from_data_buffer_that_are_older_than_buffer_memory_size(
     four_board_file_writer_process,
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
@@ -584,7 +585,6 @@ def test_FileWriterProcess__removes_packets_from_data_buffer_that_are_older_than
     )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=2)
-
     # Eli (12/10/20): the new version of black is forcing the pylint note to be moved away from the relevant line
     # fmt: off
     data_packet_buffer = file_writer_process._data_packet_buffers[0]  # pylint: disable=protected-access
@@ -593,6 +593,31 @@ def test_FileWriterProcess__removes_packets_from_data_buffer_that_are_older_than
     assert data_packet_buffer[0]["is_reference_sensor"] is new_packet["is_reference_sensor"]
     assert data_packet_buffer[0]["well_index"] == new_packet["well_index"]
     np.testing.assert_equal(data_packet_buffer[0]["data"], new_packet["data"])
+
+
+def test_FileWriterProcess__removes_beta_2_packets_from_data_buffer_that_are_older_than_buffer_memory_size(
+    four_board_file_writer_process,
+):
+    # TODO figure out why this test is creating broken pipe errors
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    file_writer_process.set_beta_2_mode()
+    board_queues = four_board_file_writer_process["board_queues"]
+
+    new_packet = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
+    new_packet["timestamps"] = (np.array([FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS + 1], dtype=np.uint64),)
+    old_packet = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
+    old_packet["timestamps"] = (np.array([0], dtype=np.uint64),)
+
+    board_queues[0][0].put_nowait(old_packet)
+    board_queues[0][0].put_nowait(new_packet)
+    confirm_queue_is_eventually_of_size(
+        board_queues[0][0], 2, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
+
+    invoke_process_run_and_check_errors(file_writer_process, num_iterations=2)
+    data_packet_buffer = file_writer_process._data_packet_buffers[0]  # pylint: disable=protected-access
+    assert len(data_packet_buffer) == 1
+    np.testing.assert_equal(data_packet_buffer[0]["timestamps"], new_packet["timestamps"])
 
 
 def test_FileWriterProcess__clears_data_buffer_when_stop_managed_acquisition_command_is_received(
@@ -606,7 +631,7 @@ def test_FileWriterProcess__clears_data_buffer_when_stop_managed_acquisition_com
     data_packet_buffer = file_writer_process._data_packet_buffers[0]  # pylint: disable=protected-access
     # fmt: on
     for _ in range(3):
-        data_packet_buffer.append(SIMPLE_CONSTRUCT_DATA_FROM_WELL_0)
+        data_packet_buffer.append(SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0)
 
     stop_managed_acquisition_command = {
         "communication_type": "to_instrument",
@@ -632,7 +657,7 @@ def test_FileWriterProcess__records_all_requested_data_in_buffer__and_creates_di
     data_packet_buffer = file_writer_process._data_packet_buffers[0]  # pylint: disable=protected-access
     # fmt: on
     for _ in range(2):
-        data_packet_buffer.append(SIMPLE_CONSTRUCT_DATA_FROM_WELL_0)
+        data_packet_buffer.append(SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0)
 
     expected_start_timepoint = 100
     expected_packets_recorded = 3
@@ -726,7 +751,6 @@ def test_FileWriterProcess__deletes_recorded_well_data_after_stop_time(
     stop_recording_command["timepoint_to_stop_recording_at"] = expected_timepoint
     # ensure queue is empty before putting something else in
     confirm_queue_is_eventually_empty(comm_from_main_queue)
-
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         stop_recording_command,
         comm_from_main_queue,

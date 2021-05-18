@@ -34,7 +34,7 @@ from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import is_queue_eventually_empty
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
-from ..parsed_channel_data_packets import SIMPLE_CONSTRUCT_DATA_FROM_WELL_0
+from ..parsed_channel_data_packets import SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0
 
 
 __fixtures__ = [
@@ -86,9 +86,9 @@ def test_FileWriterProcess_soft_stop_not_allowed_if_incoming_data_still_in_queue
     board_queues = four_board_file_writer_process["board_queues"]
 
     # The first communication will be processed, but if there is a second one in the queue then the soft stop should be disabled
-    board_queues[0][0].put_nowait(SIMPLE_CONSTRUCT_DATA_FROM_WELL_0)
+    board_queues[0][0].put_nowait(SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        SIMPLE_CONSTRUCT_DATA_FROM_WELL_0,
+        SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0,
         board_queues[0][0],
     )
 
