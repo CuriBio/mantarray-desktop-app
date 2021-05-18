@@ -164,6 +164,7 @@ def test_FileWriterProcess_soft_stop_not_allowed_if_command_from_main_still_in_q
     drain_queue(from_main_queue)
 
 
+# TODO
 def test_FileWriterProcess__close_all_files(four_board_file_writer_process, mocker):
     file_writer_process = four_board_file_writer_process["fw_process"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
@@ -290,6 +291,7 @@ def test_FileWriterProcess__logs_performance_metrics_after_appropriate_number_of
     assert actual["longest_iterations"] == expected_longest_iterations[-num_longest_iterations:]
     assert "idle_iteration_time_ns" not in actual
     assert "start_timepoint_of_measurements" not in actual
+    # TODO assert "num_recorded_data_points_metrics", "recording_duration_metrics" not found
 
 
 @pytest.mark.slow
@@ -314,6 +316,7 @@ def test_FileWriterProcess__does_not_log_percent_use_metrics_in_first_logging_cy
     assert "percent_use_metrics" not in actual
 
 
+# TODO
 def test_FileWriterProcess__logs_metrics_of_data_recording_when_recording(
     four_board_file_writer_process, mocker
 ):
@@ -425,6 +428,7 @@ def test_FileWriterProcess_teardown_after_loop__does_not_call_close_all_files__w
     spied_close_all_files.assert_not_called()
 
 
+# TODO
 def test_FileWriterProcess_teardown_after_loop__calls_close_all_files__when_still_recording(
     four_board_file_writer_process, mocker
 ):
@@ -442,6 +446,7 @@ def test_FileWriterProcess_teardown_after_loop__calls_close_all_files__when_stil
     spied_close_all_files.assert_called_once()
 
 
+# TODO
 def test_FileWriterProcess_hard_stop__calls_close_all_files__when_still_recording(
     four_board_file_writer_process, mocker
 ):
@@ -463,6 +468,7 @@ def test_FileWriterProcess_hard_stop__calls_close_all_files__when_still_recordin
     spied_close_all_files.assert_called_once()
 
 
+# TODO
 def test_FileWriterProcess_hard_stop__closes_all_files_after_stop_recording_before_all_files_are_finalized__and_files_can_be_opened_after_process_stops(
     four_board_file_writer_process, mocker
 ):
@@ -529,6 +535,7 @@ def test_FileWriterProcess_hard_stop__closes_all_files_after_stop_recording_befo
                 assert str(START_RECORDING_TIME_INDEX_UUID) in this_file.attrs
 
 
+# TODO
 def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_files_after_stop_recording(
     four_board_file_writer_process, mocker
 ):
@@ -613,6 +620,7 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_files_af
     drain_queue(board_queues[0][1])
 
 
+# TODO
 @pytest.mark.slow
 @pytest.mark.timeout(10)
 def test_FileWriterProcess_teardown_after_loop__can_teardown_process_while_recording__and_log_stop_recording_message(

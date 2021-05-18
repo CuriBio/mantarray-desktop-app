@@ -33,6 +33,7 @@ from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import FILE_FORMAT_VERSION_METADATA_KEY
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
 from mantarray_file_manager import IS_FILE_ORIGINAL_UNTRIMMED_UUID
+from mantarray_file_manager import MAGNETOMETER_CONFIGURATION_UUID
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
@@ -238,7 +239,11 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
                 this_file.attrs[str(XEM_SERIAL_NUMBER_UUID)] == RunningFIFOSimulator.default_xem_serial_number
             )
         else:
-            # TODO add magnetometer configuration
+            assert this_file.attrs[str(MAGNETOMETER_CONFIGURATION_UUID)] == json.dumps(
+                start_recording_command["metadata_to_copy_onto_main_file_attributes"][
+                    MAGNETOMETER_CONFIGURATION_UUID
+                ][well_idx + 1]
+            )
             assert (
                 this_file.attrs[str(BOOTUP_COUNTER_UUID)]
                 == MantarrayMcSimulator.default_metadata_values[BOOTUP_COUNTER_UUID]
@@ -339,7 +344,7 @@ def test_FileWriterProcess__start_recording__sets_stop_recording_timestamp_to_no
     assert file_writer_process.is_recording() is True
 
 
-def test_FileWriterProcess__stop_recording_sets_stop_recording_timestamp_to_timepoint_in_communication_and_communicates_successful_receipt_and_sets_is_recording_to_false__and_start_recording_clears_stop_timestamp_and_finalization_statuses(
+def test_FileWriterProcess__stop_recording__sets_stop_recording_timestamp_to_timepoint_in_communication__and_communicates_successful_receipt__and_sets_is_recording_to_false__and_start_recording_clears_stop_timestamp_and_finalization_statuses(
     four_board_file_writer_process,
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
@@ -585,10 +590,7 @@ def test_FileWriterProcess__removes_beta_1_packets_from_data_buffer_that_are_old
     )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=2)
-    # Eli (12/10/20): the new version of black is forcing the pylint note to be moved away from the relevant line
-    # fmt: off
     data_packet_buffer = file_writer_process._data_packet_buffers[0]  # pylint: disable=protected-access
-    # fmt: on
     assert len(data_packet_buffer) == 1
     assert data_packet_buffer[0]["is_reference_sensor"] is new_packet["is_reference_sensor"]
     assert data_packet_buffer[0]["well_index"] == new_packet["well_index"]
@@ -626,10 +628,7 @@ def test_FileWriterProcess__clears_data_buffer_when_stop_managed_acquisition_com
     file_writer_process = four_board_file_writer_process["fw_process"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
-    # Eli (12/10/20): the new version of black is forcing the pylint note to be moved away from the relevant line
-    # fmt: off
     data_packet_buffer = file_writer_process._data_packet_buffers[0]  # pylint: disable=protected-access
-    # fmt: on
     for _ in range(3):
         data_packet_buffer.append(SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0)
 
@@ -645,6 +644,7 @@ def test_FileWriterProcess__clears_data_buffer_when_stop_managed_acquisition_com
     assert len(data_packet_buffer) == 0
 
 
+# TODO
 def test_FileWriterProcess__records_all_requested_data_in_buffer__and_creates_dict_of_latest_data_timepoints_for_open_files__when_start_recording_command_is_received(
     four_board_file_writer_process,
 ):
@@ -652,10 +652,7 @@ def test_FileWriterProcess__records_all_requested_data_in_buffer__and_creates_di
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    # Eli (12/10/20): the new version of black is forcing the pylint note to be moved away from the relevant line
-    # fmt: off
     data_packet_buffer = file_writer_process._data_packet_buffers[0]  # pylint: disable=protected-access
-    # fmt: on
     for _ in range(2):
         data_packet_buffer.append(SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0)
 
@@ -696,6 +693,7 @@ def test_FileWriterProcess__records_all_requested_data_in_buffer__and_creates_di
     assert actual_latest_timepoint == expected_latest_timepoint
 
 
+# TODO
 def test_FileWriterProcess__deletes_recorded_well_data_after_stop_time(
     four_board_file_writer_process,
 ):
@@ -780,6 +778,7 @@ def test_FileWriterProcess__deletes_recorded_well_data_after_stop_time(
 def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
     four_board_file_writer_process,
 ):
+    # TODO Tanner (5/17/21): when reference sensors are added to the Beta 2 instrument, add beta 2 mode to this test
     file_writer_process = four_board_file_writer_process["fw_process"]
     instrument_board_queues = four_board_file_writer_process["board_queues"]
     comm_from_main_queue = four_board_file_writer_process["from_main_queue"]

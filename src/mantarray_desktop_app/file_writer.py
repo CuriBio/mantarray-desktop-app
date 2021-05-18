@@ -25,6 +25,7 @@ from labware_domain_models import LabwareDefinition
 from mantarray_file_manager import ADC_REF_OFFSET_UUID
 from mantarray_file_manager import ADC_TISSUE_OFFSET_UUID
 from mantarray_file_manager import IS_FILE_ORIGINAL_UNTRIMMED_UUID
+from mantarray_file_manager import MAGNETOMETER_CONFIGURATION_UUID
 from mantarray_file_manager import MantarrayH5FileCreator
 from mantarray_file_manager import METADATA_UUID_DESCRIPTIONS
 from mantarray_file_manager import ORIGINAL_FILE_VERSION_UUID
@@ -392,6 +393,8 @@ class FileWriterProcess(InfiniteProcess):
                     this_file.attrs[str(ADC_TISSUE_OFFSET_UUID)] = this_attr_value[this_well_idx]["construct"]
                     this_file.attrs[str(ADC_REF_OFFSET_UUID)] = this_attr_value[this_well_idx]["ref"]
                     continue
+                if this_attr_name == MAGNETOMETER_CONFIGURATION_UUID:
+                    this_attr_value = json.dumps(this_attr_value[this_well_idx + 1])
                 if METADATA_UUID_DESCRIPTIONS[this_attr_name].startswith("UTC Timestamp"):
                     this_attr_value = this_attr_value.strftime("%Y-%m-%d %H:%M:%S.%f")
                 this_attr_name = str(this_attr_name)
@@ -599,7 +602,7 @@ class FileWriterProcess(InfiniteProcess):
         output_queue = self._board_queues[0][1]
         output_queue.put_nowait(data_packet)
 
-        # Tanner (5/17/21): This block was not previously wrapped in this if statement. If issues start occurring with recorded data or performance metrics, check here
+        # Tanner (5/17/21): This code was not previously guarded by this if statement. If issues start occurring with recorded data or performance metrics, check here
         if self._is_recording or self._board_has_open_files(0):
             if self._beta_2_mode:
                 pass  # TODO:  self._num_recorded_points.append(data_packet["timestamps"].shape[0])
@@ -614,19 +617,18 @@ class FileWriterProcess(InfiniteProcess):
             self._process_can_be_soft_stopped = False
 
     def _handle_recording_of_packet(self, data_packet: Dict[str, Any]) -> None:
-        well_indices_to_process: Any  # TODO type this correctly
         if self._beta_2_mode:
-            return  # TODO
-        # else:
-        is_reference_sensor = data_packet["is_reference_sensor"]
-        if is_reference_sensor:
-            well_indices_to_process = data_packet["reference_for_wells"]
+            pass  # TODO
         else:
-            well_indices_to_process = set([data_packet["well_index"]])
-        for this_well_idx in well_indices_to_process:
-            data_packet["well_index"] = this_well_idx
-            if this_well_idx in self._open_files[0]:
-                self._process_data_packet_for_open_file(data_packet)
+            is_reference_sensor = data_packet["is_reference_sensor"]
+            if is_reference_sensor:
+                well_indices_to_process = data_packet["reference_for_wells"]
+            else:
+                well_indices_to_process = set([data_packet["well_index"]])
+            for this_well_idx in well_indices_to_process:
+                data_packet["well_index"] = this_well_idx
+                if this_well_idx in self._open_files[0]:
+                    self._process_data_packet_for_open_file(data_packet)
 
     def _update_data_packet_buffers(self) -> None:
         data_packet_buffer = self._data_packet_buffers[0]

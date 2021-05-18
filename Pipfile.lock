@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "509f1b5b36959637811238074a50f703b090538b6ab59bc85c8ccbe14bd21172"
+            "sha256": "bb3a6fc7cb459f8f9b4f31d719ce8f177e2a70c38b17962523aef65f644cc01e"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -127,11 +127,11 @@
         },
         "mantarray-file-manager": {
             "hashes": [
-                "sha256:47926288dda8e4690e6c208d0b7fe11bee53142121587c490b2f04137626e3e8",
-                "sha256:48afb11ad66681277680db07a23261a6af5f6aa27018b19ce7175d144b33b992"
+                "sha256:1af21ca8f2128f775f362aaf02b6e3c01bc49ee1cca2e94d058a70366f23023d",
+                "sha256:923905bd61a647208dcd632ebcf3a2242a8e739016e69380dc58b2bb67c904fa"
             ],
             "index": "pypi",
-            "version": "==0.5.0"
+            "version": "==0.5.1"
         },
         "mantarray-waveform-analysis": {
             "hashes": [
@@ -320,11 +320,11 @@
         },
         "werkzeug": {
             "hashes": [
-                "sha256:3389bbfe6d40c6dd25e6d3f974155163c8b3de5bbda6a89342d4ab93fae80ba0",
-                "sha256:64c02f6495ba01eddd6625b3675f357cd358a73f1e38458a56ad86c5baa30b53"
+                "sha256:1de1db30d010ff1af14a009224ec49ab2329ad2cde454c8a708130642d579c42",
+                "sha256:6c1ec500dcdba0baa27600f6a22f6333d8b662d22027ff9f6202e3367413caa8"
             ],
             "markers": "python_version >= '3.6'",
-            "version": "==2.0.0"
+            "version": "==2.0.1"
         },
         "xem-wrapper": {
             "hashes": [
@@ -414,11 +414,11 @@
         },
         "cfgv": {
             "hashes": [
-                "sha256:32e43d604bbe7896fe7c248a9c2276447dbef840feb28fe20494f62af110211d",
-                "sha256:cf22deb93d4bcf92f345a5c3cd39d3d41d6340adc60c78bbbd6588c384fda6a1"
+                "sha256:9e600479b3b99e8af981ecdfc80a0296104ee610cab48a5ae4ffd0b668650eb1",
+                "sha256:b449c9c6118fe8cca7fa5e00b9ec60ba08145d281d52164230a69211c5d597a1"
             ],
             "markers": "python_full_version >= '3.6.1'",
-            "version": "==3.2.0"
+            "version": "==3.3.0"
         },
         "chardet": {
             "hashes": [

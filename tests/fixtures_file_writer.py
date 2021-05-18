@@ -24,6 +24,7 @@ from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import RunningFIFOSimulator
+from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
@@ -31,6 +32,7 @@ from mantarray_file_manager import BOOTUP_COUNTER_UUID
 from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
+from mantarray_file_manager import MAGNETOMETER_CONFIGURATION_UUID
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
@@ -60,6 +62,19 @@ for well_idx in range(24):
     GENERIC_ADC_OFFSET_VALUES[well_idx] = {
         "construct": well_idx * 2,
         "ref": well_idx * 2 + 1,
+    }
+GENERIC_MAGNETOMETER_CONFIGURATION: Dict[int, Dict[int, bool]] = dict()
+for module_id in range(1, 25):
+    GENERIC_MAGNETOMETER_CONFIGURATION[module_id] = {
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: True,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Y"]: False,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Z"]: False,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["X"]: False,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["Y"]: False,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["Z"]: False,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["X"]: False,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Y"]: False,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: False,
     }
 GENERIC_BASE_START_RECORDING_COMMAND: Dict[str, Any] = {
     "command": "start_recording",
@@ -108,6 +123,7 @@ GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
         TOTAL_WORKING_HOURS_UUID: MantarrayMcSimulator.default_metadata_values[TOTAL_WORKING_HOURS_UUID],
         TAMPER_FLAG_UUID: MantarrayMcSimulator.default_metadata_values[TAMPER_FLAG_UUID],
         PCB_SERIAL_NUMBER_UUID: MantarrayMcSimulator.default_pcb_serial_number,
+        MAGNETOMETER_CONFIGURATION_UUID: GENERIC_MAGNETOMETER_CONFIGURATION,
     }
 )
 
