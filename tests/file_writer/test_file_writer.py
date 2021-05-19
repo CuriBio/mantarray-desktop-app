@@ -15,6 +15,7 @@ from mantarray_desktop_app import get_data_slice_within_timepoints
 from mantarray_desktop_app import InvalidDataTypeFromOkCommError
 from mantarray_desktop_app import MantarrayH5FileCreator
 from mantarray_desktop_app import REF_INDEX_TO_24_WELL_INDEX
+from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import UnrecognizedCommandFromMainToFileWriterError
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
@@ -24,6 +25,7 @@ from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import invoke_process_run_and_check_errors
 
+from ..fixtures import fixture_patch_print
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_file_writer import fixture_four_board_file_writer_process
 from ..fixtures_file_writer import fixture_running_four_board_file_writer_process
@@ -40,6 +42,7 @@ from ..parsed_channel_data_packets import SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_
 
 
 __fixtures__ = [
+    fixture_patch_print,
     fixture_four_board_file_writer_process,
     fixture_running_four_board_file_writer_process,
 ]
@@ -107,9 +110,8 @@ def test_FileWriterProcess_soft_stop_not_allowed_if_incoming_data_still_in_queue
 
 
 def test_FileWriterProcess__raises_error_if_not_a_dict_is_passed_through_the_queue_for_board_0_from_instrument_comm(
-    four_board_file_writer_process, mocker
+    four_board_file_writer_process, mocker, patch_print
 ):
-    mocker.patch("builtins.print", autospec=True)  # don't print all the error messages to console
 
     file_writer_process = four_board_file_writer_process["fw_process"]
     board_queues = four_board_file_writer_process["board_queues"]
@@ -123,9 +125,8 @@ def test_FileWriterProcess__raises_error_if_not_a_dict_is_passed_through_the_que
 
 @pytest.mark.timeout(4)
 def test_FileWriterProcess__raises_error_if_unrecognized_command_from_main(
-    four_board_file_writer_process, mocker
+    four_board_file_writer_process, mocker, patch_print
 ):
-    mocker.patch("builtins.print", autospec=True)  # don't print all the error messages to console
 
     file_writer_process = four_board_file_writer_process["fw_process"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
@@ -166,12 +167,23 @@ def test_FileWriterProcess_soft_stop_not_allowed_if_command_from_main_still_in_q
     drain_queue(from_main_queue)
 
 
-# TODO
-def test_FileWriterProcess__close_all_files(four_board_file_writer_process, mocker):
+@pytest.mark.parametrize(
+    "test_start_recording_command,test_description",
+    [
+        (GENERIC_BETA_1_START_RECORDING_COMMAND, "closes correctly with beta 1 files"),
+        (GENERIC_BETA_2_START_RECORDING_COMMAND, "closes correctly with beta 2 files"),
+    ],
+)
+def test_FileWriterProcess__close_all_files(
+    test_start_recording_command, test_description, four_board_file_writer_process, mocker
+):
     file_writer_process = four_board_file_writer_process["fw_process"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
-    this_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
+    if test_start_recording_command == GENERIC_BETA_2_START_RECORDING_COMMAND:
+        file_writer_process.set_beta_2_mode()
+
+    this_command = copy.deepcopy(test_start_recording_command)
     this_command["active_well_indices"] = [3, 18]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
@@ -357,9 +369,15 @@ def test_FileWriterProcess__does_not_log_percent_use_metrics_in_first_logging_cy
     assert "percent_use_metrics" not in actual
 
 
-# TODO
-def test_FileWriterProcess__logs_metrics_of_data_recording_correctly_when_recording_beta_1_data(
-    four_board_file_writer_process, mocker
+@pytest.mark.parametrize(
+    "test_beta_version,test_description",
+    [
+        (1, "logs correctly with beta 1 data"),
+        (2, "logs correctly with beta 2 data"),
+    ],
+)
+def test_FileWriterProcess__logs_metrics_of_data_recording_correctly(
+    test_beta_version, test_description, four_board_file_writer_process, mocker
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     board_queues = four_board_file_writer_process["board_queues"]
@@ -368,7 +386,17 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_correctly_when_record
 
     file_writer_process._minimum_iteration_duration_seconds = 0  # pylint: disable=protected-access
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
+    num_packets_to_send = 30
+    if test_beta_version == 1:
+        start_recording_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
+        data_packet = copy.deepcopy(SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0)
+        num_points_per_packet = data_packet["data"].shape[1]
+    else:
+        file_writer_process.set_beta_2_mode()
+        start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+        data_packet = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
+        num_points_per_packet = data_packet["time_indices"].shape[0]
+
     start_recording_command["metadata_to_copy_onto_main_file_attributes"][START_RECORDING_TIME_INDEX_UUID] = 0
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process, perform_setup_before_loop=True)
@@ -376,30 +404,17 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_correctly_when_record
         timeout=QUEUE_CHECK_TIMEOUT_SECONDS
     )  # Tanner (9/10/20): remove start_recording confirmation
 
-    num_points_list = list()
-    for i in range(24):
-        num_points = (i + 1) * 2
-        num_points_list.append(num_points)
-        well_packet = {
-            "well_index": 4,
-            "is_reference_sensor": False,
-            "data": np.zeros((2, num_points)),
-        }
-        board_queues[0][0].put_nowait(well_packet)
-    for i in range(6):
-        num_points = 5
-        num_points_list.append(num_points)
-        ref_packet = {
-            "reference_for_wells": REF_INDEX_TO_24_WELL_INDEX[i],
-            "is_reference_sensor": True,
-            "data": np.zeros((2, num_points)),
-        }
-        board_queues[0][0].put_nowait(ref_packet)
+    num_points_list = [num_points_per_packet] * num_packets_to_send
+    for _ in range(num_packets_to_send):
+        board_queues[0][0].put_nowait(data_packet)
+
     confirm_queue_is_eventually_of_size(
-        board_queues[0][0], 30, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        board_queues[0][0], num_packets_to_send, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )  # Tanner (4/9/21): Even after confirming the queue is the expected size, a sleep is necessary in order to let the items actually populate the queue. Guess as to why this is happening is that the size of the queue is reported by a different thread than the one that actually writes data to the queue's underlying pipe
-    expected_recording_durations = list(range(30))
-    perf_counter_vals = [0 if i % 2 == 0 else expected_recording_durations[i // 2] for i in range(60)]
+    expected_recording_durations = list(range(num_packets_to_send))
+    perf_counter_vals = [
+        0 if i % 2 == 0 else expected_recording_durations[i // 2] for i in range(num_packets_to_send * 2)
+    ]
     mocker.patch.object(time, "perf_counter", autospec=True, side_effect=perf_counter_vals)
 
     invoke_process_run_and_check_errors(
@@ -592,10 +607,10 @@ def test_FileWriterProcess_hard_stop__closes_all_files_after_stop_recording_befo
                 "r",
             ) as this_file:
                 assert str(START_RECORDING_TIME_INDEX_UUID) in this_file.attrs
+                # TODO assert something about data here
 
 
-# TODO
-def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_files_after_stop_recording(
+def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_1_files_after_stop_recording(
     four_board_file_writer_process, mocker
 ):
     fw_process = four_board_file_writer_process["fw_process"]
@@ -679,18 +694,97 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_files_af
     drain_queue(board_queues[0][1])
 
 
-# TODO
+def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_2_files_after_stop_recording(
+    four_board_file_writer_process, mocker
+):
+    fw_process = four_board_file_writer_process["fw_process"]
+    fw_process.set_beta_2_mode()
+    board_queues = four_board_file_writer_process["board_queues"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        GENERIC_BETA_2_START_RECORDING_COMMAND, from_main_queue
+    )
+    invoke_process_run_and_check_errors(fw_process)
+
+    # fill files with data
+    num_data_points = 100
+    start_timepoint = GENERIC_BETA_2_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
+    data_packet = {
+        "time_indices": np.arange(start_timepoint, start_timepoint + num_data_points, dtype=np.uint64)
+    }
+    for well_idx in range(24):
+        channel_dict = {
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: np.zeros(num_data_points, dtype=np.int16),
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: np.zeros(num_data_points, dtype=np.int16),
+        }
+        data_packet[well_idx] = channel_dict
+    board_queues[0][0].put_nowait(data_packet)
+    confirm_queue_is_eventually_of_size(
+        board_queues[0][0], 1, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
+    invoke_process_run_and_check_errors(fw_process)
+    confirm_queue_is_eventually_empty(board_queues[0][0])
+
+    stop_recording_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_recording_command, from_main_queue)
+    invoke_process_run_and_check_errors(fw_process)
+
+    # check that command is ignored # Tanner (1/12/21): no particular reason this command needs to be update_directory, but it's easy to test if this gets processed
+    expected_new_dir = "dummy_dir"
+    update_dir_command = {
+        "command": "update_directory",
+        "new_directory": expected_new_dir,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(update_dir_command, from_main_queue)
+    invoke_process_run_and_check_errors(fw_process)
+    confirm_queue_is_eventually_of_size(from_main_queue, 1)
+
+    # add data past stop point so files will be finalized
+    stop_timepoint = GENERIC_STOP_RECORDING_COMMAND["timepoint_to_stop_recording_at"]
+    final_data_packet = copy.deepcopy(data_packet)
+    final_data_packet["time_indices"] = np.arange(
+        stop_timepoint, stop_timepoint + num_data_points, dtype=np.uint64
+    )
+    board_queues[0][0].put_nowait(final_data_packet)
+    confirm_queue_is_eventually_of_size(
+        board_queues[0][0], 1, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
+    invoke_process_run_and_check_errors(fw_process)
+    confirm_queue_is_eventually_empty(board_queues[0][0])
+    # check command is still ignored
+    confirm_queue_is_eventually_of_size(from_main_queue, 1)
+
+    # now all files should be finalized, confirm command is now processed
+    invoke_process_run_and_check_errors(fw_process)
+    confirm_queue_is_eventually_empty(from_main_queue)
+    assert fw_process.get_file_directory() == expected_new_dir
+
+    # Tanner (3/8/21): Prevent BrokenPipeErrors
+    drain_queue(board_queues[0][1])
+
+
 @pytest.mark.slow
 @pytest.mark.timeout(10)
+@pytest.mark.parametrize(
+    "test_start_recording_command,test_description",
+    [
+        (GENERIC_BETA_1_START_RECORDING_COMMAND, "tears down correctly with beta 1 files"),
+        (GENERIC_BETA_2_START_RECORDING_COMMAND, "tears down correctly with beta 2 files"),
+    ],
+)
 def test_FileWriterProcess_teardown_after_loop__can_teardown_process_while_recording__and_log_stop_recording_message(
-    running_four_board_file_writer_process,
+    test_start_recording_command, test_description, running_four_board_file_writer_process, mocker
 ):
     fw_process = running_four_board_file_writer_process["fw_process"]
     to_main_queue = running_four_board_file_writer_process["to_main_queue"]
     from_main_queue = running_four_board_file_writer_process["from_main_queue"]
 
+    if test_start_recording_command == GENERIC_BETA_2_START_RECORDING_COMMAND:
+        fw_process.set_beta_2_mode()
+
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        GENERIC_BETA_1_START_RECORDING_COMMAND, from_main_queue
+        test_start_recording_command, from_main_queue
     )
 
     fw_process.soft_stop()

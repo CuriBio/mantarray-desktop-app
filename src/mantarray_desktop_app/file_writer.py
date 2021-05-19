@@ -255,7 +255,7 @@ class FileWriterProcess(InfiniteProcess):
         not the recommended way to finalize and close a file. Use
         _finalize_completed_files
         """
-        for _, this_file in self._open_files[0].items():
+        for this_file in self._open_files[0].values():
             this_file.close()
 
     def get_file_directory(self) -> str:
@@ -462,7 +462,8 @@ class FileWriterProcess(InfiniteProcess):
             this_file.swmr_mode = True
 
             tissue_status[0][this_well_idx] = False
-            reference_status[0][this_well_idx] = False
+            # TODO Tanner (5/19/21): replace this with False when ref data is added to beta 2 files
+            reference_status[0][this_well_idx] = self._beta_2_mode
 
         self.get_stop_recording_timestamps()[0] = None
         data_packet_buffer = self._data_packet_buffers[0]
@@ -585,10 +586,10 @@ class FileWriterProcess(InfiniteProcess):
         is_final_packet = False
         stop_recording_timestamp = self.get_stop_recording_timestamps()[0]
         if stop_recording_timestamp is not None:
-            # is_final_packet = time_indices[-1] >= stop_recording_timestamp
-            # if is_final_packet:
-            #     for
-            #         self._tissue_data_finalized_for_recording[0][this_well_idx] = True
+            is_final_packet = time_indices[-1] >= stop_recording_timestamp
+            if is_final_packet:
+                for well_idx in self._open_files[board_idx].keys():
+                    self._tissue_data_finalized_for_recording[0][well_idx] = True
             if time_indices[0] >= stop_recording_timestamp:
                 return
 
@@ -608,7 +609,7 @@ class FileWriterProcess(InfiniteProcess):
             time_index_dataset[previous_data_size:] = time_indices
 
             tissue_dataset = get_tissue_dataset_from_file(this_file)
-            # if tissue_dataset.shape[1] == 0: this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] = (this_start_recording_timestamps[0] + datetime.timedelta(seconds=time_indices[0] / CENTIMILLISECONDS_PER_SECOND)).strftime("%Y-%m-%d %H:%M:%S.%f")  # pylint: disable=wrong-spelling-in-comment
+            # TODO: if tissue_dataset.shape[1] == 0: this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] = (this_start_recording_timestamps[0] + datetime.timedelta(seconds=time_indices[0] / CENTIMILLISECONDS_PER_SECOND)).strftime("%Y-%m-%d %H:%M:%S.%f")  # pylint: disable=wrong-spelling-in-comment
             tissue_dataset.resize((tissue_dataset.shape[0], previous_data_size + new_data_size))
 
             well_data_dict = data_packet[well_idx]
@@ -713,9 +714,10 @@ class FileWriterProcess(InfiniteProcess):
         # Tanner (5/17/21): This code was not previously guarded by this if statement. If issues start occurring with recorded data or performance metrics, check here first
         if self._is_recording or self._board_has_open_files(0):
             if self._beta_2_mode:
-                pass  # TODO:  self._num_recorded_points.append(data_packet["time_indices"].shape[0])
+                self._num_recorded_points.append(data_packet["time_indices"].shape[0])
             else:
                 self._num_recorded_points.append(data_packet["data"].shape[1])
+
             start = time.perf_counter()
             self._handle_recording_of_packet(data_packet)
             recording_dur = time.perf_counter() - start
