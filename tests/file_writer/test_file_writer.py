@@ -28,6 +28,7 @@ from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_file_writer import fixture_four_board_file_writer_process
 from ..fixtures_file_writer import fixture_running_four_board_file_writer_process
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
+from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from ..fixtures_file_writer import WELL_DEF_24
 from ..helpers import confirm_queue_is_eventually_empty
@@ -35,6 +36,7 @@ from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import is_queue_eventually_empty
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 from ..parsed_channel_data_packets import SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0
+from ..parsed_channel_data_packets import SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS
 
 
 __fixtures__ = [
@@ -291,7 +293,46 @@ def test_FileWriterProcess__logs_performance_metrics_after_appropriate_number_of
     assert actual["longest_iterations"] == expected_longest_iterations[-num_longest_iterations:]
     assert "idle_iteration_time_ns" not in actual
     assert "start_timepoint_of_measurements" not in actual
-    # TODO assert "num_recorded_data_points_metrics", "recording_duration_metrics" not found
+
+
+@pytest.mark.parametrize(
+    "test_data_packet,test_description",
+    [
+        (SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0, "does not log recording metrics with beta 1 data"),
+        (SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS, "does not log recording metrics with beta 2 data"),
+    ],
+)
+def test_FileWriterProcess__does_not_include_recording_metrics_in_performance_metrics_when_not_recording(
+    test_data_packet, test_description, four_board_file_writer_process, mocker
+):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
+    incoming_data_queue = four_board_file_writer_process["board_queues"][0][0]
+
+    if test_data_packet == SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS:
+        file_writer_process.set_beta_2_mode()
+
+    # add data packets
+    num_packets_to_send = 3  # send arbitrary number of packets
+    for _ in range(num_packets_to_send):
+        incoming_data_queue.put_nowait(test_data_packet)
+    confirm_queue_is_eventually_of_size(
+        incoming_data_queue, num_packets_to_send, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    )
+    # set to 0 to speed up test
+    file_writer_process._minimum_iteration_duration_seconds = 0  # pylint: disable=protected-access
+    # get performance metrics dict
+    invoke_process_run_and_check_errors(
+        file_writer_process,
+        num_iterations=FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES,
+        perform_setup_before_loop=True,
+    )
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    actual = actual["message"]
+    # make sure recording metrics not present
+    assert "num_recorded_data_points_metrics" not in actual
+    assert "recording_duration_metrics" not in actual
 
 
 @pytest.mark.slow
@@ -317,7 +358,7 @@ def test_FileWriterProcess__does_not_log_percent_use_metrics_in_first_logging_cy
 
 
 # TODO
-def test_FileWriterProcess__logs_metrics_of_data_recording_when_recording(
+def test_FileWriterProcess__logs_metrics_of_data_recording_correctly_when_recording_beta_1_data(
     four_board_file_writer_process, mocker
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
@@ -428,16 +469,25 @@ def test_FileWriterProcess_teardown_after_loop__does_not_call_close_all_files__w
     spied_close_all_files.assert_not_called()
 
 
-# TODO
+@pytest.mark.parametrize(
+    "test_start_recording_command,test_description",
+    [
+        (GENERIC_BETA_1_START_RECORDING_COMMAND, "calls close with beta 1 files"),
+        (GENERIC_BETA_2_START_RECORDING_COMMAND, "calls close with beta 2 files"),
+    ],
+)
 def test_FileWriterProcess_teardown_after_loop__calls_close_all_files__when_still_recording(
-    four_board_file_writer_process, mocker
+    test_start_recording_command, test_description, four_board_file_writer_process, mocker
 ):
     fw_process = four_board_file_writer_process["fw_process"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
+    if test_start_recording_command == GENERIC_BETA_2_START_RECORDING_COMMAND:
+        fw_process.set_beta_2_mode()
+
     spied_close_all_files = mocker.spy(fw_process, "close_all_files")
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        GENERIC_BETA_1_START_RECORDING_COMMAND, from_main_queue
+        test_start_recording_command, from_main_queue
     )
 
     fw_process.soft_stop()
@@ -446,16 +496,25 @@ def test_FileWriterProcess_teardown_after_loop__calls_close_all_files__when_stil
     spied_close_all_files.assert_called_once()
 
 
-# TODO
+@pytest.mark.parametrize(
+    "test_start_recording_command,test_description",
+    [
+        (GENERIC_BETA_1_START_RECORDING_COMMAND, "calls close with beta 1 files"),
+        (GENERIC_BETA_2_START_RECORDING_COMMAND, "calls close with beta 2 files"),
+    ],
+)
 def test_FileWriterProcess_hard_stop__calls_close_all_files__when_still_recording(
-    four_board_file_writer_process, mocker
+    test_start_recording_command, test_description, four_board_file_writer_process, mocker
 ):
     fw_process = four_board_file_writer_process["fw_process"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
+    if test_start_recording_command == GENERIC_BETA_2_START_RECORDING_COMMAND:
+        fw_process.set_beta_2_mode()
+
     spied_close_all_files = mocker.spy(fw_process, "close_all_files")
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        GENERIC_BETA_1_START_RECORDING_COMMAND, from_main_queue
+        test_start_recording_command, from_main_queue
     )
     fw_process.run(
         perform_setup_before_loop=False,

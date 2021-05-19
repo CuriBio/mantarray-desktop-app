@@ -703,7 +703,6 @@ def test_FileWriterProcess__records_all_requested_beta_2_data_in_buffer__and_cre
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
     from_main_queue = four_board_file_writer_process["from_main_queue"]
-    file_dir = four_board_file_writer_process["file_dir"]
 
     num_data_channels_enabled = sum(GENERIC_WELL_MAGNETOMETER_CONFIGURATION.values())
 
@@ -746,7 +745,7 @@ def test_FileWriterProcess__records_all_requested_beta_2_data_in_buffer__and_cre
     for well_idx in range(24):
         this_file = h5py.File(
             os.path.join(
-                file_dir,
+                four_board_file_writer_process["file_dir"],
                 f"{expected_barcode}__{timestamp_str}",
                 f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
             ),
@@ -864,11 +863,11 @@ def test_FileWriterProcess__deletes_recorded_beta_1_well_data_after_stop_time(
 def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
     four_board_file_writer_process,
 ):
+    # pylint: disable=too-many-locals  # Tanner (5/19/21): many variables needed for this test
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
     instrument_board_queues = four_board_file_writer_process["board_queues"]
     comm_from_main_queue = four_board_file_writer_process["from_main_queue"]
-    file_dir = four_board_file_writer_process["file_dir"]
 
     num_data_channels_enabled = sum(GENERIC_WELL_MAGNETOMETER_CONFIGURATION.values())
 
@@ -947,7 +946,7 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
     for well_idx in range(24):
         this_file = h5py.File(
             os.path.join(
-                file_dir,
+                four_board_file_writer_process["file_dir"],
                 f"{expected_barcode}__{timestamp_str}",
                 f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
             ),

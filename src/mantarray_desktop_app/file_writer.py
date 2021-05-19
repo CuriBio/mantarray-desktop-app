@@ -571,7 +571,7 @@ class FileWriterProcess(InfiniteProcess):
         if not input_queue.empty():
             self._process_can_be_soft_stopped = False
 
-    def _process_beta_2_data_packet_for_open_file(self, data_packet: Dict[Union[str, int], Any]) -> None:
+    def _process_beta_2_data_packet(self, data_packet: Dict[Union[str, int], Any]) -> None:
         """Process a Beta 2 data packet for a file that is known to be open."""
         board_idx = 0
         this_start_recording_timestamps = self._start_recording_timestamps[0]
@@ -726,7 +726,7 @@ class FileWriterProcess(InfiniteProcess):
 
     def _handle_recording_of_packet(self, data_packet: Dict[Any, Any]) -> None:
         if self._beta_2_mode:
-            self._process_beta_2_data_packet_for_open_file(data_packet)
+            self._process_beta_2_data_packet(data_packet)
         else:
             is_reference_sensor = data_packet["is_reference_sensor"]
             if is_reference_sensor:
