@@ -140,7 +140,7 @@ def _find_bounds(
         try:
             last_valid_index_in_packet = next(
                 length_of_data - 1 - i
-                for i, time in enumerate(time_arr[0][first_valid_index_in_packet:][::-1])
+                for i, time in enumerate(time_arr[first_valid_index_in_packet:][::-1])
                 if time <= max_timepoint
             )
         except StopIteration as e:
@@ -432,7 +432,7 @@ class FileWriterProcess(InfiniteProcess):
                 data_shape = (num_channels_enabled, 0)
                 maxshape = (num_channels_enabled, max_data_len)
                 dtype = "int16"
-                # beta 2 files must also store timestamps
+                # beta 2 files must also store time indices
                 this_file.create_dataset(
                     TIME_INDEX_SENSOR_READINGS,
                     (0,),
@@ -472,25 +472,46 @@ class FileWriterProcess(InfiniteProcess):
     def _process_stop_recording_command(self, communication: Dict[str, Any]) -> None:
         self._is_recording = False
 
-        stop_recording_timestamp = communication["timepoint_to_stop_recording_at"]
-        self.get_stop_recording_timestamps()[0] = stop_recording_timestamp
+        stop_recording_timepoint = communication["timepoint_to_stop_recording_at"]
+        self.get_stop_recording_timestamps()[0] = stop_recording_timepoint
         for this_well_idx in self._open_files[0].keys():
             this_file = self._open_files[0][this_well_idx]
-            latest_timepoint = self.get_file_latest_timepoint(this_well_idx)
-            datasets = [get_tissue_dataset_from_file(this_file)]
             if not self._beta_2_mode:
-                # TODO figure out where to cut off beta 2 data
+                latest_timepoint = self.get_file_latest_timepoint(this_well_idx)
+                datasets = [
+                    get_tissue_dataset_from_file(this_file),
+                    get_reference_dataset_from_file(this_file),
+                ]
+                for dataset in datasets:
+                    last_index_of_valid_data = _find_last_valid_data_index(
+                        latest_timepoint,
+                        dataset.shape[0] - 1,
+                        stop_recording_timepoint,
+                    )
+                    index_to_slice_to = last_index_of_valid_data + 1
+                    new_data = dataset[:index_to_slice_to]
+                    dataset.resize(new_data.shape)
                 return
-            datasets.append(get_reference_dataset_from_file(this_file))
-            for dataset in datasets:
-                last_index_of_valid_data = _find_last_valid_data_index(
-                    latest_timepoint,
-                    dataset.shape[0] - 1,
-                    stop_recording_timestamp,
+
+            # find num points needed to remove
+            time_index_dataset = get_time_index_dataset_from_file(this_file)
+            try:
+                num_indices_to_remove = next(
+                    i
+                    for i, time in enumerate(reversed(time_index_dataset))
+                    if time <= stop_recording_timepoint
                 )
-                index_to_slice_to = last_index_of_valid_data + 1
-                new_data = dataset[:index_to_slice_to]
-                dataset.resize(new_data.shape)
+            except StopIteration as e:
+                raise NotImplementedError(
+                    "Something went wrong, there should always be at least one valid time index recorded to file"
+                ) from e
+            # trim off data after stop recording timepoint
+            datasets = [time_index_dataset, get_tissue_dataset_from_file(this_file)]
+            for dataset in datasets:
+                dataset_shape = list(dataset.shape)
+                dataset_shape[-1] -= num_indices_to_remove
+                dataset.resize(dataset_shape)
+            # TODO consider finalizing any files here that are ready
 
     def _process_next_command_from_main(self) -> None:
         input_queue = self._from_main_queue
@@ -557,37 +578,37 @@ class FileWriterProcess(InfiniteProcess):
         if this_start_recording_timestamps is None:  # check needed for mypy to be happy
             raise NotImplementedError("Something wrong in the code. This should never be none.")
 
-        timestamps = data_packet["timestamps"]
+        time_indices = data_packet["time_indices"]
         timepoint_to_start_recording_at = this_start_recording_timestamps[1]
-        if timestamps[-1] < timepoint_to_start_recording_at:
+        if time_indices[-1] < timepoint_to_start_recording_at:
             return
         is_final_packet = False
         stop_recording_timestamp = self.get_stop_recording_timestamps()[0]
         if stop_recording_timestamp is not None:
-            # is_final_packet = timestamps[-1] >= stop_recording_timestamp
+            # is_final_packet = time_indices[-1] >= stop_recording_timestamp
             # if is_final_packet:
             #     for
             #         self._tissue_data_finalized_for_recording[0][this_well_idx] = True
-            if timestamps[0] >= stop_recording_timestamp:
+            if time_indices[0] >= stop_recording_timestamp:
                 return
 
-        packet_must_be_trimmed = is_final_packet or timestamps[0] < timepoint_to_start_recording_at
+        packet_must_be_trimmed = is_final_packet or time_indices[0] < timepoint_to_start_recording_at
         if packet_must_be_trimmed:
             first_idx_of_new_data, last_idx_of_new_data = _find_bounds(
-                timestamps, timepoint_to_start_recording_at, max_timepoint=stop_recording_timestamp
+                time_indices, timepoint_to_start_recording_at, max_timepoint=stop_recording_timestamp
             )
-            timestamps = timestamps[first_idx_of_new_data : last_idx_of_new_data + 1]
-        new_data_size = timestamps.shape[0]
+            time_indices = time_indices[first_idx_of_new_data : last_idx_of_new_data + 1]
+        new_data_size = time_indices.shape[0]
 
         for well_idx, this_file in self._open_files[board_idx].items():
             time_index_dataset = get_time_index_dataset_from_file(this_file)
             previous_data_size = time_index_dataset.shape[0]
 
-            time_index_dataset.resize((previous_data_size + timestamps.shape[0],))
-            time_index_dataset[previous_data_size:] = timestamps
+            time_index_dataset.resize((previous_data_size + time_indices.shape[0],))
+            time_index_dataset[previous_data_size:] = time_indices
 
             tissue_dataset = get_tissue_dataset_from_file(this_file)
-            # if tissue_dataset.shape[1] == 0: this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] = (this_start_recording_timestamps[0] + datetime.timedelta(seconds=timestamps[0] / CENTIMILLISECONDS_PER_SECOND)).strftime("%Y-%m-%d %H:%M:%S.%f")  # pylint: disable=wrong-spelling-in-comment
+            # if tissue_dataset.shape[1] == 0: this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] = (this_start_recording_timestamps[0] + datetime.timedelta(seconds=time_indices[0] / CENTIMILLISECONDS_PER_SECOND)).strftime("%Y-%m-%d %H:%M:%S.%f")  # pylint: disable=wrong-spelling-in-comment
             tissue_dataset.resize((tissue_dataset.shape[0], previous_data_size + new_data_size))
 
             well_data_dict = data_packet[well_idx]
@@ -597,7 +618,7 @@ class FileWriterProcess(InfiniteProcess):
                     new_data = new_data[first_idx_of_new_data : last_idx_of_new_data + 1]
                 tissue_dataset[data_channel_idx, previous_data_size:] = new_data
 
-            self._latest_data_timepoints[0][well_idx] = timestamps[-1]
+            self._latest_data_timepoints[0][well_idx] = time_indices[-1]
 
     def _process_beta_1_data_packet_for_open_file(self, data_packet: Dict[str, Any]) -> None:
         """Process a Beta 1 data packet for a file that is known to be open."""
@@ -689,10 +710,10 @@ class FileWriterProcess(InfiniteProcess):
         output_queue = self._board_queues[0][1]
         output_queue.put_nowait(data_packet)
 
-        # Tanner (5/17/21): This code was not previously guarded by this if statement. If issues start occurring with recorded data or performance metrics, check here
+        # Tanner (5/17/21): This code was not previously guarded by this if statement. If issues start occurring with recorded data or performance metrics, check here first
         if self._is_recording or self._board_has_open_files(0):
             if self._beta_2_mode:
-                pass  # TODO:  self._num_recorded_points.append(data_packet["timestamps"].shape[0])
+                pass  # TODO:  self._num_recorded_points.append(data_packet["time_indices"].shape[0])
             else:
                 self._num_recorded_points.append(data_packet["data"].shape[1])
             start = time.perf_counter()
@@ -725,7 +746,7 @@ class FileWriterProcess(InfiniteProcess):
         buffer_memory_size: int
         if self._beta_2_mode:
             buffer_memory_size = (
-                data_packet_buffer[-1]["timestamps"][0] - data_packet_buffer[0]["timestamps"][0]
+                data_packet_buffer[-1]["time_indices"][0] - data_packet_buffer[0]["time_indices"][0]
             )
         else:
             buffer_memory_size = data_packet_buffer[-1]["data"][0, 0] - data_packet_buffer[0]["data"][0, 0]

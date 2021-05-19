@@ -132,7 +132,7 @@ def handle_data_packets(
         data_packet_len: the length of a data packet
 
     Returns:
-        A tuple of the array of parsed timestamps, the array of parsed data, the number of data packets read, optional tuple containing info about the interrupting packet if one occured (timestamp, module ID, packet type, and packet body bytes), the remaining unread bytes
+        A tuple of the array of parsed time indices, the array of parsed data, the number of data packets read, optional tuple containing info about the interrupting packet if one occured (timestamp, module ID, packet type, and packet body bytes), the remaining unread bytes
     """
     # make sure data is C contiguous
     read_bytes = read_bytes.copy()
@@ -144,7 +144,7 @@ def handle_data_packets(
     cdef Packet *p
 
     # return values
-    cdef np.ndarray[np.uint64_t, ndim=1] timestamps = np.empty(num_data_packets_possible, dtype=np.uint64)
+    cdef np.ndarray[np.uint64_t, ndim=1] time_indices = np.empty(num_data_packets_possible, dtype=np.uint64)
     cdef np.ndarray[np.int16_t, ndim=2] data = np.empty((num_data_channels, num_data_packets_possible), dtype=np.int16)
     cdef int data_packet_idx = 0  # also represents numbers of data packets read. Will not increment after reading a "non-data" packet
     other_packet_info = None
@@ -193,7 +193,7 @@ def handle_data_packets(
             break
 
         # subtract offset from timestamp and add to timestamp array
-        timestamps[data_packet_idx] = p.timestamp - p.timestamp_offset
+        time_indices[data_packet_idx] = p.timestamp - p.timestamp_offset
         # add next data points to data array
         for channel_num in range(num_data_channels):
             data[channel_num, data_packet_idx] = (&p.data + channel_num)[0]
@@ -202,7 +202,7 @@ def handle_data_packets(
         bytes_idx += data_packet_len
 
     return (
-        timestamps,
+        time_indices,
         data,
         data_packet_idx,
         other_packet_info,

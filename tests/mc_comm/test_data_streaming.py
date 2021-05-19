@@ -107,9 +107,9 @@ def test_handle_data_packets__handles_two_full_data_packets_correctly():
     test_num_data_packets = 2
     num_data_points_per_packet = SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS
 
-    expected_packet_timestamps = np.array([5, 6], dtype=np.uint64)
+    expected_packet_time_indices = np.array([5, 6], dtype=np.uint64)
     expected_timestamp_offsets = np.array([2, 1], dtype=np.uint64)
-    expected_data_timestamps = expected_packet_timestamps - expected_timestamp_offsets
+    expected_data_time_indices = expected_packet_time_indices - expected_timestamp_offsets
 
     expected_data_array = np.zeros((num_data_points_per_packet, test_num_data_packets), dtype=np.int16)
     test_data_packets = bytes(0)
@@ -121,22 +121,22 @@ def test_handle_data_packets__handles_two_full_data_packets_correctly():
         for value in test_data:
             test_bytes += value.to_bytes(2, byteorder="little", signed=True)
         test_data_packets += create_data_packet(
-            expected_packet_timestamps[packet_num].item(),
+            expected_packet_time_indices[packet_num].item(),
             SERIAL_COMM_MAIN_MODULE_ID,
             SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE,
             test_bytes,
         )
 
     (
-        actual_timestamps,
+        actual_time_indices,
         actual_data,
         num_data_packets_read,
         other_packet_info,
         unread_bytes,
     ) = handle_data_packets(bytearray(test_data_packets), FULL_DATA_PACKET_LEN)
 
-    assert actual_timestamps.shape[0] == test_num_data_packets
-    np.testing.assert_array_equal(actual_timestamps, expected_data_timestamps)
+    assert actual_time_indices.shape[0] == test_num_data_packets
+    np.testing.assert_array_equal(actual_time_indices, expected_data_time_indices)
     assert actual_data.shape[1] == test_num_data_packets
     np.testing.assert_array_equal(actual_data, expected_data_array)
     assert num_data_packets_read == test_num_data_packets
@@ -146,14 +146,14 @@ def test_handle_data_packets__handles_two_full_data_packets_correctly():
 
 def test_handle_data_packets__handles_single_packet_with_incorrect_packet_type_correctly__when_all_channels_enabled():
     (
-        actual_timestamps,
+        actual_time_indices,
         actual_data,
         num_data_packets_read,
         other_packet_info,
         unread_bytes,
     ) = handle_data_packets(bytearray(TEST_OTHER_PACKET), FULL_DATA_PACKET_LEN)
 
-    assert actual_timestamps.shape[0] == 0
+    assert actual_time_indices.shape[0] == 0
     assert actual_data.shape[1] == 0
     assert num_data_packets_read == 0
     assert other_packet_info == TEST_OTHER_PACKET_INFO
@@ -171,14 +171,14 @@ def test_handle_data_packets__handles_single_packet_with_incorrect_module_id_cor
     )
 
     (
-        actual_timestamps,
+        actual_time_indices,
         actual_data,
         num_data_packets_read,
         other_packet_info,
         unread_bytes,
     ) = handle_data_packets(bytearray(test_data_packet), FULL_DATA_PACKET_LEN)
 
-    assert actual_timestamps.shape[0] == 0
+    assert actual_time_indices.shape[0] == 0
     assert actual_data.shape[1] == 0
     assert num_data_packets_read == 0
     assert other_packet_info == (
@@ -203,14 +203,14 @@ def test_handle_data_packets__handles_interrupting_packet_followed_by_data_packe
     test_bytes = TEST_OTHER_PACKET + expected_unread_bytes
 
     (
-        actual_timestamps,
+        actual_time_indices,
         actual_data,
         num_data_packets_read,
         other_packet_info,
         unread_bytes,
     ) = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_LEN)
 
-    assert actual_timestamps.shape[0] == 1
+    assert actual_time_indices.shape[0] == 1
     assert actual_data.shape[1] == 1
     assert num_data_packets_read == 0
     assert other_packet_info == TEST_OTHER_PACKET_INFO
@@ -231,15 +231,15 @@ def test_handle_data_packets__handles_single_data_packet_followed_by_interruptin
     test_bytes = test_data_packet + TEST_OTHER_PACKET
 
     (
-        actual_timestamps,
+        actual_time_indices,
         actual_data,
         num_data_packets_read,
         other_packet_info,
         unread_bytes,
     ) = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_LEN)
 
-    assert actual_timestamps.shape[0] == 1
-    assert actual_timestamps[0] == expected_timestamp
+    assert actual_time_indices.shape[0] == 1
+    assert actual_time_indices[0] == expected_timestamp
     assert actual_data.shape[1] == 1
     assert num_data_packets_read == 1
     assert other_packet_info == TEST_OTHER_PACKET_INFO
@@ -261,15 +261,15 @@ def test_handle_data_packets__handles_single_data_packet_followed_by_incomplete_
     test_bytes = test_data_packet + test_incomplete_packet
 
     (
-        actual_timestamps,
+        actual_time_indices,
         actual_data,
         num_data_packets_read,
         other_packet_info,
         unread_bytes,
     ) = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_LEN)
 
-    assert actual_timestamps.shape[0] == 1
-    assert actual_timestamps[0] == expected_timestamp
+    assert actual_time_indices.shape[0] == 1
+    assert actual_time_indices[0] == expected_timestamp
     assert actual_data.shape[1] == 1
     assert num_data_packets_read == 1
     assert other_packet_info is None
@@ -296,15 +296,15 @@ def test_handle_data_packets__handles_interrupting_packet_in_between_two_data_pa
     test_bytes = test_data_packets[0] + TEST_OTHER_PACKET + test_data_packets[1]
 
     (
-        actual_timestamps,
+        actual_time_indices,
         actual_data,
         num_data_packets_read,
         other_packet_info,
         unread_bytes,
     ) = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_LEN)
 
-    assert actual_timestamps.shape[0] == 2
-    assert actual_timestamps[0] == expected_timestamp
+    assert actual_time_indices.shape[0] == 2
+    assert actual_time_indices[0] == expected_timestamp
     assert actual_data.shape[1] == 2
     assert num_data_packets_read == 1
     assert other_packet_info == TEST_OTHER_PACKET_INFO
@@ -360,7 +360,7 @@ def test_handle_data_packets__performance_test():
 
     start = time.perf_counter_ns()
     (
-        actual_timestamps,
+        actual_time_indices,
         actual_data,
         num_data_packets_read,
         other_packet_info,
@@ -371,8 +371,8 @@ def test_handle_data_packets__performance_test():
 
     assert dur < 1000000000
     # good to also assert the entire second of data was parsed correctly
-    assert actual_timestamps.shape[0] == test_num_data_packets
-    np.testing.assert_array_equal(actual_timestamps, list(range(test_num_data_packets)))
+    assert actual_time_indices.shape[0] == test_num_data_packets
+    np.testing.assert_array_equal(actual_time_indices, list(range(test_num_data_packets)))
     assert actual_data.shape[1] == test_num_data_packets
     np.testing.assert_array_equal(actual_data, expected_data_array)
     assert num_data_packets_read == test_num_data_packets
@@ -647,14 +647,14 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
 
     test_sampling_period_cms = test_sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND
     max_timestamp_cms = test_sampling_period_cms * test_num_packets
-    expected_timestamps = list(
+    expected_time_indices = list(
         range(0, max_timestamp_cms, test_sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND)
     )
-    mocker.patch.object(simulator, "_get_timestamp", autospec=True, side_effect=expected_timestamps)
+    mocker.patch.object(simulator, "_get_timestamp", autospec=True, side_effect=expected_time_indices)
     mocker.patch.object(simulator, "_get_timestamp_offset", autospec=True, return_value=0)
 
     simulated_data = simulator.get_interpolated_data(test_sampling_period_us)
-    expected_fw_item = {"timestamps": np.array(expected_timestamps, np.uint64)}
+    expected_fw_item = {"time_indices": np.array(expected_time_indices, np.uint64)}
     for well_idx in range(10, 16):
         channel_dict = {expected_sensor_axis_id: simulated_data[:test_num_packets] * np.int16(well_idx + 1)}
         expected_fw_item[well_idx] = channel_dict
@@ -666,7 +666,7 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
     assert actual_fw_item.keys() == expected_fw_item.keys()
     for key, expected_array in expected_fw_item.items():
         actual = actual_fw_item[key]
-        if key != "timestamps":
+        if key != "time_indices":
             actual = actual[expected_sensor_axis_id]
             expected_array = expected_array[expected_sensor_axis_id]
         np.testing.assert_array_equal(actual, expected_array, err_msg=f"Failure at '{key}' key")
@@ -713,14 +713,14 @@ def test_McCommunicationProcess__handles_one_second_read_with_interrupting_packe
 
     test_sampling_period_cms = test_sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND
     max_timestamp_cms = test_sampling_period_cms * test_num_packets
-    expected_timestamps = list(
+    expected_time_indices = list(
         range(0, max_timestamp_cms, test_sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND)
     )
-    mocker.patch.object(simulator, "_get_timestamp", autospec=True, side_effect=expected_timestamps)
+    mocker.patch.object(simulator, "_get_timestamp", autospec=True, side_effect=expected_time_indices)
     mocker.patch.object(simulator, "_get_timestamp_offset", autospec=True, return_value=0)
 
     simulated_data = simulator.get_interpolated_data(test_sampling_period_us)
-    expected_fw_item = {"timestamps": np.array(expected_timestamps, np.uint64)}
+    expected_fw_item = {"time_indices": np.array(expected_time_indices, np.uint64)}
     for well_idx in range(10, 16):
         channel_data = np.concatenate((simulated_data, simulated_data[: test_num_packets // 3]))
         channel_dict = {expected_sensor_axis_id: channel_data * np.int16(well_idx + 1)}
@@ -754,7 +754,7 @@ def test_McCommunicationProcess__handles_one_second_read_with_interrupting_packe
         stop_idx = test_num_packets // 3 if item_idx == 0 else test_num_packets
         for key, expected_array in expected_fw_item.items():
             actual = actual_fw_item[key]
-            if key != "timestamps":
+            if key != "time_indices":
                 actual = actual[expected_sensor_axis_id]
                 expected_array = expected_array[expected_sensor_axis_id]
             np.testing.assert_array_equal(
