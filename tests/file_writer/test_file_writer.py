@@ -12,6 +12,8 @@ import h5py
 from mantarray_desktop_app import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import FileWriterProcess
 from mantarray_desktop_app import get_data_slice_within_timepoints
+from mantarray_desktop_app import get_time_index_dataset_from_file
+from mantarray_desktop_app import get_tissue_dataset_from_file
 from mantarray_desktop_app import InvalidDataTypeFromOkCommError
 from mantarray_desktop_app import MantarrayH5FileCreator
 from mantarray_desktop_app import REF_INDEX_TO_24_WELL_INDEX
@@ -32,6 +34,7 @@ from ..fixtures_file_writer import fixture_running_four_board_file_writer_proces
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
+from ..fixtures_file_writer import GENERIC_WELL_MAGNETOMETER_CONFIGURATION
 from ..fixtures_file_writer import WELL_DEF_24
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
@@ -542,8 +545,7 @@ def test_FileWriterProcess_hard_stop__calls_close_all_files__when_still_recordin
     spied_close_all_files.assert_called_once()
 
 
-# TODO
-def test_FileWriterProcess_hard_stop__closes_all_files_after_stop_recording_before_all_files_are_finalized__and_files_can_be_opened_after_process_stops(
+def test_FileWriterProcess_hard_stop__closes_all_beta_1_files_after_stop_recording_before_all_files_are_finalized__and_files_can_be_opened_after_process_stops(
     four_board_file_writer_process, mocker
 ):
     expected_timestamp = "2020_02_09_190935"
@@ -565,19 +567,19 @@ def test_FileWriterProcess_hard_stop__closes_all_files_after_stop_recording_befo
 
     # fill files with data
     start_timepoint = GENERIC_BETA_1_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
-    data = np.array([[start_timepoint], [0]], dtype=np.int32)
+    test_data = np.array([[start_timepoint], [0]], dtype=np.int32)
     for i in range(24):
         tissue_data_packet = {
             "well_index": i,
             "is_reference_sensor": False,
-            "data": data,
+            "data": test_data,
         }
         board_queues[0][0].put_nowait(tissue_data_packet)
     for i in range(6):
         ref_data_packet = {
             "reference_for_wells": REF_INDEX_TO_24_WELL_INDEX[i],
             "is_reference_sensor": True,
-            "data": data,
+            "data": test_data,
         }
         board_queues[0][0].put_nowait(ref_data_packet)
     confirm_queue_is_eventually_of_size(
@@ -595,19 +597,100 @@ def test_FileWriterProcess_hard_stop__closes_all_files_after_stop_recording_befo
     fw_process.hard_stop()
     spied_close_all_files.assert_called_once()
 
-    # confirm files can be opened and files contains at least one piece of metadata
+    # confirm files can be opened and files contains at least one piece of metadata and the correct tissue data
     for row_idx in range(4):
         for col_idx in range(6):
+            well_name = WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)
             with h5py.File(
                 os.path.join(
                     tmp_dir,
                     f"{expected_barcode}__{expected_timestamp}",
-                    f"{expected_barcode}__{expected_timestamp}__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
+                    f"{expected_barcode}__{expected_timestamp}__{well_name}.h5",
                 ),
                 "r",
             ) as this_file:
-                assert str(START_RECORDING_TIME_INDEX_UUID) in this_file.attrs
-                # TODO assert something about data here
+                assert (
+                    str(START_RECORDING_TIME_INDEX_UUID) in this_file.attrs
+                ), f"START_RECORDING_TIME_INDEX_UUID missing for Well {well_name}"
+                assert get_tissue_dataset_from_file(this_file).shape == (
+                    test_data.shape[1],
+                ), f"Incorrect tissue data shape for Well {well_name}"
+
+
+def test_FileWriterProcess_hard_stop__closes_all_beta_2_files_after_stop_recording_before_all_files_are_finalized__and_files_can_be_opened_after_process_stops(
+    four_board_file_writer_process, mocker
+):
+    expected_timestamp = "2020_02_09_190935"
+    expected_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+        PLATE_BARCODE_UUID
+    ]
+
+    fw_process = four_board_file_writer_process["fw_process"]
+    fw_process.set_beta_2_mode()
+    board_queues = four_board_file_writer_process["board_queues"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    tmp_dir = four_board_file_writer_process["file_dir"]
+
+    spied_close_all_files = mocker.spy(fw_process, "close_all_files")
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        GENERIC_BETA_2_START_RECORDING_COMMAND, from_main_queue
+    )
+    invoke_process_run_and_check_errors(fw_process)
+
+    num_data_channels_enabled = sum(GENERIC_WELL_MAGNETOMETER_CONFIGURATION.values())
+
+    # fill files with data
+    test_num_data_points = 50
+    start_timepoint = GENERIC_BETA_1_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
+    test_data = np.zeros(test_num_data_points, dtype=np.int32)
+    data_packet = {
+        "time_indices": np.arange(start_timepoint, start_timepoint + test_num_data_points, dtype=np.uint64)
+    }
+    for well_idx in range(24):
+        channel_dict = {
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: test_data,
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: test_data,
+        }
+        data_packet[well_idx] = channel_dict
+    board_queues[0][0].put_nowait(data_packet)
+    confirm_queue_is_eventually_of_size(
+        board_queues[0][0], 1, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
+
+    invoke_process_run_and_check_errors(fw_process)
+    confirm_queue_is_eventually_empty(board_queues[0][0])
+
+    stop_recording_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_recording_command, from_main_queue)
+    invoke_process_run_and_check_errors(fw_process)
+
+    assert spied_close_all_files.call_count == 0  # confirm precondition
+    fw_process.hard_stop()
+    spied_close_all_files.assert_called_once()
+
+    # confirm files can be opened and files contains at least one piece of metadata and the correct tissue data
+    for row_idx in range(4):
+        for col_idx in range(6):
+            well_name = WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)
+            with h5py.File(
+                os.path.join(
+                    tmp_dir,
+                    f"{expected_barcode}__{expected_timestamp}",
+                    f"{expected_barcode}__{expected_timestamp}__{well_name}.h5",
+                ),
+                "r",
+            ) as this_file:
+                assert (
+                    str(START_RECORDING_TIME_INDEX_UUID) in this_file.attrs
+                ), f"START_RECORDING_TIME_INDEX_UUID missing for Well {well_name}"
+                assert get_tissue_dataset_from_file(this_file).shape == (
+                    num_data_channels_enabled,
+                    test_num_data_points,
+                ), f"Incorrect tissue data shape for Well {well_name}"
+                assert get_time_index_dataset_from_file(this_file).shape == (
+                    test_num_data_points,
+                ), f"Incorrect time index data shape for Well {well_name}"
 
 
 def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_1_files_after_stop_recording(
