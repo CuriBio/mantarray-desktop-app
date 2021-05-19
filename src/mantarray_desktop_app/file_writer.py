@@ -64,6 +64,9 @@ from .exceptions import UnrecognizedCommandFromMainToFileWriterError
 
 GENERIC_24_WELL_DEFINITION = LabwareDefinition(row_count=4, column_count=6)
 
+# TODO Tanner (5/18/21): move this to mantarray_file_manager
+TIME_INDEX_SENSOR_READINGS = "time_index_sensor_readings"
+
 
 def _get_formatted_utc_now() -> str:
     return datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -74,6 +77,13 @@ def get_tissue_dataset_from_file(
 ) -> h5py.Dataset:
     """Return the dataset for tissue sensor data from the H5 file object."""
     return the_file[TISSUE_SENSOR_READINGS]
+
+
+def get_time_index_dataset_from_file(
+    the_file: h5py.File,
+) -> h5py.Dataset:
+    """Return the dataset for tissue sensor data from the H5 file object."""
+    return the_file[TIME_INDEX_SENSOR_READINGS]
 
 
 def get_reference_dataset_from_file(
@@ -422,10 +432,19 @@ class FileWriterProcess(InfiniteProcess):
                 data_shape = (num_channels_enabled, 0)
                 maxshape = (num_channels_enabled, max_data_len)
                 dtype = "int16"
+                # beta 2 files must also store timestamps
+                this_file.create_dataset(
+                    TIME_INDEX_SENSOR_READINGS,
+                    (0,),
+                    maxshape=(max_data_len,),
+                    dtype="uint64",
+                    chunks=True,
+                )
             else:
                 data_shape = (0,)  # type: ignore  # mypy doesn't like this for some reason
                 maxshape = (max_data_len,)  # type: ignore  # mypy doesn't like this for some reason
                 dtype = "int32"
+            # create datasets present in files for both beta versions
             this_file.create_dataset(
                 REFERENCE_SENSOR_READINGS,
                 data_shape,
@@ -440,7 +459,6 @@ class FileWriterProcess(InfiniteProcess):
                 dtype=dtype,
                 chunks=True,
             )
-            # TODO Tanner (5/17/21): figure out if another data set needs to be created for timestamps. If so, figure out what shape it needs as well
             this_file.swmr_mode = True
 
             tissue_status[0][this_well_idx] = False
@@ -459,9 +477,12 @@ class FileWriterProcess(InfiniteProcess):
         for this_well_idx in self._open_files[0].keys():
             this_file = self._open_files[0][this_well_idx]
             latest_timepoint = self.get_file_latest_timepoint(this_well_idx)
-            tissue_dataset = get_tissue_dataset_from_file(this_file)
-            ref_dataset = get_reference_dataset_from_file(this_file)
-            for dataset in (tissue_dataset, ref_dataset):
+            datasets = [get_tissue_dataset_from_file(this_file)]
+            if not self._beta_2_mode:
+                # TODO figure out where to cut off beta 2 data
+                return
+            datasets.append(get_reference_dataset_from_file(this_file))
+            for dataset in datasets:
                 last_index_of_valid_data = _find_last_valid_data_index(
                     latest_timepoint,
                     dataset.shape[0] - 1,
@@ -469,7 +490,7 @@ class FileWriterProcess(InfiniteProcess):
                 )
                 index_to_slice_to = last_index_of_valid_data + 1
                 new_data = dataset[:index_to_slice_to]
-                dataset.resize((new_data.shape[0],))
+                dataset.resize(new_data.shape)
 
     def _process_next_command_from_main(self) -> None:
         input_queue = self._from_main_queue
@@ -559,21 +580,22 @@ class FileWriterProcess(InfiniteProcess):
         new_data_size = timestamps.shape[0]
 
         for well_idx, this_file in self._open_files[board_idx].items():
-            this_dataset = get_tissue_dataset_from_file(this_file)
-            if this_dataset.shape[1] == 0:  # TODO comment this out before unit testing
-                this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] = (
-                    this_start_recording_timestamps[0]
-                    + datetime.timedelta(seconds=timestamps[0] / CENTIMILLISECONDS_PER_SECOND)
-                ).strftime("%Y-%m-%d %H:%M:%S.%f")
-            previous_data_size = this_dataset.shape[1]
-            this_dataset.resize((this_dataset.shape[0], previous_data_size + new_data_size))
+            time_index_dataset = get_time_index_dataset_from_file(this_file)
+            previous_data_size = time_index_dataset.shape[0]
+
+            time_index_dataset.resize((previous_data_size + timestamps.shape[0],))
+            time_index_dataset[previous_data_size:] = timestamps
+
+            tissue_dataset = get_tissue_dataset_from_file(this_file)
+            # if tissue_dataset.shape[1] == 0: this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] = (this_start_recording_timestamps[0] + datetime.timedelta(seconds=timestamps[0] / CENTIMILLISECONDS_PER_SECOND)).strftime("%Y-%m-%d %H:%M:%S.%f")  # pylint: disable=wrong-spelling-in-comment
+            tissue_dataset.resize((tissue_dataset.shape[0], previous_data_size + new_data_size))
 
             well_data_dict = data_packet[well_idx]
             for data_channel_idx, channel_id in enumerate(sorted(well_data_dict.keys())):
                 new_data = well_data_dict[channel_id]
                 if packet_must_be_trimmed:
                     new_data = new_data[first_idx_of_new_data : last_idx_of_new_data + 1]
-                this_dataset[data_channel_idx, previous_data_size:] = new_data
+                tissue_dataset[data_channel_idx, previous_data_size:] = new_data
 
             self._latest_data_timepoints[0][well_idx] = timestamps[-1]
 

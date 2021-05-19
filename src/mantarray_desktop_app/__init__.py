@@ -201,6 +201,7 @@ from .fifo_simulator import RunningFIFOSimulator
 from .file_writer import FileWriterProcess
 from .file_writer import get_data_slice_within_timepoints
 from .file_writer import get_reference_dataset_from_file
+from .file_writer import get_time_index_dataset_from_file
 from .file_writer import get_tissue_dataset_from_file
 from .file_writer import MantarrayH5FileCreator
 from .firmware_manager import get_latest_firmware
@@ -509,4 +510,5 @@ __all__ = [
     "SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES",
     "MagnetometerConfigUpdateWhileDataStreamingError",
     "CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION",
+    "get_time_index_dataset_from_file",
 ]

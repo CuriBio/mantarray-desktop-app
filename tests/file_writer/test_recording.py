@@ -14,6 +14,7 @@ from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import DATA_FRAME_PERIOD
 from mantarray_desktop_app import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
 from mantarray_desktop_app import get_reference_dataset_from_file
+from mantarray_desktop_app import get_time_index_dataset_from_file
 from mantarray_desktop_app import get_tissue_dataset_from_file
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
@@ -235,7 +236,7 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
                 BARCODE_IS_FROM_SCANNER_UUID
             ]
         )
-        # test metadata values not present in both beta versions
+        # test metadata values and datasets not present in both beta versions
         if test_beta_version == 1:
             assert this_file.attrs[str(SLEEP_FIRMWARE_VERSION_UUID)] == "0.0.0"
             assert (
@@ -262,6 +263,8 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
             assert (
                 this_file.attrs[str(PCB_SERIAL_NUMBER_UUID)] == MantarrayMcSimulator.default_pcb_serial_number
             )
+            assert get_time_index_dataset_from_file(this_file).shape == (0,)
+            assert get_time_index_dataset_from_file(this_file).dtype == "uint64"
         # test data sets
         assert get_reference_dataset_from_file(this_file).shape == data_shape
         assert get_reference_dataset_from_file(this_file).dtype == data_type
@@ -603,15 +606,14 @@ def test_FileWriterProcess__removes_beta_1_packets_from_data_buffer_that_are_old
 def test_FileWriterProcess__removes_beta_2_packets_from_data_buffer_that_are_older_than_buffer_memory_size(
     four_board_file_writer_process,
 ):
-    # TODO figure out why this test is creating broken pipe errors
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
     board_queues = four_board_file_writer_process["board_queues"]
 
     new_packet = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
-    new_packet["timestamps"] = (np.array([FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS + 1], dtype=np.uint64),)
+    new_packet["timestamps"] = np.array([FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS + 1], dtype=np.uint64)
     old_packet = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
-    old_packet["timestamps"] = (np.array([0], dtype=np.uint64),)
+    old_packet["timestamps"] = np.array([0], dtype=np.uint64)
 
     board_queues[0][0].put_nowait(old_packet)
     board_queues[0][0].put_nowait(new_packet)
@@ -703,33 +705,29 @@ def test_FileWriterProcess__records_all_requested_beta_2_data_in_buffer__and_cre
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    num_data_channel_enabled = sum(GENERIC_WELL_MAGNETOMETER_CONFIGURATION.values())
+    num_data_channels_enabled = sum(GENERIC_WELL_MAGNETOMETER_CONFIGURATION.values())
 
     data_packet_buffer = file_writer_process._data_packet_buffers[0]  # pylint: disable=protected-access
+    # dummy packets that will be ignored
     for _ in range(2):
         data_packet_buffer.append(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
-
+    # set up test data packets and add to incoming data queue
     expected_start_timepoint = 100
     expected_num_packets_recorded = 3
     num_data_points_per_packet = 2
     expected_total_num_data_points = expected_num_packets_recorded * num_data_points_per_packet
+    base_data = np.ones(num_data_points_per_packet, dtype=np.int16)
+    expected_time_indices = np.arange(
+        expected_start_timepoint, expected_start_timepoint + expected_total_num_data_points, dtype=np.uint64
+    )
     for i in range(expected_num_packets_recorded):
-        start_timepoint = expected_start_timepoint + (i * num_data_points_per_packet)
-        data_packet = {
-            "timestamps": np.arange(
-                start_timepoint, start_timepoint + num_data_points_per_packet, dtype=np.uint64
-            )
-        }
+        curr_idx = i * num_data_points_per_packet
+        # timepoints increment by 1, so can use curr_idx here
+        data_packet = {"timestamps": expected_time_indices[curr_idx : curr_idx + num_data_points_per_packet]}
         for well_idx in range(24):
             channel_dict = {
-                SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: np.ones(
-                    num_data_points_per_packet, dtype=np.int16
-                )
-                * well_idx,
-                SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: np.ones(
-                    num_data_points_per_packet, dtype=np.int16
-                )
-                * well_idx,
+                SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: base_data * well_idx,
+                SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: base_data * well_idx,
             }
             data_packet[well_idx] = channel_dict
         data_packet_buffer.append(data_packet)
@@ -753,28 +751,37 @@ def test_FileWriterProcess__records_all_requested_beta_2_data_in_buffer__and_cre
             "r",
         )
         this_tissue_dataset = get_tissue_dataset_from_file(this_file)
-        assert this_tissue_dataset.dtype == "int16", f"Incorrect dtype for well {well_idx}"
+        assert this_tissue_dataset.dtype == "int16", f"Incorrect tissue dtype for well {well_idx}"
         assert this_tissue_dataset.shape == (
-            num_data_channel_enabled,
+            num_data_channels_enabled,
             expected_total_num_data_points,
-        ), f"Incorrect shape for well {well_idx}"
+        ), f"Incorrect tissue shape for well {well_idx}"
         np.testing.assert_array_equal(
             this_tissue_dataset,
             np.ones((num_data_points_per_packet, expected_total_num_data_points), dtype=np.int16) * well_idx,
             err_msg=f"Incorrect data for well {well_idx}",
         )
 
-        expected_latest_timepoint = expected_start_timepoint + expected_total_num_data_points - 1
+        this_time_index_dataset = get_time_index_dataset_from_file(this_file)
+        assert this_time_index_dataset.dtype == "uint64", f"Incorrect timestamp dtype for well {well_idx}"
+        assert this_time_index_dataset.shape == (
+            expected_total_num_data_points,
+        ), f"Incorrect tissue shape for well {well_idx}"
+        np.testing.assert_array_equal(
+            this_time_index_dataset,
+            expected_time_indices,
+            err_msg=f"Incorrect time indices for well {well_idx}",
+        )
+
         actual_latest_timepoint = file_writer_process.get_file_latest_timepoint(well_idx)
         assert (
-            actual_latest_timepoint == expected_latest_timepoint
+            actual_latest_timepoint == expected_time_indices[-1]
         ), f"Incorrect latest timepoint for well {well_idx}"
 
         this_file.close()
 
 
-# TODO
-def test_FileWriterProcess__deletes_recorded_well_data_after_stop_time(
+def test_FileWriterProcess__deletes_recorded_beta_1_well_data_after_stop_time(
     four_board_file_writer_process,
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
@@ -794,7 +801,7 @@ def test_FileWriterProcess__deletes_recorded_well_data_after_stop_time(
 
     invoke_process_run_and_check_errors(file_writer_process)
 
-    expected_timepoint = 100
+    expected_stop_timepoint = 100
     expected_remaining_packets_recorded = 3
     expected_dataset = []
     for i in range(expected_remaining_packets_recorded):
@@ -811,7 +818,7 @@ def test_FileWriterProcess__deletes_recorded_well_data_after_stop_time(
             "is_reference_sensor": False,
             "well_index": expected_well_idx,
             "data": np.array(
-                [[expected_timepoint + ((i + 1) * ROUND_ROBIN_PERIOD)], [0]],
+                [[expected_stop_timepoint + ((i + 1) * ROUND_ROBIN_PERIOD)], [0]],
                 dtype=np.int32,
             ),
         }
@@ -826,7 +833,7 @@ def test_FileWriterProcess__deletes_recorded_well_data_after_stop_time(
     )
 
     stop_recording_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
-    stop_recording_command["timepoint_to_stop_recording_at"] = expected_timepoint
+    stop_recording_command["timepoint_to_stop_recording_at"] = expected_stop_timepoint
     # ensure queue is empty before putting something else in
     confirm_queue_is_eventually_empty(comm_from_main_queue)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -855,6 +862,120 @@ def test_FileWriterProcess__deletes_recorded_well_data_after_stop_time(
     np.testing.assert_equal(tissue_dataset, np.array(expected_dataset))
 
 
+def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
+    four_board_file_writer_process,
+):
+    # TODO update after time index dataset is added
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    file_writer_process.set_beta_2_mode()
+    instrument_board_queues = four_board_file_writer_process["board_queues"]
+    comm_from_main_queue = four_board_file_writer_process["from_main_queue"]
+    file_dir = four_board_file_writer_process["file_dir"]
+
+    num_data_channels_enabled = sum(GENERIC_WELL_MAGNETOMETER_CONFIGURATION.values())
+
+    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command["timepoint_to_begin_recording_at"] = 0
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        start_recording_command,
+        comm_from_main_queue,
+        sleep_after_put_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
+    )
+    invoke_process_run_and_check_errors(file_writer_process)
+
+    expected_stop_timepoint = 100
+    expected_remaining_packets_recorded = 3
+    num_data_points_per_packet = 4
+    expected_total_num_data_points = expected_remaining_packets_recorded * num_data_points_per_packet
+    base_data = np.zeros(num_data_points_per_packet, dtype=np.int16)
+    # add packets whose data will remain in the file
+    for i in range(expected_remaining_packets_recorded):
+        start_timepoint = i * num_data_points_per_packet
+        data_packet = {
+            "timestamps": np.arange(
+                start_timepoint, start_timepoint + num_data_points_per_packet, dtype=np.uint64
+            )
+        }
+        for well_idx in range(24):
+            channel_dict = {
+                SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: base_data + well_idx,
+                SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: base_data + well_idx,
+            }
+            data_packet[well_idx] = channel_dict
+        instrument_board_queues[0][0].put_nowait(data_packet)
+    # add packets whose data will later be removed from the file
+    num_dummy_packets = 2
+    for i in range(num_dummy_packets):
+        start_timepoint = expected_stop_timepoint + (i * num_data_points_per_packet)
+        data_packet = {
+            "timestamps": np.arange(
+                start_timepoint, start_timepoint + num_data_points_per_packet, dtype=np.uint64
+            )
+        }
+        for well_idx in range(24):
+            channel_dict = {
+                SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: base_data,
+                SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: base_data,
+            }
+            data_packet[well_idx] = channel_dict
+        instrument_board_queues[0][0].put_nowait(data_packet)
+    # process all packets
+    confirm_queue_is_eventually_of_size(
+        instrument_board_queues[0][0],
+        expected_remaining_packets_recorded + num_dummy_packets,
+    )
+    invoke_process_run_and_check_errors(
+        file_writer_process,
+        num_iterations=(expected_remaining_packets_recorded + num_dummy_packets),
+    )
+
+    # send stop recording command
+    stop_recording_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    stop_recording_command["timepoint_to_stop_recording_at"] = expected_stop_timepoint
+    # ensure queue is empty before putting something else in
+    confirm_queue_is_eventually_empty(comm_from_main_queue)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        stop_recording_command,
+        comm_from_main_queue,
+        sleep_after_put_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
+    )
+    invoke_process_run_and_check_errors(file_writer_process)
+
+    expected_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
+        PLATE_BARCODE_UUID
+    ]
+    timestamp_str = "2020_02_09_190322"
+
+    for well_idx in range(24):
+        this_file = h5py.File(
+            os.path.join(
+                file_dir,
+                f"{expected_barcode}__{timestamp_str}",
+                f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
+            ),
+            "r",
+        )
+        this_tissue_dataset = get_tissue_dataset_from_file(this_file)
+        assert this_tissue_dataset.dtype == "int16", f"Incorrect dtype for well {well_idx}"
+        assert this_tissue_dataset.shape == (
+            num_data_channels_enabled,
+            expected_total_num_data_points,
+        ), f"Incorrect shape for well {well_idx}"
+        np.testing.assert_array_equal(
+            this_tissue_dataset,
+            np.ones((num_data_points_per_packet, expected_total_num_data_points), dtype=np.int16) * well_idx,
+            err_msg=f"Incorrect data for well {well_idx}",
+        )
+
+        expected_latest_timepoint = expected_stop_timepoint + expected_total_num_data_points - 1
+        actual_latest_timepoint = file_writer_process.get_file_latest_timepoint(well_idx)
+        assert (
+            actual_latest_timepoint == expected_latest_timepoint
+        ), f"Incorrect latest timepoint for well {well_idx}"
+
+        this_file.close()
+
+
 def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
     four_board_file_writer_process,
 ):
@@ -873,7 +994,7 @@ def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
-    expected_timepoint = 100
+    expected_stop_timepoint = 100
     expected_remaining_packets_recorded = 3
     expected_dataset = []
     for i in range(expected_remaining_packets_recorded):
@@ -890,7 +1011,7 @@ def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
             "is_reference_sensor": True,
             "reference_for_wells": set([0, 1, 4, 5]),
             "data": np.array(
-                [[expected_timepoint + ((i + 1) * ROUND_ROBIN_PERIOD)], [0]],
+                [[expected_stop_timepoint + ((i + 1) * ROUND_ROBIN_PERIOD)], [0]],
                 dtype=np.int32,
             ),
         }
@@ -906,7 +1027,7 @@ def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
     )
 
     stop_recording_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
-    stop_recording_command["timepoint_to_stop_recording_at"] = expected_timepoint
+    stop_recording_command["timepoint_to_stop_recording_at"] = expected_stop_timepoint
     # confirm the queue is empty before adding another command
     assert is_queue_eventually_empty(comm_from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
