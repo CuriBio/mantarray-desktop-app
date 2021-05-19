@@ -22,7 +22,7 @@ from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import RunningFIFOSimulator
-from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
+from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import ADC_REF_OFFSET_UUID
 from mantarray_file_manager import ADC_TISSUE_OFFSET_UUID
@@ -74,6 +74,7 @@ from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_REFERENCE_SENSOR_DATA_PACKET
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_TISSUE_DATA_PACKET
+from ..fixtures_file_writer import GENERIC_WELL_MAGNETOMETER_CONFIGURATION
 from ..fixtures_file_writer import open_the_generic_h5_file
 from ..fixtures_file_writer import WELL_DEF_24
 from ..helpers import confirm_queue_is_eventually_empty
@@ -117,7 +118,9 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         if test_beta_version == 1
         else GENERIC_BETA_2_START_RECORDING_COMMAND
     )
-    data_shape = (0,) if test_beta_version == 1 else (SERIAL_COMM_NUM_DATA_CHANNELS, 0)
+    data_shape = (
+        (0,) if test_beta_version == 1 else (sum(GENERIC_WELL_MAGNETOMETER_CONFIGURATION.values()), 0)
+    )
     data_type = np.int32 if test_beta_version == 1 else np.int16
     simulator_class = RunningFIFOSimulator if test_beta_version == 1 else MantarrayMcSimulator
     file_version = (
@@ -644,8 +647,7 @@ def test_FileWriterProcess__clears_data_buffer_when_stop_managed_acquisition_com
     assert len(data_packet_buffer) == 0
 
 
-# TODO
-def test_FileWriterProcess__records_all_requested_data_in_buffer__and_creates_dict_of_latest_data_timepoints_for_open_files__when_start_recording_command_is_received(
+def test_FileWriterProcess__records_all_requested_beta_1_data_in_buffer__and_creates_dict_of_latest_data_timepoints_for_open_files__when_start_recording_command_is_received(
     four_board_file_writer_process,
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
@@ -657,9 +659,9 @@ def test_FileWriterProcess__records_all_requested_data_in_buffer__and_creates_di
         data_packet_buffer.append(SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0)
 
     expected_start_timepoint = 100
-    expected_packets_recorded = 3
+    expected_num_packets_recorded = 3
     expected_well_idx = 0
-    for i in range(expected_packets_recorded):
+    for i in range(expected_num_packets_recorded):
         data_packet = {
             "is_reference_sensor": False,
             "well_index": expected_well_idx,
@@ -685,12 +687,90 @@ def test_FileWriterProcess__records_all_requested_data_in_buffer__and_creates_di
         ),
         "r",
     )
-    assert get_tissue_dataset_from_file(this_file).shape == (expected_packets_recorded,)
+    assert get_tissue_dataset_from_file(this_file).shape == (expected_num_packets_recorded,)
     assert get_tissue_dataset_from_file(this_file).dtype == "int32"
 
-    expected_latest_timepoint = expected_start_timepoint + expected_packets_recorded - 1
+    expected_latest_timepoint = expected_start_timepoint + expected_num_packets_recorded - 1
     actual_latest_timepoint = file_writer_process.get_file_latest_timepoint(expected_well_idx)
     assert actual_latest_timepoint == expected_latest_timepoint
+
+
+def test_FileWriterProcess__records_all_requested_beta_2_data_in_buffer__and_creates_dict_of_latest_data_timepoints_for_open_files__when_start_recording_command_is_received(
+    four_board_file_writer_process,
+):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    file_writer_process.set_beta_2_mode()
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    file_dir = four_board_file_writer_process["file_dir"]
+
+    num_data_channel_enabled = sum(GENERIC_WELL_MAGNETOMETER_CONFIGURATION.values())
+
+    data_packet_buffer = file_writer_process._data_packet_buffers[0]  # pylint: disable=protected-access
+    for _ in range(2):
+        data_packet_buffer.append(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
+
+    expected_start_timepoint = 100
+    expected_num_packets_recorded = 3
+    num_data_points_per_packet = 2
+    expected_total_num_data_points = expected_num_packets_recorded * num_data_points_per_packet
+    for i in range(expected_num_packets_recorded):
+        start_timepoint = expected_start_timepoint + (i * num_data_points_per_packet)
+        data_packet = {
+            "timestamps": np.arange(
+                start_timepoint, start_timepoint + num_data_points_per_packet, dtype=np.uint64
+            )
+        }
+        for well_idx in range(24):
+            channel_dict = {
+                SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: np.ones(
+                    num_data_points_per_packet, dtype=np.int16
+                )
+                * well_idx,
+                SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: np.ones(
+                    num_data_points_per_packet, dtype=np.int16
+                )
+                * well_idx,
+            }
+            data_packet[well_idx] = channel_dict
+        data_packet_buffer.append(data_packet)
+
+    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command["timepoint_to_begin_recording_at"] = expected_start_timepoint
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
+    invoke_process_run_and_check_errors(file_writer_process)
+
+    expected_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
+        PLATE_BARCODE_UUID
+    ]
+    timestamp_str = "2020_02_09_190322"
+    for well_idx in range(24):
+        this_file = h5py.File(
+            os.path.join(
+                file_dir,
+                f"{expected_barcode}__{timestamp_str}",
+                f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
+            ),
+            "r",
+        )
+        this_tissue_dataset = get_tissue_dataset_from_file(this_file)
+        assert this_tissue_dataset.dtype == "int16", f"Incorrect dtype for well {well_idx}"
+        assert this_tissue_dataset.shape == (
+            num_data_channel_enabled,
+            expected_total_num_data_points,
+        ), f"Incorrect shape for well {well_idx}"
+        np.testing.assert_array_equal(
+            this_tissue_dataset,
+            np.ones((num_data_points_per_packet, expected_total_num_data_points), dtype=np.int16) * well_idx,
+            err_msg=f"Incorrect data for well {well_idx}",
+        )
+
+        expected_latest_timepoint = expected_start_timepoint + expected_total_num_data_points - 1
+        actual_latest_timepoint = file_writer_process.get_file_latest_timepoint(well_idx)
+        assert (
+            actual_latest_timepoint == expected_latest_timepoint
+        ), f"Incorrect latest timepoint for well {well_idx}"
+
+        this_file.close()
 
 
 # TODO

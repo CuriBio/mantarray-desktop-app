@@ -59,7 +59,6 @@ from .constants import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from .constants import ROUND_ROBIN_PERIOD
-from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .exceptions import InvalidDataTypeFromOkCommError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
 
@@ -101,12 +100,27 @@ def get_data_slice_within_timepoints(
     Returns:
         A tuple of just the values array, the timepoint of the first data point that matched the value, and the timepoint of the last data point that matched the value
     """
-    length_of_data = time_value_arr.shape[1]
+    first_valid_index_in_packet, last_valid_index_in_packet = _find_bounds(
+        time_value_arr[0], min_timepoint, max_timepoint
+    )
+    values = time_value_arr[1]
+    index_to_slice_to = last_valid_index_in_packet + 1
+    out_arr = values[first_valid_index_in_packet:index_to_slice_to]
+    out_first_timepoint = time_value_arr[0, first_valid_index_in_packet]
+    out_last_timepoint = time_value_arr[0, last_valid_index_in_packet]
+    return out_arr, out_first_timepoint, out_last_timepoint
+
+
+def _find_bounds(
+    time_arr: NDArray[(1, Any), int],
+    min_timepoint: int,
+    max_timepoint: Optional[int] = None,
+) -> Tuple[int, int]:
+    """Return a tuple of the first and last valid indices."""
+    length_of_data = time_arr.shape[0]
     first_valid_index_in_packet: int
     try:
-        first_valid_index_in_packet = next(
-            i for i, time in enumerate(time_value_arr[0]) if time >= min_timepoint
-        )
+        first_valid_index_in_packet = next(i for i, time in enumerate(time_arr) if time >= min_timepoint)
     except StopIteration as e:
         raise NotImplementedError(
             f"No timepoint >= the min timepoint of {min_timepoint} was found. All data passed to this function should contain at least one valid timepoint"
@@ -116,19 +130,14 @@ def get_data_slice_within_timepoints(
         try:
             last_valid_index_in_packet = next(
                 length_of_data - 1 - i
-                for i, time in enumerate(time_value_arr[0][first_valid_index_in_packet:][::-1])
+                for i, time in enumerate(time_arr[0][first_valid_index_in_packet:][::-1])
                 if time <= max_timepoint
             )
         except StopIteration as e:
             raise NotImplementedError(
                 f"No timepoint <= the max timepoint of {max_timepoint} was found. All data passed to this function should contain at least one valid timepoint"
             ) from e
-    values = time_value_arr[1]
-    index_to_slice_to = last_valid_index_in_packet + 1
-    out_arr = values[first_valid_index_in_packet:index_to_slice_to]
-    out_first_timepoint = time_value_arr[0, first_valid_index_in_packet]
-    out_last_timepoint = time_value_arr[0, last_valid_index_in_packet]
-    return out_arr, out_first_timepoint, out_last_timepoint
+    return first_valid_index_in_packet, last_valid_index_in_packet
 
 
 def _find_last_valid_data_index(
@@ -406,9 +415,17 @@ class FileWriterProcess(InfiniteProcess):
 
             # Tanner (5/17/21): Not sure what 100 * 3600 * 12 represents, should make it a constant or add comment if/when it is determined
             max_data_len = 100 * 3600 * 12
-            data_shape = (SERIAL_COMM_NUM_DATA_CHANNELS, 0) if self._beta_2_mode else (0,)
-            dtype = "int16" if self._beta_2_mode else "int32"
-            maxshape = (SERIAL_COMM_NUM_DATA_CHANNELS, max_data_len) if self._beta_2_mode else (max_data_len,)
+            if self._beta_2_mode:
+                num_channels_enabled = sum(
+                    attrs_to_copy[MAGNETOMETER_CONFIGURATION_UUID][this_well_idx + 1].values()
+                )
+                data_shape = (num_channels_enabled, 0)
+                maxshape = (num_channels_enabled, max_data_len)
+                dtype = "int16"
+            else:
+                data_shape = (0,)  # type: ignore  # mypy doesn't like this for some reason
+                maxshape = (max_data_len,)  # type: ignore  # mypy doesn't like this for some reason
+                dtype = "int32"
             this_file.create_dataset(
                 REFERENCE_SENSOR_READINGS,
                 data_shape,
@@ -512,21 +529,69 @@ class FileWriterProcess(InfiniteProcess):
         if not input_queue.empty():
             self._process_can_be_soft_stopped = False
 
-    def _process_data_packet_for_open_file(self, data_packet: Dict[str, Any]) -> None:
-        """Process a data packet for a file that is known to be open."""
+    def _process_beta_2_data_packet_for_open_file(self, data_packet: Dict[Union[str, int], Any]) -> None:
+        """Process a Beta 2 data packet for a file that is known to be open."""
+        board_idx = 0
         this_start_recording_timestamps = self._start_recording_timestamps[0]
+        if this_start_recording_timestamps is None:  # check needed for mypy to be happy
+            raise NotImplementedError("Something wrong in the code. This should never be none.")
+
+        timestamps = data_packet["timestamps"]
+        timepoint_to_start_recording_at = this_start_recording_timestamps[1]
+        if timestamps[-1] < timepoint_to_start_recording_at:
+            return
+        is_final_packet = False
         stop_recording_timestamp = self.get_stop_recording_timestamps()[0]
+        if stop_recording_timestamp is not None:
+            # is_final_packet = timestamps[-1] >= stop_recording_timestamp
+            # if is_final_packet:
+            #     for
+            #         self._tissue_data_finalized_for_recording[0][this_well_idx] = True
+            if timestamps[0] >= stop_recording_timestamp:
+                return
+
+        packet_must_be_trimmed = is_final_packet or timestamps[0] < timepoint_to_start_recording_at
+        if packet_must_be_trimmed:
+            first_idx_of_new_data, last_idx_of_new_data = _find_bounds(
+                timestamps, timepoint_to_start_recording_at, max_timepoint=stop_recording_timestamp
+            )
+            timestamps = timestamps[first_idx_of_new_data : last_idx_of_new_data + 1]
+        new_data_size = timestamps.shape[0]
+
+        for well_idx, this_file in self._open_files[board_idx].items():
+            this_dataset = get_tissue_dataset_from_file(this_file)
+            if this_dataset.shape[1] == 0:  # TODO comment this out before unit testing
+                this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] = (
+                    this_start_recording_timestamps[0]
+                    + datetime.timedelta(seconds=timestamps[0] / CENTIMILLISECONDS_PER_SECOND)
+                ).strftime("%Y-%m-%d %H:%M:%S.%f")
+            previous_data_size = this_dataset.shape[1]
+            this_dataset.resize((this_dataset.shape[0], previous_data_size + new_data_size))
+
+            well_data_dict = data_packet[well_idx]
+            for data_channel_idx, channel_id in enumerate(sorted(well_data_dict.keys())):
+                new_data = well_data_dict[channel_id]
+                if packet_must_be_trimmed:
+                    new_data = new_data[first_idx_of_new_data : last_idx_of_new_data + 1]
+                this_dataset[data_channel_idx, previous_data_size:] = new_data
+
+            self._latest_data_timepoints[0][well_idx] = timestamps[-1]
+
+    def _process_beta_1_data_packet_for_open_file(self, data_packet: Dict[str, Any]) -> None:
+        """Process a Beta 1 data packet for a file that is known to be open."""
+        this_start_recording_timestamps = self._start_recording_timestamps[0]
         if this_start_recording_timestamps is None:  # check needed for mypy to be happy
             raise NotImplementedError("Something wrong in the code. This should never be none.")
 
         this_data = data_packet["data"]
         last_timepoint_in_data_packet = this_data[0, -1]
-        first_timepoint_in_data_packet = this_data[0, 0]
         timepoint_to_start_recording_at = this_start_recording_timestamps[1]
         if last_timepoint_in_data_packet < timepoint_to_start_recording_at:
             return
+        first_timepoint_in_data_packet = this_data[0, 0]
 
         is_reference_sensor = data_packet["is_reference_sensor"]
+        stop_recording_timestamp = self.get_stop_recording_timestamps()[0]
         if stop_recording_timestamp is not None:
             if last_timepoint_in_data_packet >= stop_recording_timestamp:
                 if is_reference_sensor:
@@ -616,9 +681,9 @@ class FileWriterProcess(InfiniteProcess):
         if not input_queue.empty():
             self._process_can_be_soft_stopped = False
 
-    def _handle_recording_of_packet(self, data_packet: Dict[str, Any]) -> None:
+    def _handle_recording_of_packet(self, data_packet: Dict[Any, Any]) -> None:
         if self._beta_2_mode:
-            pass  # TODO
+            self._process_beta_2_data_packet_for_open_file(data_packet)
         else:
             is_reference_sensor = data_packet["is_reference_sensor"]
             if is_reference_sensor:
@@ -628,7 +693,7 @@ class FileWriterProcess(InfiniteProcess):
             for this_well_idx in well_indices_to_process:
                 data_packet["well_index"] = this_well_idx
                 if this_well_idx in self._open_files[0]:
-                    self._process_data_packet_for_open_file(data_packet)
+                    self._process_beta_1_data_packet_for_open_file(data_packet)
 
     def _update_data_packet_buffers(self) -> None:
         data_packet_buffer = self._data_packet_buffers[0]

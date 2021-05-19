@@ -680,6 +680,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._data_packet_cache = unread_bytes
 
         # create dict and send to file writer
+        # TODO change timestamps to time_indices
         fw_item: Dict[Any, Any] = {"timestamps": actual_timestamps[:num_data_packets_read]}
         data_idx = 0
         for module_id, config_dict in self._magnetometer_config.items():
