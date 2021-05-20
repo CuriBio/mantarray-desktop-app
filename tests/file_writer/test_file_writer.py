@@ -33,8 +33,8 @@ from ..fixtures_file_writer import fixture_four_board_file_writer_process
 from ..fixtures_file_writer import fixture_running_four_board_file_writer_process
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
+from ..fixtures_file_writer import GENERIC_NUM_CHANNELS_ENABLED
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
-from ..fixtures_file_writer import GENERIC_WELL_MAGNETOMETER_CONFIGURATION
 from ..fixtures_file_writer import WELL_DEF_24
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
@@ -638,8 +638,6 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_2_files_after_stop_recordi
     )
     invoke_process_run_and_check_errors(fw_process)
 
-    num_data_channels_enabled = sum(GENERIC_WELL_MAGNETOMETER_CONFIGURATION.values())
-
     # fill files with data
     test_num_data_points = 50
     start_timepoint = GENERIC_BETA_1_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
@@ -685,7 +683,7 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_2_files_after_stop_recordi
                     str(START_RECORDING_TIME_INDEX_UUID) in this_file.attrs
                 ), f"START_RECORDING_TIME_INDEX_UUID missing for Well {well_name}"
                 assert get_tissue_dataset_from_file(this_file).shape == (
-                    num_data_channels_enabled,
+                    GENERIC_NUM_CHANNELS_ENABLED,
                     test_num_data_points,
                 ), f"Incorrect tissue data shape for Well {well_name}"
                 assert get_time_index_dataset_from_file(this_file).shape == (

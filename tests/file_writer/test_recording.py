@@ -72,6 +72,7 @@ from ..fixtures_file_writer import fixture_four_board_file_writer_process
 from ..fixtures_file_writer import fixture_running_four_board_file_writer_process
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
+from ..fixtures_file_writer import GENERIC_NUM_CHANNELS_ENABLED
 from ..fixtures_file_writer import GENERIC_REFERENCE_SENSOR_DATA_PACKET
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_TISSUE_DATA_PACKET
@@ -704,8 +705,6 @@ def test_FileWriterProcess__records_all_requested_beta_2_data_in_buffer__and_cre
     file_writer_process.set_beta_2_mode()
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
-    num_data_channels_enabled = sum(GENERIC_WELL_MAGNETOMETER_CONFIGURATION.values())
-
     data_packet_buffer = file_writer_process._data_packet_buffers[0]  # pylint: disable=protected-access
     # dummy packets that will be ignored
     for _ in range(2):
@@ -737,7 +736,7 @@ def test_FileWriterProcess__records_all_requested_beta_2_data_in_buffer__and_cre
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
 
-    expected_data_shape = (num_data_channels_enabled, expected_total_num_data_points)
+    expected_data_shape = (GENERIC_NUM_CHANNELS_ENABLED, expected_total_num_data_points)
     expected_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
@@ -869,8 +868,6 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
     instrument_board_queues = four_board_file_writer_process["board_queues"]
     comm_from_main_queue = four_board_file_writer_process["from_main_queue"]
 
-    num_data_channels_enabled = sum(GENERIC_WELL_MAGNETOMETER_CONFIGURATION.values())
-
     start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["timepoint_to_begin_recording_at"] = 0
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -942,7 +939,7 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
     ]
     timestamp_str = "2020_02_09_190322"
 
-    expected_data_shape = (num_data_channels_enabled, expected_total_num_data_points)
+    expected_data_shape = (GENERIC_NUM_CHANNELS_ENABLED, expected_total_num_data_points)
     for well_idx in range(24):
         this_file = h5py.File(
             os.path.join(

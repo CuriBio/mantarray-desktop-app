@@ -454,7 +454,7 @@ def test_FileWriterProcess__process_next_data_packet__adds_part_of_a_data_packet
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
-    # confirm no additional data added to file
+    # confirm additional data added to file
     actual_data = get_reference_dataset_from_file(actual_file)
     assert actual_data.shape == (15,)
     assert actual_data[11] == 5
@@ -528,7 +528,7 @@ def test_FileWriterProcess__process_next_data_packet__adds_a_data_packet_before_
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
-    # confirm no additional data added to file
+    # confirm additional data added to file
     actual_data = get_tissue_dataset_from_file(actual_file)
     assert actual_data.shape == (20,)
     assert actual_data[11] == 5

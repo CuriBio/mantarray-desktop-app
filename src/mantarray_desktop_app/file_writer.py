@@ -512,7 +512,7 @@ class FileWriterProcess(InfiniteProcess):
                 dataset_shape = list(dataset.shape)
                 dataset_shape[-1] -= num_indices_to_remove
                 dataset.resize(dataset_shape)
-            # TODO consider finalizing any files here that are ready
+            # TODO Tanner (5/19/21): consider finalizing any files here that are ready
 
     def _process_next_command_from_main(self) -> None:
         input_queue = self._from_main_queue
@@ -609,7 +609,13 @@ class FileWriterProcess(InfiniteProcess):
             time_index_dataset[previous_data_size:] = time_indices
 
             tissue_dataset = get_tissue_dataset_from_file(this_file)
-            # TODO: if tissue_dataset.shape[1] == 0: this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] = (this_start_recording_timestamps[0] + datetime.timedelta(seconds=time_indices[0] / CENTIMILLISECONDS_PER_SECOND)).strftime("%Y-%m-%d %H:%M:%S.%f")  # pylint: disable=wrong-spelling-in-comment
+            if tissue_dataset.shape[1] == 0:
+                this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] = (
+                    this_start_recording_timestamps[0]
+                    + datetime.timedelta(seconds=time_indices[0] / CENTIMILLISECONDS_PER_SECOND)
+                ).strftime(
+                    "%Y-%m-%d %H:%M:%S.%f"
+                )  # pylint: disable=wrong-spelling-in-comment
             tissue_dataset.resize((tissue_dataset.shape[0], previous_data_size + new_data_size))
 
             well_data_dict = data_packet[well_idx]
