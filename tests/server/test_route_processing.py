@@ -51,10 +51,10 @@ from ..fixtures import fixture_test_process_manager
 from ..fixtures import GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures import start_processes_and_wait_for_start_ups_to_complete
-from ..fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
+from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_process_monitor import fixture_test_monitor
 from ..fixtures_server import fixture_client_and_server_thread_and_shared_values
-from ..fixtures_server import fixture_generic_start_recording_info_in_shared_dict
+from ..fixtures_server import fixture_generic_beta_1_start_recording_info_in_shared_dict
 from ..fixtures_server import fixture_running_server_thread
 from ..fixtures_server import fixture_server_thread
 from ..fixtures_server import fixture_test_client
@@ -78,7 +78,7 @@ __fixtures__ = [
     fixture_patched_test_xem_scripts_folder,
     fixture_patched_xem_scripts_folder,
     fixture_patch_print,
-    fixture_generic_start_recording_info_in_shared_dict,
+    fixture_generic_beta_1_start_recording_info_in_shared_dict,
     fixture_running_server_thread,
 ]
 
@@ -1331,7 +1331,7 @@ def test_start_recording__returns_error_code_and_message_if_called_with_is_hardw
     test_process_manager,
     test_client,
     test_monitor,
-    generic_start_recording_info_in_shared_dict,
+    generic_beta_1_start_recording_info_in_shared_dict,
 ):
     monitor_thread, _, _, _ = test_monitor
 
@@ -1350,7 +1350,7 @@ def test_start_recording__returns_error_code_and_message_if_called_with_is_hardw
 
 @pytest.mark.slow
 @freeze_time(
-    GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+    GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         UTC_BEGINNING_DATA_ACQUISTION_UUID
     ]
 )
@@ -1359,27 +1359,27 @@ def test_start_recording_command__gets_processed_with_given_time_index_parameter
     test_client,
     mocker,
     test_monitor,
-    generic_start_recording_info_in_shared_dict,
+    generic_beta_1_start_recording_info_in_shared_dict,
 ):
     monitor_thread, _, _, _ = test_monitor
     expected_time_index = 10000000
     timestamp_str = (
-        GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+        GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
             UTC_BEGINNING_DATA_ACQUISTION_UUID
         ]
         + datetime.timedelta(seconds=(expected_time_index / CENTIMILLISECONDS_PER_SECOND))
     ).strftime("%Y_%m_%d_%H%M%S")
-    generic_start_recording_info_in_shared_dict[  # pylint: disable=duplicate-code
+    generic_beta_1_start_recording_info_in_shared_dict[  # pylint: disable=duplicate-code
         "utc_timestamps_of_beginning_of_data_acquisition"
     ] = [
-        GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+        GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
             UTC_BEGINNING_DATA_ACQUISTION_UUID
         ]
     ]
 
     test_process_manager.start_processes()
 
-    expected_barcode = GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+    expected_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
     response = test_client.get(
@@ -1387,8 +1387,8 @@ def test_start_recording_command__gets_processed_with_given_time_index_parameter
     )
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
-    assert generic_start_recording_info_in_shared_dict["system_status"] == RECORDING_STATE
-    assert generic_start_recording_info_in_shared_dict["is_hardware_test_recording"] is True
+    assert generic_beta_1_start_recording_info_in_shared_dict["system_status"] == RECORDING_STATE
+    assert generic_beta_1_start_recording_info_in_shared_dict["is_hardware_test_recording"] is True
 
     test_process_manager.soft_stop_processes()
     confirm_parallelism_is_stopped(
@@ -1410,11 +1410,11 @@ def test_start_recording_command__gets_processed_with_given_time_index_parameter
 
 @pytest.mark.slow
 @freeze_time(
-    GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+    GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         UTC_BEGINNING_DATA_ACQUISTION_UUID
     ]
     + datetime.timedelta(
-        seconds=GENERIC_START_RECORDING_COMMAND[  # pylint: disable=duplicate-code
+        seconds=GENERIC_BETA_1_START_RECORDING_COMMAND[  # pylint: disable=duplicate-code
             "timepoint_to_begin_recording_at"
         ]
         / CENTIMILLISECONDS_PER_SECOND
@@ -1425,16 +1425,16 @@ def test_start_recording_command__gets_processed__and_creates_a_file__and_update
     test_client,
     mocker,
     test_monitor,
-    generic_start_recording_info_in_shared_dict,
+    generic_beta_1_start_recording_info_in_shared_dict,
 ):
     monitor_thread, _, _, _ = test_monitor
 
     timestamp_str = (
-        GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+        GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
             UTC_BEGINNING_DATA_ACQUISTION_UUID
         ]
         + datetime.timedelta(
-            seconds=GENERIC_START_RECORDING_COMMAND[  # pylint: disable=duplicate-code
+            seconds=GENERIC_BETA_1_START_RECORDING_COMMAND[  # pylint: disable=duplicate-code
                 "timepoint_to_begin_recording_at"
             ]
             / CENTIMILLISECONDS_PER_SECOND
@@ -1443,7 +1443,7 @@ def test_start_recording_command__gets_processed__and_creates_a_file__and_update
 
     test_process_manager.start_processes()
 
-    expected_barcode = GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+    expected_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
     response = test_client.get(
@@ -1451,8 +1451,8 @@ def test_start_recording_command__gets_processed__and_creates_a_file__and_update
     )
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
-    assert generic_start_recording_info_in_shared_dict["system_status"] == RECORDING_STATE
-    assert generic_start_recording_info_in_shared_dict["is_hardware_test_recording"] is False
+    assert generic_beta_1_start_recording_info_in_shared_dict["system_status"] == RECORDING_STATE
+    assert generic_beta_1_start_recording_info_in_shared_dict["is_hardware_test_recording"] is False
 
     test_process_manager.soft_stop_processes()
     confirm_parallelism_is_stopped(
@@ -1597,12 +1597,12 @@ def test_after_request__redacts_mantarray_nickname_from_set_mantarray_nickname_l
 
 
 def test_after_request__redacts_mantarray_nicknames_from_start_recording_log_message(
-    test_client, mocker, generic_start_recording_info_in_shared_dict
+    test_client, mocker, generic_beta_1_start_recording_info_in_shared_dict
 ):
     board_idx = 0
     spied_server_logger = mocker.spy(server.logger, "info")
 
-    expected_nickname = generic_start_recording_info_in_shared_dict["mantarray_nickname"][board_idx]
+    expected_nickname = generic_beta_1_start_recording_info_in_shared_dict["mantarray_nickname"][board_idx]
     response = test_client.get("/start_recording?barcode=MA200440001")
     assert response.status_code == 200
     response_json = response.get_json()

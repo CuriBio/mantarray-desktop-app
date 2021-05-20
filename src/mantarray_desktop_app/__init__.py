@@ -40,7 +40,8 @@ from .constants import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from .constants import CONSTRUCT_SENSORS_PER_REF_SENSOR
 from .constants import CURI_BIO_ACCOUNT_UUID
 from .constants import CURI_BIO_USER_ACCOUNT_ID
-from .constants import CURRENT_HDF5_FILE_FORMAT_VERSION
+from .constants import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
+from .constants import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from .constants import DATA_FRAME_PERIOD
@@ -158,6 +159,7 @@ from .exceptions import InvalidBeta2FlagOptionError
 from .exceptions import InvalidDataFramePeriodError
 from .exceptions import InvalidDataTypeFromOkCommError
 from .exceptions import InvalidScriptCommandError
+from .exceptions import InvalidStopRecordingTimepointError
 from .exceptions import LocalServerPortAlreadyInUseError
 from .exceptions import MagnetometerConfigUpdateWhileDataStreamingError
 from .exceptions import MantarrayInstrumentError
@@ -200,6 +202,7 @@ from .fifo_simulator import RunningFIFOSimulator
 from .file_writer import FileWriterProcess
 from .file_writer import get_data_slice_within_timepoints
 from .file_writer import get_reference_dataset_from_file
+from .file_writer import get_time_index_dataset_from_file
 from .file_writer import get_tissue_dataset_from_file
 from .file_writer import MantarrayH5FileCreator
 from .firmware_manager import get_latest_firmware
@@ -290,7 +293,7 @@ __all__ = [
     "DATA_FRAME_PERIOD",
     "CONSTRUCT_SENSOR_SAMPLING_PERIOD",
     "REFERENCE_SENSOR_SAMPLING_PERIOD",
-    "CURRENT_HDF5_FILE_FORMAT_VERSION",
+    "CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION",
     "CURRENT_SOFTWARE_VERSION",
     "START_MANAGED_ACQUISITION_COMMUNICATION",
     "STOP_MANAGED_ACQUISITION_COMMUNICATION",
@@ -507,4 +510,7 @@ __all__ = [
     "handle_data_packets",
     "SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES",
     "MagnetometerConfigUpdateWhileDataStreamingError",
+    "CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION",
+    "get_time_index_dataset_from_file",
+    "InvalidStopRecordingTimepointError",
 ]

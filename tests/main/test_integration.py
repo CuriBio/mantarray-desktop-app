@@ -18,7 +18,7 @@ from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
-from mantarray_desktop_app import CURRENT_HDF5_FILE_FORMAT_VERSION
+from mantarray_desktop_app import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from mantarray_desktop_app import DATA_FRAME_PERIOD
@@ -95,7 +95,7 @@ from stdlib_utils import confirm_port_available
 from ..fixtures import fixture_fully_running_app_from_main_entrypoint
 from ..fixtures import fixture_patched_firmware_folder
 from ..fixtures import fixture_patched_xem_scripts_folder
-from ..fixtures_file_writer import GENERIC_START_RECORDING_COMMAND
+from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import WELL_DEF_24
 from ..helpers import confirm_queue_is_eventually_empty
 
@@ -211,9 +211,9 @@ def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_li
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
 
         # Tanner (12/30/20): Need to start recording in order to test that recorded files are in the correct directory
-        expected_barcode = GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-            PLATE_BARCODE_UUID
-        ]
+        expected_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND[
+            "metadata_to_copy_onto_main_file_attributes"
+        ][PLATE_BARCODE_UUID]
         response = requests.get(
             f"{get_api_endpoint()}start_recording?barcode={expected_barcode}&is_hardware_test_recording=False"
         )
@@ -319,7 +319,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         uuid,
         "uuid4",
         autospec=True,
-        return_value=GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+        return_value=GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
             BACKEND_LOG_UUID
         ],
     )
@@ -360,9 +360,9 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
 
         # Tanner (12/30/20): Run managed_acquisition until in live_view state. This will confirm that data passed through the system completely
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
-        expected_barcode1 = GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-            PLATE_BARCODE_UUID
-        ]
+        expected_barcode1 = GENERIC_BETA_1_START_RECORDING_COMMAND[
+            "metadata_to_copy_onto_main_file_attributes"
+        ][PLATE_BARCODE_UUID]
         start_recording_time_index = 960
         # Tanner (12/30/20): Start recording with barcode1 to create first set of files. Don't start recording at time index 0 since that data frame is discarded due to bit file issues
         response = requests.get(
@@ -433,10 +433,12 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                     assert bool(this_file_attrs[str(HARDWARE_TEST_RECORDING_UUID)]) is False
                     assert this_file_attrs[str(SOFTWARE_BUILD_NUMBER_UUID)] == COMPILED_EXE_BUILD_TIMESTAMP
                     assert (
-                        this_file_attrs[str(ORIGINAL_FILE_VERSION_UUID)] == CURRENT_HDF5_FILE_FORMAT_VERSION
+                        this_file_attrs[str(ORIGINAL_FILE_VERSION_UUID)]
+                        == CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
                     )
                     assert (
-                        this_file_attrs[FILE_FORMAT_VERSION_METADATA_KEY] == CURRENT_HDF5_FILE_FORMAT_VERSION
+                        this_file_attrs[FILE_FORMAT_VERSION_METADATA_KEY]
+                        == CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
                     )
                     assert this_file_attrs[str(UTC_BEGINNING_DATA_ACQUISTION_UUID)] == expected_time.strftime(
                         "%Y-%m-%d %H:%M:%S.%f"
@@ -514,15 +516,15 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                         == REFERENCE_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
                     )
                     assert this_file_attrs[str(BACKEND_LOG_UUID)] == str(
-                        GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+                        GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
                             BACKEND_LOG_UUID
                         ]
                     )
                     assert (
                         this_file_attrs[str(COMPUTER_NAME_HASH_UUID)]
-                        == GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-                            COMPUTER_NAME_HASH_UUID
-                        ]
+                        == GENERIC_BETA_1_START_RECORDING_COMMAND[
+                            "metadata_to_copy_onto_main_file_attributes"
+                        ][COMPUTER_NAME_HASH_UUID]
                     )
                     # Tanner (1/12/21): The barcode used for testing (which is passed to start_recoring route) is different than the simulator's barcode (the one that is 'scanned' in this test), so this should result to False
                     assert bool(this_file_attrs[str(BARCODE_IS_FROM_SCANNER_UUID)]) is False
@@ -687,9 +689,9 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
         assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
 
-        expected_barcode = GENERIC_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-            PLATE_BARCODE_UUID
-        ]
+        expected_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND[
+            "metadata_to_copy_onto_main_file_attributes"
+        ][PLATE_BARCODE_UUID]
         response = requests.get(
             f"{get_api_endpoint()}start_recording?barcode={expected_barcode}&is_hardware_test_recording=False"
         )
@@ -739,7 +741,9 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
     assert response.status_code == 200
     assert system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
 
-    # Tanner (4/5/21): Once magnetometer configuration route is added, test can go to buffering state. Once data path is updated to handle beta 2 data, test can go to recording state
+    # TODO Tanner (12/30/20): Run managed_acquisition to confirm system can reach buffering state once update_magnetometer_config route is added. Will eventually confirm the system reaches live view active once the data path can handle beta 2 data
+
+    # TODO Tanner (5/19/21): test recorded files once start_recording route is updated and update_magnetometer_config route is added (might also want to add a simple version of the route for hardware team)
 
     # Tanner (12/29/20): Good to do this at the end of tests to make sure they don't cause problems with other integration tests
     test_process_manager.hard_stop_and_join_processes()

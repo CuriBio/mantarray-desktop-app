@@ -25,6 +25,7 @@ from labware_domain_models import LabwareDefinition
 from mantarray_file_manager import ADC_REF_OFFSET_UUID
 from mantarray_file_manager import ADC_TISSUE_OFFSET_UUID
 from mantarray_file_manager import IS_FILE_ORIGINAL_UNTRIMMED_UUID
+from mantarray_file_manager import MAGNETOMETER_CONFIGURATION_UUID
 from mantarray_file_manager import MantarrayH5FileCreator
 from mantarray_file_manager import METADATA_UUID_DESCRIPTIONS
 from mantarray_file_manager import ORIGINAL_FILE_VERSION_UUID
@@ -51,16 +52,21 @@ from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
 
 from .constants import CONSTRUCT_SENSOR_SAMPLING_PERIOD
-from .constants import CURRENT_HDF5_FILE_FORMAT_VERSION
+from .constants import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
+from .constants import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from .constants import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
 from .constants import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from .constants import ROUND_ROBIN_PERIOD
 from .exceptions import InvalidDataTypeFromOkCommError
+from .exceptions import InvalidStopRecordingTimepointError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
 
 GENERIC_24_WELL_DEFINITION = LabwareDefinition(row_count=4, column_count=6)
+
+# TODO Tanner (5/18/21): move this to mantarray_file_manager
+TIME_INDEX_SENSOR_READINGS = "time_index_sensor_readings"
 
 
 def _get_formatted_utc_now() -> str:
@@ -72,6 +78,13 @@ def get_tissue_dataset_from_file(
 ) -> h5py.Dataset:
     """Return the dataset for tissue sensor data from the H5 file object."""
     return the_file[TISSUE_SENSOR_READINGS]
+
+
+def get_time_index_dataset_from_file(
+    the_file: h5py.File,
+) -> h5py.Dataset:
+    """Return the dataset for tissue sensor data from the H5 file object."""
+    return the_file[TIME_INDEX_SENSOR_READINGS]
 
 
 def get_reference_dataset_from_file(
@@ -98,12 +111,27 @@ def get_data_slice_within_timepoints(
     Returns:
         A tuple of just the values array, the timepoint of the first data point that matched the value, and the timepoint of the last data point that matched the value
     """
-    length_of_data = time_value_arr.shape[1]
+    first_valid_index_in_packet, last_valid_index_in_packet = _find_bounds(
+        time_value_arr[0], min_timepoint, max_timepoint
+    )
+    values = time_value_arr[1]
+    index_to_slice_to = last_valid_index_in_packet + 1
+    out_arr = values[first_valid_index_in_packet:index_to_slice_to]
+    out_first_timepoint = time_value_arr[0, first_valid_index_in_packet]
+    out_last_timepoint = time_value_arr[0, last_valid_index_in_packet]
+    return out_arr, out_first_timepoint, out_last_timepoint
+
+
+def _find_bounds(
+    time_arr: NDArray[(1, Any), int],
+    min_timepoint: int,
+    max_timepoint: Optional[int] = None,
+) -> Tuple[int, int]:
+    """Return a tuple of the first and last valid indices."""
+    length_of_data = time_arr.shape[0]
     first_valid_index_in_packet: int
     try:
-        first_valid_index_in_packet = next(
-            i for i, time in enumerate(time_value_arr[0]) if time >= min_timepoint
-        )
+        first_valid_index_in_packet = next(i for i, time in enumerate(time_arr) if time >= min_timepoint)
     except StopIteration as e:
         raise NotImplementedError(
             f"No timepoint >= the min timepoint of {min_timepoint} was found. All data passed to this function should contain at least one valid timepoint"
@@ -113,19 +141,14 @@ def get_data_slice_within_timepoints(
         try:
             last_valid_index_in_packet = next(
                 length_of_data - 1 - i
-                for i, time in enumerate(time_value_arr[0][first_valid_index_in_packet:][::-1])
+                for i, time in enumerate(time_arr[first_valid_index_in_packet:][::-1])
                 if time <= max_timepoint
             )
         except StopIteration as e:
             raise NotImplementedError(
                 f"No timepoint <= the max timepoint of {max_timepoint} was found. All data passed to this function should contain at least one valid timepoint"
             ) from e
-    values = time_value_arr[1]
-    index_to_slice_to = last_valid_index_in_packet + 1
-    out_arr = values[first_valid_index_in_packet:index_to_slice_to]
-    out_first_timepoint = time_value_arr[0, first_valid_index_in_packet]
-    out_last_timepoint = time_value_arr[0, last_valid_index_in_packet]
-    return out_arr, out_first_timepoint, out_last_timepoint
+    return first_valid_index_in_packet, last_valid_index_in_packet
 
 
 def _find_last_valid_data_index(
@@ -233,7 +256,7 @@ class FileWriterProcess(InfiniteProcess):
         not the recommended way to finalize and close a file. Use
         _finalize_completed_files
         """
-        for _, this_file in self._open_files[0].items():
+        for this_file in self._open_files[0].values():
             this_file.close()
 
     def get_file_directory(self) -> str:
@@ -244,6 +267,10 @@ class FileWriterProcess(InfiniteProcess):
 
     def get_file_latest_timepoint(self, well_idx: int) -> int:
         return self._latest_data_timepoints[0][well_idx]
+
+    def set_beta_2_mode(self) -> None:
+        """For use in unit tests."""
+        self._beta_2_mode = True
 
     def is_recording(self) -> bool:
         return self._is_recording
@@ -319,6 +346,7 @@ class FileWriterProcess(InfiniteProcess):
                 del self._open_files[0][this_well_idx]
 
     def _process_start_recording_command(self, communication: Dict[str, Any]) -> None:
+        # pylint: disable=too-many-locals  # Tanner (5/17/21): many variables are needed to create files with all the necessary metadata
         self._is_recording = True
 
         attrs_to_copy = communication["metadata_to_copy_onto_main_file_attributes"]
@@ -351,11 +379,14 @@ class FileWriterProcess(InfiniteProcess):
                 sub_dir_name,
                 f"{sub_dir_name}__{GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(this_well_idx)}.h5",
             )
-            this_file = MantarrayH5FileCreator(
-                file_path, file_format_version=CURRENT_HDF5_FILE_FORMAT_VERSION
+            file_version = (
+                CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
+                if self._beta_2_mode
+                else CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
             )
+            this_file = MantarrayH5FileCreator(file_path, file_format_version=file_version)
             self._open_files[0][this_well_idx] = this_file
-            this_file.attrs[str(ORIGINAL_FILE_VERSION_UUID)] = CURRENT_HDF5_FILE_FORMAT_VERSION
+            this_file.attrs[str(ORIGINAL_FILE_VERSION_UUID)] = file_version
             this_file.attrs[str(WELL_NAME_UUID)] = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(
                 this_well_idx
             )
@@ -382,6 +413,8 @@ class FileWriterProcess(InfiniteProcess):
                     this_file.attrs[str(ADC_TISSUE_OFFSET_UUID)] = this_attr_value[this_well_idx]["construct"]
                     this_file.attrs[str(ADC_REF_OFFSET_UUID)] = this_attr_value[this_well_idx]["ref"]
                     continue
+                if this_attr_name == MAGNETOMETER_CONFIGURATION_UUID:
+                    this_attr_value = json.dumps(this_attr_value[this_well_idx + 1])
                 if METADATA_UUID_DESCRIPTIONS[this_attr_name].startswith("UTC Timestamp"):
                     this_attr_value = this_attr_value.strftime("%Y-%m-%d %H:%M:%S.%f")
                 this_attr_name = str(this_attr_name)
@@ -391,24 +424,47 @@ class FileWriterProcess(InfiniteProcess):
             # Tanner (6/12/20): We must convert UUIDs to strings to allow them to be compatible with H5 and JSON
             this_file.attrs["Metadata UUID Descriptions"] = json.dumps(str(METADATA_UUID_DESCRIPTIONS))
 
+            # Tanner (5/17/21): Not sure what 100 * 3600 * 12 represents, should make it a constant or add comment if/when it is determined
+            max_data_len = 100 * 3600 * 12
+            if self._beta_2_mode:
+                num_channels_enabled = sum(
+                    attrs_to_copy[MAGNETOMETER_CONFIGURATION_UUID][this_well_idx + 1].values()
+                )
+                data_shape = (num_channels_enabled, 0)
+                maxshape = (num_channels_enabled, max_data_len)
+                dtype = "int16"
+                # beta 2 files must also store time indices
+                this_file.create_dataset(
+                    TIME_INDEX_SENSOR_READINGS,
+                    (0,),
+                    maxshape=(max_data_len,),
+                    dtype="uint64",
+                    chunks=True,
+                )
+            else:
+                data_shape = (0,)  # type: ignore  # mypy doesn't like this for some reason
+                maxshape = (max_data_len,)  # type: ignore  # mypy doesn't like this for some reason
+                dtype = "int32"
+            # create datasets present in files for both beta versions
             this_file.create_dataset(
                 REFERENCE_SENSOR_READINGS,
-                (0,),
-                maxshape=(100 * 3600 * 12,),
-                dtype="int32",
+                data_shape,
+                maxshape=maxshape,
+                dtype=dtype,
                 chunks=True,
             )
             this_file.create_dataset(
                 TISSUE_SENSOR_READINGS,
-                (0,),
-                maxshape=(100 * 3600 * 12,),
-                dtype="int32",
+                data_shape,
+                maxshape=maxshape,
+                dtype=dtype,
                 chunks=True,
             )
             this_file.swmr_mode = True
 
             tissue_status[0][this_well_idx] = False
-            reference_status[0][this_well_idx] = False
+            # TODO Tanner (5/19/21): replace this with False when ref data is added to beta 2 files
+            reference_status[0][this_well_idx] = self._beta_2_mode
 
         self.get_stop_recording_timestamps()[0] = None
         data_packet_buffer = self._data_packet_buffers[0]
@@ -418,22 +474,46 @@ class FileWriterProcess(InfiniteProcess):
     def _process_stop_recording_command(self, communication: Dict[str, Any]) -> None:
         self._is_recording = False
 
-        stop_recording_timestamp = communication["timepoint_to_stop_recording_at"]
-        self.get_stop_recording_timestamps()[0] = stop_recording_timestamp
+        stop_recording_timepoint = communication["timepoint_to_stop_recording_at"]
+        self.get_stop_recording_timestamps()[0] = stop_recording_timepoint
         for this_well_idx in self._open_files[0].keys():
             this_file = self._open_files[0][this_well_idx]
-            latest_timepoint = self.get_file_latest_timepoint(this_well_idx)
-            tissue_dataset = get_tissue_dataset_from_file(this_file)
-            ref_dataset = get_reference_dataset_from_file(this_file)
-            for dataset in (tissue_dataset, ref_dataset):
-                last_index_of_valid_data = _find_last_valid_data_index(
-                    latest_timepoint,
-                    dataset.shape[0] - 1,
-                    stop_recording_timestamp,
+            if not self._beta_2_mode:
+                latest_timepoint = self.get_file_latest_timepoint(this_well_idx)
+                datasets = [
+                    get_tissue_dataset_from_file(this_file),
+                    get_reference_dataset_from_file(this_file),
+                ]
+                for dataset in datasets:
+                    last_index_of_valid_data = _find_last_valid_data_index(
+                        latest_timepoint,
+                        dataset.shape[0] - 1,
+                        stop_recording_timepoint,
+                    )
+                    index_to_slice_to = last_index_of_valid_data + 1
+                    new_data = dataset[:index_to_slice_to]
+                    dataset.resize(new_data.shape)
+                return
+
+            # find num points needed to remove
+            time_index_dataset = get_time_index_dataset_from_file(this_file)
+            try:
+                num_indices_to_remove = next(
+                    i
+                    for i, time in enumerate(reversed(time_index_dataset))
+                    if time <= stop_recording_timepoint
                 )
-                index_to_slice_to = last_index_of_valid_data + 1
-                new_data = dataset[:index_to_slice_to]
-                dataset.resize((new_data.shape[0],))
+            except StopIteration as e:
+                raise InvalidStopRecordingTimepointError(
+                    f"The timepoint {stop_recording_timepoint} is earlier than all recorded timepoints"
+                ) from e
+            # trim off data after stop recording timepoint
+            datasets = [time_index_dataset, get_tissue_dataset_from_file(this_file)]
+            for dataset in datasets:
+                dataset_shape = list(dataset.shape)
+                dataset_shape[-1] -= num_indices_to_remove
+                dataset.resize(dataset_shape)
+            # TODO Tanner (5/19/21): consider finalizing any files here that are ready
 
     def _process_next_command_from_main(self) -> None:
         input_queue = self._from_main_queue
@@ -462,7 +542,6 @@ class FileWriterProcess(InfiniteProcess):
                     "file_folder": communication["abs_path_to_file_folder"],
                 }
             )
-
         elif command == "stop_recording":
             self._process_stop_recording_command(communication)
             to_main.put_nowait(
@@ -494,23 +573,77 @@ class FileWriterProcess(InfiniteProcess):
         if not input_queue.empty():
             self._process_can_be_soft_stopped = False
 
-    def _process_data_packet_for_open_file(self, data_packet: Dict[str, Any]) -> None:
-        """Process a data packet for a file that is known to be open."""
+    def _process_beta_2_data_packet(self, data_packet: Dict[Union[str, int], Any]) -> None:
+        """Process a Beta 2 data packet for a file that is known to be open."""
+        board_idx = 0
         this_start_recording_timestamps = self._start_recording_timestamps[0]
+        if this_start_recording_timestamps is None:  # check needed for mypy to be happy
+            raise NotImplementedError("Something wrong in the code. This should never be none.")
+
+        time_indices = data_packet["time_indices"]
+        timepoint_to_start_recording_at = this_start_recording_timestamps[1]
+        if time_indices[-1] < timepoint_to_start_recording_at:
+            return
+        is_final_packet = False
         stop_recording_timestamp = self.get_stop_recording_timestamps()[0]
+        if stop_recording_timestamp is not None:
+            is_final_packet = time_indices[-1] >= stop_recording_timestamp
+            if is_final_packet:
+                for well_idx in self._open_files[board_idx].keys():
+                    self._tissue_data_finalized_for_recording[0][well_idx] = True
+            if time_indices[0] >= stop_recording_timestamp:
+                return
+
+        packet_must_be_trimmed = is_final_packet or time_indices[0] < timepoint_to_start_recording_at
+        if packet_must_be_trimmed:
+            first_idx_of_new_data, last_idx_of_new_data = _find_bounds(
+                time_indices, timepoint_to_start_recording_at, max_timepoint=stop_recording_timestamp
+            )
+            time_indices = time_indices[first_idx_of_new_data : last_idx_of_new_data + 1]
+        new_data_size = time_indices.shape[0]
+
+        for well_idx, this_file in self._open_files[board_idx].items():
+            time_index_dataset = get_time_index_dataset_from_file(this_file)
+            previous_data_size = time_index_dataset.shape[0]
+
+            time_index_dataset.resize((previous_data_size + time_indices.shape[0],))
+            time_index_dataset[previous_data_size:] = time_indices
+
+            tissue_dataset = get_tissue_dataset_from_file(this_file)
+            if tissue_dataset.shape[1] == 0:
+                this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] = (
+                    this_start_recording_timestamps[0]
+                    + datetime.timedelta(seconds=time_indices[0] / CENTIMILLISECONDS_PER_SECOND)
+                ).strftime(
+                    "%Y-%m-%d %H:%M:%S.%f"
+                )  # pylint: disable=wrong-spelling-in-comment
+            tissue_dataset.resize((tissue_dataset.shape[0], previous_data_size + new_data_size))
+
+            well_data_dict = data_packet[well_idx]
+            for data_channel_idx, channel_id in enumerate(sorted(well_data_dict.keys())):
+                new_data = well_data_dict[channel_id]
+                if packet_must_be_trimmed:
+                    new_data = new_data[first_idx_of_new_data : last_idx_of_new_data + 1]
+                tissue_dataset[data_channel_idx, previous_data_size:] = new_data
+
+            self._latest_data_timepoints[0][well_idx] = time_indices[-1]
+
+    def _process_beta_1_data_packet_for_open_file(self, data_packet: Dict[str, Any]) -> None:
+        """Process a Beta 1 data packet for a file that is known to be open."""
+        this_start_recording_timestamps = self._start_recording_timestamps[0]
         if this_start_recording_timestamps is None:  # check needed for mypy to be happy
             raise NotImplementedError("Something wrong in the code. This should never be none.")
 
         this_data = data_packet["data"]
         last_timepoint_in_data_packet = this_data[0, -1]
-        first_timepoint_in_data_packet = this_data[0, 0]
         timepoint_to_start_recording_at = this_start_recording_timestamps[1]
         if last_timepoint_in_data_packet < timepoint_to_start_recording_at:
             return
+        first_timepoint_in_data_packet = this_data[0, 0]
+
         is_reference_sensor = data_packet["is_reference_sensor"]
-
+        stop_recording_timestamp = self.get_stop_recording_timestamps()[0]
         if stop_recording_timestamp is not None:
-
             if last_timepoint_in_data_packet >= stop_recording_timestamp:
                 if is_reference_sensor:
                     well_indices = data_packet["reference_for_wells"]
@@ -520,7 +653,6 @@ class FileWriterProcess(InfiniteProcess):
                 else:
                     this_well_idx = data_packet["well_index"]
                     self._tissue_data_finalized_for_recording[0][this_well_idx] = True
-
             if first_timepoint_in_data_packet >= stop_recording_timestamp:
                 return
 
@@ -549,10 +681,8 @@ class FileWriterProcess(InfiniteProcess):
                 this_start_recording_timestamps[0]
                 + datetime.timedelta(seconds=first_timepoint_of_new_data / CENTIMILLISECONDS_PER_SECOND)
             ).strftime("%Y-%m-%d %H:%M:%S.%f")
-
         previous_data_size = this_dataset.shape[0]
         this_dataset.resize((previous_data_size + new_data.shape[0],))
-
         this_dataset[previous_data_size:] = new_data
 
         self._latest_data_timepoints[0][this_well_idx] = last_timepoint_of_new_data
@@ -570,15 +700,11 @@ class FileWriterProcess(InfiniteProcess):
         except queue.Empty:
             return
 
-        to_main = self._to_main_queue
-
-        logging_threshold = self.get_logging_level()
-
         put_log_message_into_queue(
             logging.DEBUG,
             f"Timestamp: {_get_formatted_utc_now()} Received a data packet from OpalKelly Controller: {data_packet}",
-            to_main,
-            logging_threshold,
+            self._to_main_queue,
+            self.get_logging_level(),
         )
 
         if not isinstance(data_packet, dict):
@@ -592,31 +718,47 @@ class FileWriterProcess(InfiniteProcess):
         output_queue = self._board_queues[0][1]
         output_queue.put_nowait(data_packet)
 
-        self._num_recorded_points.append(data_packet["data"].shape[1])
-        start = time.perf_counter()
-        self._handle_recording_of_packet(data_packet)
-        recording_dur = time.perf_counter() - start
-        self._recording_durations.append(recording_dur)
+        # Tanner (5/17/21): This code was not previously guarded by this if statement. If issues start occurring with recorded data or performance metrics, check here first
+        if self._is_recording or self._board_has_open_files(0):
+            if self._beta_2_mode:
+                self._num_recorded_points.append(data_packet["time_indices"].shape[0])
+            else:
+                self._num_recorded_points.append(data_packet["data"].shape[1])
+
+            start = time.perf_counter()
+            self._handle_recording_of_packet(data_packet)
+            recording_dur = time.perf_counter() - start
+            self._recording_durations.append(recording_dur)
 
         if not input_queue.empty():
             self._process_can_be_soft_stopped = False
 
-    def _handle_recording_of_packet(self, data_packet: Dict[str, Any]) -> None:
-        is_reference_sensor = data_packet["is_reference_sensor"]
-        if is_reference_sensor:
-            well_indices_to_process = data_packet["reference_for_wells"]
+    def _handle_recording_of_packet(self, data_packet: Dict[Any, Any]) -> None:
+        if self._beta_2_mode:
+            self._process_beta_2_data_packet(data_packet)
         else:
-            well_indices_to_process = set([data_packet["well_index"]])
-        for this_well_idx in well_indices_to_process:
-            data_packet["well_index"] = this_well_idx
-            if this_well_idx in self._open_files[0]:
-                self._process_data_packet_for_open_file(data_packet)
+            is_reference_sensor = data_packet["is_reference_sensor"]
+            if is_reference_sensor:
+                well_indices_to_process = data_packet["reference_for_wells"]
+            else:
+                well_indices_to_process = set([data_packet["well_index"]])
+            for this_well_idx in well_indices_to_process:
+                data_packet["well_index"] = this_well_idx
+                if this_well_idx in self._open_files[0]:
+                    self._process_beta_1_data_packet_for_open_file(data_packet)
 
     def _update_data_packet_buffers(self) -> None:
         data_packet_buffer = self._data_packet_buffers[0]
         if not data_packet_buffer:
             return
-        buffer_memory_size = data_packet_buffer[-1]["data"][0, 0] - data_packet_buffer[0]["data"][0, 0]
+
+        buffer_memory_size: int
+        if self._beta_2_mode:
+            buffer_memory_size = (
+                data_packet_buffer[-1]["time_indices"][0] - data_packet_buffer[0]["time_indices"][0]
+            )
+        else:
+            buffer_memory_size = data_packet_buffer[-1]["data"][0, 0] - data_packet_buffer[0]["data"][0, 0]
         if buffer_memory_size > FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS:
             data_packet_buffer.popleft()
 
