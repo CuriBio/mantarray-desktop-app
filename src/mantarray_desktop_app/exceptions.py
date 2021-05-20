@@ -106,6 +106,10 @@ class RecordingFolderDoesNotExistError(Exception):
     pass
 
 
+class InvalidStopRecordingTimepointError(Exception):
+    pass
+
+
 class FirmwareFileNameDoesNotMatchWireOutVersionError(Exception):
     pass
 

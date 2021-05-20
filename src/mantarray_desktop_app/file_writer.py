@@ -60,6 +60,7 @@ from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from .constants import ROUND_ROBIN_PERIOD
 from .exceptions import InvalidDataTypeFromOkCommError
+from .exceptions import InvalidStopRecordingTimepointError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
 
 GENERIC_24_WELL_DEFINITION = LabwareDefinition(row_count=4, column_count=6)
@@ -503,8 +504,8 @@ class FileWriterProcess(InfiniteProcess):
                     if time <= stop_recording_timepoint
                 )
             except StopIteration as e:
-                raise NotImplementedError(
-                    "Something went wrong, there should always be at least one valid time index recorded to file"
+                raise InvalidStopRecordingTimepointError(
+                    f"The timepoint {stop_recording_timepoint} is earlier than all recorded timepoints"
                 ) from e
             # trim off data after stop recording timepoint
             datasets = [time_index_dataset, get_tissue_dataset_from_file(this_file)]

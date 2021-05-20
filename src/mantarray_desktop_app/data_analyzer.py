@@ -102,7 +102,7 @@ class DataAnalyzerProcess(InfiniteProcess):
 
     def _commands_for_each_run_iteration(self) -> None:
         self._process_next_command_from_main()
-        #  TODO Tanner (6/30/20): Apply sensor sensitivity calibration settings once they are fleshed out
+        # TODO Tanner (6/30/20): Apply sensor sensitivity calibration settings once they are fleshed out.  # Tanner (5/19/21): This TODO may be unnecessary now
         self._load_memory_into_buffer()
         if self._is_buffer_full():
             outgoing_data = self._create_outgoing_data()

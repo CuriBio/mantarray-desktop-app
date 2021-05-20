@@ -16,6 +16,7 @@ from mantarray_desktop_app import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
 from mantarray_desktop_app import get_reference_dataset_from_file
 from mantarray_desktop_app import get_time_index_dataset_from_file
 from mantarray_desktop_app import get_tissue_dataset_from_file
+from mantarray_desktop_app import InvalidStopRecordingTimepointError
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import REF_INDEX_TO_24_WELL_INDEX
@@ -67,6 +68,7 @@ import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import validate_file_head_crc32
 
+from ..fixtures import fixture_patch_print
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_file_writer import fixture_four_board_file_writer_process
 from ..fixtures_file_writer import fixture_running_four_board_file_writer_process
@@ -91,6 +93,7 @@ from ..parsed_channel_data_packets import SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_
 __fixtures__ = [
     fixture_four_board_file_writer_process,
     fixture_running_four_board_file_writer_process,
+    fixture_patch_print,
 ]
 
 
@@ -1048,3 +1051,45 @@ def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
     assert ref_dataset.shape == (expected_remaining_packets_recorded,)
     assert ref_dataset.dtype == "int32"
     np.testing.assert_equal(ref_dataset, np.array(expected_dataset))
+
+
+def test_FileWriterProcess__raises_error_if_stop_recording_command_received_with_stop_timepoint_less_than_earliest_timepoint(
+    four_board_file_writer_process, patch_print
+):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    file_writer_process.set_beta_2_mode()
+    board_queues = four_board_file_writer_process["board_queues"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
+    test_well_index = 6
+    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command["active_well_indices"] = [test_well_index]
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        start_recording_command,
+        from_main_queue,
+    )
+    start_timepoint = start_recording_command["timepoint_to_begin_recording_at"]
+    recorded_data_packet = {
+        "time_indices": np.array([start_timepoint], dtype=np.uint64),
+        test_well_index: {
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: np.array([0], dtype=np.int16),
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: np.array([0], dtype=np.int16),
+        },
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        recorded_data_packet,
+        board_queues[0][0],
+    )
+    invoke_process_run_and_check_errors(file_writer_process)
+
+    stop_recording_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    stop_recording_command["timepoint_to_stop_recording_at"] = start_timepoint - 1
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        stop_recording_command,
+        from_main_queue,
+    )
+    with pytest.raises(
+        InvalidStopRecordingTimepointError,
+        match=str(stop_recording_command["timepoint_to_stop_recording_at"]),
+    ):
+        invoke_process_run_and_check_errors(file_writer_process)

@@ -51,7 +51,9 @@ __fixtures__ = [
 ]
 
 
-def test_get_data_slice_within_timepoints__raises_not_implemented_error_if_no_first_valid_index_found():
+def test_get_data_slice_within_timepoints__raises_not_implemented_error_if_no_first_valid_index_found(
+    patch_print,
+):
     test_data = np.array([[1, 2, 3], [0, 0, 0]])
     min_timepoint = 4
     with pytest.raises(
@@ -61,7 +63,9 @@ def test_get_data_slice_within_timepoints__raises_not_implemented_error_if_no_fi
         get_data_slice_within_timepoints(test_data, min_timepoint)
 
 
-def test_get_data_slice_within_timepoints__raises_not_implemented_error_if_no_last_valid_index_found():
+def test_get_data_slice_within_timepoints__raises_not_implemented_error_if_no_last_valid_index_found(
+    patch_print,
+):
     test_data = np.array([[11, 12, 13], [0, 0, 0]])
     min_timepoint = 0
     max_timepoint = 10
