@@ -599,14 +599,14 @@ class McCommunicationProcess(InstrumentCommProcess):
                 prev_command
             )  # Tanner (3/17/21): to be consistent with OkComm, command responses will be sent back to main after the command is acknowledged by the Mantarray
         elif packet_type == SERIAL_COMM_PLATE_EVENT_PACKET_TYPE:
-            was_plate_placed = bool(packet_body[0])
-            barcode = packet_body[1:].decode("ascii") if was_plate_placed else ""
+            plate_was_placed = bool(packet_body[0])
+            barcode = packet_body[1:].decode("ascii") if plate_was_placed else ""
             barcode_comm = {
                 "communication_type": "barcode_comm",
                 "board_idx": board_idx,
                 "barcode": barcode,
             }
-            if was_plate_placed:
+            if plate_was_placed:
                 barcode_comm["valid"] = check_barcode_is_valid(barcode)
             self._board_queues[board_idx][1].put_nowait(barcode_comm)
         else:

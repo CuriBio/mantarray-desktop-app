@@ -14,6 +14,7 @@ from mantarray_desktop_app import BARCODE_VALID_UUID
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
+from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import MantarrayMcSimulator
@@ -1049,3 +1050,36 @@ def test_MantarrayProcessesMonitor__redacts_mantarray_nickname_from_logged_board
     expected_comm = copy.deepcopy(test_comm)
     expected_comm["mantarray_nickname"] = "*" * len(test_nickname)
     mocked_logger.assert_called_once_with(f"Communication from the OpalKelly Controller: {expected_comm}")
+
+
+def test_MantarrayProcessesMonitor__passes_magnetometer_config_dict_from_server_to_mc_comm(
+    test_process_manager, test_monitor
+):
+    monitor_thread, _, _, _ = test_monitor
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+    main_to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+
+    test_num_wells = 24
+    expected_config_dict = {
+        "magnetometer_config": create_magnetometer_config_dict(test_num_wells),
+        "sampling_period": 10000,
+    }
+    test_dict_from_server = {
+        "communication_type": "set_magnetometer_config",
+        "magnetometer_config_dict": expected_config_dict,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_dict_from_server, server_to_main_queue
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    confirm_queue_is_eventually_of_size(main_to_ic_queue, 1)
+
+    expected_comm_to_ic = {
+        "communication_type": "to_instrument",
+        "command": "change_magnetometer_config",
+    }
+    expected_comm_to_ic.update(expected_config_dict)
+    actual = main_to_ic_queue.get_nowait()
+    assert actual == expected_comm_to_ic
