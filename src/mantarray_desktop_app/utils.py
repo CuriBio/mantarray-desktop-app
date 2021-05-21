@@ -182,8 +182,42 @@ def create_magnetometer_config_dict(num_wells: int) -> Dict[int, Dict[int, bool]
     """
     magnetometer_config_dict = dict()
     for module_id in range(1, num_wells + 1):
-        well_dict = dict()
+        module_dict = dict()
         for sensor_axis_id in range(SERIAL_COMM_NUM_DATA_CHANNELS):
-            well_dict[sensor_axis_id] = False
-        magnetometer_config_dict[module_id] = well_dict
+            module_dict[sensor_axis_id] = False
+        magnetometer_config_dict[module_id] = module_dict
     return magnetometer_config_dict
+
+
+def validate_magnetometer_config_keys(
+    magnetometer_config_dict: Dict[Any, Any],
+    start_key: int,
+    stop_key: int,
+    key_name: str = "module ID",
+    error_msg_addition: str = "",
+) -> str:
+    """Validate keys of magnetometer configuration dictionary."""
+    key_iter = iter(sorted(magnetometer_config_dict.keys()))
+    for expected_key in range(start_key, stop_key):
+        try:
+            actual_key = next(key_iter)
+        except StopIteration:
+            return f"Configuration dictionary is missing {key_name} {expected_key}" + error_msg_addition
+        if actual_key < expected_key:
+            return f"Configuration dictionary has invalid {key_name} {actual_key}" + error_msg_addition
+        if actual_key > expected_key:
+            return f"Configuration dictionary is missing {key_name} {expected_key}" + error_msg_addition
+
+        item = magnetometer_config_dict[actual_key]
+        if isinstance(item, dict):
+            error_msg = validate_magnetometer_config_keys(
+                item, 0, SERIAL_COMM_NUM_DATA_CHANNELS, "channel ID", f" for {key_name} {actual_key}"
+            )
+            if not error_msg:
+                continue
+            return error_msg
+    try:
+        invalid_key = next(key_iter)
+        return f"Configuration dictionary has invalid {key_name} {invalid_key}" + error_msg_addition
+    except StopIteration:
+        return ""

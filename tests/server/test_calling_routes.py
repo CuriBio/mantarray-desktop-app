@@ -4,9 +4,11 @@ import json
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
+from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import ImproperlyFormattedCustomerAccountUUIDError
 from mantarray_desktop_app import ImproperlyFormattedUserAccountUUIDError
 from mantarray_desktop_app import RecordingFolderDoesNotExistError
+from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import server
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
@@ -577,9 +579,144 @@ def test_boot_up__return_error_code_and_message_if_called_in_beta_2_mode(
     client_and_server_thread_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
-
     shared_values_dict["beta_2_mode"] = True
 
     response = test_client.get("/boot_up")
     assert response.status_code == 403
     assert response.status.endswith("Route cannot be called in beta 2 mode") is True
+
+
+def test_set_magnetometer_config__returns_error_code_if_called_in_beta_1_mode(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = False
+
+    response = test_client.post("/set_magnetometer_config")
+    assert response.status_code == 403
+    assert response.status.endswith("Route cannot be called in beta 1 mode") is True
+
+
+def test_set_magnetometer_config__returns_error_code_if_called_with_config_dict_missing_module_id(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+
+    test_num_wells = 24
+    bad_config = create_magnetometer_config_dict(test_num_wells - 1)
+    test_config_dict = {
+        "magnetometer_config": bad_config,
+        "sampling_period": 10000,
+    }
+
+    response = test_client.post("/set_magnetometer_config", json=json.dumps(test_config_dict))
+    assert response.status_code == 400
+    assert response.status.endswith(f"Configuration dictionary is missing module ID {test_num_wells}") is True
+
+
+def test_set_magnetometer_config__returns_error_code_if_called_with_config_dict_missing_channel_id(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+
+    test_num_wells = 24
+    bad_config = create_magnetometer_config_dict(test_num_wells)
+    missing_channel_id = 0
+    del bad_config[test_num_wells][missing_channel_id]
+    test_config_dict = {
+        "magnetometer_config": bad_config,
+        "sampling_period": 10000,
+    }
+
+    response = test_client.post("/set_magnetometer_config", json=json.dumps(test_config_dict))
+    assert response.status_code == 400
+    assert (
+        response.status.endswith(
+            f"Configuration dictionary is missing channel ID {missing_channel_id} for module ID {test_num_wells}"
+        )
+        is True
+    )
+
+
+def test_set_magnetometer_config__returns_error_code_if_called_with_config_dict_that_has_invalid_module_id(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+
+    test_num_wells = 24
+    bad_config = create_magnetometer_config_dict(test_num_wells + 1)
+    test_config_dict = {
+        "magnetometer_config": bad_config,
+        "sampling_period": 10000,
+    }
+    response = test_client.post("/set_magnetometer_config", json=json.dumps(test_config_dict))
+    assert response.status_code == 400
+    assert (
+        response.status.endswith(f"Configuration dictionary has invalid module ID {test_num_wells + 1}")
+        is True
+    )
+
+    bad_key = 0
+    bad_config[bad_key] = True
+    response = test_client.post("/set_magnetometer_config", json=json.dumps(test_config_dict))
+    assert response.status_code == 400
+    assert response.status.endswith(f"Configuration dictionary has invalid module ID {bad_key}") is True
+
+
+def test_set_magnetometer_config__returns_error_code_if_called_with_config_dict_that_has_invalid_channel_id(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+
+    test_num_wells = 24
+    bad_config = create_magnetometer_config_dict(test_num_wells)
+    bad_config[test_num_wells][SERIAL_COMM_NUM_DATA_CHANNELS] = False
+    test_config_dict = {
+        "magnetometer_config": bad_config,
+        "sampling_period": 20000,
+    }
+    response = test_client.post("/set_magnetometer_config", json=json.dumps(test_config_dict))
+    assert response.status_code == 400
+    assert (
+        response.status.endswith(
+            f"Configuration dictionary has invalid channel ID {SERIAL_COMM_NUM_DATA_CHANNELS} for module ID {test_num_wells}"
+        )
+        is True
+    )
+
+    bad_key = -1
+    bad_config[test_num_wells][bad_key] = True
+    response = test_client.post("/set_magnetometer_config", json=json.dumps(test_config_dict))
+    assert response.status_code == 400
+    assert (
+        response.status.endswith(
+            f"Configuration dictionary has invalid channel ID {bad_key} for module ID {test_num_wells}"
+        )
+        is True
+    )
+
+
+def test_set_magnetometer_config__returns_error_code_if_called_sampling_period_is_not_given_or_is_invalid(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+
+    test_num_wells = 24
+    config_dict = create_magnetometer_config_dict(test_num_wells)
+    test_config_dict = {
+        "magnetometer_config": config_dict,
+    }
+    response = test_client.post("/set_magnetometer_config", json=json.dumps(test_config_dict))
+    assert response.status_code == 400
+    assert response.status.endswith("Sampling period not specified") is True
+
+    bad_sampling_period = 1
+    test_config_dict["sampling_period"] = bad_sampling_period
+    response = test_client.post("/set_magnetometer_config", json=json.dumps(test_config_dict))
+    assert response.status_code == 400
+    assert response.status.endswith(f"Invalid sampling period {bad_sampling_period}") is True

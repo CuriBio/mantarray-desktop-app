@@ -250,6 +250,7 @@ from .utils import check_barcode_for_errors
 from .utils import create_magnetometer_config_dict
 from .utils import get_current_software_version
 from .utils import redact_sensitive_info_from_path
+from .utils import validate_magnetometer_config_keys
 
 if 6 < 9:  # pragma: no cover # protect this from zimports deleting the pylint disable statement
     from .data_parsing_cy import (  # pylint: disable=import-error # Tanner (8/25/20) unsure why pylint is unable to recognize cython import...
@@ -513,4 +514,5 @@ __all__ = [
     "CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION",
     "get_time_index_dataset_from_file",
     "InvalidStopRecordingTimepointError",
+    "validate_magnetometer_config_keys",
 ]

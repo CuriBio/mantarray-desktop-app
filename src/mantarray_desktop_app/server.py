@@ -3,18 +3,22 @@
 
 Custom HTTP Error Codes:
 
-* 204 - Call to /get_available_data when no available data in outgoing data queue from Data Analyzer.
+* 204 - Call to /get_available_data when no available data in outgoing data queue from Data Analyzer
 * 400 - Call to /start_recording with invalid or missing barcode parameter
 * 400 - Call to /set_mantarray_nickname with invalid nickname parameter
 * 400 - Call to /update_settings with unexpected argument, invalid account UUID, or a recording directory that doesn't exist
 * 400 - Call to /insert_xem_command_into_queue/set_mantarray_serial_number with invalid serial_number parameter
+* 400 - Call to /set_magnetometer_config with invalid configuration dict
+* 400 - Call to /set_magnetometer_config with invalid or missing sampling period
 * 403 - Call to /start_recording with is_hardware_test_recording=False after calling route with is_hardware_test_recording=True (default value)
-* 403 - Call to any /insert_xem_command_into_queue/* route or /boot_up when in Beta 2 mode
-* 403 - Call to any /set_magnetometer_config when in Beta 1 mode
+* 403 - Call to any /insert_xem_command_into_queue/* route when in Beta 2 mode
+* 403 - Call to /boot_up when in Beta 2 mode
+* 403 - Call to /set_magnetometer_config when in Beta 1 mode
+* 403 - Call to /set_magnetometer_config while data is streaming is Beta 2 mode
 * 404 - Route not implemented
+* 406 - Call to /start_managed_acquisition before magnetometer configuration is set
 * 406 - Call to /start_managed_acquisition when Mantarray device does not have a serial number assigned to it
 * 406 - Call to /start_recording before customer_account_uuid and user_account_uuid are set
-* 452 -
 * 520 - Electron and Flask EXE versions don't match
 """
 from __future__ import annotations
@@ -73,6 +77,7 @@ from stdlib_utils import put_log_message_into_queue
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import DEFAULT_SERVER_PORT_NUMBER
+from .constants import MICROSECONDS_PER_MILLISECOND
 from .constants import REFERENCE_VOLTAGE
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
@@ -92,6 +97,7 @@ from .request_handler import MantarrayRequestHandler
 from .utils import check_barcode_for_errors
 from .utils import convert_request_args_to_config_dict
 from .utils import get_current_software_version
+from .utils import validate_magnetometer_config_keys
 from .utils import validate_settings
 
 logger = logging.getLogger(__name__)
@@ -366,10 +372,27 @@ def set_magnetometer_config() -> Response:
 
     Not available for Beta 1 instruments.
     """
+    if not _get_values_from_process_monitor()["beta_2_mode"]:
+        return Response(status="403 Route cannot be called in beta 1 mode")
+    # load configuration
     magnetometer_config_dict_json = request.get_json()
     magnetometer_config_dict = json.loads(
         magnetometer_config_dict_json, object_hook=_fix_magnetometer_config_dict_keys
     )
+    # validate sampling period
+    try:
+        sampling_period = magnetometer_config_dict["sampling_period"]
+    except KeyError:
+        return Response(status="400 Sampling period not specified")
+    if sampling_period % MICROSECONDS_PER_MILLISECOND != 0:
+        return Response(status=f"400 Invalid sampling period {sampling_period}")
+    # validate configuration dictionary
+    num_wells = 24
+    error_msg = validate_magnetometer_config_keys(
+        magnetometer_config_dict["magnetometer_config"], 1, num_wells + 1
+    )
+    if error_msg:
+        return Response(status=f"400 {error_msg}")
 
     queue_command_to_main(
         {
@@ -385,8 +408,11 @@ def _fix_magnetometer_config_dict_keys(magnetometer_config_dict: Dict[str, Any])
     return {_fix_json_key(k): v for k, v in magnetometer_config_dict.items()}
 
 
-def _fix_json_key(key: Any) -> Union[int, str]:
-    return key if not key.isnumeric() else int(key)
+def _fix_json_key(key: str) -> Union[int, str]:
+    try:
+        return int(key)
+    except ValueError:
+        return key
 
 
 @flask_app.route("/start_recording", methods=["GET"])
