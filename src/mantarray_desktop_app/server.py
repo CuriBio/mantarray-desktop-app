@@ -9,7 +9,8 @@ Custom HTTP Error Codes:
 * 400 - Call to /update_settings with unexpected argument, invalid account UUID, or a recording directory that doesn't exist
 * 400 - Call to /insert_xem_command_into_queue/set_mantarray_serial_number with invalid serial_number parameter
 * 403 - Call to /start_recording with is_hardware_test_recording=False after calling route with is_hardware_test_recording=True (default value)
-* 403 - Call to any /insert_xem_command_into_queue/* route or /boot_up when in beta 2 mode
+* 403 - Call to any /insert_xem_command_into_queue/* route or /boot_up when in Beta 2 mode
+* 403 - Call to any /set_magnetometer_config when in Beta 1 mode
 * 404 - Route not implemented
 * 406 - Call to /start_managed_acquisition when Mantarray device does not have a serial number assigned to it
 * 406 - Call to /start_recording before customer_account_uuid and user_account_uuid are set
@@ -357,6 +358,35 @@ def update_settings() -> Response:
     )
     response = Response(json.dumps(request.args), mimetype="application/json")
     return response
+
+
+@flask_app.route("/set_magnetometer_config", methods=["POST"])
+def set_magnetometer_config() -> Response:
+    """Set the magnetometer configuration on a Beta 2 Mantarray.
+
+    Not available for Beta 1 instruments.
+    """
+    magnetometer_config_dict_json = request.get_json()
+    magnetometer_config_dict = json.loads(
+        magnetometer_config_dict_json, object_hook=_fix_magnetometer_config_dict_keys
+    )
+
+    queue_command_to_main(
+        {
+            "communication_type": "set_magnetometer_config",
+            "magnetometer_config_dict": magnetometer_config_dict,
+        }
+    )
+
+    return Response(magnetometer_config_dict_json, mimetype="application/json")
+
+
+def _fix_magnetometer_config_dict_keys(magnetometer_config_dict: Dict[str, Any]) -> Dict[Any, Any]:
+    return {_fix_json_key(k): v for k, v in magnetometer_config_dict.items()}
+
+
+def _fix_json_key(key: Any) -> Union[int, str]:
+    return key if not key.isnumeric() else int(key)
 
 
 @flask_app.route("/start_recording", methods=["GET"])

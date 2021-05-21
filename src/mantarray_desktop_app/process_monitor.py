@@ -101,8 +101,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
         with self._lock:
             logger.info(msg)
 
-    # pylint: disable=too-many-branches  # Tanner (4/23/21): temporarily need to add more than the allowed number of branches in order to support Beta 1 mode during transition to Beta 2 mode
     def _check_and_handle_server_to_main_queue(self) -> None:
+        # pylint: disable=too-many-branches  # Tanner (4/23/21): temporarily need to add more than the allowed number of branches in order to support Beta 1 mode during transition to Beta 2 mode
         process_manager = self._process_manager
         to_main_queue = process_manager.queue_container().get_communication_queue_from_server_to_main()
         try:
@@ -162,6 +162,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 )
                 process_manager.set_file_directory(new_recording_directory)
             update_shared_dict(shared_values_dict, new_values)
+        elif communication_type == "set_magnetometer_config":
+            self._values_to_share_to_server["magnetometer_config_dict"] = communication[
+                "magnetometer_config_dict"
+            ]
         elif communication_type == "xem_scripts":
             # Tanner (12/28/20): start_calibration is the only xem_scripts command that will come from server (called directly from /start_calibration). This comm type will be removed/replaced in beta 2 so not adding handling for unrecognized command.
             if shared_values_dict["beta_2_mode"]:
@@ -281,7 +285,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._values_to_share_to_server["utc_timestamps_of_beginning_of_data_acquisition"] = [
                     communication["timestamp"]
                 ]
-                # TODO Tanner (4/30/21): Eventually need to store the magnetometer configuration received from the frontend and verify that the instrument's configuration in the start data streaming response matches.
+                # TODO Tanner (5/20/21): Verify that the instrument's configuration in the start_data_streaming response matches the configuration in shared values dict.
             if command == "stop_managed_acquisition":
                 self._values_to_share_to_server["system_status"] = CALIBRATED_STATE
                 self._data_dump_buffer_size = 0

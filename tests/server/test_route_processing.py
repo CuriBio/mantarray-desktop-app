@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import datetime
+import json
 from multiprocessing import Queue
 import os
 import struct
@@ -11,6 +12,7 @@ from mantarray_desktop_app import BARCODE_VALID_UUID
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
+from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import get_api_endpoint
@@ -1510,7 +1512,6 @@ def test_send_single_get_status_command__gets_processed(test_process_manager, te
 
 @pytest.mark.slow
 def test_system_status__returns_correct_plate_barcode_and_status__only_when_barcode_changes(
-    # client_and_server_thread_and_shared_values,
     test_monitor,
     test_client,
 ):
@@ -1540,6 +1541,26 @@ def test_system_status__returns_correct_plate_barcode_and_status__only_when_barc
     response_json = response.get_json()
     assert "barcode_status" not in response_json
     assert "plate_barcode" not in response_json
+
+
+def test_set_magnetometer_config__gets_processed(test_monitor, test_client):
+    monitor_thread, shared_values_dict, _, _ = test_monitor
+    assert "magnetometer_config_dict" not in shared_values_dict
+
+    test_num_wells = 24
+    expected_config_dict = {
+        "magnetometer_config": create_magnetometer_config_dict(test_num_wells),
+        "sampling_period": 10000,
+    }
+
+    response = test_client.post("/set_magnetometer_config", json=json.dumps(expected_config_dict))
+    assert response.status_code == 200
+    response_json = response.get_json()
+    assert "magnetometer_config" in response_json
+    assert "sampling_period" in response_json
+
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert shared_values_dict["magnetometer_config_dict"] == expected_config_dict
 
 
 def test_system_status__returns_no_plate_barcode_and_status_when_none_present(
