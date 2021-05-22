@@ -2,11 +2,14 @@
 import json
 
 from mantarray_desktop_app import BUFFERING_STATE
+from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import ImproperlyFormattedCustomerAccountUUIDError
 from mantarray_desktop_app import ImproperlyFormattedUserAccountUUIDError
+from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
+from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import RecordingFolderDoesNotExistError
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import server
@@ -591,6 +594,7 @@ def test_set_magnetometer_config__returns_error_code_if_called_in_beta_1_mode(
 ):
     test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
     shared_values_dict["beta_2_mode"] = False
+    shared_values_dict["system_status"] = CALIBRATED_STATE
 
     response = test_client.post("/set_magnetometer_config")
     assert response.status_code == 403
@@ -602,6 +606,7 @@ def test_set_magnetometer_config__returns_error_code_if_called_with_config_dict_
 ):
     test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
 
     test_num_wells = 24
     bad_config = create_magnetometer_config_dict(test_num_wells - 1)
@@ -620,6 +625,7 @@ def test_set_magnetometer_config__returns_error_code_if_called_with_config_dict_
 ):
     test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
 
     test_num_wells = 24
     bad_config = create_magnetometer_config_dict(test_num_wells)
@@ -645,6 +651,7 @@ def test_set_magnetometer_config__returns_error_code_if_called_with_config_dict_
 ):
     test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
 
     test_num_wells = 24
     bad_config = create_magnetometer_config_dict(test_num_wells + 1)
@@ -671,6 +678,7 @@ def test_set_magnetometer_config__returns_error_code_if_called_with_config_dict_
 ):
     test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
 
     test_num_wells = 24
     bad_config = create_magnetometer_config_dict(test_num_wells)
@@ -705,6 +713,7 @@ def test_set_magnetometer_config__returns_error_code_if_called_sampling_period_i
 ):
     test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
 
     test_num_wells = 24
     config_dict = create_magnetometer_config_dict(test_num_wells)
@@ -715,8 +724,32 @@ def test_set_magnetometer_config__returns_error_code_if_called_sampling_period_i
     assert response.status_code == 400
     assert response.status.endswith("Sampling period not specified") is True
 
-    bad_sampling_period = 1
-    test_config_dict["sampling_period"] = bad_sampling_period
+
+@pytest.mark.parametrize(
+    "test_system_status,test_description",
+    [
+        (BUFFERING_STATE, "returns error code in buffering state"),
+        (LIVE_VIEW_ACTIVE_STATE, "returns error code in live view active state"),
+        (RECORDING_STATE, "returns error code in recording state"),
+    ],
+)
+def test_set_magnetometer_config__returns_error_code_if_called_while_data_is_streaming(
+    test_system_status,
+    test_description,
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = test_system_status
+
+    test_num_wells = 24
+    test_config_dict = {
+        "magnetometer_config": create_magnetometer_config_dict(test_num_wells),
+        "sampling_period": 100000,
+    }
     response = test_client.post("/set_magnetometer_config", json=json.dumps(test_config_dict))
-    assert response.status_code == 400
-    assert response.status.endswith(f"Invalid sampling period {bad_sampling_period}") is True
+    assert response.status_code == 403
+    assert (
+        response.status.endswith("Magnetometer Configuration cannot be changed while data is streaming")
+        is True
+    )

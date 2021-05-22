@@ -14,7 +14,7 @@ Custom HTTP Error Codes:
 * 403 - Call to any /insert_xem_command_into_queue/* route when in Beta 2 mode
 * 403 - Call to /boot_up when in Beta 2 mode
 * 403 - Call to /set_magnetometer_config when in Beta 1 mode
-* 403 - Call to /set_magnetometer_config while data is streaming is Beta 2 mode
+* 403 - Call to /set_magnetometer_config while data is streaming in Beta 2 mode
 * 404 - Route not implemented
 * 406 - Call to /start_managed_acquisition before magnetometer configuration is set
 * 406 - Call to /start_managed_acquisition when Mantarray device does not have a serial number assigned to it
@@ -74,10 +74,13 @@ from stdlib_utils import is_port_in_use
 from stdlib_utils import print_exception
 from stdlib_utils import put_log_message_into_queue
 
+from .constants import BUFFERING_STATE
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import DEFAULT_SERVER_PORT_NUMBER
+from .constants import LIVE_VIEW_ACTIVE_STATE
 from .constants import MICROSECONDS_PER_MILLISECOND
+from .constants import RECORDING_STATE
 from .constants import REFERENCE_VOLTAGE
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
@@ -374,6 +377,8 @@ def set_magnetometer_config() -> Response:
     """
     if not _get_values_from_process_monitor()["beta_2_mode"]:
         return Response(status="403 Route cannot be called in beta 1 mode")
+    if _is_data_streaming():
+        return Response(status="403 Magnetometer Configuration cannot be changed while data is streaming")
     # load configuration
     magnetometer_config_dict_json = request.get_json()
     magnetometer_config_dict = json.loads(
@@ -413,6 +418,11 @@ def _fix_json_key(key: str) -> Union[int, str]:
         return int(key)
     except ValueError:
         return key
+
+
+def _is_data_streaming() -> bool:
+    current_system_status = _get_values_from_process_monitor()["system_status"]
+    return current_system_status in (BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE, RECORDING_STATE)
 
 
 @flask_app.route("/start_recording", methods=["GET"])

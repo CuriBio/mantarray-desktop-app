@@ -1545,6 +1545,7 @@ def test_system_status__returns_correct_plate_barcode_and_status__only_when_barc
 
 def test_set_magnetometer_config__gets_processed(test_monitor, test_client):
     monitor_thread, shared_values_dict, _, _ = test_monitor
+    shared_values_dict["system_status"] = CALIBRATED_STATE
     assert "magnetometer_config_dict" not in shared_values_dict
 
     test_num_wells = 24
