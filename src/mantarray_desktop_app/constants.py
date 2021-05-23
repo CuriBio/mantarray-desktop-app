@@ -86,7 +86,7 @@ FIFO_READ_PRODUCER_WELL_AMPLITUDE = 0xA8000
 FIFO_READ_PRODUCER_REF_AMPLITUDE = 0x100000
 
 MIDSCALE_CODE = 0x800000
-REFERENCE_VOLTAGE = 2.5  # TODO Tanner (7/16/20): remove this once the read_wire_out value is implemented
+REFERENCE_VOLTAGE = 2.5  # TODO Tanner (5/22/21): Determine if this value is still needed for Beta 2
 ADC_GAIN = 2
 RAW_TO_SIGNED_CONVERSION_VALUE = 2 ** 23  # subtract this value from raw hardware data
 MILLIVOLTS_PER_VOLT = 1000

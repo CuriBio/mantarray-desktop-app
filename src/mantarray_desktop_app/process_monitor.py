@@ -36,6 +36,7 @@ from .constants import RECORDING_STATE
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
+from .exceptions import IncorrectMagnetometerConfigFromInstrumentError
 from .exceptions import UnrecognizedCommandToInstrumentError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
 from .exceptions import UnrecognizedRecordingCommandError
@@ -250,6 +251,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     self._values_to_share_to_server["system_status"] = LIVE_VIEW_ACTIVE_STATE
 
     def _check_and_handle_instrument_comm_to_main_queue(self) -> None:
+        # pylint: disable=too-many-branches  # Tanner (5/22/21): many branches needed here
         process_manager = self._process_manager
         instrument_comm_to_main = (
             process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
@@ -288,10 +290,15 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         if communication_type in ["acquisition_manager", "to_instrument"]:
             if command == "start_managed_acquisition":
+                # TODO Tanner (5/22/21): Should add a way to check the sampling period as well
+                if (
+                    self._values_to_share_to_server["magnetometer_config_dict"]["magnetometer_config"]
+                    != communication["magnetometer_config"]
+                ):
+                    raise IncorrectMagnetometerConfigFromInstrumentError()
                 self._values_to_share_to_server["utc_timestamps_of_beginning_of_data_acquisition"] = [
                     communication["timestamp"]
                 ]
-                # TODO Tanner (5/20/21): Verify that the instrument's configuration in the start_data_streaming response matches the configuration in shared values dict.
             if command == "stop_managed_acquisition":
                 self._values_to_share_to_server["system_status"] = CALIBRATED_STATE
                 self._data_dump_buffer_size = 0

@@ -206,6 +206,10 @@ class InstrumentRebootTimeoutError(Exception):
     pass
 
 
+class IncorrectMagnetometerConfigFromInstrumentError(Exception):
+    pass
+
+
 class InstrumentDataStreamingAlreadyStartedError(Exception):
     pass
 

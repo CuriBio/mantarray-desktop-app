@@ -1155,7 +1155,7 @@ def test_send_single_start_managed_acquisition_command__sets_system_status_to_bu
     communication = comm_from_da_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_managed_acquisition"
 
-    # clean up teardown messages in Instrument queue
+    # clean up teardown messages in Instrument Comm queue
     drain_queue(comm_from_ok_queue)
 
     # clean up

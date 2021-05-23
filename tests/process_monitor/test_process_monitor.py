@@ -15,6 +15,7 @@ from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import create_magnetometer_config_dict
+from mantarray_desktop_app import IncorrectMagnetometerConfigFromInstrumentError
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import MantarrayMcSimulator
@@ -25,6 +26,7 @@ from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import process_monitor
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import RunningFIFOSimulator
+from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
@@ -1083,3 +1085,31 @@ def test_MantarrayProcessesMonitor__passes_magnetometer_config_dict_from_server_
     expected_comm_to_ic.update(expected_config_dict)
     actual = main_to_ic_queue.get_nowait()
     assert actual == expected_comm_to_ic
+
+
+def test_MantarrayProcessesMonitor__raises_error_if_config_dict_in_start_data_stream_command_response_from_instrument_does_not_match_expected_value(
+    test_process_manager, test_monitor
+):
+    monitor_thread, shared_values_dict, _, _ = test_monitor
+    queues = test_process_manager.queue_container()
+    ic_to_main_queue = queues.get_communication_queue_from_instrument_comm_to_main(0)
+
+    test_num_wells = 24
+    expected_config_dict = create_magnetometer_config_dict(test_num_wells)
+    shared_values_dict["magnetometer_config_dict"] = {
+        "magnetometer_config": copy.deepcopy(expected_config_dict)
+    }
+
+    # Tanner (5/22/21): `x ^= True` flips the Boolean value of x. Doing this guards against changes to the default configuration value
+    expected_config_dict[1][SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]] ^= True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {
+            "communication_type": "to_instrument",
+            "command": "start_managed_acquisition",
+            "magnetometer_config": expected_config_dict,
+            "timestamp": None,
+        },
+        ic_to_main_queue,
+    )
+    with pytest.raises(IncorrectMagnetometerConfigFromInstrumentError):
+        invoke_process_run_and_check_errors(monitor_thread)

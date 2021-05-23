@@ -436,7 +436,6 @@ def start_recording() -> Response:
         active_well_indices: [Optional, default=all 24] CSV of well indices to record from
         time_index: [Optional, int] centimilliseconds since acquisition began to start the recording at. Defaults to when this command is received
     """
-    # TODO Tanner (4/21/21): when the new route is added to set sampling periods, need to make sure that software isn't recording to file before passing command to McComm
     board_idx = 0
 
     if "barcode" not in request.args:
@@ -575,26 +574,26 @@ def stop_recording() -> Response:
     comm_dict["timepoint_to_stop_recording_at"] = stop_timepoint
 
     response = queue_command_to_main(comm_dict)
-
     return response
 
 
 @flask_app.route("/start_managed_acquisition", methods=["GET"])
 def start_managed_acquisition() -> Response:
-    """Begin "managed" data acquisition on the Mantarray.
+    """Begin "managed" data acquisition (AKA data streaming) on the Mantarray.
 
     Can be invoked by:
 
     `curl http://localhost:4567/start_managed_acquisition`
     """
-    # TODO Tanner (5/12/21): When beta 2 route is added to change magnetometer configuration, need to make sure that data is not streaming first. Should return error code if data is streaming
     shared_values_dict = _get_values_from_process_monitor()
     if not shared_values_dict["mantarray_serial_number"][0]:
         response = Response(status="406 Mantarray has not been assigned a Serial Number")
         return response
+    if "magnetometer_config_dict" not in shared_values_dict:
+        response = Response(status="406 Magnetometer Configuration has not been set yet")
+        return response
 
     response = queue_command_to_main(START_MANAGED_ACQUISITION_COMMUNICATION)
-
     return response
 
 
@@ -639,9 +638,7 @@ def set_mantarray_serial_number() -> Response:
         "command": "set_mantarray_serial_number",
         "mantarray_serial_number": serial_number,
     }
-
     response = queue_command_to_main(comm_dict)
-
     return response
 
 
@@ -664,9 +661,7 @@ def queue_initialize_board() -> Response:
         "allow_board_reinitialization": allow_board_reinitialization,
         "suppress_error": True,
     }
-
     response = queue_command_to_instrument_comm(comm_dict)
-
     return response
 
 
@@ -685,9 +680,7 @@ def queue_activate_trigger_in() -> Response:
         "bit": bit,
         "suppress_error": True,
     }
-
     response = queue_command_to_instrument_comm(comm_dict)
-
     return response
 
 
@@ -706,9 +699,7 @@ def queue_comm_delay() -> Response:
         "num_milliseconds": num_milliseconds,
         "suppress_error": True,
     }
-
     response = queue_command_to_instrument_comm(comm_dict)
-
     return response
 
 
@@ -741,9 +732,7 @@ def queue_get_num_words_fifo() -> Response:
         "command": "get_num_words_fifo",
         "suppress_error": True,
     }
-
     response = queue_command_to_instrument_comm(comm_dict)
-
     return response
 
 

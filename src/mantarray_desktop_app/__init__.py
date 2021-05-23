@@ -149,6 +149,7 @@ from .exceptions import FirmwareFileNameDoesNotMatchWireOutVersionError
 from .exceptions import FirstManagedReadLessThanOneRoundRobinError
 from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
 from .exceptions import ImproperlyFormattedUserAccountUUIDError
+from .exceptions import IncorrectMagnetometerConfigFromInstrumentError
 from .exceptions import InstrumentCommIncorrectHeaderError
 from .exceptions import InstrumentDataStreamingAlreadyStartedError
 from .exceptions import InstrumentDataStreamingAlreadyStoppedError
@@ -515,4 +516,5 @@ __all__ = [
     "get_time_index_dataset_from_file",
     "InvalidStopRecordingTimepointError",
     "validate_magnetometer_config_keys",
+    "IncorrectMagnetometerConfigFromInstrumentError",
 ]

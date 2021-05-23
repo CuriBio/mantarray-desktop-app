@@ -9,6 +9,7 @@ from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import ImproperlyFormattedCustomerAccountUUIDError
 from mantarray_desktop_app import ImproperlyFormattedUserAccountUUIDError
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
+from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import RecordingFolderDoesNotExistError
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
@@ -753,3 +754,16 @@ def test_set_magnetometer_config__returns_error_code_if_called_while_data_is_str
         response.status.endswith("Magnetometer Configuration cannot be changed while data is streaming")
         is True
     )
+
+
+def test_start_managed_acquisition__returns_error_code_if_called_in_beta_2_mode_before_magnetometer_configuration_is_set(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["mantarray_serial_number"] = MantarrayMcSimulator.default_mantarray_serial_number
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+
+    response = test_client.get("/start_managed_acquisition")
+    assert response.status_code == 406
+    assert response.status.endswith("Magnetometer Configuration has not been set yet") is True
