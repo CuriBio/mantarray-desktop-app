@@ -591,7 +591,7 @@ def start_managed_acquisition() -> Response:
     if not shared_values_dict["mantarray_serial_number"][0]:
         response = Response(status="406 Mantarray has not been assigned a Serial Number")
         return response
-    if "magnetometer_config_dict" not in shared_values_dict:
+    if shared_values_dict["beta_2_mode"] and "magnetometer_config_dict" not in shared_values_dict:
         response = Response(status="406 Magnetometer Configuration has not been set yet")
         return response
 
