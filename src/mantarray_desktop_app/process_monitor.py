@@ -292,7 +292,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
             if command == "start_managed_acquisition":
                 # TODO Tanner (5/22/21): Should add a way to check the sampling period as well
                 if (
-                    self._values_to_share_to_server["magnetometer_config_dict"]["magnetometer_config"]
+                    self._values_to_share_to_server["beta_2_mode"]
+                    and self._values_to_share_to_server["magnetometer_config_dict"]["magnetometer_config"]
                     != communication["magnetometer_config"]
                 ):
                     raise IncorrectMagnetometerConfigFromInstrumentError()

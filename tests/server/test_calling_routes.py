@@ -725,6 +725,12 @@ def test_set_magnetometer_config__returns_error_code_if_called_sampling_period_i
     assert response.status_code == 400
     assert response.status.endswith("Sampling period not specified") is True
 
+    bad_sampling_period = 1
+    test_config_dict["sampling_period"] = bad_sampling_period
+    response = test_client.post("/set_magnetometer_config", json=json.dumps(test_config_dict))
+    assert response.status_code == 400
+    assert response.status.endswith(f"Invalid sampling period {bad_sampling_period}") is True
+
 
 @pytest.mark.parametrize(
     "test_system_status,test_description",

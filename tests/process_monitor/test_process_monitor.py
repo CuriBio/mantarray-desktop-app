@@ -1099,6 +1099,7 @@ def test_MantarrayProcessesMonitor__raises_error_if_config_dict_in_start_data_st
     shared_values_dict["magnetometer_config_dict"] = {
         "magnetometer_config": copy.deepcopy(expected_config_dict)
     }
+    shared_values_dict["beta_2_mode"] = True
 
     # Tanner (5/22/21): `x ^= True` flips the Boolean value of x. Doing this guards against changes to the default configuration value
     expected_config_dict[1][SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]] ^= True
