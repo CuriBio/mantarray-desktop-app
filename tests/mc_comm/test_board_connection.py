@@ -539,7 +539,7 @@ def test_McCommunicationProcess__raises_error_if_reboot_takes_longer_than_maximu
         invoke_process_run_and_check_errors(mc_process)
 
 
-def test_McCommunicationProcess__requests_metadata_from_instrument_after_it_initially_reaches_idle_ready_state(
+def test_McCommunicationProcess__requests_metadata_from_instrument_after_it_initially_reaches_idle_ready_state__if_setup_before_loop_was_performed(
     four_board_mc_comm_process_no_handshake, mantarray_mc_simulator, mocker
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
@@ -554,6 +554,11 @@ def test_McCommunicationProcess__requests_metadata_from_instrument_after_it_init
         return_value=0,
         autospec=True,
     )
+    mocker.patch.object(  # Tanner (5/22/21): performing set up before loop means that mc_comm will try to start the simulator process which will slow this test down
+        simulator, "start", autospec=True
+    )
+
+    invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
 
     # put simulator in time sync ready status and send beacon
     test_commands = [

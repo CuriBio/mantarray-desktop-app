@@ -184,6 +184,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             while not board.is_start_up_complete():
                 # sleep so as to not relentlessly ping the simulator
                 sleep(0.1)
+        self._auto_get_metadata = True
 
     def _teardown_after_loop(self) -> None:
         board_idx = 0
@@ -240,6 +241,9 @@ class McCommunicationProcess(InstrumentCommProcess):
         num_boards_connected = self.determine_how_many_boards_are_connected()
         to_main_queue = self._board_queues[0][1]
         for i in range(num_boards_connected):
+            # don't make new connection if a board is already connected
+            if self._board_connections[i] is not None:
+                continue
             msg = {
                 "communication_type": "board_connection_status_change",
                 "board_index": i,
@@ -541,7 +545,6 @@ class McCommunicationProcess(InstrumentCommProcess):
                         "timepoint": perf_counter(),
                     }
                 )
-                self._auto_get_metadata = True
             elif status_code == SERIAL_COMM_IDLE_READY_CODE and self._auto_get_metadata:
                 self._send_data_packet(
                     board_idx,

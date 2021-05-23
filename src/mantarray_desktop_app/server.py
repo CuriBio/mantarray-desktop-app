@@ -265,7 +265,7 @@ def system_status() -> Response:
 def get_available_data() -> Response:
     """Get available data if any from Data Analyzer.
 
-    Can be invoked by curl http://localhost:4567/get_available_data
+    Can be invoked by: curl http://localhost:4567/get_available_data
     """
     server_thread = get_the_server_thread()
     data_out_queue = server_thread.get_data_analyzer_data_out_queue()
@@ -285,7 +285,7 @@ def set_mantarray_nickname() -> Response:
 
     This route will not overwrite an existing Mantarray Serial Number.
 
-    Can be invoked by curl 'http://localhost:4567/set_mantarray_nickname?nickname=My Mantarray'
+    Can be invoked by: curl 'http://localhost:4567/set_mantarray_nickname?nickname=My Mantarray'
     """
     shared_values_dict = _get_values_from_process_monitor()
     max_num_bytes = SERIAL_COMM_METADATA_BYTES_LENGTH if shared_values_dict["beta_2_mode"] else 23
@@ -342,7 +342,7 @@ def boot_up() -> Response:
 def update_settings() -> Response:
     """Update the user settings.
 
-    Can be invoked by curl http://localhost:4567/update_settings?customer_account_uuid=<UUID>&user_account_uuid=<UUID>&recording_directory=recording_dir
+    Can be invoked by: curl http://localhost:4567/update_settings?customer_account_uuid=<UUID>&user_account_uuid=<UUID>&recording_directory=recording_dir
     """
     for arg in request.args:
         if arg not in VALID_CONFIG_SETTINGS:
@@ -374,6 +374,8 @@ def set_magnetometer_config() -> Response:
     """Set the magnetometer configuration on a Beta 2 Mantarray.
 
     Not available for Beta 1 instruments.
+
+    Can be invoked by: curl -d '<magnetometer configuration as json>' -H 'Content-Type: application/json' -X POST http://localhost:4567/set_magnetometer_config
     """
     if not _get_values_from_process_monitor()["beta_2_mode"]:
         return Response(status="403 Route cannot be called in beta 1 mode")
@@ -625,7 +627,7 @@ def set_mantarray_serial_number() -> Response:
 
     This route will overwrite an existing Mantarray Nickname if present
 
-    Can be invoked by curl http://localhost:4567/insert_xem_command_into_queue/set_mantarray_serial_number?serial_number=M02001900
+    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/set_mantarray_serial_number?serial_number=M02001900
     """
     serial_number = request.args["serial_number"]
     error_message = check_mantarray_serial_number(serial_number)
@@ -707,7 +709,7 @@ def queue_comm_delay() -> Response:
 def dev_begin_hardware_script() -> Response:
     """Designate the beginning of a hardware script in flask log.
 
-    Can be invoked by curl "http://localhost:4567/development/begin_hardware_script?script_type=ENUM&version=integer"
+    Can be invoked by: curl "http://localhost:4567/development/begin_hardware_script?script_type=ENUM&version=integer"
     """
     return Response(json.dumps({}), mimetype="application/json")
 
@@ -716,7 +718,7 @@ def dev_begin_hardware_script() -> Response:
 def dev_end_hardware_script() -> Response:
     """Designate the end of a hardware script in flask log.
 
-    Can be invoked by curl http://localhost:4567/development/end_hardware_script
+    Can be invoked by: curl http://localhost:4567/development/end_hardware_script
     """
     return Response(json.dumps({}), mimetype="application/json")
 
@@ -890,7 +892,7 @@ def queue_set_wire_in() -> Response:
 def run_xem_script() -> Response:
     """Run a script of XEM commands created from an existing flask log.
 
-    Can be invoked by curl http://localhost:4567/xem_scripts?script_type=start_up
+    Can be invoked by: curl http://localhost:4567/xem_scripts?script_type=start_up
     """
     script_type = request.args["script_type"]
     comm_dict = {"communication_type": "xem_scripts", "script_type": script_type}
