@@ -198,6 +198,7 @@ STOP_MANAGED_ACQUISITION_COMMUNICATION = immutabledict(
     }
 )
 
+# TODO Tanner (5/22/21): Add Beta 2 states and remove Beta 1 specific states once phased out
 SERVER_INITIALIZING_STATE = "server_initializing"
 SERVER_READY_STATE = "server_ready"
 INSTRUMENT_INITIALIZING_STATE = "instrument_initializing"

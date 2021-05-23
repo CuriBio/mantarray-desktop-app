@@ -96,6 +96,7 @@ from ..fixtures import fixture_fully_running_app_from_main_entrypoint
 from ..fixtures import fixture_patched_firmware_folder
 from ..fixtures import fixture_patched_xem_scripts_folder
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
+from ..fixtures_file_writer import GENERIC_BOARD_MAGNETOMETER_CONFIGURATION
 from ..fixtures_file_writer import WELL_DEF_24
 from ..helpers import confirm_queue_is_eventually_empty
 
@@ -736,14 +737,32 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
 
     assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
 
+    # Tanner (5/22/21): Set magnetometer configuration so data streaming can be initiated
+    expected_sampling_period = 10000
+    magnetometer_config_dict = {
+        "magnetometer_config": GENERIC_BOARD_MAGNETOMETER_CONFIGURATION,
+        "sampling_period": expected_sampling_period,
+    }
+    response = requests.post(
+        f"{get_api_endpoint()}set_magnetometer_config", json=json.dumps(magnetometer_config_dict)
+    )
+    assert response.status_code == 200
+
+    # TODO Tanner (5/22/21): Should eventually remove this route call as it is not needed for Beta 2 and is only used right now to put the system in the calibrated state
     # Tanner (12/30/20): Calibrate instrument in order to start managed_acquisition
     response = requests.get(f"{get_api_endpoint()}start_calibration")
     assert response.status_code == 200
     assert system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
 
-    # TODO Tanner (12/30/20): Run managed_acquisition to confirm system can reach buffering state once update_magnetometer_config route is added. Will eventually confirm the system reaches live view active once the data path can handle beta 2 data
+    # TODO Tanner (12/30/20): Confirm system reaches live view active once the data analyzer is updated to handle beta 2 data
+    # Tanner (12/30/20): start managed_acquisition in order to start recording
+    response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
+    assert response.status_code == 200
 
-    # TODO Tanner (5/19/21): test recorded files once start_recording route is updated and update_magnetometer_config route is added (might also want to add a simple version of the route for hardware team)
+    # Tanner (12/30/20): managed_acquisition will take system through buffering state and then to live_view active state before recording can start
+    assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
+
+    # TODO Tanner (5/19/21): test recorded files once data analyzer and start_recording route are updated
 
     # Tanner (12/29/20): Good to do this at the end of tests to make sure they don't cause problems with other integration tests
     test_process_manager.hard_stop_and_join_processes()
