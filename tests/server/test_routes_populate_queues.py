@@ -11,18 +11,24 @@ from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
+from mantarray_file_manager import BOOTUP_COUNTER_UUID
 from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
+from mantarray_file_manager import MAGNETOMETER_CONFIGURATION_UUID
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
+from mantarray_file_manager import PCB_SERIAL_NUMBER_UUID
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import REFERENCE_VOLTAGE_UUID
 from mantarray_file_manager import SLEEP_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
 from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
 from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
+from mantarray_file_manager import TAMPER_FLAG_UUID
+from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
+from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
 from mantarray_file_manager import USER_ACCOUNT_ID_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
@@ -34,10 +40,12 @@ from ..fixtures import fixture_generic_queue_container
 from ..fixtures import fixture_test_process_manager
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
+from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from ..fixtures_process_monitor import fixture_test_monitor
 from ..fixtures_server import fixture_client_and_server_thread_and_shared_values
 from ..fixtures_server import fixture_generic_beta_1_start_recording_info_in_shared_dict
+from ..fixtures_server import fixture_generic_beta_2_start_recording_info_in_shared_dict
 from ..fixtures_server import fixture_server_thread
 from ..fixtures_server import fixture_test_client
 from ..helpers import confirm_queue_is_eventually_of_size
@@ -49,6 +57,7 @@ __fixtures__ = [
     fixture_server_thread,
     fixture_generic_queue_container,
     fixture_test_client,
+    fixture_generic_beta_2_start_recording_info_in_shared_dict,
     fixture_generic_beta_1_start_recording_info_in_shared_dict,
     fixture_test_process_manager,
     fixture_test_monitor,
@@ -838,7 +847,7 @@ def test_start_recording_command__correctly_sets_barcode_from_scanner_value(
         / CENTIMILLISECONDS_PER_SECOND
     )
 )
-def test_start_recording_command__populates_queue__with_defaults__24_wells__utcnow_recording_start_time__and_metadata(
+def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__24_wells__utcnow_recording_start_time__and_metadata(
     test_process_manager, test_client, generic_beta_1_start_recording_info_in_shared_dict
 ):
     expected_acquisition_timestamp = datetime.datetime(  # pylint: disable=duplicate-code
@@ -946,6 +955,139 @@ def test_start_recording_command__populates_queue__with_defaults__24_wells__utcn
     assert (
         communication["timepoint_to_begin_recording_at"]
         == GENERIC_BETA_1_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
+    )
+    response_json = response.get_json()
+    assert response_json["command"] == "start_recording"
+
+
+@freeze_time(
+    datetime.datetime(year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332598)
+    + datetime.timedelta(
+        seconds=GENERIC_BETA_2_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
+        / CENTIMILLISECONDS_PER_SECOND
+    )
+)
+def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__24_wells__utcnow_recording_start_time__and_metadata(
+    test_process_manager, test_client, generic_beta_2_start_recording_info_in_shared_dict
+):
+    expected_acquisition_timestamp = datetime.datetime(  # pylint: disable=duplicate-code
+        year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332598
+    )
+    expected_recording_timepoint = GENERIC_BETA_2_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
+    expected_recording_timestamp = expected_acquisition_timestamp + datetime.timedelta(
+        seconds=(expected_recording_timepoint / CENTIMILLISECONDS_PER_SECOND)
+    )
+
+    generic_beta_2_start_recording_info_in_shared_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [
+        expected_acquisition_timestamp
+    ]
+
+    expected_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+        PLATE_BARCODE_UUID
+    ]
+    response = test_client.get(
+        f"/start_recording?barcode={expected_barcode}&is_hardware_test_recording=false"
+    )
+    assert response.status_code == 200
+
+    comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    confirm_queue_is_eventually_of_size(comm_queue, 1)
+    communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["command"] == "start_recording"
+
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][UTC_BEGINNING_DATA_ACQUISTION_UUID]
+        == expected_acquisition_timestamp
+    )
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][UTC_BEGINNING_RECORDING_UUID]
+        == expected_recording_timestamp
+    )
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][CUSTOMER_ACCOUNT_ID_UUID]
+        == generic_beta_2_start_recording_info_in_shared_dict["config_settings"]["Customer Account ID"]
+    )
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][USER_ACCOUNT_ID_UUID]
+        == generic_beta_2_start_recording_info_in_shared_dict["config_settings"]["User Account ID"]
+    )
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][START_RECORDING_TIME_INDEX_UUID]
+        == expected_recording_timepoint
+    )
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][SOFTWARE_BUILD_NUMBER_UUID]
+        == COMPILED_EXE_BUILD_TIMESTAMP
+    )
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][SOFTWARE_RELEASE_VERSION_UUID]
+        == CURRENT_SOFTWARE_VERSION
+    )
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][MAIN_FIRMWARE_VERSION_UUID]
+        == generic_beta_2_start_recording_info_in_shared_dict["main_firmware_version"][0]
+    )
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][MANTARRAY_SERIAL_NUMBER_UUID]
+        == generic_beta_2_start_recording_info_in_shared_dict["mantarray_serial_number"][0]
+    )
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][MANTARRAY_NICKNAME_UUID]
+        == generic_beta_2_start_recording_info_in_shared_dict["mantarray_nickname"][0]
+    )
+    assert communication["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_UUID] == expected_barcode
+    assert communication["metadata_to_copy_onto_main_file_attributes"][HARDWARE_TEST_RECORDING_UUID] is False
+    magnetometer_config_dict = generic_beta_2_start_recording_info_in_shared_dict["magnetometer_config_dict"]
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][TISSUE_SAMPLING_PERIOD_UUID]
+        == magnetometer_config_dict["sampling_period"]
+    )
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][MAGNETOMETER_CONFIGURATION_UUID]
+        == magnetometer_config_dict["magnetometer_config"]
+    )
+    # metadata values from instrument
+    instrument_metadata = generic_beta_2_start_recording_info_in_shared_dict["instrument_metadata"][0]
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][BOOTUP_COUNTER_UUID]
+        == instrument_metadata[BOOTUP_COUNTER_UUID]
+    )
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][TOTAL_WORKING_HOURS_UUID]
+        == instrument_metadata[TOTAL_WORKING_HOURS_UUID]
+    )
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][TAMPER_FLAG_UUID]
+        == instrument_metadata[TAMPER_FLAG_UUID]
+    )
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][PCB_SERIAL_NUMBER_UUID]
+        == instrument_metadata[PCB_SERIAL_NUMBER_UUID]
+    )
+    # make sure current beta 1 only values are not present
+    assert SLEEP_FIRMWARE_VERSION_UUID not in communication["metadata_to_copy_onto_main_file_attributes"]
+    assert XEM_SERIAL_NUMBER_UUID not in communication["metadata_to_copy_onto_main_file_attributes"]
+    assert REFERENCE_VOLTAGE not in communication["metadata_to_copy_onto_main_file_attributes"]
+    assert ADC_GAIN_SETTING_UUID not in communication["metadata_to_copy_onto_main_file_attributes"]
+    assert "adc_offsets" not in communication["metadata_to_copy_onto_main_file_attributes"]
+
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][BACKEND_LOG_UUID]
+        == GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+            BACKEND_LOG_UUID
+        ]
+    )
+    assert communication["metadata_to_copy_onto_main_file_attributes"][BARCODE_IS_FROM_SCANNER_UUID] is True
+    assert (  # pylint: disable=duplicate-code
+        communication["metadata_to_copy_onto_main_file_attributes"][COMPUTER_NAME_HASH_UUID]
+        == GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+            COMPUTER_NAME_HASH_UUID
+        ]
+    )
+    assert set(communication["active_well_indices"]) == set(range(24))
+    assert (
+        communication["timepoint_to_begin_recording_at"]
+        == GENERIC_BETA_2_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
     )
     response_json = response.get_json()
     assert response_json["command"] == "start_recording"

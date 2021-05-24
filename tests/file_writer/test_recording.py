@@ -194,20 +194,6 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
             this_file.attrs[str(MANTARRAY_SERIAL_NUMBER_UUID)]
             == simulator_class.default_mantarray_serial_number
         )
-        assert this_file.attrs[str(REFERENCE_VOLTAGE_UUID)] == REFERENCE_VOLTAGE
-        assert this_file.attrs[str(ADC_GAIN_SETTING_UUID)] == 32
-        assert (
-            this_file.attrs[str(ADC_TISSUE_OFFSET_UUID)]
-            == start_recording_command["metadata_to_copy_onto_main_file_attributes"]["adc_offsets"][well_idx][
-                "construct"
-            ]
-        )
-        assert (
-            this_file.attrs[str(ADC_REF_OFFSET_UUID)]
-            == start_recording_command["metadata_to_copy_onto_main_file_attributes"]["adc_offsets"][well_idx][
-                "ref"
-            ]
-        )
 
         assert this_file.attrs["Metadata UUID Descriptions"] == json.dumps(str(METADATA_UUID_DESCRIPTIONS))
         assert (
@@ -222,14 +208,6 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         assert bool(this_file.attrs[str(IS_FILE_ORIGINAL_UNTRIMMED_UUID)]) is True
         assert this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_START_UUID)] == 0
         assert this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_END_UUID)] == 0
-        assert (
-            this_file.attrs[str(REF_SAMPLING_PERIOD_UUID)]
-            == REFERENCE_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
-        )
-        assert (
-            this_file.attrs[str(TISSUE_SAMPLING_PERIOD_UUID)]
-            == CONSTRUCT_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
-        )
         assert (
             this_file.attrs[str(COMPUTER_NAME_HASH_UUID)]
             == start_recording_command["metadata_to_copy_onto_main_file_attributes"][COMPUTER_NAME_HASH_UUID]
@@ -246,11 +224,47 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
             assert (
                 this_file.attrs[str(XEM_SERIAL_NUMBER_UUID)] == RunningFIFOSimulator.default_xem_serial_number
             )
+            assert (
+                this_file.attrs[str(TISSUE_SAMPLING_PERIOD_UUID)]
+                == CONSTRUCT_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
+            )
+            assert (
+                this_file.attrs[str(REF_SAMPLING_PERIOD_UUID)]
+                == REFERENCE_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
+            )
+            assert this_file.attrs[str(REFERENCE_VOLTAGE_UUID)] == REFERENCE_VOLTAGE
+            assert this_file.attrs[str(ADC_GAIN_SETTING_UUID)] == 32
+            assert (
+                this_file.attrs[str(ADC_TISSUE_OFFSET_UUID)]
+                == start_recording_command["metadata_to_copy_onto_main_file_attributes"]["adc_offsets"][
+                    well_idx
+                ]["construct"]
+            )
+            assert (
+                this_file.attrs[str(ADC_REF_OFFSET_UUID)]
+                == start_recording_command["metadata_to_copy_onto_main_file_attributes"]["adc_offsets"][
+                    well_idx
+                ]["ref"]
+            )
         else:
+            # check that current beta 1 only values are not present
+            assert str(SLEEP_FIRMWARE_VERSION_UUID) not in this_file.attrs
+            assert str(XEM_SERIAL_NUMBER_UUID) not in this_file.attrs
+            assert str(REF_SAMPLING_PERIOD_UUID) not in this_file.attrs
+            assert str(ADC_GAIN_SETTING_UUID) not in this_file.attrs
+            assert str(ADC_TISSUE_OFFSET_UUID) not in this_file.attrs
+            assert str(ADC_REF_OFFSET_UUID) not in this_file.attrs
+            # check that beta 2 value are present
             assert this_file.attrs[str(MAGNETOMETER_CONFIGURATION_UUID)] == json.dumps(
                 start_recording_command["metadata_to_copy_onto_main_file_attributes"][
                     MAGNETOMETER_CONFIGURATION_UUID
                 ][well_idx + 1]
+            )
+            assert (
+                this_file.attrs[str(TISSUE_SAMPLING_PERIOD_UUID)]
+                == start_recording_command["metadata_to_copy_onto_main_file_attributes"][
+                    TISSUE_SAMPLING_PERIOD_UUID
+                ]
             )
             assert (
                 this_file.attrs[str(BOOTUP_COUNTER_UUID)]

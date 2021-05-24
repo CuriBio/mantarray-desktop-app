@@ -397,12 +397,13 @@ class FileWriterProcess(InfiniteProcess):
             this_file.attrs[str(WELL_ROW_UUID)] = this_row
             this_file.attrs[str(WELL_COLUMN_UUID)] = this_col
             this_file.attrs[str(WELL_INDEX_UUID)] = this_well_idx
-            this_file.attrs[str(REF_SAMPLING_PERIOD_UUID)] = (
-                REFERENCE_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
-            )
-            this_file.attrs[str(TISSUE_SAMPLING_PERIOD_UUID)] = (
-                CONSTRUCT_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
-            )
+            if not self._beta_2_mode:
+                this_file.attrs[str(REF_SAMPLING_PERIOD_UUID)] = (
+                    REFERENCE_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
+                )
+                this_file.attrs[str(TISSUE_SAMPLING_PERIOD_UUID)] = (
+                    CONSTRUCT_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
+                )
             this_file.attrs[str(TOTAL_WELL_COUNT_UUID)] = 24
             this_file.attrs[str(IS_FILE_ORIGINAL_UNTRIMMED_UUID)] = True
             this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_START_UUID)] = 0

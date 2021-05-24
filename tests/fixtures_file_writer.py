@@ -44,6 +44,7 @@ from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
 from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
 from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
 from mantarray_file_manager import TAMPER_FLAG_UUID
+from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
 from mantarray_file_manager import USER_ACCOUNT_ID_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
@@ -97,9 +98,6 @@ GENERIC_BASE_START_RECORDING_COMMAND: Dict[str, Any] = {
         USER_ACCOUNT_ID_UUID: CURI_BIO_USER_ACCOUNT_ID,
         SOFTWARE_BUILD_NUMBER_UUID: COMPILED_EXE_BUILD_TIMESTAMP,
         SOFTWARE_RELEASE_VERSION_UUID: CURRENT_SOFTWARE_VERSION,
-        REFERENCE_VOLTAGE_UUID: REFERENCE_VOLTAGE,
-        ADC_GAIN_SETTING_UUID: 32,
-        "adc_offsets": GENERIC_ADC_OFFSET_VALUES,
         PLATE_BARCODE_UUID: "MA200440001",
         BACKEND_LOG_UUID: uuid.UUID("9a3d03f2-1f5a-4ecd-b843-0dc9ecde5f67"),
         COMPUTER_NAME_HASH_UUID: hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).hexdigest(),
@@ -115,6 +113,9 @@ GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
         MANTARRAY_SERIAL_NUMBER_UUID: RunningFIFOSimulator.default_mantarray_serial_number,
         MANTARRAY_NICKNAME_UUID: RunningFIFOSimulator.default_mantarray_nickname,
         XEM_SERIAL_NUMBER_UUID: RunningFIFOSimulator.default_xem_serial_number,
+        REFERENCE_VOLTAGE_UUID: REFERENCE_VOLTAGE,
+        ADC_GAIN_SETTING_UUID: 32,
+        "adc_offsets": GENERIC_ADC_OFFSET_VALUES,
     }
 )
 GENERIC_BETA_2_START_RECORDING_COMMAND = copy.deepcopy(GENERIC_BASE_START_RECORDING_COMMAND)
@@ -128,6 +129,7 @@ GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
         TAMPER_FLAG_UUID: MantarrayMcSimulator.default_metadata_values[TAMPER_FLAG_UUID],
         PCB_SERIAL_NUMBER_UUID: MantarrayMcSimulator.default_pcb_serial_number,
         MAGNETOMETER_CONFIGURATION_UUID: GENERIC_BOARD_MAGNETOMETER_CONFIGURATION,
+        TISSUE_SAMPLING_PERIOD_UUID: 10000,
     }
 )
 
