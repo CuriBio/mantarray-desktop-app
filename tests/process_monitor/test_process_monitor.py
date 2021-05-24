@@ -604,6 +604,10 @@ def test_MantarrayProcessesMonitor__stores_device_information_from_metadata_comm
     assert shared_values_dict["system_status"] == CALIBRATION_NEEDED_STATE
 
     assert (
+        shared_values_dict["main_firmware_version"][board_idx]
+        == MantarrayMcSimulator.default_firmware_version
+    )
+    assert (
         shared_values_dict["mantarray_serial_number"][board_idx]
         == MantarrayMcSimulator.default_mantarray_serial_number
     )

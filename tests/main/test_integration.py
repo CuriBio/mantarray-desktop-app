@@ -96,6 +96,7 @@ from ..fixtures import fixture_fully_running_app_from_main_entrypoint
 from ..fixtures import fixture_patched_firmware_folder
 from ..fixtures import fixture_patched_xem_scripts_folder
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
+from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BOARD_MAGNETOMETER_CONFIGURATION
 from ..fixtures_file_writer import WELL_DEF_24
 from ..helpers import confirm_queue_is_eventually_empty
@@ -726,43 +727,81 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
 @pytest.mark.slow
 @pytest.mark.timeout(INTEGRATION_TEST_TIMEOUT)
 def test_full_datapath_and_recorded_files_in_beta_2_mode(
-    patched_xem_scripts_folder,
-    patched_firmware_folder,
-    fully_running_app_from_main_entrypoint,
+    patched_xem_scripts_folder, patched_firmware_folder, fully_running_app_from_main_entrypoint, mocker
 ):
     # TODO Tanner (4/23/21): This integration test does not actually test the full data path or recorded files yet. When that functionality is added for beta 2 mode, this test needs to be updated
+
+    # Tanner (12/29/20): Freeze time in order to make assertions on timestamps in the metadata
+    expected_time = datetime.datetime(
+        year=2020, month=6, day=15, hour=14, minute=19, second=55, microsecond=313309
+    )
+    mocker.patch.object(
+        server,
+        "_get_timestamp_of_acquisition_sample_index_zero",
+        return_value=expected_time,
+    )
+    # Tanner (12/29/20): Patching uuid4 so we get an expected UUID for the Log Files
+    mocker.patch.object(
+        uuid,
+        "uuid4",
+        autospec=True,
+        return_value=GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+            BACKEND_LOG_UUID
+        ],
+    )
+
     app_info = fully_running_app_from_main_entrypoint(["--beta-2-mode"])
     wait_for_subprocesses_to_start()
     test_process_manager = app_info["object_access_inside_main"]["process_manager"]
 
     assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
 
-    # Tanner (5/22/21): Set magnetometer configuration so data streaming can be initiated
-    expected_sampling_period = 10000
-    magnetometer_config_dict = {
-        "magnetometer_config": GENERIC_BOARD_MAGNETOMETER_CONFIGURATION,
-        "sampling_period": expected_sampling_period,
-    }
-    response = requests.post(
-        f"{get_api_endpoint()}set_magnetometer_config", json=json.dumps(magnetometer_config_dict)
-    )
-    assert response.status_code == 200
+    # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
+    with tempfile.TemporaryDirectory() as expected_recordings_dir:
+        # Tanner (12/29/20): Manually set recording directory through update_settings route
+        response = requests.get(
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=curi&recording_directory={expected_recordings_dir}"
+        )
+        assert response.status_code == 200
 
-    # TODO Tanner (5/22/21): Should eventually remove this route call as it is not needed for Beta 2 and is only used right now to put the system in the calibrated state
-    # Tanner (12/30/20): Calibrate instrument in order to start managed_acquisition
-    response = requests.get(f"{get_api_endpoint()}start_calibration")
-    assert response.status_code == 200
-    assert system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
+        # Tanner (5/22/21): Set magnetometer configuration so data streaming can be initiated
+        expected_sampling_period = 10000
+        magnetometer_config_dict = {
+            "magnetometer_config": GENERIC_BOARD_MAGNETOMETER_CONFIGURATION,
+            "sampling_period": expected_sampling_period,
+        }
+        response = requests.post(
+            f"{get_api_endpoint()}set_magnetometer_config", json=json.dumps(magnetometer_config_dict)
+        )
+        assert response.status_code == 200
 
-    # TODO Tanner (12/30/20): Confirm system reaches live view active once the data analyzer is updated to handle beta 2 data
-    # Tanner (12/30/20): start managed_acquisition in order to start recording
-    response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
-    assert response.status_code == 200
+        # TODO Tanner (5/22/21): Should eventually remove this route call from this test as it is not needed for Beta 2 and is only used right now to put the system in the calibrated state
+        response = requests.get(f"{get_api_endpoint()}start_calibration")
+        assert response.status_code == 200
+        assert system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
 
-    # Tanner (12/30/20): managed_acquisition will take system through buffering state and then to live_view active state before recording can start
-    assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
+        # Tanner (12/30/20): start managed_acquisition in order to start recording
+        response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
+        assert response.status_code == 200
 
-    # TODO Tanner (5/19/21): test recorded files once data analyzer and start_recording route are updated
+        # Tanner (12/30/20): managed_acquisition in beta 2 mode will currently only cause the system to enter buffering state. This is because no beta 2 data will come out of Data Analyzer at yet
+        assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
+        # TODO Tanner (12/30/20): Confirm system reaches live view active once the data analyzer is updated to handle beta 2 data
+
+        expected_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND[
+            "metadata_to_copy_onto_main_file_attributes"
+        ][PLATE_BARCODE_UUID]
+        start_recording_time_index = 0
+        response = requests.get(
+            f"{get_api_endpoint()}start_recording?barcode={expected_barcode}&time_index={start_recording_time_index}&is_hardware_test_recording=False"
+        )
+        assert response.status_code == 200
+        assert system_state_eventually_equals(RECORDING_STATE, 3) is True
+        time.sleep(3)  # Tanner (6/15/20): This allows data to be written to files
+        expected_stop_index = 200000  # Tanner (12/30/20): End recording at a known timepoint
+        response = requests.get(f"{get_api_endpoint()}stop_recording?time_index={expected_stop_index}")
+        assert response.status_code == 200
+        assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
 
     # Tanner (12/29/20): Good to do this at the end of tests to make sure they don't cause problems with other integration tests
     test_process_manager.hard_stop_and_join_processes()
