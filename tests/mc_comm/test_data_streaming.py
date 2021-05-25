@@ -666,6 +666,8 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
     for well_idx in range(10, 16):
         channel_dict = {expected_sensor_axis_id: simulated_data[:test_num_packets] * np.int16(well_idx + 1)}
         expected_fw_item[well_idx] = channel_dict
+    # not actually using the value here in any assertions, just need the key present
+    expected_fw_item["is_first_packet_of_stream"] = None
 
     invoke_process_run_and_check_errors(simulator)
     invoke_process_run_and_check_errors(mc_process)
@@ -674,13 +676,15 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
     assert actual_fw_item.keys() == expected_fw_item.keys()
     for key, expected_array in expected_fw_item.items():
         actual = actual_fw_item[key]
+        if key == "is_first_packet_of_stream":
+            continue
         if key != "time_indices":
             actual = actual[expected_sensor_axis_id]
             expected_array = expected_array[expected_sensor_axis_id]
         np.testing.assert_array_equal(actual, expected_array, err_msg=f"Failure at '{key}' key")
 
 
-def test_McCommunicationProcess__handles_one_second_read_with_interrupting_packet_correctly(
+def test_McCommunicationProcess__handles_one_second_read_with_interrupting_packet_correctly__and_indicates_the_first_packet_is_the_very_first_packet_of_the_stream(
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
     mocker,
@@ -731,6 +735,8 @@ def test_McCommunicationProcess__handles_one_second_read_with_interrupting_packe
         channel_data = np.concatenate((simulated_data, simulated_data[: test_num_packets // 3]))
         channel_dict = {expected_sensor_axis_id: channel_data * np.int16(well_idx + 1)}
         expected_fw_item[well_idx] = channel_dict
+    # not actually using the value here in any assertions, just need the key present
+    expected_fw_item["is_first_packet_of_stream"] = None
 
     # insert status beacon after 1/3 of data
     invoke_process_run_and_check_errors(simulator)
@@ -751,15 +757,18 @@ def test_McCommunicationProcess__handles_one_second_read_with_interrupting_packe
     actual_beacon_log_msg = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     expected_status_code = int.from_bytes(TEST_OTHER_PACKET_INFO[3], byteorder="little")
     assert str(expected_status_code) in actual_beacon_log_msg["message"]
-    # test data going to file_writer
+    # test data packets going to file_writer
     for item_idx in range(2):
         actual_fw_item = to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
         assert actual_fw_item.keys() == expected_fw_item.keys()
+        assert actual_fw_item["is_first_packet_of_stream"] is (item_idx == 0)
 
         start_idx = 0 if item_idx == 0 else test_num_packets // 3
         stop_idx = test_num_packets // 3 if item_idx == 0 else test_num_packets
         for key, expected_array in expected_fw_item.items():
             actual = actual_fw_item[key]
+            if key == "is_first_packet_of_stream":
+                continue
             if key != "time_indices":
                 actual = actual[expected_sensor_axis_id]
                 expected_array = expected_array[expected_sensor_axis_id]
@@ -820,6 +829,8 @@ def test_McCommunicationProcess__handles_less_than_one_second_read_when_stopping
     for well_idx in range(10, 16):
         channel_dict = {expected_sensor_axis_id: simulated_data[:test_num_packets] * np.int16(well_idx + 1)}
         expected_fw_item[well_idx] = channel_dict
+    # not actually using the value here in any assertions, just need the key present
+    expected_fw_item["is_first_packet_of_stream"] = None
 
     # tell mc_comm to stop data stream before 1 second of data is present
     expected_response = {
@@ -836,6 +847,8 @@ def test_McCommunicationProcess__handles_less_than_one_second_read_when_stopping
     assert actual_fw_item.keys() == expected_fw_item.keys()
     for key, expected_array in expected_fw_item.items():
         actual = actual_fw_item[key]
+        if key == "is_first_packet_of_stream":
+            continue
         if key != "time_indices":
             actual = actual[expected_sensor_axis_id]
             expected_array = expected_array[expected_sensor_axis_id]

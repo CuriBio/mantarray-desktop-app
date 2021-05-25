@@ -157,11 +157,13 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._time_of_reboot_start: Optional[
             float
         ] = None  # Tanner (4/1/21): This value will be None until this process receives a response to a reboot command. It will be set back to None after receiving a status beacon upon reboot completion
+        # data streaming values
         self._magnetometer_config: Dict[int, Dict[int, bool]] = dict()
         self._num_data_channels_on = 0
         self._sampling_period_us = 0
         self._is_data_streaming = False
         self._is_stopping_data_stream = False
+        self._has_data_packet_been_sent = False
         self._data_packet_cache = bytes(0)
 
     def _setup_before_loop(self) -> None:
@@ -589,6 +591,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 prev_command["eeprom_contents"] = response_data
             elif prev_command["command"] == "start_managed_acquisition":
                 self._is_data_streaming = True
+                self._has_data_packet_been_sent = False
                 if response_data[0]:
                     raise InstrumentDataStreamingAlreadyStartedError()
                 prev_command["magnetometer_config"] = convert_bytes_to_config_dict(response_data[1:])
@@ -693,7 +696,10 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         # create dict and send to file writer if any packets were read  # Tanner (5/25/21): it is possible 0 data packets are read when stopping data stream
         if num_data_packets_read > 0:
-            fw_item: Dict[Any, Any] = {"time_indices": actual_time_indices[:num_data_packets_read]}
+            fw_item: Dict[Any, Any] = {
+                "time_indices": actual_time_indices[:num_data_packets_read],
+                "is_first_packet_of_stream": not self._has_data_packet_been_sent,
+            }
             data_idx = 0
             for module_id, config_dict in self._magnetometer_config.items():
                 if not any(config_dict.values()):
@@ -707,6 +713,8 @@ class McCommunicationProcess(InstrumentCommProcess):
                 fw_item[module_id - 1] = well_dict
             to_fw_queue = self._board_queues[0][2]
             to_fw_queue.put_nowait(fw_item)
+            self._has_data_packet_been_sent = True
+
         # check for interrupting packet
         if other_packet_info is not None:
             self._process_comm_from_instrument(

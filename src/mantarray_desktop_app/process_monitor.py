@@ -366,7 +366,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         elif communication_type == "metadata_comm":
             board_idx = communication["board_index"]
             self._values_to_share_to_server["instrument_metadata"] = {board_idx: communication["metadata"]}
-            # TODO Tanner (4/23/21): eventually these three following values won't need there own fields as they will be accessible through the above entry in shared_values_dict. Need to keep these until Beta 1 is phased out though
+            # TODO Tanner (4/23/21): eventually these three following values won't need their own fields as they will be accessible through the above entry in shared_values_dict. Need to keep these until Beta 1 is phased out though
             self._values_to_share_to_server["main_firmware_version"] = {
                 board_idx: communication["metadata"][MAIN_FIRMWARE_VERSION_UUID]
             }

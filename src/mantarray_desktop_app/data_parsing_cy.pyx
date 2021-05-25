@@ -10,11 +10,12 @@ from typing import Tuple
 from .constants import ADC_CH_TO_24_WELL_INDEX
 from .constants import ADC_CH_TO_IS_REF_SENSOR
 from .constants import RAW_TO_SIGNED_CONVERSION_VALUE
-from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX,SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
+from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
+from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
 from .exceptions import SerialCommIncorrectMagicWordFromMantarrayError
 

@@ -647,7 +647,8 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_2_files_after_stop_recordi
     start_timepoint = GENERIC_BETA_1_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
     test_data = np.zeros(test_num_data_points, dtype=np.int32)
     data_packet = {
-        "time_indices": np.arange(start_timepoint, start_timepoint + test_num_data_points, dtype=np.uint64)
+        "time_indices": np.arange(start_timepoint, start_timepoint + test_num_data_points, dtype=np.uint64),
+        "is_first_packet_of_stream": False,
     }
     for well_idx in range(24):
         channel_dict = {
@@ -796,7 +797,8 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_2_f
     num_data_points = 100
     start_timepoint = GENERIC_BETA_2_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
     data_packet = {
-        "time_indices": np.arange(start_timepoint, start_timepoint + num_data_points, dtype=np.uint64)
+        "time_indices": np.arange(start_timepoint, start_timepoint + num_data_points, dtype=np.uint64),
+        "is_first_packet_of_stream": False,
     }
     for well_idx in range(24):
         channel_dict = {

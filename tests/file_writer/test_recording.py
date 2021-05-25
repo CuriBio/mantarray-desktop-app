@@ -65,6 +65,7 @@ from mantarray_file_manager import WELL_ROW_UUID
 from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
 import numpy as np
 import pytest
+from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import validate_file_head_crc32
 
@@ -590,6 +591,43 @@ def test_FileWriterProcess__begins_building_data_buffer_when_managed_acquisition
     assert actual_num_items == expected_num_items
 
 
+def test_FileWriterProcess__clears_leftover_beta_2_data_from_previous_data_stream_from_buffer_when_receiving_first_packet_of_new_stream(
+    four_board_file_writer_process,
+):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    file_writer_process.set_beta_2_mode()
+    board_queues = four_board_file_writer_process["board_queues"]
+
+    # load data into buffer
+    expected_num_items = 5
+    for _ in range(expected_num_items):
+        board_queues[0][0].put_nowait(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
+    confirm_queue_is_eventually_of_size(
+        board_queues[0][0],
+        expected_num_items,
+        sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
+    )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
+    invoke_process_run_and_check_errors(file_writer_process, num_iterations=expected_num_items)
+    actual_num_items = len(file_writer_process._data_packet_buffers[0])  # pylint: disable=protected-access
+    assert actual_num_items == expected_num_items
+
+    # send packet from new stream to clear old data from buffer
+    first_packet_of_new_stream = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
+    first_packet_of_new_stream["is_first_packet_of_stream"] = True
+    board_queues[0][0].put_nowait(first_packet_of_new_stream)
+    confirm_queue_is_eventually_of_size(
+        board_queues[0][0],
+        1,
+        sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
+    )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
+    invoke_process_run_and_check_errors(file_writer_process)
+    actual_num_items = len(file_writer_process._data_packet_buffers[0])  # pylint: disable=protected-access
+    assert actual_num_items == 1
+
+    # clean up
+    drain_queue(board_queues[0][1])
+
+
 def test_FileWriterProcess__removes_beta_1_packets_from_data_buffer_that_are_older_than_buffer_memory_size(
     four_board_file_writer_process,
 ):
@@ -904,7 +942,8 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
     for i in range(expected_remaining_packets_recorded):
         curr_idx = i * num_data_points_per_packet
         data_packet = {
-            "time_indices": expected_time_indices[curr_idx : curr_idx + num_data_points_per_packet]
+            "time_indices": expected_time_indices[curr_idx : curr_idx + num_data_points_per_packet],
+            "is_first_packet_of_stream": False,
         }
         for well_idx in range(24):
             channel_dict = {
@@ -920,7 +959,8 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
         data_packet = {
             "time_indices": np.arange(
                 first_timepoint, first_timepoint + num_data_points_per_packet, dtype=np.uint64
-            )
+            ),
+            "is_first_packet_of_stream": False,
         }
         for well_idx in range(24):
             channel_dict = {
@@ -1085,6 +1125,7 @@ def test_FileWriterProcess__raises_error_if_stop_recording_command_received_with
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"]
     recorded_data_packet = {
         "time_indices": np.array([start_timepoint], dtype=np.uint64),
+        "is_first_packet_of_stream": False,
         test_well_index: {
             SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: np.array([0], dtype=np.int16),
             SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: np.array([0], dtype=np.int16),

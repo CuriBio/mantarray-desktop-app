@@ -36,10 +36,15 @@ def create_simple_data(start_timepoint, num_data_points):
     return np.arange(start_timepoint, start_timepoint + num_data_points, dtype=np.uint64)
 
 
-def create_simple_data_packet(time_index_start, data_start, well_idxs, num_data_points):
+def create_simple_data_packet(
+    time_index_start, data_start, well_idxs, num_data_points, is_first_packet_of_stream=False
+):
     if isinstance(well_idxs, int):
         well_idxs = [well_idxs]
-    data_packet = {"time_indices": create_simple_data(time_index_start, num_data_points)}
+    data_packet = {
+        "time_indices": create_simple_data(time_index_start, num_data_points),
+        "is_first_packet_of_stream": is_first_packet_of_stream,
+    }
     for idx in well_idxs:
         data_packet[idx] = create_simple_well_dict(data_start, num_data_points)
     return data_packet

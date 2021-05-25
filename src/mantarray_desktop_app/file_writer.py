@@ -553,13 +553,16 @@ class FileWriterProcess(InfiniteProcess):
                 }
             )
         elif command == "stop_managed_acquisition":
-            self._data_packet_buffers[0].clear()
+            if not self._beta_2_mode:
+                # data buffer clear is handled differently in beta 2 mode
+                self._data_packet_buffers[0].clear()
             to_main.put_nowait(
                 {
                     "communication_type": "command_receipt",
                     "command": "stop_managed_acquisition",
                 }
             )
+            # TODO Tanner (5/25/21): Consider finalizing all open files here. If they are somehow still open here, they will never close as no more data is coming in
         elif command == "update_directory":
             self._file_directory = communication["new_directory"]
             to_main.put_nowait(
@@ -702,7 +705,7 @@ class FileWriterProcess(InfiniteProcess):
             return
 
         # Tanner (5/25/21): Creating this log message takes a long time so only do it if we are actually logging. TODO: Should probably refactor this function to something more efficient eventually
-        if logging.DEBUG >= self.get_logging_level():
+        if logging.DEBUG >= self.get_logging_level():  # pragma: no cover
             put_log_message_into_queue(
                 logging.DEBUG,
                 f"Timestamp: {_get_formatted_utc_now()} Received a data packet from InstrumentCommProcess: {data_packet}",
@@ -716,6 +719,8 @@ class FileWriterProcess(InfiniteProcess):
                 f"The object received from OkComm was not a dictionary, it was a {data_packet.__class__} with the value: {data_packet}"
             )
 
+        if self._beta_2_mode and data_packet["is_first_packet_of_stream"]:
+            self._data_packet_buffers[0].clear()
         self._data_packet_buffers[0].append(data_packet)
 
         output_queue = self._board_queues[0][1]
