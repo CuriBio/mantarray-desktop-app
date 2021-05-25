@@ -571,7 +571,7 @@ def test_McCommunicationProcess__processes_stop_data_streaming_command__and_rais
         invoke_process_run_and_check_errors(mc_process)
 
 
-def test_McCommunicationProcess__reads_all_bytes_from_intsrument__and_does_not_parse_bytes_if_not_enough_are_present(
+def test_McCommunicationProcess__reads_all_bytes_from_instrument__and_does_not_parse_bytes_if_not_enough_are_present(
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
     mocker,
@@ -768,3 +768,83 @@ def test_McCommunicationProcess__handles_one_second_read_with_interrupting_packe
                 expected_array[start_idx:stop_idx],
                 err_msg=f"Failure at item idx {item_idx} at '{key}' key",
             )
+
+
+def test_McCommunicationProcess__handles_less_than_one_second_read_when_stopping_data_stream(
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+    mocker,
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    from_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][0]
+    to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
+    to_fw_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][2]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    test_sampling_period_us = 10000  # specifically chosen so that there are 100 data packets in one second
+    test_num_packets = int(0.5e6 // test_sampling_period_us)  # only send half a second of data
+    # mocking to ensure only one data packet is sent
+    mocker.patch.object(
+        mc_simulator,
+        "_get_us_since_last_data_packet",
+        autospec=True,
+        side_effect=[0, test_sampling_period_us * test_num_packets],
+    )
+
+    expected_sensor_axis_id = SERIAL_COMM_NUM_DATA_CHANNELS - 1
+
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+
+    test_config_dict = dict()
+    for well_idx in range(0, 24):
+        bitmask_int = int(10 <= well_idx <= 15)  # turn on one channel of wells 10-15
+        test_config_dict[well_idx + 1] = convert_bitmask_to_config_dict(bitmask_int)
+    set_magnetometer_config_and_start_streaming(
+        four_board_mc_comm_process_no_handshake,
+        simulator,
+        test_config_dict,
+        test_sampling_period_us,
+    )
+    invoke_process_run_and_check_errors(simulator)
+
+    test_sampling_period_cms = test_sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND
+    max_timestamp_cms = test_sampling_period_cms * test_num_packets
+    expected_time_indices = list(
+        range(0, max_timestamp_cms, test_sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND)
+    )
+
+    simulated_data = simulator.get_interpolated_data(test_sampling_period_us)
+    expected_fw_item = {"time_indices": np.array(expected_time_indices, np.uint64)}
+    for well_idx in range(10, 16):
+        channel_dict = {expected_sensor_axis_id: simulated_data[:test_num_packets] * np.int16(well_idx + 1)}
+        expected_fw_item[well_idx] = channel_dict
+
+    # tell mc_comm to stop data stream before 1 second of data is present
+    expected_response = {
+        "communication_type": "to_instrument",
+        "command": "stop_managed_acquisition",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(expected_response), from_main_queue
+    )
+    invoke_process_run_and_check_errors(mc_process)
+    # make sure any data read is sent to file writer
+    confirm_queue_is_eventually_of_size(to_fw_queue, 1)
+    actual_fw_item = to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert actual_fw_item.keys() == expected_fw_item.keys()
+    for key, expected_array in expected_fw_item.items():
+        actual = actual_fw_item[key]
+        if key != "time_indices":
+            actual = actual[expected_sensor_axis_id]
+            expected_array = expected_array[expected_sensor_axis_id]
+        np.testing.assert_array_equal(actual, expected_array, err_msg=f"Failure at '{key}' key")
+
+    # process stop data streaming command and send response to mc_comm
+    invoke_process_run_and_check_errors(simulator)
+    # process response and send message to main. Also make sure empty data wasn't sent to file writer
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+    assert to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_response
+    confirm_queue_is_eventually_empty(to_fw_queue)

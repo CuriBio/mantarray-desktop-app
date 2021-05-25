@@ -678,7 +678,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         num_bytes_per_second = packet_len * int(1e6 // self._sampling_period_us)
 
         self._data_packet_cache += board.read_all()
-        # TODO Tanner unit test second condition of this if statement
+        # wait for at least 1 second of data to be present unless stop data stream command has been sent to instrument
         if len(self._data_packet_cache) < num_bytes_per_second and not self._is_stopping_data_stream:
             return
 
@@ -691,8 +691,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         ) = handle_data_packets(bytearray(self._data_packet_cache), packet_len)
         self._data_packet_cache = unread_bytes
 
-        # create dict and send to file writer if any packets were read
-        # TODO Tanner unit test this if statement
+        # create dict and send to file writer if any packets were read  # Tanner (5/25/21): it is possible 0 data packets are read when stopping data stream
         if num_data_packets_read > 0:
             fw_item: Dict[Any, Any] = {"time_indices": actual_time_indices[:num_data_packets_read]}
             data_idx = 0
