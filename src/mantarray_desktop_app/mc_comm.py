@@ -60,6 +60,7 @@ from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from .constants import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
+from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .exceptions import InstrumentDataStreamingAlreadyStartedError
@@ -160,6 +161,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._num_data_channels_on = 0
         self._sampling_period_us = 0
         self._is_data_streaming = False
+        self._is_stopping_data_stream = False
         self._data_packet_cache = bytes(0)
 
     def _setup_before_loop(self) -> None:
@@ -383,6 +385,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             elif comm_from_main["command"] == "start_managed_acquisition":
                 bytes_to_send = bytes([SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE])
             elif comm_from_main["command"] == "stop_managed_acquisition":
+                self._is_stopping_data_stream = True
                 bytes_to_send = bytes([SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE])
             elif comm_from_main["command"] == "change_magnetometer_config":
                 self._set_magnetometer_config(
@@ -593,6 +596,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             elif prev_command["command"] == "stop_managed_acquisition":
                 if bool(int.from_bytes(response_data, byteorder="little")):
                     raise InstrumentDataStreamingAlreadyStoppedError()
+                self._is_stopping_data_stream = False
                 self._is_data_streaming = False
 
             del prev_command[
@@ -666,11 +670,16 @@ class McCommunicationProcess(InstrumentCommProcess):
         if board is None:
             raise NotImplementedError("board should never be None here")
 
-        packet_len = SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES + self._num_data_channels_on * 2 + 2
+        packet_len = (
+            SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
+            + self._num_data_channels_on * 2
+            + SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
+        )
         num_bytes_per_second = packet_len * int(1e6 // self._sampling_period_us)
 
         self._data_packet_cache += board.read_all()
-        if len(self._data_packet_cache) < num_bytes_per_second:
+        # TODO Tanner unit test second condition of this if statement
+        if len(self._data_packet_cache) < num_bytes_per_second and not self._is_stopping_data_stream:
             return
 
         (
@@ -682,21 +691,23 @@ class McCommunicationProcess(InstrumentCommProcess):
         ) = handle_data_packets(bytearray(self._data_packet_cache), packet_len)
         self._data_packet_cache = unread_bytes
 
-        # create dict and send to file writer
-        fw_item: Dict[Any, Any] = {"time_indices": actual_time_indices[:num_data_packets_read]}
-        data_idx = 0
-        for module_id, config_dict in self._magnetometer_config.items():
-            if not any(config_dict.values()):
-                continue
-            well_dict = dict()
-            for sensor_axis_id, is_channel_on in config_dict.items():
-                if not is_channel_on:
+        # create dict and send to file writer if any packets were read
+        # TODO Tanner unit test this if statement
+        if num_data_packets_read > 0:
+            fw_item: Dict[Any, Any] = {"time_indices": actual_time_indices[:num_data_packets_read]}
+            data_idx = 0
+            for module_id, config_dict in self._magnetometer_config.items():
+                if not any(config_dict.values()):
                     continue
-                well_dict[sensor_axis_id] = actual_data[data_idx][:num_data_packets_read]
-                data_idx += 1
-            fw_item[module_id - 1] = well_dict
-        to_fw_queue = self._board_queues[0][2]
-        to_fw_queue.put_nowait(fw_item)
+                well_dict = dict()
+                for sensor_axis_id, is_channel_on in config_dict.items():
+                    if not is_channel_on:
+                        continue
+                    well_dict[sensor_axis_id] = actual_data[data_idx][:num_data_packets_read]
+                    data_idx += 1
+                fw_item[module_id - 1] = well_dict
+            to_fw_queue = self._board_queues[0][2]
+            to_fw_queue.put_nowait(fw_item)
         # check for interrupting packet
         if other_packet_info is not None:
             self._process_comm_from_instrument(

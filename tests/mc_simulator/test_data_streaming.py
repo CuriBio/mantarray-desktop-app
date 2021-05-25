@@ -10,6 +10,7 @@ from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_INDEX
 from mantarray_desktop_app import SERIAL_COMM_PACKET_TYPE_INDEX
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
+from mantarray_desktop_app import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from mantarray_file_manager import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
 from scipy import interpolate
@@ -65,19 +66,23 @@ def test_MantarrayMcSimulator__get_interpolated_data_returns_correct_value(
     np.testing.assert_array_equal(actual_data, expected_data)
 
 
-def test_MantarrayMcSimulator__sends_correct_timestamp_offset_and_data_points_in_first_two_data_packets(
+def test_MantarrayMcSimulator__sends_correct_time_index_and_data_points_in_first_two_data_packets(
     mantarray_mc_simulator_no_beacon, mocker
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
     test_sampling_period = 1000
-    test_us_since_last_data_packet = int(test_sampling_period * 2.5)
+    test_counter_us = [
+        0,
+        int(test_sampling_period * 1.5),
+        int(test_sampling_period * 3),
+    ]
     mocker.patch.object(
         mc_simulator,
-        "_get_us_since_last_data_packet",
+        "_perf_counter_us",
         autospec=True,
-        return_value=test_us_since_last_data_packet,
+        side_effect=test_counter_us,
     )
 
     # set up arbitrary magnetometer configuration
@@ -111,16 +116,20 @@ def test_MantarrayMcSimulator__sends_correct_timestamp_offset_and_data_points_in
         },
         testing_queue,
     )
-    invoke_process_run_and_check_errors(simulator)
+    invoke_process_run_and_check_errors(simulator, num_iterations=2)
 
     data_packet_size = get_full_packet_size_from_packet_body_size(
-        2 + (2 * num_wells * len(test_channels))  # 2 for timestamp offset
+        SERIAL_COMM_TIME_INDEX_LENGTH_BYTES + (2 * num_wells * len(test_channels))
     )
-    first_data_packet = simulator.read(size=data_packet_size)
-    second_data_packet = simulator.read(size=data_packet_size)
+    data_packets = [
+        simulator.read(size=data_packet_size),
+        simulator.read(size=data_packet_size),
+        simulator.read(size=data_packet_size),
+    ]
+    assert simulator.in_waiting == 0
 
     expected_waveform = simulator.get_interpolated_data(test_sampling_period)
-    for packet_num, data_packet in enumerate((first_data_packet, second_data_packet)):
+    for packet_num, data_packet in enumerate(data_packets):
         assert (
             data_packet[SERIAL_COMM_MODULE_ID_INDEX] == SERIAL_COMM_MAIN_MODULE_ID
         ), f"Incorrect module ID in packet {packet_num + 1}"
@@ -129,17 +138,16 @@ def test_MantarrayMcSimulator__sends_correct_timestamp_offset_and_data_points_in
         ), f"Incorrect packet type in packet {packet_num + 1}"
 
         idx = SERIAL_COMM_ADDITIONAL_BYTES_INDEX
+        time_index = int.from_bytes(data_packet[idx : idx + 4], byteorder="little")
+        expected_time_index = (packet_num * test_sampling_period) // MICROSECONDS_PER_CENTIMILLISECOND
+        assert time_index == expected_time_index, f"Incorrect time index in packet {packet_num + 1}"
 
-        expected_offset = (
-            test_us_since_last_data_packet - (packet_num + 1) * test_sampling_period
-        ) // MICROSECONDS_PER_CENTIMILLISECOND
-        timestamp_offset = int.from_bytes(data_packet[idx : idx + 2], byteorder="little")
-        assert timestamp_offset == expected_offset, f"Incorrect timestamp offset in packet {packet_num + 1}"
+        idx += SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
         for well_idx in range(num_wells):
             expected_sensor_value = expected_waveform[packet_num] * (well_idx + 1)
             for channel_id in test_channels:
-                idx += 2
                 sensor_value = int.from_bytes(data_packet[idx : idx + 2], byteorder="little", signed=True)
                 assert (
                     sensor_value == expected_sensor_value
                 ), f"Incorrect sensor value for channel ID {channel_id} well {well_idx} in packet {packet_num + 1}"
+                idx += 2

@@ -10,7 +10,7 @@ from typing import Tuple
 from .constants import ADC_CH_TO_24_WELL_INDEX
 from .constants import ADC_CH_TO_IS_REF_SENSOR
 from .constants import RAW_TO_SIGNED_CONVERSION_VALUE
-from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
+from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX,SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
@@ -104,6 +104,7 @@ cdef extern from "../zlib/zlib.h":
 
 cdef char[9] MAGIC_WORD = SERIAL_COMM_MAGIC_WORD_BYTES + bytes(1)
 cdef int MAGIC_WORD_LEN = len(SERIAL_COMM_MAGIC_WORD_BYTES)  # 8
+cdef int SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_C_INT = SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 cdef int SERIAL_COMM_MAIN_MODULE_ID_C_INT = SERIAL_COMM_MAIN_MODULE_ID
 cdef int SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE_C_INT = SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 cdef int SERIAL_COMM_ADDITIONAL_BYTES_INDEX_C_INT = SERIAL_COMM_ADDITIONAL_BYTES_INDEX
@@ -115,7 +116,7 @@ cdef packed struct Packet:
     uint64_t timestamp
     uint8_t module_id
     uint8_t packet_type
-    uint16_t timestamp_offset
+    uint32_t time_index
     int16_t data
 
 
@@ -139,7 +140,9 @@ def handle_data_packets(
 
     cdef int num_bytes = len(read_bytes)
     cdef int num_data_packets_possible = num_bytes // data_packet_len
-    cdef int num_data_channels = (data_packet_len - MIN_PACKET_SIZE - 2) // 2
+    cdef int num_data_channels = (
+        data_packet_len - MIN_PACKET_SIZE - SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_C_INT
+    ) // 2
 
     cdef Packet *p
 
@@ -164,7 +167,7 @@ def handle_data_packets(
             raise SerialCommIncorrectMagicWordFromMantarrayError(str(magic_word))
 
         # get actual CRC value from packet
-        original_crc = (<uint32_t *> ((<uint8_t *> &p.timestamp_offset) + p.packet_len - 14))[0]
+        original_crc = (<uint32_t *> ((<uint8_t *> &p.time_index) + p.packet_len - 14))[0]
         # calculate expected CRC value
         crc = crc32(0, Z_NULL, 0)
         crc = crc32(crc, <uint8_t *> &p.magic, p.packet_len + 6)
@@ -192,8 +195,8 @@ def handle_data_packets(
             bytes_idx += p.packet_len + 10
             break
 
-        # subtract offset from timestamp and add to timestamp array
-        time_indices[data_packet_idx] = p.timestamp - p.timestamp_offset
+        # add to timestamp array
+        time_indices[data_packet_idx] = p.time_index
         # add next data points to data array
         for channel_num in range(num_data_channels):
             data[channel_num, data_packet_idx] = (&p.data + channel_num)[0]

@@ -123,6 +123,7 @@ from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from .constants import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
 from .constants import SERIAL_COMM_STREAM_MODE_CHANGED_BYTE
 from .constants import SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE
+from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from .constants import SERIAL_COMM_TIMESTAMP_EPOCH
@@ -517,4 +518,5 @@ __all__ = [
     "InvalidStopRecordingTimepointError",
     "validate_magnetometer_config_keys",
     "IncorrectMagnetometerConfigFromInstrumentError",
+    "SERIAL_COMM_TIME_INDEX_LENGTH_BYTES",
 ]

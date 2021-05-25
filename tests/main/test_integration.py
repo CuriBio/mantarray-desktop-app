@@ -19,6 +19,7 @@ from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
+from mantarray_desktop_app import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from mantarray_desktop_app import DATA_FRAME_PERIOD
@@ -32,6 +33,7 @@ from mantarray_desktop_app import get_tissue_dataset_from_file
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import main
+from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import MILLIVOLTS_PER_VOLT
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
@@ -52,6 +54,7 @@ from mantarray_file_manager import ADC_REF_OFFSET_UUID
 from mantarray_file_manager import ADC_TISSUE_OFFSET_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
+from mantarray_file_manager import BOOTUP_COUNTER_UUID
 from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import FILE_FORMAT_VERSION_METADATA_KEY
@@ -62,6 +65,7 @@ from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
 from mantarray_file_manager import METADATA_UUID_DESCRIPTIONS
 from mantarray_file_manager import ORIGINAL_FILE_VERSION_UUID
+from mantarray_file_manager import PCB_SERIAL_NUMBER_UUID
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import REF_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import REFERENCE_VOLTAGE_UUID
@@ -69,8 +73,10 @@ from mantarray_file_manager import SLEEP_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
 from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
 from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
+from mantarray_file_manager import TAMPER_FLAG_UUID
 from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import TOTAL_WELL_COUNT_UUID
+from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
 from mantarray_file_manager import TRIMMED_TIME_FROM_ORIGINAL_END_UUID
 from mantarray_file_manager import TRIMMED_TIME_FROM_ORIGINAL_START_UUID
 from mantarray_file_manager import USER_ACCOUNT_ID_UUID
@@ -528,7 +534,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                             "metadata_to_copy_onto_main_file_attributes"
                         ][COMPUTER_NAME_HASH_UUID]
                     )
-                    # Tanner (1/12/21): The barcode used for testing (which is passed to start_recoring route) is different than the simulator's barcode (the one that is 'scanned' in this test), so this should result to False
+                    # Tanner (1/12/21): The barcode used for testing (which is passed to start_recording route) is different than the simulator's barcode (the one that is 'scanned' in this test), so this should result to False
                     assert bool(this_file_attrs[str(BARCODE_IS_FROM_SCANNER_UUID)]) is False
 
         # Tanner (12/30/20): test second recording (only make sure it contains waveform data)
@@ -726,14 +732,13 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
 
 @pytest.mark.slow
 @pytest.mark.timeout(INTEGRATION_TEST_TIMEOUT)
-def test_full_datapath_and_recorded_files_in_beta_2_mode(
-    patched_xem_scripts_folder, patched_firmware_folder, fully_running_app_from_main_entrypoint, mocker
-):
+@freeze_time(datetime.datetime(year=2021, month=5, day=24, hour=21, minute=23, second=4, microsecond=141738))
+def test_full_datapath_and_recorded_files_in_beta_2_mode(fully_running_app_from_main_entrypoint, mocker):
     # TODO Tanner (4/23/21): This integration test does not actually test the full data path or recorded files yet. When that functionality is added for beta 2 mode, this test needs to be updated
 
     # Tanner (12/29/20): Freeze time in order to make assertions on timestamps in the metadata
     expected_time = datetime.datetime(
-        year=2020, month=6, day=15, hour=14, minute=19, second=55, microsecond=313309
+        year=2021, month=5, day=24, hour=21, minute=23, second=4, microsecond=141738
     )
     mocker.patch.object(
         server,
@@ -749,6 +754,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
             BACKEND_LOG_UUID
         ],
     )
+    expected_timestamp = "2021_05_24_212304"
 
     app_info = fully_running_app_from_main_entrypoint(["--beta-2-mode"])
     wait_for_subprocesses_to_start()
@@ -784,9 +790,10 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
         assert response.status_code == 200
 
-        # Tanner (12/30/20): managed_acquisition in beta 2 mode will currently only cause the system to enter buffering state. This is because no beta 2 data will come out of Data Analyzer at yet
+        # Tanner (12/30/20): managed_acquisition in beta 2 mode will currently only cause the system to enter buffering state. This is because no beta 2 data will come out of Data Analyzer yet
         assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
-        # TODO Tanner (12/30/20): Confirm system reaches live view active once the data analyzer is updated to handle beta 2 data
+
+        # TODO Tanner (12/30/20): Confirm system reaches live view active once beta 2 mode implemented in data analyzer
 
         expected_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND[
             "metadata_to_copy_onto_main_file_attributes"
@@ -802,6 +809,126 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         response = requests.get(f"{get_api_endpoint()}stop_recording?time_index={expected_stop_index}")
         assert response.status_code == 200
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
+
+        # Tanner (12/30/20): Stop managed_acquisition so processes can be stopped
+        response = requests.get(f"{get_api_endpoint()}stop_managed_acquisition")
+        assert response.status_code == 200
+        assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
+
+        # Tanner (12/30/20): stop processes in order to make assertions on recorded data
+        test_process_manager.soft_stop_processes()
+
+        fw_process = test_process_manager.get_file_writer_process()
+        fw_process.close_all_files()
+
+        actual_set_of_files = set(
+            os.listdir(
+                os.path.join(
+                    expected_recordings_dir,
+                    f"{expected_barcode}__{expected_timestamp}",
+                )
+            )
+        )
+        assert len(actual_set_of_files) == 24
+
+        # Tanner (6/15/20): Processes must be joined to avoid h5 errors with reading files, so hard-stopping before joining
+        test_process_manager.hard_stop_and_join_processes()
+
+        # test first recording for all data and metadata
+        for row_idx in range(4):
+            for col_idx in range(6):
+                with h5py.File(
+                    os.path.join(
+                        expected_recordings_dir,
+                        f"{expected_barcode}__{expected_timestamp}",
+                        f"{expected_barcode}__{expected_timestamp}__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
+                    ),
+                    "r",
+                ) as this_file:
+                    # test metadata values
+                    this_file_attrs = this_file.attrs
+                    assert bool(this_file_attrs[str(HARDWARE_TEST_RECORDING_UUID)]) is False
+                    assert this_file_attrs[str(SOFTWARE_BUILD_NUMBER_UUID)] == COMPILED_EXE_BUILD_TIMESTAMP
+                    assert (
+                        this_file_attrs[str(ORIGINAL_FILE_VERSION_UUID)]
+                        == CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
+                    )
+                    assert (
+                        this_file_attrs[FILE_FORMAT_VERSION_METADATA_KEY]
+                        == CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
+                    )
+                    assert this_file_attrs[str(UTC_BEGINNING_DATA_ACQUISTION_UUID)] == expected_time.strftime(
+                        "%Y-%m-%d %H:%M:%S.%f"
+                    )
+                    assert this_file_attrs[str(START_RECORDING_TIME_INDEX_UUID)] == start_recording_time_index
+                    assert this_file.attrs[str(UTC_BEGINNING_RECORDING_UUID)] == expected_time.strftime(
+                        "%Y-%m-%d %H:%M:%S.%f"
+                    )
+                    assert this_file_attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == (
+                        expected_time + datetime.timedelta(seconds=start_recording_time_index)
+                    ).strftime("%Y-%m-%d %H:%M:%S.%f")
+                    assert this_file_attrs[str(USER_ACCOUNT_ID_UUID)] == str(CURI_BIO_USER_ACCOUNT_ID)
+                    assert this_file_attrs[str(CUSTOMER_ACCOUNT_ID_UUID)] == str(CURI_BIO_ACCOUNT_UUID)
+                    assert (
+                        this_file_attrs[str(MAIN_FIRMWARE_VERSION_UUID)]
+                        == MantarrayMcSimulator.default_firmware_version
+                    )
+                    assert (
+                        this_file_attrs[str(MANTARRAY_SERIAL_NUMBER_UUID)]
+                        == MantarrayMcSimulator.default_mantarray_serial_number
+                    )
+                    assert (
+                        this_file_attrs[str(MANTARRAY_NICKNAME_UUID)]
+                        == MantarrayMcSimulator.default_mantarray_nickname
+                    )
+                    assert this_file_attrs[str(SOFTWARE_RELEASE_VERSION_UUID)] == CURRENT_SOFTWARE_VERSION
+                    assert (
+                        this_file_attrs[str(BOOTUP_COUNTER_UUID)]
+                        == MantarrayMcSimulator.default_metadata_values[BOOTUP_COUNTER_UUID]
+                    )
+                    assert (
+                        this_file_attrs[str(TOTAL_WORKING_HOURS_UUID)]
+                        == MantarrayMcSimulator.default_metadata_values[TOTAL_WORKING_HOURS_UUID]
+                    )
+                    assert (
+                        this_file_attrs[str(TAMPER_FLAG_UUID)]
+                        == MantarrayMcSimulator.default_metadata_values[TAMPER_FLAG_UUID]
+                    )
+                    assert (
+                        this_file_attrs[str(PCB_SERIAL_NUMBER_UUID)]
+                        == MantarrayMcSimulator.default_pcb_serial_number
+                    )
+
+                    assert (
+                        this_file_attrs[str(WELL_NAME_UUID)]
+                        == f"{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}"
+                    )
+                    assert this_file_attrs["Metadata UUID Descriptions"] == json.dumps(
+                        str(METADATA_UUID_DESCRIPTIONS)
+                    )
+                    assert bool(this_file_attrs[str(IS_FILE_ORIGINAL_UNTRIMMED_UUID)]) is True
+                    assert this_file_attrs[str(TRIMMED_TIME_FROM_ORIGINAL_START_UUID)] == 0
+                    assert this_file_attrs[str(TRIMMED_TIME_FROM_ORIGINAL_END_UUID)] == 0
+                    assert this_file_attrs[str(TOTAL_WELL_COUNT_UUID)] == 24
+                    assert this_file_attrs[str(WELL_ROW_UUID)] == row_idx
+                    assert this_file_attrs[str(WELL_COLUMN_UUID)] == col_idx
+                    assert this_file_attrs[
+                        str(WELL_INDEX_UUID)
+                    ] == WELL_DEF_24.get_well_index_from_row_and_column(row_idx, col_idx)
+                    assert this_file_attrs[str(TISSUE_SAMPLING_PERIOD_UUID)] == expected_sampling_period
+                    assert this_file_attrs[str(BACKEND_LOG_UUID)] == str(
+                        GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+                            BACKEND_LOG_UUID
+                        ]
+                    )
+                    assert (
+                        this_file_attrs[str(COMPUTER_NAME_HASH_UUID)]
+                        == GENERIC_BETA_2_START_RECORDING_COMMAND[
+                            "metadata_to_copy_onto_main_file_attributes"
+                        ][COMPUTER_NAME_HASH_UUID]
+                    )
+                    # Tanner (1/12/21): The barcode used for testing (which is passed to start_recording route) is different than the simulator's barcode (the one that is 'scanned' in this test), so this should result to False
+                    assert bool(this_file_attrs[str(BARCODE_IS_FROM_SCANNER_UUID)]) is False
 
     # Tanner (12/29/20): Good to do this at the end of tests to make sure they don't cause problems with other integration tests
     test_process_manager.hard_stop_and_join_processes()

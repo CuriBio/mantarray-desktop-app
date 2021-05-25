@@ -103,10 +103,6 @@ class DataAnalyzerProcess(InfiniteProcess):
     def _commands_for_each_run_iteration(self) -> None:
         self._process_next_command_from_main()
         # TODO Tanner (6/30/20): Apply sensor sensitivity calibration settings once they are fleshed out.  # Tanner (5/19/21): This TODO may be unnecessary now
-        if self._beta_2_mode:
-            # Tanner (5/24/21): This if check should be removed once beta 2 mode is implemented in this process
-            return
-
         self._load_memory_into_buffer()
         if self._is_buffer_full():
             outgoing_data = self._create_outgoing_data()
@@ -144,6 +140,10 @@ class DataAnalyzerProcess(InfiniteProcess):
         try:
             data_dict = input_queue.get_nowait()
         except queue.Empty:
+            return
+
+        if self._beta_2_mode:
+            # Tanner (5/24/21): This if check should be removed once beta 2 mode is implemented in this process
             return
 
         if not self._is_managed_acquisition_running:

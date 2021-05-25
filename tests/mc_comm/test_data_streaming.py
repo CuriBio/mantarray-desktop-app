@@ -20,6 +20,7 @@ from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from mantarray_desktop_app import SerialCommIncorrectChecksumFromInstrumentError
 from mantarray_desktop_app import SerialCommIncorrectMagicWordFromMantarrayError
 import numpy as np
@@ -49,7 +50,7 @@ __fixtures__ = [
 
 TEST_NUM_WELLS = 24
 FULL_DATA_PACKET_LEN = get_full_packet_size_from_packet_body_size(
-    (SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS * 2) + 2
+    (SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS * 2) + SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 )
 
 TEST_OTHER_TIMESTAMP = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
@@ -107,9 +108,8 @@ def test_handle_data_packets__handles_two_full_data_packets_correctly():
     test_num_data_packets = 2
     num_data_points_per_packet = SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS
 
-    expected_packet_time_indices = np.array([5, 6], dtype=np.uint64)
-    expected_timestamp_offsets = np.array([2, 1], dtype=np.uint64)
-    expected_data_time_indices = expected_packet_time_indices - expected_timestamp_offsets
+    test_timestamps = np.array([1, 2], dtype=np.uint64)
+    expected_data_time_indices = np.array([5, 6], dtype=np.uint32)
 
     expected_data_array = np.zeros((num_data_points_per_packet, test_num_data_packets), dtype=np.int16)
     test_data_packets = bytes(0)
@@ -117,11 +117,15 @@ def test_handle_data_packets__handles_two_full_data_packets_correctly():
         test_data = [randint(-0x8000, 0x7FFF) for _ in range(SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS)]
         expected_data_array[:, packet_num] = test_data
 
-        test_bytes = expected_timestamp_offsets[packet_num].item().to_bytes(2, byteorder="little")
+        test_bytes = (
+            expected_data_time_indices[packet_num]
+            .item()
+            .to_bytes(SERIAL_COMM_TIME_INDEX_LENGTH_BYTES, byteorder="little")
+        )
         for value in test_data:
             test_bytes += value.to_bytes(2, byteorder="little", signed=True)
         test_data_packets += create_data_packet(
-            expected_packet_time_indices[packet_num].item(),
+            test_timestamps[packet_num].item(),
             SERIAL_COMM_MAIN_MODULE_ID,
             SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE,
             test_bytes,
@@ -191,7 +195,7 @@ def test_handle_data_packets__handles_single_packet_with_incorrect_module_id_cor
 
 
 def test_handle_data_packets__handles_interrupting_packet_followed_by_data_packet__when_all_channels_enabled():
-    data_bytes = bytes(2)
+    data_bytes = bytes(SERIAL_COMM_TIME_INDEX_LENGTH_BYTES)
     for _ in range(SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS):
         data_bytes += randint(-0x8000, 0x7FFF).to_bytes(2, byteorder="little", signed=True)
     expected_unread_bytes = create_data_packet(
@@ -218,12 +222,12 @@ def test_handle_data_packets__handles_interrupting_packet_followed_by_data_packe
 
 
 def test_handle_data_packets__handles_single_data_packet_followed_by_interrupting_packet__when_all_channels_enabled():
-    data_bytes = bytes(2)
-    expected_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+    expected_time_index = 0
+    data_bytes = expected_time_index.to_bytes(SERIAL_COMM_TIME_INDEX_LENGTH_BYTES, byteorder="little")
     for _ in range(SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS):
         data_bytes += randint(-0x8000, 0x7FFF).to_bytes(2, byteorder="little", signed=True)
     test_data_packet = create_data_packet(
-        expected_timestamp,
+        randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE),
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE,
         data_bytes,
@@ -239,7 +243,7 @@ def test_handle_data_packets__handles_single_data_packet_followed_by_interruptin
     ) = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_LEN)
 
     assert actual_time_indices.shape[0] == 1
-    assert actual_time_indices[0] == expected_timestamp
+    assert actual_time_indices[0] == expected_time_index
     assert actual_data.shape[1] == 1
     assert num_data_packets_read == 1
     assert other_packet_info == TEST_OTHER_PACKET_INFO
@@ -247,12 +251,12 @@ def test_handle_data_packets__handles_single_data_packet_followed_by_interruptin
 
 
 def test_handle_data_packets__handles_single_data_packet_followed_by_incomplete_packet__when_all_channels_enabled():
-    data_bytes = bytes(2)
-    expected_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+    expected_time_index = 12345
+    data_bytes = expected_time_index.to_bytes(SERIAL_COMM_TIME_INDEX_LENGTH_BYTES, byteorder="little")
     for _ in range(SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS):
         data_bytes += randint(-0x8000, 0x7FFF).to_bytes(2, byteorder="little", signed=True)
     test_data_packet = create_data_packet(
-        expected_timestamp,
+        randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE),
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE,
         data_bytes,
@@ -269,7 +273,7 @@ def test_handle_data_packets__handles_single_data_packet_followed_by_incomplete_
     ) = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_LEN)
 
     assert actual_time_indices.shape[0] == 1
-    assert actual_time_indices[0] == expected_timestamp
+    assert actual_time_indices[0] == expected_time_index
     assert actual_data.shape[1] == 1
     assert num_data_packets_read == 1
     assert other_packet_info is None
@@ -279,15 +283,15 @@ def test_handle_data_packets__handles_single_data_packet_followed_by_incomplete_
 def test_handle_data_packets__handles_interrupting_packet_in_between_two_data_packets__when_all_channels_enabled():
     test_num_data_packets = 2
 
-    expected_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+    expected_time_index = 90006
 
     test_data_packets = []
     for _ in range(test_num_data_packets):
-        data_bytes = bytes(2)
+        data_bytes = expected_time_index.to_bytes(SERIAL_COMM_TIME_INDEX_LENGTH_BYTES, byteorder="little")
         for _ in range(SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS):
             data_bytes += randint(-0x8000, 0x7FFF).to_bytes(2, byteorder="little", signed=True)
         test_data_packet = create_data_packet(
-            expected_timestamp,
+            randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE),
             SERIAL_COMM_MAIN_MODULE_ID,
             SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE,
             data_bytes,
@@ -304,7 +308,7 @@ def test_handle_data_packets__handles_interrupting_packet_in_between_two_data_pa
     ) = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_LEN)
 
     assert actual_time_indices.shape[0] == 2
-    assert actual_time_indices[0] == expected_timestamp
+    assert actual_time_indices[0] == expected_time_index
     assert actual_data.shape[1] == 2
     assert num_data_packets_read == 1
     assert other_packet_info == TEST_OTHER_PACKET_INFO
@@ -339,7 +343,9 @@ def test_handle_data_packets__performance_test():
     # One second of data, max sampling rate, all data channels on
     # start:                            1397497
 
-    test_num_data_packets = 1000  # one second of data at max sampling frequency
+    num_us_of_data_to_send = int(1e6)  # one second in microseconds
+    test_sampling_rate = 1000
+    test_num_data_packets = int(num_us_of_data_to_send // test_sampling_rate)
     num_data_points_per_packet = SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS
 
     expected_data_array = np.zeros((num_data_points_per_packet, test_num_data_packets), dtype=np.int16)
@@ -348,7 +354,9 @@ def test_handle_data_packets__performance_test():
         test_data = [randint(-0x8000, 0x7FFF) for _ in range(SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS)]
         expected_data_array[:, packet_num] = test_data
 
-        test_bytes = bytes(2)
+        test_bytes = (test_sampling_rate * packet_num).to_bytes(
+            SERIAL_COMM_TIME_INDEX_LENGTH_BYTES, byteorder="little"
+        )
         for value in test_data:
             test_bytes += value.to_bytes(2, byteorder="little", signed=True)
         test_data_packets += create_data_packet(
@@ -372,7 +380,9 @@ def test_handle_data_packets__performance_test():
     assert dur < 1000000000
     # good to also assert the entire second of data was parsed correctly
     assert actual_time_indices.shape[0] == test_num_data_packets
-    np.testing.assert_array_equal(actual_time_indices, list(range(test_num_data_packets)))
+    np.testing.assert_array_equal(
+        actual_time_indices, list(range(0, num_us_of_data_to_send, test_sampling_rate))
+    )
     assert actual_data.shape[1] == test_num_data_packets
     np.testing.assert_array_equal(actual_data, expected_data_array)
     assert num_data_packets_read == test_num_data_packets
@@ -650,8 +660,6 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
     expected_time_indices = list(
         range(0, max_timestamp_cms, test_sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND)
     )
-    mocker.patch.object(simulator, "_get_timestamp", autospec=True, side_effect=expected_time_indices)
-    mocker.patch.object(simulator, "_get_timestamp_offset", autospec=True, return_value=0)
 
     simulated_data = simulator.get_interpolated_data(test_sampling_period_us)
     expected_fw_item = {"time_indices": np.array(expected_time_indices, np.uint64)}
@@ -716,8 +724,6 @@ def test_McCommunicationProcess__handles_one_second_read_with_interrupting_packe
     expected_time_indices = list(
         range(0, max_timestamp_cms, test_sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND)
     )
-    mocker.patch.object(simulator, "_get_timestamp", autospec=True, side_effect=expected_time_indices)
-    mocker.patch.object(simulator, "_get_timestamp_offset", autospec=True, return_value=0)
 
     simulated_data = simulator.get_interpolated_data(test_sampling_period_us)
     expected_fw_item = {"time_indices": np.array(expected_time_indices, np.uint64)}
