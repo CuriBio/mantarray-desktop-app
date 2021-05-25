@@ -36,6 +36,7 @@ from .constants import RECORDING_STATE
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
+from .exceptions import IncorrectMagnetometerConfigFromInstrumentError
 from .exceptions import UnrecognizedCommandToInstrumentError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
 from .exceptions import UnrecognizedRecordingCommandError
@@ -101,8 +102,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
         with self._lock:
             logger.info(msg)
 
-    # pylint: disable=too-many-branches  # Tanner (4/23/21): temporarily need to add more than the allowed number of branches in order to support Beta 1 mode during transition to Beta 2 mode
     def _check_and_handle_server_to_main_queue(self) -> None:
+        # pylint: disable=too-many-branches  # Tanner (4/23/21): temporarily need to add more than the allowed number of branches in order to support Beta 1 mode during transition to Beta 2 mode
         process_manager = self._process_manager
         to_main_queue = process_manager.queue_container().get_communication_queue_from_server_to_main()
         try:
@@ -162,6 +163,16 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 )
                 process_manager.set_file_directory(new_recording_directory)
             update_shared_dict(shared_values_dict, new_values)
+        elif communication_type == "set_magnetometer_config":
+            self._values_to_share_to_server["magnetometer_config_dict"] = communication[
+                "magnetometer_config_dict"
+            ]
+            comm_to_mc_process = {
+                "communication_type": "to_instrument",
+                "command": "change_magnetometer_config",
+            }
+            comm_to_mc_process.update(communication["magnetometer_config_dict"])
+            self._put_communication_into_instrument_comm_queue(comm_to_mc_process)
         elif communication_type == "xem_scripts":
             # Tanner (12/28/20): start_calibration is the only xem_scripts command that will come from server (called directly from /start_calibration). This comm type will be removed/replaced in beta 2 so not adding handling for unrecognized command.
             if shared_values_dict["beta_2_mode"]:
@@ -240,6 +251,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     self._values_to_share_to_server["system_status"] = LIVE_VIEW_ACTIVE_STATE
 
     def _check_and_handle_instrument_comm_to_main_queue(self) -> None:
+        # pylint: disable=too-many-branches  # Tanner (5/22/21): many branches needed here
         process_manager = self._process_manager
         instrument_comm_to_main = (
             process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
@@ -278,10 +290,16 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         if communication_type in ["acquisition_manager", "to_instrument"]:
             if command == "start_managed_acquisition":
+                # TODO Tanner (5/22/21): Should add a way to check the sampling period as well
+                if (
+                    self._values_to_share_to_server["beta_2_mode"]
+                    and self._values_to_share_to_server["magnetometer_config_dict"]["magnetometer_config"]
+                    != communication["magnetometer_config"]
+                ):
+                    raise IncorrectMagnetometerConfigFromInstrumentError()
                 self._values_to_share_to_server["utc_timestamps_of_beginning_of_data_acquisition"] = [
                     communication["timestamp"]
                 ]
-                # TODO Tanner (4/30/21): Eventually need to store the magnetometer configuration received from the frontend and verify that the instrument's configuration in the start data streaming response matches.
             if command == "stop_managed_acquisition":
                 self._values_to_share_to_server["system_status"] = CALIBRATED_STATE
                 self._data_dump_buffer_size = 0

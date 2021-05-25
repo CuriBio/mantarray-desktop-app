@@ -184,6 +184,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             while not board.is_start_up_complete():
                 # sleep so as to not relentlessly ping the simulator
                 sleep(0.1)
+        self._auto_get_metadata = True
 
     def _teardown_after_loop(self) -> None:
         board_idx = 0
@@ -240,6 +241,9 @@ class McCommunicationProcess(InstrumentCommProcess):
         num_boards_connected = self.determine_how_many_boards_are_connected()
         to_main_queue = self._board_queues[0][1]
         for i in range(num_boards_connected):
+            # don't make new connection if a board is already connected
+            if self._board_connections[i] is not None:
+                continue
             msg = {
                 "communication_type": "board_connection_status_change",
                 "board_index": i,
@@ -541,7 +545,6 @@ class McCommunicationProcess(InstrumentCommProcess):
                         "timepoint": perf_counter(),
                     }
                 )
-                self._auto_get_metadata = True
             elif status_code == SERIAL_COMM_IDLE_READY_CODE and self._auto_get_metadata:
                 self._send_data_packet(
                     board_idx,
@@ -599,14 +602,14 @@ class McCommunicationProcess(InstrumentCommProcess):
                 prev_command
             )  # Tanner (3/17/21): to be consistent with OkComm, command responses will be sent back to main after the command is acknowledged by the Mantarray
         elif packet_type == SERIAL_COMM_PLATE_EVENT_PACKET_TYPE:
-            was_plate_placed = bool(packet_body[0])
-            barcode = packet_body[1:].decode("ascii") if was_plate_placed else ""
+            plate_was_placed = bool(packet_body[0])
+            barcode = packet_body[1:].decode("ascii") if plate_was_placed else ""
             barcode_comm = {
                 "communication_type": "barcode_comm",
                 "board_idx": board_idx,
                 "barcode": barcode,
             }
-            if was_plate_placed:
+            if plate_was_placed:
                 barcode_comm["valid"] = check_barcode_is_valid(barcode)
             self._board_queues[board_idx][1].put_nowait(barcode_comm)
         else:

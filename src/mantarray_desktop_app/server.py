@@ -3,17 +3,22 @@
 
 Custom HTTP Error Codes:
 
-* 204 - Call to /get_available_data when no available data in outgoing data queue from Data Analyzer.
+* 204 - Call to /get_available_data when no available data in outgoing data queue from Data Analyzer
 * 400 - Call to /start_recording with invalid or missing barcode parameter
 * 400 - Call to /set_mantarray_nickname with invalid nickname parameter
 * 400 - Call to /update_settings with unexpected argument, invalid account UUID, or a recording directory that doesn't exist
 * 400 - Call to /insert_xem_command_into_queue/set_mantarray_serial_number with invalid serial_number parameter
+* 400 - Call to /set_magnetometer_config with invalid configuration dict
+* 400 - Call to /set_magnetometer_config with invalid or missing sampling period
 * 403 - Call to /start_recording with is_hardware_test_recording=False after calling route with is_hardware_test_recording=True (default value)
-* 403 - Call to any /insert_xem_command_into_queue/* route or /boot_up when in beta 2 mode
+* 403 - Call to any /insert_xem_command_into_queue/* route when in Beta 2 mode
+* 403 - Call to /boot_up when in Beta 2 mode
+* 403 - Call to /set_magnetometer_config when in Beta 1 mode
+* 403 - Call to /set_magnetometer_config while data is streaming in Beta 2 mode
 * 404 - Route not implemented
+* 406 - Call to /start_managed_acquisition before magnetometer configuration is set
 * 406 - Call to /start_managed_acquisition when Mantarray device does not have a serial number assigned to it
 * 406 - Call to /start_recording before customer_account_uuid and user_account_uuid are set
-* 452 -
 * 520 - Electron and Flask EXE versions don't match
 """
 from __future__ import annotations
@@ -69,9 +74,13 @@ from stdlib_utils import is_port_in_use
 from stdlib_utils import print_exception
 from stdlib_utils import put_log_message_into_queue
 
+from .constants import BUFFERING_STATE
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import DEFAULT_SERVER_PORT_NUMBER
+from .constants import LIVE_VIEW_ACTIVE_STATE
+from .constants import MICROSECONDS_PER_MILLISECOND
+from .constants import RECORDING_STATE
 from .constants import REFERENCE_VOLTAGE
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
@@ -91,6 +100,7 @@ from .request_handler import MantarrayRequestHandler
 from .utils import check_barcode_for_errors
 from .utils import convert_request_args_to_config_dict
 from .utils import get_current_software_version
+from .utils import validate_magnetometer_config_keys
 from .utils import validate_settings
 
 logger = logging.getLogger(__name__)
@@ -255,7 +265,7 @@ def system_status() -> Response:
 def get_available_data() -> Response:
     """Get available data if any from Data Analyzer.
 
-    Can be invoked by curl http://localhost:4567/get_available_data
+    Can be invoked by: curl http://localhost:4567/get_available_data
     """
     server_thread = get_the_server_thread()
     data_out_queue = server_thread.get_data_analyzer_data_out_queue()
@@ -275,7 +285,7 @@ def set_mantarray_nickname() -> Response:
 
     This route will not overwrite an existing Mantarray Serial Number.
 
-    Can be invoked by curl 'http://localhost:4567/set_mantarray_nickname?nickname=My Mantarray'
+    Can be invoked by: curl 'http://localhost:4567/set_mantarray_nickname?nickname=My Mantarray'
     """
     shared_values_dict = _get_values_from_process_monitor()
     max_num_bytes = SERIAL_COMM_METADATA_BYTES_LENGTH if shared_values_dict["beta_2_mode"] else 23
@@ -332,7 +342,7 @@ def boot_up() -> Response:
 def update_settings() -> Response:
     """Update the user settings.
 
-    Can be invoked by curl http://localhost:4567/update_settings?customer_account_uuid=<UUID>&user_account_uuid=<UUID>&recording_directory=recording_dir
+    Can be invoked by: curl http://localhost:4567/update_settings?customer_account_uuid=<UUID>&user_account_uuid=<UUID>&recording_directory=recording_dir
     """
     for arg in request.args:
         if arg not in VALID_CONFIG_SETTINGS:
@@ -359,6 +369,64 @@ def update_settings() -> Response:
     return response
 
 
+@flask_app.route("/set_magnetometer_config", methods=["POST"])
+def set_magnetometer_config() -> Response:
+    """Set the magnetometer configuration on a Beta 2 Mantarray.
+
+    Not available for Beta 1 instruments.
+
+    Can be invoked by: curl -d '<magnetometer configuration as json>' -H 'Content-Type: application/json' -X POST http://localhost:4567/set_magnetometer_config
+    """
+    if not _get_values_from_process_monitor()["beta_2_mode"]:
+        return Response(status="403 Route cannot be called in beta 1 mode")
+    if _is_data_streaming():
+        return Response(status="403 Magnetometer Configuration cannot be changed while data is streaming")
+    # load configuration
+    magnetometer_config_dict_json = request.get_json()
+    magnetometer_config_dict = json.loads(
+        magnetometer_config_dict_json, object_hook=_fix_magnetometer_config_dict_keys
+    )
+    # validate sampling period
+    try:
+        sampling_period = magnetometer_config_dict["sampling_period"]
+    except KeyError:
+        return Response(status="400 Sampling period not specified")
+    if sampling_period % MICROSECONDS_PER_MILLISECOND != 0:
+        return Response(status=f"400 Invalid sampling period {sampling_period}")
+    # validate configuration dictionary
+    num_wells = 24
+    error_msg = validate_magnetometer_config_keys(
+        magnetometer_config_dict["magnetometer_config"], 1, num_wells + 1
+    )
+    if error_msg:
+        return Response(status=f"400 {error_msg}")
+
+    queue_command_to_main(
+        {
+            "communication_type": "set_magnetometer_config",
+            "magnetometer_config_dict": magnetometer_config_dict,
+        }
+    )
+
+    return Response(magnetometer_config_dict_json, mimetype="application/json")
+
+
+def _fix_magnetometer_config_dict_keys(magnetometer_config_dict: Dict[str, Any]) -> Dict[Any, Any]:
+    return {_fix_json_key(k): v for k, v in magnetometer_config_dict.items()}
+
+
+def _fix_json_key(key: str) -> Union[int, str]:
+    try:
+        return int(key)
+    except ValueError:
+        return key
+
+
+def _is_data_streaming() -> bool:
+    current_system_status = _get_values_from_process_monitor()["system_status"]
+    return current_system_status in (BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE, RECORDING_STATE)
+
+
 @flask_app.route("/start_recording", methods=["GET"])
 def start_recording() -> Response:
     """Tell the FileWriter to begin recording data to disk.
@@ -370,7 +438,6 @@ def start_recording() -> Response:
         active_well_indices: [Optional, default=all 24] CSV of well indices to record from
         time_index: [Optional, int] centimilliseconds since acquisition began to start the recording at. Defaults to when this command is received
     """
-    # TODO Tanner (4/21/21): when the new route is added to set sampling periods, need to make sure that software isn't recording to file before passing command to McComm
     board_idx = 0
 
     if "barcode" not in request.args:
@@ -509,26 +576,26 @@ def stop_recording() -> Response:
     comm_dict["timepoint_to_stop_recording_at"] = stop_timepoint
 
     response = queue_command_to_main(comm_dict)
-
     return response
 
 
 @flask_app.route("/start_managed_acquisition", methods=["GET"])
 def start_managed_acquisition() -> Response:
-    """Begin "managed" data acquisition on the Mantarray.
+    """Begin "managed" data acquisition (AKA data streaming) on the Mantarray.
 
     Can be invoked by:
 
     `curl http://localhost:4567/start_managed_acquisition`
     """
-    # TODO Tanner (5/12/21): When beta 2 route is added to change magnetometer configuration, need to make sure that data is not streaming first. Should return error code if data is streaming
     shared_values_dict = _get_values_from_process_monitor()
     if not shared_values_dict["mantarray_serial_number"][0]:
         response = Response(status="406 Mantarray has not been assigned a Serial Number")
         return response
+    if shared_values_dict["beta_2_mode"] and "magnetometer_config_dict" not in shared_values_dict:
+        response = Response(status="406 Magnetometer Configuration has not been set yet")
+        return response
 
     response = queue_command_to_main(START_MANAGED_ACQUISITION_COMMUNICATION)
-
     return response
 
 
@@ -560,7 +627,7 @@ def set_mantarray_serial_number() -> Response:
 
     This route will overwrite an existing Mantarray Nickname if present
 
-    Can be invoked by curl http://localhost:4567/insert_xem_command_into_queue/set_mantarray_serial_number?serial_number=M02001900
+    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/set_mantarray_serial_number?serial_number=M02001900
     """
     serial_number = request.args["serial_number"]
     error_message = check_mantarray_serial_number(serial_number)
@@ -573,9 +640,7 @@ def set_mantarray_serial_number() -> Response:
         "command": "set_mantarray_serial_number",
         "mantarray_serial_number": serial_number,
     }
-
     response = queue_command_to_main(comm_dict)
-
     return response
 
 
@@ -598,9 +663,7 @@ def queue_initialize_board() -> Response:
         "allow_board_reinitialization": allow_board_reinitialization,
         "suppress_error": True,
     }
-
     response = queue_command_to_instrument_comm(comm_dict)
-
     return response
 
 
@@ -619,9 +682,7 @@ def queue_activate_trigger_in() -> Response:
         "bit": bit,
         "suppress_error": True,
     }
-
     response = queue_command_to_instrument_comm(comm_dict)
-
     return response
 
 
@@ -640,9 +701,7 @@ def queue_comm_delay() -> Response:
         "num_milliseconds": num_milliseconds,
         "suppress_error": True,
     }
-
     response = queue_command_to_instrument_comm(comm_dict)
-
     return response
 
 
@@ -650,7 +709,7 @@ def queue_comm_delay() -> Response:
 def dev_begin_hardware_script() -> Response:
     """Designate the beginning of a hardware script in flask log.
 
-    Can be invoked by curl "http://localhost:4567/development/begin_hardware_script?script_type=ENUM&version=integer"
+    Can be invoked by: curl "http://localhost:4567/development/begin_hardware_script?script_type=ENUM&version=integer"
     """
     return Response(json.dumps({}), mimetype="application/json")
 
@@ -659,7 +718,7 @@ def dev_begin_hardware_script() -> Response:
 def dev_end_hardware_script() -> Response:
     """Designate the end of a hardware script in flask log.
 
-    Can be invoked by curl http://localhost:4567/development/end_hardware_script
+    Can be invoked by: curl http://localhost:4567/development/end_hardware_script
     """
     return Response(json.dumps({}), mimetype="application/json")
 
@@ -675,9 +734,7 @@ def queue_get_num_words_fifo() -> Response:
         "command": "get_num_words_fifo",
         "suppress_error": True,
     }
-
     response = queue_command_to_instrument_comm(comm_dict)
-
     return response
 
 
@@ -835,7 +892,7 @@ def queue_set_wire_in() -> Response:
 def run_xem_script() -> Response:
     """Run a script of XEM commands created from an existing flask log.
 
-    Can be invoked by curl http://localhost:4567/xem_scripts?script_type=start_up
+    Can be invoked by: curl http://localhost:4567/xem_scripts?script_type=start_up
     """
     script_type = request.args["script_type"]
     comm_dict = {"communication_type": "xem_scripts", "script_type": script_type}

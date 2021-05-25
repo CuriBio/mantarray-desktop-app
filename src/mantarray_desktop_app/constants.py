@@ -86,7 +86,7 @@ FIFO_READ_PRODUCER_WELL_AMPLITUDE = 0xA8000
 FIFO_READ_PRODUCER_REF_AMPLITUDE = 0x100000
 
 MIDSCALE_CODE = 0x800000
-REFERENCE_VOLTAGE = 2.5  # TODO Tanner (7/16/20): remove this once the read_wire_out value is implemented
+REFERENCE_VOLTAGE = 2.5  # TODO Tanner (5/22/21): Determine if this value is still needed for Beta 2
 ADC_GAIN = 2
 RAW_TO_SIGNED_CONVERSION_VALUE = 2 ** 23  # subtract this value from raw hardware data
 MILLIVOLTS_PER_VOLT = 1000
@@ -198,6 +198,7 @@ STOP_MANAGED_ACQUISITION_COMMUNICATION = immutabledict(
     }
 )
 
+# TODO Tanner (5/22/21): Add Beta 2 states and remove Beta 1 specific states once phased out
 SERVER_INITIALIZING_STATE = "server_initializing"
 SERVER_READY_STATE = "server_ready"
 INSTRUMENT_INITIALIZING_STATE = "instrument_initializing"
