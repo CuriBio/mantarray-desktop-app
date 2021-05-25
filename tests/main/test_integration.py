@@ -29,6 +29,7 @@ from mantarray_desktop_app import FIFO_READ_PRODUCER_WELL_AMPLITUDE
 from mantarray_desktop_app import FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
 from mantarray_desktop_app import get_api_endpoint
 from mantarray_desktop_app import get_server_port_number
+from mantarray_desktop_app import get_time_index_dataset_from_file
 from mantarray_desktop_app import get_tissue_dataset_from_file
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
@@ -368,13 +369,13 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
 
         # Tanner (12/30/20): Run managed_acquisition until in live_view state. This will confirm that data passed through the system completely
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
-        expected_barcode1 = GENERIC_BETA_1_START_RECORDING_COMMAND[
+        expected_barcode_1 = GENERIC_BETA_1_START_RECORDING_COMMAND[
             "metadata_to_copy_onto_main_file_attributes"
         ][PLATE_BARCODE_UUID]
-        start_recording_time_index = 960
+        start_recording_time_index_1 = 960
         # Tanner (12/30/20): Start recording with barcode1 to create first set of files. Don't start recording at time index 0 since that data frame is discarded due to bit file issues
         response = requests.get(
-            f"{get_api_endpoint()}start_recording?barcode={expected_barcode1}&time_index={start_recording_time_index}&is_hardware_test_recording=False"
+            f"{get_api_endpoint()}start_recording?barcode={expected_barcode_1}&time_index={start_recording_time_index_1}&is_hardware_test_recording=False"
         )
         assert response.status_code == 200
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
@@ -386,13 +387,13 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
 
         # Tanner (12/29/20): Use new barcode for second set of recordings
-        expected_barcode2 = (
-            expected_barcode1[:-1] + "2"
+        expected_barcode_2 = (
+            expected_barcode_1[:-1] + "2"
         )  # change last char of default barcode from '1' to '2'
         # Tanner (12/30/20): Start recording with barcode2 to create second set of files. Use known timepoint a just after end of first set of data
         expected_start_index_2 = expected_stop_index_1 + 1
         response = requests.get(
-            f"{get_api_endpoint()}start_recording?barcode={expected_barcode2}&time_index={expected_start_index_2}&is_hardware_test_recording=False"
+            f"{get_api_endpoint()}start_recording?barcode={expected_barcode_2}&time_index={expected_start_index_2}&is_hardware_test_recording=False"
         )
         assert response.status_code == 200
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
@@ -416,7 +417,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
             os.listdir(
                 os.path.join(
                     expected_recordings_dir,
-                    f"{expected_barcode1}__{expected_timestamp}",
+                    f"{expected_barcode_1}__{expected_timestamp}",
                 )
             )
         )
@@ -432,8 +433,8 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                 with h5py.File(
                     os.path.join(
                         expected_recordings_dir,
-                        f"{expected_barcode1}__{expected_timestamp}",
-                        f"{expected_barcode1}__{expected_timestamp}__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
+                        f"{expected_barcode_1}__{expected_timestamp}",
+                        f"{expected_barcode_1}__{expected_timestamp}__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
                     ),
                     "r",
                 ) as this_file:
@@ -451,7 +452,9 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                     assert this_file_attrs[str(UTC_BEGINNING_DATA_ACQUISTION_UUID)] == expected_time.strftime(
                         "%Y-%m-%d %H:%M:%S.%f"
                     )
-                    assert this_file_attrs[str(START_RECORDING_TIME_INDEX_UUID)] == start_recording_time_index
+                    assert (
+                        this_file_attrs[str(START_RECORDING_TIME_INDEX_UUID)] == start_recording_time_index_1
+                    )
                     assert this_file.attrs[str(UTC_BEGINNING_RECORDING_UUID)] == expected_time.strftime(
                         "%Y-%m-%d %H:%M:%S.%f"
                     )
@@ -459,7 +462,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                         expected_time
                         + datetime.timedelta(
                             seconds=(
-                                start_recording_time_index
+                                start_recording_time_index_1
                                 + WELL_24_INDEX_TO_ADC_AND_CH_INDEX[well_idx][1] * DATA_FRAME_PERIOD
                             )
                             / CENTIMILLISECONDS_PER_SECOND
@@ -468,7 +471,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                     assert this_file_attrs[str(UTC_FIRST_REF_DATA_POINT_UUID)] == (
                         expected_time
                         + datetime.timedelta(
-                            seconds=(start_recording_time_index + DATA_FRAME_PERIOD)
+                            seconds=(start_recording_time_index_1 + DATA_FRAME_PERIOD)
                             / CENTIMILLISECONDS_PER_SECOND
                         )
                     ).strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -543,8 +546,8 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                 with h5py.File(
                     os.path.join(
                         expected_recordings_dir,
-                        f"{expected_barcode2}__2020_06_15_141957",
-                        f"{expected_barcode2}__2020_06_15_141957__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
+                        f"{expected_barcode_2}__2020_06_15_141957",
+                        f"{expected_barcode_2}__2020_06_15_141957__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
                     ),
                     "r",
                 ) as this_file:
@@ -789,23 +792,55 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(fully_running_app_from_
         # Tanner (12/30/20): start managed_acquisition in order to start recording
         response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
         assert response.status_code == 200
-
         # Tanner (12/30/20): managed_acquisition in beta 2 mode will currently only cause the system to enter buffering state. This is because no beta 2 data will come out of Data Analyzer yet
         assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
+        time.sleep(2)  # sleep in place of waiting for live view
+        # TODO Tanner (5/25/20): Confirm system reaches live view active once beta 2 mode implemented in data analyzer
 
-        # TODO Tanner (12/30/20): Confirm system reaches live view active once beta 2 mode implemented in data analyzer
-
-        expected_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND[
+        expected_barcode_1 = GENERIC_BETA_2_START_RECORDING_COMMAND[
             "metadata_to_copy_onto_main_file_attributes"
         ][PLATE_BARCODE_UUID]
-        start_recording_time_index = 0
+        expected_start_index = 0
         response = requests.get(
-            f"{get_api_endpoint()}start_recording?barcode={expected_barcode}&time_index={start_recording_time_index}&is_hardware_test_recording=False"
+            f"{get_api_endpoint()}start_recording?barcode={expected_barcode_1}&time_index={expected_start_index}&is_hardware_test_recording=False"
         )
         assert response.status_code == 200
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
+
         time.sleep(3)  # Tanner (6/15/20): This allows data to be written to files
+
         expected_stop_index = 200000  # Tanner (12/30/20): End recording at a known timepoint
+        response = requests.get(f"{get_api_endpoint()}stop_recording?time_index={expected_stop_index}")
+        assert response.status_code == 200
+        assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
+
+        # Tanner (12/30/20): Stop managed_acquisition
+        response = requests.get(f"{get_api_endpoint()}stop_managed_acquisition")
+        assert response.status_code == 200
+        assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
+
+        # Tanner (12/30/20): make sure managed_acquisition can be restarted
+        response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
+        assert response.status_code == 200
+        # Tanner (12/30/20): managed_acquisition in beta 2 mode will currently only cause the system to enter buffering state. This is because no beta 2 data will come out of Data Analyzer yet
+        assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
+        time.sleep(2)  # sleep in place of waiting for live view
+        # TODO Tanner (5/25/20): Confirm system reaches live view active once beta 2 mode implemented in data analyzer
+
+        # Tanner (12/29/20): Use new barcode for second set of recordings
+        expected_barcode_2 = (
+            expected_barcode_1[:-1] + "2"
+        )  # change last char of default barcode from '1' to '2'
+        # Tanner (12/30/20): Start recording with barcode2 to create second set of files. Use known timepoint a just after end of first set of data
+
+        response = requests.get(
+            f"{get_api_endpoint()}start_recording?barcode={expected_barcode_2}&time_index={expected_start_index}&is_hardware_test_recording=False"
+        )
+        assert response.status_code == 200
+        assert system_state_eventually_equals(RECORDING_STATE, 3) is True
+
+        time.sleep(3)  # Tanner (6/15/20): This allows data to be written to files
+
         response = requests.get(f"{get_api_endpoint()}stop_recording?time_index={expected_stop_index}")
         assert response.status_code == 200
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
@@ -825,7 +860,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(fully_running_app_from_
             os.listdir(
                 os.path.join(
                     expected_recordings_dir,
-                    f"{expected_barcode}__{expected_timestamp}",
+                    f"{expected_barcode_1}__{expected_timestamp}",
                 )
             )
         )
@@ -840,8 +875,8 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(fully_running_app_from_
                 with h5py.File(
                     os.path.join(
                         expected_recordings_dir,
-                        f"{expected_barcode}__{expected_timestamp}",
-                        f"{expected_barcode}__{expected_timestamp}__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
+                        f"{expected_barcode_1}__{expected_timestamp}",
+                        f"{expected_barcode_1}__{expected_timestamp}__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
                     ),
                     "r",
                 ) as this_file:
@@ -860,12 +895,12 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(fully_running_app_from_
                     assert this_file_attrs[str(UTC_BEGINNING_DATA_ACQUISTION_UUID)] == expected_time.strftime(
                         "%Y-%m-%d %H:%M:%S.%f"
                     )
-                    assert this_file_attrs[str(START_RECORDING_TIME_INDEX_UUID)] == start_recording_time_index
+                    assert this_file_attrs[str(START_RECORDING_TIME_INDEX_UUID)] == expected_start_index
                     assert this_file.attrs[str(UTC_BEGINNING_RECORDING_UUID)] == expected_time.strftime(
                         "%Y-%m-%d %H:%M:%S.%f"
                     )
                     assert this_file_attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == (
-                        expected_time + datetime.timedelta(seconds=start_recording_time_index)
+                        expected_time + datetime.timedelta(seconds=expected_start_index)
                     ).strftime("%Y-%m-%d %H:%M:%S.%f")
                     assert this_file_attrs[str(USER_ACCOUNT_ID_UUID)] == str(CURI_BIO_USER_ACCOUNT_ID)
                     assert this_file_attrs[str(CUSTOMER_ACCOUNT_ID_UUID)] == str(CURI_BIO_ACCOUNT_UUID)
@@ -929,6 +964,26 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(fully_running_app_from_
                     )
                     # Tanner (1/12/21): The barcode used for testing (which is passed to start_recording route) is different than the simulator's barcode (the one that is 'scanned' in this test), so this should result to False
                     assert bool(this_file_attrs[str(BARCODE_IS_FROM_SCANNER_UUID)]) is False
+
+        # Tanner (12/30/20): test second recording (only make sure it contains waveform data)
+        for row_idx in range(4):
+            for col_idx in range(6):
+                with h5py.File(
+                    os.path.join(
+                        expected_recordings_dir,
+                        f"{expected_barcode_2}__2020_06_15_141957",
+                        f"{expected_barcode_2}__2020_06_15_141957__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
+                    ),
+                    "r",
+                ) as this_file:
+                    assert str(START_RECORDING_TIME_INDEX_UUID) in this_file.attrs
+                    start_index_2 = this_file.attrs[str(START_RECORDING_TIME_INDEX_UUID)]
+                    assert (  # Tanner (1/13/21): Here we are testing that the 'finalizing' state of File Writer is working correctly by asserting that the second set of recorded files start at the right time index
+                        start_index_2 == expected_start_index
+                    )
+                    assert str(UTC_FIRST_TISSUE_DATA_POINT_UUID) in this_file.attrs
+                    assert get_time_index_dataset_from_file(this_file).shape[0] > 0
+                    assert get_tissue_dataset_from_file(this_file).shape[1] > 0
 
     # Tanner (12/29/20): Good to do this at the end of tests to make sure they don't cause problems with other integration tests
     test_process_manager.hard_stop_and_join_processes()

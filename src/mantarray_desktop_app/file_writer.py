@@ -701,12 +701,14 @@ class FileWriterProcess(InfiniteProcess):
         except queue.Empty:
             return
 
-        put_log_message_into_queue(
-            logging.DEBUG,
-            f"Timestamp: {_get_formatted_utc_now()} Received a data packet from OpalKelly Controller: {data_packet}",
-            self._to_main_queue,
-            self.get_logging_level(),
-        )
+        # Tanner (5/25/21): Creating this log message takes a long time so only do it if we are actually logging. TODO: Should probably refactor this function to something more efficient eventually
+        if logging.DEBUG >= self.get_logging_level():
+            put_log_message_into_queue(
+                logging.DEBUG,
+                f"Timestamp: {_get_formatted_utc_now()} Received a data packet from InstrumentCommProcess: {data_packet}",
+                self._to_main_queue,
+                self.get_logging_level(),
+            )
 
         if not isinstance(data_packet, dict):
             # (Eli 3/2/20) - we had a bug where an integer was being passed through the Queue and the default Python error was extremely unhelpful in debugging. So this explicit error was added.
