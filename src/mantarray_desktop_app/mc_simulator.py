@@ -67,6 +67,7 @@ from .constants import SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
+from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
@@ -182,6 +183,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._time_of_last_comm_from_pc_secs: Optional[float] = None
         self._ready_to_send_barcode = False
         self._timepoint_of_last_data_packet_us: Optional[int] = None
+        self._time_index_us = 0
         self._simulated_data_index = 0
         self._simulated_data: NDArray[np.int16] = np.array([], dtype=np.int16)
         self._metadata_dict: Dict[bytes, bytes] = dict()
@@ -206,6 +208,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         if value:
             self._timepoint_of_last_data_packet_us = _perf_counter_us()
             self._simulated_data_index = 0
+            self._time_index_us = 0
             if self._sampling_period_us == 0:
                 # TODO Tanner (5/13/21): Need to determine what to do if sampling period is not set when data begins streaming
                 raise NotImplementedError("sampling period must be set before streaming data")
@@ -599,10 +602,11 @@ class MantarrayMcSimulator(InfiniteProcess):
         num_packets_to_send = us_since_last_data_packet // self._sampling_period_us
         if num_packets_to_send == 0:
             return
+
         data_packet_bytes = bytes(0)
-        for packet_num in range(num_packets_to_send):
-            data_packet_body = self._get_timestamp_offset(us_since_last_data_packet, packet_num).to_bytes(
-                2, byteorder="little"
+        for _ in range(num_packets_to_send):
+            data_packet_body = (self._time_index_us // MICROSECONDS_PER_CENTIMILLISECOND).to_bytes(
+                SERIAL_COMM_TIME_INDEX_LENGTH_BYTES, byteorder="little"
             )
             for well_idx in range(self._num_wells):
                 if not any(self._magnetometer_config[well_idx + 1].values()):
@@ -612,21 +616,19 @@ class MantarrayMcSimulator(InfiniteProcess):
                 for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS):
                     if self._magnetometer_config[well_idx + 1][channel_id]:
                         data_packet_body += data_value_bytes
+            # not using _send_data_packet here because it is more efficient to send all packets at once
             data_packet_bytes += create_data_packet(
                 self._get_timestamp(),
                 SERIAL_COMM_MAIN_MODULE_ID,
                 SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE,
                 data_packet_body,
             )
+            # increment values
+            self._time_index_us += self._sampling_period_us
             self._simulated_data_index = (self._simulated_data_index + 1) % simulated_data_len
-        # not using self._send_data_packet here because it is more efficient to send all bytes at once
         self._output_queue.put_nowait(data_packet_bytes)
-        self._timepoint_of_last_data_packet_us = _perf_counter_us()
-
-    def _get_timestamp_offset(self, us_since_last_data_packet: int, packet_num: int) -> int:
-        return (
-            us_since_last_data_packet - (packet_num + 1) * self._sampling_period_us
-        ) // MICROSECONDS_PER_CENTIMILLISECOND
+        # update timepoint
+        self._timepoint_of_last_data_packet_us += num_packets_to_send * self._sampling_period_us
 
     def read(self, size: int = 1) -> bytes:
         """Read the given number of bytes from the simulator."""

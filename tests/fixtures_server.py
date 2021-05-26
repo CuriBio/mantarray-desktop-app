@@ -6,11 +6,14 @@ from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import DEFAULT_SERVER_PORT_NUMBER
 from mantarray_desktop_app import flask_app
+from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import ServerThread
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
+from mantarray_file_manager import MAGNETOMETER_CONFIGURATION_UUID
 from mantarray_file_manager import PLATE_BARCODE_UUID
+from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 import pytest
 from stdlib_utils import confirm_port_available
@@ -20,6 +23,7 @@ from .fixtures import fixture_generic_queue_container
 from .fixtures import fixture_patch_print
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
+from .fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from .fixtures_process_monitor import fixture_test_monitor
 
 __fixtures__ = [
@@ -137,4 +141,50 @@ def fixture_generic_beta_1_start_recording_info_in_shared_dict(
             ][PLATE_BARCODE_UUID]
         }
     }
+    yield shared_values_dict
+
+
+@pytest.fixture(scope="function", name="generic_beta_2_start_recording_info_in_shared_dict")
+def fixture_generic_beta_2_start_recording_info_in_shared_dict(
+    test_monitor,
+):
+    _, shared_values_dict, _, _ = test_monitor
+    shared_values_dict["beta_2_mode"] = True
+
+    board_idx = 0
+    timestamp = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+        UTC_BEGINNING_DATA_ACQUISTION_UUID
+    ]
+    shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [timestamp]
+    shared_values_dict["config_settings"] = {
+        "Customer Account ID": CURI_BIO_ACCOUNT_UUID,
+        "User Account ID": CURI_BIO_USER_ACCOUNT_ID,
+    }
+    shared_values_dict["main_firmware_version"] = {board_idx: MantarrayMcSimulator.default_firmware_version}
+    shared_values_dict["mantarray_serial_number"] = {
+        board_idx: MantarrayMcSimulator.default_mantarray_serial_number
+    }
+    shared_values_dict["mantarray_nickname"] = {board_idx: MantarrayMcSimulator.default_mantarray_nickname}
+    shared_values_dict["log_file_uuid"] = GENERIC_BETA_2_START_RECORDING_COMMAND[
+        "metadata_to_copy_onto_main_file_attributes"
+    ][BACKEND_LOG_UUID]
+    shared_values_dict["computer_name_hash"] = GENERIC_BETA_2_START_RECORDING_COMMAND[
+        "metadata_to_copy_onto_main_file_attributes"
+    ][COMPUTER_NAME_HASH_UUID]
+    shared_values_dict["barcodes"] = {
+        board_idx: {
+            "plate_barcode": GENERIC_BETA_2_START_RECORDING_COMMAND[
+                "metadata_to_copy_onto_main_file_attributes"
+            ][PLATE_BARCODE_UUID]
+        }
+    }
+    shared_values_dict["magnetometer_config_dict"] = {
+        "magnetometer_config": GENERIC_BETA_2_START_RECORDING_COMMAND[
+            "metadata_to_copy_onto_main_file_attributes"
+        ][MAGNETOMETER_CONFIGURATION_UUID],
+        "sampling_period": GENERIC_BETA_2_START_RECORDING_COMMAND[
+            "metadata_to_copy_onto_main_file_attributes"
+        ][TISSUE_SAMPLING_PERIOD_UUID],
+    }
+    shared_values_dict["instrument_metadata"] = {board_idx: MantarrayMcSimulator.default_metadata_values}
     yield shared_values_dict

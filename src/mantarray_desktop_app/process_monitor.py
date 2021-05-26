@@ -14,6 +14,7 @@ from typing import Tuple
 from typing import Union
 import uuid
 
+from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
 from stdlib_utils import InfiniteProcess
@@ -365,7 +366,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
         elif communication_type == "metadata_comm":
             board_idx = communication["board_index"]
             self._values_to_share_to_server["instrument_metadata"] = {board_idx: communication["metadata"]}
-            # TODO Tanner (4/23/21): eventually these two following values won't need there own fields as they will be accessible through the above entry in shared_values_dict. Need to keep these until Beta 1 is phased out though
+            # TODO Tanner (4/23/21): eventually these three following values won't need their own fields as they will be accessible through the above entry in shared_values_dict. Need to keep these until Beta 1 is phased out though
+            self._values_to_share_to_server["main_firmware_version"] = {
+                board_idx: communication["metadata"][MAIN_FIRMWARE_VERSION_UUID]
+            }
             self._values_to_share_to_server["mantarray_serial_number"] = {
                 board_idx: communication["metadata"][MANTARRAY_SERIAL_NUMBER_UUID]
             }

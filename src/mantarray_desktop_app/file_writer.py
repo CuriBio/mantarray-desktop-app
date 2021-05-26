@@ -397,12 +397,13 @@ class FileWriterProcess(InfiniteProcess):
             this_file.attrs[str(WELL_ROW_UUID)] = this_row
             this_file.attrs[str(WELL_COLUMN_UUID)] = this_col
             this_file.attrs[str(WELL_INDEX_UUID)] = this_well_idx
-            this_file.attrs[str(REF_SAMPLING_PERIOD_UUID)] = (
-                REFERENCE_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
-            )
-            this_file.attrs[str(TISSUE_SAMPLING_PERIOD_UUID)] = (
-                CONSTRUCT_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
-            )
+            if not self._beta_2_mode:
+                this_file.attrs[str(REF_SAMPLING_PERIOD_UUID)] = (
+                    REFERENCE_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
+                )
+                this_file.attrs[str(TISSUE_SAMPLING_PERIOD_UUID)] = (
+                    CONSTRUCT_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
+                )
             this_file.attrs[str(TOTAL_WELL_COUNT_UUID)] = 24
             this_file.attrs[str(IS_FILE_ORIGINAL_UNTRIMMED_UUID)] = True
             this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_START_UUID)] = 0
@@ -552,13 +553,16 @@ class FileWriterProcess(InfiniteProcess):
                 }
             )
         elif command == "stop_managed_acquisition":
-            self._data_packet_buffers[0].clear()
+            if not self._beta_2_mode:
+                # data buffer clear is handled differently in beta 2 mode
+                self._data_packet_buffers[0].clear()
             to_main.put_nowait(
                 {
                     "communication_type": "command_receipt",
                     "command": "stop_managed_acquisition",
                 }
             )
+            # TODO Tanner (5/25/21): Consider finalizing all open files here. If they are somehow still open here, they will never close as no more data is coming in
         elif command == "update_directory":
             self._file_directory = communication["new_directory"]
             to_main.put_nowait(
@@ -700,12 +704,14 @@ class FileWriterProcess(InfiniteProcess):
         except queue.Empty:
             return
 
-        put_log_message_into_queue(
-            logging.DEBUG,
-            f"Timestamp: {_get_formatted_utc_now()} Received a data packet from OpalKelly Controller: {data_packet}",
-            self._to_main_queue,
-            self.get_logging_level(),
-        )
+        # Tanner (5/25/21): Creating this log message takes a long time so only do it if we are actually logging. TODO: Should probably refactor this function to something more efficient eventually
+        if logging.DEBUG >= self.get_logging_level():  # pragma: no cover
+            put_log_message_into_queue(
+                logging.DEBUG,
+                f"Timestamp: {_get_formatted_utc_now()} Received a data packet from InstrumentCommProcess: {data_packet}",
+                self._to_main_queue,
+                self.get_logging_level(),
+            )
 
         if not isinstance(data_packet, dict):
             # (Eli 3/2/20) - we had a bug where an integer was being passed through the Queue and the default Python error was extremely unhelpful in debugging. So this explicit error was added.
@@ -713,6 +719,8 @@ class FileWriterProcess(InfiniteProcess):
                 f"The object received from OkComm was not a dictionary, it was a {data_packet.__class__} with the value: {data_packet}"
             )
 
+        if self._beta_2_mode and data_packet["is_first_packet_of_stream"]:
+            self._data_packet_buffers[0].clear()
         self._data_packet_buffers[0].append(data_packet)
 
         output_queue = self._board_queues[0][1]

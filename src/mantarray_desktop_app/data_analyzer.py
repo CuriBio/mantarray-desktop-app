@@ -142,6 +142,10 @@ class DataAnalyzerProcess(InfiniteProcess):
         except queue.Empty:
             return
 
+        if self._beta_2_mode:
+            # Tanner (5/24/21): This if check should be removed once beta 2 mode is implemented in this process
+            return
+
         if not self._is_managed_acquisition_running:
             return
 

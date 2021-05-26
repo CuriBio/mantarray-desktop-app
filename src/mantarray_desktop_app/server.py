@@ -48,19 +48,25 @@ from immutabledict import immutabledict
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
+from mantarray_file_manager import BOOTUP_COUNTER_UUID
 from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
+from mantarray_file_manager import MAGNETOMETER_CONFIGURATION_UUID
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
 from mantarray_file_manager import METADATA_UUID_DESCRIPTIONS
+from mantarray_file_manager import PCB_SERIAL_NUMBER_UUID
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import REFERENCE_VOLTAGE_UUID
 from mantarray_file_manager import SLEEP_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
 from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
 from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
+from mantarray_file_manager import TAMPER_FLAG_UUID
+from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
+from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
 from mantarray_file_manager import USER_ACCOUNT_ID_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
@@ -469,17 +475,6 @@ def start_recording() -> Response:
             status="403 Cannot make standard recordings after previously making hardware test recordings. Server and board must both be restarted before making any more standard recordings"
         )
         return response
-    # TODO Tanner (4/23/21): Need to update this route after Beta 2 file format is figured out
-    adc_offsets: Dict[int, Dict[str, int]]
-    if is_hardware_test_recording:
-        adc_offsets = dict()
-        for well_idx in range(24):
-            adc_offsets[well_idx] = {
-                "construct": 0,
-                "ref": 0,
-            }
-    else:
-        adc_offsets = shared_values_dict["adc_offsets"]
     timestamp_of_sample_idx_zero = _get_timestamp_of_acquisition_sample_index_zero()
 
     begin_timepoint: Union[int, float]
@@ -508,18 +503,46 @@ def start_recording() -> Response:
             SOFTWARE_BUILD_NUMBER_UUID: COMPILED_EXE_BUILD_TIMESTAMP,
             SOFTWARE_RELEASE_VERSION_UUID: CURRENT_SOFTWARE_VERSION,
             MAIN_FIRMWARE_VERSION_UUID: shared_values_dict["main_firmware_version"][board_idx],
-            SLEEP_FIRMWARE_VERSION_UUID: shared_values_dict["sleep_firmware_version"][board_idx],
-            XEM_SERIAL_NUMBER_UUID: shared_values_dict["xem_serial_number"][board_idx],
             MANTARRAY_SERIAL_NUMBER_UUID: shared_values_dict["mantarray_serial_number"][board_idx],
             MANTARRAY_NICKNAME_UUID: shared_values_dict["mantarray_nickname"][board_idx],
-            REFERENCE_VOLTAGE_UUID: REFERENCE_VOLTAGE,
-            ADC_GAIN_SETTING_UUID: shared_values_dict["adc_gain"],
-            "adc_offsets": adc_offsets,
             PLATE_BARCODE_UUID: barcode,
             BARCODE_IS_FROM_SCANNER_UUID: are_barcodes_matching,
         },
         "timepoint_to_begin_recording_at": begin_timepoint,
     }
+    if shared_values_dict["beta_2_mode"]:
+        instrument_metadata = shared_values_dict["instrument_metadata"][board_idx]
+        magnetometer_config_dict = shared_values_dict["magnetometer_config_dict"]
+        comm_dict["metadata_to_copy_onto_main_file_attributes"].update(
+            {
+                BOOTUP_COUNTER_UUID: instrument_metadata[BOOTUP_COUNTER_UUID],
+                TOTAL_WORKING_HOURS_UUID: instrument_metadata[TOTAL_WORKING_HOURS_UUID],
+                TAMPER_FLAG_UUID: instrument_metadata[TAMPER_FLAG_UUID],
+                PCB_SERIAL_NUMBER_UUID: instrument_metadata[PCB_SERIAL_NUMBER_UUID],
+                TISSUE_SAMPLING_PERIOD_UUID: magnetometer_config_dict["sampling_period"],
+                MAGNETOMETER_CONFIGURATION_UUID: magnetometer_config_dict["magnetometer_config"],
+            }
+        )
+    else:
+        adc_offsets: Dict[int, Dict[str, int]]
+        if is_hardware_test_recording:
+            adc_offsets = dict()
+            for well_idx in range(24):
+                adc_offsets[well_idx] = {
+                    "construct": 0,
+                    "ref": 0,
+                }
+        else:
+            adc_offsets = shared_values_dict["adc_offsets"]
+        comm_dict["metadata_to_copy_onto_main_file_attributes"].update(
+            {
+                SLEEP_FIRMWARE_VERSION_UUID: shared_values_dict["sleep_firmware_version"][board_idx],
+                XEM_SERIAL_NUMBER_UUID: shared_values_dict["xem_serial_number"][board_idx],
+                REFERENCE_VOLTAGE_UUID: REFERENCE_VOLTAGE,
+                ADC_GAIN_SETTING_UUID: shared_values_dict["adc_gain"],
+                "adc_offsets": adc_offsets,
+            }
+        )
 
     if "active_well_indices" in request.args:
         comm_dict["active_well_indices"] = [int(x) for x in request.args["active_well_indices"].split(",")]

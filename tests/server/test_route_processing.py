@@ -54,9 +54,11 @@ from ..fixtures import GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures import start_processes_and_wait_for_start_ups_to_complete
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
+from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_process_monitor import fixture_test_monitor
 from ..fixtures_server import fixture_client_and_server_thread_and_shared_values
 from ..fixtures_server import fixture_generic_beta_1_start_recording_info_in_shared_dict
+from ..fixtures_server import fixture_generic_beta_2_start_recording_info_in_shared_dict
 from ..fixtures_server import fixture_running_server_thread
 from ..fixtures_server import fixture_server_thread
 from ..fixtures_server import fixture_test_client
@@ -81,6 +83,7 @@ __fixtures__ = [
     fixture_patched_xem_scripts_folder,
     fixture_patch_print,
     fixture_generic_beta_1_start_recording_info_in_shared_dict,
+    fixture_generic_beta_2_start_recording_info_in_shared_dict,
     fixture_running_server_thread,
 ]
 
@@ -1422,7 +1425,7 @@ def test_start_recording_command__gets_processed_with_given_time_index_parameter
         / CENTIMILLISECONDS_PER_SECOND
     )
 )
-def test_start_recording_command__gets_processed__and_creates_a_file__and_updates_shared_values_dict(
+def test_start_recording_command__gets_processed_in_beta_1_mode__and_creates_a_file__and_updates_shared_values_dict(
     test_process_manager,
     test_client,
     mocker,
@@ -1455,6 +1458,70 @@ def test_start_recording_command__gets_processed__and_creates_a_file__and_update
     invoke_process_run_and_check_errors(monitor_thread)
     assert generic_beta_1_start_recording_info_in_shared_dict["system_status"] == RECORDING_STATE
     assert generic_beta_1_start_recording_info_in_shared_dict["is_hardware_test_recording"] is False
+
+    test_process_manager.soft_stop_processes()
+    confirm_parallelism_is_stopped(
+        test_process_manager.get_file_writer_process(),
+        timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
+    )
+
+    error_queue = test_process_manager.queue_container().get_file_writer_error_queue()
+
+    confirm_queue_is_eventually_empty(error_queue)
+
+    file_dir = test_process_manager.get_file_writer_process().get_file_directory()
+    actual_files = os.listdir(os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}"))
+    assert actual_files == [f"{expected_barcode}__2020_02_09_190935__D1.h5"]
+
+    # clean up
+    test_process_manager.hard_stop_and_join_processes()
+
+
+@pytest.mark.slow
+@freeze_time(
+    GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+        UTC_BEGINNING_DATA_ACQUISTION_UUID
+    ]
+    + datetime.timedelta(
+        seconds=GENERIC_BETA_2_START_RECORDING_COMMAND[  # pylint: disable=duplicate-code
+            "timepoint_to_begin_recording_at"
+        ]
+        / CENTIMILLISECONDS_PER_SECOND
+    )
+)
+def test_start_recording_command__gets_processed_in_beta_2_mode__and_creates_a_file__and_updates_shared_values_dict(
+    test_process_manager,
+    test_client,
+    mocker,
+    test_monitor,
+    generic_beta_2_start_recording_info_in_shared_dict,
+):
+    monitor_thread, _, _, _ = test_monitor
+
+    timestamp_str = (
+        GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+            UTC_BEGINNING_DATA_ACQUISTION_UUID
+        ]
+        + datetime.timedelta(
+            seconds=GENERIC_BETA_2_START_RECORDING_COMMAND[  # pylint: disable=duplicate-code
+                "timepoint_to_begin_recording_at"
+            ]
+            / CENTIMILLISECONDS_PER_SECOND
+        )
+    ).strftime("%Y_%m_%d_%H%M%S")
+
+    test_process_manager.start_processes()
+
+    expected_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+        PLATE_BARCODE_UUID
+    ]
+    response = test_client.get(
+        f"/start_recording?barcode={expected_barcode}&active_well_indices=3&is_hardware_test_recording=False"
+    )
+    assert response.status_code == 200
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert generic_beta_2_start_recording_info_in_shared_dict["system_status"] == RECORDING_STATE
+    assert generic_beta_2_start_recording_info_in_shared_dict["is_hardware_test_recording"] is False
 
     test_process_manager.soft_stop_processes()
     confirm_parallelism_is_stopped(
