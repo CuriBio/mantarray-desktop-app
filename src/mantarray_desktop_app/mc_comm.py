@@ -310,6 +310,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         num_data_channels_on = 0
         for config_dict in magnetometer_config.values():
             num_data_channels_on += sum(config_dict.values())
+            # TODO create list of how many axes on for each sensor
         self._num_data_channels_on = num_data_channels_on
         self._sampling_period_us = sampling_period
 

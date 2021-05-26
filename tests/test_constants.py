@@ -91,7 +91,9 @@ from mantarray_desktop_app import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_INDEX
 from mantarray_desktop_app import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
+from mantarray_desktop_app import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
+from mantarray_desktop_app import SERIAL_COMM_OFFSET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_TYPE_INDEX
 from mantarray_desktop_app import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
@@ -116,6 +118,7 @@ from mantarray_desktop_app import SERIAL_COMM_TIME_SYNC_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_EPOCH
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_NUM_COMM_SENSORS_PER_WELL
 from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import START_BARCODE_SCAN_TRIG_BIT
@@ -383,7 +386,8 @@ def test_serial_comm():
     assert SERIAL_COMM_MAGIC_WORD_BYTES == b"CURI BIO"
     assert SERIAL_COMM_PACKET_INFO_LENGTH_BYTES == 2
     assert SERIAL_COMM_TIMESTAMP_LENGTH_BYTES == 8
-    assert SERIAL_COMM_TIME_INDEX_LENGTH_BYTES == 4
+    assert SERIAL_COMM_TIME_INDEX_LENGTH_BYTES == 5
+    assert SERIAL_COMM_OFFSET_LENGTH_BYTES == 2
     assert SERIAL_COMM_CHECKSUM_LENGTH_BYTES == 4
     assert SERIAL_COMM_STATUS_CODE_LENGTH_BYTES == 4
     assert SERIAL_COMM_MAX_PACKET_LENGTH_BYTES == 2 ** 16
@@ -458,4 +462,9 @@ def test_serial_comm():
         "B": {"X": 3, "Y": 4, "Z": 5},
         "C": {"X": 6, "Y": 7, "Z": 8},
     }
-    assert SERIAL_COMM_NUM_DATA_CHANNELS == 9
+    assert SERIAL_COMM_NUM_CHANNELS_PER_SENSOR == 3
+    assert SERIAL_NUM_COMM_SENSORS_PER_WELL == 3
+    assert (
+        SERIAL_COMM_NUM_DATA_CHANNELS
+        == SERIAL_COMM_NUM_CHANNELS_PER_SENSOR * SERIAL_NUM_COMM_SENSORS_PER_WELL
+    )

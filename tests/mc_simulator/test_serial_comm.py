@@ -778,6 +778,7 @@ def test_MantarrayMcSimulator__processes_change_magnetometer_config_command__whe
         SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Y"]: False,
         SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Z"]: True,
         SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["X"]: False,
+        # pylint: disable=duplicate-code
         SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["Y"]: False,
         SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["Z"]: False,
         SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["X"]: True,
