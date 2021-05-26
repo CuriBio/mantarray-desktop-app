@@ -662,6 +662,10 @@ def test_MantarrayMcSimulator__processes_start_data_streaming_command(
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+    mocker.patch.object(  # patch so no data packets will be sent
+        mc_simulator, "_get_us_since_last_data_packet", autospec=True, return_value=0
+    )
+
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
     # set arbitrary sampling period
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -702,6 +706,10 @@ def test_MantarrayMcSimulator__processes_stop_data_streaming_command(
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+    mocker.patch.object(  # patch so no data packets will be sent
+        mc_simulator, "_get_us_since_last_data_packet", autospec=True, return_value=0
+    )
+
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
     # set arbitrary sampling period
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -733,13 +741,13 @@ def test_MantarrayMcSimulator__processes_stop_data_streaming_command(
     ):
         # send stop streaming command
         expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
-        test_start_data_streaming_command = create_data_packet(
+        test_stop_data_streaming_command = create_data_packet(
             expected_pc_timestamp,
             SERIAL_COMM_MAIN_MODULE_ID,
             SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
             bytes([SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE]),
         )
-        simulator.write(test_start_data_streaming_command)
+        simulator.write(test_stop_data_streaming_command)
         invoke_process_run_and_check_errors(simulator)
         # assert response is correct
         command_response_size = get_full_packet_size_from_packet_body_size(
