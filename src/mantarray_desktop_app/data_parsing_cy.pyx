@@ -15,7 +15,8 @@ from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
-from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
+# from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
+from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
 from .exceptions import SerialCommIncorrectMagicWordFromMantarrayError
 
@@ -103,22 +104,44 @@ cdef extern from "../zlib/zlib.h":
     Bytef* Z_NULL
 
 
-cdef char[9] MAGIC_WORD = SERIAL_COMM_MAGIC_WORD_BYTES + bytes(1)
-cdef int MAGIC_WORD_LEN = len(SERIAL_COMM_MAGIC_WORD_BYTES)  # 8
-cdef int SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_C_INT = SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
+# Tanner (5/26/21): Can't import these constants from python and use them in array declarations, so have to redefine here
+DEF MAGIC_WORD_LEN = 8
+DEF TIME_INDEX_LEN = 5
+DEF NUM_CHANNELS_PER_SENSOR = 3
+
+# these values exist only for importing the constants defined above into the python test suite
+SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY = MAGIC_WORD_LEN
+SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_CY = TIME_INDEX_LEN
+SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_CY = NUM_CHANNELS_PER_SENSOR  # TODO unit test this
+
+# convert python constants to C types
+cdef char[MAGIC_WORD_LEN + 1] MAGIC_WORD = SERIAL_COMM_MAGIC_WORD_BYTES + bytes(1)
+cdef int MIN_PACKET_SIZE = SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
+
+# cdef int SERIAL_COMM_NUM_DATA_CHANNELS_C_INT = SERIAL_COMM_NUM_DATA_CHANNELS
+cdef int SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_C_INT = NUM_CHANNELS_PER_SENSOR
+cdef int SERIAL_COMM_NUM_SENSORS_PER_WELL_C_INT = SERIAL_COMM_NUM_SENSORS_PER_WELL
+
 cdef int SERIAL_COMM_MAIN_MODULE_ID_C_INT = SERIAL_COMM_MAIN_MODULE_ID
 cdef int SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE_C_INT = SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 cdef int SERIAL_COMM_ADDITIONAL_BYTES_INDEX_C_INT = SERIAL_COMM_ADDITIONAL_BYTES_INDEX
-cdef int MIN_PACKET_SIZE = SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
+
+cdef uint64_t TIME_INDEX_MASK = 0xFFFFFFFFFF  # 5 lowest bytes of value
+
+
+cdef packed struct WellData:
+    uint16_t time_offset
+    int16_t data_points[NUM_CHANNELS_PER_SENSOR]
+
 
 cdef packed struct Packet:
-    char magic[8]
+    char magic[MAGIC_WORD_LEN]
     uint16_t packet_len
     uint64_t timestamp
     uint8_t module_id
     uint8_t packet_type
-    uint32_t time_index
-    int16_t data
+    uint8_t time_index[TIME_INDEX_LEN]
+    WellData data
 
 
 def handle_data_packets(
@@ -141,24 +164,36 @@ def handle_data_packets(
 
     cdef int num_bytes = len(read_bytes)
     cdef int num_data_packets_possible = num_bytes // data_packet_len
-    cdef int num_data_channels = (
-        data_packet_len - MIN_PACKET_SIZE - SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_C_INT
-    ) // 2
+    # cdef int num_data_channels = (
+    #     data_packet_len - MIN_PACKET_SIZE - TIME_INDEX_LEN
+    # ) // 2
+
+    # TODO
+    cdef int num_wells = 24
+    cdef int num_sensors = 3
+    cdef int num_data_channels = num_wells * 9
+    cdef int num_offsets = num_wells * num_sensors
 
     cdef Packet *p
 
     # return values
     cdef np.ndarray[np.uint64_t, ndim=1] time_indices = np.empty(num_data_packets_possible, dtype=np.uint64)
+    cdef np.ndarray[np.uint16_t, ndim=2] time_offsets = np.empty((num_offsets ,num_data_packets_possible), dtype=np.uint16)
     cdef np.ndarray[np.int16_t, ndim=2] data = np.empty((num_data_channels, num_data_packets_possible), dtype=np.int16)
     cdef int data_packet_idx = 0  # also represents numbers of data packets read. Will not increment after reading a "non-data" packet
     other_packet_info = None
 
     cdef unsigned int crc, original_crc
-    cdef char[9] magic_word
-    magic_word[8] = 0
+    cdef char[MAGIC_WORD_LEN + 1] magic_word
+    magic_word[MAGIC_WORD_LEN] = 0
 
+    cdef int well_idx
+    cdef int time_offset_arr_idx
+    cdef int channel_arr_idx
+    cdef WellData * well_data_ptr
+    cdef int sensor
+    cdef int channel
     cdef int bytes_idx = 0
-    cdef int channel_num
     while bytes_idx <= num_bytes - MIN_PACKET_SIZE:
         p = <Packet *> &read_bytes[bytes_idx]
 
@@ -169,6 +204,7 @@ def handle_data_packets(
 
         # get actual CRC value from packet
         original_crc = (<uint32_t *> ((<uint8_t *> &p.time_index) + p.packet_len - 14))[0]
+        # original_crc = (<uint32_t *> (&p.time_index + p.packet_len - 14))[0]
         # calculate expected CRC value
         crc = crc32(0, Z_NULL, 0)
         crc = crc32(crc, <uint8_t *> &p.magic, p.packet_len + 6)
@@ -197,16 +233,26 @@ def handle_data_packets(
             break
 
         # add to timestamp array
-        time_indices[data_packet_idx] = p.time_index
+        time_indices[data_packet_idx] = (<uint64_t *> &p.time_index)[0] & TIME_INDEX_MASK
         # add next data points to data array
-        for channel_num in range(num_data_channels):
-            data[channel_num, data_packet_idx] = (&p.data + channel_num)[0]
+        well_data_ptr = &p.data
+        channel_arr_idx = 0
+        time_offset_arr_idx = 0
+        for well_idx in range(num_wells):
+            for sensor in range(SERIAL_COMM_NUM_SENSORS_PER_WELL_C_INT):
+                time_offsets[time_offset_arr_idx, data_packet_idx] = well_data_ptr.time_offset
+                time_offset_arr_idx += 1
+                for channel in range(SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_C_INT):
+                    data[channel_arr_idx, data_packet_idx] = well_data_ptr.data_points[channel]
+                    channel_arr_idx += 1
+                well_data_ptr += 1  # this increment is strided
         # increment idxs
         data_packet_idx += 1
         bytes_idx += data_packet_len
 
     return (
         time_indices,
+        time_offsets,
         data,
         data_packet_idx,
         other_packet_info,

@@ -11,11 +11,11 @@ from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_INDEX
 from mantarray_desktop_app import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
+from mantarray_desktop_app import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from mantarray_desktop_app import SERIAL_COMM_OFFSET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_TYPE_INDEX
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
-from mantarray_desktop_app import SERIAL_NUM_COMM_SENSORS_PER_WELL
 from mantarray_file_manager import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
 from scipy import interpolate
@@ -260,8 +260,8 @@ def test_MantarrayMcSimulator__returns_correctly_formatted_data_packet_with_well
     for well_idx in range(num_wells_enabled):
         config_values = list(magnetometer_config_dict[well_idx + 1].values())
         expected_sensor_value = expected_waveform[expected_data_idx] * (well_idx + 1)
-        for sensor_base_idx in range(0, SERIAL_COMM_NUM_DATA_CHANNELS, SERIAL_NUM_COMM_SENSORS_PER_WELL):
-            if not any(config_values[sensor_base_idx : sensor_base_idx + SERIAL_NUM_COMM_SENSORS_PER_WELL]):
+        for sensor_base_idx in range(0, SERIAL_COMM_NUM_DATA_CHANNELS, SERIAL_COMM_NUM_SENSORS_PER_WELL):
+            if not any(config_values[sensor_base_idx : sensor_base_idx + SERIAL_COMM_NUM_SENSORS_PER_WELL]):
                 continue
             # test offset value (always 0 for simulator)
             offset_value = int.from_bytes(
@@ -269,7 +269,7 @@ def test_MantarrayMcSimulator__returns_correctly_formatted_data_packet_with_well
             )
             assert (
                 offset_value == 0
-            ), f"Incorrect offset value for sensor {sensor_base_idx // SERIAL_NUM_COMM_SENSORS_PER_WELL} well {well_idx}"
+            ), f"Incorrect offset value for sensor {sensor_base_idx // SERIAL_COMM_NUM_SENSORS_PER_WELL} well {well_idx}"
             idx += SERIAL_COMM_OFFSET_LENGTH_BYTES
             for axis_idx in range(SERIAL_COMM_NUM_CHANNELS_PER_SENSOR):
                 channel_id = sensor_base_idx + axis_idx

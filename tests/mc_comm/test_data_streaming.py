@@ -18,7 +18,10 @@ from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
+from mantarray_desktop_app import SERIAL_COMM_NUM_SENSORS_PER_WELL
+from mantarray_desktop_app import SERIAL_COMM_OFFSET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from mantarray_desktop_app import SerialCommIncorrectChecksumFromInstrumentError
@@ -49,8 +52,19 @@ __fixtures__ = [
 ]
 
 TEST_NUM_WELLS = 24
+
+WELL_CONFIG_ALL_CHANNELS_ENABLED = {channel_id: True for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS)}
+FULL_CONFIG_ALL_CHANNELS_ENABLED = {
+    module_id: copy.deepcopy(WELL_CONFIG_ALL_CHANNELS_ENABLED) for module_id in range(1, TEST_NUM_WELLS + 1)
+}
+
 FULL_DATA_PACKET_LEN = get_full_packet_size_from_packet_body_size(
-    (SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS * 2) + SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
+    SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
+    + (
+        (SERIAL_COMM_NUM_DATA_CHANNELS * 2)
+        + (SERIAL_COMM_NUM_SENSORS_PER_WELL * SERIAL_COMM_OFFSET_LENGTH_BYTES)
+    )
+    * TEST_NUM_WELLS
 )
 
 TEST_OTHER_TIMESTAMP = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
@@ -66,6 +80,35 @@ TEST_OTHER_PACKET_INFO = (
     SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
     bytes(4),
 )
+
+
+def create_data_stream_body(
+    time_index_us,
+    magnetometer_config=FULL_CONFIG_ALL_CHANNELS_ENABLED,
+    num_wells_on_plate=24,
+):
+    data_packet_body = time_index_us.to_bytes(SERIAL_COMM_TIME_INDEX_LENGTH_BYTES, byteorder="little")
+    data_values = []
+    offset_values = []
+    for well_idx in range(num_wells_on_plate):
+        config_values = list(magnetometer_config[well_idx + 1].values())
+        for sensor_base_idx in range(0, SERIAL_COMM_NUM_DATA_CHANNELS, SERIAL_COMM_NUM_SENSORS_PER_WELL):
+            if not any(config_values[sensor_base_idx : sensor_base_idx + SERIAL_COMM_NUM_SENSORS_PER_WELL]):
+                continue
+            # create offset value
+            offset = randint(0, 0xFFFF)
+            offset_values.append(offset)
+            data_packet_body += offset.to_bytes(SERIAL_COMM_OFFSET_LENGTH_BYTES, byteorder="little")
+            # create data point
+            data_value = randint(-0x8000, 0x7FFF)
+            data_value_bytes = data_value.to_bytes(2, byteorder="little", signed=True)
+            for axis_idx in range(SERIAL_COMM_NUM_CHANNELS_PER_SENSOR):
+                # add data points
+                channel_id = sensor_base_idx + axis_idx
+                if magnetometer_config[well_idx + 1][channel_id]:
+                    data_values.append(data_value)
+                    data_packet_body += data_value_bytes
+    return data_packet_body, offset_values, data_values
 
 
 def set_magnetometer_config_and_start_streaming(
@@ -104,45 +147,47 @@ def set_magnetometer_config_and_start_streaming(
     to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
 
-def test_handle_data_packets__handles_two_full_data_packets_correctly():
+def test_handle_data_packets__handles_two_full_data_packets_correctly__and_assigns_correct_data_type_to_parsed_values__when_all_channels_enabled():
     test_num_data_packets = 2
-    num_data_points_per_packet = SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS
 
-    test_timestamps = np.array([1, 2], dtype=np.uint64)
-    expected_data_time_indices = np.array([5, 6], dtype=np.uint32)
+    test_timestamps = [1, 2]
+    expected_time_indices = [5, 6]
 
-    expected_data_array = np.zeros((num_data_points_per_packet, test_num_data_packets), dtype=np.int16)
-    test_data_packets = bytes(0)
+    test_data_packet_bytes = bytes(0)
+    expected_data_points = []
+    expected_time_offsets = []
     for packet_num in range(test_num_data_packets):
-        test_data = [randint(-0x8000, 0x7FFF) for _ in range(SERIAL_COMM_NUM_DATA_CHANNELS * TEST_NUM_WELLS)]
-        expected_data_array[:, packet_num] = test_data
-
-        test_bytes = (
-            expected_data_time_indices[packet_num]
-            .item()
-            .to_bytes(SERIAL_COMM_TIME_INDEX_LENGTH_BYTES, byteorder="little")
-        )
-        for value in test_data:
-            test_bytes += value.to_bytes(2, byteorder="little", signed=True)
-        test_data_packets += create_data_packet(
-            test_timestamps[packet_num].item(),
+        data_packet_body, test_offsets, test_data = create_data_stream_body(expected_time_indices[packet_num])
+        test_data_packet_bytes += create_data_packet(
+            test_timestamps[packet_num],
             SERIAL_COMM_MAIN_MODULE_ID,
             SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE,
-            test_bytes,
+            data_packet_body,
         )
+        expected_data_points.extend(test_data)
+        expected_time_offsets.extend(test_offsets)
+    expected_time_offsets = np.array(expected_time_offsets).reshape(
+        (len(expected_time_offsets) // test_num_data_packets, test_num_data_packets), order="F"
+    )
+    expected_data_points = np.array(expected_data_points).reshape(
+        (len(expected_data_points) // test_num_data_packets, test_num_data_packets), order="F"
+    )
 
     (
         actual_time_indices,
+        actual_offsets,
         actual_data,
         num_data_packets_read,
         other_packet_info,
         unread_bytes,
-    ) = handle_data_packets(bytearray(test_data_packets), FULL_DATA_PACKET_LEN)
+    ) = handle_data_packets(bytearray(test_data_packet_bytes), FULL_DATA_PACKET_LEN)
 
-    assert actual_time_indices.shape[0] == test_num_data_packets
-    np.testing.assert_array_equal(actual_time_indices, expected_data_time_indices)
-    assert actual_data.shape[1] == test_num_data_packets
-    np.testing.assert_array_equal(actual_data, expected_data_array)
+    assert actual_time_indices.dtype == np.uint64
+    assert actual_offsets.dtype == np.uint16
+    assert actual_data.dtype == np.int16
+    np.testing.assert_array_equal(actual_time_indices, expected_time_indices)
+    np.testing.assert_array_equal(actual_offsets, expected_time_offsets)
+    np.testing.assert_array_equal(actual_data, expected_data_points)
     assert num_data_packets_read == test_num_data_packets
     assert other_packet_info is None
     assert unread_bytes == bytes(0)
@@ -379,11 +424,9 @@ def test_handle_data_packets__performance_test():
 
     assert dur < 1000000000
     # good to also assert the entire second of data was parsed correctly
-    assert actual_time_indices.shape[0] == test_num_data_packets
     np.testing.assert_array_equal(
         actual_time_indices, list(range(0, num_us_of_data_to_send, test_sampling_rate))
     )
-    assert actual_data.shape[1] == test_num_data_packets
     np.testing.assert_array_equal(actual_data, expected_data_array)
     assert num_data_packets_read == test_num_data_packets
     assert other_packet_info is None

@@ -58,6 +58,7 @@ from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from .constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
+from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from .constants import SERIAL_COMM_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
@@ -73,7 +74,6 @@ from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
-from .constants import SERIAL_NUM_COMM_SENSORS_PER_WELL
 from .exceptions import SerialCommInvalidSamplingPeriodError
 from .exceptions import SerialCommTooManyMissedHandshakesError
 from .exceptions import UnrecognizedSerialCommModuleIdError
@@ -248,7 +248,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         with open(file_path, newline="") as csvfile:
             simulated_data_timepoints = next(csv.reader(csvfile, delimiter=","))
             simulated_data_values = next(csv.reader(csvfile, delimiter=","))
-        self._interpolator = interpolate.interp1d(
+        self._interpolator = interpolate.interp1d(  # TODO switch all cms time points to microseconds
             np.array(simulated_data_timepoints, dtype=np.uint64) // MICROSECONDS_PER_CENTIMILLISECOND,
             simulated_data_values,
         )
@@ -624,14 +624,15 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._timepoint_of_last_data_packet_us += num_packets_to_send * self._sampling_period_us
 
     def _create_packet_body(self) -> bytes:
+        # add time index to data packet body
         data_packet_body = (self._time_index_us // MICROSECONDS_PER_CENTIMILLISECOND).to_bytes(
             SERIAL_COMM_TIME_INDEX_LENGTH_BYTES, byteorder="little"
         )
         for well_idx in range(self._num_wells):
             config_values = list(self._magnetometer_config[well_idx + 1].values())
-            for sensor_base_idx in range(0, SERIAL_COMM_NUM_DATA_CHANNELS, SERIAL_NUM_COMM_SENSORS_PER_WELL):
+            for sensor_base_idx in range(0, SERIAL_COMM_NUM_DATA_CHANNELS, SERIAL_COMM_NUM_SENSORS_PER_WELL):
                 if not any(
-                    config_values[sensor_base_idx : sensor_base_idx + SERIAL_NUM_COMM_SENSORS_PER_WELL]
+                    config_values[sensor_base_idx : sensor_base_idx + SERIAL_COMM_NUM_SENSORS_PER_WELL]
                 ):
                     continue
                 offset = bytes(SERIAL_COMM_OFFSET_LENGTH_BYTES)  # use 0 for offset in simulated data

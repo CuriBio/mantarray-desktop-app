@@ -105,6 +105,7 @@ from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from .constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
+from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from .constants import SERIAL_COMM_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
@@ -130,7 +131,6 @@ from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from .constants import SERIAL_COMM_TIMESTAMP_EPOCH
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
-from .constants import SERIAL_NUM_COMM_SENSORS_PER_WELL
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
 from .constants import START_BARCODE_SCAN_TRIG_BIT
@@ -263,6 +263,8 @@ if 6 < 9:  # pragma: no cover # protect this from zimports deleting the pylint d
         parse_little_endian_int24,
         parse_sensor_bytes,
         handle_data_packets,
+        SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY,
+        SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_CY,
     )
 
 __all__ = [
@@ -524,5 +526,7 @@ __all__ = [
     "SERIAL_COMM_TIME_INDEX_LENGTH_BYTES",
     "SERIAL_COMM_OFFSET_LENGTH_BYTES",
     "SERIAL_COMM_NUM_CHANNELS_PER_SENSOR",
-    "SERIAL_NUM_COMM_SENSORS_PER_WELL",
+    "SERIAL_COMM_NUM_SENSORS_PER_WELL",
+    "SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY",
+    "SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_CY",
 ]
