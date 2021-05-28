@@ -637,6 +637,7 @@ def stop_managed_acquisition() -> Response:
     to_file_writer_queue = server_thread.queue_container().get_communication_queue_from_main_to_file_writer()
     to_file_writer_queue.put_nowait(comm_dict)
 
+    # TODO Tanner (5/28/21): send this to process monitor instead
     response = queue_command_to_instrument_comm(comm_dict)
     return response
 

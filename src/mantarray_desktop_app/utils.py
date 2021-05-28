@@ -8,6 +8,7 @@ import os
 import re
 from typing import Any
 from typing import Dict
+from typing import List
 from typing import Optional
 
 from flatten_dict import flatten
@@ -20,6 +21,7 @@ from .constants import CURI_BIO_ACCOUNT_UUID
 from .constants import CURI_BIO_USER_ACCOUNT_ID
 from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
+from .constants import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
 from .exceptions import ImproperlyFormattedUserAccountUUIDError
 from .exceptions import RecordingFolderDoesNotExistError
@@ -221,3 +223,15 @@ def validate_magnetometer_config_keys(
         return f"Configuration dictionary has invalid {key_name} {invalid_key}" + error_msg_addition
     except StopIteration:
         return ""
+
+
+def create_sensor_axis_dict(well_config: Dict[int, bool]) -> Dict[str, List[str]]:
+    sensor_axis_dict: Dict[str, List[str]] = dict()
+    for sensor, axis_dict in SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE.items():
+        axis_list = []
+        for axis, channel_id in axis_dict.items():
+            if well_config[channel_id]:
+                axis_list.append(axis)
+        if axis_list:
+            sensor_axis_dict[sensor] = axis_list
+    return sensor_axis_dict

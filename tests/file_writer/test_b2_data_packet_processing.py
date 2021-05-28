@@ -3,6 +3,7 @@ import copy
 import datetime
 
 from mantarray_desktop_app import get_time_index_dataset_from_file
+from mantarray_desktop_app import get_time_offset_dataset_from_file
 from mantarray_desktop_app import get_tissue_dataset_from_file
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
@@ -18,6 +19,7 @@ from ..fixtures_file_writer import fixture_four_board_file_writer_process
 from ..fixtures_file_writer import fixture_running_four_board_file_writer_process
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_NUM_CHANNELS_ENABLED
+from ..fixtures_file_writer import GENERIC_NUM_SENSORS_ENABLED
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from ..fixtures_file_writer import open_the_generic_h5_file
 from ..helpers import assert_queue_is_eventually_empty
@@ -36,6 +38,15 @@ def create_simple_data(start_timepoint, num_data_points):
     return np.arange(start_timepoint, start_timepoint + num_data_points, dtype=np.uint64)
 
 
+def create_simple_time_offsets(start_timepoint, num_data_points):
+    return np.array(
+        [
+            np.arange(start_timepoint, start_timepoint + num_data_points, dtype=np.uint16),
+            np.arange(start_timepoint, start_timepoint + num_data_points, dtype=np.uint16),
+        ]
+    )
+
+
 def create_simple_data_packet(
     time_index_start, data_start, well_idxs, num_data_points, is_first_packet_of_stream=False
 ):
@@ -52,8 +63,11 @@ def create_simple_data_packet(
 
 def create_simple_well_dict(start_timepoint, num_data_points):
     return {
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: create_simple_data(start_timepoint, num_data_points),
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: create_simple_data(start_timepoint, num_data_points),
+        "time_offsets": create_simple_time_offsets(start_timepoint, num_data_points) * 2,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: create_simple_data(start_timepoint, num_data_points)
+        * 3,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: create_simple_data(start_timepoint, num_data_points)
+        * 4,
     }
 
 
@@ -93,6 +107,7 @@ def test_FileWriterProcess__passes_data_packet_through_to_output_queue(
     fw_process.join()
 
 
+# TODO
 def test_FileWriterProcess_process_next_data_packet__writes_data_if_the_whole_data_chunk_is_at_the_timestamp_idx__and_sets_timestamp_metadata_for_tissue_since_this_is_first_piece_of_data(
     four_board_file_writer_process,
 ):
@@ -134,14 +149,19 @@ def test_FileWriterProcess_process_next_data_packet__writes_data_if_the_whole_da
     actual_time_index_data = get_time_index_dataset_from_file(this_file)
     assert actual_time_index_data.shape == (num_data_points,)
     assert actual_time_index_data[0] == start_timepoint
+    actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
+    assert actual_time_offset_data.shape == (GENERIC_NUM_SENSORS_ENABLED, num_data_points)
+    assert actual_time_offset_data[0, 0] == start_timepoint * 2
+    assert actual_time_offset_data[1, 0] == start_timepoint * 2
     actual_tissue_data = get_tissue_dataset_from_file(this_file)
     assert actual_tissue_data.shape == (GENERIC_NUM_CHANNELS_ENABLED, num_data_points)
-    assert actual_tissue_data[0, 8] == 8
-    assert actual_tissue_data[1, 5] == 5
+    assert actual_tissue_data[0, 8] == 8 * 3
+    assert actual_tissue_data[1, 5] == 5 * 4
     # close file to avoid issues on Windows
     this_file.close()
 
 
+# TODO
 def test_FileWriterProcess_process_next_data_packet__writes_data_if_the_timestamp_idx_starts_part_way_through_the_chunk__and_sets_timestamp_metadata_for_tissue_since_this_is_first_piece_of_data(
     four_board_file_writer_process,
 ):
@@ -195,6 +215,7 @@ def test_FileWriterProcess_process_next_data_packet__writes_data_if_the_timestam
     this_file.close()
 
 
+# TODO
 def test_FileWriterProcess_process_next_data_packet__does_not_write_data_if_data_chunk_is_all_before_the_timestamp_idx(
     four_board_file_writer_process,
 ):
@@ -235,6 +256,7 @@ def test_FileWriterProcess_process_next_data_packet__does_not_write_data_if_data
     this_file.close()
 
 
+# TODO
 def test_FileWriterProcess_process_next_data_packet__writes_data_for_two_packets_when_the_timestamp_idx_starts_part_way_through_the_first_packet__and_sets_timestamp_metadata_for_tissue_since_this_is_first_piece_of_data(
     four_board_file_writer_process,
 ):
@@ -296,6 +318,7 @@ def test_FileWriterProcess_process_next_data_packet__writes_data_for_two_packets
     this_file.close()
 
 
+# TODO
 def test_FileWriterProcess_process_next_data_packet__does_not_add_a_data_packet_completely_after_the_stop_recording_timepoint__and_sets_data_finalization_status_to_true(
     four_board_file_writer_process,
 ):
@@ -365,6 +388,7 @@ def test_FileWriterProcess_process_next_data_packet__does_not_add_a_data_packet_
     # TODO Tanner (5/19/21): add assertion about reference data once it is added to Beta 2 files
 
 
+# TODO
 def test_FileWriterProcess_process_next_data_packet__adds_a_data_packet_completely_before_the_stop_recording_timepoint__and_does_not_set_data_finalization_status_to_true(
     four_board_file_writer_process,
 ):
@@ -444,6 +468,7 @@ def test_FileWriterProcess_process_next_data_packet__adds_a_data_packet_complete
     # TODO Tanner (5/19/21): add assertion about reference data once it is added to Beta 2 files
 
 
+# TODO
 def test_FileWriterProcess_process_next_data_packet__updates_dict_of_time_index_of_latest_recorded_data__when_new_data_is_added(
     four_board_file_writer_process,
 ):

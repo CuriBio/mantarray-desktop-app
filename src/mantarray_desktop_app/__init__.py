@@ -208,6 +208,7 @@ from .file_writer import FileWriterProcess
 from .file_writer import get_data_slice_within_timepoints
 from .file_writer import get_reference_dataset_from_file
 from .file_writer import get_time_index_dataset_from_file
+from .file_writer import get_time_offset_dataset_from_file
 from .file_writer import get_tissue_dataset_from_file
 from .file_writer import MantarrayH5FileCreator
 from .firmware_manager import get_latest_firmware
@@ -254,6 +255,7 @@ from .system_utils import system_state_eventually_equals
 from .system_utils import wait_for_subprocesses_to_start
 from .utils import check_barcode_for_errors
 from .utils import create_magnetometer_config_dict
+from .utils import create_sensor_axis_dict
 from .utils import get_current_software_version
 from .utils import redact_sensitive_info_from_path
 from .utils import validate_magnetometer_config_keys
@@ -531,4 +533,6 @@ __all__ = [
     "SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY",
     "SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_CY",
     "create_active_channel_per_sensor_list",
+    "get_time_offset_dataset_from_file",
+    "create_sensor_axis_dict",
 ]

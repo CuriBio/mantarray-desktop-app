@@ -6,6 +6,7 @@ import os
 import h5py
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
+from mantarray_desktop_app import create_sensor_axis_dict
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
@@ -15,6 +16,7 @@ from mantarray_desktop_app import DATA_FRAME_PERIOD
 from mantarray_desktop_app import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
 from mantarray_desktop_app import get_reference_dataset_from_file
 from mantarray_desktop_app import get_time_index_dataset_from_file
+from mantarray_desktop_app import get_time_offset_dataset_from_file
 from mantarray_desktop_app import get_tissue_dataset_from_file
 from mantarray_desktop_app import InvalidStopRecordingTimepointError
 from mantarray_desktop_app import MantarrayMcSimulator
@@ -76,10 +78,10 @@ from ..fixtures_file_writer import fixture_running_four_board_file_writer_proces
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_NUM_CHANNELS_ENABLED
+from ..fixtures_file_writer import GENERIC_NUM_SENSORS_ENABLED
 from ..fixtures_file_writer import GENERIC_REFERENCE_SENSOR_DATA_PACKET
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_TISSUE_DATA_PACKET
-from ..fixtures_file_writer import GENERIC_WELL_MAGNETOMETER_CONFIGURATION
 from ..fixtures_file_writer import open_the_generic_h5_file
 from ..fixtures_file_writer import WELL_DEF_24
 from ..helpers import confirm_queue_is_eventually_empty
@@ -124,9 +126,7 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         if test_beta_version == 1
         else GENERIC_BETA_2_START_RECORDING_COMMAND
     )
-    data_shape = (
-        (0,) if test_beta_version == 1 else (sum(GENERIC_WELL_MAGNETOMETER_CONFIGURATION.values()), 0)
-    )
+    data_shape = (0,) if test_beta_version == 1 else (GENERIC_NUM_CHANNELS_ENABLED, 0)
     data_type = np.int32 if test_beta_version == 1 else np.int16
     simulator_class = RunningFIFOSimulator if test_beta_version == 1 else MantarrayMcSimulator
     file_version = (
@@ -256,10 +256,11 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
             assert str(ADC_TISSUE_OFFSET_UUID) not in this_file.attrs
             assert str(ADC_REF_OFFSET_UUID) not in this_file.attrs
             # check that beta 2 value are present
+            well_config = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
+                MAGNETOMETER_CONFIGURATION_UUID
+            ][well_idx + 1]
             assert this_file.attrs[str(MAGNETOMETER_CONFIGURATION_UUID)] == json.dumps(
-                start_recording_command["metadata_to_copy_onto_main_file_attributes"][
-                    MAGNETOMETER_CONFIGURATION_UUID
-                ][well_idx + 1]
+                create_sensor_axis_dict(well_config)
             )
             assert (
                 this_file.attrs[str(TISSUE_SAMPLING_PERIOD_UUID)]
@@ -284,6 +285,8 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
             )
             assert get_time_index_dataset_from_file(this_file).shape == (0,)
             assert get_time_index_dataset_from_file(this_file).dtype == "uint64"
+            assert get_time_offset_dataset_from_file(this_file).shape == (GENERIC_NUM_SENSORS_ENABLED, 0)
+            assert get_time_offset_dataset_from_file(this_file).dtype == "uint16"
         # test data sets
         assert get_reference_dataset_from_file(this_file).shape == data_shape
         assert get_reference_dataset_from_file(this_file).dtype == data_type
@@ -753,6 +756,7 @@ def test_FileWriterProcess__records_all_requested_beta_1_data_in_buffer__and_cre
     assert actual_latest_timepoint == expected_latest_timepoint
 
 
+# TODO
 def test_FileWriterProcess__records_all_requested_beta_2_data_in_buffer__and_creates_dict_of_latest_data_timepoints_for_open_files__when_start_recording_command_is_received(
     four_board_file_writer_process,
 ):
@@ -914,6 +918,7 @@ def test_FileWriterProcess__deletes_recorded_beta_1_well_data_after_stop_time(
     np.testing.assert_equal(tissue_dataset, np.array(expected_dataset))
 
 
+# TODO
 def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
     four_board_file_writer_process,
 ):
@@ -1107,6 +1112,7 @@ def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
     np.testing.assert_equal(ref_dataset, np.array(expected_dataset))
 
 
+# TODO ?
 def test_FileWriterProcess__raises_error_if_stop_recording_command_received_with_stop_timepoint_less_than_earliest_timepoint(
     four_board_file_writer_process, patch_print
 ):

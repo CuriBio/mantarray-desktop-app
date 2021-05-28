@@ -203,6 +203,7 @@ def convert_bytes_to_config_dict(
 def create_active_channel_per_sensor_list(  # pylint: disable=invalid-name  # Tanner (5/27/21): it's a little long but descriptive
     magnetometer_config: Dict[int, Dict[int, bool]]
 ) -> List[int]:
+    # TODO move this to utilities file
     """Convert magnetometer configuration dictionary to list.
 
     Contains one entry per sensor with at least one channel enabled.
