@@ -970,6 +970,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(fully_running_app_from_
                     )
                     # Tanner (1/12/21): The barcode used for testing (which is passed to start_recording route) is different than the simulator's barcode (the one that is 'scanned' in this test), so this should result to False
                     assert bool(this_file_attrs[str(BARCODE_IS_FROM_SCANNER_UUID)]) is False
+                    # TODO make assertion about recorded data points here
 
         expected_timestamp_2 = "2021_05_24_212305"
         # Tanner (12/30/20): test second recording (only make sure it contains waveform data)

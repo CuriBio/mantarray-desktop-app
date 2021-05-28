@@ -59,7 +59,6 @@ from .constants import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from .constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
-from .constants import SERIAL_COMM_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
@@ -71,6 +70,7 @@ from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
 from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
+from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
@@ -91,6 +91,9 @@ from .utils import create_magnetometer_config_dict
 MAGIC_WORD_LEN = len(SERIAL_COMM_MAGIC_WORD_BYTES)
 AVERAGE_MC_REBOOT_DURATION_SECONDS = MAX_MC_REBOOT_DURATION_SECONDS / 2
 MC_SIMULATOR_BOOT_UP_DURATION_SECONDS = 3
+
+
+# TODO convert all time indices to microseconds
 
 
 def _perf_counter_us() -> int:
@@ -635,7 +638,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                     config_values[sensor_base_idx : sensor_base_idx + SERIAL_COMM_NUM_SENSORS_PER_WELL]
                 ):
                     continue
-                offset = bytes(SERIAL_COMM_OFFSET_LENGTH_BYTES)  # use 0 for offset in simulated data
+                offset = bytes(SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES)  # use 0 for offset in simulated data
                 data_packet_body += offset
                 # create data points
                 data_value = self._simulated_data[self._simulated_data_index] * np.int16(well_idx + 1)

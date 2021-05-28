@@ -44,6 +44,8 @@ from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
+from .constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
+from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
@@ -61,6 +63,7 @@ from .constants import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from .constants import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
 from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
+from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .exceptions import InstrumentDataStreamingAlreadyStartedError
@@ -89,6 +92,7 @@ from .mc_simulator import MantarrayMcSimulator
 from .serial_comm_utils import convert_bytes_to_config_dict
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
+from .serial_comm_utils import create_active_channel_per_sensor_list
 from .serial_comm_utils import create_data_packet
 from .serial_comm_utils import create_magnetometer_config_bytes
 from .serial_comm_utils import get_serial_comm_timestamp
@@ -158,8 +162,9 @@ class McCommunicationProcess(InstrumentCommProcess):
             float
         ] = None  # Tanner (4/1/21): This value will be None until this process receives a response to a reboot command. It will be set back to None after receiving a status beacon upon reboot completion
         # data streaming values
-        self._magnetometer_config: Dict[int, Dict[int, bool]] = dict()
-        self._num_data_channels_on = 0
+        self._magnetometer_config: Dict[int, Dict[Any, Any]] = dict()
+        self._active_sensors_list: List[int] = list()
+        self._packet_len = 0
         self._sampling_period_us = 0
         self._is_data_streaming = False
         self._is_stopping_data_stream = False
@@ -306,13 +311,28 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _set_magnetometer_config(
         self, magnetometer_config: Dict[int, Dict[int, bool]], sampling_period: int
     ) -> None:
-        self._magnetometer_config = magnetometer_config
-        num_data_channels_on = 0
-        for config_dict in magnetometer_config.values():
-            num_data_channels_on += sum(config_dict.values())
-            # TODO create list of how many axes on for each sensor
-        self._num_data_channels_on = num_data_channels_on
         self._sampling_period_us = sampling_period
+        self._active_sensors_list = create_active_channel_per_sensor_list(magnetometer_config)
+        self._magnetometer_config = magnetometer_config
+        for well_dict in self._magnetometer_config.values():
+            config_values = list(well_dict.values())
+            num_sensors_active = 0
+            for sensor_base_idx in range(
+                0, SERIAL_COMM_NUM_DATA_CHANNELS, SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
+            ):
+                is_sensor_active = any(
+                    config_values[sensor_base_idx : sensor_base_idx + SERIAL_COMM_NUM_CHANNELS_PER_SENSOR]
+                )
+                num_sensors_active += int(is_sensor_active)
+            well_dict["num_sensors_active"] = num_sensors_active  # type: ignore
+        total_active_channels = sum(self._active_sensors_list)
+        total_active_sensors = len(self._active_sensors_list)
+        self._packet_len = (
+            SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
+            + total_active_channels * 2
+            + total_active_sensors * SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
+            + SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
+        )
 
     def _commands_for_each_run_iteration(self) -> None:
         """Ordered actions to perform each iteration.
@@ -391,14 +411,14 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._is_stopping_data_stream = True
                 bytes_to_send = bytes([SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE])
             elif comm_from_main["command"] == "change_magnetometer_config":
-                self._set_magnetometer_config(
-                    comm_from_main["magnetometer_config"], comm_from_main["sampling_period"]
-                )
                 if self._is_data_streaming:
                     raise MagnetometerConfigUpdateWhileDataStreamingError()
                 bytes_to_send = bytes([SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE])
                 bytes_to_send += comm_from_main["sampling_period"].to_bytes(2, byteorder="little")
                 bytes_to_send += create_magnetometer_config_bytes(comm_from_main["magnetometer_config"])
+                self._set_magnetometer_config(
+                    comm_from_main["magnetometer_config"], comm_from_main["sampling_period"]
+                )
             else:
                 raise UnrecognizedCommandFromMainToMcCommError(
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
@@ -643,7 +663,9 @@ class McCommunicationProcess(InstrumentCommProcess):
                 magic_word_test_bytes_len = len(magic_word_test_bytes)
                 if magic_word_test_bytes_len == magic_word_len:
                     break
-                sleep(1)
+                sleep(
+                    1
+                )  # TODO Tanner (5/27/21): should probably lower this sleep value and iterate more times. Sleeping for an entire second will cause buffer to overflow
             else:
                 # if the entire period has passed and no more bytes are available an error has occurred with the Mantarray that is considered fatal
                 raise SerialCommPacketRegistrationTimoutError(magic_word_test_bytes)
@@ -674,12 +696,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         if board is None:
             raise NotImplementedError("board should never be None here")
 
-        packet_len = (
-            SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
-            + self._num_data_channels_on * 2
-            + SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
-        )
-        num_bytes_per_second = packet_len * int(1e6 // self._sampling_period_us)
+        num_bytes_per_second = self._packet_len * int(1e6 // self._sampling_period_us)
 
         self._data_packet_cache += board.read_all()
         # wait for at least 1 second of data to be present unless stop data stream command has been sent to instrument
@@ -687,29 +704,34 @@ class McCommunicationProcess(InstrumentCommProcess):
             return
 
         (
-            actual_time_indices,
-            actual_data,
+            time_indices,
+            time_offsets,
+            data,
             num_data_packets_read,
             other_packet_info,
             unread_bytes,
-        ) = handle_data_packets(bytearray(self._data_packet_cache), packet_len)
+        ) = handle_data_packets(bytearray(self._data_packet_cache), self._active_sensors_list)
         self._data_packet_cache = unread_bytes
 
         # create dict and send to file writer if any packets were read  # Tanner (5/25/21): it is possible 0 data packets are read when stopping data stream
         if num_data_packets_read > 0:
             fw_item: Dict[Any, Any] = {
-                "time_indices": actual_time_indices[:num_data_packets_read],
+                "time_indices": time_indices[:num_data_packets_read],
                 "is_first_packet_of_stream": not self._has_data_packet_been_sent,
             }
             data_idx = 0
+            time_offset_idx = 0
             for module_id, config_dict in self._magnetometer_config.items():
-                if not any(config_dict.values()):
+                num_sensors_active = config_dict["num_sensors_active"]
+                if num_sensors_active == 0:
                     continue
-                well_dict = dict()
-                for sensor_axis_id, is_channel_on in config_dict.items():
-                    if not is_channel_on:
+                time_offset_slice = slice(time_offset_idx, time_offset_idx + num_sensors_active)
+                well_dict = {"time_offsets": time_offsets[time_offset_slice, :num_data_packets_read]}
+                time_offset_idx += num_sensors_active
+                for config_key, config_value in config_dict.items():
+                    if not config_value or config_key == "num_sensors_active":
                         continue
-                    well_dict[sensor_axis_id] = actual_data[data_idx][:num_data_packets_read]
+                    well_dict[config_key] = data[data_idx][:num_data_packets_read]
                     data_idx += 1
                 fw_item[module_id - 1] = well_dict
             to_fw_queue = self._board_queues[0][2]

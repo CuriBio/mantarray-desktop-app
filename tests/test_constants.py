@@ -95,7 +95,6 @@ from mantarray_desktop_app import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from mantarray_desktop_app import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_NUM_SENSORS_PER_WELL
-from mantarray_desktop_app import SERIAL_COMM_OFFSET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_TYPE_INDEX
 from mantarray_desktop_app import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
@@ -117,6 +116,7 @@ from mantarray_desktop_app import SERIAL_COMM_STREAM_MODE_CHANGED_BYTE
 from mantarray_desktop_app import SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE
 from mantarray_desktop_app import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_CY
+from mantarray_desktop_app import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_TIME_SYNC_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_EPOCH
@@ -389,7 +389,7 @@ def test_serial_comm():
     assert SERIAL_COMM_PACKET_INFO_LENGTH_BYTES == 2
     assert SERIAL_COMM_TIMESTAMP_LENGTH_BYTES == 8
     assert SERIAL_COMM_TIME_INDEX_LENGTH_BYTES == 5
-    assert SERIAL_COMM_OFFSET_LENGTH_BYTES == 2
+    assert SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES == 2
     assert SERIAL_COMM_CHECKSUM_LENGTH_BYTES == 4
     assert SERIAL_COMM_STATUS_CODE_LENGTH_BYTES == 4
     assert SERIAL_COMM_MAX_PACKET_LENGTH_BYTES == 2 ** 16

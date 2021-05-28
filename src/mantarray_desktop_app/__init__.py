@@ -106,7 +106,6 @@ from .constants import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from .constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
-from .constants import SERIAL_COMM_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
@@ -127,6 +126,7 @@ from .constants import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
 from .constants import SERIAL_COMM_STREAM_MODE_CHANGED_BYTE
 from .constants import SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE
 from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
+from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from .constants import SERIAL_COMM_TIMESTAMP_EPOCH
@@ -238,6 +238,7 @@ from .serial_comm_utils import convert_metadata_bytes_to_str
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_status_code_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
+from .serial_comm_utils import create_active_channel_per_sensor_list
 from .serial_comm_utils import create_data_packet
 from .serial_comm_utils import create_magnetometer_config_bytes
 from .serial_comm_utils import create_sensor_axis_bitmask
@@ -524,9 +525,10 @@ __all__ = [
     "validate_magnetometer_config_keys",
     "IncorrectMagnetometerConfigFromInstrumentError",
     "SERIAL_COMM_TIME_INDEX_LENGTH_BYTES",
-    "SERIAL_COMM_OFFSET_LENGTH_BYTES",
+    "SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES",
     "SERIAL_COMM_NUM_CHANNELS_PER_SENSOR",
     "SERIAL_COMM_NUM_SENSORS_PER_WELL",
     "SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY",
     "SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_CY",
+    "create_active_channel_per_sensor_list",
 ]

@@ -12,10 +12,10 @@ from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_INDEX
 from mantarray_desktop_app import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_NUM_SENSORS_PER_WELL
-from mantarray_desktop_app import SERIAL_COMM_OFFSET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_TYPE_INDEX
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from mantarray_file_manager import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
 from scipy import interpolate
@@ -53,19 +53,18 @@ def test_MantarrayMcSimulator__get_interpolated_data_returns_correct_value(
         simulated_data_values = next(csv.reader(csvfile, delimiter=","))
 
     test_sampling_period = 1000
-    expected_data = interpolate.interp1d(
+    interpolator = interpolate.interp1d(
         np.array(simulated_data_timepoints, dtype=np.uint64) // MICROSECONDS_PER_CENTIMILLISECOND,
         simulated_data_values,
-    )(
+    )
+    expected_data = interpolator(
         np.arange(
             0,
             CENTIMILLISECONDS_PER_SECOND,
             test_sampling_period // MICROSECONDS_PER_CENTIMILLISECOND,
             dtype=np.uint64,
         )
-    ).astype(
-        np.int16
-    )
+    ).astype(np.int16)
 
     actual_data = simulator.get_interpolated_data(test_sampling_period)
     np.testing.assert_array_equal(actual_data, expected_data)
@@ -126,7 +125,7 @@ def test_MantarrayMcSimulator__sends_correct_time_index_and_data_points_in_first
 
     data_packet_size = get_full_packet_size_from_packet_body_size(
         SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
-        + ((2 + SERIAL_COMM_OFFSET_LENGTH_BYTES) * num_wells * len(test_channels))
+        + ((2 + SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES) * num_wells * len(test_channels))
     )
     data_packets = [
         simulator.read(size=data_packet_size),
@@ -157,12 +156,12 @@ def test_MantarrayMcSimulator__sends_correct_time_index_and_data_points_in_first
             for channel_id in test_channels:
                 # test offset value (always 0 for simulator)
                 offset_value = int.from_bytes(
-                    data_packet[idx : idx + SERIAL_COMM_OFFSET_LENGTH_BYTES], byteorder="little"
+                    data_packet[idx : idx + SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES], byteorder="little"
                 )
                 assert (
                     offset_value == 0
                 ), f"Incorrect offset value for channel ID {channel_id} well {well_idx} in packet {packet_num + 1}"
-                idx += SERIAL_COMM_OFFSET_LENGTH_BYTES
+                idx += SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
                 # test sensor value
                 sensor_value = int.from_bytes(data_packet[idx : idx + 2], byteorder="little", signed=True)
                 assert (
@@ -239,7 +238,7 @@ def test_MantarrayMcSimulator__returns_correctly_formatted_data_packet_with_well
 
     data_packet_size = get_full_packet_size_from_packet_body_size(
         SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
-        + (SERIAL_COMM_OFFSET_LENGTH_BYTES * num_sensors_enabled)
+        + (SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES * num_sensors_enabled)
         + (num_channels_enabled * 2)
     )
     data_packet = simulator.read(size=data_packet_size)
@@ -265,12 +264,12 @@ def test_MantarrayMcSimulator__returns_correctly_formatted_data_packet_with_well
                 continue
             # test offset value (always 0 for simulator)
             offset_value = int.from_bytes(
-                data_packet[idx : idx + SERIAL_COMM_OFFSET_LENGTH_BYTES], byteorder="little"
+                data_packet[idx : idx + SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES], byteorder="little"
             )
             assert (
                 offset_value == 0
             ), f"Incorrect offset value for sensor {sensor_base_idx // SERIAL_COMM_NUM_SENSORS_PER_WELL} well {well_idx}"
-            idx += SERIAL_COMM_OFFSET_LENGTH_BYTES
+            idx += SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
             for axis_idx in range(SERIAL_COMM_NUM_CHANNELS_PER_SENSOR):
                 channel_id = sensor_base_idx + axis_idx
                 if not config_values[channel_id]:
