@@ -756,10 +756,10 @@ def test_FileWriterProcess__records_all_requested_beta_1_data_in_buffer__and_cre
     assert actual_latest_timepoint == expected_latest_timepoint
 
 
-# TODO
 def test_FileWriterProcess__records_all_requested_beta_2_data_in_buffer__and_creates_dict_of_latest_data_timepoints_for_open_files__when_start_recording_command_is_received(
     four_board_file_writer_process,
 ):
+    # pylint: disable=too-many-locals  # Tanner (5/30/21): many variables needed for this test
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
     from_main_queue = four_board_file_writer_process["from_main_queue"]
@@ -773,10 +773,11 @@ def test_FileWriterProcess__records_all_requested_beta_2_data_in_buffer__and_cre
     expected_num_packets_recorded = 3
     num_data_points_per_packet = 2
     expected_total_num_data_points = expected_num_packets_recorded * num_data_points_per_packet
-    base_data = np.ones(num_data_points_per_packet, dtype=np.int16)
     expected_time_indices = np.arange(
         expected_start_timepoint, expected_start_timepoint + expected_total_num_data_points, dtype=np.uint64
     )
+    base_data = np.ones(num_data_points_per_packet, dtype=np.int16)
+    base_time_offsets = np.ones((GENERIC_NUM_SENSORS_ENABLED, num_data_points_per_packet), dtype=np.uint16)
     for i in range(expected_num_packets_recorded):
         curr_idx = i * num_data_points_per_packet
         data_packet = {
@@ -784,6 +785,7 @@ def test_FileWriterProcess__records_all_requested_beta_2_data_in_buffer__and_cre
         }
         for well_idx in range(24):
             channel_dict = {
+                "time_offsets": base_time_offsets * well_idx,
                 SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: base_data * well_idx,
                 SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: base_data * well_idx,
             }
@@ -795,6 +797,7 @@ def test_FileWriterProcess__records_all_requested_beta_2_data_in_buffer__and_cre
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
 
+    expected_time_offsets_shape = (GENERIC_NUM_SENSORS_ENABLED, expected_total_num_data_points)
     expected_data_shape = (GENERIC_NUM_CHANNELS_ENABLED, expected_total_num_data_points)
     expected_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
@@ -809,17 +812,8 @@ def test_FileWriterProcess__records_all_requested_beta_2_data_in_buffer__and_cre
             ),
             "r",
         )
-        tissue_dataset = get_tissue_dataset_from_file(this_file)
-        assert tissue_dataset.dtype == "int16", f"Incorrect tissue dtype for well {well_idx}"
-        assert tissue_dataset.shape == expected_data_shape, f"Incorrect tissue shape for well {well_idx}"
-        np.testing.assert_array_equal(
-            tissue_dataset,
-            np.ones(expected_data_shape, dtype=np.int16) * well_idx,
-            err_msg=f"Incorrect data for well {well_idx}",
-        )
-
         time_index_dataset = get_time_index_dataset_from_file(this_file)
-        assert time_index_dataset.dtype == "uint64", f"Incorrect timestamp dtype for well {well_idx}"
+        assert time_index_dataset.dtype == "uint64", f"Incorrect time index dtype for well {well_idx}"
         assert time_index_dataset.shape == (
             expected_total_num_data_points,
         ), f"Incorrect tissue shape for well {well_idx}"
@@ -827,6 +821,26 @@ def test_FileWriterProcess__records_all_requested_beta_2_data_in_buffer__and_cre
             time_index_dataset,
             expected_time_indices,
             err_msg=f"Incorrect time indices for well {well_idx}",
+        )
+
+        time_offset_dataset = get_time_offset_dataset_from_file(this_file)
+        assert time_offset_dataset.dtype == "uint16", f"Incorrect offset dtype for well {well_idx}"
+        assert (
+            time_offset_dataset.shape == expected_time_offsets_shape
+        ), f"Incorrect offset shape for well {well_idx}"
+        np.testing.assert_array_equal(
+            time_offset_dataset,
+            np.ones(expected_time_offsets_shape, dtype=np.int16) * well_idx,
+            err_msg=f"Incorrect offsets for well {well_idx}",
+        )
+
+        tissue_dataset = get_tissue_dataset_from_file(this_file)
+        assert tissue_dataset.dtype == "int16", f"Incorrect tissue dtype for well {well_idx}"
+        assert tissue_dataset.shape == expected_data_shape, f"Incorrect tissue shape for well {well_idx}"
+        np.testing.assert_array_equal(
+            tissue_dataset,
+            np.ones(expected_data_shape, dtype=np.int16) * well_idx,
+            err_msg=f"Incorrect data for well {well_idx}",
         )
 
         actual_latest_timepoint = file_writer_process.get_file_latest_timepoint(well_idx)
@@ -918,7 +932,6 @@ def test_FileWriterProcess__deletes_recorded_beta_1_well_data_after_stop_time(
     np.testing.assert_equal(tissue_dataset, np.array(expected_dataset))
 
 
-# TODO
 def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
     four_board_file_writer_process,
 ):
@@ -942,6 +955,7 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
     num_data_points_per_packet = 4
     expected_total_num_data_points = expected_remaining_packets_recorded * num_data_points_per_packet
     base_data = np.zeros(num_data_points_per_packet, dtype=np.int16)
+    base_time_offsets = np.zeros((GENERIC_NUM_SENSORS_ENABLED, num_data_points_per_packet), dtype=np.uint16)
     expected_time_indices = np.arange(expected_total_num_data_points, dtype=np.uint64)
     # add packets whose data will remain in the file
     for i in range(expected_remaining_packets_recorded):
@@ -952,6 +966,7 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
         }
         for well_idx in range(24):
             channel_dict = {
+                "time_offsets": base_time_offsets + well_idx,
                 SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: base_data + well_idx,
                 SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: base_data + well_idx,
             }
@@ -969,6 +984,7 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
         }
         for well_idx in range(24):
             channel_dict = {
+                "time_offsets": base_time_offsets,
                 SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: base_data,
                 SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: base_data,
             }
@@ -978,11 +994,13 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
     confirm_queue_is_eventually_of_size(
         instrument_board_queues[0][0],
         expected_remaining_packets_recorded + num_dummy_packets,
+        sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
     )
     invoke_process_run_and_check_errors(
         file_writer_process,
         num_iterations=(expected_remaining_packets_recorded + num_dummy_packets),
     )
+    confirm_queue_is_eventually_empty(instrument_board_queues[0][0])
 
     # send stop recording command
     stop_recording_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
@@ -1001,6 +1019,7 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
     ]
     timestamp_str = "2020_02_09_190322"
 
+    expected_time_offsets_shape = (GENERIC_NUM_SENSORS_ENABLED, expected_total_num_data_points)
     expected_data_shape = (GENERIC_NUM_CHANNELS_ENABLED, expected_total_num_data_points)
     for well_idx in range(24):
         this_file = h5py.File(
@@ -1011,15 +1030,6 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
             ),
             "r",
         )
-        tissue_dataset = get_tissue_dataset_from_file(this_file)
-        assert tissue_dataset.dtype == "int16", f"Incorrect tissue dtype for well {well_idx}"
-        assert tissue_dataset.shape == expected_data_shape, f"Incorrect tissue shape for well {well_idx}"
-        np.testing.assert_array_equal(
-            tissue_dataset,
-            np.ones(expected_data_shape, dtype=np.int16) * well_idx,
-            err_msg=f"Incorrect tissue data for well {well_idx}",
-        )
-
         time_index_dataset = get_time_index_dataset_from_file(this_file)
         assert time_index_dataset.dtype == "uint64", f"Incorrect time index dtype for well {well_idx}"
         assert time_index_dataset.shape == (
@@ -1029,6 +1039,26 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
             time_index_dataset,
             expected_time_indices,
             err_msg=f"Incorrect time index data for well {well_idx}",
+        )
+
+        time_offset_dataset = get_time_offset_dataset_from_file(this_file)
+        assert time_offset_dataset.dtype == "uint16", f"Incorrect offset dtype for well {well_idx}"
+        assert (
+            time_offset_dataset.shape == expected_time_offsets_shape
+        ), f"Incorrect offset shape for well {well_idx}"
+        np.testing.assert_array_equal(
+            time_offset_dataset,
+            np.ones(expected_time_offsets_shape, dtype=np.int16) * well_idx,
+            err_msg=f"Incorrect offsets for well {well_idx}",
+        )
+
+        tissue_dataset = get_tissue_dataset_from_file(this_file)
+        assert tissue_dataset.dtype == "int16", f"Incorrect tissue dtype for well {well_idx}"
+        assert tissue_dataset.shape == expected_data_shape, f"Incorrect tissue shape for well {well_idx}"
+        np.testing.assert_array_equal(
+            tissue_dataset,
+            np.ones(expected_data_shape, dtype=np.int16) * well_idx,
+            err_msg=f"Incorrect tissue data for well {well_idx}",
         )
 
         this_file.close()
@@ -1112,7 +1142,6 @@ def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
     np.testing.assert_equal(ref_dataset, np.array(expected_dataset))
 
 
-# TODO ?
 def test_FileWriterProcess__raises_error_if_stop_recording_command_received_with_stop_timepoint_less_than_earliest_timepoint(
     four_board_file_writer_process, patch_print
 ):
@@ -1133,6 +1162,7 @@ def test_FileWriterProcess__raises_error_if_stop_recording_command_received_with
         "time_indices": np.array([start_timepoint], dtype=np.uint64),
         "is_first_packet_of_stream": False,
         test_well_index: {
+            "time_offsets": np.array([[0], [0]], dtype=np.uint16),
             SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: np.array([0], dtype=np.int16),
             SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: np.array([0], dtype=np.int16),
         },

@@ -528,7 +528,11 @@ class FileWriterProcess(InfiniteProcess):
                     f"The timepoint {stop_recording_timepoint} is earlier than all recorded timepoints"
                 ) from e
             # trim off data after stop recording timepoint
-            datasets = [time_index_dataset, get_tissue_dataset_from_file(this_file)]
+            datasets = [
+                time_index_dataset,
+                get_time_offset_dataset_from_file(this_file),
+                get_tissue_dataset_from_file(this_file),
+            ]
             for dataset in datasets:
                 dataset_shape = list(dataset.shape)
                 dataset_shape[-1] -= num_indices_to_remove
@@ -627,12 +631,20 @@ class FileWriterProcess(InfiniteProcess):
         new_data_size = time_indices.shape[0]
 
         for well_idx, this_file in self._open_files[board_idx].items():
+            # record new time indices
             time_index_dataset = get_time_index_dataset_from_file(this_file)
             previous_data_size = time_index_dataset.shape[0]
-
             time_index_dataset.resize((previous_data_size + time_indices.shape[0],))
             time_index_dataset[previous_data_size:] = time_indices
-
+            # record new time offsets
+            time_offsets = data_packet[well_idx]["time_offsets"]
+            # if packet_must_be_trimmed:
+            #     time_offsets = time_offsets[:, first_idx_of_new_data : last_idx_of_new_data + 1]
+            time_offset_dataset = get_time_offset_dataset_from_file(this_file)
+            previous_data_size = time_offset_dataset.shape[1]
+            time_offset_dataset.resize((time_offsets.shape[0], previous_data_size + time_offsets.shape[1]))
+            time_offset_dataset[:, previous_data_size:] = time_offsets
+            # record new tissue data
             tissue_dataset = get_tissue_dataset_from_file(this_file)
             if tissue_dataset.shape[1] == 0:
                 this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] = (
