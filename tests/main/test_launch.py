@@ -276,7 +276,7 @@ def test_main_configures_process_manager_logging_level__and_standard_logging_lev
     assert process_manager_logging_level == logging.INFO
 
 
-@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS * 1.5)
 def test_main_can_launch_server_with_no_args_from_entrypoint__default_exe_execution(
     fully_running_app_from_main_entrypoint, patched_xem_scripts_folder
 ):

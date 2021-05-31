@@ -395,7 +395,7 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_correctly(
 
     file_writer_process._minimum_iteration_duration_seconds = 0  # pylint: disable=protected-access
 
-    num_packets_to_send = 30
+    num_packets_to_send = 10  # arbitrary value
     if test_beta_version == 1:
         start_recording_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
         data_packet = copy.deepcopy(SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0)
@@ -418,7 +418,7 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_correctly(
         board_queues[0][0].put_nowait(data_packet)
 
     confirm_queue_is_eventually_of_size(
-        board_queues[0][0], num_packets_to_send, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        board_queues[0][0], num_packets_to_send, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS * 2
     )  # Tanner (4/9/21): Even after confirming the queue is the expected size, a sleep is necessary in order to let the items actually populate the queue. Guess as to why this is happening is that the size of the queue is reported by a different thread than the one that actually writes data to the queue's underlying pipe
     expected_recording_durations = list(range(num_packets_to_send))
     perf_counter_vals = [
