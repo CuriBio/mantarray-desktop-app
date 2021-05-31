@@ -93,6 +93,7 @@ from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_INDEX
 from mantarray_desktop_app import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from mantarray_desktop_app import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
+from mantarray_desktop_app import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_CY
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
@@ -475,3 +476,4 @@ def test_serial_comm():
 def test_cython_constants():
     assert SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY == len(SERIAL_COMM_MAGIC_WORD_BYTES)
     assert SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_CY == SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
+    assert SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_CY == SERIAL_COMM_NUM_CHANNELS_PER_SENSOR

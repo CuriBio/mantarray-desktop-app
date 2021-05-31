@@ -15,7 +15,6 @@ from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
-# from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
@@ -82,7 +81,6 @@ cpdef int parse_little_endian_int24(unsigned char[3] data_bytes):
 
 
 # Beta 2
-cimport cython
 from libc.stdint cimport int16_t
 from libc.stdint cimport uint8_t
 from libc.stdint cimport uint16_t
@@ -113,13 +111,12 @@ DEF NUM_CHANNELS_PER_SENSOR = 3
 # these values exist only for importing the constants defined above into the python test suite
 SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY = MAGIC_WORD_LEN
 SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_CY = TIME_INDEX_LEN
-SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_CY = NUM_CHANNELS_PER_SENSOR  # TODO unit test this
+SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_CY = NUM_CHANNELS_PER_SENSOR
 
 # convert python constants to C types
 cdef char[MAGIC_WORD_LEN + 1] MAGIC_WORD = SERIAL_COMM_MAGIC_WORD_BYTES + bytes(1)
 cdef int MIN_PACKET_SIZE = SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 
-# cdef int SERIAL_COMM_NUM_DATA_CHANNELS_C_INT = SERIAL_COMM_NUM_DATA_CHANNELS
 cdef int SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES_C_INT = SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 cdef int SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_C_INT = NUM_CHANNELS_PER_SENSOR
 cdef int SERIAL_COMM_NUM_SENSORS_PER_WELL_C_INT = SERIAL_COMM_NUM_SENSORS_PER_WELL
@@ -156,7 +153,7 @@ def handle_data_packets(
 
     Args:
         read_bytes: an array of all bytes waiting to be parsed. Not gauranteed to all be bytes in a data packet
-        active_channels_list:  # TODO
+        active_channels_list: a list containing the number of channels on each active sensor, in order.
 
     Returns:
         A tuple of the array of parsed time indices, the array of time offsets, the array of parsed data, the number of data packets read, optional tuple containing info about the interrupting packet if one occured (timestamp, module ID, packet type, and packet body bytes), the remaining unread bytes

@@ -638,8 +638,8 @@ class FileWriterProcess(InfiniteProcess):
             time_index_dataset[previous_data_size:] = time_indices
             # record new time offsets
             time_offsets = data_packet[well_idx]["time_offsets"]
-            # if packet_must_be_trimmed:
-            #     time_offsets = time_offsets[:, first_idx_of_new_data : last_idx_of_new_data + 1]
+            if packet_must_be_trimmed:
+                time_offsets = time_offsets[:, first_idx_of_new_data : last_idx_of_new_data + 1]
             time_offset_dataset = get_time_offset_dataset_from_file(this_file)
             previous_data_size = time_offset_dataset.shape[1]
             time_offset_dataset.resize((time_offsets.shape[0], previous_data_size + time_offsets.shape[1]))

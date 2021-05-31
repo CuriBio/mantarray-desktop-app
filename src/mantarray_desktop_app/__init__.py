@@ -239,7 +239,6 @@ from .serial_comm_utils import convert_metadata_bytes_to_str
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_status_code_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
-from .serial_comm_utils import create_active_channel_per_sensor_list
 from .serial_comm_utils import create_data_packet
 from .serial_comm_utils import create_magnetometer_config_bytes
 from .serial_comm_utils import create_sensor_axis_bitmask
@@ -254,6 +253,7 @@ from .server import ServerThread
 from .system_utils import system_state_eventually_equals
 from .system_utils import wait_for_subprocesses_to_start
 from .utils import check_barcode_for_errors
+from .utils import create_active_channel_per_sensor_list
 from .utils import create_magnetometer_config_dict
 from .utils import create_sensor_axis_dict
 from .utils import get_current_software_version
@@ -261,13 +261,14 @@ from .utils import redact_sensitive_info_from_path
 from .utils import validate_magnetometer_config_keys
 
 if 6 < 9:  # pragma: no cover # protect this from zimports deleting the pylint disable statement
-    from .data_parsing_cy import (  # pylint: disable=import-error # Tanner (8/25/20) unsure why pylint is unable to recognize cython import...
+    from .data_parsing_cy import (  # pylint: disable=import-error # Tanner (8/25/20): unsure why pylint is unable to recognize cython import
         parse_adc_metadata_byte,
         parse_little_endian_int24,
         parse_sensor_bytes,
         handle_data_packets,
         SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY,
         SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_CY,
+        SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_CY,
     )
 
 __all__ = [
@@ -532,6 +533,7 @@ __all__ = [
     "SERIAL_COMM_NUM_SENSORS_PER_WELL",
     "SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY",
     "SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_CY",
+    "SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_CY",
     "create_active_channel_per_sensor_list",
     "get_time_offset_dataset_from_file",
     "create_sensor_axis_dict",

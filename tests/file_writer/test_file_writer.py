@@ -13,6 +13,7 @@ from mantarray_desktop_app import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import FileWriterProcess
 from mantarray_desktop_app import get_data_slice_within_timepoints
 from mantarray_desktop_app import get_time_index_dataset_from_file
+from mantarray_desktop_app import get_time_offset_dataset_from_file
 from mantarray_desktop_app import get_tissue_dataset_from_file
 from mantarray_desktop_app import InvalidDataTypeFromOkCommError
 from mantarray_desktop_app import MantarrayH5FileCreator
@@ -34,6 +35,7 @@ from ..fixtures_file_writer import fixture_running_four_board_file_writer_proces
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_NUM_CHANNELS_ENABLED
+from ..fixtures_file_writer import GENERIC_NUM_SENSORS_ENABLED
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from ..fixtures_file_writer import WELL_DEF_24
 from ..helpers import confirm_queue_is_eventually_empty
@@ -644,14 +646,15 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_2_files_after_stop_recordi
 
     # fill files with data
     test_num_data_points = 50
-    start_timepoint = GENERIC_BETA_1_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
-    test_data = np.zeros(test_num_data_points, dtype=np.int32)
+    start_timepoint = GENERIC_BETA_2_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
+    test_data = np.zeros(test_num_data_points, dtype=np.int16)
     data_packet = {
         "time_indices": np.arange(start_timepoint, start_timepoint + test_num_data_points, dtype=np.uint64),
         "is_first_packet_of_stream": False,
     }
     for well_idx in range(24):
         channel_dict = {
+            "time_offsets": np.zeros((GENERIC_NUM_SENSORS_ENABLED, test_num_data_points), dtype=np.uint16),
             SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: test_data,
             SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: test_data,
         }
@@ -687,13 +690,17 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_2_files_after_stop_recordi
                 assert (
                     str(START_RECORDING_TIME_INDEX_UUID) in this_file.attrs
                 ), f"START_RECORDING_TIME_INDEX_UUID missing for Well {well_name}"
+                assert get_time_index_dataset_from_file(this_file).shape == (
+                    test_num_data_points,
+                ), f"Incorrect time index data shape for Well {well_name}"
+                assert get_time_offset_dataset_from_file(this_file).shape == (
+                    GENERIC_NUM_SENSORS_ENABLED,
+                    test_num_data_points,
+                ), f"Incorrect time offset data shape for Well {well_name}"
                 assert get_tissue_dataset_from_file(this_file).shape == (
                     GENERIC_NUM_CHANNELS_ENABLED,
                     test_num_data_points,
                 ), f"Incorrect tissue data shape for Well {well_name}"
-                assert get_time_index_dataset_from_file(this_file).shape == (
-                    test_num_data_points,
-                ), f"Incorrect time index data shape for Well {well_name}"
 
 
 def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_1_files_after_stop_recording(
@@ -802,6 +809,7 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_2_f
     }
     for well_idx in range(24):
         channel_dict = {
+            "time_offsets": np.zeros((GENERIC_NUM_SENSORS_ENABLED, num_data_points), dtype=np.uint16),
             SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: np.zeros(num_data_points, dtype=np.int16),
             SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: np.zeros(num_data_points, dtype=np.int16),
         }

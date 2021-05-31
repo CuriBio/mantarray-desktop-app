@@ -92,13 +92,13 @@ from .mc_simulator import MantarrayMcSimulator
 from .serial_comm_utils import convert_bytes_to_config_dict
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
-from .serial_comm_utils import create_active_channel_per_sensor_list
 from .serial_comm_utils import create_data_packet
 from .serial_comm_utils import create_magnetometer_config_bytes
 from .serial_comm_utils import get_serial_comm_timestamp
 from .serial_comm_utils import parse_metadata_bytes
 from .serial_comm_utils import validate_checksum
 from .utils import check_barcode_is_valid
+from .utils import create_active_channel_per_sensor_list
 
 
 if 6 < 9:  # pragma: no cover # protect this from zimports deleting the pylint disable statement
@@ -663,9 +663,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 magic_word_test_bytes_len = len(magic_word_test_bytes)
                 if magic_word_test_bytes_len == magic_word_len:
                     break
-                sleep(
-                    1
-                )  # TODO Tanner (5/27/21): should probably lower this sleep value and iterate more times. Sleeping for an entire second will cause buffer to overflow
+                sleep(1)
             else:
                 # if the entire period has passed and no more bytes are available an error has occurred with the Mantarray that is considered fatal
                 raise SerialCommPacketRegistrationTimoutError(magic_word_test_bytes)
