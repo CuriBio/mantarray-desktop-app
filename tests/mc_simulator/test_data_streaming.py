@@ -3,7 +3,6 @@ import csv
 import os
 
 from mantarray_desktop_app import mc_simulator
-from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
@@ -16,7 +15,6 @@ from mantarray_desktop_app import SERIAL_COMM_PACKET_TYPE_INDEX
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
-from mantarray_file_manager import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
 from scipy import interpolate
 from stdlib_utils import get_current_file_abs_directory
@@ -54,17 +52,12 @@ def test_MantarrayMcSimulator__get_interpolated_data_returns_correct_value(
 
     test_sampling_period = 1000
     interpolator = interpolate.interp1d(
-        np.array(simulated_data_timepoints, dtype=np.uint64) // MICROSECONDS_PER_CENTIMILLISECOND,
+        np.array(simulated_data_timepoints, dtype=np.uint64),
         simulated_data_values,
     )
-    expected_data = interpolator(
-        np.arange(
-            0,
-            CENTIMILLISECONDS_PER_SECOND,
-            test_sampling_period // MICROSECONDS_PER_CENTIMILLISECOND,
-            dtype=np.uint64,
-        )
-    ).astype(np.int16)
+    expected_data = interpolator(np.arange(0, int(1e6), test_sampling_period, dtype=np.uint64)).astype(
+        np.int16
+    )
 
     actual_data = simulator.get_interpolated_data(test_sampling_period)
     np.testing.assert_array_equal(actual_data, expected_data)
@@ -147,7 +140,7 @@ def test_MantarrayMcSimulator__sends_correct_time_index_and_data_points_in_first
         time_index = int.from_bytes(
             data_packet[idx : idx + SERIAL_COMM_TIME_INDEX_LENGTH_BYTES], byteorder="little"
         )
-        expected_time_index = (packet_num * test_sampling_period) // MICROSECONDS_PER_CENTIMILLISECOND
+        expected_time_index = packet_num * test_sampling_period
         assert time_index == expected_time_index, f"Incorrect time index in packet {packet_num + 1}"
 
         idx += SERIAL_COMM_TIME_INDEX_LENGTH_BYTES

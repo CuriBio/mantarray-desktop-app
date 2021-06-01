@@ -32,7 +32,6 @@ from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import resource_path
 
-from .constants import CENTIMILLISECONDS_PER_SECOND
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MICROSECONDS_PER_MILLISECOND
@@ -91,9 +90,6 @@ from .utils import create_magnetometer_config_dict
 MAGIC_WORD_LEN = len(SERIAL_COMM_MAGIC_WORD_BYTES)
 AVERAGE_MC_REBOOT_DURATION_SECONDS = MAX_MC_REBOOT_DURATION_SECONDS / 2
 MC_SIMULATOR_BOOT_UP_DURATION_SECONDS = 3
-
-
-# TODO convert all time indices to microseconds
 
 
 def _perf_counter_us() -> int:
@@ -251,8 +247,8 @@ class MantarrayMcSimulator(InfiniteProcess):
         with open(file_path, newline="") as csvfile:
             simulated_data_timepoints = next(csv.reader(csvfile, delimiter=","))
             simulated_data_values = next(csv.reader(csvfile, delimiter=","))
-        self._interpolator = interpolate.interp1d(  # TODO switch all cms time points to microseconds
-            np.array(simulated_data_timepoints, dtype=np.uint64) // MICROSECONDS_PER_CENTIMILLISECOND,
+        self._interpolator = interpolate.interp1d(
+            np.array(simulated_data_timepoints, dtype=np.uint64),
             simulated_data_values,
         )
 
@@ -312,11 +308,7 @@ class MantarrayMcSimulator(InfiniteProcess):
 
     def get_interpolated_data(self, sampling_period_us: int) -> NDArray[np.int16]:
         """Return one second (one twitch) of interpolated data."""
-        data_indices = np.arange(
-            0,
-            CENTIMILLISECONDS_PER_SECOND,
-            sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND,
-        )
+        data_indices = np.arange(0, int(1e6), sampling_period_us)
         return self._interpolator(data_indices).astype(np.int16)
 
     def get_num_wells(self) -> int:
@@ -628,7 +620,7 @@ class MantarrayMcSimulator(InfiniteProcess):
 
     def _create_packet_body(self) -> bytes:
         # add time index to data packet body
-        data_packet_body = (self._time_index_us // MICROSECONDS_PER_CENTIMILLISECOND).to_bytes(
+        data_packet_body = self._time_index_us.to_bytes(
             SERIAL_COMM_TIME_INDEX_LENGTH_BYTES, byteorder="little"
         )
         for well_idx in range(self._num_wells):

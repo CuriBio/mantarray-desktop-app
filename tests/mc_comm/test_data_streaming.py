@@ -14,7 +14,6 @@ from mantarray_desktop_app import InstrumentDataStreamingAlreadyStoppedError
 from mantarray_desktop_app import MagnetometerConfigUpdateWhileDataStreamingError
 from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import mc_simulator
-from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
@@ -777,11 +776,8 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
         test_sampling_period_us,
     )
 
-    test_sampling_period_cms = test_sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND
-    max_timestamp_cms = test_sampling_period_cms * test_num_packets
-    expected_time_indices = list(
-        range(0, max_timestamp_cms, test_sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND)
-    )
+    max_time_idx_us = test_sampling_period_us * test_num_packets
+    expected_time_indices = list(range(0, max_time_idx_us, test_sampling_period_us))
 
     simulated_data = simulator.get_interpolated_data(test_sampling_period_us)
     expected_fw_item = {"time_indices": np.array(expected_time_indices, np.uint64)}
@@ -852,11 +848,8 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
         test_sampling_period_us,
     )
 
-    test_sampling_period_cms = test_sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND
-    max_timestamp_cms = test_sampling_period_cms * test_num_packets
-    expected_time_indices = list(
-        range(0, max_timestamp_cms, test_sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND)
-    )
+    max_time_idx_us = test_sampling_period_us * test_num_packets
+    expected_time_indices = list(range(0, max_time_idx_us, test_sampling_period_us))
 
     simulated_data = simulator.get_interpolated_data(test_sampling_period_us)
     expected_fw_item = {"time_indices": np.array(expected_time_indices, np.uint64)}
@@ -936,11 +929,8 @@ def test_McCommunicationProcess__handles_one_second_read_with_interrupting_packe
         test_sampling_period_us,
     )
 
-    test_sampling_period_cms = test_sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND
-    max_timestamp_cms = test_sampling_period_cms * test_num_packets
-    expected_time_indices = list(
-        range(0, max_timestamp_cms, test_sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND)
-    )
+    max_time_idx_us = test_sampling_period_us * test_num_packets
+    expected_time_indices = list(range(0, max_time_idx_us, test_sampling_period_us))
 
     simulated_data = simulator.get_interpolated_data(test_sampling_period_us)
     expected_fw_item = {"time_indices": np.array(expected_time_indices, np.uint64)}
@@ -1045,11 +1035,8 @@ def test_McCommunicationProcess__handles_less_than_one_second_read_when_stopping
     )
     invoke_process_run_and_check_errors(simulator)
 
-    test_sampling_period_cms = test_sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND
-    max_timestamp_cms = test_sampling_period_cms * test_num_packets
-    expected_time_indices = list(
-        range(0, max_timestamp_cms, test_sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND)
-    )
+    max_time_idx_us = test_sampling_period_us * test_num_packets
+    expected_time_indices = list(range(0, max_time_idx_us, test_sampling_period_us))
 
     simulated_data = simulator.get_interpolated_data(test_sampling_period_us)
     expected_fw_item = {"time_indices": np.array(expected_time_indices, np.uint64)}

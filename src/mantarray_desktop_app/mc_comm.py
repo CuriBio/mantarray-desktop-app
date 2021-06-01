@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import deque
+import copy
 import datetime
 import logging
 from multiprocessing import Queue
@@ -313,7 +314,7 @@ class McCommunicationProcess(InstrumentCommProcess):
     ) -> None:
         self._sampling_period_us = sampling_period
         self._active_sensors_list = create_active_channel_per_sensor_list(magnetometer_config)
-        self._magnetometer_config = magnetometer_config
+        self._magnetometer_config = copy.deepcopy(magnetometer_config)
         for well_dict in self._magnetometer_config.values():
             config_values = list(well_dict.values())
             num_sensors_active = 0
@@ -324,7 +325,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                     config_values[sensor_base_idx : sensor_base_idx + SERIAL_COMM_NUM_CHANNELS_PER_SENSOR]
                 )
                 num_sensors_active += int(is_sensor_active)
-            well_dict["num_sensors_active"] = num_sensors_active  # type: ignore
+            well_dict["num_sensors_active"] = num_sensors_active
         total_active_channels = sum(self._active_sensors_list)
         total_active_sensors = len(self._active_sensors_list)
         self._packet_len = (
