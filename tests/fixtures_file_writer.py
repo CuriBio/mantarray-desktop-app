@@ -163,9 +163,9 @@ GENERIC_REFERENCE_SENSOR_DATA_PACKET = {
 
 
 def open_the_generic_h5_file(
-    file_dir: str, well_name: str = "A2"
+    file_dir: str, well_name: str = "A2", beta_version: int = 1
 ) -> h5py._hl.files.File:  # pylint: disable=protected-access # this is the only type definition Eli (2/24/20) could find for a File
-    timestamp_str = "2020_02_09_190935"
+    timestamp_str = "2020_02_09_190935" if beta_version == 1 else "2020_02_09_190359"
     barcode = GENERIC_BASE_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]

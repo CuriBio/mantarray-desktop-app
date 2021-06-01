@@ -483,7 +483,9 @@ def start_recording() -> Response:
         begin_timepoint = int(request.args["time_index"])
     else:
         time_since_index_0 = timestamp_of_begin_recording - timestamp_of_sample_idx_zero
-        begin_timepoint = time_since_index_0.total_seconds() * CENTIMILLISECONDS_PER_SECOND
+        begin_timepoint = time_since_index_0.total_seconds() * (
+            int(1e6) if shared_values_dict["beta_2_mode"] else CENTIMILLISECONDS_PER_SECOND
+        )
 
     are_barcodes_matching = _check_scanned_barcode_vs_user_value(barcode)
 
@@ -583,21 +585,24 @@ def stop_recording() -> Response:
     Args:
         time_index: [Optional, int] centimilliseconds since acquisition began to end the recording at. defaults to when this command is received
     """
-    timestamp_of_sample_idx_zero = _get_timestamp_of_acquisition_sample_index_zero()
+    shared_values_dict = _get_values_from_process_monitor()
 
-    comm_dict: Dict[str, Any] = {
-        "communication_type": "recording",
-        "command": "stop_recording",
-    }
+    timestamp_of_sample_idx_zero = _get_timestamp_of_acquisition_sample_index_zero()
 
     stop_timepoint: Union[int, float]
     if "time_index" in request.args:
         stop_timepoint = int(request.args["time_index"])
     else:
         time_since_index_0 = datetime.datetime.utcnow() - timestamp_of_sample_idx_zero
-        stop_timepoint = time_since_index_0.total_seconds() * CENTIMILLISECONDS_PER_SECOND
-    comm_dict["timepoint_to_stop_recording_at"] = stop_timepoint
+        stop_timepoint = time_since_index_0.total_seconds() * (
+            int(1e6) if shared_values_dict["beta_2_mode"] else CENTIMILLISECONDS_PER_SECOND
+        )
 
+    comm_dict: Dict[str, Any] = {
+        "communication_type": "recording",
+        "command": "stop_recording",
+        "timepoint_to_stop_recording_at": stop_timepoint,
+    }
     response = queue_command_to_main(comm_dict)
     return response
 

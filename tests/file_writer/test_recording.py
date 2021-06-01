@@ -135,7 +135,7 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         else CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
     )
 
-    timestamp_str = "2020_02_09_190935"
+    timestamp_str = "2020_02_09_190935" if test_beta_version == 1 else "2020_02_09_190359"
     expected_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]

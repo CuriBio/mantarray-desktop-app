@@ -30,6 +30,7 @@ from mantarray_desktop_app import FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
 from mantarray_desktop_app import get_api_endpoint
 from mantarray_desktop_app import get_server_port_number
 from mantarray_desktop_app import get_time_index_dataset_from_file
+from mantarray_desktop_app import get_time_offset_dataset_from_file
 from mantarray_desktop_app import get_tissue_dataset_from_file
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
@@ -105,6 +106,8 @@ from ..fixtures import fixture_patched_xem_scripts_folder
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BOARD_MAGNETOMETER_CONFIGURATION
+from ..fixtures_file_writer import GENERIC_NUM_CHANNELS_ENABLED
+from ..fixtures_file_writer import GENERIC_NUM_SENSORS_ENABLED
 from ..fixtures_file_writer import WELL_DEF_24
 from ..helpers import confirm_queue_is_eventually_empty
 
@@ -738,7 +741,7 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
 @pytest.mark.timeout(INTEGRATION_TEST_TIMEOUT)
 @freeze_time(datetime.datetime(year=2021, month=5, day=24, hour=21, minute=23, second=4, microsecond=141738))
 def test_full_datapath_and_recorded_files_in_beta_2_mode(fully_running_app_from_main_entrypoint, mocker):
-    # pylint: disable=too-many-statements  # Tanner (5/25/21): This is a long integration test, it needs extra statements
+    # pylint: disable=too-many-statements,too-many-locals  # Tanner (6/1/21): This is a long integration test, it needs extra statements and local variables
     # TODO Tanner (4/23/21): This integration test does not actually test the full data path or recorded files yet. When that functionality is added for beta 2 mode, this test needs to be updated
 
     # Tanner (12/29/20): Freeze time in order to make assertions on timestamps in the metadata
@@ -812,7 +815,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(fully_running_app_from_
         time.sleep(3)  # Tanner (6/15/20): This allows data to be written to files
 
         # Tanner (12/30/20): End recording at a known timepoint
-        expected_stop_index_1 = expected_start_index_1 + 2 * CENTIMILLISECONDS_PER_SECOND
+        expected_stop_index_1 = expected_start_index_1 + int(2e6)
         response = requests.get(f"{get_api_endpoint()}stop_recording?time_index={expected_stop_index_1}")
         assert response.status_code == 200
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
@@ -835,7 +838,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(fully_running_app_from_
             expected_barcode_1[:-1] + "2"
         )  # change last char of default barcode from '1' to '2'
         # Tanner (5/25/21): start at a different timepoint to create a different timestamp in the names of the second set of files
-        expected_start_index_2 = 1 * CENTIMILLISECONDS_PER_SECOND
+        expected_start_index_2 = int(1e6)
 
         # Tanner (12/30/20): Start recording with second barcode to create second set of files
         response = requests.get(
@@ -846,7 +849,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(fully_running_app_from_
 
         time.sleep(3)  # Tanner (6/15/20): This allows data to be written to files
 
-        expected_stop_index_2 = expected_start_index_2 + int(1.5 * CENTIMILLISECONDS_PER_SECOND)
+        expected_stop_index_2 = expected_start_index_2 + int(1.5e6)
         response = requests.get(f"{get_api_endpoint()}stop_recording?time_index={expected_stop_index_2}")
         assert response.status_code == 200
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
@@ -876,6 +879,9 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(fully_running_app_from_
         test_process_manager.hard_stop_and_join_processes()
 
         # test first recording for all data and metadata
+        num_recorded_data_points_1 = (
+            expected_stop_index_1 - expected_start_index_1
+        ) // expected_sampling_period + 1
         for row_idx in range(4):
             for col_idx in range(6):
                 with h5py.File(
@@ -970,10 +976,27 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(fully_running_app_from_
                     )
                     # Tanner (1/12/21): The barcode used for testing (which is passed to start_recording route) is different than the simulator's barcode (the one that is 'scanned' in this test), so this should result to False
                     assert bool(this_file_attrs[str(BARCODE_IS_FROM_SCANNER_UUID)]) is False
-                    # TODO make assertion about recorded data points here
+                    # test recorded data
+                    actual_time_index_data = get_time_index_dataset_from_file(this_file)
+                    assert actual_time_index_data.shape == (num_recorded_data_points_1,)
+                    assert actual_time_index_data[0] == expected_start_index_1
+                    assert actual_time_index_data[-1] == expected_stop_index_1
+                    actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
+                    assert actual_time_offset_data.shape == (
+                        GENERIC_NUM_SENSORS_ENABLED,
+                        num_recorded_data_points_1,
+                    )
+                    actual_tissue_data = get_tissue_dataset_from_file(this_file)
+                    assert actual_tissue_data.shape == (
+                        GENERIC_NUM_CHANNELS_ENABLED,
+                        num_recorded_data_points_1,
+                    )
 
         expected_timestamp_2 = "2021_05_24_212305"
         # Tanner (12/30/20): test second recording (only make sure it contains waveform data)
+        num_recorded_data_points_2 = (
+            expected_stop_index_2 - expected_start_index_2
+        ) // expected_sampling_period + 1
         for row_idx in range(4):
             for col_idx in range(6):
                 with h5py.File(
@@ -984,14 +1007,28 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(fully_running_app_from_
                     ),
                     "r",
                 ) as this_file:
+                    # test waveform metadata
                     assert str(START_RECORDING_TIME_INDEX_UUID) in this_file.attrs
                     start_index_2 = this_file.attrs[str(START_RECORDING_TIME_INDEX_UUID)]
                     assert (  # Tanner (1/13/21): Here we are testing that the 'finalizing' state of File Writer is working correctly by asserting that the second set of recorded files start at the right time index
                         start_index_2 == expected_start_index_2
                     )
                     assert str(UTC_FIRST_TISSUE_DATA_POINT_UUID) in this_file.attrs
-                    assert get_time_index_dataset_from_file(this_file).shape[0] > 0
-                    assert get_tissue_dataset_from_file(this_file).shape[1] > 0
+                    # test recorded data
+                    actual_time_index_data = get_time_index_dataset_from_file(this_file)
+                    assert actual_time_index_data.shape == (num_recorded_data_points_2,)
+                    assert actual_time_index_data[0] == expected_start_index_2
+                    assert actual_time_index_data[-1] == expected_stop_index_2
+                    actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
+                    assert actual_time_offset_data.shape == (
+                        GENERIC_NUM_SENSORS_ENABLED,
+                        num_recorded_data_points_2,
+                    )
+                    actual_tissue_data = get_tissue_dataset_from_file(this_file)
+                    assert actual_tissue_data.shape == (
+                        GENERIC_NUM_CHANNELS_ENABLED,
+                        num_recorded_data_points_2,
+                    )
 
     # Tanner (12/29/20): Good to do this at the end of tests to make sure they don't cause problems with other integration tests
     test_process_manager.hard_stop_and_join_processes()

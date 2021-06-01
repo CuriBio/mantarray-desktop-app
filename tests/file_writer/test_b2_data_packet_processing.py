@@ -137,7 +137,7 @@ def test_FileWriterProcess_process_next_data_packet__writes_data_if_the_whole_da
         board_queues[0][0],
     )
     invoke_process_run_and_check_errors(fw_process)
-    this_file = open_the_generic_h5_file(file_dir, well_name="D1")
+    this_file = open_the_generic_h5_file(file_dir, well_name="D1", beta_version=2)
 
     expected_timestamp = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
         UTC_BEGINNING_DATA_ACQUISTION_UUID
@@ -198,7 +198,7 @@ def test_FileWriterProcess_process_next_data_packet__writes_data_if_the_timestam
         seconds=(start_recording_command["timepoint_to_begin_recording_at"]) / CENTIMILLISECONDS_PER_SECOND
     )
 
-    this_file = open_the_generic_h5_file(file_dir)
+    this_file = open_the_generic_h5_file(file_dir, beta_version=2)
     assert this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == expected_timestamp.strftime(
         "%Y-%m-%d %H:%M:%S.%f"
     )
@@ -247,7 +247,7 @@ def test_FileWriterProcess_process_next_data_packet__does_not_write_data_if_data
     )
     invoke_process_run_and_check_errors(fw_process)
 
-    this_file = open_the_generic_h5_file(file_dir)
+    this_file = open_the_generic_h5_file(file_dir, beta_version=2)
     assert str(UTC_FIRST_TISSUE_DATA_POINT_UUID) not in this_file.attrs
     actual_time_index_data = get_time_index_dataset_from_file(this_file)
     assert actual_time_index_data.shape == (0,)
@@ -299,7 +299,7 @@ def test_FileWriterProcess_process_next_data_packet__writes_data_for_two_packets
 
     num_recorded_data_points = num_recorded_data_points_1 + num_data_points_2
 
-    this_file = open_the_generic_h5_file(file_dir)
+    this_file = open_the_generic_h5_file(file_dir, beta_version=2)
     expected_timestamp = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
         UTC_BEGINNING_DATA_ACQUISTION_UUID
     ] + datetime.timedelta(
@@ -354,7 +354,7 @@ def test_FileWriterProcess_process_next_data_packet__does_not_add_a_data_packet_
     )
     invoke_process_run_and_check_errors(fw_process)
 
-    this_file = open_the_generic_h5_file(file_dir)
+    this_file = open_the_generic_h5_file(file_dir, beta_version=2)
     # confirm some data already recorded to file
     actual_time_index_data = get_time_index_dataset_from_file(this_file)
     assert actual_time_index_data.shape == (num_recorded_data_points,)
@@ -433,7 +433,7 @@ def test_FileWriterProcess_process_next_data_packet__adds_a_data_packet_complete
     )
     invoke_process_run_and_check_errors(fw_process)
 
-    this_file = open_the_generic_h5_file(file_dir)
+    this_file = open_the_generic_h5_file(file_dir, beta_version=2)
     # confirm some data already recorded to file
     actual_time_index_data = get_time_index_dataset_from_file(this_file)
     assert actual_time_index_data.shape == (num_data_points_1,)

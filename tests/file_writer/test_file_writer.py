@@ -626,7 +626,7 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_1_files_after_stop_recordi
 def test_FileWriterProcess_hard_stop__closes_all_beta_2_files_after_stop_recording_before_all_files_are_finalized__and_files_can_be_opened_after_process_stops(
     four_board_file_writer_process, mocker
 ):
-    expected_timestamp = "2020_02_09_190935"
+    expected_timestamp = "2020_02_09_190359"
     expected_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
