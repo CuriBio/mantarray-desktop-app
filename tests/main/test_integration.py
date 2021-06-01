@@ -1029,6 +1029,3 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(fully_running_app_from_
                         GENERIC_NUM_CHANNELS_ENABLED,
                         num_recorded_data_points_2,
                     )
-
-    # Tanner (12/29/20): Good to do this at the end of tests to make sure they don't cause problems with other integration tests
-    test_process_manager.hard_stop_and_join_processes()

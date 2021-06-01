@@ -873,7 +873,15 @@ def test_send_single_read_wire_out_command__gets_processed(test_process_manager,
 
 
 @pytest.mark.slow
-def test_send_single_stop_managed_acquisition_command__gets_processed(test_process_manager, test_client):
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS * 3)
+def test_send_single_stop_managed_acquisition_command__gets_processed(
+    test_monitor, test_process_manager, test_client
+):
+    monitor_thread, _, _, _ = test_monitor
+
+    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+    shared_values_dict["system_status"] = LIVE_VIEW_ACTIVE_STATE
+
     simulator = FrontPanelSimulator({})
     simulator.initialize_board()
     simulator.start_acquisition()
@@ -881,10 +889,24 @@ def test_send_single_stop_managed_acquisition_command__gets_processed(test_proce
     ok_process = test_process_manager.get_instrument_process()
     ok_process.set_board_connection(0, simulator)
 
-    test_process_manager.start_processes()
-
     response = test_client.get("/stop_managed_acquisition")
     assert response.status_code == 200
+    invoke_process_run_and_check_errors(monitor_thread)
+
+    to_instrument_comm_queue = (
+        test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+    )
+    to_file_writer_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
+    )
+    to_da_queue = test_process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
+
+    test_process_manager.start_processes()
+    while not test_process_manager.are_subprocess_start_ups_complete():
+        time.sleep(0.3)
+    confirm_queue_is_eventually_empty(to_instrument_comm_queue)
+    confirm_queue_is_eventually_empty(to_file_writer_queue)
+    confirm_queue_is_eventually_empty(to_da_queue)
 
     test_process_manager.soft_stop_processes()
     confirm_parallelism_is_stopped(ok_process, timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
@@ -896,19 +918,6 @@ def test_send_single_stop_managed_acquisition_command__gets_processed(test_proce
         test_process_manager.get_data_analyzer_process(),
         timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
     )
-
-    to_instrument_comm_queue = (
-        test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
-    )
-    confirm_queue_is_eventually_empty(to_instrument_comm_queue)
-
-    to_file_writer_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
-    )
-    confirm_queue_is_eventually_empty(to_file_writer_queue)
-
-    to_da_queue = test_process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
-    confirm_queue_is_eventually_empty(to_da_queue)
 
     comm_from_ok_queue = (
         test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)

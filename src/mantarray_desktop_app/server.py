@@ -635,15 +635,7 @@ def stop_managed_acquisition() -> Response:
 
     `curl http://localhost:4567/stop_managed_acquisition`
     """
-    comm_dict = STOP_MANAGED_ACQUISITION_COMMUNICATION
-    server_thread = get_the_server_thread()
-    to_da_queue = server_thread.queue_container().get_communication_queue_from_main_to_data_analyzer()
-    to_da_queue.put_nowait(comm_dict)
-    to_file_writer_queue = server_thread.queue_container().get_communication_queue_from_main_to_file_writer()
-    to_file_writer_queue.put_nowait(comm_dict)
-
-    # TODO Tanner (5/28/21): send this to process monitor instead
-    response = queue_command_to_instrument_comm(comm_dict)
+    response = queue_command_to_main(STOP_MANAGED_ACQUISITION_COMMUNICATION)
     return response
 
 

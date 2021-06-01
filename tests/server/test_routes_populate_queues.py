@@ -592,27 +592,11 @@ def test_send_single_stop_managed_acquisition_command__populates_queues(
     response = test_client.get("/stop_managed_acquisition")
     assert response.status_code == 200
 
-    to_instrument_comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
-    assert is_queue_eventually_of_size(to_instrument_comm_queue, 1) is True
-    comm_to_instrument_comm = to_instrument_comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert comm_to_instrument_comm["communication_type"] == "to_instrument"
-    assert comm_to_instrument_comm["command"] == "stop_managed_acquisition"
-    response_json = response.get_json()
-    assert response_json["command"] == "stop_managed_acquisition"
-
-    to_file_writer_queue = test_server.queue_container().get_communication_queue_from_main_to_file_writer()
-    assert is_queue_eventually_not_empty(to_file_writer_queue) is True
-    comm_to_da = to_file_writer_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert comm_to_da["communication_type"] == "to_instrument"
-    assert comm_to_da["command"] == "stop_managed_acquisition"
-    response_json = response.get_json()
-    assert response_json["command"] == "stop_managed_acquisition"
-
-    to_da_queue = test_server.queue_container().get_communication_queue_from_main_to_data_analyzer()
-    assert is_queue_eventually_of_size(to_da_queue, 1) is True
-    comm_to_da = to_da_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert comm_to_da["communication_type"] == "to_instrument"
-    assert comm_to_da["command"] == "stop_managed_acquisition"
+    server_to_main_queue = test_server.get_queue_to_main()
+    assert is_queue_eventually_of_size(server_to_main_queue, 1) is True
+    comm_to_main = server_to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert comm_to_main["communication_type"] == "to_instrument"
+    assert comm_to_main["command"] == "stop_managed_acquisition"
     response_json = response.get_json()
     assert response_json["command"] == "stop_managed_acquisition"
 

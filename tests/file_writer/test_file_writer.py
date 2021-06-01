@@ -355,6 +355,9 @@ def test_FileWriterProcess__does_not_include_recording_metrics_in_performance_me
     assert "num_recorded_data_points_metrics" not in actual
     assert "recording_duration_metrics" not in actual
 
+    # Tanner (6/1/21): avoid BrokenPipeErrors
+    drain_queue(four_board_file_writer_process["board_queues"][0][1])
+
 
 @pytest.mark.slow
 @pytest.mark.timeout(200)

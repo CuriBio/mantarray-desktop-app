@@ -577,7 +577,6 @@ class FileWriterProcess(InfiniteProcess):
                 }
             )
         elif command == "stop_managed_acquisition":
-            # TODO Tanner (5/28/21): investigate what test is getting this code covered and if this command is ever received from process monitor
             if not self._beta_2_mode:
                 # data buffer clear is handled differently in beta 2 mode
                 self._data_packet_buffers[0].clear()
