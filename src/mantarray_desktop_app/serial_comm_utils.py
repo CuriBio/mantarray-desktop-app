@@ -29,7 +29,7 @@ from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .exceptions import SerialCommMetadataValueTooLargeError
 
 
-# Tanner (3/18/21): If/When cython is needed to improve serial communication, this file will likely be a good place to start
+# Tanner (3/18/21): If/When additional cython is needed to improve serial communication, this file may be worth investigating
 
 
 METADATA_TYPES = immutabledict(
@@ -151,8 +151,8 @@ def convert_to_timestamp_bytes(timestamp: int) -> bytes:
     return timestamp.to_bytes(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES, byteorder="little")
 
 
-# Tanner (4/7/21): This method should not be used in the simulator. It has its own way of determining the timestamp to send in order to behave more accurately like the real Mantarray instrument
 def get_serial_comm_timestamp() -> int:
+    # Tanner (4/7/21): This method should not be used in the simulator. It has its own way of determining the timestamp to send in order to behave more accurately like the real Mantarray instrument
     return (
         datetime.datetime.now(tz=datetime.timezone.utc) - SERIAL_COMM_TIMESTAMP_EPOCH
     ) // datetime.timedelta(microseconds=1)

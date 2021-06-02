@@ -11,7 +11,6 @@ from mantarray_desktop_app import create_magnetometer_config_bytes
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
-from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_IDLE_READY_CODE
@@ -618,7 +617,7 @@ def test_MantarrayMcSimulator__accepts_time_sync_along_with_status_code_update__
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
         additional_bytes=convert_to_status_code_bytes(SERIAL_COMM_IDLE_READY_CODE),
-        timestamp=(expected_time_usecs + spied_get_us.spy_return) // MICROSECONDS_PER_CENTIMILLISECOND,
+        timestamp=(expected_time_usecs + spied_get_us.spy_return),
     )
 
 

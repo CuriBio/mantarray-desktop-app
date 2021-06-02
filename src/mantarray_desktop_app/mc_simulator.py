@@ -33,7 +33,6 @@ from stdlib_utils import InfiniteProcess
 from stdlib_utils import resource_path
 
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
-from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MICROSECONDS_PER_MILLISECOND
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BOOT_UP_CODE
@@ -319,7 +318,6 @@ class MantarrayMcSimulator(InfiniteProcess):
             self.get_cms_since_init()
             if self._baseline_time_usec is None
             else (self._baseline_time_usec + self._get_us_since_time_sync())
-            // MICROSECONDS_PER_CENTIMILLISECOND
         )
         return timestamp
 
@@ -330,7 +328,6 @@ class MantarrayMcSimulator(InfiniteProcess):
         data_to_send: bytes = bytes(0),
         truncate: bool = False,
     ) -> None:
-        # TODO Tanner (4/7/21): convert timestamp to microseconds once real board makes the switch
         timestamp = self._get_timestamp()
         data_packet = create_data_packet(timestamp, module_id, packet_type, data_to_send)
         if truncate:
