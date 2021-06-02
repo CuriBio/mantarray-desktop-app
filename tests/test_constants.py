@@ -67,6 +67,7 @@ from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from mantarray_desktop_app import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
+from mantarray_desktop_app import SERIAL_COMM_BAUD_RATE
 from mantarray_desktop_app import SERIAL_COMM_BOOT_UP_CODE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
@@ -91,6 +92,7 @@ from mantarray_desktop_app import SERIAL_COMM_METADATA_BYTES_LENGTH
 from mantarray_desktop_app import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_INDEX
+from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from mantarray_desktop_app import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from mantarray_desktop_app import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from mantarray_desktop_app import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_CY
@@ -122,6 +124,7 @@ from mantarray_desktop_app import SERIAL_COMM_TIME_SYNC_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_EPOCH
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import START_BARCODE_SCAN_TRIG_BIT
@@ -371,6 +374,8 @@ def test_parallelism_config():
 
 
 def test_serial_comm():
+    assert SERIAL_COMM_BAUD_RATE == int(5e6)
+
     assert MAX_MC_REBOOT_DURATION_SECONDS == 5
 
     assert SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES == 3
@@ -460,11 +465,7 @@ def test_serial_comm():
     assert SERIAL_COMM_FATAL_ERROR_CODE == 4
     assert SERIAL_COMM_SOFT_ERROR_CODE == 5
 
-    assert SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE == {
-        "A": {"X": 0, "Y": 1, "Z": 2},
-        "B": {"X": 3, "Y": 4, "Z": 5},
-        "C": {"X": 6, "Y": 7, "Z": 8},
-    }
+    assert SERIAL_COMM_NUM_DATA_CHANNELS == 9
     assert SERIAL_COMM_NUM_CHANNELS_PER_SENSOR == 3
     assert SERIAL_COMM_NUM_SENSORS_PER_WELL == 3
     assert (
@@ -477,3 +478,21 @@ def test_cython_constants():
     assert SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY == len(SERIAL_COMM_MAGIC_WORD_BYTES)
     assert SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_CY == SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
     assert SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_CY == SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
+
+
+def test_beta_2_mappings():
+    assert SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE == {
+        "A": {"X": 0, "Y": 1, "Z": 2},
+        "B": {"X": 3, "Y": 4, "Z": 5},
+        "C": {"X": 6, "Y": 7, "Z": 8},
+    }
+    assert SERIAL_COMM_WELL_IDX_TO_MODULE_ID == {
+        well_idx: module_id for module_id, well_idx in SERIAL_COMM_MODULE_ID_TO_WELL_IDX.items()
+    }
+    assert SERIAL_COMM_MODULE_ID_TO_WELL_IDX == {
+        module_id: (module_id - 1) % 6 * 4 + (module_id - 1) // 6 for module_id in range(1, 25)
+    }
+    for well_idx in range(24):
+        module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]
+        well_idx_from_module_id = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
+        assert well_idx_from_module_id == well_idx
