@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import copy
-from random import choice
 from random import randint
 import time
 
@@ -43,6 +42,7 @@ from ..fixtures_mc_simulator import set_simulator_idle_ready
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
+from ..helpers import random_bool
 
 __fixtures__ = [
     fixture_mantarray_mc_simulator,
@@ -67,10 +67,6 @@ def random_data_value():
 
 def random_timestamp():
     return randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
-
-
-def random_bool():
-    return choice([True, False])
 
 
 TEST_NUM_WELLS = 24
@@ -911,7 +907,7 @@ def test_McCommunicationProcess__handles_one_second_read_with_interrupting_packe
         side_effect=[0, test_sampling_period_us * test_num_packets, 0],
     )
 
-    expected_sensor_axis_id = SERIAL_COMM_NUM_DATA_CHANNELS - 1
+    expected_sensor_axis_id = 0
 
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
@@ -1016,7 +1012,7 @@ def test_McCommunicationProcess__handles_less_than_one_second_read_when_stopping
         side_effect=[0, test_sampling_period_us * test_num_packets],
     )
 
-    expected_sensor_axis_id = SERIAL_COMM_NUM_DATA_CHANNELS - 1
+    expected_sensor_axis_id = 0
 
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
