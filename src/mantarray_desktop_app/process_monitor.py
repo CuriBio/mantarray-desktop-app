@@ -202,11 +202,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 raise UnrecognizedRecordingCommandError(command)
             main_to_fw_queue.put_nowait(communication)
         elif communication_type == "to_instrument":
+            # TODO Tanner (6/1/21): refactor "to_instrument" communication type to something more appropriate
             main_to_ic_queue = (
                 self._process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
-            )
-            main_to_fw_queue = (
-                self._process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
             )
             main_to_da_queue = (
                 self._process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
@@ -217,9 +215,11 @@ class MantarrayProcessesMonitor(InfiniteThread):
             elif command == "start_managed_acquisition":
                 shared_values_dict["system_status"] = BUFFERING_STATE
                 main_to_ic_queue.put_nowait(communication)
-                main_to_fw_queue.put_nowait(communication)
                 main_to_da_queue.put_nowait(communication)
             elif command == "stop_managed_acquisition":
+                main_to_fw_queue = (
+                    self._process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
+                )
                 main_to_ic_queue.put_nowait(communication)
                 main_to_fw_queue.put_nowait(communication)
                 main_to_da_queue.put_nowait(communication)

@@ -794,10 +794,10 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(fully_running_app_from_
         assert response.status_code == 200
         assert system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
 
-        # Tanner (12/30/20): start managed_acquisition in order to start recording
+        # Tanner (6/1/21): Start managed_acquisition in order to start recording
         response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
         assert response.status_code == 200
-        # Tanner (12/30/20): managed_acquisition in beta 2 mode will currently only cause the system to enter buffering state. This is because no beta 2 data will come out of Data Analyzer yet
+        # Tanner (6/1/21): managed_acquisition in beta 2 mode will currently only cause the system to enter buffering state. This is because no beta 2 data will come out of Data Analyzer yet
         assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
         time.sleep(2)  # sleep in place of waiting for live view
         # TODO Tanner (5/25/20): Confirm system reaches live view active once beta 2 mode implemented in data analyzer
@@ -812,35 +812,35 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(fully_running_app_from_
         assert response.status_code == 200
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
 
-        time.sleep(3)  # Tanner (6/15/20): This allows data to be written to files
+        time.sleep(3)  # Tanner (6/1/21): This allows data to be written to files
 
-        # Tanner (12/30/20): End recording at a known timepoint
+        # Tanner (6/1/21): End recording at a known timepoint
         expected_stop_index_1 = expected_start_index_1 + int(2e6)
         response = requests.get(f"{get_api_endpoint()}stop_recording?time_index={expected_stop_index_1}")
         assert response.status_code == 200
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
 
-        # Tanner (12/30/20): Stop managed_acquisition
+        # Tanner (6/1/21): Stop managed_acquisition
         response = requests.get(f"{get_api_endpoint()}stop_managed_acquisition")
         assert response.status_code == 200
         assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
 
-        # Tanner (12/30/20): make sure managed_acquisition can be restarted
+        # Tanner (6/1/21): Make sure managed_acquisition can be restarted
         response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
         assert response.status_code == 200
-        # Tanner (12/30/20): managed_acquisition in beta 2 mode will currently only cause the system to enter buffering state. This is because no beta 2 data will come out of Data Analyzer yet
+        # Tanner (6/1/21): managed_acquisition in beta 2 mode will currently only cause the system to enter buffering state. This is because no beta 2 data will come out of Data Analyzer yet
         assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
         time.sleep(2)  # sleep in place of waiting for live view
         # TODO Tanner (5/25/20): Confirm system reaches live view active once beta 2 mode implemented in data analyzer
 
-        # Tanner (12/29/20): Use new barcode for second set of recordings
+        # Tanner (6/1/21): Use new barcode for second set of recordings
         expected_barcode_2 = (
             expected_barcode_1[:-1] + "2"
         )  # change last char of default barcode from '1' to '2'
-        # Tanner (5/25/21): start at a different timepoint to create a different timestamp in the names of the second set of files
+        # Tanner (5/25/21): Start at a different timepoint to create a different timestamp in the names of the second set of files
         expected_start_index_2 = int(1e6)
 
-        # Tanner (12/30/20): Start recording with second barcode to create second set of files
+        # Tanner (6/1/21): Start recording with second barcode to create second set of files
         response = requests.get(
             f"{get_api_endpoint()}start_recording?barcode={expected_barcode_2}&time_index={expected_start_index_2}&is_hardware_test_recording=False"
         )
@@ -859,7 +859,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(fully_running_app_from_
         assert response.status_code == 200
         assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
 
-        # Tanner (12/30/20): stop processes in order to make assertions on recorded data
+        # Tanner (12/30/20): Stop processes in order to make assertions on recorded data
         test_process_manager.soft_stop_processes()
 
         fw_process = test_process_manager.get_file_writer_process()

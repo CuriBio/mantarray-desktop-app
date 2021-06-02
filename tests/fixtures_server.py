@@ -25,11 +25,13 @@ from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from .fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from .fixtures_process_monitor import fixture_test_monitor
+from .fixtures_process_monitor import fixture_test_monitor_beta_2_mode
 
 __fixtures__ = [
     fixture_patch_print,
     fixture_generic_queue_container,
     fixture_test_monitor,
+    fixture_test_monitor_beta_2_mode,
 ]
 
 
@@ -146,9 +148,9 @@ def fixture_generic_beta_1_start_recording_info_in_shared_dict(
 
 @pytest.fixture(scope="function", name="generic_beta_2_start_recording_info_in_shared_dict")
 def fixture_generic_beta_2_start_recording_info_in_shared_dict(
-    test_monitor,
+    test_monitor_beta_2_mode,
 ):
-    _, shared_values_dict, _, _ = test_monitor
+    _, shared_values_dict, _, _ = test_monitor_beta_2_mode
     shared_values_dict["beta_2_mode"] = True
 
     board_idx = 0

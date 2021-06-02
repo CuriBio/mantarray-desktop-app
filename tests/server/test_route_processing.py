@@ -29,6 +29,7 @@ from mantarray_desktop_app import utils
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
+from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import pytest
 import requests
@@ -50,12 +51,14 @@ from ..fixtures import fixture_patched_short_calibration_script
 from ..fixtures import fixture_patched_test_xem_scripts_folder
 from ..fixtures import fixture_patched_xem_scripts_folder
 from ..fixtures import fixture_test_process_manager
+from ..fixtures import fixture_test_process_manager_beta_2_mode
 from ..fixtures import GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures import start_processes_and_wait_for_start_ups_to_complete
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_process_monitor import fixture_test_monitor
+from ..fixtures_process_monitor import fixture_test_monitor_beta_2_mode
 from ..fixtures_server import fixture_client_and_server_thread_and_shared_values
 from ..fixtures_server import fixture_generic_beta_1_start_recording_info_in_shared_dict
 from ..fixtures_server import fixture_generic_beta_2_start_recording_info_in_shared_dict
@@ -75,8 +78,10 @@ __fixtures__ = [
     fixture_server_thread,
     fixture_generic_queue_container,
     fixture_test_process_manager,
+    fixture_test_process_manager_beta_2_mode,
     fixture_test_client,
     fixture_test_monitor,
+    fixture_test_monitor_beta_2_mode,
     fixture_patched_firmware_folder,
     fixture_patched_short_calibration_script,
     fixture_patched_test_xem_scripts_folder,
@@ -1489,37 +1494,23 @@ def test_start_recording_command__gets_processed_in_beta_1_mode__and_creates_a_f
 @pytest.mark.slow
 @freeze_time(
     GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-        UTC_BEGINNING_DATA_ACQUISTION_UUID
+        UTC_BEGINNING_RECORDING_UUID
     ]
-    + datetime.timedelta(
-        seconds=GENERIC_BETA_2_START_RECORDING_COMMAND[  # pylint: disable=duplicate-code
-            "timepoint_to_begin_recording_at"
-        ]
-        / CENTIMILLISECONDS_PER_SECOND
-    )
 )
 def test_start_recording_command__gets_processed_in_beta_2_mode__and_creates_a_file__and_updates_shared_values_dict(
-    test_process_manager,
+    test_process_manager_beta_2_mode,
     test_client,
     mocker,
-    test_monitor,
+    test_monitor_beta_2_mode,
     generic_beta_2_start_recording_info_in_shared_dict,
 ):
-    monitor_thread, _, _, _ = test_monitor
+    monitor_thread, _, _, _ = test_monitor_beta_2_mode
 
-    timestamp_str = (
-        GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-            UTC_BEGINNING_DATA_ACQUISTION_UUID
-        ]
-        + datetime.timedelta(
-            seconds=GENERIC_BETA_2_START_RECORDING_COMMAND[  # pylint: disable=duplicate-code
-                "timepoint_to_begin_recording_at"
-            ]
-            / CENTIMILLISECONDS_PER_SECOND
-        )
-    ).strftime("%Y_%m_%d_%H%M%S")
+    timestamp_str = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+        UTC_BEGINNING_RECORDING_UUID
+    ].strftime("%Y_%m_%d_%H%M%S")
 
-    test_process_manager.start_processes()
+    test_process_manager_beta_2_mode.start_processes()
 
     expected_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
@@ -1532,22 +1523,22 @@ def test_start_recording_command__gets_processed_in_beta_2_mode__and_creates_a_f
     assert generic_beta_2_start_recording_info_in_shared_dict["system_status"] == RECORDING_STATE
     assert generic_beta_2_start_recording_info_in_shared_dict["is_hardware_test_recording"] is False
 
-    test_process_manager.soft_stop_processes()
+    test_process_manager_beta_2_mode.soft_stop_processes()
     confirm_parallelism_is_stopped(
-        test_process_manager.get_file_writer_process(),
+        test_process_manager_beta_2_mode.get_file_writer_process(),
         timeout_seconds=GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS,
     )
 
-    error_queue = test_process_manager.queue_container().get_file_writer_error_queue()
+    error_queue = test_process_manager_beta_2_mode.queue_container().get_file_writer_error_queue()
 
     confirm_queue_is_eventually_empty(error_queue)
 
-    file_dir = test_process_manager.get_file_writer_process().get_file_directory()
+    file_dir = test_process_manager_beta_2_mode.get_file_writer_process().get_file_directory()
     actual_files = os.listdir(os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}"))
-    assert actual_files == [f"{expected_barcode}__2020_02_09_190935__D1.h5"]
+    assert actual_files == [f"{expected_barcode}__{timestamp_str}__D1.h5"]
 
     # clean up
-    test_process_manager.hard_stop_and_join_processes()
+    test_process_manager_beta_2_mode.hard_stop_and_join_processes()
 
 
 @pytest.mark.slow

@@ -38,11 +38,13 @@ import pytest
 
 from ..fixtures import fixture_generic_queue_container
 from ..fixtures import fixture_test_process_manager
+from ..fixtures import fixture_test_process_manager_beta_2_mode
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from ..fixtures_process_monitor import fixture_test_monitor
+from ..fixtures_process_monitor import fixture_test_monitor_beta_2_mode
 from ..fixtures_server import fixture_client_and_server_thread_and_shared_values
 from ..fixtures_server import fixture_generic_beta_1_start_recording_info_in_shared_dict
 from ..fixtures_server import fixture_generic_beta_2_start_recording_info_in_shared_dict
@@ -60,7 +62,9 @@ __fixtures__ = [
     fixture_generic_beta_2_start_recording_info_in_shared_dict,
     fixture_generic_beta_1_start_recording_info_in_shared_dict,
     fixture_test_process_manager,
+    fixture_test_process_manager_beta_2_mode,
     fixture_test_monitor,
+    fixture_test_monitor_beta_2_mode,
 ]
 
 
@@ -947,19 +951,18 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
 @freeze_time(
     datetime.datetime(year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332598)
     + datetime.timedelta(
-        seconds=GENERIC_BETA_2_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
-        / CENTIMILLISECONDS_PER_SECOND
+        seconds=GENERIC_BETA_2_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"] / int(1e6)
     )
 )
 def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__24_wells__utcnow_recording_start_time__and_metadata(
-    test_process_manager, test_client, generic_beta_2_start_recording_info_in_shared_dict
+    test_process_manager_beta_2_mode, test_client, generic_beta_2_start_recording_info_in_shared_dict
 ):
     expected_acquisition_timestamp = datetime.datetime(  # pylint: disable=duplicate-code
         year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332598
     )
     expected_recording_timepoint = GENERIC_BETA_2_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
     expected_recording_timestamp = expected_acquisition_timestamp + datetime.timedelta(
-        seconds=(expected_recording_timepoint / CENTIMILLISECONDS_PER_SECOND)
+        seconds=(expected_recording_timepoint / int(1e6))
     )
 
     generic_beta_2_start_recording_info_in_shared_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [
@@ -974,7 +977,9 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     )
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    comm_queue = (
+        test_process_manager_beta_2_mode.queue_container().get_communication_queue_from_server_to_main()
+    )
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"

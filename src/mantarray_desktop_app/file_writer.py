@@ -649,7 +649,7 @@ class FileWriterProcess(InfiniteProcess):
             if tissue_dataset.shape[1] == 0:
                 this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] = (
                     this_start_recording_timestamps[0]
-                    + datetime.timedelta(seconds=time_indices[0] / CENTIMILLISECONDS_PER_SECOND)
+                    + datetime.timedelta(seconds=time_indices[0] / int(1e6))
                 ).strftime(
                     "%Y-%m-%d %H:%M:%S.%f"
                 )  # pylint: disable=wrong-spelling-in-comment
