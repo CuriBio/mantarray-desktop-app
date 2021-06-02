@@ -15,7 +15,8 @@ from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
-from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
+from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
+from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
 from .exceptions import SerialCommIncorrectMagicWordFromMantarrayError
 
@@ -37,7 +38,6 @@ def parse_sensor_bytes(unsigned char[4] data_bytes) -> Tuple[bool, int, int]:
         true if a reference sensor, the index of the reference sensor or plate well index of construct sensor, and the value in the 24-bits
     """
     # TODO Tanner (2/17/21): investigate pybind
-    # TODO Tanner (2/17/21): investigate wrap around and bounce
     cdef int meta_data_byte, adc_num, adc_ch_num, index
     cdef bint is_reference_sensor
 
@@ -103,27 +103,49 @@ cdef extern from "../zlib/zlib.h":
     Bytef* Z_NULL
 
 
-cdef char[9] MAGIC_WORD = SERIAL_COMM_MAGIC_WORD_BYTES + bytes(1)
-cdef int MAGIC_WORD_LEN = len(SERIAL_COMM_MAGIC_WORD_BYTES)  # 8
-cdef int SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_C_INT = SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
+# Tanner (5/26/21): Can't import these constants from python and use them in array declarations, so have to redefine here
+DEF MAGIC_WORD_LEN = 8
+DEF TIME_INDEX_LEN = 5
+DEF NUM_CHANNELS_PER_SENSOR = 3
+
+# these values exist only for importing the constants defined above into the python test suite
+SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY = MAGIC_WORD_LEN
+SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_CY = TIME_INDEX_LEN
+SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_CY = NUM_CHANNELS_PER_SENSOR
+
+# convert python constants to C types
+cdef char[MAGIC_WORD_LEN + 1] MAGIC_WORD = SERIAL_COMM_MAGIC_WORD_BYTES + bytes(1)
+cdef int MIN_PACKET_SIZE = SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
+
+cdef int SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES_C_INT = SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
+cdef int SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_C_INT = NUM_CHANNELS_PER_SENSOR
+cdef int SERIAL_COMM_NUM_SENSORS_PER_WELL_C_INT = SERIAL_COMM_NUM_SENSORS_PER_WELL
+
 cdef int SERIAL_COMM_MAIN_MODULE_ID_C_INT = SERIAL_COMM_MAIN_MODULE_ID
 cdef int SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE_C_INT = SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 cdef int SERIAL_COMM_ADDITIONAL_BYTES_INDEX_C_INT = SERIAL_COMM_ADDITIONAL_BYTES_INDEX
-cdef int MIN_PACKET_SIZE = SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
+
+cdef uint64_t TIME_INDEX_MASK = 0xFFFFFFFFFF  # 5 lowest bytes of value
+
+
+cdef packed struct WellData:
+    uint16_t time_offset
+    int16_t data_points[NUM_CHANNELS_PER_SENSOR]
+
 
 cdef packed struct Packet:
-    char magic[8]
+    char magic[MAGIC_WORD_LEN]
     uint16_t packet_len
     uint64_t timestamp
     uint8_t module_id
     uint8_t packet_type
-    uint32_t time_index
-    int16_t data
+    uint8_t time_index[TIME_INDEX_LEN]
+    WellData data
 
 
 def handle_data_packets(
-    unsigned char[:] read_bytes, int data_packet_len
-) -> Tuple[NDArray, NDArray, int, Optional[Tuple[int, int, int, bytearray]], Optional[bytearray]]:
+    unsigned char [:] read_bytes, list active_channels_list
+) -> Tuple[NDArray, NDArray, NDArray, int, Optional[Tuple[int, int, int, bytearray]], Optional[bytearray]]:
     """Read the given number of data packets from the instrument.
 
     If data stream is interrupted by a packet that is not part of the data stream,
@@ -131,34 +153,55 @@ def handle_data_packets(
 
     Args:
         read_bytes: an array of all bytes waiting to be parsed. Not gauranteed to all be bytes in a data packet
-        data_packet_len: the length of a data packet
+        active_channels_list: a list containing the number of channels on each active sensor, in order.
 
     Returns:
-        A tuple of the array of parsed time indices, the array of parsed data, the number of data packets read, optional tuple containing info about the interrupting packet if one occured (timestamp, module ID, packet type, and packet body bytes), the remaining unread bytes
+        A tuple of the array of parsed time indices, the array of time offsets, the array of parsed data, the number of data packets read, optional tuple containing info about the interrupting packet if one occured (timestamp, module ID, packet type, and packet body bytes), the remaining unread bytes
     """
-    # make sure data is C contiguous
-    read_bytes = read_bytes.copy()
-
+    read_bytes = read_bytes.copy()  # make sure data is C contiguous
     cdef int num_bytes = len(read_bytes)
-    cdef int num_data_packets_possible = num_bytes // data_packet_len
-    cdef int num_data_channels = (
-        data_packet_len - MIN_PACKET_SIZE - SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_C_INT
-    ) // 2
 
-    cdef Packet *p
+    # convert active_channels_list to an array for faster indexing later
+    active_channels_list_arr = np.array(active_channels_list, dtype=np.uint8, order="C")
+    cdef uint8_t [:] active_channels_list_view = active_channels_list_arr
+
+    cdef int num_wells = 24
+    cdef int num_sensors = len(active_channels_list_view)
+    cdef int num_time_offsets = num_sensors
+    cdef int num_data_channels = sum(active_channels_list_view)
+    cdef int data_packet_len = (
+        MIN_PACKET_SIZE
+        + num_data_channels * 2
+        + num_sensors * SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES_C_INT
+        + TIME_INDEX_LEN
+    )
+    cdef int num_data_packets_possible = num_bytes // data_packet_len
 
     # return values
-    cdef np.ndarray[np.uint64_t, ndim=1] time_indices = np.empty(num_data_packets_possible, dtype=np.uint64)
-    cdef np.ndarray[np.int16_t, ndim=2] data = np.empty((num_data_channels, num_data_packets_possible), dtype=np.int16)
+    time_indices = np.empty(num_data_packets_possible, dtype=np.uint64, order="C")
+    time_offsets = np.empty((num_time_offsets, num_data_packets_possible), dtype=np.uint16, order="C")
+    data = np.empty((num_data_channels, num_data_packets_possible), dtype=np.int16, order="C")
     cdef int data_packet_idx = 0  # also represents numbers of data packets read. Will not increment after reading a "non-data" packet
     other_packet_info = None
 
-    cdef unsigned int crc, original_crc
-    cdef char[9] magic_word
-    magic_word[8] = 0
+    # get memory views of numpy arrays for faster operations
+    cdef uint64_t [::1] time_indices_view = time_indices
+    cdef uint16_t [:, ::1] time_offsets_view = time_offsets
+    cdef int16_t [:, ::1] data_view = data
 
+    cdef unsigned int crc, original_crc
+    cdef char[MAGIC_WORD_LEN + 1] magic_word
+    magic_word[MAGIC_WORD_LEN] = 0
+
+    cdef Packet *p
+    # cdef int well_idx
+    cdef int time_offset_arr_idx
+    cdef int channel_arr_idx
+    cdef WellData * well_data_ptr
+    cdef int sensor
+    cdef int num_channels_on_sensor
+    cdef int channel
     cdef int bytes_idx = 0
-    cdef int channel_num
     while bytes_idx <= num_bytes - MIN_PACKET_SIZE:
         p = <Packet *> &read_bytes[bytes_idx]
 
@@ -169,6 +212,7 @@ def handle_data_packets(
 
         # get actual CRC value from packet
         original_crc = (<uint32_t *> ((<uint8_t *> &p.time_index) + p.packet_len - 14))[0]
+        # original_crc = (<uint32_t *> (&p.time_index + p.packet_len - 14))[0]
         # calculate expected CRC value
         crc = crc32(0, Z_NULL, 0)
         crc = crc32(crc, <uint8_t *> &p.magic, p.packet_len + 6)
@@ -197,16 +241,31 @@ def handle_data_packets(
             break
 
         # add to timestamp array
-        time_indices[data_packet_idx] = p.time_index
+        time_indices_view[data_packet_idx] = (<uint64_t *> &p.time_index)[0] & TIME_INDEX_MASK
         # add next data points to data array
-        for channel_num in range(num_data_channels):
-            data[channel_num, data_packet_idx] = (&p.data + channel_num)[0]
+        well_data_ptr = &p.data
+        channel_arr_idx = 0
+        time_offset_arr_idx = 0
+        for sensor in range(num_sensors):
+            time_offsets_view[time_offset_arr_idx, data_packet_idx] = well_data_ptr.time_offset
+            time_offset_arr_idx += 1
+            num_channels_on_sensor = active_channels_list_view[sensor]
+            for channel in range(num_channels_on_sensor):
+                data_view[channel_arr_idx, data_packet_idx] = well_data_ptr.data_points[channel]
+                channel_arr_idx += 1
+            # shift WellData ptr by appropriate amount
+            well_data_ptr = <WellData *> (
+                (<uint8_t *> well_data_ptr)
+                + SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES_C_INT
+                + (num_channels_on_sensor * 2)
+            )
         # increment idxs
         data_packet_idx += 1
         bytes_idx += data_packet_len
 
     return (
         time_indices,
+        time_offsets,
         data,
         data_packet_idx,
         other_packet_info,

@@ -76,6 +76,7 @@ GENERIC_WELL_MAGNETOMETER_CONFIGURATION = {
     SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: True,
 }
 GENERIC_NUM_CHANNELS_ENABLED = sum(GENERIC_WELL_MAGNETOMETER_CONFIGURATION.values())
+GENERIC_NUM_SENSORS_ENABLED = 2
 GENERIC_BOARD_MAGNETOMETER_CONFIGURATION: Dict[int, Dict[int, bool]] = dict()
 for module_id in range(1, 25):
     GENERIC_BOARD_MAGNETOMETER_CONFIGURATION[module_id] = copy.deepcopy(
@@ -90,10 +91,6 @@ GENERIC_BASE_START_RECORDING_COMMAND: Dict[str, Any] = {
             year=2020, month=2, day=9, hour=19, minute=3, second=22, microsecond=332597
         ),
         START_RECORDING_TIME_INDEX_UUID: 298518 * 125,
-        UTC_BEGINNING_RECORDING_UUID: datetime.datetime(
-            year=2020, month=2, day=9, hour=19, minute=3, second=22, microsecond=332597
-        )
-        + datetime.timedelta(seconds=(298518 * 125 / CENTIMILLISECONDS_PER_SECOND)),
         CUSTOMER_ACCOUNT_ID_UUID: CURI_BIO_ACCOUNT_UUID,
         USER_ACCOUNT_ID_UUID: CURI_BIO_USER_ACCOUNT_ID,
         SOFTWARE_BUILD_NUMBER_UUID: COMPILED_EXE_BUILD_TIMESTAMP,
@@ -108,6 +105,10 @@ GENERIC_BASE_START_RECORDING_COMMAND: Dict[str, Any] = {
 GENERIC_BETA_1_START_RECORDING_COMMAND = copy.deepcopy(GENERIC_BASE_START_RECORDING_COMMAND)
 GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"].update(
     {
+        UTC_BEGINNING_RECORDING_UUID: GENERIC_BASE_START_RECORDING_COMMAND[
+            "metadata_to_copy_onto_main_file_attributes"
+        ][UTC_BEGINNING_DATA_ACQUISTION_UUID]
+        + datetime.timedelta(seconds=(298518 * 125 / CENTIMILLISECONDS_PER_SECOND)),
         MAIN_FIRMWARE_VERSION_UUID: RunningFIFOSimulator.default_firmware_version,
         SLEEP_FIRMWARE_VERSION_UUID: "0.0.0",
         MANTARRAY_SERIAL_NUMBER_UUID: RunningFIFOSimulator.default_mantarray_serial_number,
@@ -121,6 +122,10 @@ GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
 GENERIC_BETA_2_START_RECORDING_COMMAND = copy.deepcopy(GENERIC_BASE_START_RECORDING_COMMAND)
 GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"].update(
     {
+        UTC_BEGINNING_RECORDING_UUID: GENERIC_BASE_START_RECORDING_COMMAND[
+            "metadata_to_copy_onto_main_file_attributes"
+        ][UTC_BEGINNING_DATA_ACQUISTION_UUID]
+        + datetime.timedelta(seconds=(298518 * 125 / int(1e6))),
         MAIN_FIRMWARE_VERSION_UUID: MantarrayMcSimulator.default_firmware_version,
         MANTARRAY_SERIAL_NUMBER_UUID: MantarrayMcSimulator.default_mantarray_serial_number,
         MANTARRAY_NICKNAME_UUID: MantarrayMcSimulator.default_mantarray_nickname,
@@ -162,9 +167,9 @@ GENERIC_REFERENCE_SENSOR_DATA_PACKET = {
 
 
 def open_the_generic_h5_file(
-    file_dir: str, well_name: str = "A2"
+    file_dir: str, well_name: str = "A2", beta_version: int = 1
 ) -> h5py._hl.files.File:  # pylint: disable=protected-access # this is the only type definition Eli (2/24/20) could find for a File
-    timestamp_str = "2020_02_09_190935"
+    timestamp_str = "2020_02_09_190935" if beta_version == 1 else "2020_02_09_190359"
     barcode = GENERIC_BASE_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
@@ -180,8 +185,10 @@ def open_the_generic_h5_file(
     return actual_file
 
 
-def open_the_generic_h5_file_as_WellFile(file_dir: str, well_name: str = "A2") -> WellFile:
-    timestamp_str = "2020_02_09_190935"
+def open_the_generic_h5_file_as_WellFile(
+    file_dir: str, well_name: str = "A2", beta_version: int = 1
+) -> WellFile:
+    timestamp_str = "2020_02_09_190935" if beta_version == 1 else "2020_02_09_190359"
     barcode = GENERIC_BASE_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]

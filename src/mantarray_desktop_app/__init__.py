@@ -103,7 +103,9 @@ from .constants import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
+from .constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
+from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
@@ -124,6 +126,7 @@ from .constants import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
 from .constants import SERIAL_COMM_STREAM_MODE_CHANGED_BYTE
 from .constants import SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE
 from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
+from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from .constants import SERIAL_COMM_TIMESTAMP_EPOCH
@@ -205,6 +208,7 @@ from .file_writer import FileWriterProcess
 from .file_writer import get_data_slice_within_timepoints
 from .file_writer import get_reference_dataset_from_file
 from .file_writer import get_time_index_dataset_from_file
+from .file_writer import get_time_offset_dataset_from_file
 from .file_writer import get_tissue_dataset_from_file
 from .file_writer import MantarrayH5FileCreator
 from .firmware_manager import get_latest_firmware
@@ -249,17 +253,22 @@ from .server import ServerThread
 from .system_utils import system_state_eventually_equals
 from .system_utils import wait_for_subprocesses_to_start
 from .utils import check_barcode_for_errors
+from .utils import create_active_channel_per_sensor_list
 from .utils import create_magnetometer_config_dict
+from .utils import create_sensor_axis_dict
 from .utils import get_current_software_version
 from .utils import redact_sensitive_info_from_path
 from .utils import validate_magnetometer_config_keys
 
 if 6 < 9:  # pragma: no cover # protect this from zimports deleting the pylint disable statement
-    from .data_parsing_cy import (  # pylint: disable=import-error # Tanner (8/25/20) unsure why pylint is unable to recognize cython import...
+    from .data_parsing_cy import (  # pylint: disable=import-error # Tanner (8/25/20): unsure why pylint is unable to recognize cython import
         parse_adc_metadata_byte,
         parse_little_endian_int24,
         parse_sensor_bytes,
         handle_data_packets,
+        SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY,
+        SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_CY,
+        SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_CY,
     )
 
 __all__ = [
@@ -519,4 +528,13 @@ __all__ = [
     "validate_magnetometer_config_keys",
     "IncorrectMagnetometerConfigFromInstrumentError",
     "SERIAL_COMM_TIME_INDEX_LENGTH_BYTES",
+    "SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES",
+    "SERIAL_COMM_NUM_CHANNELS_PER_SENSOR",
+    "SERIAL_COMM_NUM_SENSORS_PER_WELL",
+    "SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY",
+    "SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_CY",
+    "SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_CY",
+    "create_active_channel_per_sensor_list",
+    "get_time_offset_dataset_from_file",
+    "create_sensor_axis_dict",
 ]

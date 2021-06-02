@@ -50,6 +50,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         self._file_directory: str = file_directory
         self._data_analyzer_process: DataAnalyzerProcess
 
+        # TODO Tanner (6/1/21): refactor this initialization, see last statement in self.create_processes
         self._all_processes = Tuple[
             ServerThread, InstrumentCommProcess, FileWriterProcess, DataAnalyzerProcess
         ]  # server takes longest to start, so have that first
@@ -284,7 +285,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             return False
         for iter_process in self._all_processes:
             if isinstance(iter_process, ServerThread):
-                # Eli (12/17/20): skip the ServerThread because there is no clear way to mark the start up complete after launching flask.run()
+                # Tanner (6/1/21): skip the ServerThread because it is a thread running in the main process, not a subprocess
                 continue
             if not iter_process.is_start_up_complete():
                 return False

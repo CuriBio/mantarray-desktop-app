@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import copy
 import datetime
 import tempfile
 from uuid import UUID
@@ -12,6 +13,7 @@ from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import process_monitor
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from mantarray_desktop_app import UnrecognizedCommandToInstrumentError
 from mantarray_desktop_app import UnrecognizedMantarrayNamingCommandError
@@ -291,6 +293,41 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
     # clean up the instrument subprocess to avoid broken pipe errors
     test_process_manager.get_instrument_process().hard_stop()
+
+
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_stop_managed_acquisition__puts_command_into_subprocess_queues(
+    test_process_manager, test_monitor
+):
+    monitor_thread, _, _, _ = test_monitor
+
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(STOP_MANAGED_ACQUISITION_COMMUNICATION),
+        server_to_main_queue,
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    confirm_queue_is_eventually_empty(server_to_main_queue)
+
+    main_to_ic = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+    confirm_queue_is_eventually_of_size(main_to_ic, 1)
+    actual_comm = main_to_ic.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert actual_comm == STOP_MANAGED_ACQUISITION_COMMUNICATION
+
+    main_to_fw = test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
+    confirm_queue_is_eventually_of_size(main_to_fw, 1)
+    actual_comm = main_to_fw.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert actual_comm == STOP_MANAGED_ACQUISITION_COMMUNICATION
+
+    main_to_da = test_process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
+    confirm_queue_is_eventually_of_size(main_to_da, 1)
+    actual_comm = main_to_da.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert actual_comm == STOP_MANAGED_ACQUISITION_COMMUNICATION
+
+    # clean up subprocesses prevent BrokenPipeErrors
+    test_process_manager.hard_stop_processes()
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_update_shared_values_by_updating_shared_values_dictionary__and_overriding_existing_value(

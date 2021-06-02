@@ -6,6 +6,7 @@ import os
 import h5py
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
+from mantarray_desktop_app import create_sensor_axis_dict
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
@@ -15,6 +16,7 @@ from mantarray_desktop_app import DATA_FRAME_PERIOD
 from mantarray_desktop_app import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
 from mantarray_desktop_app import get_reference_dataset_from_file
 from mantarray_desktop_app import get_time_index_dataset_from_file
+from mantarray_desktop_app import get_time_offset_dataset_from_file
 from mantarray_desktop_app import get_tissue_dataset_from_file
 from mantarray_desktop_app import InvalidStopRecordingTimepointError
 from mantarray_desktop_app import MantarrayMcSimulator
@@ -76,10 +78,10 @@ from ..fixtures_file_writer import fixture_running_four_board_file_writer_proces
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_NUM_CHANNELS_ENABLED
+from ..fixtures_file_writer import GENERIC_NUM_SENSORS_ENABLED
 from ..fixtures_file_writer import GENERIC_REFERENCE_SENSOR_DATA_PACKET
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_TISSUE_DATA_PACKET
-from ..fixtures_file_writer import GENERIC_WELL_MAGNETOMETER_CONFIGURATION
 from ..fixtures_file_writer import open_the_generic_h5_file
 from ..fixtures_file_writer import WELL_DEF_24
 from ..helpers import confirm_queue_is_eventually_empty
@@ -124,9 +126,7 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         if test_beta_version == 1
         else GENERIC_BETA_2_START_RECORDING_COMMAND
     )
-    data_shape = (
-        (0,) if test_beta_version == 1 else (sum(GENERIC_WELL_MAGNETOMETER_CONFIGURATION.values()), 0)
-    )
+    data_shape = (0,) if test_beta_version == 1 else (GENERIC_NUM_CHANNELS_ENABLED, 0)
     data_type = np.int32 if test_beta_version == 1 else np.int16
     simulator_class = RunningFIFOSimulator if test_beta_version == 1 else MantarrayMcSimulator
     file_version = (
@@ -135,7 +135,7 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         else CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
     )
 
-    timestamp_str = "2020_02_09_190935"
+    timestamp_str = "2020_02_09_190935" if test_beta_version == 1 else "2020_02_09_190359"
     expected_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
@@ -256,10 +256,11 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
             assert str(ADC_TISSUE_OFFSET_UUID) not in this_file.attrs
             assert str(ADC_REF_OFFSET_UUID) not in this_file.attrs
             # check that beta 2 value are present
+            well_config = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
+                MAGNETOMETER_CONFIGURATION_UUID
+            ][well_idx + 1]
             assert this_file.attrs[str(MAGNETOMETER_CONFIGURATION_UUID)] == json.dumps(
-                start_recording_command["metadata_to_copy_onto_main_file_attributes"][
-                    MAGNETOMETER_CONFIGURATION_UUID
-                ][well_idx + 1]
+                create_sensor_axis_dict(well_config)
             )
             assert (
                 this_file.attrs[str(TISSUE_SAMPLING_PERIOD_UUID)]
@@ -284,6 +285,8 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
             )
             assert get_time_index_dataset_from_file(this_file).shape == (0,)
             assert get_time_index_dataset_from_file(this_file).dtype == "uint64"
+            assert get_time_offset_dataset_from_file(this_file).shape == (GENERIC_NUM_SENSORS_ENABLED, 0)
+            assert get_time_offset_dataset_from_file(this_file).dtype == "uint16"
         # test data sets
         assert get_reference_dataset_from_file(this_file).shape == data_shape
         assert get_reference_dataset_from_file(this_file).dtype == data_type
@@ -756,6 +759,7 @@ def test_FileWriterProcess__records_all_requested_beta_1_data_in_buffer__and_cre
 def test_FileWriterProcess__records_all_requested_beta_2_data_in_buffer__and_creates_dict_of_latest_data_timepoints_for_open_files__when_start_recording_command_is_received(
     four_board_file_writer_process,
 ):
+    # pylint: disable=too-many-locals  # Tanner (5/30/21): many variables needed for this test
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
     from_main_queue = four_board_file_writer_process["from_main_queue"]
@@ -769,10 +773,11 @@ def test_FileWriterProcess__records_all_requested_beta_2_data_in_buffer__and_cre
     expected_num_packets_recorded = 3
     num_data_points_per_packet = 2
     expected_total_num_data_points = expected_num_packets_recorded * num_data_points_per_packet
-    base_data = np.ones(num_data_points_per_packet, dtype=np.int16)
     expected_time_indices = np.arange(
         expected_start_timepoint, expected_start_timepoint + expected_total_num_data_points, dtype=np.uint64
     )
+    base_data = np.ones(num_data_points_per_packet, dtype=np.int16)
+    base_time_offsets = np.ones((GENERIC_NUM_SENSORS_ENABLED, num_data_points_per_packet), dtype=np.uint16)
     for i in range(expected_num_packets_recorded):
         curr_idx = i * num_data_points_per_packet
         data_packet = {
@@ -780,6 +785,7 @@ def test_FileWriterProcess__records_all_requested_beta_2_data_in_buffer__and_cre
         }
         for well_idx in range(24):
             channel_dict = {
+                "time_offsets": base_time_offsets * well_idx,
                 SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: base_data * well_idx,
                 SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: base_data * well_idx,
             }
@@ -791,6 +797,7 @@ def test_FileWriterProcess__records_all_requested_beta_2_data_in_buffer__and_cre
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
 
+    expected_time_offsets_shape = (GENERIC_NUM_SENSORS_ENABLED, expected_total_num_data_points)
     expected_data_shape = (GENERIC_NUM_CHANNELS_ENABLED, expected_total_num_data_points)
     expected_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
@@ -805,17 +812,8 @@ def test_FileWriterProcess__records_all_requested_beta_2_data_in_buffer__and_cre
             ),
             "r",
         )
-        tissue_dataset = get_tissue_dataset_from_file(this_file)
-        assert tissue_dataset.dtype == "int16", f"Incorrect tissue dtype for well {well_idx}"
-        assert tissue_dataset.shape == expected_data_shape, f"Incorrect tissue shape for well {well_idx}"
-        np.testing.assert_array_equal(
-            tissue_dataset,
-            np.ones(expected_data_shape, dtype=np.int16) * well_idx,
-            err_msg=f"Incorrect data for well {well_idx}",
-        )
-
         time_index_dataset = get_time_index_dataset_from_file(this_file)
-        assert time_index_dataset.dtype == "uint64", f"Incorrect timestamp dtype for well {well_idx}"
+        assert time_index_dataset.dtype == "uint64", f"Incorrect time index dtype for well {well_idx}"
         assert time_index_dataset.shape == (
             expected_total_num_data_points,
         ), f"Incorrect tissue shape for well {well_idx}"
@@ -823,6 +821,26 @@ def test_FileWriterProcess__records_all_requested_beta_2_data_in_buffer__and_cre
             time_index_dataset,
             expected_time_indices,
             err_msg=f"Incorrect time indices for well {well_idx}",
+        )
+
+        time_offset_dataset = get_time_offset_dataset_from_file(this_file)
+        assert time_offset_dataset.dtype == "uint16", f"Incorrect offset dtype for well {well_idx}"
+        assert (
+            time_offset_dataset.shape == expected_time_offsets_shape
+        ), f"Incorrect offset shape for well {well_idx}"
+        np.testing.assert_array_equal(
+            time_offset_dataset,
+            np.ones(expected_time_offsets_shape, dtype=np.int16) * well_idx,
+            err_msg=f"Incorrect offsets for well {well_idx}",
+        )
+
+        tissue_dataset = get_tissue_dataset_from_file(this_file)
+        assert tissue_dataset.dtype == "int16", f"Incorrect tissue dtype for well {well_idx}"
+        assert tissue_dataset.shape == expected_data_shape, f"Incorrect tissue shape for well {well_idx}"
+        np.testing.assert_array_equal(
+            tissue_dataset,
+            np.ones(expected_data_shape, dtype=np.int16) * well_idx,
+            err_msg=f"Incorrect data for well {well_idx}",
         )
 
         actual_latest_timepoint = file_writer_process.get_file_latest_timepoint(well_idx)
@@ -937,6 +955,7 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
     num_data_points_per_packet = 4
     expected_total_num_data_points = expected_remaining_packets_recorded * num_data_points_per_packet
     base_data = np.zeros(num_data_points_per_packet, dtype=np.int16)
+    base_time_offsets = np.zeros((GENERIC_NUM_SENSORS_ENABLED, num_data_points_per_packet), dtype=np.uint16)
     expected_time_indices = np.arange(expected_total_num_data_points, dtype=np.uint64)
     # add packets whose data will remain in the file
     for i in range(expected_remaining_packets_recorded):
@@ -947,6 +966,7 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
         }
         for well_idx in range(24):
             channel_dict = {
+                "time_offsets": base_time_offsets + well_idx,
                 SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: base_data + well_idx,
                 SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: base_data + well_idx,
             }
@@ -964,6 +984,7 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
         }
         for well_idx in range(24):
             channel_dict = {
+                "time_offsets": base_time_offsets,
                 SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: base_data,
                 SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: base_data,
             }
@@ -973,11 +994,13 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
     confirm_queue_is_eventually_of_size(
         instrument_board_queues[0][0],
         expected_remaining_packets_recorded + num_dummy_packets,
+        sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
     )
     invoke_process_run_and_check_errors(
         file_writer_process,
         num_iterations=(expected_remaining_packets_recorded + num_dummy_packets),
     )
+    confirm_queue_is_eventually_empty(instrument_board_queues[0][0])
 
     # send stop recording command
     stop_recording_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
@@ -996,6 +1019,7 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
     ]
     timestamp_str = "2020_02_09_190322"
 
+    expected_time_offsets_shape = (GENERIC_NUM_SENSORS_ENABLED, expected_total_num_data_points)
     expected_data_shape = (GENERIC_NUM_CHANNELS_ENABLED, expected_total_num_data_points)
     for well_idx in range(24):
         this_file = h5py.File(
@@ -1006,15 +1030,6 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
             ),
             "r",
         )
-        tissue_dataset = get_tissue_dataset_from_file(this_file)
-        assert tissue_dataset.dtype == "int16", f"Incorrect tissue dtype for well {well_idx}"
-        assert tissue_dataset.shape == expected_data_shape, f"Incorrect tissue shape for well {well_idx}"
-        np.testing.assert_array_equal(
-            tissue_dataset,
-            np.ones(expected_data_shape, dtype=np.int16) * well_idx,
-            err_msg=f"Incorrect tissue data for well {well_idx}",
-        )
-
         time_index_dataset = get_time_index_dataset_from_file(this_file)
         assert time_index_dataset.dtype == "uint64", f"Incorrect time index dtype for well {well_idx}"
         assert time_index_dataset.shape == (
@@ -1024,6 +1039,26 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
             time_index_dataset,
             expected_time_indices,
             err_msg=f"Incorrect time index data for well {well_idx}",
+        )
+
+        time_offset_dataset = get_time_offset_dataset_from_file(this_file)
+        assert time_offset_dataset.dtype == "uint16", f"Incorrect offset dtype for well {well_idx}"
+        assert (
+            time_offset_dataset.shape == expected_time_offsets_shape
+        ), f"Incorrect offset shape for well {well_idx}"
+        np.testing.assert_array_equal(
+            time_offset_dataset,
+            np.ones(expected_time_offsets_shape, dtype=np.int16) * well_idx,
+            err_msg=f"Incorrect offsets for well {well_idx}",
+        )
+
+        tissue_dataset = get_tissue_dataset_from_file(this_file)
+        assert tissue_dataset.dtype == "int16", f"Incorrect tissue dtype for well {well_idx}"
+        assert tissue_dataset.shape == expected_data_shape, f"Incorrect tissue shape for well {well_idx}"
+        np.testing.assert_array_equal(
+            tissue_dataset,
+            np.ones(expected_data_shape, dtype=np.int16) * well_idx,
+            err_msg=f"Incorrect tissue data for well {well_idx}",
         )
 
         this_file.close()
@@ -1127,6 +1162,7 @@ def test_FileWriterProcess__raises_error_if_stop_recording_command_received_with
         "time_indices": np.array([start_timepoint], dtype=np.uint64),
         "is_first_packet_of_stream": False,
         test_well_index: {
+            "time_offsets": np.array([[0], [0]], dtype=np.uint16),
             SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: np.array([0], dtype=np.int16),
             SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: np.array([0], dtype=np.int16),
         },

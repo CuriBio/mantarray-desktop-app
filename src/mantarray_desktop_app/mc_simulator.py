@@ -32,7 +32,6 @@ from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import resource_path
 
-from .constants import CENTIMILLISECONDS_PER_SECOND
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MICROSECONDS_PER_MILLISECOND
@@ -56,7 +55,9 @@ from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
+from .constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
+from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
@@ -68,6 +69,7 @@ from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
 from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
+from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
@@ -246,7 +248,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             simulated_data_timepoints = next(csv.reader(csvfile, delimiter=","))
             simulated_data_values = next(csv.reader(csvfile, delimiter=","))
         self._interpolator = interpolate.interp1d(
-            np.array(simulated_data_timepoints, dtype=np.uint64) // MICROSECONDS_PER_CENTIMILLISECOND,
+            np.array(simulated_data_timepoints, dtype=np.uint64),
             simulated_data_values,
         )
 
@@ -306,11 +308,7 @@ class MantarrayMcSimulator(InfiniteProcess):
 
     def get_interpolated_data(self, sampling_period_us: int) -> NDArray[np.int16]:
         """Return one second (one twitch) of interpolated data."""
-        data_indices = np.arange(
-            0,
-            CENTIMILLISECONDS_PER_SECOND,
-            sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND,
-        )
+        data_indices = np.arange(0, int(1e6), sampling_period_us)
         return self._interpolator(data_indices).astype(np.int16)
 
     def get_num_wells(self) -> int:
@@ -584,6 +582,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         elif command == "set_data_streaming_status":
             self._sampling_period_us = test_comm.get("sampling_period", 10000)
             self._is_streaming_data = test_comm["data_streaming_status"]
+            self._simulated_data_index = test_comm.get("simulated_data_index", 0)
         elif command == "set_sampling_period":
             self._sampling_period_us = test_comm["sampling_period"]
         else:
@@ -605,23 +604,12 @@ class MantarrayMcSimulator(InfiniteProcess):
 
         data_packet_bytes = bytes(0)
         for _ in range(num_packets_to_send):
-            data_packet_body = (self._time_index_us // MICROSECONDS_PER_CENTIMILLISECOND).to_bytes(
-                SERIAL_COMM_TIME_INDEX_LENGTH_BYTES, byteorder="little"
-            )
-            for well_idx in range(self._num_wells):
-                if not any(self._magnetometer_config[well_idx + 1].values()):
-                    continue
-                data_value = self._simulated_data[self._simulated_data_index] * np.int16(well_idx + 1)
-                data_value_bytes = data_value.tobytes()
-                for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS):
-                    if self._magnetometer_config[well_idx + 1][channel_id]:
-                        data_packet_body += data_value_bytes
             # not using _send_data_packet here because it is more efficient to send all packets at once
             data_packet_bytes += create_data_packet(
                 self._get_timestamp(),
                 SERIAL_COMM_MAIN_MODULE_ID,
                 SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE,
-                data_packet_body,
+                self._create_packet_body(),
             )
             # increment values
             self._time_index_us += self._sampling_period_us
@@ -629,6 +617,30 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._output_queue.put_nowait(data_packet_bytes)
         # update timepoint
         self._timepoint_of_last_data_packet_us += num_packets_to_send * self._sampling_period_us
+
+    def _create_packet_body(self) -> bytes:
+        # add time index to data packet body
+        data_packet_body = self._time_index_us.to_bytes(
+            SERIAL_COMM_TIME_INDEX_LENGTH_BYTES, byteorder="little"
+        )
+        for well_idx in range(self._num_wells):
+            config_values = list(self._magnetometer_config[well_idx + 1].values())
+            for sensor_base_idx in range(0, SERIAL_COMM_NUM_DATA_CHANNELS, SERIAL_COMM_NUM_SENSORS_PER_WELL):
+                if not any(
+                    config_values[sensor_base_idx : sensor_base_idx + SERIAL_COMM_NUM_SENSORS_PER_WELL]
+                ):
+                    continue
+                offset = bytes(SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES)  # use 0 for offset in simulated data
+                data_packet_body += offset
+                # create data points
+                data_value = self._simulated_data[self._simulated_data_index] * np.int16(well_idx + 1)
+                data_value_bytes = data_value.tobytes()
+                for axis_idx in range(SERIAL_COMM_NUM_CHANNELS_PER_SENSOR):
+                    # add data points
+                    channel_id = sensor_base_idx + axis_idx
+                    if self._magnetometer_config[well_idx + 1][channel_id]:
+                        data_packet_body += data_value_bytes
+        return data_packet_body
 
     def read(self, size: int = 1) -> bytes:
         """Read the given number of bytes from the simulator."""

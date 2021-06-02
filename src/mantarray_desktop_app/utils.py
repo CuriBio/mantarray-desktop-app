@@ -8,6 +8,7 @@ import os
 import re
 from typing import Any
 from typing import Dict
+from typing import List
 from typing import Optional
 
 from flatten_dict import flatten
@@ -19,7 +20,9 @@ from stdlib_utils import is_frozen_as_exe
 from .constants import CURI_BIO_ACCOUNT_UUID
 from .constants import CURI_BIO_USER_ACCOUNT_ID
 from .constants import CURRENT_SOFTWARE_VERSION
+from .constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
+from .constants import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
 from .exceptions import ImproperlyFormattedUserAccountUUIDError
 from .exceptions import RecordingFolderDoesNotExistError
@@ -221,3 +224,38 @@ def validate_magnetometer_config_keys(
         return f"Configuration dictionary has invalid {key_name} {invalid_key}" + error_msg_addition
     except StopIteration:
         return ""
+
+
+def create_active_channel_per_sensor_list(  # pylint: disable=invalid-name  # Tanner (5/27/21): it's a little long but descriptive
+    magnetometer_config: Dict[int, Dict[int, bool]]
+) -> List[int]:
+    """Convert magnetometer configuration dictionary to list.
+
+    Contains one entry per sensor with at least one channel enabled.
+    Each entry is the number of channels enabled for that sensor.
+
+    Reflects structure of data packet body for given configuration.
+    """
+    active_sensor_channels_list = []
+    for config_dict in magnetometer_config.values():
+        config_values = list(config_dict.values())
+        for sensor_base_idx in range(0, SERIAL_COMM_NUM_DATA_CHANNELS, SERIAL_COMM_NUM_CHANNELS_PER_SENSOR):
+            num_channels_for_sensor = sum(
+                config_values[sensor_base_idx : sensor_base_idx + SERIAL_COMM_NUM_CHANNELS_PER_SENSOR]
+            )
+            if num_channels_for_sensor == 0:
+                continue
+            active_sensor_channels_list.append(num_channels_for_sensor)
+    return active_sensor_channels_list
+
+
+def create_sensor_axis_dict(well_config: Dict[int, bool]) -> Dict[str, List[str]]:
+    sensor_axis_dict: Dict[str, List[str]] = dict()
+    for sensor, axis_dict in SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE.items():
+        axis_list = []
+        for axis, channel_id in axis_dict.items():
+            if well_config[channel_id]:
+                axis_list.append(axis)
+        if axis_list:
+            sensor_axis_dict[sensor] = axis_list
+    return sensor_axis_dict

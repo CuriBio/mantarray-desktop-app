@@ -62,15 +62,31 @@ from .constants import ROUND_ROBIN_PERIOD
 from .exceptions import InvalidDataTypeFromOkCommError
 from .exceptions import InvalidStopRecordingTimepointError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
+from .utils import create_sensor_axis_dict
 
 GENERIC_24_WELL_DEFINITION = LabwareDefinition(row_count=4, column_count=6)
 
-# TODO Tanner (5/18/21): move this to mantarray_file_manager
-TIME_INDEX_SENSOR_READINGS = "time_index_sensor_readings"
+# TODO Tanner (5/28/21): move these to mantarray_file_manager
+TIME_INDICES = "time_indices"
+TIME_OFFSETS = "time_offsets"
 
 
 def _get_formatted_utc_now() -> str:
     return datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
+
+
+def get_time_index_dataset_from_file(
+    the_file: h5py.File,
+) -> h5py.Dataset:
+    """Return the dataset for time indices from the H5 file object."""
+    return the_file[TIME_INDICES]
+
+
+def get_time_offset_dataset_from_file(
+    the_file: h5py.File,
+) -> h5py.Dataset:
+    """Return the dataset for time offsets from the H5 file object."""
+    return the_file[TIME_OFFSETS]
 
 
 def get_tissue_dataset_from_file(
@@ -78,13 +94,6 @@ def get_tissue_dataset_from_file(
 ) -> h5py.Dataset:
     """Return the dataset for tissue sensor data from the H5 file object."""
     return the_file[TISSUE_SENSOR_READINGS]
-
-
-def get_time_index_dataset_from_file(
-    the_file: h5py.File,
-) -> h5py.Dataset:
-    """Return the dataset for tissue sensor data from the H5 file object."""
-    return the_file[TIME_INDEX_SENSOR_READINGS]
 
 
 def get_reference_dataset_from_file(
@@ -357,7 +366,8 @@ class FileWriterProcess(InfiniteProcess):
             communication["timepoint_to_begin_recording_at"],
         )
         timedelta_to_recording_start = datetime.timedelta(
-            seconds=communication["timepoint_to_begin_recording_at"] / CENTIMILLISECONDS_PER_SECOND
+            seconds=communication["timepoint_to_begin_recording_at"]
+            / (int(1e6) if self._beta_2_mode else CENTIMILLISECONDS_PER_SECOND)
         )
 
         recording_start_timestamp = (
@@ -409,13 +419,15 @@ class FileWriterProcess(InfiniteProcess):
             this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_START_UUID)] = 0
             this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_END_UUID)] = 0
 
+            sensor_axis_dict: Dict[str, List[str]]
             for this_attr_name, this_attr_value in attrs_to_copy.items():
                 if this_attr_name == "adc_offsets":
                     this_file.attrs[str(ADC_TISSUE_OFFSET_UUID)] = this_attr_value[this_well_idx]["construct"]
                     this_file.attrs[str(ADC_REF_OFFSET_UUID)] = this_attr_value[this_well_idx]["ref"]
                     continue
                 if this_attr_name == MAGNETOMETER_CONFIGURATION_UUID:
-                    this_attr_value = json.dumps(this_attr_value[this_well_idx + 1])
+                    sensor_axis_dict = create_sensor_axis_dict(this_attr_value[this_well_idx + 1])
+                    this_attr_value = json.dumps(sensor_axis_dict)
                 if METADATA_UUID_DESCRIPTIONS[this_attr_name].startswith("UTC Timestamp"):
                     this_attr_value = this_attr_value.strftime("%Y-%m-%d %H:%M:%S.%f")
                 this_attr_name = str(this_attr_name)
@@ -433,32 +445,40 @@ class FileWriterProcess(InfiniteProcess):
                 )
                 data_shape = (num_channels_enabled, 0)
                 maxshape = (num_channels_enabled, max_data_len)
-                dtype = "int16"
-                # beta 2 files must also store time indices
+                data_dtype = "int16"
+                # beta 2 files must also store time indices and time offsets
                 this_file.create_dataset(
-                    TIME_INDEX_SENSOR_READINGS,
+                    TIME_INDICES,
                     (0,),
                     maxshape=(max_data_len,),
                     dtype="uint64",
                     chunks=True,
                 )
+                num_sensors_active = len(sensor_axis_dict.keys())
+                this_file.create_dataset(
+                    TIME_OFFSETS,
+                    (num_sensors_active, 0),
+                    maxshape=(num_sensors_active, max_data_len),
+                    dtype="uint16",
+                    chunks=True,
+                )
             else:
                 data_shape = (0,)  # type: ignore  # mypy doesn't like this for some reason
                 maxshape = (max_data_len,)  # type: ignore  # mypy doesn't like this for some reason
-                dtype = "int32"
+                data_dtype = "int32"
             # create datasets present in files for both beta versions
             this_file.create_dataset(
                 REFERENCE_SENSOR_READINGS,
                 data_shape,
                 maxshape=maxshape,
-                dtype=dtype,
+                dtype=data_dtype,
                 chunks=True,
             )
             this_file.create_dataset(
                 TISSUE_SENSOR_READINGS,
                 data_shape,
                 maxshape=maxshape,
-                dtype=dtype,
+                dtype=data_dtype,
                 chunks=True,
             )
             this_file.swmr_mode = True
@@ -509,7 +529,11 @@ class FileWriterProcess(InfiniteProcess):
                     f"The timepoint {stop_recording_timepoint} is earlier than all recorded timepoints"
                 ) from e
             # trim off data after stop recording timepoint
-            datasets = [time_index_dataset, get_tissue_dataset_from_file(this_file)]
+            datasets = [
+                time_index_dataset,
+                get_time_offset_dataset_from_file(this_file),
+                get_tissue_dataset_from_file(this_file),
+            ]
             for dataset in datasets:
                 dataset_shape = list(dataset.shape)
                 dataset_shape[-1] -= num_indices_to_remove
@@ -607,24 +631,34 @@ class FileWriterProcess(InfiniteProcess):
         new_data_size = time_indices.shape[0]
 
         for well_idx, this_file in self._open_files[board_idx].items():
+            # record new time indices
             time_index_dataset = get_time_index_dataset_from_file(this_file)
             previous_data_size = time_index_dataset.shape[0]
-
             time_index_dataset.resize((previous_data_size + time_indices.shape[0],))
             time_index_dataset[previous_data_size:] = time_indices
-
+            # record new time offsets
+            time_offsets = data_packet[well_idx]["time_offsets"]
+            if packet_must_be_trimmed:
+                time_offsets = time_offsets[:, first_idx_of_new_data : last_idx_of_new_data + 1]
+            time_offset_dataset = get_time_offset_dataset_from_file(this_file)
+            previous_data_size = time_offset_dataset.shape[1]
+            time_offset_dataset.resize((time_offsets.shape[0], previous_data_size + time_offsets.shape[1]))
+            time_offset_dataset[:, previous_data_size:] = time_offsets
+            # record new tissue data
             tissue_dataset = get_tissue_dataset_from_file(this_file)
             if tissue_dataset.shape[1] == 0:
                 this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] = (
                     this_start_recording_timestamps[0]
-                    + datetime.timedelta(seconds=time_indices[0] / CENTIMILLISECONDS_PER_SECOND)
+                    + datetime.timedelta(seconds=time_indices[0] / int(1e6))
                 ).strftime(
                     "%Y-%m-%d %H:%M:%S.%f"
                 )  # pylint: disable=wrong-spelling-in-comment
             tissue_dataset.resize((tissue_dataset.shape[0], previous_data_size + new_data_size))
 
             well_data_dict = data_packet[well_idx]
-            for data_channel_idx, channel_id in enumerate(sorted(well_data_dict.keys())):
+            well_keys = list(well_data_dict.keys())
+            well_keys.remove("time_offsets")
+            for data_channel_idx, channel_id in enumerate(sorted(well_keys)):
                 new_data = well_data_dict[channel_id]
                 if packet_must_be_trimmed:
                     new_data = new_data[first_idx_of_new_data : last_idx_of_new_data + 1]

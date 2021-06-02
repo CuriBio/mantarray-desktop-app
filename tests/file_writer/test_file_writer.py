@@ -13,6 +13,7 @@ from mantarray_desktop_app import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import FileWriterProcess
 from mantarray_desktop_app import get_data_slice_within_timepoints
 from mantarray_desktop_app import get_time_index_dataset_from_file
+from mantarray_desktop_app import get_time_offset_dataset_from_file
 from mantarray_desktop_app import get_tissue_dataset_from_file
 from mantarray_desktop_app import InvalidDataTypeFromOkCommError
 from mantarray_desktop_app import MantarrayH5FileCreator
@@ -34,6 +35,7 @@ from ..fixtures_file_writer import fixture_running_four_board_file_writer_proces
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_NUM_CHANNELS_ENABLED
+from ..fixtures_file_writer import GENERIC_NUM_SENSORS_ENABLED
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from ..fixtures_file_writer import WELL_DEF_24
 from ..helpers import confirm_queue_is_eventually_empty
@@ -353,6 +355,9 @@ def test_FileWriterProcess__does_not_include_recording_metrics_in_performance_me
     assert "num_recorded_data_points_metrics" not in actual
     assert "recording_duration_metrics" not in actual
 
+    # Tanner (6/1/21): avoid BrokenPipeErrors
+    drain_queue(four_board_file_writer_process["board_queues"][0][1])
+
 
 @pytest.mark.slow
 @pytest.mark.timeout(200)
@@ -393,7 +398,7 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_correctly(
 
     file_writer_process._minimum_iteration_duration_seconds = 0  # pylint: disable=protected-access
 
-    num_packets_to_send = 30
+    num_packets_to_send = 10  # arbitrary value
     if test_beta_version == 1:
         start_recording_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
         data_packet = copy.deepcopy(SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0)
@@ -416,7 +421,7 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_correctly(
         board_queues[0][0].put_nowait(data_packet)
 
     confirm_queue_is_eventually_of_size(
-        board_queues[0][0], num_packets_to_send, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        board_queues[0][0], num_packets_to_send, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS * 2
     )  # Tanner (4/9/21): Even after confirming the queue is the expected size, a sleep is necessary in order to let the items actually populate the queue. Guess as to why this is happening is that the size of the queue is reported by a different thread than the one that actually writes data to the queue's underlying pipe
     expected_recording_durations = list(range(num_packets_to_send))
     perf_counter_vals = [
@@ -624,7 +629,7 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_1_files_after_stop_recordi
 def test_FileWriterProcess_hard_stop__closes_all_beta_2_files_after_stop_recording_before_all_files_are_finalized__and_files_can_be_opened_after_process_stops(
     four_board_file_writer_process, mocker
 ):
-    expected_timestamp = "2020_02_09_190935"
+    expected_timestamp = "2020_02_09_190359"
     expected_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
@@ -644,14 +649,15 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_2_files_after_stop_recordi
 
     # fill files with data
     test_num_data_points = 50
-    start_timepoint = GENERIC_BETA_1_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
-    test_data = np.zeros(test_num_data_points, dtype=np.int32)
+    start_timepoint = GENERIC_BETA_2_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
+    test_data = np.zeros(test_num_data_points, dtype=np.int16)
     data_packet = {
         "time_indices": np.arange(start_timepoint, start_timepoint + test_num_data_points, dtype=np.uint64),
         "is_first_packet_of_stream": False,
     }
     for well_idx in range(24):
         channel_dict = {
+            "time_offsets": np.zeros((GENERIC_NUM_SENSORS_ENABLED, test_num_data_points), dtype=np.uint16),
             SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: test_data,
             SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: test_data,
         }
@@ -687,13 +693,17 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_2_files_after_stop_recordi
                 assert (
                     str(START_RECORDING_TIME_INDEX_UUID) in this_file.attrs
                 ), f"START_RECORDING_TIME_INDEX_UUID missing for Well {well_name}"
+                assert get_time_index_dataset_from_file(this_file).shape == (
+                    test_num_data_points,
+                ), f"Incorrect time index data shape for Well {well_name}"
+                assert get_time_offset_dataset_from_file(this_file).shape == (
+                    GENERIC_NUM_SENSORS_ENABLED,
+                    test_num_data_points,
+                ), f"Incorrect time offset data shape for Well {well_name}"
                 assert get_tissue_dataset_from_file(this_file).shape == (
                     GENERIC_NUM_CHANNELS_ENABLED,
                     test_num_data_points,
                 ), f"Incorrect tissue data shape for Well {well_name}"
-                assert get_time_index_dataset_from_file(this_file).shape == (
-                    test_num_data_points,
-                ), f"Incorrect time index data shape for Well {well_name}"
 
 
 def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_1_files_after_stop_recording(
@@ -802,6 +812,7 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_2_f
     }
     for well_idx in range(24):
         channel_dict = {
+            "time_offsets": np.zeros((GENERIC_NUM_SENSORS_ENABLED, num_data_points), dtype=np.uint16),
             SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: np.zeros(num_data_points, dtype=np.int16),
             SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: np.zeros(num_data_points, dtype=np.int16),
         }
