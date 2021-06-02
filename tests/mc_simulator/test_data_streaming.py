@@ -8,6 +8,7 @@ from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_INDEX
+from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from mantarray_desktop_app import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_NUM_SENSORS_PER_WELL
@@ -144,7 +145,8 @@ def test_MantarrayMcSimulator__sends_correct_time_index_and_data_points_in_first
         assert time_index == expected_time_index, f"Incorrect time index in packet {packet_num + 1}"
 
         idx += SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
-        for well_idx in range(num_wells):
+        for module_id in range(1, num_wells + 1):
+            well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
             expected_sensor_value = expected_waveform[packet_num] * (well_idx + 1)
             for channel_id in test_channels:
                 # test offset value (always 0 for simulator)
@@ -153,13 +155,13 @@ def test_MantarrayMcSimulator__sends_correct_time_index_and_data_points_in_first
                 )
                 assert (
                     offset_value == 0
-                ), f"Incorrect offset value for channel ID {channel_id} well {well_idx} in packet {packet_num + 1}"
+                ), f"Incorrect offset value for channel ID {channel_id} module ID {module_id} in packet {packet_num + 1}"
                 idx += SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
                 # test sensor value
                 sensor_value = int.from_bytes(data_packet[idx : idx + 2], byteorder="little", signed=True)
                 assert (
                     sensor_value == expected_sensor_value
-                ), f"Incorrect sensor value for channel ID {channel_id} well {well_idx} in packet {packet_num + 1}"
+                ), f"Incorrect sensor value for channel ID {channel_id} module ID {module_id} in packet {packet_num + 1}"
                 idx += 2
         # make the whole data body was tested
         assert (
@@ -208,7 +210,7 @@ def test_MantarrayMcSimulator__returns_correctly_formatted_data_packet_with_well
         SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Y"]: True,
         SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: False,
     }
-    num_wells_enabled = 2
+    num_modules_enabled = 2
     num_sensors_enabled = 5  # three on module 1, two on module 2
     num_channels_enabled = sum(magnetometer_config_dict[1].values()) + sum(
         magnetometer_config_dict[2].values()
@@ -249,9 +251,11 @@ def test_MantarrayMcSimulator__returns_correctly_formatted_data_packet_with_well
     idx += SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
     # test offsets and data points
     expected_waveform = simulator.get_interpolated_data(test_sampling_period)
-    for well_idx in range(num_wells_enabled):
-        config_values = list(magnetometer_config_dict[well_idx + 1].values())
-        expected_sensor_value = expected_waveform[expected_data_idx] * (well_idx + 1)
+    for module_id in range(1, num_modules_enabled + 1):
+        config_values = list(magnetometer_config_dict[module_id].values())
+        expected_sensor_value = expected_waveform[expected_data_idx] * (
+            SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id] + 1
+        )
         for sensor_base_idx in range(0, SERIAL_COMM_NUM_DATA_CHANNELS, SERIAL_COMM_NUM_SENSORS_PER_WELL):
             if not any(config_values[sensor_base_idx : sensor_base_idx + SERIAL_COMM_NUM_SENSORS_PER_WELL]):
                 continue
@@ -261,7 +265,7 @@ def test_MantarrayMcSimulator__returns_correctly_formatted_data_packet_with_well
             )
             assert (
                 offset_value == 0
-            ), f"Incorrect offset value for sensor {sensor_base_idx // SERIAL_COMM_NUM_SENSORS_PER_WELL} well {well_idx}"
+            ), f"Incorrect offset value for sensor {sensor_base_idx // SERIAL_COMM_NUM_SENSORS_PER_WELL} module_id {module_id}"
             idx += SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
             for axis_idx in range(SERIAL_COMM_NUM_CHANNELS_PER_SENSOR):
                 channel_id = sensor_base_idx + axis_idx
@@ -270,7 +274,7 @@ def test_MantarrayMcSimulator__returns_correctly_formatted_data_packet_with_well
                 sensor_value = int.from_bytes(data_packet[idx : idx + 2], byteorder="little", signed=True)
                 assert (
                     sensor_value == expected_sensor_value
-                ), f"Incorrect sensor value for channel ID {channel_id} well {well_idx}"
+                ), f"Incorrect sensor value for channel ID {channel_id} module_id {module_id}"
                 idx += 2
     # make the whole data body was tested
     assert idx == data_packet_size - SERIAL_COMM_CHECKSUM_LENGTH_BYTES

@@ -249,12 +249,12 @@ def create_active_channel_per_sensor_list(  # pylint: disable=invalid-name  # Ta
     return active_sensor_channels_list
 
 
-def create_sensor_axis_dict(well_config: Dict[int, bool]) -> Dict[str, List[str]]:
+def create_sensor_axis_dict(module_config: Dict[int, bool]) -> Dict[str, List[str]]:
     sensor_axis_dict: Dict[str, List[str]] = dict()
     for sensor, axis_dict in SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE.items():
         axis_list = []
         for axis, channel_id in axis_dict.items():
-            if well_config[channel_id]:
+            if module_config[channel_id]:
                 axis_list.append(axis)
         if axis_list:
             sensor_axis_dict[sensor] = axis_list

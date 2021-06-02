@@ -44,6 +44,7 @@ from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
+from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from .constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
@@ -310,11 +311,12 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _set_magnetometer_config(
         self, magnetometer_config: Dict[int, Dict[int, bool]], sampling_period: int
     ) -> None:
+        # Tanner (6/2/21): Need to make sure module ID keys are in order
+        self._magnetometer_config = dict(sorted(copy.deepcopy(magnetometer_config).items()))
         self._sampling_period_us = sampling_period
-        self._active_sensors_list = create_active_channel_per_sensor_list(magnetometer_config)
-        self._magnetometer_config = copy.deepcopy(magnetometer_config)
-        for well_dict in self._magnetometer_config.values():
-            config_values = list(well_dict.values())
+        self._active_sensors_list = create_active_channel_per_sensor_list(self._magnetometer_config)
+        for module_dict in self._magnetometer_config.values():
+            config_values = list(module_dict.values())
             num_sensors_active = 0
             for sensor_base_idx in range(
                 0, SERIAL_COMM_NUM_DATA_CHANNELS, SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
@@ -323,7 +325,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                     config_values[sensor_base_idx : sensor_base_idx + SERIAL_COMM_NUM_CHANNELS_PER_SENSOR]
                 )
                 num_sensors_active += int(is_sensor_active)
-            well_dict["num_sensors_active"] = num_sensors_active
+            module_dict["num_sensors_active"] = num_sensors_active
         total_active_channels = sum(self._active_sensors_list)
         total_active_sensors = len(self._active_sensors_list)
         self._packet_len = (
@@ -730,7 +732,8 @@ class McCommunicationProcess(InstrumentCommProcess):
                         continue
                     well_dict[config_key] = data[data_idx][:num_data_packets_read]
                     data_idx += 1
-                fw_item[module_id - 1] = well_dict
+                well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
+                fw_item[well_idx] = well_dict
             to_fw_queue = self._board_queues[0][2]
             to_fw_queue.put_nowait(fw_item)
             self._has_data_packet_been_sent = True

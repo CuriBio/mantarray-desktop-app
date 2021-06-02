@@ -19,12 +19,14 @@ from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from mantarray_desktop_app import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import SerialCommIncorrectChecksumFromInstrumentError
 from mantarray_desktop_app import SerialCommIncorrectMagicWordFromMantarrayError
 import numpy as np
@@ -71,9 +73,9 @@ def random_timestamp():
 
 TEST_NUM_WELLS = 24
 
-WELL_CONFIG_ALL_CHANNELS_ENABLED = {channel_id: True for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS)}
+MODULE_CONFIG_ALL_CHANNELS_ENABLED = {channel_id: True for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS)}
 FULL_CONFIG_ALL_CHANNELS_ENABLED = {
-    module_id: copy.deepcopy(WELL_CONFIG_ALL_CHANNELS_ENABLED) for module_id in range(1, TEST_NUM_WELLS + 1)
+    module_id: copy.deepcopy(MODULE_CONFIG_ALL_CHANNELS_ENABLED) for module_id in range(1, TEST_NUM_WELLS + 1)
 }
 
 FULL_DATA_PACKET_CHANNEL_LIST = [
@@ -103,8 +105,8 @@ def create_data_stream_body(
     data_packet_body = time_index_us.to_bytes(SERIAL_COMM_TIME_INDEX_LENGTH_BYTES, byteorder="little")
     data_values = []
     offset_values = []
-    for well_idx in range(num_wells_on_plate):
-        config_values = list(magnetometer_config[well_idx + 1].values())
+    for module_id in range(1, num_wells_on_plate + 1):
+        config_values = list(magnetometer_config[module_id].values())
         for sensor_base_idx in range(0, SERIAL_COMM_NUM_DATA_CHANNELS, SERIAL_COMM_NUM_SENSORS_PER_WELL):
             if not any(config_values[sensor_base_idx : sensor_base_idx + SERIAL_COMM_NUM_SENSORS_PER_WELL]):
                 continue
@@ -118,7 +120,7 @@ def create_data_stream_body(
             for axis_idx in range(SERIAL_COMM_NUM_CHANNELS_PER_SENSOR):
                 # add data points
                 channel_id = sensor_base_idx + axis_idx
-                if magnetometer_config[well_idx + 1][channel_id]:
+                if magnetometer_config[module_id][channel_id]:
                     data_values.append(data_value)
                     data_packet_body += data_value_bytes
     return data_packet_body, offset_values, data_values
@@ -215,10 +217,11 @@ def test_handle_data_packets__handles_two_full_data_packets_correctly__when_acti
     for well_idx in range(first_well_enabled, first_well_enabled + SERIAL_COMM_NUM_DATA_CHANNELS):
         num_channels_to_enable = well_idx - first_well_enabled + 1
         for channel_id in range(num_channels_to_enable):
-            test_config_dict[well_idx + 1][channel_id] = True
+            test_config_dict[SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]][channel_id] = True
     # also set up random config on one more arbitrarily chosen key
-    for channel_id in test_config_dict[test_num_wells].keys():
-        test_config_dict[test_num_wells][channel_id] = random_bool()
+    module_id_for_random_config = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[test_num_wells - 1]
+    for channel_id in test_config_dict[module_id_for_random_config].keys():
+        test_config_dict[module_id_for_random_config][channel_id] = random_bool()
 
     test_data_packet_bytes = bytes(0)
     expected_data_points = []
@@ -833,9 +836,9 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
 
     test_num_wells = 24
     test_config_dict = create_magnetometer_config_dict(test_num_wells)
-    for well_dict in test_config_dict.values():
-        for channel_id in well_dict.keys():
-            well_dict[channel_id] = random_bool()
+    for module_dict in test_config_dict.values():
+        for channel_id in module_dict.keys():
+            module_dict[channel_id] = random_bool()
     test_config_dict[1][0] = True  # need at least one channel enabled
     set_magnetometer_config_and_start_streaming(
         four_board_mc_comm_process_no_handshake,
@@ -850,7 +853,7 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
     simulated_data = simulator.get_interpolated_data(test_sampling_period_us)
     expected_fw_item = {"time_indices": np.array(expected_time_indices, np.uint64)}
     for well_idx in range(test_num_wells):
-        config_values = list(test_config_dict[well_idx + 1].values())
+        config_values = list(test_config_dict[SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]].values())
         num_channels_for_well = 0
         for sensor_base_idx in range(0, SERIAL_COMM_NUM_DATA_CHANNELS, SERIAL_COMM_NUM_CHANNELS_PER_SENSOR):
             num_channels_for_sensor = sum(
@@ -907,17 +910,15 @@ def test_McCommunicationProcess__handles_one_second_read_with_interrupting_packe
         side_effect=[0, test_sampling_period_us * test_num_packets, 0],
     )
 
-    expected_sensor_axis_id = 0
-
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
 
     test_num_channels_per_sensor = 1
     test_config_dict = dict()
-    for well_idx in range(0, 24):
-        bitmask_int = int(10 <= well_idx <= 15)  # turn on one channel of wells 10-15
-        test_config_dict[well_idx + 1] = convert_bitmask_to_config_dict(bitmask_int)
+    for module_id in range(1, 25):
+        bitmask_int = int(10 <= module_id <= 15)  # turn on one channel of modules 10-15
+        test_config_dict[module_id] = convert_bitmask_to_config_dict(bitmask_int)
     set_magnetometer_config_and_start_streaming(
         four_board_mc_comm_process_no_handshake,
         simulator,
@@ -929,8 +930,10 @@ def test_McCommunicationProcess__handles_one_second_read_with_interrupting_packe
     expected_time_indices = list(range(0, max_time_idx_us, test_sampling_period_us))
 
     simulated_data = simulator.get_interpolated_data(test_sampling_period_us)
+    expected_sensor_axis_id = 0
     expected_fw_item = {"time_indices": np.array(expected_time_indices, np.uint64)}
-    for well_idx in range(10, 16):
+    for module_id in range(10, 16):
+        well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
         channel_data = np.concatenate((simulated_data, simulated_data[: test_num_packets // 3]))
         channel_dict = {
             "time_offsets": np.zeros((test_num_channels_per_sensor, test_num_packets), dtype=np.uint16),
@@ -1012,17 +1015,15 @@ def test_McCommunicationProcess__handles_less_than_one_second_read_when_stopping
         side_effect=[0, test_sampling_period_us * test_num_packets],
     )
 
-    expected_sensor_axis_id = 0
-
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
 
     test_num_channels_per_sensor = 1
     test_config_dict = dict()
-    for well_idx in range(0, 24):
-        bitmask_int = int(10 <= well_idx <= 15)  # turn on one channel of wells 10-15
-        test_config_dict[well_idx + 1] = convert_bitmask_to_config_dict(bitmask_int)
+    for module_id in range(1, 25):
+        bitmask_int = int(10 <= module_id <= 15)  # turn on one channel of modules 10-15
+        test_config_dict[module_id] = convert_bitmask_to_config_dict(bitmask_int)
     set_magnetometer_config_and_start_streaming(
         four_board_mc_comm_process_no_handshake,
         simulator,
@@ -1035,8 +1036,10 @@ def test_McCommunicationProcess__handles_less_than_one_second_read_when_stopping
     expected_time_indices = list(range(0, max_time_idx_us, test_sampling_period_us))
 
     simulated_data = simulator.get_interpolated_data(test_sampling_period_us)
+    expected_sensor_axis_id = 0
     expected_fw_item = {"time_indices": np.array(expected_time_indices, np.uint64)}
-    for well_idx in range(10, 16):
+    for module_id in range(10, 16):
+        well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
         channel_dict = {
             "time_offsets": np.zeros((test_num_channels_per_sensor, test_num_packets), dtype=np.uint16),
             expected_sensor_axis_id: simulated_data[:test_num_packets] * np.int16(well_idx + 1),

@@ -27,6 +27,7 @@ from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
+from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import ADC_REF_OFFSET_UUID
 from mantarray_file_manager import ADC_TISSUE_OFFSET_UUID
@@ -258,7 +259,7 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
             # check that beta 2 value are present
             well_config = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
                 MAGNETOMETER_CONFIGURATION_UUID
-            ][well_idx + 1]
+            ][SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]]
             assert this_file.attrs[str(MAGNETOMETER_CONFIGURATION_UUID)] == json.dumps(
                 create_sensor_axis_dict(well_config)
             )

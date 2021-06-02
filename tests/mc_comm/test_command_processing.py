@@ -317,7 +317,7 @@ def test_McCommunicationProcess__processes_change_magnetometer_config_command(
     # set arbitrary configuration and sampling period
     expected_magnetometer_config = create_magnetometer_config_dict(test_num_wells)
     for key in expected_magnetometer_config[9].keys():
-        expected_magnetometer_config[9][key] = False
+        expected_magnetometer_config[9][key] = True
     expected_sampling_period = 14000
     # send command to mc_process
     expected_response = {
