@@ -9,7 +9,6 @@ from mantarray_desktop_app import InstrumentFatalError
 from mantarray_desktop_app import InstrumentSoftError
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_comm
-from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_FATAL_ERROR_CODE
@@ -39,7 +38,6 @@ from mantarray_desktop_app import SerialCommStatusBeaconTimeoutError
 from mantarray_desktop_app import SerialCommUntrackedCommandResponseError
 from mantarray_desktop_app import UnrecognizedSerialCommModuleIdError
 from mantarray_desktop_app import UnrecognizedSerialCommPacketTypeError
-from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
@@ -289,7 +287,7 @@ def test_McCommunicationProcess__includes_correct_timestamp_in_packets_sent_to_i
     invoke_process_run_and_check_errors(mc_process)
 
     expected_data_packet = create_data_packet(
-        expected_timestamp // MICROSECONDS_PER_CENTIMILLISECOND,
+        expected_timestamp,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
         bytes([SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE]) + convert_to_metadata_bytes(test_nickname),
@@ -309,7 +307,7 @@ def test_McCommunicationProcess__sends_handshake_every_5_seconds__and_includes_c
 
     expected_durs = [
         0,
-        CENTIMILLISECONDS_PER_SECOND * SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS,
+        int(1e6) * SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS,
     ]
     mocker.patch.object(mc_comm, "get_serial_comm_timestamp", autospec=True, side_effect=expected_durs)
     mocker.patch.object(
@@ -328,7 +326,7 @@ def test_McCommunicationProcess__sends_handshake_every_5_seconds__and_includes_c
     # send handshake
     invoke_process_run_and_check_errors(mc_process)
     expected_handshake_1 = create_data_packet(
-        expected_durs[0] // MICROSECONDS_PER_CENTIMILLISECOND,
+        expected_durs[0],
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
         bytes(0),
@@ -343,7 +341,7 @@ def test_McCommunicationProcess__sends_handshake_every_5_seconds__and_includes_c
     # repeat, 5 seconds since previous beacon
     invoke_process_run_and_check_errors(mc_process)
     expected_handshake_2 = create_data_packet(
-        expected_durs[1] // MICROSECONDS_PER_CENTIMILLISECOND,
+        expected_durs[1],
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
         bytes(0),

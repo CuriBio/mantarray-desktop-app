@@ -6,6 +6,7 @@ https://docs.pytest.org/en/stable/writing_plugins.html
 from __future__ import annotations
 
 import json
+from random import choice
 import time
 from time import perf_counter
 from typing import Any
@@ -36,6 +37,10 @@ from stdlib_utils import UnionOfThreadingAndMultiprocessingQueue
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 
 QUEUE_EMPTY_CHECK_TIMEOUT_SECONDS = 0.2
+
+
+def random_bool():
+    return choice([True, False])
 
 
 def put_object_into_queue_and_raise_error_if_eventually_still_empty(

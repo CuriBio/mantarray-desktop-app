@@ -27,9 +27,24 @@ import pytest
 
 from .fixtures import fixture_patch_print
 from .fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
+from .helpers import random_bool
 
 
 __fixtures__ = [fixture_patch_print, fixture_mantarray_mc_simulator_no_beacon]
+
+API_EXAMPLE_MODULE_DICT = {
+    SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: True,
+    SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Y"]: False,
+    SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Z"]: True,
+    SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["X"]: False,
+    SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["Y"]: True,
+    SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["Z"]: True,
+    SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["X"]: False,
+    SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Y"]: True,
+    SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: True,
+}
+API_EXAMPLE_BITMASK = 0b110110101
+API_EXAMPLE_BYTES = bytes([0b00001110, 0b10110101, 0b00000001])
 
 
 def test_create_data_packet__creates_data_packet_bytes_correctly():
@@ -179,14 +194,22 @@ def test_get_serial_comm_timestamp__returns_microseconds_since_2021_01_01():
     assert actual == expected_usecs
 
 
-def test_create_sensor_axis_bitmask__returns_correct_values():
-    expected_bitmask = 0b101101010
-    test_well_config_dict = convert_bitmask_to_config_dict(expected_bitmask)
-    actual = create_sensor_axis_bitmask(test_well_config_dict)
-    assert bin(actual) == bin(expected_bitmask)
+def test_create_sensor_axis_bitmask__returns_correct_value_for_api_definition():
+    actual = create_sensor_axis_bitmask(API_EXAMPLE_MODULE_DICT)
+    assert bin(actual) == bin(API_EXAMPLE_BITMASK)
 
 
-def test_create_magnetometer_config_bytes__returns_correct_values():
+def test_create_magnetometer_config_bytes__matches_api_definition_for_single_well():
+    expected_module_id = API_EXAMPLE_BYTES[0]
+    test_dict = {expected_module_id: API_EXAMPLE_MODULE_DICT}
+    actual = create_magnetometer_config_bytes(test_dict)
+    for byte_idx, byte_value in enumerate(API_EXAMPLE_BYTES):
+        actual_byte = actual[byte_idx : byte_idx + 1]
+        actual_value = int.from_bytes(actual_byte, byteorder="little")
+        assert bin(actual_value) == bin(byte_value), f"Incorrect value at byte {byte_idx}"
+
+
+def test_create_magnetometer_config_bytes__returns_correct_values_for_every_module_id():
     test_num_wells = 24
     test_dict = create_magnetometer_config_dict(test_num_wells)
     # arbitrarily change values
@@ -194,41 +217,36 @@ def test_create_magnetometer_config_bytes__returns_correct_values():
         test_dict[1][key] = True
     test_dict[2] = convert_bitmask_to_config_dict(0b111000100)
     # create expected bit-masks
-    bitshift = 16 - SERIAL_COMM_NUM_DATA_CHANNELS
-    expected_uint16_bitmasks = [0b111111111 << bitshift, 0b111000100 << bitshift]
+    expected_uint16_bitmasks = [0b111111111, 0b111000100]
     expected_uint16_bitmasks.extend([0 for _ in range(test_num_wells - 2)])
     # test actual bytes
     actual = create_magnetometer_config_bytes(test_dict)
     for module_id in range(1, test_num_wells + 1):
         start_idx = (module_id - 1) * 3
         assert actual[start_idx] == module_id, f"Incorrect module_id at idx: {module_id}"
-        bitmask_bytes = expected_uint16_bitmasks[module_id - 1].to_bytes(2, byteorder="big")
+        bitmask_bytes = expected_uint16_bitmasks[module_id - 1].to_bytes(2, byteorder="little")
         assert (
             actual[start_idx + 1 : start_idx + 3] == bitmask_bytes
         ), f"Incorrect bitmask bytes for module_id: {module_id}"
 
 
-def test_convert_bitmask_to_config_dict__returns_correct_values():
-    test_bitmask = 0b101010101
-    expected_config_dict = {
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: True,
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Y"]: False,
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Z"]: True,
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["X"]: False,
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["Y"]: True,
-        # pylint: disable=duplicate-code
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["Z"]: False,
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["X"]: True,
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Y"]: False,
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: True,
-    }
-    actual = convert_bitmask_to_config_dict(test_bitmask)
-    assert actual == expected_config_dict
+def test_convert_bitmask_to_config_dict__returns_correct_values_for_api_definition():
+    actual = convert_bitmask_to_config_dict(API_EXAMPLE_BITMASK)
+    assert actual == API_EXAMPLE_MODULE_DICT
 
 
-def test_convert_bytes_to_config_dict__returns_correct_values():
+def test_convert_bytes_to_config_dict__returns_correct_value_for_api_definition():
+    expected_dict = {API_EXAMPLE_BYTES[0]: API_EXAMPLE_MODULE_DICT}
+    actual = convert_bytes_to_config_dict(API_EXAMPLE_BYTES)
+    assert actual == expected_dict
+
+
+def test_convert_bytes_to_config_dict__returns_correct_values_for_every_module_id():
     test_num_wells = 24
-    expected_config_dict = create_magnetometer_config_dict(test_num_wells)
+    expected_config_dict = {
+        module_id: {channel_id: random_bool() for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS)}
+        for module_id in range(1, test_num_wells + 1)
+    }
     test_bytes = create_magnetometer_config_bytes(expected_config_dict)
     actual = convert_bytes_to_config_dict(test_bytes)
     assert actual == expected_config_dict

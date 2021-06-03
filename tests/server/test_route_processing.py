@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import copy
 import datetime
 import json
 from multiprocessing import Queue
@@ -1622,7 +1623,16 @@ def test_set_magnetometer_config__gets_processed(test_monitor, test_client):
         "sampling_period": 10000,
     }
 
-    response = test_client.post("/set_magnetometer_config", json=json.dumps(expected_config_dict))
+    # reverse order of magnetometer config keys here to test that they get sorted
+    reversed_config_dict = copy.deepcopy(expected_config_dict)
+    reversed_config_dict["magnetometer_config"] = dict(
+        reversed(reversed_config_dict["magnetometer_config"].items())
+    )
+    # also reverse inner dicts
+    for key, inner_dict in reversed_config_dict["magnetometer_config"].items():
+        reversed_config_dict["magnetometer_config"][key] = dict(reversed(inner_dict.items()))
+
+    response = test_client.post("/set_magnetometer_config", json=json.dumps(reversed_config_dict))
     assert response.status_code == 200
     response_json = response.get_json()
     assert "magnetometer_config" in response_json
@@ -1630,6 +1640,13 @@ def test_set_magnetometer_config__gets_processed(test_monitor, test_client):
 
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["magnetometer_config_dict"] == expected_config_dict
+    # make sure dict is fully sorted
+    module_configs = shared_values_dict["magnetometer_config_dict"]["magnetometer_config"]
+    key_list = list(module_configs.keys())
+    assert all(key_list[i] == key_list[i + 1] - 1 for i in range(len(key_list) - 1)) is True
+    for key, inner_dict in module_configs.items():
+        key_list = list(inner_dict.keys())
+        assert all(key_list[i] == key_list[i + 1] - 1 for i in range(len(key_list) - 1)) is True
 
 
 def test_system_status__returns_no_plate_barcode_and_status_when_none_present(

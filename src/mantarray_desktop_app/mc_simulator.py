@@ -33,7 +33,6 @@ from stdlib_utils import InfiniteProcess
 from stdlib_utils import resource_path
 
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
-from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MICROSECONDS_PER_MILLISECOND
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BOOT_UP_CODE
@@ -54,6 +53,7 @@ from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
+from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from .constants import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from .constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
@@ -85,6 +85,7 @@ from .serial_comm_utils import create_data_packet
 from .serial_comm_utils import create_magnetometer_config_bytes
 from .serial_comm_utils import validate_checksum
 from .utils import create_magnetometer_config_dict
+from .utils import sort_nested_dict
 
 
 MAGIC_WORD_LEN = len(SERIAL_COMM_MAGIC_WORD_BYTES)
@@ -319,7 +320,6 @@ class MantarrayMcSimulator(InfiniteProcess):
             self.get_cms_since_init()
             if self._baseline_time_usec is None
             else (self._baseline_time_usec + self._get_us_since_time_sync())
-            // MICROSECONDS_PER_CENTIMILLISECOND
         )
         return timestamp
 
@@ -330,7 +330,6 @@ class MantarrayMcSimulator(InfiniteProcess):
         data_to_send: bytes = bytes(0),
         truncate: bool = False,
     ) -> None:
-        # TODO Tanner (4/7/21): convert timestamp to microseconds once real board makes the switch
         timestamp = self._get_timestamp()
         data_packet = create_data_packet(timestamp, module_id, packet_type, data_to_send)
         if truncate:
@@ -499,7 +498,8 @@ class MantarrayMcSimulator(InfiniteProcess):
             SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 3 : -SERIAL_COMM_CHECKSUM_LENGTH_BYTES
         ]
         config_dict_updates = convert_bytes_to_config_dict(magnetometer_config_bytes)
-        self._magnetometer_config.update(config_dict_updates)
+        # Tanner (6/2/21): Need to make sure module ID keys are in order
+        self._magnetometer_config.update(sort_nested_dict(config_dict_updates))
         return update_status_byte
 
     def _update_status_code(self, new_code: int) -> None:
@@ -623,8 +623,8 @@ class MantarrayMcSimulator(InfiniteProcess):
         data_packet_body = self._time_index_us.to_bytes(
             SERIAL_COMM_TIME_INDEX_LENGTH_BYTES, byteorder="little"
         )
-        for well_idx in range(self._num_wells):
-            config_values = list(self._magnetometer_config[well_idx + 1].values())
+        for module_id in range(1, self._num_wells + 1):
+            config_values = list(self._magnetometer_config[module_id].values())
             for sensor_base_idx in range(0, SERIAL_COMM_NUM_DATA_CHANNELS, SERIAL_COMM_NUM_SENSORS_PER_WELL):
                 if not any(
                     config_values[sensor_base_idx : sensor_base_idx + SERIAL_COMM_NUM_SENSORS_PER_WELL]
@@ -633,12 +633,14 @@ class MantarrayMcSimulator(InfiniteProcess):
                 offset = bytes(SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES)  # use 0 for offset in simulated data
                 data_packet_body += offset
                 # create data points
-                data_value = self._simulated_data[self._simulated_data_index] * np.int16(well_idx + 1)
+                data_value = self._simulated_data[self._simulated_data_index] * np.int16(
+                    SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id] + 1
+                )
                 data_value_bytes = data_value.tobytes()
                 for axis_idx in range(SERIAL_COMM_NUM_CHANNELS_PER_SENSOR):
                     # add data points
                     channel_id = sensor_base_idx + axis_idx
-                    if self._magnetometer_config[well_idx + 1][channel_id]:
+                    if self._magnetometer_config[module_id][channel_id]:
                         data_packet_body += data_value_bytes
         return data_packet_body
 

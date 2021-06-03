@@ -381,6 +381,7 @@ def test_FileWriterProcess__does_not_log_percent_use_metrics_in_first_logging_cy
     assert "percent_use_metrics" not in actual
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "test_beta_version,test_description",
     [
@@ -391,6 +392,7 @@ def test_FileWriterProcess__does_not_log_percent_use_metrics_in_first_logging_cy
 def test_FileWriterProcess__logs_metrics_of_data_recording_correctly(
     test_beta_version, test_description, four_board_file_writer_process, mocker
 ):
+    # TODO Tanner (6/2/21): figure out a better way to test this so it does not fail sporadically
     file_writer_process = four_board_file_writer_process["fw_process"]
     board_queues = four_board_file_writer_process["board_queues"]
     to_main_queue = four_board_file_writer_process["to_main_queue"]
@@ -421,7 +423,7 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_correctly(
         board_queues[0][0].put_nowait(data_packet)
 
     confirm_queue_is_eventually_of_size(
-        board_queues[0][0], num_packets_to_send, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS * 2
+        board_queues[0][0], num_packets_to_send, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS * 3
     )  # Tanner (4/9/21): Even after confirming the queue is the expected size, a sleep is necessary in order to let the items actually populate the queue. Guess as to why this is happening is that the size of the queue is reported by a different thread than the one that actually writes data to the queue's underlying pipe
     expected_recording_durations = list(range(num_packets_to_send))
     perf_counter_vals = [

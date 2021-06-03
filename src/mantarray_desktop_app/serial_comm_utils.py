@@ -29,7 +29,7 @@ from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .exceptions import SerialCommMetadataValueTooLargeError
 
 
-# Tanner (3/18/21): If/When cython is needed to improve serial communication, this file will likely be a good place to start
+# Tanner (3/18/21): If/When additional cython is needed to improve serial communication, this file may be worth investigating
 
 
 METADATA_TYPES = immutabledict(
@@ -151,8 +151,8 @@ def convert_to_timestamp_bytes(timestamp: int) -> bytes:
     return timestamp.to_bytes(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES, byteorder="little")
 
 
-# Tanner (4/7/21): This method should not be used in the simulator. It has its own way of determining the timestamp to send in order to behave more accurately like the real Mantarray instrument
 def get_serial_comm_timestamp() -> int:
+    # Tanner (4/7/21): This method should not be used in the simulator. It has its own way of determining the timestamp to send in order to behave more accurately like the real Mantarray instrument
     return (
         datetime.datetime.now(tz=datetime.timezone.utc) - SERIAL_COMM_TIMESTAMP_EPOCH
     ) // datetime.timedelta(microseconds=1)
@@ -160,9 +160,8 @@ def get_serial_comm_timestamp() -> int:
 
 def create_sensor_axis_bitmask(config_dict: Dict[int, bool]) -> int:
     bitmask = 0
-    max_bit_shift = len(config_dict) - 1
     for sensor_axis_id, config_value in config_dict.items():
-        bitmask += int(config_value) << (max_bit_shift - sensor_axis_id)
+        bitmask += int(config_value) << sensor_axis_id
     return bitmask
 
 
@@ -170,18 +169,16 @@ def create_magnetometer_config_bytes(config_dict: Dict[int, Dict[int, bool]]) ->
     config_bytes = bytes(0)
     for module_id, well_config in config_dict.items():
         config_bytes += bytes([module_id])
-        config_bytes += (create_sensor_axis_bitmask(well_config) << BITMASK_SHIFT_VALUE).to_bytes(
-            2, byteorder="big"
-        )
+        config_bytes += create_sensor_axis_bitmask(well_config).to_bytes(2, byteorder="little")
     return config_bytes
 
 
 def convert_bitmask_to_config_dict(bitmask: int) -> Dict[int, bool]:
     config_dict: Dict[int, bool] = dict()
-    bit = 1 << SERIAL_COMM_NUM_DATA_CHANNELS - 1
+    bit = 1
     for sensor_axis_id in range(SERIAL_COMM_NUM_DATA_CHANNELS):
         config_dict[sensor_axis_id] = bool(bitmask & bit)
-        bit >>= 1
+        bit <<= 1
     return config_dict
 
 
@@ -193,6 +190,6 @@ def convert_bytes_to_config_dict(
     for config_block_idx in range(0, len(magnetometer_config_bytes), 3):
         module_id = magnetometer_config_bytes[config_block_idx]
         bitmask_bytes = magnetometer_config_bytes[config_block_idx + 1 : config_block_idx + 3]
-        bitmask = int.from_bytes(bitmask_bytes, byteorder="big") >> BITMASK_SHIFT_VALUE
+        bitmask = int.from_bytes(bitmask_bytes, byteorder="little")
         config_dict[module_id] = convert_bitmask_to_config_dict(bitmask)
     return config_dict

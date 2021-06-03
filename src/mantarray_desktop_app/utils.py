@@ -214,7 +214,11 @@ def validate_magnetometer_config_keys(
         item = magnetometer_config_dict[actual_key]
         if isinstance(item, dict):
             error_msg = validate_magnetometer_config_keys(
-                item, 0, SERIAL_COMM_NUM_DATA_CHANNELS, "channel ID", f" for {key_name} {actual_key}"
+                item,
+                0,
+                SERIAL_COMM_NUM_DATA_CHANNELS,
+                key_name="channel ID",
+                error_msg_addition=f" for {key_name} {actual_key}",
             )
             if not error_msg:
                 continue
@@ -249,13 +253,22 @@ def create_active_channel_per_sensor_list(  # pylint: disable=invalid-name  # Ta
     return active_sensor_channels_list
 
 
-def create_sensor_axis_dict(well_config: Dict[int, bool]) -> Dict[str, List[str]]:
+def create_sensor_axis_dict(module_config: Dict[int, bool]) -> Dict[str, List[str]]:
     sensor_axis_dict: Dict[str, List[str]] = dict()
     for sensor, axis_dict in SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE.items():
         axis_list = []
         for axis, channel_id in axis_dict.items():
-            if well_config[channel_id]:
+            if module_config[channel_id]:
                 axis_list.append(axis)
         if axis_list:
             sensor_axis_dict[sensor] = axis_list
     return sensor_axis_dict
+
+
+# TODO Tanner (6/2/21): move this to stdlib_utils
+def sort_nested_dict(dict_to_sort: Dict[Any, Any]) -> Dict[Any, Any]:
+    dict_to_sort = dict(sorted(dict_to_sort.items()))
+    for key, value in dict_to_sort.items():
+        if isinstance(value, dict):
+            dict_to_sort[key] = sort_nested_dict(value)
+    return dict_to_sort

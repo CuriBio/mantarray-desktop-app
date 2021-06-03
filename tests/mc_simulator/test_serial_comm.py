@@ -9,7 +9,6 @@ from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import create_magnetometer_config_bytes
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
-from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import SERIAL_COMM_BOOT_UP_CODE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
@@ -48,7 +47,6 @@ from mantarray_desktop_app import UnrecognizedSerialCommPacketTypeError
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app.mc_simulator import MC_SIMULATOR_BOOT_UP_DURATION_SECONDS
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
-from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
@@ -110,8 +108,8 @@ def test_MantarrayMcSimulator__makes_status_beacon_available_to_read_every_5_sec
 
     expected_durs = [
         0,
-        CENTIMILLISECONDS_PER_SECOND * SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS,
-        CENTIMILLISECONDS_PER_SECOND * SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS * 2 + 1,
+        int(1e6) * SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS,
+        int(1e6) * SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS * 2 + 1,
     ]
     mocker.patch.object(simulator, "get_cms_since_init", autospec=True, side_effect=expected_durs)
     mocker.patch.object(
@@ -579,8 +577,7 @@ def test_MantarrayMcSimulator__processes_set_time_command(mantarray_mc_simulator
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
         additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp),
-        timestamp=(expected_pc_timestamp + expected_command_response_time_us)
-        // MICROSECONDS_PER_CENTIMILLISECOND,
+        timestamp=(expected_pc_timestamp + expected_command_response_time_us),
     )
     # test that status beacon is automatically sent after command response with status code updated to idle ready and correct timestamp
     status_beacon = simulator.read(size=STATUS_BEACON_SIZE_BYTES)
@@ -589,8 +586,7 @@ def test_MantarrayMcSimulator__processes_set_time_command(mantarray_mc_simulator
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
         additional_bytes=convert_to_status_code_bytes(SERIAL_COMM_IDLE_READY_CODE),
-        timestamp=(expected_pc_timestamp + expected_status_beacon_time_us)
-        // MICROSECONDS_PER_CENTIMILLISECOND,
+        timestamp=(expected_pc_timestamp + expected_status_beacon_time_us),
     )
 
 
