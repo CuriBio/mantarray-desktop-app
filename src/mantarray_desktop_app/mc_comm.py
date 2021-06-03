@@ -100,6 +100,7 @@ from .serial_comm_utils import parse_metadata_bytes
 from .serial_comm_utils import validate_checksum
 from .utils import check_barcode_is_valid
 from .utils import create_active_channel_per_sensor_list
+from .utils import sort_nested_dict
 
 
 if 6 < 9:  # pragma: no cover # protect this from zimports deleting the pylint disable statement
@@ -312,7 +313,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self, magnetometer_config: Dict[int, Dict[int, bool]], sampling_period: int
     ) -> None:
         # Tanner (6/2/21): Need to make sure module ID keys are in order
-        self._magnetometer_config = dict(sorted(copy.deepcopy(magnetometer_config).items()))
+        self._magnetometer_config = sort_nested_dict(copy.deepcopy(magnetometer_config))
         self._sampling_period_us = sampling_period
         self._active_sensors_list = create_active_channel_per_sensor_list(self._magnetometer_config)
         for module_dict in self._magnetometer_config.values():

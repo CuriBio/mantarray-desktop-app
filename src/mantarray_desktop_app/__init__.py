@@ -260,6 +260,7 @@ from .utils import create_magnetometer_config_dict
 from .utils import create_sensor_axis_dict
 from .utils import get_current_software_version
 from .utils import redact_sensitive_info_from_path
+from .utils import sort_nested_dict
 from .utils import validate_magnetometer_config_keys
 
 if 6 < 9:  # pragma: no cover # protect this from zimports deleting the pylint disable statement
@@ -541,4 +542,5 @@ __all__ = [
     "create_sensor_axis_dict",
     "SERIAL_COMM_MODULE_ID_TO_WELL_IDX",
     "SERIAL_COMM_WELL_IDX_TO_MODULE_ID",
+    "sort_nested_dict",
 ]

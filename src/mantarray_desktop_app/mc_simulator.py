@@ -85,6 +85,7 @@ from .serial_comm_utils import create_data_packet
 from .serial_comm_utils import create_magnetometer_config_bytes
 from .serial_comm_utils import validate_checksum
 from .utils import create_magnetometer_config_dict
+from .utils import sort_nested_dict
 
 
 MAGIC_WORD_LEN = len(SERIAL_COMM_MAGIC_WORD_BYTES)
@@ -498,7 +499,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         ]
         config_dict_updates = convert_bytes_to_config_dict(magnetometer_config_bytes)
         # Tanner (6/2/21): Need to make sure module ID keys are in order
-        self._magnetometer_config.update(sorted(config_dict_updates.items()))
+        self._magnetometer_config.update(sort_nested_dict(config_dict_updates))
         return update_status_byte
 
     def _update_status_code(self, new_code: int) -> None:

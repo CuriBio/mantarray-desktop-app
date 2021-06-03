@@ -418,7 +418,8 @@ def set_magnetometer_config() -> Response:
 
 
 def _fix_magnetometer_config_dict_keys(magnetometer_config_dict: Dict[str, Any]) -> Dict[Any, Any]:
-    return {_fix_json_key(k): v for k, v in magnetometer_config_dict.items()}
+    fixed_dict = {_fix_json_key(k): v for k, v in magnetometer_config_dict.items()}
+    return dict(sorted(fixed_dict.items()))
 
 
 def _fix_json_key(key: str) -> Union[int, str]:
