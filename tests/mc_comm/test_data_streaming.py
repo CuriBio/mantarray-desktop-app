@@ -854,6 +854,8 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
     expected_fw_item = {"time_indices": np.array(expected_time_indices, np.uint64)}
     for well_idx in range(test_num_wells):
         config_values = list(test_config_dict[SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]].values())
+        if not any(config_values):
+            continue
         num_channels_for_well = 0
         for sensor_base_idx in range(0, SERIAL_COMM_NUM_DATA_CHANNELS, SERIAL_COMM_NUM_CHANNELS_PER_SENSOR):
             num_channels_for_sensor = sum(
