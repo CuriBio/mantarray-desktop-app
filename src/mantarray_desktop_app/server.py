@@ -383,6 +383,7 @@ def set_magnetometer_config() -> Response:
 
     Can be invoked by: curl -d '<magnetometer configuration as json>' -H 'Content-Type: application/json' -X POST http://localhost:4567/set_magnetometer_config
     """
+    # TODO Tanner (6/3/21): should separate out setting the sampling period into its own route
     if not _get_values_from_process_monitor()["beta_2_mode"]:
         return Response(status="403 Route cannot be called in beta 1 mode")
     if _is_data_streaming():

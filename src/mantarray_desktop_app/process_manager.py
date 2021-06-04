@@ -104,7 +104,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         )
 
         instrument_comm_process = OkCommunicationProcess if not beta_2_mode else McCommunicationProcess
-        self._instrument_communication_process = instrument_comm_process(  # type: ignore  # Tanner (4/22/21): mypy is unable to recognize that these are both InstrumentCommProcess sub-classes
+        self._instrument_communication_process = instrument_comm_process(
             queue_container.get_instrument_comm_board_queues(),
             queue_container.get_instrument_communication_error_queue(),
             logging_level=self._logging_level,

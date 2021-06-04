@@ -143,7 +143,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         suppress_setup_communication_to_main: if set to true (often during unit tests), messages during the _setup_before_loop will not be put into the queue to communicate back to the main process
     """
 
-    def __init__(self, *args: Any, **kwargs: Any):
+    def __init__(self, *args: Any, hardware_test_mode: bool = False, **kwargs: Any):
         super().__init__(*args, **kwargs)
         self._error: Optional[Exception] = None
         self._in_simulation_mode = False
@@ -172,6 +172,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._is_stopping_data_stream = False
         self._has_data_packet_been_sent = False
         self._data_packet_cache = bytes(0)
+        self._hardware_test_mode = hardware_test_mode
 
     def _setup_before_loop(self) -> None:
         super()._setup_before_loop()
@@ -208,7 +209,11 @@ class McCommunicationProcess(InstrumentCommProcess):
         )
         board = self._board_connections[board_idx]
         if board is not None:
-            if self._error is not None and not isinstance(self._error, MantarrayInstrumentError):
+            if (
+                self._error is not None
+                and not isinstance(self._error, MantarrayInstrumentError)
+                and not self._hardware_test_mode
+            ):
                 # if error occurred in software, send dump EEPROM command and wait for instrument to respond to command before flushing serial data. If the firmware caught an error in itself the EEPROM contents should already be logged and this command can be skipped here
                 self._send_data_packet(
                     board_idx,
@@ -276,6 +281,8 @@ class McCommunicationProcess(InstrumentCommProcess):
                 )
                 break
             else:
+                if self._hardware_test_mode:  # pragma: no cover
+                    raise NotImplementedError("Must connect to a real board in hardware test mode")
                 msg["message"] = "No board detected. Creating simulator."
                 serial_obj = MantarrayMcSimulator(
                     Queue(), Queue(), Queue(), Queue(), num_wells=self._num_wells
@@ -515,8 +522,10 @@ class McCommunicationProcess(InstrumentCommProcess):
         packet_type: int,
         packet_body: bytes,
     ) -> None:
+        # pylint: disable=too-many-branches  # Tanner (6/4/21): need more branches for hardware test mode
         if packet_type == SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE:
             returned_packet = SERIAL_COMM_MAGIC_WORD_BYTES + packet_body
+            # TODO hardware test mode ?
             raise SerialCommIncorrectChecksumFromPCError(returned_packet)
 
         board_idx = 0
@@ -539,25 +548,30 @@ class McCommunicationProcess(InstrumentCommProcess):
             )
             self._log_status_code(status_code, "Status Beacon")
             if status_code == SERIAL_COMM_FATAL_ERROR_CODE:
-                eeprom_contents = packet_body[SERIAL_COMM_STATUS_CODE_LENGTH_BYTES:]
-                raise InstrumentFatalError(f"Instrument EEPROM contents: {str(eeprom_contents)}")
+                if not self._hardware_test_mode:  # pragma: no cover
+                    eeprom_contents = packet_body[SERIAL_COMM_STATUS_CODE_LENGTH_BYTES:]
+                    raise InstrumentFatalError(f"Instrument EEPROM contents: {str(eeprom_contents)}")
+                raise InstrumentFatalError()
             if status_code == SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE:
                 raise SerialCommHandshakeTimeoutError()
             if status_code == SERIAL_COMM_SOFT_ERROR_CODE:
-                self._send_data_packet(
-                    board_idx,
-                    SERIAL_COMM_MAIN_MODULE_ID,
-                    SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-                    bytes([SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE]),
-                )
-                self._commands_awaiting_response.append(
-                    {
-                        "communication_type": "to_instrument",
-                        "command": "dump_eeprom",
-                        "timepoint": perf_counter(),
-                    }
-                )
-                self._is_instrument_in_error_state = True
+                if not self._hardware_test_mode:
+                    self._send_data_packet(
+                        board_idx,
+                        SERIAL_COMM_MAIN_MODULE_ID,
+                        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+                        bytes([SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE]),
+                    )
+                    self._commands_awaiting_response.append(
+                        {
+                            "communication_type": "to_instrument",
+                            "command": "dump_eeprom",
+                            "timepoint": perf_counter(),
+                        }
+                    )
+                    self._is_instrument_in_error_state = True
+                else:  # pragma: no cover
+                    raise InstrumentSoftError()
             elif status_code == SERIAL_COMM_TIME_SYNC_READY_CODE:
                 self._send_data_packet(
                     board_idx,
@@ -616,12 +630,16 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._is_data_streaming = True
                 self._has_data_packet_been_sent = False
                 if response_data[0]:
-                    raise InstrumentDataStreamingAlreadyStartedError()
+                    if not self._hardware_test_mode:  # pragma no cover
+                        raise InstrumentDataStreamingAlreadyStartedError()
+                    prev_command["hardware_test_message"] = "Data stream already started"
                 prev_command["magnetometer_config"] = convert_bytes_to_config_dict(response_data[1:])
                 prev_command["timestamp"] = _get_formatted_utc_now()
             elif prev_command["command"] == "stop_managed_acquisition":
                 if bool(int.from_bytes(response_data, byteorder="little")):
-                    raise InstrumentDataStreamingAlreadyStoppedError()
+                    if not self._hardware_test_mode:  # pragma no cover
+                        raise InstrumentDataStreamingAlreadyStoppedError()
+                    prev_command["hardware_test_message"] = "Data stream already stopped"
                 self._is_stopping_data_stream = False
                 self._is_data_streaming = False
 
