@@ -5,7 +5,7 @@ import time
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
-from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
+from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID,MantarrayMcSimulator
 import pytest
 from stdlib_utils import drain_queue
 from stdlib_utils import get_formatted_stack_trace
@@ -18,11 +18,24 @@ __fixtures__ = [
     fixture_four_board_mc_comm_process_hardware_test_mode,
 ]
 
-random_config_dict = create_magnetometer_config_dict(24)
-for module_dict in random_config_dict.values():
-    for cid in module_dict.keys():
-        module_dict[cid] = random_bool()  # type: ignore
 
+def create_random_config():
+    random_config_dict = create_magnetometer_config_dict(24)
+    num_channels = 0
+    for module_dict in random_config_dict.values():
+        for cid in module_dict.keys():
+            if num_channels == 15:
+                break
+            enabled = random_bool()
+            num_channels += int(enabled)
+            module_dict[cid] = enabled  # type: ignore
+    # make sure at least one channel is on
+    if num_channels == 0:
+        random_config_dict[1][0] = True
+    return random_config_dict
+
+
+random_config_dict = create_random_config()
 
 COMMAND_RESPONSE_SEQUENCE = [
     ("get_metadata", "get_metadata"),
@@ -39,7 +52,7 @@ COMMANDS_FROM_MAIN = {
         "communication_type": "to_instrument",
         "command": "change_magnetometer_config",
         "magnetometer_config": random_config_dict,
-        "sampling_period": 10000,
+        "sampling_period": 10,
     },
     "start_managed_acquisition": {
         "communication_type": "to_instrument",
@@ -61,13 +74,13 @@ RESPONSES = {
     "get_metadata": {
         "communication_type": "metadata_comm",
         "board_index": 0,
-        # TODO: add "metadata" key
+        "metadata": MantarrayMcSimulator.default_metadata_values, # TODO: remove this once get_metadata command is implemented
     },
     "magnetometer_config_1": {
         "communication_type": "to_instrument",
         "command": "change_magnetometer_config",
         "magnetometer_config": random_config_dict,
-        "sampling_period": 10000,
+        "sampling_period": 10,
     },
     "start_1": {
         "communication_type": "to_instrument",
@@ -113,6 +126,7 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
         if command != "get_metadata":
             # get_metadata command is automatically sent by McComm
             command_dict = COMMANDS_FROM_MAIN[command]
+            print(f"Sending command: {command}")
             input_queue.put_nowait(command_dict)
 
         expected_response = RESPONSES[response_key]
@@ -151,8 +165,8 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
                     time.sleep(2)
                     print("End sleep...")  # allow-print
                 response_found = True
-            elif comm_type == "barcode_comm" or msg_to_main["command"] == "set_time":
-                pass  # TODO remove this elif branch when testing with real board
+            # elif comm_type == "barcode_comm" or msg_to_main["command"] == "set_time":
+            #     pass  # TODO remove this elif branch when testing with real board
             else:
                 # o/w stop test
                 assert False, msg_to_main

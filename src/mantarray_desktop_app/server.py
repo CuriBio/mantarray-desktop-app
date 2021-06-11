@@ -398,7 +398,7 @@ def set_magnetometer_config() -> Response:
         sampling_period = magnetometer_config_dict["sampling_period"]
     except KeyError:
         return Response(status="400 Sampling period not specified")
-    if sampling_period % MICROSECONDS_PER_MILLISECOND != 0:
+    if sampling_period * 1000 % MICROSECONDS_PER_MILLISECOND != 0:  #  TODO
         return Response(status=f"400 Invalid sampling period {sampling_period}")
     # validate configuration dictionary
     num_wells = 24
@@ -548,7 +548,7 @@ def start_recording() -> Response:
             }
         )
 
-    if "active_well_indices" in request.args:
+    if "active_well_indices" in request.args:  # TODO remove this arg for beta 2 mode, for now use magnetometer config instead
         comm_dict["active_well_indices"] = [int(x) for x in request.args["active_well_indices"].split(",")]
     else:
         comm_dict["active_well_indices"] = list(range(24))
