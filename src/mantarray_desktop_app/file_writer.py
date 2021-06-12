@@ -52,13 +52,14 @@ from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
 
 from .constants import CONSTRUCT_SENSOR_SAMPLING_PERIOD
-from .constants import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION, SERIAL_COMM_WELL_IDX_TO_MODULE_ID
+from .constants import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
 from .constants import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from .constants import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
 from .constants import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from .constants import ROUND_ROBIN_PERIOD
+from .constants import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from .exceptions import InvalidDataTypeFromOkCommError
 from .exceptions import InvalidStopRecordingTimepointError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
@@ -66,7 +67,7 @@ from .utils import create_sensor_axis_dict
 
 GENERIC_24_WELL_DEFINITION = LabwareDefinition(row_count=4, column_count=6)
 
-# TODO Tanner (5/28/21): move these to mantarray_file_manager
+# TODO Tanner (5/28/21): import these from mantarray_file_manager when new version is published
 TIME_INDICES = "time_indices"
 TIME_OFFSETS = "time_offsets"
 
@@ -442,9 +443,7 @@ class FileWriterProcess(InfiniteProcess):
             max_data_len = 100 * 3600 * 12
             if self._beta_2_mode:
                 module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[this_well_idx]
-                num_channels_enabled = sum(
-                    attrs_to_copy[MAGNETOMETER_CONFIGURATION_UUID][module_id].values()
-                )
+                num_channels_enabled = sum(attrs_to_copy[MAGNETOMETER_CONFIGURATION_UUID][module_id].values())
                 data_shape = (num_channels_enabled, 0)
                 maxshape = (num_channels_enabled, max_data_len)
                 data_dtype = "int16"
@@ -604,7 +603,6 @@ class FileWriterProcess(InfiniteProcess):
             self._process_can_be_soft_stopped = False
 
     def _process_beta_2_data_packet(self, data_packet: Dict[Union[str, int], Any]) -> None:
-        print("*** processing data packet ***")
         """Process a Beta 2 data packet for a file that is known to be open."""
         board_idx = 0
         this_start_recording_timestamps = self._start_recording_timestamps[0]

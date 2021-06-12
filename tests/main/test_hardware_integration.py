@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 import queue
 import time
+from typing import Dict
 
 from mantarray_desktop_app import create_magnetometer_config_dict
+from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
-from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID,MantarrayMcSimulator
+from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 import pytest
 from stdlib_utils import drain_queue
 from stdlib_utils import get_formatted_stack_trace
@@ -19,7 +21,7 @@ __fixtures__ = [
 ]
 
 
-def create_random_config():
+def create_random_config() -> Dict[int, Dict[int, bool]]:
     random_config_dict = create_magnetometer_config_dict(24)
     num_channels = 0
     for module_dict in random_config_dict.values():
@@ -28,14 +30,14 @@ def create_random_config():
                 break
             enabled = random_bool()
             num_channels += int(enabled)
-            module_dict[cid] = enabled  # type: ignore
+            module_dict[cid] = enabled
     # make sure at least one channel is on
     if num_channels == 0:
         random_config_dict[1][0] = True
     return random_config_dict
 
 
-random_config_dict = create_random_config()
+RANDOM_CONFIG_DICT = create_random_config()
 
 COMMAND_RESPONSE_SEQUENCE = [
     ("get_metadata", "get_metadata"),
@@ -51,7 +53,7 @@ COMMANDS_FROM_MAIN = {
     "change_magnetometer_config_1": {
         "communication_type": "to_instrument",
         "command": "change_magnetometer_config",
-        "magnetometer_config": random_config_dict,
+        "magnetometer_config": RANDOM_CONFIG_DICT,
         "sampling_period": 10,
     },
     "start_managed_acquisition": {
@@ -66,7 +68,7 @@ COMMANDS_FROM_MAIN = {
         "communication_type": "to_instrument",
         "command": "change_magnetometer_config",
         "magnetometer_config": create_magnetometer_config_dict(24),
-        "sampling_period": 21000,
+        "sampling_period": 21,
     },
 }
 
@@ -74,18 +76,18 @@ RESPONSES = {
     "get_metadata": {
         "communication_type": "metadata_comm",
         "board_index": 0,
-        "metadata": MantarrayMcSimulator.default_metadata_values, # TODO: remove this once get_metadata command is implemented
+        "metadata": MantarrayMcSimulator.default_metadata_values,  # TODO: remove this once get_metadata command is implemented
     },
     "magnetometer_config_1": {
         "communication_type": "to_instrument",
         "command": "change_magnetometer_config",
-        "magnetometer_config": random_config_dict,
+        "magnetometer_config": RANDOM_CONFIG_DICT,
         "sampling_period": 10,
     },
     "start_1": {
         "communication_type": "to_instrument",
         "command": "start_managed_acquisition",
-        "magnetometer_config": random_config_dict,
+        "magnetometer_config": RANDOM_CONFIG_DICT,
     },
     "start_2": {
         "communication_type": "to_instrument",
@@ -126,7 +128,7 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
         if command != "get_metadata":
             # get_metadata command is automatically sent by McComm
             command_dict = COMMANDS_FROM_MAIN[command]
-            print(f"Sending command: {command}")
+            print(f"Sending command: {command}")  # allow-print
             input_queue.put_nowait(command_dict)
 
         expected_response = RESPONSES[response_key]
@@ -165,8 +167,6 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
                     time.sleep(2)
                     print("End sleep...")  # allow-print
                 response_found = True
-            # elif comm_type == "barcode_comm" or msg_to_main["command"] == "set_time":
-            #     pass  # TODO remove this elif branch when testing with real board
             else:
                 # o/w stop test
                 assert False, msg_to_main
@@ -186,7 +186,7 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
     test_num_wells = 24
     expected_fw_item = {"time_indices": None}
     for well_idx in range(test_num_wells):
-        module_config_values = list(random_config_dict[SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]].values())
+        module_config_values = list(RANDOM_CONFIG_DICT[SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]].values())
         if not any(module_config_values):
             continue
 

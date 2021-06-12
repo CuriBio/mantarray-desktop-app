@@ -39,7 +39,7 @@ from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 QUEUE_EMPTY_CHECK_TIMEOUT_SECONDS = 0.2
 
 
-def random_bool():
+def random_bool() -> bool:
     return choice([True, False])
 
 
@@ -84,10 +84,13 @@ def handle_putting_multiple_objects_into_empty_queue(
     objs: List[object],
     the_queue: UnionOfThreadingAndMultiprocessingQueue,
     timeout_seconds: Union[float, int] = QUEUE_CHECK_TIMEOUT_SECONDS,
+    sleep_after_confirm_seconds: int = 0,
 ) -> None:
     for next_obj in objs:
         the_queue.put_nowait(next_obj)
-    confirm_queue_is_eventually_of_size(the_queue, len(objs))
+    confirm_queue_is_eventually_of_size(
+        the_queue, len(objs), sleep_after_confirm_seconds=sleep_after_confirm_seconds
+    )
     start = perf_counter()
     while perf_counter() - start < QUEUE_EMPTY_CHECK_TIMEOUT_SECONDS:
         if not the_queue.empty():

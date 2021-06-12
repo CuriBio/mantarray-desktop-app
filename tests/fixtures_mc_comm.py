@@ -91,7 +91,7 @@ def fixture_patch_comports(mocker):
         mc_comm.list_ports,
         "comports",
         autospec=True,
-        return_value=["bad COM port", comport_name, "other COM port"],
+        return_value=["bad port", comport_name, "other port"],
     )
     yield comport, comport_name, mocked_comports
 

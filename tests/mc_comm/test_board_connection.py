@@ -117,7 +117,7 @@ def test_McCommunicationProcess_create_connections_to_all_available_boards__popu
     four_board_mc_comm_process, mocker, patch_comports, patch_serial_connection
 ):
     _, _, mocked_comports = patch_comports
-    mocked_comports.return_value = ["bad COM port"]
+    mocked_comports.return_value = []
     _, mocked_serial = patch_serial_connection
     mc_process = four_board_mc_comm_process["mc_process"]
     board_queues = four_board_mc_comm_process["board_queues"]

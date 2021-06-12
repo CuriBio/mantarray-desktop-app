@@ -199,6 +199,10 @@ STOP_MANAGED_ACQUISITION_COMMUNICATION = immutabledict(
 )
 
 # TODO Tanner (5/22/21): Add Beta 2 states. Also remove Beta 1 specific states once phased out
+#   "instrument_initializing" state could correspond to boot up status code
+#   "configuration_needed" state means that magnetometer config and sampling period need to be set
+#   should change "calibrated" state to something better like idle/ready to stream
+#   "buffering" state may be removed
 SERVER_INITIALIZING_STATE = "server_initializing"
 SERVER_READY_STATE = "server_ready"
 INSTRUMENT_INITIALIZING_STATE = "instrument_initializing"

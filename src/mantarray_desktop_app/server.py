@@ -90,6 +90,7 @@ from .constants import RECORDING_STATE
 from .constants import REFERENCE_VOLTAGE
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
+from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SYSTEM_STATUS_UUIDS
@@ -398,7 +399,7 @@ def set_magnetometer_config() -> Response:
         sampling_period = magnetometer_config_dict["sampling_period"]
     except KeyError:
         return Response(status="400 Sampling period not specified")
-    if sampling_period * 1000 % MICROSECONDS_PER_MILLISECOND != 0:  #  TODO
+    if sampling_period % MICROSECONDS_PER_MILLISECOND != 0:
         return Response(status=f"400 Invalid sampling period {sampling_period}")
     # validate configuration dictionary
     num_wells = 24
@@ -548,7 +549,15 @@ def start_recording() -> Response:
             }
         )
 
-    if "active_well_indices" in request.args:  # TODO remove this arg for beta 2 mode, for now use magnetometer config instead
+    # Tanner (6/11/21): Using magnetometer config to implicitly specify the active well indices in beta 2 mode
+    if shared_values_dict["beta_2_mode"]:
+        magnetometer_config = shared_values_dict["magnetometer_config_dict"]["magnetometer_config"]
+        comm_dict["active_well_indices"] = [
+            SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
+            for module_id, module_config in magnetometer_config.items()
+            if any(module_config.values())
+        ]
+    elif "active_well_indices" in request.args:
         comm_dict["active_well_indices"] = [int(x) for x in request.args["active_well_indices"].split(",")]
     else:
         comm_dict["active_well_indices"] = list(range(24))

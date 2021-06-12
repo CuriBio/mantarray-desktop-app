@@ -6,6 +6,7 @@ import os
 import h5py
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
+from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import create_sensor_axis_dict
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
@@ -296,7 +297,7 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
 
 
 @pytest.mark.timeout(4)
-def test_FileWriterProcess__only_creates_file_indices_specified__when_receiving_communication_to_start_recording__and_reports_command_receipt_to_main(
+def test_FileWriterProcess__beta_1_mode__only_creates_file_indices_specified__when_receiving_communication_to_start_recording__and_reports_command_receipt_to_main(
     four_board_file_writer_process, mocker
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
@@ -335,7 +336,80 @@ def test_FileWriterProcess__only_creates_file_indices_specified__when_receiving_
     spied_abspath.assert_any_call(
         file_writer_process.get_file_directory()
     )  # Eli (3/16/20): apparently numpy calls this quite frequently, so can only assert_any_call, not assert_called_once_with
-    isinstance(comm_to_main["timepoint_to_begin_recording_at"], int)
+    assert isinstance(comm_to_main["timepoint_to_begin_recording_at"], int) is True
+
+
+@pytest.mark.timeout(4)
+def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_magnetometer_config_for_all_active_wells__when_receiving_communication_to_start_recording__and_reports_command_receipt_to_main(
+    four_board_file_writer_process, mocker
+):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    file_writer_process.set_beta_2_mode()
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
+    file_dir = four_board_file_writer_process["file_dir"]
+
+    spied_abspath = mocker.spy(os.path, "abspath")
+
+    timestamp_str = "2020_02_09_190359"
+    expected_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+        PLATE_BARCODE_UUID
+    ]
+    this_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+
+    active_well_indices = [4, 9, 15]
+    this_command["active_well_indices"] = active_well_indices
+    test_magnetometer_config = create_magnetometer_config_dict(24)
+    for i, well_idx in enumerate(active_well_indices):
+        module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]
+        for channel in range(i + 1):
+            test_magnetometer_config[module_id][channel] = True
+    this_command["metadata_to_copy_onto_main_file_attributes"][
+        MAGNETOMETER_CONFIGURATION_UUID
+    ] = test_magnetometer_config
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
+    invoke_process_run_and_check_errors(file_writer_process)
+
+    # test created files
+    actual_set_of_files = set(os.listdir(os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}")))
+    expected_set_of_files = {
+        f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5"
+        for well_idx in active_well_indices
+    }
+    assert actual_set_of_files == expected_set_of_files
+    for well_idx in active_well_indices:
+        this_file = h5py.File(
+            os.path.join(
+                file_dir,
+                f"{expected_barcode}__{timestamp_str}",
+                f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
+            ),
+            "r",
+        )
+        module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]
+        assert json.loads(this_file.attrs[str(MAGNETOMETER_CONFIGURATION_UUID)]) == create_sensor_axis_dict(
+            test_magnetometer_config[module_id]
+        )
+        # magnetometer config will only affect the shapes of time offsets and tissue data
+        assert get_time_offset_dataset_from_file(this_file).shape[0] == 1
+        assert get_tissue_dataset_from_file(this_file).shape[0] == sum(
+            test_magnetometer_config[module_id].values()
+        )
+
+    # test command receipt
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+    comm_to_main = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert comm_to_main["communication_type"] == "command_receipt"
+    assert comm_to_main["command"] == "start_recording"
+    assert (
+        "mp" in comm_to_main["file_folder"]
+    )  # cross platform way of checking for 'temp' being part of the file path
+    assert expected_barcode in comm_to_main["file_folder"]
+    spied_abspath.assert_any_call(
+        file_writer_process.get_file_directory()
+    )  # Eli (3/16/20): apparently numpy calls this quite frequently, so can only assert_any_call, not assert_called_once_with
+    assert isinstance(comm_to_main["timepoint_to_begin_recording_at"], int) is True
 
 
 def test_FileWriterProcess__start_recording__sets_stop_recording_timestamp_to_none__and_tissue_and_reference_finalization_status_to_false__and_is_recording_to_true(

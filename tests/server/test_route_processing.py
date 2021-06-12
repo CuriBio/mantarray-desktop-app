@@ -25,6 +25,7 @@ from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import redact_sensitive_info_from_path
 from mantarray_desktop_app import RunningFIFOSimulator
+from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import server
 from mantarray_desktop_app import utils
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
@@ -1507,17 +1508,24 @@ def test_start_recording_command__gets_processed_in_beta_2_mode__and_creates_a_f
 ):
     monitor_thread, _, _, _ = test_monitor_beta_2_mode
 
+    # set up config so only one well has a channel enabled
+    test_magnetometer_config = create_magnetometer_config_dict(24)
+    test_magnetometer_config[SERIAL_COMM_WELL_IDX_TO_MODULE_ID[3]][0] = True
+    generic_beta_2_start_recording_info_in_shared_dict["magnetometer_config_dict"][
+        "magnetometer_config"
+    ] = test_magnetometer_config
+
     timestamp_str = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         UTC_BEGINNING_RECORDING_UUID
     ].strftime("%Y_%m_%d_%H%M%S")
-
-    test_process_manager_beta_2_mode.start_processes()
-
     expected_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
+
+    test_process_manager_beta_2_mode.start_processes()
+
     response = test_client.get(
-        f"/start_recording?barcode={expected_barcode}&active_well_indices=3&is_hardware_test_recording=False"
+        f"/start_recording?barcode={expected_barcode}&is_hardware_test_recording=False"
     )
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
