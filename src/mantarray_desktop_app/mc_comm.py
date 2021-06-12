@@ -212,7 +212,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             if (
                 self._error is not None
                 and not isinstance(self._error, MantarrayInstrumentError)
-                and not self._hardware_test_mode
+                and not self._hardware_test_mode  # TODO Tanner (6/11/21): remove this last condition once real instrument implements dump EEPROM command
             ):
                 # if error occurred in software, send dump EEPROM command and wait for instrument to respond to command before flushing serial data. If the firmware caught an error in itself the EEPROM contents should already be logged and this command can be skipped here
                 self._send_data_packet(
@@ -546,7 +546,9 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._log_status_code(status_code, "Status Beacon")
             if status_code == SERIAL_COMM_FATAL_ERROR_CODE:
                 error_msg = ""
-                if not self._hardware_test_mode:  # pragma: no cover
+                if (
+                    not self._hardware_test_mode
+                ):  # pragma: no cover  # TODO Tanner (6/11/21): remove this condition once real instrument implements dump EEPROM command
                     eeprom_contents = packet_body[SERIAL_COMM_STATUS_CODE_LENGTH_BYTES:]
                     error_msg = f"Instrument EEPROM contents: {str(eeprom_contents)}"
                 raise InstrumentFatalError(error_msg)
