@@ -128,7 +128,7 @@ cdef int SERIAL_COMM_ADDITIONAL_BYTES_INDEX_C_INT = SERIAL_COMM_ADDITIONAL_BYTES
 cdef uint64_t TIME_INDEX_MASK = 0xFFFFFFFFFF  # 5 lowest bytes of value
 
 
-cdef packed struct WellData:
+cdef packed struct SensorData:
     uint16_t time_offset
     int16_t data_points[NUM_CHANNELS_PER_SENSOR]
 
@@ -140,7 +140,7 @@ cdef packed struct Packet:
     uint8_t module_id
     uint8_t packet_type
     uint8_t time_index[TIME_INDEX_LEN]
-    WellData data
+    SensorData data
 
 
 def handle_data_packets(
@@ -194,10 +194,9 @@ def handle_data_packets(
     magic_word[MAGIC_WORD_LEN] = 0
 
     cdef Packet *p
-    # cdef int well_idx
     cdef int time_offset_arr_idx
     cdef int channel_arr_idx
-    cdef WellData * well_data_ptr
+    cdef SensorData * sensor_data_ptr
     cdef int sensor
     cdef int num_channels_on_sensor
     cdef int channel
@@ -212,7 +211,6 @@ def handle_data_packets(
 
         # get actual CRC value from packet
         original_crc = (<uint32_t *> ((<uint8_t *> &p.time_index) + p.packet_len - 14))[0]
-        # original_crc = (<uint32_t *> (&p.time_index + p.packet_len - 14))[0]
         # calculate expected CRC value
         crc = crc32(0, Z_NULL, 0)
         crc = crc32(crc, <uint8_t *> &p.magic, p.packet_len + 6)
@@ -243,19 +241,19 @@ def handle_data_packets(
         # add to timestamp array
         time_indices_view[data_packet_idx] = (<uint64_t *> &p.time_index)[0] & TIME_INDEX_MASK
         # add next data points to data array
-        well_data_ptr = &p.data
+        sensor_data_ptr = &p.data
         channel_arr_idx = 0
         time_offset_arr_idx = 0
         for sensor in range(num_sensors):
-            time_offsets_view[time_offset_arr_idx, data_packet_idx] = well_data_ptr.time_offset
+            time_offsets_view[time_offset_arr_idx, data_packet_idx] = sensor_data_ptr.time_offset
             time_offset_arr_idx += 1
             num_channels_on_sensor = active_channels_list_view[sensor]
             for channel in range(num_channels_on_sensor):
-                data_view[channel_arr_idx, data_packet_idx] = well_data_ptr.data_points[channel]
+                data_view[channel_arr_idx, data_packet_idx] = sensor_data_ptr.data_points[channel]
                 channel_arr_idx += 1
-            # shift WellData ptr by appropriate amount
-            well_data_ptr = <WellData *> (
-                (<uint8_t *> well_data_ptr)
+            # shift SensorData ptr by appropriate amount
+            sensor_data_ptr = <SensorData *> (
+                (<uint8_t *> sensor_data_ptr)
                 + SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES_C_INT
                 + (num_channels_on_sensor * 2)
             )
