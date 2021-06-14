@@ -26,7 +26,7 @@ def create_random_config() -> Dict[int, Dict[int, bool]]:
     num_channels = 0
     for module_dict in random_config_dict.values():
         for cid in module_dict.keys():
-            if num_channels == 15:
+            if num_channels == 10:
                 break
             enabled = random_bool()
             num_channels += int(enabled)
@@ -54,7 +54,7 @@ COMMANDS_FROM_MAIN = {
         "communication_type": "to_instrument",
         "command": "change_magnetometer_config",
         "magnetometer_config": RANDOM_CONFIG_DICT,
-        "sampling_period": 10,
+        "sampling_period": 10000,
     },
     "start_managed_acquisition": {
         "communication_type": "to_instrument",
@@ -68,7 +68,7 @@ COMMANDS_FROM_MAIN = {
         "communication_type": "to_instrument",
         "command": "change_magnetometer_config",
         "magnetometer_config": create_magnetometer_config_dict(24),
-        "sampling_period": 21,
+        "sampling_period": 21000,
     },
 }
 
@@ -82,7 +82,7 @@ RESPONSES = {
         "communication_type": "to_instrument",
         "command": "change_magnetometer_config",
         "magnetometer_config": RANDOM_CONFIG_DICT,
-        "sampling_period": 10,
+        "sampling_period": 10000,
     },
     "start_1": {
         "communication_type": "to_instrument",

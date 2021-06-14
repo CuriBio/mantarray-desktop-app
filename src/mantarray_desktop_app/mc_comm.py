@@ -486,7 +486,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         packet_size_bytes = board.read(size=SERIAL_COMM_PACKET_INFO_LENGTH_BYTES)
         packet_size = int.from_bytes(packet_size_bytes, byteorder="little")
         data_packet_bytes = board.read(size=packet_size)
-        # TODO Tanner (6/11/21): make data_packet_bytes is the correct size
+        # TODO Tanner (6/11/21): make sure data_packet_bytes is the correct size
 
         # validate checksum before handling the communication. Need to reconstruct the whole packet to get the correct checksum
         full_data_packet = SERIAL_COMM_MAGIC_WORD_BYTES + packet_size_bytes + data_packet_bytes
