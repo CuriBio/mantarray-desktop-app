@@ -181,6 +181,7 @@ from .exceptions import SerialCommIncorrectChecksumFromPCError
 from .exceptions import SerialCommIncorrectMagicWordFromMantarrayError
 from .exceptions import SerialCommInvalidSamplingPeriodError
 from .exceptions import SerialCommMetadataValueTooLargeError
+from .exceptions import SerialCommNotEnoughAdditionalBytesReadError
 from .exceptions import SerialCommPacketFromMantarrayTooSmallError
 from .exceptions import SerialCommPacketRegistrationReadEmptyError
 from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
@@ -543,4 +544,5 @@ __all__ = [
     "SERIAL_COMM_MODULE_ID_TO_WELL_IDX",
     "SERIAL_COMM_WELL_IDX_TO_MODULE_ID",
     "sort_nested_dict",
+    "SerialCommNotEnoughAdditionalBytesReadError",
 ]

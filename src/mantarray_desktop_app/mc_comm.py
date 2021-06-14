@@ -79,6 +79,7 @@ from .exceptions import SerialCommHandshakeTimeoutError
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
 from .exceptions import SerialCommIncorrectChecksumFromPCError
 from .exceptions import SerialCommIncorrectMagicWordFromMantarrayError
+from .exceptions import SerialCommNotEnoughAdditionalBytesReadError
 from .exceptions import SerialCommPacketFromMantarrayTooSmallError
 from .exceptions import SerialCommPacketRegistrationReadEmptyError
 from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
@@ -486,8 +487,11 @@ class McCommunicationProcess(InstrumentCommProcess):
         packet_size_bytes = board.read(size=SERIAL_COMM_PACKET_INFO_LENGTH_BYTES)
         packet_size = int.from_bytes(packet_size_bytes, byteorder="little")
         data_packet_bytes = board.read(size=packet_size)
-        # TODO Tanner (6/11/21): make sure data_packet_bytes is the correct size
-
+        # check that the expected number of bytes are read. Read function will never return more bytes than requested, but can return less bytes than requested if not enough are present before the read timeout
+        if len(data_packet_bytes) < packet_size:
+            raise SerialCommNotEnoughAdditionalBytesReadError(
+                f"Expected Size: {packet_size}, Actual Size: {len(data_packet_bytes)}"
+            )
         # validate checksum before handling the communication. Need to reconstruct the whole packet to get the correct checksum
         full_data_packet = SERIAL_COMM_MAGIC_WORD_BYTES + packet_size_bytes + data_packet_bytes
         is_checksum_valid = validate_checksum(full_data_packet)
