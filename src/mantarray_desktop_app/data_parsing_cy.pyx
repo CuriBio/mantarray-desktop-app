@@ -238,7 +238,7 @@ def handle_data_packets(
             bytes_idx += p.packet_len + 10
             break
 
-        # add to timestamp array
+        # add to time index array
         time_indices_view[data_packet_idx] = (<uint64_t *> &p.time_index)[0] & TIME_INDEX_MASK
         # add next data points to data array
         sensor_data_ptr = &p.data
