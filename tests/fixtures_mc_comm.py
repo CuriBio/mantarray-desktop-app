@@ -86,24 +86,14 @@ def fixture_four_board_mc_comm_process_no_handshake():
 @pytest.fixture(scope="function", name="patch_comports")
 def fixture_patch_comports(mocker):
     comport = "COM1"
-    comport_name = f"STM ({comport})"
+    comport_name = f"USB ({comport})"
     mocked_comports = mocker.patch.object(
         mc_comm.list_ports,
         "comports",
         autospec=True,
-        return_value=["bad port", comport_name, "other port"],
+        return_value=["bad COM port", comport_name, "other COM port"],
     )
     yield comport, comport_name, mocked_comports
-
-
-@pytest.fixture(scope="function", name="patch_ci_comports")
-def fixture_patch_ci_comports(mocker):
-    mocker.patch.object(
-        mc_comm.list_ports,
-        "comports",
-        autospec=True,
-        return_value=["not a port"],
-    )
 
 
 @pytest.fixture(scope="function", name="patch_serial_connection")

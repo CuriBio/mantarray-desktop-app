@@ -109,14 +109,12 @@ from ..fixtures_file_writer import GENERIC_BOARD_MAGNETOMETER_CONFIGURATION
 from ..fixtures_file_writer import GENERIC_NUM_CHANNELS_ENABLED
 from ..fixtures_file_writer import GENERIC_NUM_SENSORS_ENABLED
 from ..fixtures_file_writer import WELL_DEF_24
-from ..fixtures_mc_comm import fixture_patch_ci_comports
 from ..helpers import confirm_queue_is_eventually_empty
 
 __fixtures__ = [
     fixture_fully_running_app_from_main_entrypoint,
     fixture_patched_xem_scripts_folder,
     fixture_patched_firmware_folder,
-    fixture_patch_ci_comports,
 ]
 LIVE_VIEW_ACTIVE_WAIT_TIME = 150
 CALIBRATED_WAIT_TIME = 10
@@ -743,7 +741,8 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
 @pytest.mark.timeout(INTEGRATION_TEST_TIMEOUT)
 @freeze_time(datetime.datetime(year=2021, month=5, day=24, hour=21, minute=23, second=4, microsecond=141738))
 def test_full_datapath_and_recorded_files_in_beta_2_mode(
-    fully_running_app_from_main_entrypoint, mocker, patch_ci_comports
+    fully_running_app_from_main_entrypoint,
+    mocker,
 ):
     # pylint: disable=too-many-statements,too-many-locals  # Tanner (6/1/21): This is a long integration test, it needs extra statements and local variables
     # TODO Tanner (4/23/21): This integration test does not actually test the full data path or recorded files yet. When that functionality is added for beta 2 mode, this test needs to be updated

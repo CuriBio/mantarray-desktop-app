@@ -8,7 +8,6 @@ import datetime
 import logging
 from multiprocessing import Queue
 import queue
-import re
 from time import perf_counter
 from time import sleep
 from typing import Any
@@ -269,13 +268,11 @@ class McCommunicationProcess(InstrumentCommProcess):
 
             for name in list(list_ports.comports()):
                 name = str(name)
-                # Tanner (6/11/21): attempt to connect to any device using a COM port with the correctly formatted name.
-                com_port_format = re.compile(r"\(COM\d\)")
-                port_match = com_port_format.search(name)
-                if not port_match:
+                # Tanner (6/11/21): attempt to connect to any USB device using a COM port with the correctly formatted name.
+                if "USB" not in name:
                     continue
                 msg["message"] = f"Board detected with port name: {name}"
-                port = port_match.group()[1:-1]
+                port = name[-5:-1]
                 serial_obj = serial.Serial(
                     port=port,
                     baudrate=SERIAL_COMM_BAUD_RATE,

@@ -26,7 +26,6 @@ from ..fixtures import generate_board_and_error_queues
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process_no_handshake
-from ..fixtures_mc_comm import fixture_patch_ci_comports
 from ..fixtures_mc_comm import set_connection_and_register_simulator
 from ..fixtures_mc_comm import sleep_side_effect
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
@@ -44,7 +43,6 @@ __fixtures__ = [
     fixture_patch_print,
     fixture_mantarray_mc_simulator_no_beacon,
     fixture_four_board_mc_comm_process_no_handshake,
-    fixture_patch_ci_comports,
 ]
 
 
@@ -56,7 +54,8 @@ def test_McCommunicationProcess_super_is_called_during_init(mocker):
 
 
 def test_McCommunicationProcess_setup_before_loop__calls_super(
-    four_board_mc_comm_process, mocker, patch_ci_comports
+    four_board_mc_comm_process,
+    mocker,
 ):
     spied_setup = mocker.spy(InfiniteProcess, "_setup_before_loop")
 
@@ -75,7 +74,6 @@ def test_McCommunicationProcess_setup_before_loop__calls_super(
 @pytest.mark.timeout(15)
 def test_McCommunicationProcess_setup_before_loop__connects_to_boards__and_sends_message_to_main(
     four_board_mc_comm_process,
-    patch_ci_comports,
 ):
     mc_process = four_board_mc_comm_process["mc_process"]
     board_queues = four_board_mc_comm_process["board_queues"]
@@ -99,9 +97,7 @@ def test_McCommunicationProcess_setup_before_loop__connects_to_boards__and_sends
 
 @pytest.mark.slow
 @pytest.mark.timeout(15)
-def test_McCommunicationProcess_setup_before_loop__does_not_send_message_to_main_when_setup_comm_is_suppressed(
-    patch_ci_comports,
-):
+def test_McCommunicationProcess_setup_before_loop__does_not_send_message_to_main_when_setup_comm_is_suppressed():
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
     mc_process = McCommunicationProcess(board_queues, error_queue, suppress_setup_communication_to_main=True)
     assert mc_process.get_board_connections_list() == [None] * 4
@@ -370,7 +366,7 @@ def test_McCommunicationProcess_teardown_after_loop__does_not_request_eeprom_dum
 
 @pytest.mark.slow
 @pytest.mark.timeout(15)
-def test_McCommunicationProcess_teardown_after_loop__stops_running_simulator(patch_ci_comports):
+def test_McCommunicationProcess_teardown_after_loop__stops_running_simulator():
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
     mc_process = McCommunicationProcess(board_queues, error_queue, suppress_setup_communication_to_main=True)
     invoke_process_run_and_check_errors(
