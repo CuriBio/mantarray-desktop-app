@@ -96,6 +96,16 @@ def fixture_patch_comports(mocker):
     yield comport, comport_name, mocked_comports
 
 
+@pytest.fixture(scope="function", name="patch_ci_comports")
+def fixture_patch_ci_comports(mocker):
+    mocker.patch.object(
+        mc_comm.list_ports,
+        "comports",
+        autospec=True,
+        return_value=["not a port"],
+    )
+
+
 @pytest.fixture(scope="function", name="patch_serial_connection")
 def fixture_patch_serial_connection(mocker):
     dummy_serial_obj = serial.Serial()
