@@ -10,8 +10,10 @@ from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import McCommunicationProcess
 from mantarray_desktop_app import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_FATAL_ERROR_CODE
+from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from mantarray_desktop_app import SerialCommIncorrectMagicWordFromMantarrayError
 import pytest
@@ -51,7 +53,10 @@ def test_McCommunicationProcess_super_is_called_during_init(mocker):
     mocked_init.assert_called_once_with(error_queue, logging_level=logging.INFO)
 
 
-def test_McCommunicationProcess_setup_before_loop__calls_super(four_board_mc_comm_process, mocker):
+def test_McCommunicationProcess_setup_before_loop__calls_super(
+    four_board_mc_comm_process,
+    mocker,
+):
     spied_setup = mocker.spy(InfiniteProcess, "_setup_before_loop")
 
     mc_process = four_board_mc_comm_process["mc_process"]
@@ -234,7 +239,7 @@ def test_McCommunicationProcess_teardown_after_loop__flushes_and_logs_remaining_
 
     # add one data packet with bad magic word to raise error and additional bytes to flush from simulator
     test_read_bytes = [
-        bytes(8),  # bad magic word
+        bytes(SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES),  # bad packet
         bytes(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES),  # start of additional bytes
         bytes(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES),
         bytes(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES // 2),  # arbitrary final length
@@ -259,7 +264,7 @@ def test_McCommunicationProcess_teardown_after_loop__flushes_and_logs_remaining_
     actual = teardown_messages[-1]
     assert "message" in actual, f"Correct message not found. Full message dict: {actual}"
     expected_bytes = bytes(
-        int(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES * 2.5)
+        sum([len(packet) for packet in test_read_bytes]) - len(SERIAL_COMM_MAGIC_WORD_BYTES)
     )  # EEPROM bytes will not show up since simulator is not running while mc_process is in _teardown_after_loop. Assert that dump EEPROM command was sent instead
     assert str(expected_bytes) in actual["message"]
     # check that dump EEPROM command was sent

@@ -5,8 +5,10 @@ import time
 
 from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import McCommunicationProcess
+from mantarray_desktop_app import STM_VID
 import pytest
 import serial
+from serial.tools.list_ports_common import ListPortInfo
 from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import QUEUE_CHECK_TIMEOUT_SECONDS
@@ -86,14 +88,19 @@ def fixture_four_board_mc_comm_process_no_handshake():
 @pytest.fixture(scope="function", name="patch_comports")
 def fixture_patch_comports(mocker):
     comport = "COM1"
-    comport_name = f"STM ({comport})"
+
+    dummy_port_info = ListPortInfo("")
+    dummy_port_info.vid = STM_VID
+    dummy_port_info.name = comport
+    dummy_port_info.description = f"Device ({comport})"
+
     mocked_comports = mocker.patch.object(
         mc_comm.list_ports,
         "comports",
         autospec=True,
-        return_value=["bad COM port", comport_name, "other COM port"],
+        return_value=[dummy_port_info],
     )
-    yield comport, comport_name, mocked_comports
+    yield comport, dummy_port_info.description, mocked_comports
 
 
 @pytest.fixture(scope="function", name="patch_serial_connection")

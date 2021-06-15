@@ -895,7 +895,7 @@ def test_McCommunicationProcess__handles_one_second_read_with_interrupting_packe
     mantarray_mc_simulator_no_beacon,
     mocker,
 ):
-    # pylint: disable=too-many-locals  # Tanner (5/13/21): a lot of locals variables needed for this test
+    # pylint: disable=too-many-locals  # Tanner (5/13/21): a lot of local variables needed for this test
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     to_fw_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][2]
     to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]

@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 import copy
+import queue
+import time
 
 from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
-from mantarray_desktop_app import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from mantarray_desktop_app import UnrecognizedCommandFromMainToMcCommError
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 import pytest
-from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
 
 from ..fixtures import fixture_patch_print
@@ -21,7 +21,6 @@ from ..fixtures_mc_comm import set_connection_and_register_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import set_simulator_idle_ready
-from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import handle_putting_multiple_objects_into_empty_queue
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -145,6 +144,7 @@ def test_McCommunicationProcess__processes_get_metadata_command(
 def test_McCommunicationProcess__processes_commands_from_main_when_process_is_fully_running(
     four_board_mc_comm_process,
 ):
+    # Tanner (6/11/21): if this test times out, it means the get_metadata command response was never sent to main
     mc_process = four_board_mc_comm_process["mc_process"]
     board_queues = four_board_mc_comm_process["board_queues"]
     input_queue = board_queues[0][0]
@@ -161,22 +161,23 @@ def test_McCommunicationProcess__processes_commands_from_main_when_process_is_fu
         "command": "get_metadata",
     }
     handle_putting_multiple_objects_into_empty_queue(
-        [set_nickname_command, copy.deepcopy(test_command)], input_queue
+        [set_nickname_command, copy.deepcopy(test_command)],
+        input_queue,
+        sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
     )
     mc_process.start()
-    confirm_queue_is_eventually_empty(  # Tanner (3/3/21): Using timeout longer than registration period here to give sufficient time to make sure queue is emptied
-        input_queue, timeout_seconds=SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS + 8
-    )
+
+    while True:
+        try:
+            item = output_queue.get_nowait()
+            if item.get("command", None) == "get_metadata":
+                assert item["metadata"][MANTARRAY_NICKNAME_UUID] == expected_nickname
+                break
+        except queue.Empty:
+            pass
+        time.sleep(0.5)
     mc_process.soft_stop()
     mc_process.join()
-
-    to_main_items = drain_queue(output_queue)
-    for item in to_main_items:
-        if item.get("command", None) == "get_metadata":
-            assert item["metadata"][MANTARRAY_NICKNAME_UUID] == expected_nickname
-            break
-    else:
-        assert False, "expected response to main not found"
 
 
 def test_McCommunicationProcess__processes_command_response_when_packet_received_in_between_sending_command_and_receiving_response(

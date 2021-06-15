@@ -199,6 +199,10 @@ STOP_MANAGED_ACQUISITION_COMMUNICATION = immutabledict(
 )
 
 # TODO Tanner (5/22/21): Add Beta 2 states. Also remove Beta 1 specific states once phased out
+#   "instrument_initializing" state could correspond to boot up status code
+#   "configuration_needed" state means that magnetometer config and sampling period need to be set
+#   should change "calibrated" state to something better like idle/ready to stream
+#   "buffering" state may be removed
 SERVER_INITIALIZING_STATE = "server_initializing"
 SERVER_READY_STATE = "server_ready"
 INSTRUMENT_INITIALIZING_STATE = "instrument_initializing"
@@ -228,6 +232,7 @@ SUBPROCESS_POLL_DELAY_SECONDS = 0.025
 SECONDS_TO_WAIT_WHEN_POLLING_QUEUES = 0.02  # Due to the unreliability of the :method:`.empty()` :method:`.qsize()` methods in queues, switched to a :method:`.get(timeout=)` approach for polling the queues in the subprocesses.  Eli (10/26/20): 0.01 seconds was still causing sporadic failures in Linux CI in Github, so bumped to 0.02 seconds.
 
 # Serial Communication Values
+STM_VID = 1155
 SERIAL_COMM_BAUD_RATE = int(5e6)
 
 MAX_MC_REBOOT_DURATION_SECONDS = 5

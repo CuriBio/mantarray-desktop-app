@@ -154,6 +154,10 @@ class SerialCommPacketRegistrationSearchExhaustedError(Exception):
     pass
 
 
+class SerialCommNotEnoughAdditionalBytesReadError(Exception):
+    pass
+
+
 class SerialCommIncorrectChecksumFromInstrumentError(Exception):
     pass
 

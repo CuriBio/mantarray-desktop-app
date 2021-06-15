@@ -67,6 +67,7 @@ from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from .constants import STM_VID
 from .exceptions import InstrumentDataStreamingAlreadyStartedError
 from .exceptions import InstrumentDataStreamingAlreadyStoppedError
 from .exceptions import InstrumentFatalError
@@ -79,6 +80,7 @@ from .exceptions import SerialCommHandshakeTimeoutError
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
 from .exceptions import SerialCommIncorrectChecksumFromPCError
 from .exceptions import SerialCommIncorrectMagicWordFromMantarrayError
+from .exceptions import SerialCommNotEnoughAdditionalBytesReadError
 from .exceptions import SerialCommPacketFromMantarrayTooSmallError
 from .exceptions import SerialCommPacketRegistrationReadEmptyError
 from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
@@ -143,7 +145,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         suppress_setup_communication_to_main: if set to true (often during unit tests), messages during the _setup_before_loop will not be put into the queue to communicate back to the main process
     """
 
-    def __init__(self, *args: Any, **kwargs: Any):
+    def __init__(self, *args: Any, hardware_test_mode: bool = False, **kwargs: Any):
         super().__init__(*args, **kwargs)
         self._error: Optional[Exception] = None
         self._in_simulation_mode = False
@@ -172,6 +174,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._is_stopping_data_stream = False
         self._has_data_packet_been_sent = False
         self._data_packet_cache = bytes(0)
+        self._hardware_test_mode = hardware_test_mode
 
     def _setup_before_loop(self) -> None:
         super()._setup_before_loop()
@@ -208,7 +211,11 @@ class McCommunicationProcess(InstrumentCommProcess):
         )
         board = self._board_connections[board_idx]
         if board is not None:
-            if self._error is not None and not isinstance(self._error, MantarrayInstrumentError):
+            if (
+                self._error is not None
+                and not isinstance(self._error, MantarrayInstrumentError)
+                and not self._hardware_test_mode  # TODO Tanner (6/11/21): remove this last condition once real instrument implements dump EEPROM command
+            ):
                 # if error occurred in software, send dump EEPROM command and wait for instrument to respond to command before flushing serial data. If the firmware caught an error in itself the EEPROM contents should already be logged and this command can be skipped here
                 self._send_data_packet(
                     board_idx,
@@ -260,15 +267,13 @@ class McCommunicationProcess(InstrumentCommProcess):
                 "board_index": i,
             }
 
-            for name in list(list_ports.comports()):
-                name = str(name)
-                # Tanner (3/15/21): As long as the STM eval board is used in the Mantarray, it will show up as so and we can look for the Mantarray by checking for STM in the name
-                if "STM" not in name:
+            for port_info in list_ports.comports():
+                # Tanner (6/14/21): attempt to connect to any device with the STM vendor ID
+                if port_info.vid != STM_VID:
                     continue
-                msg["message"] = f"Board detected with port name: {name}"
-                port = name[-5:-1]  # parse out the name of the COM port
+                msg["message"] = f"Board detected with description: {port_info.description}"
                 serial_obj = serial.Serial(
-                    port=port,
+                    port=port_info.name,
                     baudrate=SERIAL_COMM_BAUD_RATE,
                     bytesize=8,
                     timeout=0,
@@ -276,6 +281,8 @@ class McCommunicationProcess(InstrumentCommProcess):
                 )
                 break
             else:
+                if self._hardware_test_mode:  # pragma: no cover
+                    raise NotImplementedError("Must connect to a real board in hardware test mode")
                 msg["message"] = "No board detected. Creating simulator."
                 serial_obj = MantarrayMcSimulator(
                     Queue(), Queue(), Queue(), Queue(), num_wells=self._num_wells
@@ -470,9 +477,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             return
         if not self._is_registered_with_serial_comm[board_idx]:
             self._register_magic_word(board_idx)
-        elif (
-            board.in_waiting > 0  # TODO Tanner (5/14/21): consider changing this to min packet size
-        ):  # Tanner (4/27/21): If problems occur with reads not being large enough may need to make some min value is present first. 8 bytes for the magic word is probably a good value to start with
+        elif board.in_waiting >= SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES:
             magic_word_bytes = board.read(size=len(SERIAL_COMM_MAGIC_WORD_BYTES))
             if magic_word_bytes != SERIAL_COMM_MAGIC_WORD_BYTES:
                 raise SerialCommIncorrectMagicWordFromMantarrayError(str(magic_word_bytes))
@@ -481,8 +486,11 @@ class McCommunicationProcess(InstrumentCommProcess):
         packet_size_bytes = board.read(size=SERIAL_COMM_PACKET_INFO_LENGTH_BYTES)
         packet_size = int.from_bytes(packet_size_bytes, byteorder="little")
         data_packet_bytes = board.read(size=packet_size)
-        # TODO Tanner (3/15/21): eventually make sure the expected number of bytes are read
-
+        # check that the expected number of bytes are read. Read function will never return more bytes than requested, but can return less bytes than requested if not enough are present before the read timeout
+        if len(data_packet_bytes) < packet_size:
+            raise SerialCommNotEnoughAdditionalBytesReadError(
+                f"Expected Size: {packet_size}, Actual Size: {len(data_packet_bytes)}"
+            )
         # validate checksum before handling the communication. Need to reconstruct the whole packet to get the correct checksum
         full_data_packet = SERIAL_COMM_MAGIC_WORD_BYTES + packet_size_bytes + data_packet_bytes
         is_checksum_valid = validate_checksum(full_data_packet)
@@ -515,6 +523,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         packet_type: int,
         packet_body: bytes,
     ) -> None:
+        # pylint: disable=too-many-branches  # Tanner (6/4/21): need more branches for hardware test mode
         if packet_type == SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE:
             returned_packet = SERIAL_COMM_MAGIC_WORD_BYTES + packet_body
             raise SerialCommIncorrectChecksumFromPCError(returned_packet)
@@ -539,25 +548,33 @@ class McCommunicationProcess(InstrumentCommProcess):
             )
             self._log_status_code(status_code, "Status Beacon")
             if status_code == SERIAL_COMM_FATAL_ERROR_CODE:
-                eeprom_contents = packet_body[SERIAL_COMM_STATUS_CODE_LENGTH_BYTES:]
-                raise InstrumentFatalError(f"Instrument EEPROM contents: {str(eeprom_contents)}")
+                error_msg = ""
+                if (
+                    not self._hardware_test_mode
+                ):  # pragma: no cover  # TODO Tanner (6/11/21): remove this condition once real instrument implements dump EEPROM command
+                    eeprom_contents = packet_body[SERIAL_COMM_STATUS_CODE_LENGTH_BYTES:]
+                    error_msg = f"Instrument EEPROM contents: {str(eeprom_contents)}"
+                raise InstrumentFatalError(error_msg)
             if status_code == SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE:
                 raise SerialCommHandshakeTimeoutError()
             if status_code == SERIAL_COMM_SOFT_ERROR_CODE:
-                self._send_data_packet(
-                    board_idx,
-                    SERIAL_COMM_MAIN_MODULE_ID,
-                    SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-                    bytes([SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE]),
-                )
-                self._commands_awaiting_response.append(
-                    {
-                        "communication_type": "to_instrument",
-                        "command": "dump_eeprom",
-                        "timepoint": perf_counter(),
-                    }
-                )
-                self._is_instrument_in_error_state = True
+                if not self._hardware_test_mode:
+                    self._send_data_packet(
+                        board_idx,
+                        SERIAL_COMM_MAIN_MODULE_ID,
+                        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+                        bytes([SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE]),
+                    )
+                    self._commands_awaiting_response.append(
+                        {
+                            "communication_type": "to_instrument",
+                            "command": "dump_eeprom",
+                            "timepoint": perf_counter(),
+                        }
+                    )
+                    self._is_instrument_in_error_state = True
+                else:  # pragma: no cover
+                    raise InstrumentSoftError()
             elif status_code == SERIAL_COMM_TIME_SYNC_READY_CODE:
                 self._send_data_packet(
                     board_idx,
@@ -574,20 +591,31 @@ class McCommunicationProcess(InstrumentCommProcess):
                     }
                 )
             elif status_code == SERIAL_COMM_IDLE_READY_CODE and self._auto_get_metadata:
-                self._send_data_packet(
-                    board_idx,
-                    SERIAL_COMM_MAIN_MODULE_ID,
-                    SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-                    bytes([SERIAL_COMM_GET_METADATA_COMMAND_BYTE])
-                    + convert_to_timestamp_bytes(get_serial_comm_timestamp()),
-                )
-                self._commands_awaiting_response.append(
-                    {
-                        "communication_type": "metadata_comm",
-                        "command": "get_metadata",
-                        "timepoint": perf_counter(),
-                    }
-                )
+                if (
+                    not self._in_simulation_mode
+                ):  # pragma: no cover  # TODO Tanner (6/11/21): remove this once get_metadata command is implemented on real board
+                    self._board_queues[0][1].put_nowait(
+                        {
+                            "communication_type": "metadata_comm",
+                            "board_index": 0,
+                            "metadata": MantarrayMcSimulator.default_metadata_values,
+                        }
+                    )
+                else:
+                    self._send_data_packet(
+                        board_idx,
+                        SERIAL_COMM_MAIN_MODULE_ID,
+                        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+                        bytes([SERIAL_COMM_GET_METADATA_COMMAND_BYTE])
+                        + convert_to_timestamp_bytes(get_serial_comm_timestamp()),
+                    )
+                    self._commands_awaiting_response.append(
+                        {
+                            "communication_type": "metadata_comm",
+                            "command": "get_metadata",
+                            "timepoint": perf_counter(),
+                        }
+                    )
                 self._auto_get_metadata = False
         elif packet_type == SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE:
             response_data = packet_body[SERIAL_COMM_TIMESTAMP_LENGTH_BYTES:]
@@ -616,12 +644,18 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._is_data_streaming = True
                 self._has_data_packet_been_sent = False
                 if response_data[0]:
-                    raise InstrumentDataStreamingAlreadyStartedError()
+                    if not self._hardware_test_mode:
+                        raise InstrumentDataStreamingAlreadyStartedError()
+                    prev_command["hardware_test_message"] = "Data stream already started"  # pragma: no cover
                 prev_command["magnetometer_config"] = convert_bytes_to_config_dict(response_data[1:])
                 prev_command["timestamp"] = _get_formatted_utc_now()
+                # Tanner (6/11/21): This helps prevent against status beacon timeouts with beacons that come just after the data stream begins but before 1 second of data is available
+                self._time_of_last_beacon_secs = perf_counter()
             elif prev_command["command"] == "stop_managed_acquisition":
                 if bool(int.from_bytes(response_data, byteorder="little")):
-                    raise InstrumentDataStreamingAlreadyStoppedError()
+                    if not self._hardware_test_mode:
+                        raise InstrumentDataStreamingAlreadyStoppedError()
+                    prev_command["hardware_test_message"] = "Data stream already stopped"  # pragma: no cover
                 self._is_stopping_data_stream = False
                 self._is_data_streaming = False
 

@@ -740,7 +740,10 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
 @pytest.mark.slow
 @pytest.mark.timeout(INTEGRATION_TEST_TIMEOUT)
 @freeze_time(datetime.datetime(year=2021, month=5, day=24, hour=21, minute=23, second=4, microsecond=141738))
-def test_full_datapath_and_recorded_files_in_beta_2_mode(fully_running_app_from_main_entrypoint, mocker):
+def test_full_datapath_and_recorded_files_in_beta_2_mode(
+    fully_running_app_from_main_entrypoint,
+    mocker,
+):
     # pylint: disable=too-many-statements,too-many-locals  # Tanner (6/1/21): This is a long integration test, it needs extra statements and local variables
     # TODO Tanner (4/23/21): This integration test does not actually test the full data path or recorded files yet. When that functionality is added for beta 2 mode, this test needs to be updated
 

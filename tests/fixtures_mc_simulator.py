@@ -160,7 +160,7 @@ def fixture_runnable_mantarray_mc_simulator():
     yield items_dict
 
     simulator.stop()
-    # Tanner (2/25/21): Remove any beacons remaining in read queue. This is faster than hard_stop which will attempt to drain every queue
+    # Tanner (2/25/21): Remove any data packets remaining in read queue. This is faster than hard_stop which will attempt to drain every queue
     drain_queue(output_queue)
 
     simulator.join()

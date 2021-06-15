@@ -400,7 +400,7 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_correctly(
 
     file_writer_process._minimum_iteration_duration_seconds = 0  # pylint: disable=protected-access
 
-    num_packets_to_send = 10  # arbitrary value
+    num_packets_to_send = 5  # arbitrary value
     if test_beta_version == 1:
         start_recording_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
         data_packet = copy.deepcopy(SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0)

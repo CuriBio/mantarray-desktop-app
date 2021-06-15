@@ -28,6 +28,7 @@ from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECOND
 import pytest
 import serial
 from serial import Serial
+from serial.tools.list_ports_common import ListPortInfo
 from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
 
@@ -76,7 +77,7 @@ def test_McCommunicationProcess_set_board_connection__sets_connection_to_mc_simu
 def test_McCommunicationProcess_create_connections_to_all_available_boards__populates_connections_list_with_a_serial_object_when_com_port_is_available__and_sends_correct_message_to_main(
     four_board_mc_comm_process, mocker, patch_comports, patch_serial_connection
 ):
-    comport, comport_name, mocked_comports = patch_comports
+    comport, comport_description, mocked_comports = patch_comports
     dummy_serial_obj, mocked_serial = patch_serial_connection
     mc_process = four_board_mc_comm_process["mc_process"]
     board_queues = four_board_mc_comm_process["board_queues"]
@@ -107,7 +108,7 @@ def test_McCommunicationProcess_create_connections_to_all_available_boards__popu
     actual_message = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_message["communication_type"] == "board_connection_status_change"
     assert actual_message["board_index"] == board_idx
-    assert comport_name in actual_message["message"]
+    assert comport_description in actual_message["message"]
     assert actual_message["is_connected"] is True
     assert actual_message["timestamp"] == "2021-03-15 13:05:10.121212"
 
@@ -117,7 +118,7 @@ def test_McCommunicationProcess_create_connections_to_all_available_boards__popu
     four_board_mc_comm_process, mocker, patch_comports, patch_serial_connection
 ):
     _, _, mocked_comports = patch_comports
-    mocked_comports.return_value = ["bad COM port"]
+    mocked_comports.return_value = [ListPortInfo("")]
     _, mocked_serial = patch_serial_connection
     mc_process = four_board_mc_comm_process["mc_process"]
     board_queues = four_board_mc_comm_process["board_queues"]

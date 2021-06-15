@@ -419,7 +419,7 @@ def test_main__generates_log_file_uuid_if_none_passed_in_cmd_line_args(
     assert shared_values_dict["log_file_uuid"] == expected_log_file_uuid
 
 
-@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS * 1.5)
 @pytest.mark.slow
 def test_main__does_not_call_boot_up_function_upon_launch_if_command_line_arg_passed(
     fully_running_app_from_main_entrypoint,

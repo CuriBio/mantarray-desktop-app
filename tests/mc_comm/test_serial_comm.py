@@ -18,6 +18,7 @@ from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
+from mantarray_desktop_app import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
@@ -33,6 +34,7 @@ from mantarray_desktop_app import SerialCommHandshakeTimeoutError
 from mantarray_desktop_app import SerialCommIncorrectChecksumFromInstrumentError
 from mantarray_desktop_app import SerialCommIncorrectChecksumFromPCError
 from mantarray_desktop_app import SerialCommIncorrectMagicWordFromMantarrayError
+from mantarray_desktop_app import SerialCommNotEnoughAdditionalBytesReadError
 from mantarray_desktop_app import SerialCommPacketFromMantarrayTooSmallError
 from mantarray_desktop_app import SerialCommStatusBeaconTimeoutError
 from mantarray_desktop_app import SerialCommUntrackedCommandResponseError
@@ -62,8 +64,35 @@ __fixtures__ = [
 ]
 
 
+def test_McCommunicationProcess__does_not_read_bytes_from_instrument_if_not_enough_are_in_waiting(
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+
+    spied_read = mocker.spy(simulator, "read")
+
+    # make bytes available to read, 1 short of required amount
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "add_read_bytes", "read_bytes": bytes(SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES - 1)},
+        testing_queue,
+    )
+    invoke_process_run_and_check_errors(simulator)
+
+    # make sure mc_comm does not try to read these bytes
+    invoke_process_run_and_check_errors(mc_process)
+    spied_read.assert_not_called()
+
+
 def test_McCommunicationProcess__raises_error_if_magic_word_is_incorrect_in_packet_after_previous_magic_word_has_been_registered(
-    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker, patch_print
+    four_board_mc_comm_process,
+    mantarray_mc_simulator_no_beacon,
+    mocker,
+    patch_print,
 ):
     mc_process = four_board_mc_comm_process["mc_process"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
@@ -81,7 +110,7 @@ def test_McCommunicationProcess__raises_error_if_magic_word_is_incorrect_in_pack
     )
     # Add arbitrary incorrect value into magic word slot
     bad_magic_word = b"NANOSURF"
-    test_bytes_2 = bad_magic_word + test_bytes_1[: len(SERIAL_COMM_MAGIC_WORD_BYTES)]
+    test_bytes_2 = bad_magic_word + test_bytes_1[len(SERIAL_COMM_MAGIC_WORD_BYTES) :]
     test_item = {
         "command": "add_read_bytes",
         "read_bytes": [test_bytes_1, test_bytes_2],
@@ -92,6 +121,40 @@ def test_McCommunicationProcess__raises_error_if_magic_word_is_incorrect_in_pack
     with pytest.raises(SerialCommIncorrectMagicWordFromMantarrayError, match=str(bad_magic_word)):
         # First iteration registers magic word, next iteration receive incorrect magic word
         invoke_process_run_and_check_errors(mc_process, num_iterations=2)
+
+
+def test_McCommunicationProcess__raises_error_if_length_of_additional_bytes_read_is_smaller_than_size_specified_in_packet_header(
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker, patch_print
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    # create valid packet
+    dummy_timestamp = 0
+    test_bytes = create_data_packet(
+        dummy_timestamp,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
+        DEFAULT_SIMULATOR_STATUS_CODE,
+    )
+    # cut off checksum bytes so that the remaining packet size is less than the specified packet length
+    truncated_test_bytes = test_bytes[:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
+    test_item = {"command": "add_read_bytes", "read_bytes": truncated_test_bytes}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_item, testing_queue)
+    invoke_process_run_and_check_errors(simulator)
+
+    board_idx = 0
+    mc_process.set_board_connection(board_idx, simulator)
+
+    num_bytes_not_counted_in_packet_len = len(SERIAL_COMM_MAGIC_WORD_BYTES) + 2
+    with pytest.raises(SerialCommNotEnoughAdditionalBytesReadError) as exc_info:
+        invoke_process_run_and_check_errors(mc_process)
+    assert f"Expected Size: {len(test_bytes) - num_bytes_not_counted_in_packet_len}" in exc_info.value.args[0]
+    assert (
+        f"Actual Size: {len(truncated_test_bytes) - num_bytes_not_counted_in_packet_len}"
+        in exc_info.value.args[0]
+    )
 
 
 def test_McCommunicationProcess__raises_error_if_checksum_in_data_packet_sent_from_mantarray_is_invalid(

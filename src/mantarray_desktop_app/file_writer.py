@@ -59,6 +59,7 @@ from .constants import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from .constants import ROUND_ROBIN_PERIOD
+from .constants import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from .exceptions import InvalidDataTypeFromOkCommError
 from .exceptions import InvalidStopRecordingTimepointError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
@@ -66,7 +67,7 @@ from .utils import create_sensor_axis_dict
 
 GENERIC_24_WELL_DEFINITION = LabwareDefinition(row_count=4, column_count=6)
 
-# TODO Tanner (5/28/21): move these to mantarray_file_manager
+# TODO Tanner (5/28/21): import these from mantarray_file_manager when new version is published
 TIME_INDICES = "time_indices"
 TIME_OFFSETS = "time_offsets"
 
@@ -426,7 +427,8 @@ class FileWriterProcess(InfiniteProcess):
                     this_file.attrs[str(ADC_REF_OFFSET_UUID)] = this_attr_value[this_well_idx]["ref"]
                     continue
                 if this_attr_name == MAGNETOMETER_CONFIGURATION_UUID:
-                    sensor_axis_dict = create_sensor_axis_dict(this_attr_value[this_well_idx + 1])
+                    module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[this_well_idx]
+                    sensor_axis_dict = create_sensor_axis_dict(this_attr_value[module_id])
                     this_attr_value = json.dumps(sensor_axis_dict)
                 if METADATA_UUID_DESCRIPTIONS[this_attr_name].startswith("UTC Timestamp"):
                     this_attr_value = this_attr_value.strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -440,9 +442,8 @@ class FileWriterProcess(InfiniteProcess):
             # Tanner (5/17/21): Not sure what 100 * 3600 * 12 represents, should make it a constant or add comment if/when it is determined
             max_data_len = 100 * 3600 * 12
             if self._beta_2_mode:
-                num_channels_enabled = sum(
-                    attrs_to_copy[MAGNETOMETER_CONFIGURATION_UUID][this_well_idx + 1].values()
-                )
+                module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[this_well_idx]
+                num_channels_enabled = sum(attrs_to_copy[MAGNETOMETER_CONFIGURATION_UUID][module_id].values())
                 data_shape = (num_channels_enabled, 0)
                 maxshape = (num_channels_enabled, max_data_len)
                 data_dtype = "int16"
