@@ -129,6 +129,7 @@ from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import START_BARCODE_SCAN_TRIG_BIT
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_desktop_app import STM_VID
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import SUBPROCESS_POLL_DELAY_SECONDS
 from mantarray_desktop_app import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
@@ -374,6 +375,7 @@ def test_parallelism_config():
 
 
 def test_serial_comm():
+    assert STM_VID == 1155
     assert SERIAL_COMM_BAUD_RATE == int(5e6)
 
     assert MAX_MC_REBOOT_DURATION_SECONDS == 5

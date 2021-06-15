@@ -67,6 +67,7 @@ from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from .constants import STM_VID
 from .exceptions import InstrumentDataStreamingAlreadyStartedError
 from .exceptions import InstrumentDataStreamingAlreadyStoppedError
 from .exceptions import InstrumentFatalError
@@ -266,15 +267,13 @@ class McCommunicationProcess(InstrumentCommProcess):
                 "board_index": i,
             }
 
-            for name in list(list_ports.comports()):
-                name = str(name)
-                # Tanner (6/11/21): attempt to connect to any USB device using a COM port with the correctly formatted name.
-                if "USB" not in name:
+            for port_info in list_ports.comports():
+                # Tanner (6/14/21): attempt to connect to any device with the STM vendor ID
+                if port_info.vid != STM_VID:
                     continue
-                msg["message"] = f"Board detected with port name: {name}"
-                port = name[-5:-1]
+                msg["message"] = f"Board detected with description: {port_info.description}"
                 serial_obj = serial.Serial(
-                    port=port,
+                    port=port_info.name,
                     baudrate=SERIAL_COMM_BAUD_RATE,
                     bytesize=8,
                     timeout=0,

@@ -137,6 +137,7 @@ from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
 from .constants import START_BARCODE_SCAN_TRIG_BIT
 from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
+from .constants import STM_VID
 from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SUBPROCESS_POLL_DELAY_SECONDS
 from .constants import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
@@ -545,4 +546,5 @@ __all__ = [
     "SERIAL_COMM_WELL_IDX_TO_MODULE_ID",
     "sort_nested_dict",
     "SerialCommNotEnoughAdditionalBytesReadError",
+    "STM_VID",
 ]
