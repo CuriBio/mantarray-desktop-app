@@ -36,6 +36,7 @@ import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 from xem_wrapper import FrontPanelSimulator
 
+from ..fixtures import fixture_patch_print
 from ..fixtures import fixture_test_process_manager
 from ..fixtures import fixture_test_process_manager_beta_2_mode
 from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
@@ -55,6 +56,7 @@ __fixtures__ = [
     fixture_test_monitor,
     fixture_test_monitor_beta_2_mode,
     fixture_patch_connection_to_board,
+    fixture_patch_print,
 ]
 
 
@@ -1092,7 +1094,7 @@ def test_MantarrayProcessesMonitor__passes_magnetometer_config_dict_from_server_
 
 
 def test_MantarrayProcessesMonitor__raises_error_if_config_dict_in_start_data_stream_command_response_from_instrument_does_not_match_expected_value(
-    test_process_manager, test_monitor
+    test_process_manager, test_monitor, patch_print
 ):
     monitor_thread, shared_values_dict, _, _ = test_monitor
     queues = test_process_manager.queue_container()
