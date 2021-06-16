@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import copy
 import datetime
+import json
 import os
 import queue
 import threading
@@ -175,7 +176,28 @@ def test_MantarrayProcessesMonitor__logs_messages_from_data_analyzer(
     mocked_logger.assert_called_once_with(f"Communication from the Data Analyzer: {expected_comm}")
 
 
-def test_MantarrayProcessesMonitor__logs_errors_from_InstrumentCommProcess(
+def test_MantarrayProcessesMonitor__pulls_outgoing_data_from_data_analyzer_and_makes_it_available_to_server(
+    mocker, test_process_manager, test_monitor
+):
+    monitor_thread, _, _, _ = test_monitor
+
+    da_data_out_queue = test_process_manager.queue_container().get_data_analyzer_board_queues()[0][1]
+    pm_data_out_queue = None
+
+    expected_json_data = json.dumps({"well": 0, "data": [1, 2, 3, 4, 5]})
+    da_data_out_queue.put_nowait(expected_json_data)
+    confirm_queue_is_eventually_of_size(
+        da_data_out_queue, 1, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    )
+
+    invoke_process_run_and_check_errors(monitor_thread)
+    confirm_queue_is_eventually_empty(da_data_out_queue)
+    confirm_queue_is_eventually_of_size(pm_data_out_queue, 1)
+    actual = pm_data_out_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert actual == expected_json_data
+
+
+def test_MantarrayProcessesMonitor__logs_errors_from_instrument_comm_process(
     mocker, test_process_manager, test_monitor
 ):
     monitor_thread, _, _, _ = test_monitor
@@ -197,7 +219,7 @@ def test_MantarrayProcessesMonitor__logs_errors_from_InstrumentCommProcess(
     mocked_logger.assert_any_call(expected_message)
 
 
-def test_MantarrayProcessesMonitor__logs_errors_from_FileWriter(mocker, test_process_manager, test_monitor):
+def test_MantarrayProcessesMonitor__logs_errors_from_file_writer(mocker, test_process_manager, test_monitor):
     monitor_thread, _, _, _ = test_monitor
 
     mocked_logger = mocker.patch.object(process_monitor.logger, "error", autospec=True)
@@ -215,7 +237,9 @@ def test_MantarrayProcessesMonitor__logs_errors_from_FileWriter(mocker, test_pro
     mocked_logger.assert_any_call(expected_message)
 
 
-def test_MantarrayProcessesMonitor__logs_errors_from_DataAnalyzer(mocker, test_process_manager, test_monitor):
+def test_MantarrayProcessesMonitor__logs_errors_from_data_analyzer(
+    mocker, test_process_manager, test_monitor
+):
     monitor_thread, _, _, _ = test_monitor
 
     mocked_logger = mocker.patch.object(process_monitor.logger, "error", autospec=True)
@@ -332,7 +356,7 @@ def test_MantarrayProcessesMonitor__updates_timestamp_in_shared_values_dict_afte
     )
 
 
-def test_MantarrayProcessesMonitor__correctly_sets_system_status_to_live_view_active_only_when_initial_required_number_of_data_dumps_become_available_from_DataAnalyzer(
+def test_MantarrayProcessesMonitor__correctly_sets_system_status_to_live_view_active_only_when_initial_required_number_of_data_dumps_become_available_from_data_analyzer(
     test_monitor, test_process_manager
 ):
     monitor_thread, shared_values_dict, _, _ = test_monitor

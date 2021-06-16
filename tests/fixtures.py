@@ -134,7 +134,6 @@ def fixture_test_process_manager(mocker):
 
 @pytest.fixture(scope="function", name="test_process_manager_beta_2_mode")
 def fixture_test_process_manager_beta_2_mode(mocker):
-    # TODO Tanner (4/23/21): remove this fixture once beta 1 is phased out
     with tempfile.TemporaryDirectory() as tmp_dir:
         manager = MantarrayProcessesManager(
             file_directory=tmp_dir, values_to_share_to_server={"beta_2_mode": True}
