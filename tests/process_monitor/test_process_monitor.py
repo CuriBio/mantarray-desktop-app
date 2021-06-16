@@ -179,11 +179,13 @@ def test_MantarrayProcessesMonitor__logs_messages_from_data_analyzer(
 def test_MantarrayProcessesMonitor__pulls_outgoing_data_from_data_analyzer_and_makes_it_available_to_server(
     mocker, test_process_manager, test_monitor
 ):
-    monitor_thread, _, _, _ = test_monitor
+    monitor_thread, shared_values_dict, _, _ = test_monitor
+    shared_values_dict["system_status"] = LIVE_VIEW_ACTIVE_STATE
 
     da_data_out_queue = test_process_manager.queue_container().get_data_analyzer_board_queues()[0][1]
-    pm_data_out_queue = None
+    pm_data_out_queue = test_process_manager.queue_container().get_data_queue_to_server()
 
+    # add dummy data here. In this test, the item is never actually looked at, so it can be any string value
     expected_json_data = json.dumps({"well": 0, "data": [1, 2, 3, 4, 5]})
     da_data_out_queue.put_nowait(expected_json_data)
     confirm_queue_is_eventually_of_size(

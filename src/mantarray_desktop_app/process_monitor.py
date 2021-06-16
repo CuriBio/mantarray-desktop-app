@@ -258,6 +258,16 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 if self._data_dump_buffer_size == 2:
                     self._values_to_share_to_server["system_status"] = LIVE_VIEW_ACTIVE_STATE
 
+    def _check_and_handle_data_analyzer_data_out_queue(self) -> None:
+        da_data_out_queue = self._process_manager.queue_container().get_data_analyzer_board_queues()[0][1]
+        try:
+            outgoing_data_json = da_data_out_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
+        except queue.Empty:
+            return
+        # TODO if in beta 2 mode and in buffering state, set live view active here
+        data_to_server_queue = self._process_manager.queue_container().get_data_queue_to_server()
+        data_to_server_queue.put_nowait(outgoing_data_json)
+
     def _check_and_handle_instrument_comm_to_main_queue(self) -> None:
         # pylint: disable=too-many-branches  # Tanner (5/22/21): many branches needed here
         process_manager = self._process_manager
@@ -434,6 +444,14 @@ class MantarrayProcessesMonitor(InfiniteThread):
         self._check_and_handle_file_writer_to_main_queue()
         self._check_and_handle_data_analyzer_to_main_queue()
         self._check_and_handle_server_to_main_queue()
+
+        # if managed acquisition is running, check for available data
+        if self._values_to_share_to_server["system_status"] in (
+            BUFFERING_STATE,
+            LIVE_VIEW_ACTIVE_STATE,
+            RECORDING_STATE,
+        ):
+            self._check_and_handle_data_analyzer_data_out_queue()
 
         # handle barcode polling. This should be removed once the physical instrument is able to detect plate placement/removal on its own. The Beta 2 instrument will be able to do this on its own from the start, so no need to send barcode comm in Beta 2 mode.
         if self._last_barcode_clear_time is None:
