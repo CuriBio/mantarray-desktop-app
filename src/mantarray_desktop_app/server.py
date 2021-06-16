@@ -1063,7 +1063,7 @@ def after_request(response: Response) -> Response:
     return response
 
 
-# TODO (Eli 11/3/20): refactor :package:`stdlib-utils` to separate some of the more generic multiprocessing functionality out of the "InfiniteLooping" mixin so that it could be included here without all the other things
+# TODO (Eli 11/3/20): refactor :package:`stdlib-utils` to separate some of the more generic multiprocessing functionality out of the "InfiniteLooping" mixin so that it could be included here without all the other things.  # Tanner (6/15/21): The server as a singleton design should be refactored. If this is done, there is no need to refactor the other package
 class ServerThread(InfiniteThread):
     """Thread to run the Flask server."""
 
@@ -1184,7 +1184,6 @@ class ServerThread(InfiniteThread):
     ) -> multiprocessing.Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
         Dict[str, Any]
     ]:
-        # TODO (Eli 11/5/20): Even after the QueueContainer is removed, this queue should be made available to the server thread through the init as it needs this to pass data to the Frontend app
         return self._queue_container.get_data_analyzer_data_out_queue()
 
     def _drain_all_queues(self) -> Dict[str, Any]:

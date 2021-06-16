@@ -26,7 +26,6 @@ def fixture_test_monitor(test_process_manager):
 
 @pytest.fixture(scope="function", name="test_monitor_beta_2_mode")
 def fixture_test_monitor_beta_2_mode(test_process_manager_beta_2_mode):
-    # TODO Tanner (4/23/21): remove this fixture once beta 1 is phased out
     the_dict = test_process_manager_beta_2_mode.get_values_to_share_to_server()
     the_dict["system_status"] = SERVER_INITIALIZING_STATE
     error_queue = error_queue = queue.Queue()
