@@ -473,7 +473,7 @@ def test_DataAnalyzerProcess__create_outgoing_data__compresses_displacement_data
         data_buffer[well_idx]["construct_data"] = copy.deepcopy(test_data)
         data_buffer[well_idx]["ref_data"] = np.zeros(test_data.shape)
 
-    outgoing_data = p._create_outgoing_data()  # pylint:disable=protected-access
+    outgoing_data = p._create_outgoing_beta_1_data()  # pylint:disable=protected-access
     actual = outgoing_data["waveform_data"]["basic_data"]["waveform_data_points"]
 
     pt = PipelineTemplate(
