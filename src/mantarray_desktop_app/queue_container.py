@@ -31,7 +31,7 @@ class MantarrayQueueContainer:
 
         self._data_analyzer_board_queues: Tuple[
             Tuple[Queue[Any], Queue[Any]], ...  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-        ] = tuple((self._instrument_comm_board_queues[i][2], Queue()) for i in range(1))
+        ] = tuple((self._file_writer_board_queues[i][1], Queue()) for i in range(1))
         self._from_main_to_data_analyzer_queue: Queue[Dict[str, Any]] = Queue()  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
         self._from_data_analyzer_to_main_queue: Queue[Dict[str, Any]] = Queue()  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
         self._data_analyzer_error_queue: Queue[Tuple[Exception, str]] = Queue()  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498

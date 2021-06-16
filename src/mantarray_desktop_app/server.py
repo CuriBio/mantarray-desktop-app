@@ -28,7 +28,6 @@ from copy import deepcopy
 import datetime
 import json
 import logging
-import multiprocessing
 import os
 from queue import Empty
 from queue import Queue
@@ -275,7 +274,7 @@ def get_available_data() -> Response:
     Can be invoked by: curl http://localhost:4567/get_available_data
     """
     server_thread = get_the_server_thread()
-    data_out_queue = server_thread.get_data_analyzer_data_out_queue()
+    data_out_queue = server_thread.get_data_queue_to_server()
     try:
         data = data_out_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
     except Empty:
@@ -1179,18 +1178,18 @@ class ServerThread(InfiniteThread):
     def soft_stop(self) -> None:
         self.stop()
 
-    def get_data_analyzer_data_out_queue(
+    def get_data_queue_to_server(
         self,
-    ) -> multiprocessing.Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+    ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
         Dict[str, Any]
     ]:
-        return self._queue_container.get_data_analyzer_data_out_queue()
+        return self._queue_container.get_data_queue_to_server()
 
     def _drain_all_queues(self) -> Dict[str, Any]:
         queue_items = dict()
 
         queue_items["to_main"] = drain_queue(self._to_main_queue)
-        queue_items["from_data_analyzer"] = drain_queue(self.get_data_analyzer_data_out_queue())
+        queue_items["outgoing_data"] = drain_queue(self.get_data_queue_to_server())
         return queue_items
 
     def _teardown_after_loop(self) -> None:

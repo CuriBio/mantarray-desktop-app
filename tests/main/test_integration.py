@@ -615,7 +615,7 @@ def test_full_datapath(
     test_well_index = 0
     x_values = np.array(
         [
-            (ROUND_ROBIN_PERIOD * (i + 1) // TIMESTEP_CONVERSION_FACTOR)
+            ROUND_ROBIN_PERIOD * (i + 1) // TIMESTEP_CONVERSION_FACTOR
             for i in range(math.ceil(DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS / ROUND_ROBIN_PERIOD))
         ]
     )

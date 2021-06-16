@@ -234,7 +234,7 @@ def test_ServerThread__hard_stop__shuts_down_flask_and_drains_to_main_queue_and_
     assert is_queue_eventually_empty(from_da_queue)
 
     assert actual_dict_of_queue_items["to_main"][0] == expected_message
-    assert actual_dict_of_queue_items["from_data_analyzer"][0] == expected_da_object
+    assert actual_dict_of_queue_items["outgoing_data"][0] == expected_da_object
 
 
 def test_ServerThread__get_values_from_process_monitor__acquires_lock_and_returns_an_immutable_copy(
