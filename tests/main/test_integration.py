@@ -718,7 +718,7 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
         # Tanner (12/29/20): Shutdown now that data is being acquired and actively written to files, which means each subprocess is doing something
         response = requests.get(f"{get_api_endpoint()}shutdown")
         assert response.status_code == 200
-        # TODO (Eli 12/9/20): have /shutdown wait to return until the other processes have been stopped, or have a separate route to shut down other processes (that also waits)
+        # TODO (Tanner 6/17/20): have /shutdown wait to return until the other processes have been stopped, or have a separate route to shut down other processes (that also waits)
 
         # Tanner (12/30/20): Confirming the port is available to make sure that the Flask server has shutdown
         confirm_port_available(get_server_port_number(), timeout=10)
@@ -1032,3 +1032,6 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                         GENERIC_NUM_CHANNELS_ENABLED,
                         num_recorded_data_points_2,
                     )
+
+        # response = requests.get(f"{get_api_endpoint()}stop_server")
+        # assert response.status_code == 200

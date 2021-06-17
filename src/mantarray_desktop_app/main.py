@@ -24,6 +24,7 @@ import uuid
 
 from stdlib_utils import configure_logging
 from stdlib_utils import get_current_file_abs_directory
+from stdlib_utils import is_port_in_use
 from stdlib_utils import resource_path
 
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
@@ -31,12 +32,16 @@ from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import SERVER_INITIALIZING_STATE
 from .exceptions import InvalidBeta2FlagOptionError
+from .exceptions import LocalServerPortAlreadyInUseError
 from .exceptions import MultiprocessingNotSetToSpawnError
 from .process_manager import MantarrayProcessesManager
 from .process_monitor import MantarrayProcessesMonitor
 from .server import clear_the_server_thread
+from .server import flask_app
+from .server import get_server_address_components
 from .server import get_the_server_thread
 from .server import ServerThreadNotInitializedError
+from .server import socketio
 from .utils import convert_request_args_to_config_dict
 from .utils import redact_sensitive_info_from_path
 from .utils import update_shared_dict
@@ -258,8 +263,21 @@ def main(
     object_access_for_testing["process_monitor"] = process_monitor_thread
     logger.info("Starting process monitor thread")
     process_monitor_thread.start()
-    server_thread = process_manager.get_server_thread()
-    server_thread.join()
+    print()
+    print("$$$", __name__)
+    _, host, port_number = get_server_address_components()
+    if is_port_in_use(port_number):  # TODO unit test this
+        print(True)
+        raise LocalServerPortAlreadyInUseError(port_number)
+    logger.info("Starting Flask SocketIO")
+    print("starting server")
+    socketio.run(
+        flask_app,
+        host=host,
+        port=port_number,
+    )
+    print("stopped")
+
     logger.info("Server shut down, about to stop processes")
     process_monitor_thread.soft_stop()
     process_monitor_thread.join()
