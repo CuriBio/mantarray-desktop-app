@@ -254,6 +254,7 @@ from .server import flask_app
 from .server import get_api_endpoint
 from .server import get_the_server_thread
 from .server import ServerThread
+from .server import socketio
 from .system_utils import system_state_eventually_equals
 from .system_utils import wait_for_subprocesses_to_start
 from .utils import check_barcode_for_errors
@@ -547,4 +548,5 @@ __all__ = [
     "sort_nested_dict",
     "SerialCommNotEnoughAdditionalBytesReadError",
     "STM_VID",
+    "socketio",
 ]

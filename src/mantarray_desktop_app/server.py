@@ -43,6 +43,7 @@ from flask import Flask
 from flask import request
 from flask import Response
 from flask_cors import CORS
+from flask_socketio import SocketIO
 from immutabledict import immutabledict
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
@@ -73,10 +74,8 @@ from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import requests
 from stdlib_utils import drain_queue
-from stdlib_utils import get_formatted_stack_trace
 from stdlib_utils import InfiniteThread
 from stdlib_utils import is_port_in_use
-from stdlib_utils import print_exception
 from stdlib_utils import put_log_message_into_queue
 
 from .constants import BUFFERING_STATE
@@ -102,7 +101,6 @@ from .exceptions import ServerThreadNotInitializedError
 from .exceptions import ServerThreadSingletonAlreadySetError
 from .ok_comm import check_mantarray_serial_number
 from .queue_container import MantarrayQueueContainer
-from .request_handler import MantarrayRequestHandler
 from .utils import check_barcode_for_errors
 from .utils import convert_request_args_to_config_dict
 from .utils import get_current_software_version
@@ -117,6 +115,7 @@ flask_app = Flask(  # pylint: disable=invalid-name # yes, this is intentionally 
     __name__
 )
 CORS(flask_app)
+socketio = SocketIO(flask_app)
 
 _the_server_thread: Optional[  # pylint: disable=invalid-name # Eli (11/3/20) yes, this is intentionally a singleton, not a constant. This is the current best guess at how to allow Flask routes to access some info they need
     "ServerThread"
@@ -633,6 +632,10 @@ def start_managed_acquisition() -> Response:
         response = Response(status="406 Magnetometer Configuration has not been set yet")
         return response
 
+    st = get_the_server_thread()
+    q = st.get_data_queue_to_server()
+    socketio.send(q.get_nowait())
+
     response = queue_command_to_main(START_MANAGED_ACQUISITION_COMMUNICATION)
     return response
 
@@ -982,11 +985,8 @@ def shutdown_server() -> None:
     Eli (11/18/20): If separate routes call this, then it needs to be
     broken out into a subfunction not decorated as a Flask route.
     """
-    shutdown_function = request.environ.get("werkzeug.server.shutdown")
-    if shutdown_function is None:
-        raise NotImplementedError("Not running with the Werkzeug Server")
     logger.info("Calling function to shut down Flask Server.")
-    shutdown_function()
+    socketio.stop()
     logger.info("Flask server successfully shut down.")
 
 
@@ -994,7 +994,6 @@ def shutdown_server() -> None:
 def stop_server() -> str:
     """Shut down Flask.
 
-    Obtained from https://stackoverflow.com/questions/15562446/how-to-stop-flask-application-without-using-ctrl-c
     curl http://localhost:4567/stop_server
     """
     shutdown_server()
@@ -1062,7 +1061,7 @@ def after_request(response: Response) -> Response:
     return response
 
 
-# TODO (Eli 11/3/20): refactor :package:`stdlib-utils` to separate some of the more generic multiprocessing functionality out of the "InfiniteLooping" mixin so that it could be included here without all the other things.  # Tanner (6/15/21): The server as a singleton design should be refactored. If this is done, there is no need to refactor the other package
+# TODO (Eli 11/3/20): refactor :package:`stdlib-utils` to separate some of the more generic multiprocessing functionality out of the "InfiniteLooping" mixin so that it could be included here without all the other things.
 class ServerThread(InfiniteThread):
     """Thread to run the Flask server."""
 
@@ -1098,6 +1097,26 @@ class ServerThread(InfiniteThread):
         _the_server_thread = self
         self._values_from_process_monitor = values_from_process_monitor
 
+        loop_rate_hz = 100
+        loop_period_secs = 1 / loop_rate_hz
+
+        sampling_rate_hz = 1000
+        num_data_points_per_loop = int(loop_period_secs * sampling_rate_hz)
+
+        self._minimum_iteration_duration_seconds = loop_period_secs
+        self._dummy_data_dict = {
+            well_idx: {channel: list(range(num_data_points_per_loop)) for channel in range(9)}
+            for well_idx in range(24)
+        }
+        for well_idx in range(24):
+            self._dummy_data_dict[well_idx]["time_offsets"] = [
+                list(range(num_data_points_per_loop)),
+                list(range(num_data_points_per_loop)),
+                list(range(num_data_points_per_loop)),
+            ]
+        self._dummy_data_dict["timestamp"] = 0
+        self._dummy_data_dict["time_indices"] = list(range(num_data_points_per_loop))
+
     def get_port_number(self) -> int:
         return self._port
 
@@ -1132,23 +1151,13 @@ class ServerThread(InfiniteThread):
             raise LocalServerPortAlreadyInUseError(port)
 
     # TODO Eli (12/8/20): refactor so there's something other than InfiniteThread this can inherit from which retains the other abilities for communication but not the infinite looping
-    def run(  # pylint:disable=arguments-differ # Eli (12/8/20): this should be fixed by a refactor, see TODO above
-        self,
-    ) -> None:
-        try:
-            _, host, _ = get_server_address_components()
-            self.check_port()
-            flask_app.run(
-                host=host,
-                port=self._port,
-                request_handler=MantarrayRequestHandler,
-                threaded=True,
-            )
-            # Note (Eli 1/14/20) it appears with the current method of using werkzeug.server.shutdown that nothing after this line will ever be executed. somehow the program exists before returning from app.run
-        except Exception as e:  # pylint: disable=broad-except # The deliberate goal of this is to catch everything and put it into the error queue
-            print_exception(e, "0d6e8031-6653-47d7-8490-8c28f92494c3")
-            formatted_stack_trace = get_formatted_stack_trace(e)
-            self._fatal_error_reporter.put_nowait((e, formatted_stack_trace))
+    # def run(  # pylint:disable=arguments-differ # Eli (12/8/20): this should be fixed by a refactor, see TODO above
+    #     self,
+    # ) -> None:
+
+    def _commands_for_each_run_iteration(self) -> None:
+        socketio.send(json.dumps(self._dummy_data_dict))
+        self._dummy_data_dict["timestamp"] += 1
 
     def _shutdown_server(self) -> None:
         http_route = f"{get_api_endpoint()}stop_server"
