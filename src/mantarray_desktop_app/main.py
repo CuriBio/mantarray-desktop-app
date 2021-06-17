@@ -101,6 +101,7 @@ def main(
     command_line_args: List[str],
     object_access_for_testing: Optional[Dict[str, Any]] = None,
 ) -> None:
+    # pylint: disable=too-many-locals  # Tanner (6/17/21): long start up script needed
     """Parse command line arguments and run."""
     if object_access_for_testing is None:
         object_access_for_testing = dict()
@@ -263,20 +264,15 @@ def main(
     object_access_for_testing["process_monitor"] = process_monitor_thread
     logger.info("Starting process monitor thread")
     process_monitor_thread.start()
-    print()
-    print("$$$", __name__)
     _, host, port_number = get_server_address_components()
     if is_port_in_use(port_number):  # TODO unit test this
-        print(True)
         raise LocalServerPortAlreadyInUseError(port_number)
     logger.info("Starting Flask SocketIO")
-    print("starting server")
     socketio.run(
         flask_app,
         host=host,
         port=port_number,
     )
-    print("stopped")
 
     logger.info("Server shut down, about to stop processes")
     process_monitor_thread.soft_stop()

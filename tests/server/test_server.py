@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
+import json
 from queue import Queue
 import threading
 from threading import Thread
 
-from flask import Flask
 from immutabledict import immutabledict
 from mantarray_desktop_app import clear_server_singletons
 from mantarray_desktop_app import DEFAULT_SERVER_PORT_NUMBER
 from mantarray_desktop_app import get_the_server_thread
 from mantarray_desktop_app import LocalServerPortAlreadyInUseError
-from mantarray_desktop_app import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import server
 from mantarray_desktop_app import ServerThread
 from mantarray_desktop_app import ServerThreadNotInitializedError
@@ -17,6 +17,7 @@ from mantarray_desktop_app import ServerThreadSingletonAlreadySetError
 import pytest
 from stdlib_utils import confirm_parallelism_is_stopped
 from stdlib_utils import confirm_port_available
+from stdlib_utils import invoke_process_run_and_check_errors
 
 from ..fixtures import fixture_generic_queue_container
 from ..fixtures import fixture_patch_print
@@ -24,6 +25,9 @@ from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_server import _clean_up_server_thread
 from ..fixtures_server import fixture_running_server_thread
 from ..fixtures_server import fixture_server_thread
+from ..fixtures_server import fixture_test_client
+from ..fixtures_server import fixture_test_socket_client
+from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import is_queue_eventually_empty
 from ..helpers import is_queue_eventually_of_size
@@ -34,6 +38,8 @@ __fixtures__ = [
     fixture_server_thread,
     fixture_running_server_thread,
     fixture_generic_queue_container,
+    fixture_test_socket_client,
+    fixture_test_client,
 ]
 
 
@@ -109,23 +115,6 @@ def test_ServerThread__check_port__calls_with_port_number_passed_in_as_kwarg(moc
     _clean_up_server_thread(st, to_main_queue, error_queue)
 
 
-def test_ServerThread_start__puts_error_into_queue_if_port_in_use(server_thread, patch_print, mocker):
-    st, _, error_queue = server_thread
-
-    mocker.patch.object(server, "is_port_in_use", autospec=True, return_value=True)
-
-    st.start()
-    assert (
-        is_queue_eventually_of_size(
-            error_queue,
-            1,
-        )
-        is True
-    )
-    e, _ = error_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
-    assert isinstance(e, LocalServerPortAlreadyInUseError)
-
-
 @pytest.mark.timeout(
     10
 )  # the test hangs in the current implementation (using _teardown_after_loop) if the super()._teardown_after_loop isn't called, so the timeout confirms that it was implemented correctly
@@ -158,22 +147,6 @@ def test_ServerThread__Given_the_server_thread_is_running__When_it_is_soft_stopp
 
 class DummyException(Exception):
     pass
-
-
-def test_ServerThread_start__puts_error_into_queue_if_flask_run_raises_error(
-    server_thread, patch_print, mocker
-):
-    st, _, error_queue = server_thread
-    expected_error_msg = "Wherefore art thou Romeo"
-    mocker.patch.object(Flask, "run", autospec=True, side_effect=DummyException(expected_error_msg))
-
-    st.start()
-    confirm_queue_is_eventually_of_size(
-        error_queue, 1, timeout_seconds=5
-    )  # Eli (12/15/20): for some reason this sporadically was failing with the default timeout, so raising it up to 5 seconds
-    e, msg = error_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
-    assert isinstance(e, DummyException)
-    assert expected_error_msg in msg
 
 
 @pytest.mark.timeout(15)
@@ -216,22 +189,22 @@ def test_ServerThread__stop__does_not_raise_error_if_server_already_stopped_and_
     assert "not running" in actual.get("message").lower()
 
 
-def test_ServerThread__hard_stop__shuts_down_flask_and_drains_to_main_queue_and_data_queue_from_data_analyzer(
-    running_server_thread,
+def test_ServerThread__hard_stop__drains_to_main_queue_and_data_queue_from_process_monitor(
+    server_thread,
 ):
-    st, to_main_queue, _ = running_server_thread
-    from_da_queue = st.get_data_analyzer_data_out_queue()
+    st, to_main_queue, _ = server_thread
+    from_pm_queue = st.get_data_queue_to_server()
+
     expected_message = "It tolls for thee"
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_message, to_main_queue)
 
     expected_da_object = {"somedata": 173}
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_da_object, from_da_queue)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_da_object, from_pm_queue)
 
     actual_dict_of_queue_items = st.hard_stop()
-    confirm_port_available(DEFAULT_SERVER_PORT_NUMBER, timeout=5)  # wait for server to shut down
 
     assert is_queue_eventually_empty(to_main_queue)
-    assert is_queue_eventually_empty(from_da_queue)
+    assert is_queue_eventually_empty(from_pm_queue)
 
     assert actual_dict_of_queue_items["to_main"][0] == expected_message
     assert actual_dict_of_queue_items["outgoing_data"][0] == expected_da_object
@@ -315,3 +288,30 @@ def test_server_queue_command_to_instrument_comm_puts_in_a_mutable_version_of_th
     actual = to_instrument_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == test_dict
     assert isinstance(actual, immutabledict) is False
+
+
+def test_ServerThread__sends_available_data_from_data_in_queue(test_socket_client, generic_queue_container):
+    socket_client, _ = test_socket_client
+
+    error_queue = Queue()
+    to_main_queue = Queue()
+    initial_dict = {"mantarray_serial_number": {0: MantarrayMcSimulator.default_mantarray_serial_number}}
+    st = ServerThread(
+        to_main_queue,
+        error_queue,
+        generic_queue_container,
+        values_from_process_monitor=initial_dict,
+    )
+
+    dummy_data_json = json.dumps({"well_idx": 0, "data": [10, 11, 12, 13, 14]})
+    data_to_server_queue = generic_queue_container.get_data_queue_to_server()
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(dummy_data_json, data_to_server_queue)
+    invoke_process_run_and_check_errors(st)
+    confirm_queue_is_eventually_empty(data_to_server_queue)
+
+    received_data = socket_client.get_received()
+    assert len(received_data) == 1
+    assert received_data[0]["args"] == dummy_data_json
+
+    # drain queues to avoid broken pipe errors
+    _clean_up_server_thread(st, to_main_queue, error_queue)
