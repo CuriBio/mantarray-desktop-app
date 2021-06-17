@@ -268,6 +268,7 @@ def system_status() -> Response:
 
 @flask_app.route("/get_available_data", methods=["GET"])
 def get_available_data() -> Response:
+    # TODO deprecate or remove
     """Get available data if any from Data Analyzer.
 
     Can be invoked by: curl http://localhost:4567/get_available_data
@@ -631,10 +632,6 @@ def start_managed_acquisition() -> Response:
     if shared_values_dict["beta_2_mode"] and "magnetometer_config_dict" not in shared_values_dict:
         response = Response(status="406 Magnetometer Configuration has not been set yet")
         return response
-
-    st = get_the_server_thread()
-    q = st.get_data_queue_to_server()
-    socketio.send(q.get_nowait())
 
     response = queue_command_to_main(START_MANAGED_ACQUISITION_COMMUNICATION)
     return response
@@ -1061,7 +1058,8 @@ def after_request(response: Response) -> Response:
     return response
 
 
-# TODO (Eli 11/3/20): refactor :package:`stdlib-utils` to separate some of the more generic multiprocessing functionality out of the "InfiniteLooping" mixin so that it could be included here without all the other things.
+# TODO Tanner (6/17/21): consider renaming this thread as its purpose has changed
+# TODO Tanner (6/17/21): figure out if any of this class's methods can be removed
 class ServerThread(InfiniteThread):
     """Thread to run the Flask server."""
 
@@ -1087,6 +1085,7 @@ class ServerThread(InfiniteThread):
             lock = threading.Lock()
 
         super().__init__(fatal_error_reporter, lock=lock)
+        self._minimum_iteration_duration_seconds = 0.001
         self._queue_container = processes_queue_container
         self._to_main_queue = to_main_queue
         self._port = port
@@ -1096,26 +1095,6 @@ class ServerThread(InfiniteThread):
 
         _the_server_thread = self
         self._values_from_process_monitor = values_from_process_monitor
-
-        loop_rate_hz = 100
-        loop_period_secs = 1 / loop_rate_hz
-
-        sampling_rate_hz = 1000
-        num_data_points_per_loop = int(loop_period_secs * sampling_rate_hz)
-
-        self._minimum_iteration_duration_seconds = loop_period_secs
-        self._dummy_data_dict = {
-            well_idx: {channel: list(range(num_data_points_per_loop)) for channel in range(9)}
-            for well_idx in range(24)
-        }
-        for well_idx in range(24):
-            self._dummy_data_dict[well_idx]["time_offsets"] = [
-                list(range(num_data_points_per_loop)),
-                list(range(num_data_points_per_loop)),
-                list(range(num_data_points_per_loop)),
-            ]
-        self._dummy_data_dict["timestamp"] = 0
-        self._dummy_data_dict["time_indices"] = list(range(num_data_points_per_loop))
 
     def get_port_number(self) -> int:
         return self._port
@@ -1150,14 +1129,14 @@ class ServerThread(InfiniteThread):
         if is_port_in_use(port):
             raise LocalServerPortAlreadyInUseError(port)
 
-    # TODO Eli (12/8/20): refactor so there's something other than InfiniteThread this can inherit from which retains the other abilities for communication but not the infinite looping
-    # def run(  # pylint:disable=arguments-differ # Eli (12/8/20): this should be fixed by a refactor, see TODO above
-    #     self,
-    # ) -> None:
-
     def _commands_for_each_run_iteration(self) -> None:
-        socketio.send(json.dumps(self._dummy_data_dict))
-        self._dummy_data_dict["timestamp"] += 1
+        # TODO figure out if need to check for commands from main
+        try:
+            # Tanner (6/17/21): using a very low timeout here since this process must iterate very quickly
+            item = self.get_data_queue_to_server().get(timeout=0.0001)
+        except Empty:
+            return
+        socketio.send(item)
 
     def _shutdown_server(self) -> None:
         http_route = f"{get_api_endpoint()}stop_server"

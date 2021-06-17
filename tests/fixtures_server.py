@@ -18,7 +18,6 @@ from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 import pytest
 from stdlib_utils import confirm_port_available
-from stdlib_utils import confirm_port_in_use
 
 from .fixtures import fixture_generic_queue_container
 from .fixtures import fixture_patch_print
@@ -82,15 +81,15 @@ def fixture_test_client():
 
 @pytest.fixture(scope="function", name="test_socket_client")
 def fixture_test_socket_client(test_client):
+    # TODO fix docstring
     """Create a test client to access Flask sockets.
 
     Modeled on https://blog.miguelgrinberg.com/post/unit-testing-applications-that-use-flask-login-and-flask-socketio
 
-    # TODO
     # Note, the routes require a ServerThread to be created using another fixture or within the test itself before the test Client will be fully functional.
     """
     socketio_test_client = socketio.test_client(flask_app, flask_test_client=test_client)
-    yield test_client, socketio_test_client
+    yield socketio_test_client, test_client
 
 
 @pytest.fixture(scope="function", name="client_and_server_thread_and_shared_values")
@@ -108,7 +107,6 @@ def fixture_running_server_thread(server_thread):
         DEFAULT_SERVER_PORT_NUMBER
     )  # confirm port is not already active prior to starting test
     st.start()
-    confirm_port_in_use(DEFAULT_SERVER_PORT_NUMBER, timeout=3)  # wait for server to boot up
     yield server_thread
 
     # clean up

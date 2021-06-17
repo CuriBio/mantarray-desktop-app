@@ -25,7 +25,6 @@ from ..fixtures_server import fixture_client_and_server_thread_and_shared_values
 from ..fixtures_server import fixture_generic_beta_1_start_recording_info_in_shared_dict
 from ..fixtures_server import fixture_server_thread
 from ..fixtures_server import fixture_test_client
-from ..fixtures_server import fixture_test_socket_client
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 __fixtures__ = [
@@ -36,7 +35,6 @@ __fixtures__ = [
     fixture_generic_beta_1_start_recording_info_in_shared_dict,
     fixture_test_monitor,
     fixture_test_process_manager,
-    fixture_test_socket_client,
 ]
 
 
@@ -774,62 +772,3 @@ def test_start_managed_acquisition__returns_error_code_if_called_in_beta_2_mode_
     response = test_client.get("/start_managed_acquisition")
     assert response.status_code == 406
     assert response.status.endswith("Magnetometer Configuration has not been set yet") is True
-
-
-def test_flask_socket_sends_available_data(test_socket_client, server_thread):
-    flask_client, socket_client = test_socket_client
-    st, *_ = server_thread
-    st._values_from_process_monitor["mantarray_serial_number"] = {
-        0: MantarrayMcSimulator.default_mantarray_serial_number
-    }
-
-    dummy_data_json = json.dumps({"well_idx": 0, "data": [10, 11, 12, 13, 14]})
-    data_to_server_queue = st.get_data_queue_to_server()
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(dummy_data_json, data_to_server_queue)
-
-    response = flask_client.get("/start_managed_acquisition")
-    assert response.status_code == 200
-
-    received_data = socket_client.get_received()
-    assert len(received_data) == 1
-    assert received_data[0]["args"] == dummy_data_json
-
-
-def test_concurrency(test_socket_client, server_thread):
-    flask_client, socket_client = test_socket_client
-    st, *_ = server_thread
-    st._values_from_process_monitor["system_status"] = "calibrated"
-    import time
-    import threading
-
-    def data_reader():
-        t = time.perf_counter()
-        while True:
-            received_data = socket_client.get_received()
-            # for data in received_data:
-            #     data_dict = json.loads(data["args"])
-            #     print(data_dict["timestamp"])
-            if len(received_data) < 1:
-                continue
-            print("Num packets:", len(received_data), "secs since last packet(s):", time.perf_counter() - t)
-            t = time.perf_counter()
-
-    drt = threading.Thread(target=data_reader)
-
-    def system_status_poller():
-        while True:
-            print("calling /system_status")
-            start = time.perf_counter()
-            response = flask_client.get("/system_status")
-            stop = time.perf_counter()
-            print(response.get_json(), "route duration:", stop - start)
-            time.sleep(1)
-
-    sspt = threading.Thread(target=system_status_poller)
-
-    st.start()
-    drt.start()
-    # sspt.start()
-    st.join()
-    drt.join()
-    # sspt.join()
