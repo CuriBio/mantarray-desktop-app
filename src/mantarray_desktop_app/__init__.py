@@ -220,6 +220,7 @@ from .firmware_manager import get_latest_firmware_name
 from .firmware_manager import get_latest_firmware_version
 from .firmware_manager import sort_firmware_files
 from .instrument_comm import InstrumentCommProcess
+from .log_formatter import SensitiveFormatter
 from .main import clear_server_singletons
 from .main import get_server_port_number
 from .mantarray_front_panel import MantarrayFrontPanel
@@ -549,4 +550,5 @@ __all__ = [
     "SerialCommNotEnoughAdditionalBytesReadError",
     "STM_VID",
     "socketio",
+    "SensitiveFormatter",
 ]

@@ -105,7 +105,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_instrument_comm(
     assert is_queue_eventually_not_empty(instrument_comm_to_main) is True
     invoke_process_run_and_check_errors(monitor_thread)
     assert is_queue_eventually_empty(instrument_comm_to_main) is True
-    mocked_logger.assert_called_once_with(f"Communication from the OpalKelly Controller: {expected_comm}")
+    mocked_logger.assert_called_once_with(f"Communication from the Instrument Controller: {expected_comm}")
 
 
 def test_MantarrayProcessesMonitor__logs_messages_from_file_writer(
@@ -1054,7 +1054,7 @@ def test_MantarrayProcessesMonitor__redacts_mantarray_nickname_from_logged_manta
 
     expected_comm = copy.deepcopy(test_comm)
     expected_comm["mantarray_nickname"] = "*" * len(test_nickname)
-    mocked_logger.assert_called_once_with(f"Communication from the OpalKelly Controller: {expected_comm}")
+    mocked_logger.assert_called_once_with(f"Communication from the Instrument Controller: {expected_comm}")
 
 
 def test_MantarrayProcessesMonitor__redacts_mantarray_nickname_from_logged_board_connection_status_change_ok_comm_messages(
@@ -1083,7 +1083,7 @@ def test_MantarrayProcessesMonitor__redacts_mantarray_nickname_from_logged_board
 
     expected_comm = copy.deepcopy(test_comm)
     expected_comm["mantarray_nickname"] = "*" * len(test_nickname)
-    mocked_logger.assert_called_once_with(f"Communication from the OpalKelly Controller: {expected_comm}")
+    mocked_logger.assert_called_once_with(f"Communication from the Instrument Controller: {expected_comm}")
 
 
 def test_MantarrayProcessesMonitor__passes_magnetometer_config_dict_from_server_to_mc_comm(
