@@ -1002,7 +1002,6 @@ def shutdown() -> Response:
     # curl http://localhost:4567/shutdown
     queue_command_to_main({"communication_type": "shutdown", "command": "soft_stop"})
     response = queue_command_to_main({"communication_type": "shutdown", "command": "hard_stop"})
-    shutdown_server()
     return response
 
 
@@ -1138,6 +1137,7 @@ class ServerThread(InfiniteThread):
         socketio.send(item)
 
     def _shutdown_server(self) -> None:
+        # TODO Tanner (6/17/21): should refactor this now that this will probably always raise a connection error
         http_route = f"{get_api_endpoint()}stop_server"
         try:
             requests.get(http_route)
