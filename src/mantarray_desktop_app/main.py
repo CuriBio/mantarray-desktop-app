@@ -34,6 +34,7 @@ from .constants import SERVER_INITIALIZING_STATE
 from .exceptions import InvalidBeta2FlagOptionError
 from .exceptions import LocalServerPortAlreadyInUseError
 from .exceptions import MultiprocessingNotSetToSpawnError
+from .log_formatter import SensitiveFormatter
 from .process_manager import MantarrayProcessesManager
 from .process_monitor import MantarrayProcessesMonitor
 from .server import clear_the_server_thread
@@ -175,6 +176,15 @@ def main(
         log_file_prefix="mantarray_log",
         log_level=log_level,
     )
+
+    # TODO Tanner (6/17/21): make this part of configure_logging
+    for handler in logging.root.handlers:
+        handler.setFormatter(
+            SensitiveFormatter(
+                "[%(asctime)s UTC] %(name)s-{%(filename)s:%(lineno)d} %(levelname)s - %(message)s"
+            )
+        )
+
     scrubbed_path_to_log_folder = redact_sensitive_info_from_path(path_to_log_folder)
 
     msg = f"Mantarray Controller v{CURRENT_SOFTWARE_VERSION} started"
@@ -230,7 +240,7 @@ def main(
     shared_values_dict["system_status"] = SERVER_INITIALIZING_STATE
     if parsed_args.port_number is not None:
         shared_values_dict["server_port_number"] = parsed_args.port_number
-    global _server_port_number  # pylint:disable=global-statement,invalid-name# Eli (12/8/20) this is deliberately setting a global singleton
+    global _server_port_number  # pylint:disable=global-statement,invalid-name# Eli (12/8/20) this is deliberately setting a global variable
     _server_port_number = shared_values_dict.get("server_port_number", DEFAULT_SERVER_PORT_NUMBER)
     msg = f"Using server port number: {_server_port_number}"
     logger.info(msg)
@@ -268,10 +278,14 @@ def main(
     if is_port_in_use(port_number):  # TODO unit test this
         raise LocalServerPortAlreadyInUseError(port_number)
     logger.info("Starting Flask SocketIO")
+    # TODO add unit test for the args in this next call
     socketio.run(
         flask_app,
         host=host,
         port=port_number,
+        log=logger,
+        log_output=True,
+        log_format='%(client_ip)s - - "%(request_line)s" %(status_code)s %(body_length)s - %(wall_seconds).6f',
     )
 
     logger.info("Server shut down, about to stop processes")

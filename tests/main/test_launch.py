@@ -459,9 +459,7 @@ def test_main_can_launch_server_and_processes_and_initial_boot_up_of_ok_comm_pro
     assert any(
         (expected_initiated_str in call[0][0] for call in mocked_process_monitor_info_logger.call_args_list)
     )
-    expected_connection_str = (
-        "Communication from the OpalKelly Controller: {'communication_type': 'board_connection_status_change'"
-    )
+    expected_connection_str = "Communication from the Instrument Controller: {'communication_type': 'board_connection_status_change'"
     time.sleep(
         0.5
     )  # Eli (12/9/20): There was periodic failure of asserting that this log message had been made, so trying to sleep a tiny amount to allow more time for the log message to be processed

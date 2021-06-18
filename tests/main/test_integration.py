@@ -1032,6 +1032,3 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                         GENERIC_NUM_CHANNELS_ENABLED,
                         num_recorded_data_points_2,
                     )
-
-        # response = requests.get(f"{get_api_endpoint()}stop_server")
-        # assert response.status_code == 200
