@@ -166,7 +166,7 @@ def test_main_configures_logging(mocker):
     )
 
 
-@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS * 1.5)
 def test_main__logs_system_info__and_software_version_at_very_start(
     mocker,
     fully_running_app_from_main_entrypoint,
@@ -278,7 +278,9 @@ def test_main_configures_process_manager_logging_level__and_standard_logging_lev
 
 @pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS * 1.5)
 def test_main_can_launch_server_with_no_args_from_entrypoint__default_exe_execution(
-    fully_running_app_from_main_entrypoint, patched_xem_scripts_folder
+    fully_running_app_from_main_entrypoint,
+    patched_xem_scripts_folder,
+    patched_firmware_folder,
 ):
     _ = fully_running_app_from_main_entrypoint()
     wait_for_subprocesses_to_start()
