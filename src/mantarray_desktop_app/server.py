@@ -1058,8 +1058,7 @@ def after_request(response: Response) -> Response:
     return response
 
 
-# TODO Tanner (6/17/21): consider renaming this thread as its purpose has changed
-# TODO Tanner (6/17/21): figure out if any of this class's methods can be removed
+# TODO Tanner (6/17/21): consider renaming this thread as its purpose has changed, figure out if any of this class's methods can be removed, figure out if this can be changed from a singleton (and a global if possible)
 class ServerThread(InfiniteThread):
     """Thread to run the Flask server."""
 

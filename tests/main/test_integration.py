@@ -745,7 +745,6 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
     mocker,
 ):
     # pylint: disable=too-many-statements,too-many-locals  # Tanner (6/1/21): This is a long integration test, it needs extra statements and local variables
-    # TODO Tanner (4/23/21): This integration test does not actually test the full data path or recorded files yet. When that functionality is added for beta 2 mode, this test needs to be updated
 
     # Tanner (12/29/20): Freeze time in order to make assertions on timestamps in the metadata
     expected_time = datetime.datetime(
@@ -802,8 +801,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert response.status_code == 200
         # Tanner (6/1/21): managed_acquisition in beta 2 mode will currently only cause the system to enter buffering state. This is because no beta 2 data will come out of Data Analyzer yet
         assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
-        time.sleep(2)  # sleep in place of waiting for live view
-        # TODO Tanner (5/25/20): Confirm system reaches live view active once beta 2 mode implemented in data analyzer
+        assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
 
         expected_barcode_1 = GENERIC_BETA_2_START_RECORDING_COMMAND[
             "metadata_to_copy_onto_main_file_attributes"
@@ -833,8 +831,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert response.status_code == 200
         # Tanner (6/1/21): managed_acquisition in beta 2 mode will currently only cause the system to enter buffering state. This is because no beta 2 data will come out of Data Analyzer yet
         assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
-        time.sleep(2)  # sleep in place of waiting for live view
-        # TODO Tanner (5/25/20): Confirm system reaches live view active once beta 2 mode implemented in data analyzer
+        assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
 
         # Tanner (6/1/21): Use new barcode for second set of recordings
         expected_barcode_2 = (

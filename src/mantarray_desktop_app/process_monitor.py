@@ -253,6 +253,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         communication_type = communication["communication_type"]
         if communication_type == "data_available":
+            # TODO Tanner (6/17/21): Should probably have this update come from the server thread
             if self._values_to_share_to_server["system_status"] == BUFFERING_STATE:
                 self._data_dump_buffer_size += 1
                 if self._data_dump_buffer_size == 2:
@@ -264,7 +265,6 @@ class MantarrayProcessesMonitor(InfiniteThread):
             outgoing_data_json = da_data_out_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
         except queue.Empty:
             return
-        # TODO if in beta 2 mode and in buffering state, set live view active here
         data_to_server_queue = self._process_manager.queue_container().get_data_queue_to_server()
         data_to_server_queue.put_nowait(outgoing_data_json)
 
