@@ -18,6 +18,6 @@ class SensitiveFormatter(logging.Formatter):
             log_msg,
         )
 
-    def format(self, record: logging.LogRecord) -> str:  # TODO unit test this
+    def format(self, record: logging.LogRecord) -> str:
         original = logging.Formatter.format(self, record)
         return self._filter(original)
