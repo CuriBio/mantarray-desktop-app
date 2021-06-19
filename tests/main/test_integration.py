@@ -764,7 +764,6 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
             BACKEND_LOG_UUID
         ],
     )
-    expected_timestamp_1 = "2021_05_24_212304"
 
     app_info = fully_running_app_from_main_entrypoint(["--beta-2-mode"])
     wait_for_subprocesses_to_start()
@@ -865,6 +864,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         fw_process = test_process_manager.get_file_writer_process()
         fw_process.close_all_files()
 
+        expected_timestamp_1 = "2021_05_24_212304"
         actual_set_of_files = set(
             os.listdir(
                 os.path.join(
@@ -999,6 +999,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         ) // expected_sampling_period + 1
         for row_idx in range(4):
             for col_idx in range(6):
+                well_idx = WELL_DEF_24.get_well_index_from_row_and_column(row_idx, col_idx)
                 with h5py.File(
                     os.path.join(
                         expected_recordings_dir,
@@ -1016,7 +1017,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                     assert str(UTC_FIRST_TISSUE_DATA_POINT_UUID) in this_file.attrs
                     # test recorded data
                     actual_time_index_data = get_time_index_dataset_from_file(this_file)
-                    assert actual_time_index_data.shape == (num_recorded_data_points_2,)
+                    assert actual_time_index_data.shape == (num_recorded_data_points_2,), f"Well {well_idx}"
                     assert actual_time_index_data[0] == expected_start_index_2
                     assert actual_time_index_data[-1] == expected_stop_index_2
                     actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
