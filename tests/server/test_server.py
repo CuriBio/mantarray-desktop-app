@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import json
 from queue import Queue
 import threading
 from threading import Thread
@@ -303,15 +302,15 @@ def test_ServerThread__sends_available_data_from_data_in_queue(test_socket_clien
         values_from_process_monitor=initial_dict,
     )
 
-    dummy_data_json = json.dumps({"well_idx": 0, "data": [10, 11, 12, 13, 14]})
+    dummy_data = {"well_idx": 0, "data": [10, 11, 12, 13, 14]}
     data_to_server_queue = generic_queue_container.get_data_queue_to_server()
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(dummy_data_json, data_to_server_queue)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(dummy_data, data_to_server_queue)
     invoke_process_run_and_check_errors(st)
     confirm_queue_is_eventually_empty(data_to_server_queue)
 
     received_data = socket_client.get_received()
     assert len(received_data) == 1
-    assert received_data[0]["args"] == dummy_data_json
+    assert received_data[0]["args"] == dummy_data
 
     # drain queues to avoid broken pipe errors
     _clean_up_server_thread(st, to_main_queue, error_queue)

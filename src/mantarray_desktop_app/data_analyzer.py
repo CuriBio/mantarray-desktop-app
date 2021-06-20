@@ -197,8 +197,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         return True
 
     def _create_outgoing_beta_2_data(self, data_dict: Dict[Any, Any]) -> Dict[str, Any]:
-        # pylint: disable=no-self-use
-        # outgoing_data_creation_start = time.perf_counter()
+        # pylint: disable=no-self-use  # will eventually use self
         del data_dict["is_first_packet_of_stream"]
         data_dict["earliest_timepoint"] = data_dict["time_indices"][0].item()
         data_dict["latest_timepoint"] = data_dict["time_indices"][-1].item()
@@ -309,6 +308,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                 "latest_timepoint": outgoing_data["latest_timepoint"],
             }
         )
+        # TODO don't convert to json
         outgoing_data_json = json.dumps(outgoing_data)
         self._board_queues[0][1].put_nowait(outgoing_data_json)
 

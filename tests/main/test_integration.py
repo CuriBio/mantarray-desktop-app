@@ -109,12 +109,14 @@ from ..fixtures_file_writer import GENERIC_BOARD_MAGNETOMETER_CONFIGURATION
 from ..fixtures_file_writer import GENERIC_NUM_CHANNELS_ENABLED
 from ..fixtures_file_writer import GENERIC_NUM_SENSORS_ENABLED
 from ..fixtures_file_writer import WELL_DEF_24
+from ..fixtures_server import fixture_test_socketio_client
 from ..helpers import confirm_queue_is_eventually_empty
 
 __fixtures__ = [
     fixture_fully_running_app_from_main_entrypoint,
     fixture_patched_xem_scripts_folder,
     fixture_patched_firmware_folder,
+    fixture_test_socketio_client,
 ]
 LIVE_VIEW_ACTIVE_WAIT_TIME = 150
 CALIBRATED_WAIT_TIME = 10
@@ -742,8 +744,10 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
 @freeze_time(datetime.datetime(year=2021, month=5, day=24, hour=21, minute=23, second=4, microsecond=141738))
 def test_full_datapath_and_recorded_files_in_beta_2_mode(
     fully_running_app_from_main_entrypoint,
+    test_socketio_client,
     mocker,
 ):
+    # TODO run this tests on customer laptop and compare results with the ones in C9 README
     # pylint: disable=too-many-statements,too-many-locals  # Tanner (6/1/21): This is a long integration test, it needs extra statements and local variables
 
     # Tanner (12/29/20): Freeze time in order to make assertions on timestamps in the metadata
@@ -769,7 +773,9 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
     wait_for_subprocesses_to_start()
     test_process_manager = app_info["object_access_inside_main"]["process_manager"]
 
-    assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
+    sio, msg_list = test_socketio_client()
+
+    assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 10) is True
 
     # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
@@ -798,6 +804,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         # Tanner (6/1/21): Start managed_acquisition in order to start recording
         response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
         assert response.status_code == 200
+
         # Tanner (6/1/21): managed_acquisition in beta 2 mode will currently only cause the system to enter buffering state. This is because no beta 2 data will come out of Data Analyzer yet
         assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
@@ -858,6 +865,8 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert response.status_code == 200
         assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
 
+        # Tanner (6/19/21): disconnect here to avoid problems with attempting to disconnect after the server stops
+        sio.disconnect()
         # Tanner (12/30/20): Stop processes in order to make assertions on recorded data
         test_process_manager.soft_stop_processes()
 
@@ -1030,3 +1039,6 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                         GENERIC_NUM_CHANNELS_ENABLED,
                         num_recorded_data_points_2,
                     )
+
+        # for now, just make sure that a non-zero number of messages were send through the websocket
+        assert len(msg_list) > 0

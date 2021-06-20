@@ -39,6 +39,7 @@ from typing import Tuple
 from typing import Union
 from uuid import UUID
 
+import eventlet
 from flask import Flask
 from flask import request
 from flask import Response
@@ -73,10 +74,6 @@ from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
 from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import requests
-from stdlib_utils import drain_queue
-from stdlib_utils import InfiniteThread
-from stdlib_utils import is_port_in_use
-from stdlib_utils import put_log_message_into_queue
 
 from .constants import BUFFERING_STATE
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
@@ -106,6 +103,12 @@ from .utils import convert_request_args_to_config_dict
 from .utils import get_current_software_version
 from .utils import validate_magnetometer_config_keys
 from .utils import validate_settings
+
+# patched imports
+stdlib_utils = eventlet.import_patched("stdlib_utils")
+drain_queue = stdlib_utils.drain_queue
+is_port_in_use = stdlib_utils.is_port_in_use
+put_log_message_into_queue = stdlib_utils.put_log_message_into_queue
 
 logger = logging.getLogger(__name__)
 os.environ[
@@ -1058,8 +1061,8 @@ def after_request(response: Response) -> Response:
 
 
 # TODO Tanner (6/17/21): consider renaming this thread as its purpose has changed, figure out if any of this class's methods can be removed, figure out if this can be changed from a singleton (and a global if possible)
-class ServerThread(InfiniteThread):
-    """Thread to run the Flask server."""
+class ServerThread(stdlib_utils.InfiniteThread):  # type: ignore  # mypy doesn't understand the patched import
+    """Thread to run populate the websocket with data packets."""
 
     def __init__(
         self,
@@ -1130,7 +1133,7 @@ class ServerThread(InfiniteThread):
     def _commands_for_each_run_iteration(self) -> None:
         # TODO figure out if need to check for commands from main
         try:
-            # Tanner (6/17/21): using a very low timeout here since this process must iterate very quickly
+            # Tanner (6/17/21): using a very low timeout here since this process must iterate very quickly, but still want to have a non-zero timeout
             item = self.get_data_queue_to_server().get(timeout=0.0001)
         except Empty:
             return
