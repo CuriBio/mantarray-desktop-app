@@ -225,7 +225,8 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         ):
             raise NotImplementedError("Processes must be created first.")
         for iter_process in self._all_processes:
-            iter_process.join()
+            if iter_process.ident is not None:
+                iter_process.join()
 
     def soft_stop_and_join_processes(self) -> None:
         self.soft_stop_processes()

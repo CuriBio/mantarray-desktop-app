@@ -987,7 +987,7 @@ def shutdown_server() -> None:
     """
     logger.info("Calling function to shut down Flask Server.")
     socketio.stop()
-    logger.info("Flask server successfully shut down.")
+    # Tanner (6/20/21): SystemExit is raised here, so no lines after this will execute
 
 
 @flask_app.route("/stop_server", methods=["GET"])
@@ -997,7 +997,8 @@ def stop_server() -> str:
     curl http://localhost:4567/stop_server
     """
     shutdown_server()
-    return "Server shutting down..."
+    # Tanner (6/20/21): SystemExit is raised here, so no lines after this will execute
+    return "Server shutting down..."  # pragma: no cover
 
 
 @flask_app.route("/shutdown", methods=["GET"])
@@ -1008,10 +1009,11 @@ def shutdown() -> Response:
     return response
 
 
-@flask_app.route("/health_check", methods=["GET"])
-def health_check() -> Response:
-    # curl http://localhost:4567/health_check
-    return Response(status=200)
+# TODO
+# @flask_app.route("/health_check", methods=["GET"])
+# def health_check() -> Response:
+#     # curl http://localhost:4567/health_check
+#     return Response(status=200)
 
 
 @flask_app.before_request
@@ -1140,13 +1142,10 @@ class ServerThread(stdlib_utils.InfiniteThread):  # type: ignore  # mypy doesn't
         socketio.send(item)
 
     def _shutdown_server(self) -> None:
-        # TODO Tanner (6/17/21): should refactor this now that this will probably always raise a connection error
-        http_route = f"{get_api_endpoint()}stop_server"
         try:
-            requests.get(http_route)
-            message = "Server has been successfully shutdown."
+            requests.get(f"{get_api_endpoint()}stop_server")
         except requests.exceptions.ConnectionError:
-            message = f"Server was not running on {http_route} during shutdown attempt."
+            message = "Server is shutdown"
         put_log_message_into_queue(
             logging.INFO,
             message,
