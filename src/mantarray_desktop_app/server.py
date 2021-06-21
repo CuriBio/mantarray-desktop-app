@@ -271,7 +271,7 @@ def system_status() -> Response:
 
 @flask_app.route("/get_available_data", methods=["GET"])
 def get_available_data() -> Response:
-    # TODO deprecate or remove
+    # Tanner (6/21/21): Leaving this route for now. It's likely that it can be removed later
     """Get available data if any from Data Analyzer.
 
     Can be invoked by: curl http://localhost:4567/get_available_data

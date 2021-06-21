@@ -88,18 +88,22 @@ def test_ServerThread__init__sets_the_module_singleton_of_the_thread_to_new_inst
     assert value_after_second_server_init != value_after_first_server_init
 
     # clean up
-
     _clean_up_server_thread(st_2, to_main_queue_2, error_queue_2)
 
 
 @pytest.mark.timeout(5)
 def test_ServerThread__check_port__raises_error_if_port_in_use(server_thread, mocker):
     st, _, _ = server_thread
-    mocked_is_port_in_use = mocker.patch.object(server, "is_port_in_use", autospec=True, return_value=True)
+    mocked_is_port_in_use = mocker.patch.object(
+        server, "is_port_in_use", autospec=True, side_effect=[True, False]
+    )
     with pytest.raises(LocalServerPortAlreadyInUseError, match=str(DEFAULT_SERVER_PORT_NUMBER)):
         st.check_port()
+    mocked_is_port_in_use.assert_called_with(DEFAULT_SERVER_PORT_NUMBER)
 
-    mocked_is_port_in_use.assert_called_once_with(DEFAULT_SERVER_PORT_NUMBER)
+    # make sure no error is raised if not in use
+    st.check_port()
+    mocked_is_port_in_use.assert_called_with(DEFAULT_SERVER_PORT_NUMBER)
 
 
 @pytest.mark.timeout(5)

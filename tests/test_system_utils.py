@@ -101,7 +101,7 @@ def test_wait_for_subprocesses_to_start__raises_error_if_state_does_not_reach_se
     mocked_response = Response()
     mocker.patch.multiple(mocked_response, status_code=200)
     mocker.patch.object(mocked_response, "json", return_value=mocked_json)
-    mocker.patch.object(time, "perf_counter", side_effect=[0, 11])
+    mocker.patch.object(time, "perf_counter", side_effect=[0, 20])
     mocker.patch.object(system_utils.requests, "get", autospec=True, return_value=mocked_response)
     mocker.patch.object(system_utils, "system_state_eventually_equals", return_value=False)
 
@@ -112,7 +112,7 @@ def test_wait_for_subprocesses_to_start__raises_error_if_state_does_not_reach_se
 def test_wait_for_subprocesses_to_start__raises_error_if_server_is_never_able_to_be_connected_to(
     mocker,
 ):
-    mocker.patch.object(time, "perf_counter", side_effect=[0, 11])
+    mocker.patch.object(time, "perf_counter", side_effect=[0, 20])
     mocker.patch.object(
         system_utils.requests,
         "get",

@@ -145,6 +145,7 @@ def test_main__logs_command_line_arguments(mocker):
         "no_load_firmware": False,
         "skip_software_version_verification": False,
         "beta_2_mode": False,
+        "main_script_test": False,
     }
     spied_info_logger.assert_any_call(f"Command Line Args: {expected_cmd_line_args_dict}")
 
