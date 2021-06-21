@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 from queue import Queue
 import threading
-from threading import Thread
 
+from eventlet.green import threading as green_threading
 from immutabledict import immutabledict
 from mantarray_desktop_app import clear_server_singletons
 from mantarray_desktop_app import DEFAULT_SERVER_PORT_NUMBER
@@ -45,7 +45,10 @@ __fixtures__ = [
 def test_ServerThread__init__calls_super(mocker, generic_queue_container):
     error_queue = Queue()
     to_main_queue = Queue()
-    mocked_super_init = mocker.spy(Thread, "__init__")
+    mocked_super_init = mocker.spy(
+        green_threading.Thread,  # pylint: disable=no-member  # Tanner (6/21/21): not sure why pylint can't find this eventlet class
+        "__init__",
+    )
     st = ServerThread(to_main_queue, error_queue, generic_queue_container)
     assert mocked_super_init.call_count == 1
 
@@ -185,7 +188,7 @@ def test_ServerThread__stop__does_not_raise_error_if_server_already_stopped_and_
     assert is_queue_eventually_of_size(to_main_queue, 1)
     actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual.get("communication_type") == "log"
-    assert "not running" in actual.get("message").lower()
+    assert "server" in actual.get("message").lower()
 
 
 def test_ServerThread__hard_stop__drains_to_main_queue_and_data_queue_from_process_monitor(
