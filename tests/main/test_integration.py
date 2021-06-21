@@ -744,7 +744,6 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
     test_socketio_client,
     mocker,
 ):
-    # TODO run this tests on customer laptop and compare results with the ones in C9 README
     # pylint: disable=too-many-statements,too-many-locals  # Tanner (6/1/21): This is a long integration test, it needs extra statements and local variables
 
     # Tanner (12/29/20): Freeze time in order to make assertions on timestamps in the metadata

@@ -308,7 +308,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                 "latest_timepoint": outgoing_data["latest_timepoint"],
             }
         )
-        # TODO don't convert to json
+        # Tanner (6/21/21): converting to json may no longer be necessary here
         outgoing_data_json = json.dumps(outgoing_data)
         self._board_queues[0][1].put_nowait(outgoing_data_json)
 

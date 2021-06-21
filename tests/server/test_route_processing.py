@@ -89,9 +89,6 @@ __fixtures__ = [
     fixture_running_server_thread,
 ]
 
-# TODO Tanner (6/17/21)): remove all but one test that uses a "insert_xem_command_into_queue/" route"
-# import werkzeug._internal as werkzeug_internal
-
 
 @pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 @pytest.mark.slow
