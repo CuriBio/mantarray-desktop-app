@@ -158,6 +158,11 @@ def main(
         action="store_true",
         help="indicates the software will be connecting to a beta 2 mantarray instrument",
     )
+    parser.add_argument(
+        "--main-script-test",
+        action="store_true",
+        help="indicates the server thread should not be started",
+    )
     parsed_args = parser.parse_args(command_line_args)
 
     if parsed_args.beta_2_mode:
@@ -207,6 +212,10 @@ def main(
     if multiprocessing_start_method != "spawn":
         raise MultiprocessingNotSetToSpawnError(multiprocessing_start_method)
 
+    _, host, port_number = get_server_address_components()
+    if is_port_in_use(port_number):
+        raise LocalServerPortAlreadyInUseError(port_number)
+
     shared_values_dict: Dict[str, Any] = dict()
     settings_dict: Dict[str, Any] = dict()
 
@@ -254,7 +263,10 @@ def main(
     process_manager.set_logging_level(log_level)
     object_access_for_testing["process_manager"] = process_manager
     object_access_for_testing["values_to_share_to_server"] = shared_values_dict
-    process_manager.spawn_processes()
+
+    process_manager.create_processes()
+    if not parsed_args.main_script_test:
+        process_manager.start_processes()
 
     boot_up_after_processes_start = not parsed_args.skip_mantarray_boot_up and not parsed_args.beta_2_mode
     load_firmware_file = not parsed_args.no_load_firmware and not parsed_args.beta_2_mode
@@ -274,11 +286,7 @@ def main(
     object_access_for_testing["process_monitor"] = process_monitor_thread
     logger.info("Starting process monitor thread")
     process_monitor_thread.start()
-    _, host, port_number = get_server_address_components()
-    if is_port_in_use(port_number):  # TODO unit test this
-        raise LocalServerPortAlreadyInUseError(port_number)
     logger.info("Starting Flask SocketIO")
-    # TODO add unit test for the args in this next call
     socketio.run(
         flask_app,
         host=host,

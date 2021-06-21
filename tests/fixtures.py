@@ -97,8 +97,15 @@ def fixture_fully_running_app_from_main_entrypoint(mocker):
             kwargs={"object_access_for_testing": thread_access_inside_main},
         )
         main_thread.start()
-        time.sleep(1)  # wait for the server to initialize so that the port number could be updated
-        confirm_port_in_use(get_server_port_number(), timeout=4)  # wait for server to boot up
+        # if just testing main script, just wait for it to complete. Otherwise, wait until server is up and running
+        if "--main-script-test" in command_line_args:
+            mocked_socketio_run = mocker.patch.object(main.socketio, "run", autospec=True)
+            dict_to_yield["mocked_socketio_run"] = mocked_socketio_run
+            while main_thread.is_alive():
+                time.sleep(0.5)
+        else:
+            time.sleep(1)  # wait for the server to initialize so that the port number could be updated
+            confirm_port_in_use(get_server_port_number(), timeout=4)  # wait for server to boot up
         dict_to_yield["main_thread"] = main_thread
         dict_to_yield["mocked_configure_logging"] = mocked_configure_logging
         dict_to_yield["object_access_inside_main"] = thread_access_inside_main
