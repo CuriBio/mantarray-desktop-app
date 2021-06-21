@@ -13,6 +13,7 @@ from mantarray_desktop_app import server
 from mantarray_desktop_app import ServerThread
 from mantarray_desktop_app import ServerThreadNotInitializedError
 from mantarray_desktop_app import ServerThreadSingletonAlreadySetError
+from mantarray_desktop_app import socketio
 import pytest
 from stdlib_utils import confirm_parallelism_is_stopped
 from stdlib_utils import confirm_port_available
@@ -25,7 +26,6 @@ from ..fixtures_server import _clean_up_server_thread
 from ..fixtures_server import fixture_running_server_thread
 from ..fixtures_server import fixture_server_thread
 from ..fixtures_server import fixture_test_client
-from ..fixtures_server import fixture_test_socket_client
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import is_queue_eventually_empty
@@ -37,7 +37,6 @@ __fixtures__ = [
     fixture_server_thread,
     fixture_running_server_thread,
     fixture_generic_queue_container,
-    fixture_test_socket_client,
     fixture_test_client,
 ]
 
@@ -296,8 +295,13 @@ def test_server_queue_command_to_instrument_comm_puts_in_a_mutable_version_of_th
     assert isinstance(actual, immutabledict) is False
 
 
-def test_ServerThread__sends_available_data_from_data_in_queue(test_socket_client, generic_queue_container):
-    socket_client, _ = test_socket_client
+def test_ServerThread__sends_available_data_from_data_in_queue(generic_queue_container, mocker):
+    msg_list = list()
+
+    def append_msg(msg):
+        msg_list.append(msg)
+
+    mocker.patch.object(socketio, "send", autospec=True, side_effect=append_msg)
 
     error_queue = Queue()
     to_main_queue = Queue()
@@ -315,9 +319,7 @@ def test_ServerThread__sends_available_data_from_data_in_queue(test_socket_clien
     invoke_process_run_and_check_errors(st)
     confirm_queue_is_eventually_empty(data_to_server_queue)
 
-    received_data = socket_client.get_received()
-    assert len(received_data) == 1
-    assert received_data[0]["args"] == dummy_data
+    assert msg_list == [dummy_data]
 
     # drain queues to avoid broken pipe errors
     _clean_up_server_thread(st, to_main_queue, error_queue)

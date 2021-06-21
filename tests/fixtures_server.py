@@ -11,7 +11,6 @@ from mantarray_desktop_app import get_server_port_number
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import ServerThread
-from mantarray_desktop_app import socketio
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
 from mantarray_file_manager import MAGNETOMETER_CONFIGURATION_UUID
@@ -70,8 +69,6 @@ def fixture_test_client():
     """Create a test client to call Flask routes.
 
     Modeled on https://www.patricksoftwareblog.com/testing-a-flask-application-using-pytest/
-
-    Note, the routes require a ServerThread to be created using another fixture or within the test itself before the test Client will be fully functional.
     """
     testing_client = flask_app.test_client()
 
@@ -81,19 +78,6 @@ def fixture_test_client():
     yield testing_client
 
     ctx.pop()
-
-
-@pytest.fixture(scope="function", name="test_socket_client")
-def fixture_test_socket_client(test_client):
-    # TODO fix docstring
-    """Create a test client to access Flask sockets.
-
-    Modeled on https://blog.miguelgrinberg.com/post/unit-testing-applications-that-use-flask-login-and-flask-socketio
-
-    # Note, the routes require a ServerThread to be created using another fixture or within the test itself before the test Client will be fully functional.
-    """
-    socketio_test_client = socketio.test_client(flask_app, flask_test_client=test_client)
-    yield socketio_test_client, test_client
 
 
 @pytest.fixture(scope="function", name="client_and_server_thread_and_shared_values")

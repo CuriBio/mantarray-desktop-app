@@ -1009,13 +1009,6 @@ def shutdown() -> Response:
     return response
 
 
-# TODO
-# @flask_app.route("/health_check", methods=["GET"])
-# def health_check() -> Response:
-#     # curl http://localhost:4567/health_check
-#     return Response(status=200)
-
-
 @flask_app.before_request
 def before_request() -> Optional[Response]:
     rule = request.url_rule
@@ -1074,7 +1067,7 @@ class ServerThread(stdlib_utils.InfiniteThread):  # type: ignore  # mypy doesn't
         fatal_error_reporter: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
             Tuple[Exception, str]
         ],
-        processes_queue_container: MantarrayQueueContainer,  # TODO (Eli 11/4/20): This should eventually be removed as it tightly couples the independent processes together. Ideally all messages should go from server to main and then be routed where they need to by the ProcessMonitor
+        processes_queue_container: MantarrayQueueContainer,  # TODO Tanner (6/21/21): remove this once
         values_from_process_monitor: Optional[Dict[str, Any]] = None,
         port: int = DEFAULT_SERVER_PORT_NUMBER,
         logging_level: int = logging.INFO,
@@ -1133,7 +1126,6 @@ class ServerThread(stdlib_utils.InfiniteThread):  # type: ignore  # mypy doesn't
             raise LocalServerPortAlreadyInUseError(port)
 
     def _commands_for_each_run_iteration(self) -> None:
-        # TODO figure out if need to check for commands from main
         try:
             # Tanner (6/17/21): using a very low timeout here since this process must iterate very quickly, but still want to have a non-zero timeout
             item = self.get_data_queue_to_server().get(timeout=0.0001)
