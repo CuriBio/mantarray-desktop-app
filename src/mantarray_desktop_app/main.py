@@ -212,10 +212,6 @@ def main(
     if multiprocessing_start_method != "spawn":
         raise MultiprocessingNotSetToSpawnError(multiprocessing_start_method)
 
-    _, host, port_number = get_server_address_components()
-    if is_port_in_use(port_number):
-        raise LocalServerPortAlreadyInUseError(port_number)
-
     shared_values_dict: Dict[str, Any] = dict()
     settings_dict: Dict[str, Any] = dict()
 
@@ -254,6 +250,9 @@ def main(
     msg = f"Using server port number: {_server_port_number}"
     logger.info(msg)
 
+    if is_port_in_use(_server_port_number):
+        raise LocalServerPortAlreadyInUseError(_server_port_number)
+
     if settings_dict:
         update_shared_dict(shared_values_dict, convert_request_args_to_config_dict(settings_dict))
     _log_system_info()
@@ -287,10 +286,11 @@ def main(
     logger.info("Starting process monitor thread")
     process_monitor_thread.start()
     logger.info("Starting Flask SocketIO")
+    _, host, _ = get_server_address_components()
     socketio.run(
         flask_app,
         host=host,
-        port=port_number,
+        port=_server_port_number,
         log=logger,
         log_output=True,
         log_format='%(client_ip)s - - "%(request_line)s" %(status_code)s %(body_length)s - %(wall_seconds).6f',

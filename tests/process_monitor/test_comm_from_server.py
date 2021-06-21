@@ -542,12 +542,16 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 ):
     monitor_thread, _, _, _ = test_monitor
 
+    # starting server thread causes weird issues with mocked values, so mocking its start and join methods
+    server_thread = test_process_manager.get_server_thread()
+    mocker.patch.object(server_thread, "start", autospec=True)
+    mocker.patch.object(server_thread, "join", autospec=True)
+
     test_process_manager.start_processes()
 
     okc_process = test_process_manager.get_instrument_process()
     fw_process = test_process_manager.get_file_writer_process()
     da_process = test_process_manager.get_data_analyzer_process()
-    server_thread = test_process_manager.get_server_thread()
 
     spied_okc_join = mocker.spy(okc_process, "join")
     spied_fw_join = mocker.spy(fw_process, "join")
@@ -559,11 +563,11 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     spied_da_hard_stop = mocker.spy(da_process, "hard_stop")
     spied_server_hard_stop = mocker.spy(server_thread, "hard_stop")
 
+    mocked_st_is_stopped = mocker.patch.object(
+        server_thread, "is_stopped", side_effect=[False, True, True, True]
+    )
     mocked_okc_is_stopped = mocker.patch.object(
         okc_process, "is_stopped", autospec=True, side_effect=[False, True, True]
-    )
-    mocked_server_is_stopped = mocker.patch.object(
-        server_thread, "is_stopped", side_effect=[False, True, True, True]
     )
     mocked_fw_is_stopped = mocker.patch.object(
         fw_process, "is_stopped", autospec=True, side_effect=[False, True]
@@ -603,8 +607,8 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     spied_server_join.assert_called_once()
 
     assert mocked_counter.call_count == 5
+    assert mocked_st_is_stopped.call_count == 4
     assert mocked_okc_is_stopped.call_count == 3
-    assert mocked_server_is_stopped.call_count == 4
     assert mocked_fw_is_stopped.call_count == 2
     assert mocked_da_is_stopped.call_count == 1
 

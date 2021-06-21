@@ -267,10 +267,13 @@ def test_managed_acquisition_can_be_stopped_and_restarted_with_simulator(
     patched_xem_scripts_folder,
     patched_firmware_folder,
     fully_running_app_from_main_entrypoint,
+    test_socketio_client,
 ):
     app_info = fully_running_app_from_main_entrypoint()
     wait_for_subprocesses_to_start()
     test_process_manager = app_info["object_access_inside_main"]["process_manager"]
+
+    sio, msg_list = test_socketio_client()
 
     assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
 
@@ -288,11 +291,8 @@ def test_managed_acquisition_can_be_stopped_and_restarted_with_simulator(
     assert response.status_code == 200
     assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
 
-    # Tanner (12/30/20): Clear available data and double check that the expected amount of data passed through the system
-    response = requests.get(f"{get_api_endpoint()}get_available_data")
-    assert response.status_code == 200
-    response = requests.get(f"{get_api_endpoint()}get_available_data")
-    assert response.status_code == 200
+    # Tanner (6/21/21): Double check that the expected amount of data passed through the system
+    assert len(msg_list) == 2
 
     time.sleep(3)  # allow remaining data to pass through subprocesses
 
@@ -304,6 +304,9 @@ def test_managed_acquisition_can_be_stopped_and_restarted_with_simulator(
     response = requests.get(f"{get_api_endpoint()}stop_managed_acquisition")
     assert response.status_code == 200
     assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
+
+    # Tanner (6/21/21): disconnect here to avoid problems with attempting to disconnect after the server stops
+    sio.disconnect()
 
     # Tanner (12/29/20): Good to do this at the end of tests to make sure they don't cause problems with other integration tests. This will also clear available data in Data Analyzer
     test_process_manager.hard_stop_and_join_processes()
@@ -574,10 +577,13 @@ def test_full_datapath(
     patched_xem_scripts_folder,
     patched_firmware_folder,
     fully_running_app_from_main_entrypoint,
+    test_socketio_client,
 ):
     app_info = fully_running_app_from_main_entrypoint()
     wait_for_subprocesses_to_start()
     test_process_manager = app_info["object_access_inside_main"]["process_manager"]
+
+    sio, msg_list = test_socketio_client()
 
     # Tanner (12/30/20): Auto boot-up is completed when system reaches calibration_needed state
     assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
@@ -601,16 +607,7 @@ def test_full_datapath(
     assert response.status_code == 200
     assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
     # Tanner (12/30/20): Make sure first set of data is available
-    response = requests.get(f"{get_api_endpoint()}get_available_data")
-    assert response.status_code == 200
-    actual = json.loads(response.text)
-    waveform_data_points = actual["waveform_data"]["basic_data"]["waveform_data_points"]
-    # Tanner (12/29/20): Make sure second set of data is available and clear the remaining data
-    response = requests.get(f"{get_api_endpoint()}get_available_data")
-    assert response.status_code == 200
-    # Tanner (12/29/20): One more call to get_available_data to assert that no more data is available
-    response = requests.get(f"{get_api_endpoint()}get_available_data")
-    assert response.status_code == 204
+    assert len(msg_list) == 2
     confirm_queue_is_eventually_empty(da_out)
 
     # Tanner (12/29/20): create expected data
@@ -643,6 +640,7 @@ def test_full_datapath(
     expected_well_data = pipeline.get_compressed_displacement()
 
     # Tanner (12/29/20): Assert data is as expected for two wells
+    waveform_data_points = json.loads(msg_list[0])["waveform_data"]["basic_data"]["waveform_data_points"]
     actual_well_0_y_data = waveform_data_points["0"]["y_data_points"]
     np.testing.assert_almost_equal(
         actual_well_0_y_data[0],
@@ -654,6 +652,9 @@ def test_full_datapath(
         expected_well_data[1][9] * MILLIVOLTS_PER_VOLT,
         decimal=4,
     )
+
+    # Tanner (6/21/21): disconnect here to avoid problems with attempting to disconnect after the server stops
+    sio.disconnect()
 
     # Tanner (12/29/20): Good to do this at the end of tests to make sure they don't cause problems with other integration tests
     remaining_queue_items = test_process_manager.hard_stop_and_join_processes()
@@ -671,7 +672,6 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
     mocker,
 ):
     spied_logger = mocker.spy(main.logger, "info")
-    spied_server_logger = mocker.spy(server.logger, "info")
     app_info = fully_running_app_from_main_entrypoint()
     wait_for_subprocesses_to_start()
     test_process_manager = app_info["object_access_inside_main"]["process_manager"]
@@ -724,11 +724,8 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
 
         # Tanner (12/30/20): Confirming the port is available to make sure that the Flask server has shutdown
         confirm_port_available(get_server_port_number(), timeout=10)
-        # Tanner (12/30/20): Double check that the system acknowledges that Flask sever has shutdown
-        spied_server_logger.assert_any_call("Flask server successfully shut down.")
-
-        # Eli (12/4/20): currently, Flask immediately shuts down and communicates up to ProcessMonitor to start shutting everything else down. So for now need to sleep a bit before attempting to confirm everything else is shut down
-        time.sleep(10)
+        # Tanner (6/21/21): sleep to ensure program exit log message is produced
+        time.sleep(5)
 
         # Tanner (12/30/20): This is the very last log message before the app is completely shutdown
         spied_logger.assert_any_call("Program exiting")
