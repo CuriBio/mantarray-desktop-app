@@ -7,6 +7,7 @@ import queue
 from typing import Any
 from typing import Dict
 from typing import Tuple
+from eventlet.queue import LightQueue
 
 
 # TODO Tanner (6/15/21): refactor this into something nicer
@@ -38,6 +39,7 @@ class MantarrayQueueContainer:
 
         self._from_server_to_main_queue: queue.Queue[Dict[str, Any]] = queue.Queue()  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
         self._data_to_server_queue: queue.Queue[Dict[str, Any]] = queue.Queue()  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+        self._data_to_server_queue = LightQueue()
         self._server_error_queue: queue.Queue[Tuple[Exception, str]] = queue.Queue()  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
         # fmt: on
 
