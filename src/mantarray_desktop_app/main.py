@@ -21,8 +21,8 @@ from typing import Dict
 from typing import List
 from typing import Optional
 import uuid
-from eventlet.queue import Empty
 
+from eventlet.queue import Empty
 from stdlib_utils import configure_logging
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import is_port_in_use
@@ -103,7 +103,7 @@ def main(
     command_line_args: List[str],
     object_access_for_testing: Optional[Dict[str, Any]] = None,
 ) -> None:
-    # pylint: disable=too-many-locals  # Tanner (6/17/21): long start up script needed
+    # pylint: disable=too-many-locals,too-many-statements  # Tanner (6/17/21): long start up script needed
     """Parse command line arguments and run."""
     if object_access_for_testing is None:
         object_access_for_testing = dict()
@@ -288,21 +288,20 @@ def main(
     process_monitor_thread.start()
     logger.info("Starting Flask SocketIO")
     _, host, _ = get_server_address_components()
-    
-    
+
     data_queue_to_server = process_manager.queue_container().get_data_queue_to_server()
-    def data_sender():
+
+    def data_sender() -> None:  # TODO unit test this function without normal thread stuff to get code coverage working and move it somewhere else
         while True:
-            # print("$$$")
             try:
-                item = data_queue_to_server.get(timeout=.0001)
+                item = data_queue_to_server.get(timeout=0.0001)
             except Empty:
-                # print("empty")
                 continue
-            print("sending...")
             socketio.send(item)
-    
-    socketio.start_background_task(data_sender)
+
+    socketio.start_background_task(
+        data_sender
+    )  # TODO try mocking this in main script test to get code coverage working
     socketio.run(
         flask_app,
         host=host,

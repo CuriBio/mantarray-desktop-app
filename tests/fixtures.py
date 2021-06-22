@@ -115,8 +115,12 @@ def fixture_fully_running_app_from_main_entrypoint(mocker):
 
     # some tests may perform the shutdown on their own to assert things about the shutdown behavior. So only attempt shutdown if server is still running.
     if is_port_in_use(get_server_port_number()):
-        response = requests.get(f"{get_api_endpoint()}shutdown")
-        assert response.status_code == 200
+        try:
+            response = requests.get(f"{get_api_endpoint()}shutdown")
+            assert response.status_code == 200
+        except requests.exceptions.ConnectionError:
+            # Tanner (6/21/21): sometimes the server takes a few seconds to shut down, so guard against case where it shuts down before processing this request
+            pass
     dict_to_yield["main_thread"].join()
     confirm_port_available(get_server_port_number(), timeout=5)
     # clean up singletons

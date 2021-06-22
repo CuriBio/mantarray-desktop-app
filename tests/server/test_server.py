@@ -2,7 +2,6 @@
 from queue import Queue
 import threading
 
-from eventlet.green import threading as green_threading
 from immutabledict import immutabledict
 from mantarray_desktop_app import clear_server_singletons
 from mantarray_desktop_app import DEFAULT_SERVER_PORT_NUMBER
@@ -40,10 +39,7 @@ __fixtures__ = [
 def test_ServerThread__init__calls_super(mocker, generic_queue_container):
     error_queue = Queue()
     to_main_queue = Queue()
-    mocked_super_init = mocker.spy(
-        green_threading.Thread,  # pylint: disable=no-member  # Tanner (6/21/21): not sure why pylint can't find this eventlet class
-        "__init__",
-    )
+    mocked_super_init = mocker.spy(threading.Thread, "__init__")
     st = ServerThread(to_main_queue, error_queue, generic_queue_container)
     assert mocked_super_init.call_count == 1
 
