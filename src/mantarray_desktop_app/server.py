@@ -105,7 +105,7 @@ from .utils import validate_magnetometer_config_keys
 from .utils import validate_settings
 
 # patched imports
-stdlib_utils = eventlet.import_patched("stdlib_utils")
+import stdlib_utils# = eventlet.import_patched("stdlib_utils")
 drain_queue = stdlib_utils.drain_queue
 is_port_in_use = stdlib_utils.is_port_in_use
 put_log_message_into_queue = stdlib_utils.put_log_message_into_queue
@@ -1126,12 +1126,12 @@ class ServerThread(stdlib_utils.InfiniteThread):  # type: ignore  # mypy doesn't
             raise LocalServerPortAlreadyInUseError(port)
 
     def _commands_for_each_run_iteration(self) -> None:
-        try:
-            # Tanner (6/17/21): using a very low timeout here since this process must iterate very quickly, but still want to have a non-zero timeout
-            item = self.get_data_queue_to_server().get(timeout=0.0001)
-        except Empty:
-            return
-        socketio.send(item)
+        return # try:
+        #     # Tanner (6/17/21): using a very low timeout here since this process must iterate very quickly, but still want to have a non-zero timeout
+        #     item = self.get_data_queue_to_server().get(timeout=0.0001)
+        # except Empty:
+        #     return
+        # socketio.send(item)
 
     def _shutdown_server(self) -> None:
         try:

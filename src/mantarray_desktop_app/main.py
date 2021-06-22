@@ -21,6 +21,7 @@ from typing import Dict
 from typing import List
 from typing import Optional
 import uuid
+from eventlet.queue import Empty
 
 from stdlib_utils import configure_logging
 from stdlib_utils import get_current_file_abs_directory
@@ -287,6 +288,21 @@ def main(
     process_monitor_thread.start()
     logger.info("Starting Flask SocketIO")
     _, host, _ = get_server_address_components()
+    
+    
+    data_queue_to_server = process_manager.queue_container().get_data_queue_to_server()
+    def data_sender():
+        while True:
+            # print("$$$")
+            try:
+                item = data_queue_to_server.get(timeout=.0001)
+            except Empty:
+                # print("empty")
+                continue
+            print("sending...")
+            socketio.send(item)
+    
+    socketio.start_background_task(data_sender)
     socketio.run(
         flask_app,
         host=host,
