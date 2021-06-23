@@ -519,7 +519,7 @@ def test_main__boots_up_instrument_without_a_bitfile_when_using_a_simulator__whe
 @pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 def test_main__full_launch_script_runs_as_expected(fully_running_app_from_main_entrypoint, mocker):
     spied_info = mocker.spy(main.logger, "info")
-    # TODO unit test start_background_task
+    mocked_start_bg_task = mocker.patch.object(main.socketio, "start_background_task", autospec=True)
 
     app_info = fully_running_app_from_main_entrypoint(["--main-script-test", "--beta-2-mode"])
 
@@ -545,6 +545,8 @@ def test_main__full_launch_script_runs_as_expected(fully_running_app_from_main_e
     else:
         assert False, f"Message: '{next_call_args}' not found"
 
+    # make sure background thread was started correctly
+    mocked_start_bg_task.assert_called_once_with(app_info["object_access_inside_main"]["data_sender"])
     # assert Flask was started correctly
     _, host, port = get_server_address_components()
     mocked_socketio_run = app_info["mocked_socketio_run"]
