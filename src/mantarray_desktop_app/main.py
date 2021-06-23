@@ -291,7 +291,7 @@ def main(
 
     data_queue_to_server = process_manager.queue_container().get_data_queue_to_server()
 
-    def data_sender() -> None:  # TODO unit test this function without normal thread stuff to get code coverage working and move it somewhere else
+    def data_sender() -> None:  # pragma: no cover  # Tanner (6/21/21): code coverage can't follow into start_background_task where this function is run
         while True:
             try:
                 item = data_queue_to_server.get(timeout=0.0001)
@@ -299,9 +299,9 @@ def main(
                 continue
             socketio.send(item)
 
-    socketio.start_background_task(
-        data_sender
-    )  # TODO try mocking this in main script test to get code coverage working
+    object_access_for_testing["data_sender"] = data_sender
+
+    socketio.start_background_task(data_sender)
     socketio.run(
         flask_app,
         host=host,
