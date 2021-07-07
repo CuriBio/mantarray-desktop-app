@@ -44,10 +44,7 @@ __fixtures__ = [
 ]
 
 
-def fill_da_input_data_queue(
-    input_queue,
-    num_seconds,
-):
+def fill_da_input_data_queue(input_queue, num_seconds):
     for seconds in range(num_seconds):
         for well in range(24):
             time_indices = np.arange(
@@ -75,7 +72,7 @@ def fill_da_input_data_queue(
                 "data": np.array([time_indices, ref_data], dtype=np.int32),
             }
             input_queue.put_nowait(ref_packet)
-    confirm_queue_is_eventually_of_size(input_queue, num_seconds * (24 + 6))
+    confirm_queue_is_eventually_of_size(input_queue, num_seconds * (24 + 6), sleep_after_confirm_seconds=2)
 
 
 def test_convert_24_bit_code_to_voltage_returns_correct_values_with_numpy_array():
@@ -92,7 +89,7 @@ def test_convert_24_bit_code_to_voltage_returns_correct_values_with_numpy_array(
 
 @pytest.mark.slow
 def test_DataAnalyzerProcess_beta_1_performance(four_board_analyzer_process):
-    # Data coming in from File Writer to going back to main (625 Hz)
+    # 8 seconds of data (625 Hz) coming in from File Writer to going back to Main
     #
     # mantarray-waveform-analysis v0.3:     4148136512
     # mantarray-waveform-analysis v0.3.1:   3829136133
@@ -100,25 +97,29 @@ def test_DataAnalyzerProcess_beta_1_performance(four_board_analyzer_process):
     # remove concatenate:                   2966678695
     # 30 Hz Bessel filter:                  2930061808  # Tanner (9/3/20): not intended to speed anything up, just adding this to show it had it didn't have much affect on performance
     # 30 Hz Butterworth filter:             2935009033  # Tanner (9/10/20): not intended to speed anything up, just adding this to show it had it didn't have much affect on performance
+    #
+    # 1 second of data (625 Hz) coming in from File Writer to going back to Main
+    # start:                                 530731389
 
-    p, board_queues, comm_from_main_queue, _, _ = four_board_analyzer_process
-    input_queue = board_queues[0][0]
+    p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
         comm_from_main_queue,
     )
     invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
 
-    num_seconds = 8
-    fill_da_input_data_queue(input_queue, num_seconds)
+    num_seconds = 1
+    fill_da_input_data_queue(board_queues[0][0], num_seconds)
     start = time.perf_counter_ns()
     invoke_process_run_and_check_errors(p, num_iterations=num_seconds * (24 + 6))
     dur = time.perf_counter_ns() - start
 
-    board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # Tanner (8/31/20): prevent BrokenPipeError
+    # prevent BrokenPipeErrors
+    board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    comm_to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
     # print(f"Duration (ns): {dur}") # pylint:disable=wrong-spelling-in-comment # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
-    assert dur < 7000000000
+    assert dur < 2000000000
 
 
 def test_DataAnalyzerProcess_commands_for_each_run_iteration__checks_for_calibration_update_from_main(
