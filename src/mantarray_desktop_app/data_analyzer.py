@@ -198,24 +198,27 @@ class DataAnalyzerProcess(InfiniteProcess):
 
     def _create_outgoing_beta_2_data(self, data_dict: Dict[Any, Any]) -> Dict[str, Any]:
         # pylint: disable=no-self-use  # will eventually use self
-        del data_dict["is_first_packet_of_stream"]
-        data_dict["earliest_timepoint"] = data_dict["time_indices"][0].item()
-        data_dict["latest_timepoint"] = data_dict["time_indices"][-1].item()
-        # convert arrays to lists for json conversion later  # TODO Tanner (6/15/21): need to compress data here and format data dict
-        data_dict["time_indices"] = data_dict["time_indices"].tolist()
+        waveform_data_points: Dict[int, Dict[int, List[int]]] = dict()
+        # convert arrays to lists for json conversion later
         for well_idx in range(24):
+            waveform_data_points[well_idx] = dict()
             for key, data in data_dict[well_idx].items():
-                data_dict[well_idx][key] = data.tolist()
-        return data_dict
+                # TODO Tanner (7/7/21): need to figure out what exactly to send to the frontend. Might be best to just pick one magnetometer channel to send
+                if key == "time_offsets":
+                    continue
+                waveform_data_points[well_idx][key] = data.tolist()
+        # create formatted dict
+        outgoing_data: Dict[str, Any] = {
+            "waveform_data": {"basic_data": {"waveform_data_points": waveform_data_points}},
+            "earliest_timepoint": data_dict["time_indices"][0].item(),
+            "latest_timepoint": data_dict["time_indices"][-1].item(),
+            "num_data_points": len(data_dict["time_indices"]),
+        }
+        return outgoing_data
 
     def _create_outgoing_beta_1_data(self) -> Dict[str, Any]:
         outgoing_data_creation_start = time.perf_counter()
-        outgoing_data: Dict[str, Any] = {
-            "waveform_data": {
-                "basic_data": {"waveform_data_points": None},
-                "data_metrics": dict(),  # Tanner (6/15/21): Data metrics will likely be sent separately from waveform data
-            },
-        }
+        outgoing_data: Dict[str, Any] = {"waveform_data": {"basic_data": {"waveform_data_points": None}}}
 
         basic_waveform_data_points = dict()
         earliest_timepoint: Optional[int] = None
@@ -294,7 +297,7 @@ class DataAnalyzerProcess(InfiniteProcess):
     def _dump_data_into_queue(self, outgoing_data: Dict[str, Any]) -> None:
         timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
         if self._beta_2_mode:
-            num_data_points = len(outgoing_data["time_indices"])
+            num_data_points = outgoing_data["num_data_points"]
         else:
             num_data_points = (
                 outgoing_data["latest_timepoint"] - outgoing_data["earliest_timepoint"]

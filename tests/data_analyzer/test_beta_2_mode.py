@@ -48,18 +48,23 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
     confirm_queue_is_eventually_of_size(outgoing_data_queue, 1)
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
 
+    # test data dump
     outgoing_data_dict = outgoing_data_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    expected_outgoing_dict = {
-        "time_indices": test_data_packet["time_indices"].tolist(),
-    }
+    waveform_data_points = dict()
     for well_idx in range(24):
-        expected_outgoing_dict[well_idx] = dict()
+        waveform_data_points[well_idx] = dict()
         for key in test_data_packet[well_idx].keys():
-            expected_outgoing_dict[well_idx][key] = test_data_packet[well_idx][key].tolist()
-    expected_outgoing_dict["earliest_timepoint"] = test_data_packet["time_indices"][0].item()
-    expected_outgoing_dict["latest_timepoint"] = test_data_packet["time_indices"][-1].item()
+            if key == "time_offsets":
+                continue
+            waveform_data_points[well_idx][key] = test_data_packet[well_idx][key].tolist()
+    expected_outgoing_dict = {
+        "waveform_data": {"basic_data": {"waveform_data_points": waveform_data_points}},
+        "earliest_timepoint": test_data_packet["time_indices"][0].item(),
+        "latest_timepoint": test_data_packet["time_indices"][-1].item(),
+        "num_data_points": len(test_data_packet["time_indices"]),
+    }
     assert outgoing_data_dict == json.dumps(expected_outgoing_dict)
-
+    # test message sent to main
     outgoing_msg = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     expected_msg = {
         "communication_type": "data_available",
