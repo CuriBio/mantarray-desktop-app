@@ -19,7 +19,7 @@ Custom HTTP Error Codes:
 * 406 - Call to /start_managed_acquisition before magnetometer configuration is set
 * 406 - Call to /start_managed_acquisition when Mantarray device does not have a serial number assigned to it
 * 406 - Call to /start_recording before customer_account_uuid and user_account_uuid are set
-* 520 - Electron and Flask EXE versions don't match
+* 520 - Call to /system_status when Electron and Flask EXE versions don't match
 """
 from __future__ import annotations
 
