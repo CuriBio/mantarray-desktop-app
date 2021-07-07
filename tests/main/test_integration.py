@@ -21,7 +21,6 @@ from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
-from mantarray_desktop_app import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from mantarray_desktop_app import DATA_FRAME_PERIOD
 from mantarray_desktop_app import FIFO_READ_PRODUCER_DATA_OFFSET
 from mantarray_desktop_app import FIFO_READ_PRODUCER_SAWTOOTH_PERIOD
@@ -615,7 +614,7 @@ def test_full_datapath(
     x_values = np.array(
         [
             ROUND_ROBIN_PERIOD * (i + 1) // TIMESTEP_CONVERSION_FACTOR
-            for i in range(math.ceil(DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS / ROUND_ROBIN_PERIOD))
+            for i in range(math.ceil(CENTIMILLISECONDS_PER_SECOND / ROUND_ROBIN_PERIOD))
         ]
     )
     sawtooth_points = signal.sawtooth(x_values / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5)
@@ -648,8 +647,8 @@ def test_full_datapath(
         decimal=4,
     )
     np.testing.assert_almost_equal(
-        actual_well_0_y_data[9],
-        expected_well_data[1][9] * MILLIVOLTS_PER_VOLT,
+        actual_well_0_y_data[2],
+        expected_well_data[1][2] * MILLIVOLTS_PER_VOLT,
         decimal=4,
     )
 
