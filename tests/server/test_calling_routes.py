@@ -197,7 +197,6 @@ def test_send_single_get_available_data_command__gets_item_from_data_out_queue_w
     expected_response = {
         "waveform_data": {
             "basic_data": [100, 200, 300],
-            "data_metrics": "dummy_metrics",
         }
     }
 
