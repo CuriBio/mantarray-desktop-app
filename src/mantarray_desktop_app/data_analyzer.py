@@ -102,9 +102,14 @@ class DataAnalyzerProcess(InfiniteProcess):
         return self._calibration_settings
 
     def _commands_for_each_run_iteration(self) -> None:
+        # TODO Tanner (7/7/21): eventually need to add process performance metrics in beta 2 mode
         self._process_next_command_from_main()
         self._handle_incoming_data()
-        if self._is_buffer_full():
+
+        if self._beta_2_mode:
+            return
+
+        if self._is_data_from_each_well_present():
             outgoing_data = self._create_outgoing_beta_1_data()
             self._dump_data_into_queue(outgoing_data)
 
@@ -193,6 +198,12 @@ class DataAnalyzerProcess(InfiniteProcess):
                 construct_duration < DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
                 or ref_duration < DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
             ):
+                return False
+        return True
+
+    def _is_data_from_each_well_present(self) -> bool:
+        for data_pair in self._data_buffer.values():
+            if data_pair["construct_data"] is None or data_pair["ref_data"] is None:
                 return False
         return True
 

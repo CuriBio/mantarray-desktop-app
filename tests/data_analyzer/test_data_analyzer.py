@@ -196,9 +196,11 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_dumping_beta_1_data
         perf_counter_vals.append(waveform_analysis_durations[i])
     perf_counter_vals.append(expected_data_creation_durs[-1])
     mocker.patch.object(time, "perf_counter", autospec=True, side_effect=perf_counter_vals)
-    is_buffer_full_vals = [False for i in range(expected_num_iterations - 1)]
-    is_buffer_full_vals.append(True)
-    mocker.patch.object(da_process, "_is_buffer_full", autospec=True, side_effect=is_buffer_full_vals)
+    is_data_present_vals = [False for i in range(expected_num_iterations - 1)]
+    is_data_present_vals.append(True)
+    mocker.patch.object(
+        da_process, "_is_data_from_each_well_present", autospec=True, side_effect=is_data_present_vals
+    )
 
     invoke_process_run_and_check_errors(da_process, num_iterations=expected_num_iterations)
     confirm_queue_is_eventually_of_size(
@@ -251,7 +253,6 @@ def test_DataAnalyzerProcess__does_not_include_performance_metrics_in_first_logg
     for i in range(24):
         data_buffer[i]["construct_data"] = np.zeros((2, 2))
         data_buffer[i]["ref_data"] = np.zeros((2, 2))
-    mocker.patch.object(da_process, "_is_buffer_full", return_value=True)
 
     invoke_process_run_and_check_errors(da_process, perform_setup_before_loop=True)
     confirm_queue_is_eventually_of_size(to_main_queue, 2)
