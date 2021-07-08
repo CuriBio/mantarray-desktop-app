@@ -1,6 +1,6 @@
 {
   "name": "MantarrayController",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "description": "Desktop application for controlling the Mantarray instrument.",
   "author": {
     "name": "Curi Bio",
@@ -15,7 +15,6 @@
   "license": "MIT",
   "main": "./dist/main/index.js",
   "scripts": {
-    "start": "electron .",
     "prepare": "pre-commit install",
     "dev": "node ./node_modules/@curi-bio/frontend-test-utils/src/check_engines.js && cross-env-shell NODE_ENV=development node .electron-nuxt/index.js",
     "test:unit": "node ./node_modules/@curi-bio/frontend-test-utils/src/check_engines.js && cross-env-shell NODE_ENV=test jest -c jest.config.js",
