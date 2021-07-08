@@ -176,11 +176,12 @@ app.on("window-all-closed", function () {
 });
 // let win_handler = null;
 app.on("ready", () => {
-  console.log("ready in index.js");
-  if (features.autoupdate) {
-    autoUpdater.checkForUpdatesAndNotify();
-  } else {
-    console.log("Autoupdate feature disabled");
+  if (process.env.NODE_ENV !== "test") {
+    if (features.autoupdate) {
+      autoUpdater.checkForUpdatesAndNotify();
+    } else {
+      console.log("Autoupdate feature disabled");
+    }
   }
 });
 
