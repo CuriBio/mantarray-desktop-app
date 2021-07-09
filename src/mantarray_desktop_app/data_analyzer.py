@@ -37,12 +37,7 @@ from .exceptions import UnrecognizedCommTypeFromMainToDataAnalyzerError
 
 def convert_24_bit_codes_to_voltage(codes: NDArray[int]) -> NDArray[float]:
     """Convert 'signed' 24-bit values from an ADC to measured voltage."""
-    voltages = (
-        codes.astype(np.float32)
-        * 2 ** -23
-        * (REFERENCE_VOLTAGE / ADC_GAIN)
-        * MILLIVOLTS_PER_VOLT
-    )
+    voltages = codes.astype(np.float32) * 2 ** -23 * (REFERENCE_VOLTAGE / ADC_GAIN) * MILLIVOLTS_PER_VOLT
     return voltages
 
 
@@ -80,16 +75,11 @@ class DataAnalyzerProcess(InfiniteProcess):
             ],
             ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
         ],
-        comm_from_main_queue: Queue[  # pylint: disable=unsubscriptable-object
-            Dict[str, Any]
-        ],
-        comm_to_main_queue: Queue[  # pylint: disable=unsubscriptable-object
-            Dict[str, Any]
-        ],
-        fatal_error_reporter: Queue[  # pylint: disable=unsubscriptable-object
-            Tuple[Exception, str]
-        ],
+        comm_from_main_queue: Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
+        comm_to_main_queue: Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
+        fatal_error_reporter: Queue[Tuple[Exception, str]],  # pylint: disable=unsubscriptable-object
         logging_level: int = logging.INFO,
+        beta_2_mode: bool = False,
     ):
         super().__init__(fatal_error_reporter, logging_level=logging_level)
         self._board_queues = the_board_queues
@@ -105,13 +95,14 @@ class DataAnalyzerProcess(InfiniteProcess):
             noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
             tissue_sampling_period=CONSTRUCT_SENSOR_SAMPLING_PERIOD,
         )
+        self._beta_2_mode = beta_2_mode
 
     def get_calibration_settings(self) -> Union[None, Dict[Any, Any]]:
         return self._calibration_settings
 
     def _commands_for_each_run_iteration(self) -> None:
         self._process_next_command_from_main()
-        #  TODO Tanner (6/30/20): Apply sensor sensitivity calibration settings once they are fleshed out
+        # TODO Tanner (6/30/20): Apply sensor sensitivity calibration settings once they are fleshed out.  # Tanner (5/19/21): This TODO may be unnecessary now
         self._load_memory_into_buffer()
         if self._is_buffer_full():
             outgoing_data = self._create_outgoing_data()
@@ -151,6 +142,10 @@ class DataAnalyzerProcess(InfiniteProcess):
         except queue.Empty:
             return
 
+        if self._beta_2_mode:
+            # Tanner (5/24/21): This if check should be removed once beta 2 mode is implemented in this process
+            return
+
         if not self._is_managed_acquisition_running:
             return
 
@@ -159,16 +154,12 @@ class DataAnalyzerProcess(InfiniteProcess):
             for ref in range(3, 6):
                 if data_dict["reference_for_wells"] == REF_INDEX_TO_24_WELL_INDEX[ref]:
                     reverse = True
-            corresponding_well_indices = sorted(
-                list(data_dict["reference_for_wells"]), reverse=reverse
-            )
+            corresponding_well_indices = sorted(list(data_dict["reference_for_wells"]), reverse=reverse)
 
             ref_data_len = len(data_dict["data"][0])
             for ref_data_index in range(ref_data_len):
                 data_pair = data_dict["data"][:, ref_data_index].reshape((2, 1))
-                well_index = corresponding_well_indices[
-                    ref_data_index % CONSTRUCT_SENSORS_PER_REF_SENSOR
-                ]
+                well_index = corresponding_well_indices[ref_data_index % CONSTRUCT_SENSORS_PER_REF_SENSOR]
                 if self._data_buffer[well_index]["ref_data"] is None:
                     # Tanner (9/1/20): Using lists here since it is faster to extend a list than concatenate two arrays
                     self._data_buffer[well_index]["ref_data"] = (
@@ -186,20 +177,14 @@ class DataAnalyzerProcess(InfiniteProcess):
                     data_dict["data"][1].tolist(),
                 )
             else:
-                self._data_buffer[well_index]["construct_data"][0].extend(
-                    data_dict["data"][0]
-                )
-                self._data_buffer[well_index]["construct_data"][1].extend(
-                    data_dict["data"][1]
-                )
+                self._data_buffer[well_index]["construct_data"][0].extend(data_dict["data"][0])
+                self._data_buffer[well_index]["construct_data"][1].extend(data_dict["data"][1])
 
     def _is_buffer_full(self) -> bool:
         for data_pair in self._data_buffer.values():
             if data_pair["construct_data"] is None or data_pair["ref_data"] is None:
                 return False
-            construct_duration = (
-                data_pair["construct_data"][0][-1] - data_pair["construct_data"][0][0]
-            )
+            construct_duration = data_pair["construct_data"][0][-1] - data_pair["construct_data"][0][0]
             ref_duration = data_pair["ref_data"][0][-1] - data_pair["ref_data"][0][0]
             if (
                 construct_duration < DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
@@ -213,7 +198,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         outgoing_data: Dict[str, Any] = {
             "waveform_data": {
                 "basic_data": {"waveform_data_points": None},
-                # TODO Tanner (4/21/20): Add "not basic" data once possible
+                # TODO Tanner (4/21/20): Add data_metrics once possible
                 "data_metrics": dict(),
             },
         }
@@ -226,9 +211,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             start = time.perf_counter()
             pipeline = self._pipeline_template.create_pipeline()
             pipeline.load_raw_gmr_data(
-                np.array(
-                    self._data_buffer[well_index]["construct_data"], dtype=np.int32
-                ),
+                np.array(self._data_buffer[well_index]["construct_data"], dtype=np.int32),
                 np.array(self._data_buffer[well_index]["ref_data"], dtype=np.int32),
             )
             compressed_data = pipeline.get_compressed_displacement()
@@ -243,7 +226,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                 # Tanner (4/23/20): json cannot by default serialize type numpy types, so we must use the item as native type
                 earliest_timepoint = compressed_data[0][0].item()
             if latest_timepoint is None or compressed_data[0][-1] > latest_timepoint:
-                # Tanner (4/23/20): json cannot by default serialize type numpy types, so we must use the item as native type
+                # Tanner (4/23/20): json cannot by default serialize numpy types, so we must use the item as native type
                 latest_timepoint = compressed_data[0][-1].item()
             self._data_buffer[well_index] = {
                 "construct_data": None,
@@ -253,9 +236,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._outgoing_data_creation_durations.append(outgoing_data_creation_dur)
         self._handle_performance_logging(analysis_durations)
 
-        outgoing_data["waveform_data"]["basic_data"][
-            "waveform_data_points"
-        ] = basic_waveform_data_points
+        outgoing_data["waveform_data"]["basic_data"]["waveform_data_points"] = basic_waveform_data_points
         outgoing_data["earliest_timepoint"] = earliest_timepoint
         outgoing_data["latest_timepoint"] = latest_timepoint
         return outgoing_data
@@ -265,13 +246,9 @@ class DataAnalyzerProcess(InfiniteProcess):
             "communication_type": "performance_metrics",
         }
         tracker = self.reset_performance_tracker()
-        performance_metrics["longest_iterations"] = sorted(
-            tracker["longest_iterations"]
-        )
+        performance_metrics["longest_iterations"] = sorted(tracker["longest_iterations"])
         performance_metrics["percent_use"] = tracker["percent_use"]
-        performance_metrics[
-            "data_creating_duration"
-        ] = self._outgoing_data_creation_durations[-1]
+        performance_metrics["data_creating_duration"] = self._outgoing_data_creation_durations[-1]
 
         name_measurement_list = [("analysis_durations", analysis_durations)]
         if len(self._percent_use_values) > 1:
@@ -321,10 +298,6 @@ class DataAnalyzerProcess(InfiniteProcess):
         queue_items: Dict[str, Any] = dict()
         for i, board in enumerate(self._board_queues):
             queue_items[f"board_{i}"] = _drain_board_queues(board)
-        queue_items["from_main_to_data_analyzer"] = drain_queue(
-            self._comm_from_main_queue
-        )
-        queue_items["from_data_analyzer_to_main"] = drain_queue(
-            self._comm_to_main_queue
-        )
+        queue_items["from_main_to_data_analyzer"] = drain_queue(self._comm_from_main_queue)
+        queue_items["from_data_analyzer_to_main"] = drain_queue(self._comm_to_main_queue)
         return queue_items

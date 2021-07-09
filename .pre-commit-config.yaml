@@ -33,6 +33,7 @@ repos:
     rev: 20.8b1 # pick a git hash / tag to point to
     hooks:
       - id: black
+        args: [--line-length=110]
       - id: black
         name: blacken pyinstaller spec
         files: "pyinstaller.spec"

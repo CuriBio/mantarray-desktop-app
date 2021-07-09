@@ -20,19 +20,25 @@ def pytest_addoption(parser: Parser) -> None:
         "--full-ci",
         action="store_true",
         default=False,
-        help="run tests that are marked as only for CI",
+        help="include tests that are marked as only for CI",
     )
     parser.addoption(
         "--include-slow-tests",
         action="store_true",
         default=False,
-        help="run tests that are a bit slow",
+        help="include tests that are a bit slow",
     )
     parser.addoption(
         "--only-exe",
         action="store_true",
         default=False,
-        help="run tests that are marked as only for the",
+        help="onlyrun tests that are marked for the compiled exe",
+    )
+    parser.addoption(
+        "--live-test",
+        action="store_true",
+        default=False,
+        help="only run tests that are marked for the real (live) instrument",
     )
 
 
@@ -45,18 +51,20 @@ def pytest_collection_modifyitems(config: Config, items: List[Function]) -> None
             if "only_exe" not in item.keywords:
                 item.add_marker(skip_non_exe)
         return
-    else:
-        skip_exe = pytest.mark.skip(
-            reason="these tests are skipped unless --only-exe option is set"
-        )
+
+    skip_exe = pytest.mark.skip(reason="these tests are skipped unless --only-exe option is set")
+    for item in items:
+        if "only_exe" in item.keywords:
+            item.add_marker(skip_exe)
+
+    if not config.getoption("--live-test"):
+        skip_live = pytest.mark.skip(reason="these tests are skipped unless --live-test option is set")
         for item in items:
-            if "only_exe" in item.keywords:
-                item.add_marker(skip_exe)
+            if "live_test" in item.keywords:
+                item.add_marker(skip_live)
 
     if not config.getoption("--full-ci"):
-        skip_ci_only = pytest.mark.skip(
-            reason="these tests are skipped unless --full-ci option is set"
-        )
+        skip_ci_only = pytest.mark.skip(reason="these tests are skipped unless --full-ci option is set")
         for item in items:
             if "only_run_in_ci" in item.keywords:
                 item.add_marker(skip_ci_only)

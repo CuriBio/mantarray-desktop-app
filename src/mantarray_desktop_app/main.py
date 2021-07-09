@@ -30,6 +30,7 @@ from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import SERVER_INITIALIZING_STATE
+from .exceptions import InvalidBeta2FlagOptionError
 from .exceptions import MultiprocessingNotSetToSpawnError
 from .process_manager import MantarrayProcessesManager
 from .process_monitor import MantarrayProcessesMonitor
@@ -61,9 +62,7 @@ def get_server_port_number() -> int:
     return server_thread.get_port_number()
 
 
-def _create_process_manager(
-    shared_values_dict: Dict[str, Any]
-) -> MantarrayProcessesManager:
+def _create_process_manager(shared_values_dict: Dict[str, Any]) -> MantarrayProcessesManager:
     base_path = os.path.join(get_current_file_abs_directory(), os.pardir, os.pardir)
     relative_path = "recordings"
     try:
@@ -71,9 +70,7 @@ def _create_process_manager(
     except KeyError:
         file_dir = resource_path(relative_path, base_path=base_path)
 
-    return MantarrayProcessesManager(
-        file_directory=file_dir, values_to_share_to_server=shared_values_dict
-    )
+    return MantarrayProcessesManager(file_directory=file_dir, values_to_share_to_server=shared_values_dict)
 
 
 def _log_system_info() -> None:
@@ -149,7 +146,20 @@ def main(
         action="store_true",
         help="override any supplied expected software version and disable the check",
     )
+    parser.add_argument(
+        "--beta-2-mode",
+        action="store_true",
+        help="indicates the software will be connecting to a beta 2 mantarray instrument",
+    )
     parsed_args = parser.parse_args(command_line_args)
+
+    if parsed_args.beta_2_mode:
+        for invalid_beta_2_option, error_message in (
+            (parsed_args.no_load_firmware, "--no-load-firmware"),
+            (parsed_args.skip_mantarray_boot_up, "--skip-mantarray-boot-up"),
+        ):
+            if invalid_beta_2_option:
+                raise InvalidBeta2FlagOptionError(error_message)
 
     if parsed_args.log_level_debug:
         log_level = logging.DEBUG
@@ -166,8 +176,8 @@ def main(
     msg = f"Build timestamp/version: {COMPILED_EXE_BUILD_TIMESTAMP}"
     logger.info(msg)
     parsed_args_dict = copy.deepcopy(vars(parsed_args))
+    # Tanner (1/14/21): parsed_args_dict is only used to log the command line args at the moment, so initial_base64_settings can be deleted and log_file_dir can just be replaced here without affecting anything that actually needs the original value
     del parsed_args_dict["initial_base64_settings"]
-    # Tanner (1/14/21): parsed_args_dict is only used to log the command line args at the moment, so log_file_dir can just be replaced here without affecting anything that actually needs the original value
     parsed_args_dict["log_file_dir"] = scrubbed_path_to_log_folder
     msg = f"Command Line Args: {parsed_args_dict}".replace(
         r"\\",
@@ -186,25 +196,21 @@ def main(
 
     if parsed_args.initial_base64_settings:
         # Eli (7/15/20): Moved this ahead of the exit for debug_test_post_build so that it could be easily unit tested. The equals signs are adding padding..apparently a quirk in python https://stackoverflow.com/questions/2941995/python-ignore-incorrect-padding-error-when-base64-decoding
-        decoded_settings: bytes = base64.urlsafe_b64decode(
-            str(parsed_args.initial_base64_settings) + "==="
-        )
+        decoded_settings: bytes = base64.urlsafe_b64decode(str(parsed_args.initial_base64_settings) + "===")
         settings_dict = json.loads(decoded_settings)
         validate_settings(settings_dict)
 
     if parsed_args.expected_software_version:
         if not parsed_args.skip_software_version_verification:
-            shared_values_dict[
-                "expected_software_version"
-            ] = parsed_args.expected_software_version
+            shared_values_dict["expected_software_version"] = parsed_args.expected_software_version
 
     log_file_uuid = settings_dict.get("log_file_uuid", uuid.uuid4())
     shared_values_dict["log_file_uuid"] = log_file_uuid
 
-    computer_name_hash = hashlib.sha512(
-        socket.gethostname().encode(encoding="UTF-8")
-    ).hexdigest()
+    computer_name_hash = hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).hexdigest()
     shared_values_dict["computer_name_hash"] = computer_name_hash
+
+    shared_values_dict["beta_2_mode"] = parsed_args.beta_2_mode
 
     msg = f"Log File UUID: {log_file_uuid}"
     logger.info(msg)
@@ -212,25 +218,19 @@ def main(
     logger.info(msg)
 
     if parsed_args.debug_test_post_build:
-        print(  # allow-print
-            f"Successfully opened and closed application v{CURRENT_SOFTWARE_VERSION}."
-        )
+        print(f"Successfully opened and closed application v{CURRENT_SOFTWARE_VERSION}.")  # allow-print
         return
 
     shared_values_dict["system_status"] = SERVER_INITIALIZING_STATE
     if parsed_args.port_number is not None:
         shared_values_dict["server_port_number"] = parsed_args.port_number
     global _server_port_number  # pylint:disable=global-statement,invalid-name# Eli (12/8/20) this is deliberately setting a global singleton
-    _server_port_number = shared_values_dict.get(
-        "server_port_number", DEFAULT_SERVER_PORT_NUMBER
-    )
+    _server_port_number = shared_values_dict.get("server_port_number", DEFAULT_SERVER_PORT_NUMBER)
     msg = f"Using server port number: {_server_port_number}"
     logger.info(msg)
 
     if settings_dict:
-        update_shared_dict(
-            shared_values_dict, convert_request_args_to_config_dict(settings_dict)
-        )
+        update_shared_dict(shared_values_dict, convert_request_args_to_config_dict(settings_dict))
     _log_system_info()
     logger.info("Spawning subprocesses and starting server thread")
 
@@ -240,13 +240,11 @@ def main(
     object_access_for_testing["values_to_share_to_server"] = shared_values_dict
     process_manager.spawn_processes()
 
-    boot_up_after_processes_start = not parsed_args.skip_mantarray_boot_up
-    load_firmware_file = not parsed_args.no_load_firmware
+    boot_up_after_processes_start = not parsed_args.skip_mantarray_boot_up and not parsed_args.beta_2_mode
+    load_firmware_file = not parsed_args.no_load_firmware and not parsed_args.beta_2_mode
 
     the_lock = threading.Lock()
-    process_monitor_error_queue: Queue[  # pylint: disable=unsubscriptable-object
-        str
-    ] = queue.Queue()
+    process_monitor_error_queue: Queue[str] = queue.Queue()  # pylint: disable=unsubscriptable-object
 
     process_monitor_thread = MantarrayProcessesMonitor(
         shared_values_dict,
@@ -258,7 +256,6 @@ def main(
     )
 
     object_access_for_testing["process_monitor"] = process_monitor_thread
-    # set_mantarray_processes_monitor(process_monitor_thread)
     logger.info("Starting process monitor thread")
     process_monitor_thread.start()
     server_thread = process_manager.get_server_thread()

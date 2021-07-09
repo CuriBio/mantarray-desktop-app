@@ -39,26 +39,18 @@ def test_system_state_eventually_equals__returns_True_after_system_state_equals_
     # mocker.patch.object(system_utils,'get_api_endpoint',autospec=True,return_value=dummy_api_endpoint) # Eli (11/18/20) mocking so that the ServerThread doesn't need to be started
     dummy_response = Response()
     mocker.patch.object(dummy_response, "json", side_effect=mocked_status_values)
-    mocker.patch.object(
-        system_utils, "sleep", autospec=True
-    )  # mock this to run the test faster
-    mocked_get = mocker.patch.object(
-        system_utils.requests, "get", autospec=True, return_value=dummy_response
-    )
+    mocker.patch.object(system_utils, "sleep", autospec=True)  # mock this to run the test faster
+    mocked_get = mocker.patch.object(system_utils.requests, "get", autospec=True, return_value=dummy_response)
 
     result = system_state_eventually_equals(expected_state, 2)
     assert result is True
 
     num_calls = len(mocked_status_values)
-    expected_calls = [
-        mocker.call(f"{patch_api_endpoint}system_status") for _ in range(num_calls)
-    ]
+    expected_calls = [mocker.call(f"{patch_api_endpoint}system_status") for _ in range(num_calls)]
     mocked_get.assert_has_calls(expected_calls)
 
 
-def test_system_state_eventually_equals__returns_False_after_timeout_is_reached(
-    mocker, patch_api_endpoint
-):
+def test_system_state_eventually_equals__returns_False_after_timeout_is_reached(mocker, patch_api_endpoint):
     test_timeout = 1
     mocked_counter_vals = [0, test_timeout]
     mocker.patch.object(time, "perf_counter", side_effect=mocked_counter_vals)
@@ -66,9 +58,7 @@ def test_system_state_eventually_equals__returns_False_after_timeout_is_reached(
     mocked_json = {"ui_status_code": str(SYSTEM_STATUS_UUIDS[CALIBRATION_NEEDED_STATE])}
     dummy_response = Response()
     mocker.patch.object(dummy_response, "json", return_value=mocked_json)
-    mocked_get = mocker.patch.object(
-        system_utils.requests, "get", autospec=True, return_value=dummy_response
-    )
+    mocked_get = mocker.patch.object(system_utils.requests, "get", autospec=True, return_value=dummy_response)
 
     result = system_state_eventually_equals(RECORDING_STATE, test_timeout)
     assert result is False
@@ -96,9 +86,7 @@ def test_wait_for_subprocesses_to_start__waits_until_system_status_route_is_read
         system_utils.requests, "get", autospec=True, side_effect=mocked_responses
     )
     num_get_calls = len(mocked_responses)
-    expected_get_calls = [
-        mocker.call(f"{patch_api_endpoint}system_status") for _ in range(num_get_calls)
-    ]
+    expected_get_calls = [mocker.call(f"{patch_api_endpoint}system_status") for _ in range(num_get_calls)]
 
     wait_for_subprocesses_to_start()
 
@@ -109,19 +97,13 @@ def test_wait_for_subprocesses_to_start__waits_until_system_status_route_is_read
 def test_wait_for_subprocesses_to_start__raises_error_if_state_does_not_reach_server_ready(
     mocker, patch_api_endpoint
 ):
-    mocked_json = {
-        "ui_status_code": str(SYSTEM_STATUS_UUIDS[SERVER_INITIALIZING_STATE])
-    }
+    mocked_json = {"ui_status_code": str(SYSTEM_STATUS_UUIDS[SERVER_INITIALIZING_STATE])}
     mocked_response = Response()
     mocker.patch.multiple(mocked_response, status_code=200)
     mocker.patch.object(mocked_response, "json", return_value=mocked_json)
-    mocker.patch.object(time, "perf_counter", side_effect=[0, 11])
-    mocker.patch.object(
-        system_utils.requests, "get", autospec=True, return_value=mocked_response
-    )
-    mocker.patch.object(
-        system_utils, "system_state_eventually_equals", return_value=False
-    )
+    mocker.patch.object(time, "perf_counter", side_effect=[0, 15])
+    mocker.patch.object(system_utils.requests, "get", autospec=True, return_value=mocked_response)
+    mocker.patch.object(system_utils, "system_state_eventually_equals", return_value=False)
 
     with pytest.raises(SystemStartUpError):
         wait_for_subprocesses_to_start()
@@ -130,7 +112,7 @@ def test_wait_for_subprocesses_to_start__raises_error_if_state_does_not_reach_se
 def test_wait_for_subprocesses_to_start__raises_error_if_server_is_never_able_to_be_connected_to(
     mocker,
 ):
-    mocker.patch.object(time, "perf_counter", side_effect=[0, 11])
+    mocker.patch.object(time, "perf_counter", side_effect=[0, 15])
     mocker.patch.object(
         system_utils.requests,
         "get",

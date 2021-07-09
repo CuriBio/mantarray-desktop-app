@@ -78,6 +78,10 @@ class SystemStartUpError(Exception):
     pass
 
 
+class InvalidBeta2FlagOptionError(Exception):
+    pass
+
+
 class UnrecognizedMantarrayNamingCommandError(Exception):
     pass
 
@@ -99,6 +103,10 @@ class ImproperlyFormattedUserAccountUUIDError(Exception):
 
 
 class RecordingFolderDoesNotExistError(Exception):
+    pass
+
+
+class InvalidStopRecordingTimepointError(Exception):
     pass
 
 
@@ -146,6 +154,10 @@ class SerialCommPacketRegistrationSearchExhaustedError(Exception):
     pass
 
 
+class SerialCommNotEnoughAdditionalBytesReadError(Exception):
+    pass
+
+
 class SerialCommIncorrectChecksumFromInstrumentError(Exception):
     pass
 
@@ -186,13 +198,37 @@ class SerialCommHandshakeTimeoutError(Exception):
     pass
 
 
+class SerialCommInvalidSamplingPeriodError(Exception):
+    pass
+
+
+class MagnetometerConfigUpdateWhileDataStreamingError(Exception):
+    pass
+
+
 class InstrumentRebootTimeoutError(Exception):
     pass
 
 
-class InstrumentFatalError(Exception):
+class IncorrectMagnetometerConfigFromInstrumentError(Exception):
     pass
 
 
-class InstrumentSoftError(Exception):
+class InstrumentDataStreamingAlreadyStartedError(Exception):
+    pass
+
+
+class InstrumentDataStreamingAlreadyStoppedError(Exception):
+    pass
+
+
+class MantarrayInstrumentError(Exception):
+    """Errors occurring on the Mantarray instrument itself."""
+
+
+class InstrumentFatalError(MantarrayInstrumentError):
+    pass
+
+
+class InstrumentSoftError(MantarrayInstrumentError):
     pass

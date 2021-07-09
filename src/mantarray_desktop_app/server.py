@@ -3,16 +3,22 @@
 
 Custom HTTP Error Codes:
 
-* 204 - Call to /get_available_data when no available data in outgoing data queue from Data Analyzer.
+* 204 - Call to /get_available_data when no available data in outgoing data queue from Data Analyzer
 * 400 - Call to /start_recording with invalid or missing barcode parameter
 * 400 - Call to /set_mantarray_nickname with invalid nickname parameter
 * 400 - Call to /update_settings with unexpected argument, invalid account UUID, or a recording directory that doesn't exist
 * 400 - Call to /insert_xem_command_into_queue/set_mantarray_serial_number with invalid serial_number parameter
+* 400 - Call to /set_magnetometer_config with invalid configuration dict
+* 400 - Call to /set_magnetometer_config with invalid or missing sampling period
 * 403 - Call to /start_recording with is_hardware_test_recording=False after calling route with is_hardware_test_recording=True (default value)
+* 403 - Call to any /insert_xem_command_into_queue/* route when in Beta 2 mode
+* 403 - Call to /boot_up when in Beta 2 mode
+* 403 - Call to /set_magnetometer_config when in Beta 1 mode
+* 403 - Call to /set_magnetometer_config while data is streaming in Beta 2 mode
 * 404 - Route not implemented
+* 406 - Call to /start_managed_acquisition before magnetometer configuration is set
 * 406 - Call to /start_managed_acquisition when Mantarray device does not have a serial number assigned to it
 * 406 - Call to /start_recording before customer_account_uuid and user_account_uuid are set
-* 452 -
 * 520 - Electron and Flask EXE versions don't match
 """
 from __future__ import annotations
@@ -42,19 +48,25 @@ from immutabledict import immutabledict
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
+from mantarray_file_manager import BOOTUP_COUNTER_UUID
 from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
+from mantarray_file_manager import MAGNETOMETER_CONFIGURATION_UUID
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
 from mantarray_file_manager import METADATA_UUID_DESCRIPTIONS
+from mantarray_file_manager import PCB_SERIAL_NUMBER_UUID
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import REFERENCE_VOLTAGE_UUID
 from mantarray_file_manager import SLEEP_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
 from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
 from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
+from mantarray_file_manager import TAMPER_FLAG_UUID
+from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
+from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
 from mantarray_file_manager import USER_ACCOUNT_ID_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
@@ -68,11 +80,17 @@ from stdlib_utils import is_port_in_use
 from stdlib_utils import print_exception
 from stdlib_utils import put_log_message_into_queue
 
+from .constants import BUFFERING_STATE
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import DEFAULT_SERVER_PORT_NUMBER
+from .constants import LIVE_VIEW_ACTIVE_STATE
+from .constants import MICROSECONDS_PER_MILLISECOND
+from .constants import RECORDING_STATE
 from .constants import REFERENCE_VOLTAGE
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
+from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SYSTEM_STATUS_UUIDS
@@ -83,12 +101,13 @@ from .exceptions import LocalServerPortAlreadyInUseError
 from .exceptions import RecordingFolderDoesNotExistError
 from .exceptions import ServerThreadNotInitializedError
 from .exceptions import ServerThreadSingletonAlreadySetError
-from .ok_comm import check_barcode_for_errors
 from .ok_comm import check_mantarray_serial_number
 from .queue_container import MantarrayQueueContainer
 from .request_handler import MantarrayRequestHandler
+from .utils import check_barcode_for_errors
 from .utils import convert_request_args_to_config_dict
 from .utils import get_current_software_version
+from .utils import validate_magnetometer_config_keys
 from .utils import validate_settings
 
 logger = logging.getLogger(__name__)
@@ -152,15 +171,13 @@ def _get_values_from_process_monitor() -> Dict[str, Any]:
 
 
 def queue_command_to_instrument_comm(comm_dict: Dict[str, Any]) -> Response:
-    """Queue command to send to XEM and return response.
+    """Queue command to send to InstrumentCommProcess and return response.
 
     This is used by the test suite, so is not designated as private in
     order to make pylint happier.
     """
     to_instrument_comm_queue = (
-        get_the_server_thread()
-        .queue_container()
-        .get_communication_to_instrument_comm_queue(0)
+        get_the_server_thread().queue_container().get_communication_to_instrument_comm_queue(0)
     )
     comm_dict = dict(comm_dict)  # make a mutable version to pass into ok_comm
     to_instrument_comm_queue.put_nowait(comm_dict)
@@ -220,8 +237,7 @@ def system_status() -> Response:
     shared_values_dict = _get_values_from_process_monitor()
     if (
         "expected_software_version" in shared_values_dict
-        and shared_values_dict["expected_software_version"]
-        != get_current_software_version()
+        and shared_values_dict["expected_software_version"] != get_current_software_version()
     ):
         return Response(status="520 Versions of Electron and Flask EXEs do not match")
 
@@ -231,21 +247,15 @@ def system_status() -> Response:
         "ui_status_code": str(SYSTEM_STATUS_UUIDS[status]),
         # Tanner (7/1/20): this route may be called before process_monitor adds the following values to shared_values_dict, so default values are needed
         "in_simulation_mode": shared_values_dict.get("in_simulation_mode", False),
-        "mantarray_serial_number": shared_values_dict.get(
-            "mantarray_serial_number", ""
-        ),
+        "mantarray_serial_number": shared_values_dict.get("mantarray_serial_number", ""),
         "mantarray_nickname": shared_values_dict.get("mantarray_nickname", ""),
     }
     if (
         "barcodes" in shared_values_dict
         and shared_values_dict["barcodes"][board_idx]["frontend_needs_barcode_update"]
     ):
-        status_dict["plate_barcode"] = shared_values_dict["barcodes"][board_idx][
-            "plate_barcode"
-        ]
-        status_dict["barcode_status"] = str(
-            shared_values_dict["barcodes"][board_idx]["barcode_status"]
-        )
+        status_dict["plate_barcode"] = shared_values_dict["barcodes"][board_idx]["plate_barcode"]
+        status_dict["barcode_status"] = str(shared_values_dict["barcodes"][board_idx]["barcode_status"])
         queue_command_to_main(
             {
                 "communication_type": "barcode_read_receipt",
@@ -262,7 +272,7 @@ def system_status() -> Response:
 def get_available_data() -> Response:
     """Get available data if any from Data Analyzer.
 
-    Can be invoked by curl http://localhost:4567/get_available_data
+    Can be invoked by: curl http://localhost:4567/get_available_data
     """
     server_thread = get_the_server_thread()
     data_out_queue = server_thread.get_data_analyzer_data_out_queue()
@@ -282,12 +292,14 @@ def set_mantarray_nickname() -> Response:
 
     This route will not overwrite an existing Mantarray Serial Number.
 
-    Can be invoked by curl 'http://localhost:4567/set_mantarray_nickname?nickname=My Mantarray'
+    Can be invoked by: curl 'http://localhost:4567/set_mantarray_nickname?nickname=My Mantarray'
     """
+    shared_values_dict = _get_values_from_process_monitor()
+    max_num_bytes = SERIAL_COMM_METADATA_BYTES_LENGTH if shared_values_dict["beta_2_mode"] else 23
+
     nickname = request.args["nickname"]
-    # TODO Tanner (3/18/21): Need to eventually be able to determine if McComm is being used and adjust the max byte length to 32
-    if len(nickname.encode("utf-8")) > 23:
-        return Response(status="400 Nickname exceeds 23 bytes")
+    if len(nickname.encode("utf-8")) > max_num_bytes:
+        return Response(status=f"400 Nickname exceeds {max_num_bytes} bytes")
 
     comm_dict = {
         "communication_type": "mantarray_naming",
@@ -337,7 +349,7 @@ def boot_up() -> Response:
 def update_settings() -> Response:
     """Update the user settings.
 
-    Can be invoked by curl http://localhost:4567/update_settings?customer_account_uuid=<UUID>&user_account_uuid=<UUID>&recording_directory=recording_dir
+    Can be invoked by: curl http://localhost:4567/update_settings?customer_account_uuid=<UUID>&user_account_uuid=<UUID>&recording_directory=recording_dir
     """
     for arg in request.args:
         if arg not in VALID_CONFIG_SETTINGS:
@@ -362,6 +374,66 @@ def update_settings() -> Response:
     )
     response = Response(json.dumps(request.args), mimetype="application/json")
     return response
+
+
+@flask_app.route("/set_magnetometer_config", methods=["POST"])
+def set_magnetometer_config() -> Response:
+    """Set the magnetometer configuration on a Beta 2 Mantarray.
+
+    Not available for Beta 1 instruments.
+
+    Can be invoked by: curl -d '<magnetometer configuration as json>' -H 'Content-Type: application/json' -X POST http://localhost:4567/set_magnetometer_config
+    """
+    # TODO Tanner (6/3/21): should separate out setting the sampling period into its own route
+    if not _get_values_from_process_monitor()["beta_2_mode"]:
+        return Response(status="403 Route cannot be called in beta 1 mode")
+    if _is_data_streaming():
+        return Response(status="403 Magnetometer Configuration cannot be changed while data is streaming")
+    # load configuration
+    magnetometer_config_dict_json = request.get_json()
+    magnetometer_config_dict = json.loads(
+        magnetometer_config_dict_json, object_hook=_fix_magnetometer_config_dict_keys
+    )
+    # validate sampling period
+    try:
+        sampling_period = magnetometer_config_dict["sampling_period"]
+    except KeyError:
+        return Response(status="400 Sampling period not specified")
+    if sampling_period % MICROSECONDS_PER_MILLISECOND != 0:
+        return Response(status=f"400 Invalid sampling period {sampling_period}")
+    # validate configuration dictionary
+    num_wells = 24
+    error_msg = validate_magnetometer_config_keys(
+        magnetometer_config_dict["magnetometer_config"], 1, num_wells + 1
+    )
+    if error_msg:
+        return Response(status=f"400 {error_msg}")
+
+    queue_command_to_main(
+        {
+            "communication_type": "set_magnetometer_config",
+            "magnetometer_config_dict": magnetometer_config_dict,
+        }
+    )
+
+    return Response(magnetometer_config_dict_json, mimetype="application/json")
+
+
+def _fix_magnetometer_config_dict_keys(magnetometer_config_dict: Dict[str, Any]) -> Dict[Any, Any]:
+    fixed_dict = {_fix_json_key(k): v for k, v in magnetometer_config_dict.items()}
+    return dict(sorted(fixed_dict.items()))
+
+
+def _fix_json_key(key: str) -> Union[int, str]:
+    try:
+        return int(key)
+    except ValueError:
+        return key
+
+
+def _is_data_streaming() -> bool:
+    current_system_status = _get_values_from_process_monitor()["system_status"]
+    return current_system_status in (BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE, RECORDING_STATE)
 
 
 @flask_app.route("/start_recording", methods=["GET"])
@@ -401,29 +473,12 @@ def start_recording() -> Response:
             "false",
         )
 
-    if (
-        shared_values_dict.get("is_hardware_test_recording", False)
-        and not is_hardware_test_recording
-    ):
+    if shared_values_dict.get("is_hardware_test_recording", False) and not is_hardware_test_recording:
         response = Response(
             status="403 Cannot make standard recordings after previously making hardware test recordings. Server and board must both be restarted before making any more standard recordings"
         )
         return response
-    # shared_values_dict["is_hardware_test_recording"] = is_hardware_test_recording
-    adc_offsets: Dict[int, Dict[str, int]]
-    if is_hardware_test_recording:
-        adc_offsets = dict()
-        for well_idx in range(24):
-            adc_offsets[well_idx] = {
-                "construct": 0,
-                "ref": 0,
-            }
-        # shared_values_dict["adc_offsets"] = adc_offsets
-    else:
-        adc_offsets = shared_values_dict["adc_offsets"]
     timestamp_of_sample_idx_zero = _get_timestamp_of_acquisition_sample_index_zero()
-
-    # shared_values_dict["system_status"] = RECORDING_STATE
 
     begin_timepoint: Union[int, float]
     timestamp_of_begin_recording = datetime.datetime.utcnow()
@@ -431,8 +486,8 @@ def start_recording() -> Response:
         begin_timepoint = int(request.args["time_index"])
     else:
         time_since_index_0 = timestamp_of_begin_recording - timestamp_of_sample_idx_zero
-        begin_timepoint = (
-            time_since_index_0.total_seconds() * CENTIMILLISECONDS_PER_SECOND
+        begin_timepoint = time_since_index_0.total_seconds() * (
+            int(1e6) if shared_values_dict["beta_2_mode"] else CENTIMILLISECONDS_PER_SECOND
         )
 
     are_barcodes_matching = _check_scanned_barcode_vs_user_value(barcode)
@@ -448,40 +503,62 @@ def start_recording() -> Response:
             UTC_BEGINNING_DATA_ACQUISTION_UUID: timestamp_of_sample_idx_zero,
             START_RECORDING_TIME_INDEX_UUID: begin_timepoint,
             UTC_BEGINNING_RECORDING_UUID: timestamp_of_begin_recording,
-            CUSTOMER_ACCOUNT_ID_UUID: shared_values_dict["config_settings"][
-                "Customer Account ID"
-            ],
-            USER_ACCOUNT_ID_UUID: shared_values_dict["config_settings"][
-                "User Account ID"
-            ],
+            CUSTOMER_ACCOUNT_ID_UUID: shared_values_dict["config_settings"]["Customer Account ID"],
+            USER_ACCOUNT_ID_UUID: shared_values_dict["config_settings"]["User Account ID"],
             SOFTWARE_BUILD_NUMBER_UUID: COMPILED_EXE_BUILD_TIMESTAMP,
             SOFTWARE_RELEASE_VERSION_UUID: CURRENT_SOFTWARE_VERSION,
-            MAIN_FIRMWARE_VERSION_UUID: shared_values_dict["main_firmware_version"][
-                board_idx
-            ],
-            SLEEP_FIRMWARE_VERSION_UUID: shared_values_dict["sleep_firmware_version"][
-                board_idx
-            ],
-            XEM_SERIAL_NUMBER_UUID: shared_values_dict["xem_serial_number"][board_idx],
-            MANTARRAY_SERIAL_NUMBER_UUID: shared_values_dict["mantarray_serial_number"][
-                board_idx
-            ],
-            MANTARRAY_NICKNAME_UUID: shared_values_dict["mantarray_nickname"][
-                board_idx
-            ],
-            REFERENCE_VOLTAGE_UUID: REFERENCE_VOLTAGE,
-            ADC_GAIN_SETTING_UUID: shared_values_dict["adc_gain"],
-            "adc_offsets": adc_offsets,
+            MAIN_FIRMWARE_VERSION_UUID: shared_values_dict["main_firmware_version"][board_idx],
+            MANTARRAY_SERIAL_NUMBER_UUID: shared_values_dict["mantarray_serial_number"][board_idx],
+            MANTARRAY_NICKNAME_UUID: shared_values_dict["mantarray_nickname"][board_idx],
             PLATE_BARCODE_UUID: barcode,
             BARCODE_IS_FROM_SCANNER_UUID: are_barcodes_matching,
         },
         "timepoint_to_begin_recording_at": begin_timepoint,
     }
+    if shared_values_dict["beta_2_mode"]:
+        instrument_metadata = shared_values_dict["instrument_metadata"][board_idx]
+        magnetometer_config_dict = shared_values_dict["magnetometer_config_dict"]
+        comm_dict["metadata_to_copy_onto_main_file_attributes"].update(
+            {
+                BOOTUP_COUNTER_UUID: instrument_metadata[BOOTUP_COUNTER_UUID],
+                TOTAL_WORKING_HOURS_UUID: instrument_metadata[TOTAL_WORKING_HOURS_UUID],
+                TAMPER_FLAG_UUID: instrument_metadata[TAMPER_FLAG_UUID],
+                PCB_SERIAL_NUMBER_UUID: instrument_metadata[PCB_SERIAL_NUMBER_UUID],
+                TISSUE_SAMPLING_PERIOD_UUID: magnetometer_config_dict["sampling_period"],
+                MAGNETOMETER_CONFIGURATION_UUID: magnetometer_config_dict["magnetometer_config"],
+            }
+        )
+    else:
+        adc_offsets: Dict[int, Dict[str, int]]
+        if is_hardware_test_recording:
+            adc_offsets = dict()
+            for well_idx in range(24):
+                adc_offsets[well_idx] = {
+                    "construct": 0,
+                    "ref": 0,
+                }
+        else:
+            adc_offsets = shared_values_dict["adc_offsets"]
+        comm_dict["metadata_to_copy_onto_main_file_attributes"].update(
+            {
+                SLEEP_FIRMWARE_VERSION_UUID: shared_values_dict["sleep_firmware_version"][board_idx],
+                XEM_SERIAL_NUMBER_UUID: shared_values_dict["xem_serial_number"][board_idx],
+                REFERENCE_VOLTAGE_UUID: REFERENCE_VOLTAGE,
+                ADC_GAIN_SETTING_UUID: shared_values_dict["adc_gain"],
+                "adc_offsets": adc_offsets,
+            }
+        )
 
-    if "active_well_indices" in request.args:
+    # Tanner (6/11/21): Using magnetometer config to implicitly specify the active well indices in beta 2 mode
+    if shared_values_dict["beta_2_mode"]:
+        magnetometer_config = shared_values_dict["magnetometer_config_dict"]["magnetometer_config"]
         comm_dict["active_well_indices"] = [
-            int(x) for x in request.args["active_well_indices"].split(",")
+            SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
+            for module_id, module_config in magnetometer_config.items()
+            if any(module_config.values())
         ]
+    elif "active_well_indices" in request.args:
+        comm_dict["active_well_indices"] = [int(x) for x in request.args["active_well_indices"].split(",")]
     else:
         comm_dict["active_well_indices"] = list(range(24))
 
@@ -496,16 +573,12 @@ def start_recording() -> Response:
             continue
         if METADATA_UUID_DESCRIPTIONS[this_attr_name].startswith("UTC Timestamp"):
             this_attr_value = this_attr_value.strftime("%Y-%m-%dT%H:%M:%S.%f")
-            comm_dict["metadata_to_copy_onto_main_file_attributes"][
-                this_attr_name
-            ] = this_attr_value
+            comm_dict["metadata_to_copy_onto_main_file_attributes"][this_attr_name] = this_attr_value
         if isinstance(this_attr_value, UUID):
             this_attr_value = str(this_attr_value)
         del comm_dict["metadata_to_copy_onto_main_file_attributes"][this_attr_name]
         this_attr_name = str(this_attr_name)
-        comm_dict["metadata_to_copy_onto_main_file_attributes"][
-            this_attr_name
-        ] = this_attr_value
+        comm_dict["metadata_to_copy_onto_main_file_attributes"][this_attr_name] = this_attr_value
 
     response = Response(json.dumps(comm_dict), mimetype="application/json")
 
@@ -523,31 +596,31 @@ def stop_recording() -> Response:
     Args:
         time_index: [Optional, int] centimilliseconds since acquisition began to end the recording at. defaults to when this command is received
     """
-    timestamp_of_sample_idx_zero = _get_timestamp_of_acquisition_sample_index_zero()
+    shared_values_dict = _get_values_from_process_monitor()
 
-    comm_dict: Dict[str, Any] = {
-        "communication_type": "recording",
-        "command": "stop_recording",
-    }
+    timestamp_of_sample_idx_zero = _get_timestamp_of_acquisition_sample_index_zero()
 
     stop_timepoint: Union[int, float]
     if "time_index" in request.args:
         stop_timepoint = int(request.args["time_index"])
     else:
         time_since_index_0 = datetime.datetime.utcnow() - timestamp_of_sample_idx_zero
-        stop_timepoint = (
-            time_since_index_0.total_seconds() * CENTIMILLISECONDS_PER_SECOND
+        stop_timepoint = time_since_index_0.total_seconds() * (
+            int(1e6) if shared_values_dict["beta_2_mode"] else CENTIMILLISECONDS_PER_SECOND
         )
-    comm_dict["timepoint_to_stop_recording_at"] = stop_timepoint
 
+    comm_dict: Dict[str, Any] = {
+        "communication_type": "recording",
+        "command": "stop_recording",
+        "timepoint_to_stop_recording_at": stop_timepoint,
+    }
     response = queue_command_to_main(comm_dict)
-
     return response
 
 
 @flask_app.route("/start_managed_acquisition", methods=["GET"])
 def start_managed_acquisition() -> Response:
-    """Begin "managed" data acquisition on the XEM.
+    """Begin "managed" data acquisition (AKA data streaming) on the Mantarray.
 
     Can be invoked by:
 
@@ -555,43 +628,30 @@ def start_managed_acquisition() -> Response:
     """
     shared_values_dict = _get_values_from_process_monitor()
     if not shared_values_dict["mantarray_serial_number"][0]:
-        response = Response(
-            status="406 Mantarray has not been assigned a Serial Number"
-        )
+        response = Response(status="406 Mantarray has not been assigned a Serial Number")
+        return response
+    if shared_values_dict["beta_2_mode"] and "magnetometer_config_dict" not in shared_values_dict:
+        response = Response(status="406 Magnetometer Configuration has not been set yet")
         return response
 
     response = queue_command_to_main(START_MANAGED_ACQUISITION_COMMUNICATION)
-
     return response
 
 
 @flask_app.route("/stop_managed_acquisition", methods=["GET"])
 def stop_managed_acquisition() -> Response:
-    """Stop "managed" data acquisition on the XEM.
+    """Stop "managed" data acquisition on the Mantarray.
 
     Can be invoked by:
 
     `curl http://localhost:4567/stop_managed_acquisition`
     """
-    comm_dict = STOP_MANAGED_ACQUISITION_COMMUNICATION
-    server_thread = get_the_server_thread()
-    to_da_queue = (
-        server_thread.queue_container().get_communication_queue_from_main_to_data_analyzer()
-    )
-    to_da_queue.put_nowait(comm_dict)
-    to_file_writer_queue = (
-        server_thread.queue_container().get_communication_queue_from_main_to_file_writer()
-    )
-    to_file_writer_queue.put_nowait(comm_dict)
-
-    response = queue_command_to_instrument_comm(comm_dict)
+    response = queue_command_to_main(STOP_MANAGED_ACQUISITION_COMMUNICATION)
     return response
 
 
 # Single "debug console" commands to send to XEM
-@flask_app.route(
-    "/insert_xem_command_into_queue/set_mantarray_serial_number", methods=["GET"]
-)
+@flask_app.route("/insert_xem_command_into_queue/set_mantarray_serial_number", methods=["GET"])
 def set_mantarray_serial_number() -> Response:
     """Set the serial number of the Mantarray device.
 
@@ -599,7 +659,7 @@ def set_mantarray_serial_number() -> Response:
 
     This route will overwrite an existing Mantarray Nickname if present
 
-    Can be invoked by curl http://localhost:4567/insert_xem_command_into_queue/set_mantarray_serial_number?serial_number=M02001900
+    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/set_mantarray_serial_number?serial_number=M02001900
     """
     serial_number = request.args["serial_number"]
     error_message = check_mantarray_serial_number(serial_number)
@@ -612,9 +672,7 @@ def set_mantarray_serial_number() -> Response:
         "command": "set_mantarray_serial_number",
         "mantarray_serial_number": serial_number,
     }
-
     response = queue_command_to_main(comm_dict)
-
     return response
 
 
@@ -627,9 +685,7 @@ def queue_initialize_board() -> Response:
     Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/initialize_board?bit_file_name=main.bit&allow_board_reinitialization=False
     """
     bit_file_name = request.args.get("bit_file_name", None)
-    allow_board_reinitialization = request.args.get(
-        "allow_board_reinitialization", False
-    )
+    allow_board_reinitialization = request.args.get("allow_board_reinitialization", False)
     if isinstance(allow_board_reinitialization, str):
         allow_board_reinitialization = allow_board_reinitialization == "True"
     comm_dict = {
@@ -639,9 +695,7 @@ def queue_initialize_board() -> Response:
         "allow_board_reinitialization": allow_board_reinitialization,
         "suppress_error": True,
     }
-
     response = queue_command_to_instrument_comm(comm_dict)
-
     return response
 
 
@@ -660,9 +714,7 @@ def queue_activate_trigger_in() -> Response:
         "bit": bit,
         "suppress_error": True,
     }
-
     response = queue_command_to_instrument_comm(comm_dict)
-
     return response
 
 
@@ -681,9 +733,7 @@ def queue_comm_delay() -> Response:
         "num_milliseconds": num_milliseconds,
         "suppress_error": True,
     }
-
     response = queue_command_to_instrument_comm(comm_dict)
-
     return response
 
 
@@ -691,7 +741,7 @@ def queue_comm_delay() -> Response:
 def dev_begin_hardware_script() -> Response:
     """Designate the beginning of a hardware script in flask log.
 
-    Can be invoked by curl "http://localhost:4567/development/begin_hardware_script?script_type=ENUM&version=integer"
+    Can be invoked by: curl "http://localhost:4567/development/begin_hardware_script?script_type=ENUM&version=integer"
     """
     return Response(json.dumps({}), mimetype="application/json")
 
@@ -700,7 +750,7 @@ def dev_begin_hardware_script() -> Response:
 def dev_end_hardware_script() -> Response:
     """Designate the end of a hardware script in flask log.
 
-    Can be invoked by curl http://localhost:4567/development/end_hardware_script
+    Can be invoked by: curl http://localhost:4567/development/end_hardware_script
     """
     return Response(json.dumps({}), mimetype="application/json")
 
@@ -716,9 +766,7 @@ def queue_get_num_words_fifo() -> Response:
         "command": "get_num_words_fifo",
         "suppress_error": True,
     }
-
     response = queue_command_to_instrument_comm(comm_dict)
-
     return response
 
 
@@ -876,7 +924,7 @@ def queue_set_wire_in() -> Response:
 def run_xem_script() -> Response:
     """Run a script of XEM commands created from an existing flask log.
 
-    Can be invoked by curl http://localhost:4567/xem_scripts?script_type=start_up
+    Can be invoked by: curl http://localhost:4567/xem_scripts?script_type=start_up
     """
     script_type = request.args["script_type"]
     comm_dict = {"communication_type": "xem_scripts", "script_type": script_type}
@@ -958,9 +1006,7 @@ def stop_server() -> str:
 def shutdown() -> Response:
     # curl http://localhost:4567/shutdown
     queue_command_to_main({"communication_type": "shutdown", "command": "soft_stop"})
-    response = queue_command_to_main(
-        {"communication_type": "shutdown", "command": "hard_stop"}
-    )
+    response = queue_command_to_main({"communication_type": "shutdown", "command": "hard_stop"})
     shutdown_server()
     return response
 
@@ -969,6 +1015,18 @@ def shutdown() -> Response:
 def health_check() -> Response:
     # curl http://localhost:4567/health_check
     return Response(status=200)
+
+
+@flask_app.before_request
+def before_request() -> Optional[Response]:
+    rule = request.url_rule
+    if rule is None:
+        return None  # this will be caught and handled in after_request
+    if "insert_xem_command_into_queue" in rule.rule or "boot_up" in rule.rule:
+        shared_values_dict = _get_values_from_process_monitor()
+        if shared_values_dict["beta_2_mode"]:
+            return Response(status="403 Route cannot be called in beta 2 mode")
+    return None
 
 
 @flask_app.after_request
@@ -986,13 +1044,11 @@ def after_request(response: Response) -> Response:
             for board in mantarray_nicknames:
                 mantarray_nicknames[board] = "*" * len(mantarray_nicknames[board])
         if "set_mantarray_nickname" in rule.rule:
-            response_json["mantarray_nickname"] = "*" * len(
-                response_json["mantarray_nickname"]
-            )
+            response_json["mantarray_nickname"] = "*" * len(response_json["mantarray_nickname"])
         if "start_recording" in rule.rule:
-            mantarray_nickname = response_json[
-                "metadata_to_copy_onto_main_file_attributes"
-            ][str(MANTARRAY_NICKNAME_UUID)]
+            mantarray_nickname = response_json["metadata_to_copy_onto_main_file_attributes"][
+                str(MANTARRAY_NICKNAME_UUID)
+            ]
             response_json["metadata_to_copy_onto_main_file_attributes"][
                 str(MANTARRAY_NICKNAME_UUID)
             ] = "*" * len(mantarray_nickname)
@@ -1135,9 +1191,7 @@ class ServerThread(InfiniteThread):
         queue_items = dict()
 
         queue_items["to_main"] = drain_queue(self._to_main_queue)
-        queue_items["from_data_analyzer"] = drain_queue(
-            self.get_data_analyzer_data_out_queue()
-        )
+        queue_items["from_data_analyzer"] = drain_queue(self.get_data_analyzer_data_out_queue())
         return queue_items
 
     def _teardown_after_loop(self) -> None:

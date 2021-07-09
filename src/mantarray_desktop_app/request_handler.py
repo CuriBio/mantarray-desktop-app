@@ -5,9 +5,7 @@ from typing import Any
 
 from werkzeug.serving import WSGIRequestHandler
 
-if (
-    5 < 9
-):  # pragma: no cover # protect this from zimports deleting the type ignore statement
+if 5 < 9:  # pragma: no cover # protect this from zimports deleting the type ignore statement
     from werkzeug.serving import _log  # type: ignore  # Tanner (1/20/21): not sure why mypy thinks this attribute does not exist in this package
 
 
@@ -20,9 +18,7 @@ class MantarrayRequestHandler(WSGIRequestHandler):
     # pylint: disable=arguments-differ  # Tanner (1/20/21): The original param was `type` instead of `type_` which overrides the python builtin `type`
     def log(self, type_: str, message: str, *args: Any) -> None:
         if "set_mantarray_nickname" in args[0]:
-            split_path = re.split(
-                r"(set_mantarray_nickname\?nickname=)(.*)( HTTP)", args[0]
-            )
+            split_path = re.split(r"(set_mantarray_nickname\?nickname=)(.*)( HTTP)", args[0])
             scrubbed_msg = split_path[0] + split_path[1]
             scrubbed_msg += "*" * len(split_path[2])
             scrubbed_msg += split_path[3] + split_path[4]

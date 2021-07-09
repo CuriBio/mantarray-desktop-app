@@ -20,9 +20,7 @@ def system_state_eventually_equals(state_name: str, timeout: int) -> bool:
     elapsed_time = 0.0
     while not is_desired_state and elapsed_time < timeout:
         response = requests.get(f"{get_api_endpoint()}system_status")
-        is_desired_state = response.json()["ui_status_code"] == str(
-            SYSTEM_STATUS_UUIDS[state_name]
-        )
+        is_desired_state = response.json()["ui_status_code"] == str(SYSTEM_STATUS_UUIDS[state_name])
         if is_desired_state and response.status_code == 200:
             break
         sleep(0.5)  # Don't just relentlessly ping the Flask server
@@ -33,21 +31,19 @@ def system_state_eventually_equals(state_name: str, timeout: int) -> bool:
 def wait_for_subprocesses_to_start() -> None:
     """Wait for subprocesses to complete their start up routines.
 
-    Raises SystemStartUpError if the system takes longer than 5 seconds
+    Raises SystemStartUpError if the system takes longer than 15 seconds
     to start up.
     """
     start = time.perf_counter()
     elapsed_time = 0.0
     response: Optional[Response]
-    while elapsed_time < 10:
+    while elapsed_time < 15:
         try:
             response = requests.get(f"{get_api_endpoint()}system_status")
         except requests.exceptions.ConnectionError:
             response = None
         if response is not None:
-            if response.json()["ui_status_code"] != str(
-                SYSTEM_STATUS_UUIDS[SERVER_INITIALIZING_STATE]
-            ):
+            if response.json()["ui_status_code"] != str(SYSTEM_STATUS_UUIDS[SERVER_INITIALIZING_STATE]):
                 return
         elapsed_time = time.perf_counter() - start
         sleep(

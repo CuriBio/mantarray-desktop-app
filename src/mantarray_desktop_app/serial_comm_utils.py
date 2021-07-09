@@ -21,6 +21,7 @@ from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
+from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIMESTAMP_EPOCH
@@ -28,7 +29,7 @@ from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .exceptions import SerialCommMetadataValueTooLargeError
 
 
-# Tanner (3/18/21): If/When cython is needed to improve serial communication, this file will likely be a good place to start
+# Tanner (3/18/21): If/When additional cython is needed to improve serial communication, this file may be worth investigating
 
 
 METADATA_TYPES = immutabledict(
@@ -42,6 +43,7 @@ METADATA_TYPES = immutabledict(
         PCB_SERIAL_NUMBER_UUID: str,
     }
 )
+BITMASK_SHIFT_VALUE = 16 - SERIAL_COMM_NUM_DATA_CHANNELS  # 16 for number of bits in int16
 
 
 def _get_checksum_bytes(packet: bytes) -> bytes:
@@ -61,9 +63,7 @@ def create_data_packet(
     packet_length = len(packet_body) + SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 
     data_packet = SERIAL_COMM_MAGIC_WORD_BYTES
-    data_packet += packet_length.to_bytes(
-        SERIAL_COMM_PACKET_INFO_LENGTH_BYTES, byteorder="little"
-    )
+    data_packet += packet_length.to_bytes(SERIAL_COMM_PACKET_INFO_LENGTH_BYTES, byteorder="little")
     data_packet += packet_body
     data_packet += _get_checksum_bytes(data_packet)
     return data_packet
@@ -78,19 +78,25 @@ def validate_checksum(comm_from_pc: bytes) -> bool:
     return actual_checksum == expected_checksum
 
 
-def convert_to_metadata_bytes(value: Union[str, int]) -> bytes:
-    """Convert a value to the correct number of bytes for MCU metadata."""
-    # TODO Tanner (3/17/21): Need to be able to handle signed int values. This also includes determining if the int value should be signed, maybe a kwarg
+def convert_to_metadata_bytes(value: Union[str, int], signed: bool = False) -> bytes:
+    """Convert a value to the correct number of bytes for MCU metadata.
+
+    kwarg `signed` is ignored if the value is not an int.
+    """
     if isinstance(value, int):
-        if value < 0:
-            raise NotImplementedError(
-                "Signed integer values are currrently unsupported"
+        value_bytes: bytes
+        try:
+            value_bytes = value.to_bytes(
+                SERIAL_COMM_METADATA_BYTES_LENGTH,
+                byteorder="little",
+                signed=signed,
             )
-        if value > (1 << SERIAL_COMM_METADATA_BYTES_LENGTH) - 1:
+        except OverflowError as e:
+            signed_str = "Signed" if signed else "Unsigned"
             raise SerialCommMetadataValueTooLargeError(
-                f"Value: {value} cannot fit into {SERIAL_COMM_METADATA_BYTES_LENGTH} bytes"
-            )
-        return value.to_bytes(SERIAL_COMM_METADATA_BYTES_LENGTH, byteorder="little")
+                f"{signed_str} value: {value} cannot fit into {SERIAL_COMM_METADATA_BYTES_LENGTH} bytes"
+            ) from e
+        return value_bytes
     if isinstance(value, str):
         value_bytes = bytes(value, encoding="utf-8")
         if len(value_bytes) > SERIAL_COMM_METADATA_BYTES_LENGTH:
@@ -124,9 +130,7 @@ def parse_metadata_bytes(metadata_bytes: bytes) -> Dict[UUID, Any]:
 
     metadata_dict: Dict[UUID, Any] = dict()
     for this_metadata_idx in range(0, len(metadata_bytes), single_metadata_length):
-        this_metadata_bytes = metadata_bytes[
-            this_metadata_idx : this_metadata_idx + single_metadata_length
-        ]
+        this_metadata_bytes = metadata_bytes[this_metadata_idx : this_metadata_idx + single_metadata_length]
         this_value_bytes = this_metadata_bytes[uuid_bytes_length:]
         this_uuid = UUID(bytes=this_metadata_bytes[:uuid_bytes_length])
         metadata_type = METADATA_TYPES[this_uuid]
@@ -140,17 +144,52 @@ def parse_metadata_bytes(metadata_bytes: bytes) -> Dict[UUID, Any]:
 
 
 def convert_to_status_code_bytes(status_code: int) -> bytes:
-    return status_code.to_bytes(
-        SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little"
-    )
+    return status_code.to_bytes(SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little")
 
 
 def convert_to_timestamp_bytes(timestamp: int) -> bytes:
     return timestamp.to_bytes(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES, byteorder="little")
 
 
-# Tanner (4/7/21): This method should not be used in the simulator. It has its own way of determining the timestamp to send in order to behave more accurately like the real Mantarray instrument
 def get_serial_comm_timestamp() -> int:
+    # Tanner (4/7/21): This method should not be used in the simulator. It has its own way of determining the timestamp to send in order to behave more accurately like the real Mantarray instrument
     return (
         datetime.datetime.now(tz=datetime.timezone.utc) - SERIAL_COMM_TIMESTAMP_EPOCH
     ) // datetime.timedelta(microseconds=1)
+
+
+def create_sensor_axis_bitmask(config_dict: Dict[int, bool]) -> int:
+    bitmask = 0
+    for sensor_axis_id, config_value in config_dict.items():
+        bitmask += int(config_value) << sensor_axis_id
+    return bitmask
+
+
+def create_magnetometer_config_bytes(config_dict: Dict[int, Dict[int, bool]]) -> bytes:
+    config_bytes = bytes(0)
+    for module_id, well_config in config_dict.items():
+        config_bytes += bytes([module_id])
+        config_bytes += create_sensor_axis_bitmask(well_config).to_bytes(2, byteorder="little")
+    return config_bytes
+
+
+def convert_bitmask_to_config_dict(bitmask: int) -> Dict[int, bool]:
+    config_dict: Dict[int, bool] = dict()
+    bit = 1
+    for sensor_axis_id in range(SERIAL_COMM_NUM_DATA_CHANNELS):
+        config_dict[sensor_axis_id] = bool(bitmask & bit)
+        bit <<= 1
+    return config_dict
+
+
+def convert_bytes_to_config_dict(
+    magnetometer_config_bytes: bytes,
+) -> Dict[int, Dict[int, bool]]:
+    """Covert bytes from the instrument to a configuration dictionary."""
+    config_dict: Dict[int, Dict[int, bool]] = dict()
+    for config_block_idx in range(0, len(magnetometer_config_bytes), 3):
+        module_id = magnetometer_config_bytes[config_block_idx]
+        bitmask_bytes = magnetometer_config_bytes[config_block_idx + 1 : config_block_idx + 3]
+        bitmask = int.from_bytes(bitmask_bytes, byteorder="little")
+        config_dict[module_id] = convert_bitmask_to_config_dict(bitmask)
+    return config_dict

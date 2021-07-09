@@ -2,10 +2,32 @@
 from multiprocessing import Queue
 import time
 
+from mantarray_desktop_app import convert_to_status_code_bytes
+from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import MantarrayMcSimulator
+from mantarray_desktop_app import SERIAL_COMM_BOOT_UP_CODE
+from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_IDLE_READY_CODE
+from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 import pytest
 from stdlib_utils import drain_queue
+from stdlib_utils import invoke_process_run_and_check_errors
+from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty
 from stdlib_utils import QUEUE_CHECK_TIMEOUT_SECONDS
+
+
+STATUS_BEACON_SIZE_BYTES = 28
+HANDSHAKE_RESPONSE_SIZE_BYTES = 36
+
+TEST_HANDSHAKE_TIMESTAMP = 12345
+TEST_HANDSHAKE = create_data_packet(
+    TEST_HANDSHAKE_TIMESTAMP,
+    SERIAL_COMM_MAIN_MODULE_ID,
+    SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
+    bytes(0),
+)
+
+DEFAULT_SIMULATOR_STATUS_CODE = convert_to_status_code_bytes(SERIAL_COMM_BOOT_UP_CODE)
 
 
 class MantarrayMcSimulatorSleepAfterWrite(MantarrayMcSimulator):
@@ -34,9 +56,17 @@ class MantarrayMcSimulatorSleepAfterWrite(MantarrayMcSimulator):
             time.sleep(self._sleep_after_write_seconds)
 
     def start(self) -> None:
-        raise NotImplementedError(
-            "This class is only for unit tests not requiring a running process"
-        )
+        raise NotImplementedError("This class is only for unit tests not requiring a running process")
+
+
+def set_simulator_idle_ready(simulator_fixture):
+    simulator = simulator_fixture["simulator"]
+    testing_queue = simulator_fixture["testing_queue"]
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "set_status_code", "status_code": SERIAL_COMM_IDLE_READY_CODE},
+        testing_queue,
+    )
+    invoke_process_run_and_check_errors(simulator)
 
 
 @pytest.fixture(scope="function", name="mantarray_mc_simulator")
@@ -74,9 +104,7 @@ class MantarrayMcSimulatorNoBeacons(MantarrayMcSimulatorSleepAfterWrite):
 
     def start(self) -> None:
         # Tanner (2/24/21): Need to explicitly redefine this method since pylint considers this implementation to be abstract
-        raise NotImplementedError(
-            "This class is only for unit tests not requiring a running process"
-        )
+        raise NotImplementedError("This class is only for unit tests not requiring a running process")
 
 
 @pytest.fixture(scope="function", name="mantarray_mc_simulator_no_beacon")
@@ -132,7 +160,7 @@ def fixture_runnable_mantarray_mc_simulator():
     yield items_dict
 
     simulator.stop()
-    # Tanner (2/25/21): Remove any beacons remaining in read queue. This is faster than hard_stop which will attempt to drain every queue
+    # Tanner (2/25/21): Remove any data packets remaining in read queue. This is faster than hard_stop which will attempt to drain every queue
     drain_queue(output_queue)
 
     simulator.join()

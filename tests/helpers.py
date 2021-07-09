@@ -6,6 +6,7 @@ https://docs.pytest.org/en/stable/writing_plugins.html
 from __future__ import annotations
 
 import json
+from random import choice
 import time
 from time import perf_counter
 from typing import Any
@@ -17,7 +18,7 @@ from typing import Union
 from mantarray_desktop_app import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
-from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
+from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_INDEX
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_TYPE_INDEX
@@ -36,6 +37,10 @@ from stdlib_utils import UnionOfThreadingAndMultiprocessingQueue
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 
 QUEUE_EMPTY_CHECK_TIMEOUT_SECONDS = 0.2
+
+
+def random_bool() -> bool:
+    return choice([True, False])
 
 
 def put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -79,10 +84,13 @@ def handle_putting_multiple_objects_into_empty_queue(
     objs: List[object],
     the_queue: UnionOfThreadingAndMultiprocessingQueue,
     timeout_seconds: Union[float, int] = QUEUE_CHECK_TIMEOUT_SECONDS,
+    sleep_after_confirm_seconds: int = 0,
 ) -> None:
     for next_obj in objs:
         the_queue.put_nowait(next_obj)
-    confirm_queue_is_eventually_of_size(the_queue, len(objs))
+    confirm_queue_is_eventually_of_size(
+        the_queue, len(objs), sleep_after_confirm_seconds=sleep_after_confirm_seconds
+    )
     start = perf_counter()
     while perf_counter() - start < QUEUE_EMPTY_CHECK_TIMEOUT_SECONDS:
         if not the_queue.empty():
@@ -103,9 +111,7 @@ def is_queue_eventually_empty(
     the_queue: UnionOfThreadingAndMultiprocessingQueue,
     timeout_seconds: Union[float, int] = QUEUE_CHECK_TIMEOUT_SECONDS,
 ) -> bool:
-    output = stdlib_is_queue_eventually_empty(
-        the_queue, timeout_seconds=timeout_seconds
-    )
+    output = stdlib_is_queue_eventually_empty(the_queue, timeout_seconds=timeout_seconds)
     if not isinstance(output, bool):
         raise NotImplementedError(
             "not sure why mypy is unable to follow the definition of stdlib_is_queue_eventually_empty to know that it is typed as a bool return"
@@ -128,23 +134,13 @@ def is_queue_eventually_not_empty(
 def assert_queue_is_eventually_not_empty(
     the_queue: UnionOfThreadingAndMultiprocessingQueue,
 ) -> None:
-    assert (
-        is_queue_eventually_not_empty(
-            the_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_not_empty(the_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
 
 
 def assert_queue_is_eventually_empty(
     the_queue: UnionOfThreadingAndMultiprocessingQueue,
 ) -> None:
-    assert (
-        is_queue_eventually_empty(
-            the_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-        )
-        is True
-    )
+    assert is_queue_eventually_empty(the_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
 
 
 def convert_after_request_log_msg_to_json(log_msg: str) -> Dict[Any, Any]:
@@ -163,10 +159,7 @@ def assert_serial_packet_is_expected(
     assert full_packet[SERIAL_COMM_MODULE_ID_INDEX] == module_id
     assert full_packet[SERIAL_COMM_PACKET_TYPE_INDEX] == packet_type
     assert (
-        full_packet[
-            SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES
-        ]
-        == additional_bytes
+        full_packet[SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES] == additional_bytes
     )
     if timestamp is not None:
         actual_timestamp_bytes = full_packet[
@@ -181,7 +174,7 @@ def get_full_packet_size_from_packet_body_size(packet_body_size: int) -> int:
     full_packet_size: int = (
         len(SERIAL_COMM_MAGIC_WORD_BYTES)
         + SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
-        + SERIAL_COMM_MIN_PACKET_SIZE_BYTES
+        + SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
         + packet_body_size
     )
     return full_packet_size

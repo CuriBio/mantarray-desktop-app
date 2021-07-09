@@ -71,23 +71,17 @@ def generate_board_and_error_queues(num_boards: int = 4):
 def fixture_generic_queue_container():
     qc = MantarrayQueueContainer()
     yield qc
-
-    # drain all the queues to avoid broken pipe errors
-    # ...maybe this is a bad idea and the things using it should take more responsibility...if the timeout is 1.1 seconds per queue this could get long quickly
+    # don't drain any queues in this fixture. Tests should drain queues themselves in order to avoid BrokenPipeErrors
 
 
 @pytest.fixture(scope="function", name="patch_print")
 def fixture_patch_print(mocker):
-    mocker.patch(
-        "builtins.print", autospec=True
-    )  # don't print all the error messages to console
+    mocker.patch("builtins.print", autospec=True)  # don't print all the error messages to console
 
 
 @pytest.fixture(scope="function", name="fully_running_app_from_main_entrypoint")
 def fixture_fully_running_app_from_main_entrypoint(mocker):
-    mocked_configure_logging = mocker.patch.object(
-        main, "configure_logging", autospec=True
-    )
+    mocked_configure_logging = mocker.patch.object(main, "configure_logging", autospec=True)
 
     dict_to_yield = (
         {}
@@ -103,12 +97,8 @@ def fixture_fully_running_app_from_main_entrypoint(mocker):
             kwargs={"object_access_for_testing": thread_access_inside_main},
         )
         main_thread.start()
-        time.sleep(
-            1
-        )  # wait for the server to initialize so that the port number could be updated
-        confirm_port_in_use(
-            get_server_port_number(), timeout=4
-        )  # wait for server to boot up
+        time.sleep(1)  # wait for the server to initialize so that the port number could be updated
+        confirm_port_in_use(get_server_port_number(), timeout=4)  # wait for server to boot up
         dict_to_yield["main_thread"] = main_thread
         dict_to_yield["mocked_configure_logging"] = mocked_configure_logging
         dict_to_yield["object_access_inside_main"] = thread_access_inside_main
@@ -116,7 +106,6 @@ def fixture_fully_running_app_from_main_entrypoint(mocker):
 
     yield _foo
 
-    # yield main_thread
     # some tests may perform the shutdown on their own to assert things about the shutdown behavior. So only attempt shutdown if server is still running.
     if is_port_in_use(get_server_port_number()):
         response = requests.get(f"{get_api_endpoint()}shutdown")
@@ -143,6 +132,25 @@ def fixture_test_process_manager(mocker):
     clear_the_server_thread()
 
 
+@pytest.fixture(scope="function", name="test_process_manager_beta_2_mode")
+def fixture_test_process_manager_beta_2_mode(mocker):
+    # TODO Tanner (4/23/21): remove this fixture once beta 1 is phased out
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        manager = MantarrayProcessesManager(
+            file_directory=tmp_dir, values_to_share_to_server={"beta_2_mode": True}
+        )
+        manager.create_processes()
+        yield manager
+
+        fw = manager.get_file_writer_process()
+        if not fw.is_alive():
+            # Eli (2/10/20): it is important in windows based systems to make sure to close the files before deleting them. be careful about this when running tests in a Linux development environment
+            fw.close_all_files()
+
+    # clean up the server singleton
+    clear_the_server_thread()
+
+
 def start_processes_and_wait_for_start_ups_to_complete(
     test_manager: MantarrayProcessesManager,
 ) -> None:
@@ -154,9 +162,7 @@ def start_processes_and_wait_for_start_ups_to_complete(
         if test_manager.are_subprocess_start_ups_complete():
             return
         if perf_counter() - start_time > timeout_seconds:
-            raise Exception(
-                f"Subprocesses were not started within the timeout of {timeout_seconds} seconds"
-            )
+            raise Exception(f"Subprocesses were not started within the timeout of {timeout_seconds} seconds")
 
 
 @pytest.fixture(scope="function", name="patch_subprocess_joins")
@@ -169,15 +175,9 @@ def fixture_patch_subprocess_joins(mocker):
 
 @pytest.fixture(scope="function", name="patch_subprocess_is_stopped_to_false")
 def fixture_patch_subprocess_is_stopped_to_false(mocker):
-    mocker.patch.object(
-        OkCommunicationProcess, "is_stopped", autospec=True, return_value=False
-    )
-    mocker.patch.object(
-        FileWriterProcess, "is_stopped", autospec=True, return_value=False
-    )
-    mocker.patch.object(
-        DataAnalyzerProcess, "is_stopped", autospec=True, return_value=False
-    )
+    mocker.patch.object(OkCommunicationProcess, "is_stopped", autospec=True, return_value=False)
+    mocker.patch.object(FileWriterProcess, "is_stopped", autospec=True, return_value=False)
+    mocker.patch.object(DataAnalyzerProcess, "is_stopped", autospec=True, return_value=False)
     mocker.patch.object(ServerThread, "is_stopped", autospec=True, return_value=False)
 
 
@@ -205,9 +205,7 @@ def fixture_patched_test_xem_scripts_folder():
     os.rename(real_path, tmp_path)
 
     os.mkdir(real_path)
-    test_start_cal_path = resource_path(
-        os.path.join("test_xem_scripts", "xem_test_script.txt")
-    )
+    test_start_cal_path = resource_path(os.path.join("test_xem_scripts", "xem_test_script.txt"))
     copy(test_start_cal_path, os.path.join(real_path, "xem_test_script.txt"))
 
     yield real_path, tmp_path
@@ -230,13 +228,9 @@ def fixture_patched_xem_scripts_folder():
     os.rename(real_path, tmp_path)
 
     os.mkdir(real_path)
-    test_start_up_path = resource_path(
-        os.path.join("test_xem_scripts", "xem_test_start_up.txt")
-    )
+    test_start_up_path = resource_path(os.path.join("test_xem_scripts", "xem_test_start_up.txt"))
     copy(test_start_up_path, os.path.join(real_path, "xem_start_up.txt"))
-    test_start_cal_path = resource_path(
-        os.path.join("test_xem_scripts", "xem_test_start_calibration.txt")
-    )
+    test_start_cal_path = resource_path(os.path.join("test_xem_scripts", "xem_test_start_calibration.txt"))
     copy(test_start_cal_path, os.path.join(real_path, "xem_start_calibration.txt"))
 
     yield real_path, tmp_path
@@ -260,9 +254,7 @@ def fixture_patched_short_calibration_script():
     os.rename(real_path, tmp_path)
 
     os.mkdir(real_path)
-    test_short_cal_path = resource_path(
-        os.path.join("test_xem_scripts", "xem_test_short_calibration.txt")
-    )
+    test_short_cal_path = resource_path(os.path.join("test_xem_scripts", "xem_test_short_calibration.txt"))
     copy(test_short_cal_path, os.path.join(real_path, "xem_start_calibration.txt"))
 
     yield real_path, tmp_path

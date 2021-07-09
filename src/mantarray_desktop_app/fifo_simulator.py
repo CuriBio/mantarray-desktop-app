@@ -43,9 +43,7 @@ class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
     default_firmware_version = "0.0.0"
     default_barcode = "MA190190000"
 
-    def __init__(
-        self, simulated_response_queues: Optional[Dict[str, Any]] = None
-    ) -> None:
+    def __init__(self, simulated_response_queues: Optional[Dict[str, Any]] = None) -> None:
         if simulated_response_queues is None:
             simulated_response_queues = {}
         if "pipe_outs" in simulated_response_queues:
@@ -53,12 +51,8 @@ class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
         super().__init__(simulated_response_queues)
         self._device_id = self.default_device_id
         self._fifo_read_producer: Optional[FIFOReadProducer] = None
-        self._producer_error_queue: Optional[
-            Queue[str]  # pylint: disable=unsubscriptable-object
-        ] = None
-        self._producer_data_queue: Optional[
-            Queue[bytearray]  # pylint: disable=unsubscriptable-object
-        ] = None
+        self._producer_error_queue: Optional[Queue[str]] = None  # pylint: disable=unsubscriptable-object
+        self._producer_data_queue: Optional[Queue[bytearray]] = None  # pylint: disable=unsubscriptable-object
         self._lock: Optional[threading.Lock] = None
 
     def hard_stop(self, timeout: Optional[float] = None) -> None:
@@ -114,9 +108,7 @@ class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
         with self._lock:
             while True:
                 try:
-                    self._producer_data_queue.get(
-                        timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
-                    )
+                    self._producer_data_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
                 except queue.Empty:
                     break
 
@@ -132,9 +124,7 @@ class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
         if wire_out_queue is None:
             return FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
         try:
-            wire_out_value = wire_out_queue.get(
-                timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
-            )
+            wire_out_value = wire_out_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
         except queue.Empty:
             return FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
         if not isinstance(wire_out_value, int):
@@ -151,9 +141,7 @@ class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
             data_read = bytearray(0)
             while True:
                 try:
-                    iter_data = self._producer_data_queue.get(
-                        timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
-                    )
+                    iter_data = self._producer_data_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
                 except queue.Empty:
                     break
                 data_read.extend(iter_data)
@@ -166,16 +154,12 @@ class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
         if self._lock is None:
             raise NotImplementedError("_lock should never be None here")
         num_words = 0
-        temp_queue: Queue[  # pylint: disable=unsubscriptable-object
-            bytearray
-        ] = queue.Queue()
+        temp_queue: Queue[bytearray] = queue.Queue()  # pylint: disable=unsubscriptable-object
         # Tanner (3/12/20) is not sure how to test that we are using a lock here. The purpose of this lock is to ensure that data is not pulled from the queue at the same time it is being added.
         with self._lock:
             while True:
                 try:
-                    iter_data = self._producer_data_queue.get(
-                        timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
-                    )
+                    iter_data = self._producer_data_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
                 except queue.Empty:
                     break
                 num_words += (
@@ -187,9 +171,7 @@ class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
 
             while True:
                 try:
-                    iter_data = temp_queue.get(
-                        timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
-                    )
+                    iter_data = temp_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
                 except queue.Empty:
                     break
                 self._producer_data_queue.put_nowait(iter_data)

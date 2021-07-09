@@ -2,11 +2,17 @@
 import json
 
 from mantarray_desktop_app import BUFFERING_STATE
+from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
+from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import ImproperlyFormattedCustomerAccountUUIDError
 from mantarray_desktop_app import ImproperlyFormattedUserAccountUUIDError
+from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
+from mantarray_desktop_app import MantarrayMcSimulator
+from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import RecordingFolderDoesNotExistError
+from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import server
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
@@ -16,7 +22,7 @@ from ..fixtures import fixture_generic_queue_container
 from ..fixtures import fixture_test_process_manager
 from ..fixtures_process_monitor import fixture_test_monitor
 from ..fixtures_server import fixture_client_and_server_thread_and_shared_values
-from ..fixtures_server import fixture_generic_start_recording_info_in_shared_dict
+from ..fixtures_server import fixture_generic_beta_1_start_recording_info_in_shared_dict
 from ..fixtures_server import fixture_server_thread
 from ..fixtures_server import fixture_test_client
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -26,7 +32,7 @@ __fixtures__ = [
     fixture_server_thread,
     fixture_test_client,
     fixture_generic_queue_container,
-    fixture_generic_start_recording_info_in_shared_dict,
+    fixture_generic_beta_1_start_recording_info_in_shared_dict,
     fixture_test_monitor,
     fixture_test_process_manager,
 ]
@@ -100,9 +106,7 @@ def test_system_status__returns_correct_serial_number_and_nickname_in_dict_with_
 
     response_json = response.get_json()
     if expected_serial:
-        assert (
-            response_json["mantarray_serial_number"][str(board_idx)] == expected_serial
-        )
+        assert response_json["mantarray_serial_number"][str(board_idx)] == expected_serial
     else:
         assert response_json["mantarray_serial_number"] == ""
     if expected_nickname:
@@ -114,22 +118,48 @@ def test_system_status__returns_correct_serial_number_and_nickname_in_dict_with_
 @pytest.mark.parametrize(
     ",".join(("test_nickname", "test_description")),
     [
-        ("123456789012345678901234", "raises error with no unicode characters"),
-        ("1234567890123456789012à", "raises error with unicode character"),
+        ("123456789012345678901234", "returns error with no unicode characters"),
+        ("1234567890123456789012à", "returns error with unicode character"),
     ],
 )
-def test_set_mantarray_serial_number__returns_error_code_and_message_if_serial_number_is_too_many_bytes(
+def test_set_mantarray_nickname__returns_error_code_and_message_if_nickname_is_too_many_bytes__in_beta_1_mode(
     test_nickname,
     test_description,
     client_and_server_thread_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
 
+    shared_values_dict["beta_2_mode"] = False
     shared_values_dict["mantarray_nickname"] = dict()
 
     response = test_client.get(f"/set_mantarray_nickname?nickname={test_nickname}")
     assert response.status_code == 400
     assert response.status.endswith("Nickname exceeds 23 bytes") is True
+
+
+@pytest.mark.parametrize(
+    ",".join(("test_nickname", "test_description")),
+    [
+        (
+            "123456789012345678901234567890123",
+            "returns error with no unicode characters",
+        ),
+        ("1234567890123456789012345678901à", "returns error with unicode character"),
+    ],
+)
+def test_set_mantarray_nickname__returns_error_code_and_message_if_nickname_is_too_many_bytes__in_beta_2_mode(
+    test_nickname,
+    test_description,
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["mantarray_nickname"] = dict()
+
+    response = test_client.get(f"/set_mantarray_nickname?nickname={test_nickname}")
+    assert response.status_code == 400
+    assert response.status.endswith("Nickname exceeds 32 bytes") is True
 
 
 def test_send_single_start_calibration_command__returns_200(
@@ -141,9 +171,7 @@ def test_send_single_start_calibration_command__returns_200(
 
 
 def test_dev_begin_hardware_script__returns_correct_response(test_client):
-    response = test_client.get(
-        "/development/begin_hardware_script?script_type=ENUM&version=integer"
-    )
+    response = test_client.get("/development/begin_hardware_script?script_type=ENUM&version=integer")
     assert response.status_code == 200
 
 
@@ -204,9 +232,7 @@ def test_server__handles_logging_after_request_when_get_available_data_is_called
             }
         }
     )
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_data, data_out_queue
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data, data_out_queue)
 
     response = test_client.get("/get_available_data")
     assert response.status_code == 200
@@ -283,10 +309,7 @@ def test_start_managed_acquisition__returns_error_code_and_message_if_mantarray_
 
     response = test_client.get("/start_managed_acquisition")
     assert response.status_code == 406
-    assert (
-        response.status.endswith("Mantarray has not been assigned a Serial Number")
-        is True
-    )
+    assert response.status.endswith("Mantarray has not been assigned a Serial Number") is True
 
 
 @pytest.mark.parametrize(
@@ -309,12 +332,7 @@ def test_update_settings__returns_error_message_for_invalid_customer_account_uui
 ):
     response = test_client.get(f"/update_settings?customer_account_uuid={test_uuid}")
     assert response.status_code == 400
-    assert (
-        response.status.endswith(
-            f"{repr(ImproperlyFormattedCustomerAccountUUIDError(test_uuid))}"
-        )
-        is True
-    )
+    assert response.status.endswith(f"{repr(ImproperlyFormattedCustomerAccountUUIDError(test_uuid))}") is True
 
 
 def test_update_settings__returns_error_message_when_recording_directory_does_not_exist(
@@ -323,10 +341,7 @@ def test_update_settings__returns_error_message_when_recording_directory_does_no
     test_dir = "fake_dir/fake_sub_dir"
     response = test_client.get(f"/update_settings?recording_directory={test_dir}")
     assert response.status_code == 400
-    assert (
-        response.status.endswith(f"{repr(RecordingFolderDoesNotExistError(test_dir))}")
-        is True
-    )
+    assert response.status.endswith(f"{repr(RecordingFolderDoesNotExistError(test_dir))}") is True
 
 
 def test_update_settings__returns_error_message_when_unexpected_argument_is_given(
@@ -356,12 +371,7 @@ def test_update_settings__returns_error_message_for_invalid_user_account_uuid(
 ):
     response = test_client.get(f"/update_settings?user_account_uuid={test_uuid}")
     assert response.status_code == 400
-    assert (
-        response.status.endswith(
-            f"{repr(ImproperlyFormattedUserAccountUUIDError(test_uuid))}"
-        )
-        is True
-    )
+    assert response.status.endswith(f"{repr(ImproperlyFormattedUserAccountUUIDError(test_uuid))}") is True
 
 
 def test_route_error_message_is_logged(mocker, test_client):
@@ -377,35 +387,27 @@ def test_route_error_message_is_logged(mocker, test_client):
 
 def test_start_recording__returns_no_error_message_with_multiple_hardware_test_recordings(
     test_client,
-    generic_start_recording_info_in_shared_dict,
+    generic_beta_1_start_recording_info_in_shared_dict,
 ):
-    response = test_client.get(
-        "/start_recording?barcode=MA200440001&is_hardware_test_recording=True"
-    )
+    response = test_client.get("/start_recording?barcode=MA200440001&is_hardware_test_recording=True")
     assert response.status_code == 200
-    response = test_client.get(
-        "/start_recording?barcode=MA200440001&is_hardware_test_recording=True"
-    )
+    response = test_client.get("/start_recording?barcode=MA200440001&is_hardware_test_recording=True")
     assert response.status_code == 200
 
 
 def test_start_recording__returns_error_code_and_message_if_user_account_id_not_set(
-    test_client, test_monitor, generic_start_recording_info_in_shared_dict
+    test_client, test_monitor, generic_beta_1_start_recording_info_in_shared_dict
 ):
-    generic_start_recording_info_in_shared_dict["config_settings"][
-        "User Account ID"
-    ] = ""
+    generic_beta_1_start_recording_info_in_shared_dict["config_settings"]["User Account ID"] = ""
     response = test_client.get("/start_recording?barcode=MA200440001")
     assert response.status_code == 406
     assert response.status.endswith("User Account ID has not yet been set") is True
 
 
 def test_start_recording__returns_error_code_and_message_if_customer_account_id_not_set(
-    test_client, test_monitor, generic_start_recording_info_in_shared_dict
+    test_client, test_monitor, generic_beta_1_start_recording_info_in_shared_dict
 ):
-    generic_start_recording_info_in_shared_dict["config_settings"][
-        "Customer Account ID"
-    ] = ""
+    generic_beta_1_start_recording_info_in_shared_dict["config_settings"]["Customer Account ID"] = ""
     response = test_client.get("/start_recording?barcode=MA200440001")
     assert response.status_code == 406
     assert response.status.endswith("Customer Account ID has not yet been set") is True
@@ -517,7 +519,7 @@ def test_start_recording__allows_years_other_than_20_in_barcode(
     test_client,
     test_barcode,
     test_description,
-    generic_start_recording_info_in_shared_dict,
+    generic_beta_1_start_recording_info_in_shared_dict,
     test_process_manager,
 ):
     response = test_client.get(f"/start_recording?barcode={test_barcode}")
@@ -545,21 +547,229 @@ def test_start_recording__allows_correct_barcode_headers(
     test_barcode,
     test_description,
     test_client,
-    generic_start_recording_info_in_shared_dict,
+    generic_beta_1_start_recording_info_in_shared_dict,
 ):
     response = test_client.get(f"/start_recording?barcode={test_barcode}")
     assert response.status_code == 200
 
 
-def test_route_with_no_url_rule__returns_error_message__and_logs_reponse_to_request(
-    test_client, mocker
-):
+def test_route_with_no_url_rule__returns_error_message__and_logs_reponse_to_request(test_client, mocker):
     mocked_logger = mocker.spy(server.logger, "info")
 
     response = test_client.get("/fake_route")
     assert response.status_code == 404
     assert response.status.endswith("Route not implemented") is True
 
-    mocked_logger.assert_called_once_with(
-        f"Response to HTTP Request in next log entry: {response.status}"
+    mocked_logger.assert_called_once_with(f"Response to HTTP Request in next log entry: {response.status}")
+
+
+def test_insert_xem_command_into_queue_routes__return_error_code_and_message_if_called_in_beta_2_mode(
+    client_and_server_thread_and_shared_values, mocker
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+
+    spied_queue_set_device_id = mocker.spy(server, "queue_set_device_id")
+
+    shared_values_dict["beta_2_mode"] = True
+
+    response = test_client.get("/insert_xem_command_into_queue/set_device_id")
+    assert response.status_code == 403
+    assert response.status.endswith("Route cannot be called in beta 2 mode") is True
+
+    spied_queue_set_device_id.assert_not_called()
+
+
+def test_boot_up__return_error_code_and_message_if_called_in_beta_2_mode(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+
+    response = test_client.get("/boot_up")
+    assert response.status_code == 403
+    assert response.status.endswith("Route cannot be called in beta 2 mode") is True
+
+
+def test_set_magnetometer_config__returns_error_code_if_called_in_beta_1_mode(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = False
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+
+    response = test_client.post("/set_magnetometer_config")
+    assert response.status_code == 403
+    assert response.status.endswith("Route cannot be called in beta 1 mode") is True
+
+
+def test_set_magnetometer_config__returns_error_code_if_called_with_config_dict_missing_module_id(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+
+    test_num_wells = 24
+    bad_config = create_magnetometer_config_dict(test_num_wells - 1)
+    test_config_dict = {
+        "magnetometer_config": bad_config,
+        "sampling_period": 10000,
+    }
+
+    response = test_client.post("/set_magnetometer_config", json=json.dumps(test_config_dict))
+    assert response.status_code == 400
+    assert response.status.endswith(f"Configuration dictionary is missing module ID {test_num_wells}") is True
+
+
+def test_set_magnetometer_config__returns_error_code_if_called_with_config_dict_missing_channel_id(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+
+    test_num_wells = 24
+    bad_config = create_magnetometer_config_dict(test_num_wells)
+    missing_channel_id = 0
+    del bad_config[test_num_wells][missing_channel_id]
+    test_config_dict = {
+        "magnetometer_config": bad_config,
+        "sampling_period": 10000,
+    }
+
+    response = test_client.post("/set_magnetometer_config", json=json.dumps(test_config_dict))
+    assert response.status_code == 400
+    assert (
+        response.status.endswith(
+            f"Configuration dictionary is missing channel ID {missing_channel_id} for module ID {test_num_wells}"
+        )
+        is True
     )
+
+
+def test_set_magnetometer_config__returns_error_code_if_called_with_config_dict_that_has_invalid_module_id(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+
+    test_num_wells = 24
+    bad_config = create_magnetometer_config_dict(test_num_wells + 1)
+    test_config_dict = {
+        "magnetometer_config": bad_config,
+        "sampling_period": 10000,
+    }
+    response = test_client.post("/set_magnetometer_config", json=json.dumps(test_config_dict))
+    assert response.status_code == 400
+    assert (
+        response.status.endswith(f"Configuration dictionary has invalid module ID {test_num_wells + 1}")
+        is True
+    )
+
+    bad_key = 0
+    bad_config[bad_key] = True
+    response = test_client.post("/set_magnetometer_config", json=json.dumps(test_config_dict))
+    assert response.status_code == 400
+    assert response.status.endswith(f"Configuration dictionary has invalid module ID {bad_key}") is True
+
+
+def test_set_magnetometer_config__returns_error_code_if_called_with_config_dict_that_has_invalid_channel_id(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+
+    test_num_wells = 24
+    bad_config = create_magnetometer_config_dict(test_num_wells)
+    bad_config[test_num_wells][SERIAL_COMM_NUM_DATA_CHANNELS] = False
+    test_config_dict = {
+        "magnetometer_config": bad_config,
+        "sampling_period": 20000,
+    }
+    response = test_client.post("/set_magnetometer_config", json=json.dumps(test_config_dict))
+    assert response.status_code == 400
+    assert (
+        response.status.endswith(
+            f"Configuration dictionary has invalid channel ID {SERIAL_COMM_NUM_DATA_CHANNELS} for module ID {test_num_wells}"
+        )
+        is True
+    )
+
+    bad_key = -1
+    bad_config[test_num_wells][bad_key] = True
+    response = test_client.post("/set_magnetometer_config", json=json.dumps(test_config_dict))
+    assert response.status_code == 400
+    assert (
+        response.status.endswith(
+            f"Configuration dictionary has invalid channel ID {bad_key} for module ID {test_num_wells}"
+        )
+        is True
+    )
+
+
+def test_set_magnetometer_config__returns_error_code_if_called_sampling_period_is_not_given_or_is_invalid(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+
+    test_num_wells = 24
+    config_dict = create_magnetometer_config_dict(test_num_wells)
+    test_config_dict = {
+        "magnetometer_config": config_dict,
+    }
+    response = test_client.post("/set_magnetometer_config", json=json.dumps(test_config_dict))
+    assert response.status_code == 400
+    assert response.status.endswith("Sampling period not specified") is True
+
+    bad_sampling_period = 1
+    test_config_dict["sampling_period"] = bad_sampling_period
+    response = test_client.post("/set_magnetometer_config", json=json.dumps(test_config_dict))
+    assert response.status_code == 400
+    assert response.status.endswith(f"Invalid sampling period {bad_sampling_period}") is True
+
+
+@pytest.mark.parametrize(
+    "test_system_status,test_description",
+    [
+        (BUFFERING_STATE, "returns error code in buffering state"),
+        (LIVE_VIEW_ACTIVE_STATE, "returns error code in live view active state"),
+        (RECORDING_STATE, "returns error code in recording state"),
+    ],
+)
+def test_set_magnetometer_config__returns_error_code_if_called_while_data_is_streaming(
+    test_system_status,
+    test_description,
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = test_system_status
+
+    test_num_wells = 24
+    test_config_dict = {
+        "magnetometer_config": create_magnetometer_config_dict(test_num_wells),
+        "sampling_period": 100000,
+    }
+    response = test_client.post("/set_magnetometer_config", json=json.dumps(test_config_dict))
+    assert response.status_code == 403
+    assert (
+        response.status.endswith("Magnetometer Configuration cannot be changed while data is streaming")
+        is True
+    )
+
+
+def test_start_managed_acquisition__returns_error_code_if_called_in_beta_2_mode_before_magnetometer_configuration_is_set(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["mantarray_serial_number"] = MantarrayMcSimulator.default_mantarray_serial_number
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+
+    response = test_client.get("/start_managed_acquisition")
+    assert response.status_code == 406
+    assert response.status.endswith("Magnetometer Configuration has not been set yet") is True

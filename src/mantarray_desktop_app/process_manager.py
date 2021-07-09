@@ -21,6 +21,7 @@ from .data_analyzer import DataAnalyzerProcess
 from .file_writer import FileWriterProcess
 from .firmware_manager import get_latest_firmware
 from .instrument_comm import InstrumentCommProcess
+from .mc_comm import McCommunicationProcess
 from .ok_comm import OkCommunicationProcess
 from .queue_container import MantarrayQueueContainer
 from .server import ServerThread
@@ -40,7 +41,8 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         self._instrument_communication_process: InstrumentCommProcess
         self._logging_level: int
         if values_to_share_to_server is None:
-            values_to_share_to_server = dict()
+            # Tanner (4/23/21): 'values_to_share_to_server' kwarg is only None during testing, so default to Beta 1 mode. Tests that need beta 2 mode should use the kwarg to provide a dict where this value is True
+            values_to_share_to_server = {"beta_2_mode": False}
 
         self._values_to_share_to_server = values_to_share_to_server
         self._server_thread: ServerThread
@@ -48,6 +50,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         self._file_directory: str = file_directory
         self._data_analyzer_process: DataAnalyzerProcess
 
+        # TODO Tanner (6/1/21): refactor this initialization, see last statement in self.create_processes
         self._all_processes = Tuple[
             ServerThread, InstrumentCommProcess, FileWriterProcess, DataAnalyzerProcess
         ]  # server takes longest to start, so have that first
@@ -89,18 +92,19 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         queue_container = MantarrayQueueContainer()
         self._queue_container = queue_container
 
+        beta_2_mode = self._values_to_share_to_server["beta_2_mode"]
+
         self._server_thread = ServerThread(
             queue_container.get_communication_queue_from_server_to_main(),
             queue_container.get_server_error_queue(),
             queue_container,
             logging_level=self._logging_level,
             values_from_process_monitor=self._values_to_share_to_server,
-            port=self._values_to_share_to_server.get(
-                "server_port_number", DEFAULT_SERVER_PORT_NUMBER
-            ),
+            port=self._values_to_share_to_server.get("server_port_number", DEFAULT_SERVER_PORT_NUMBER),
         )
 
-        self._instrument_communication_process = OkCommunicationProcess(
+        instrument_comm_process = OkCommunicationProcess if not beta_2_mode else McCommunicationProcess
+        self._instrument_communication_process = instrument_comm_process(
             queue_container.get_instrument_comm_board_queues(),
             queue_container.get_instrument_communication_error_queue(),
             logging_level=self._logging_level,
@@ -113,6 +117,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             queue_container.get_file_writer_error_queue(),
             file_directory=self._file_directory,
             logging_level=self._logging_level,
+            beta_2_mode=beta_2_mode,
         )
 
         self._data_analyzer_process = DataAnalyzerProcess(
@@ -121,6 +126,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             queue_container.get_communication_queue_from_data_analyzer_to_main(),
             queue_container.get_data_analyzer_error_queue(),
             logging_level=self._logging_level,
+            beta_2_mode=beta_2_mode,
         )
 
         self._all_processes = (
@@ -144,7 +150,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         self.start_processes()
 
     def boot_up_instrument(self, load_firmware_file: bool = True) -> Dict[str, Any]:
-        """Boot up the Mantarray instrument.
+        """Boot up a Mantarray Beta 1 instrument.
 
         It is assumed that 'bit_file_name' will be a path to a real .bit
         firmware file whose name follows the format:
@@ -153,13 +159,9 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         bit_file_name = None
         if load_firmware_file:
             bit_file_name = get_latest_firmware()
-        to_instrument_comm_queue = (
-            self.queue_container().get_communication_to_instrument_comm_queue(0)
-        )
+        to_instrument_comm_queue = self.queue_container().get_communication_to_instrument_comm_queue(0)
 
-        self.get_values_to_share_to_server()[
-            "system_status"
-        ] = INSTRUMENT_INITIALIZING_STATE
+        self.get_values_to_share_to_server()["system_status"] = INSTRUMENT_INITIALIZING_STATE
         boot_up_dict = {
             "communication_type": "boot_up_instrument",
             "command": "initialize_board",
@@ -283,7 +285,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             return False
         for iter_process in self._all_processes:
             if isinstance(iter_process, ServerThread):
-                # Eli (12/17/20): skip the ServerThread because there is no clear way to mark the start up complete after launching flask.run()
+                # Tanner (6/1/21): skip the ServerThread because it is a thread running in the main process, not a subprocess
                 continue
             if not iter_process.is_start_up_complete():
                 return False

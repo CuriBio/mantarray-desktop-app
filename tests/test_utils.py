@@ -5,15 +5,14 @@ import os
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import get_current_software_version
 from mantarray_desktop_app import redact_sensitive_info_from_path
+from mantarray_desktop_app import sort_nested_dict
 from mantarray_desktop_app import utils
 import pytest
 from stdlib_utils import get_current_file_abs_directory
 
 
 def test_get_current_software_version__Given_code_is_not_bundled__When_the_function_is_called__Then_it_returns_version_from_package_json():
-    path_to_package_json = os.path.join(
-        get_current_file_abs_directory(), os.pardir, "package.json"
-    )
+    path_to_package_json = os.path.join(get_current_file_abs_directory(), os.pardir, "package.json")
     with open(path_to_package_json) as in_file:
         parsed_json = json.load(in_file)
         expected = parsed_json["version"]
@@ -103,3 +102,19 @@ def test_redact_sensitive_info_from_path__scrubs_everything_if_does_not_match_pa
 ):
     actual = redact_sensitive_info_from_path(test_path)
     assert actual == "*" * len(test_path)
+
+
+def test_sort_nested_dict__returns_correct_dict():
+    test_dict = {
+        2: {"A": 7, "Z": 0, "V": None},
+        3: True,
+        1: bytes(2),
+    }
+    actual = sort_nested_dict(test_dict)
+
+    expected_outer_keys = [1, 2, 3]
+    for i, outer_key in enumerate(list(actual.keys())):
+        assert outer_key == expected_outer_keys[i]
+    expected_inner_keys = ["A", "V", "Z"]
+    for i, inner_key in enumerate(list(actual[2].keys())):
+        assert inner_key == expected_inner_keys[i]

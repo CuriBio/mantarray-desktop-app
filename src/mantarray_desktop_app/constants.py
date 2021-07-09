@@ -23,7 +23,9 @@ CURRENT_SOFTWARE_VERSION = "REPLACETHISWITHVERSIONDURINGBUILD"
 
 COMPILED_EXE_BUILD_TIMESTAMP = "REPLACETHISWITHTIMESTAMPDURINGBUILD"
 
-CURRENT_HDF5_FILE_FORMAT_VERSION = "0.4.1"
+# Tanner (4/15/21): the latest HDF5 file version lives in mantarray-file-manager. This value represents the file version that is being created by the desktop app. When new mantarray-file-manager updates are brought into the desktop app, these values will differ indicating that FileWriterProcess needs to be updated to match the new file version
+CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION = "0.4.2"
+CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION = "1.0.0"
 
 DEFAULT_SERVER_PORT_NUMBER = 4567
 
@@ -59,9 +61,7 @@ DEFAULT_USER_CONFIG = immutabledict(
         "User Account ID": "",
     }
 )
-VALID_CONFIG_SETTINGS = frozenset(
-    ["customer_account_uuid", "user_account_uuid", "recording_directory"]
-)
+VALID_CONFIG_SETTINGS = frozenset(["customer_account_uuid", "user_account_uuid", "recording_directory"])
 
 DATA_FRAME_PERIOD = 20  # in centimilliseconds
 ROUND_ROBIN_PERIOD = DATA_FRAME_PERIOD * DATA_FRAMES_PER_ROUND_ROBIN
@@ -69,6 +69,7 @@ TIMESTEP_CONVERSION_FACTOR = 5  # Mantarray firmware represents time indices in 
 
 MICROSECONDS_PER_CENTIMILLISECOND = 10
 NANOSECONDS_PER_CENTIMILLISECOND = 10 ** 4
+MICROSECONDS_PER_MILLISECOND = 10 ** 3
 
 FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE = 0xFFFFFFFF
 FIFO_READ_PRODUCER_CYCLES_PER_ITERATION = (
@@ -77,9 +78,7 @@ FIFO_READ_PRODUCER_CYCLES_PER_ITERATION = (
 FIFO_READ_PRODUCER_SLEEP_DURATION = (
     FIFO_READ_PRODUCER_CYCLES_PER_ITERATION * ROUND_ROBIN_PERIOD
 ) / CENTIMILLISECONDS_PER_SECOND
-FIFO_READ_PRODUCER_SAWTOOTH_PERIOD = (
-    CENTIMILLISECONDS_PER_SECOND // TIMESTEP_CONVERSION_FACTOR
-) / (
+FIFO_READ_PRODUCER_SAWTOOTH_PERIOD = (CENTIMILLISECONDS_PER_SECOND // TIMESTEP_CONVERSION_FACTOR) / (
     2 * np.pi
 )  # in board timesteps (1/5 of a centimillisecond)
 FIFO_READ_PRODUCER_DATA_OFFSET = 0x800000
@@ -87,7 +86,7 @@ FIFO_READ_PRODUCER_WELL_AMPLITUDE = 0xA8000
 FIFO_READ_PRODUCER_REF_AMPLITUDE = 0x100000
 
 MIDSCALE_CODE = 0x800000
-REFERENCE_VOLTAGE = 2.5  # TODO Tanner (7/16/20): remove this once the read_wire_out value is implemented
+REFERENCE_VOLTAGE = 2.5  # TODO Tanner (5/22/21): Determine if this value is still needed for Beta 2
 ADC_GAIN = 2
 RAW_TO_SIGNED_CONVERSION_VALUE = 2 ** 23  # subtract this value from raw hardware data
 MILLIVOLTS_PER_VOLT = 1000
@@ -115,9 +114,7 @@ VALID_SCRIPTING_COMMANDS = frozenset(
         "start_calibration",
     ]
 )
-ADC_GAIN_DESCRIPTION_TAG = (
-    "adc_gain_setting"  # specifically used for parsing gain value from xem_scripts
-)
+ADC_GAIN_DESCRIPTION_TAG = "adc_gain_setting"  # specifically used for parsing gain value from xem_scripts
 ADC_OFFSET_DESCRIPTION_TAG = (
     "adc_offset_reading"  # specifically used for parsing offset values from xem_scripts
 )
@@ -201,6 +198,11 @@ STOP_MANAGED_ACQUISITION_COMMUNICATION = immutabledict(
     }
 )
 
+# TODO Tanner (5/22/21): Add Beta 2 states. Also remove Beta 1 specific states once phased out
+#   "instrument_initializing" state could correspond to boot up status code
+#   "configuration_needed" state means that magnetometer config and sampling period need to be set
+#   should change "calibrated" state to something better like idle/ready to stream
+#   "buffering" state may be removed
 SERVER_INITIALIZING_STATE = "server_initializing"
 SERVER_READY_STATE = "server_ready"
 INSTRUMENT_INITIALIZING_STATE = "instrument_initializing"
@@ -214,9 +216,7 @@ SYSTEM_STATUS_UUIDS = immutabledict(
     {
         SERVER_INITIALIZING_STATE: uuid.UUID("04471bcf-1a00-4a0d-83c8-4160622f9a25"),
         SERVER_READY_STATE: uuid.UUID("8e24ef4d-2353-4e9d-aa32-4346126e73e3"),
-        INSTRUMENT_INITIALIZING_STATE: uuid.UUID(
-            "d2e3d386-b760-4c9a-8b2d-410362ff11c4"
-        ),
+        INSTRUMENT_INITIALIZING_STATE: uuid.UUID("d2e3d386-b760-4c9a-8b2d-410362ff11c4"),
         CALIBRATION_NEEDED_STATE: uuid.UUID("009301eb-625c-4dc4-9e92-1a4d0762465f"),
         CALIBRATING_STATE: uuid.UUID("43c08fc5-ca2f-4dcd-9dff-5e9324cb5dbf"),
         CALIBRATED_STATE: uuid.UUID("b480373b-9466-4fa0-92a6-fa5f8e340d30"),
@@ -232,15 +232,14 @@ SUBPROCESS_POLL_DELAY_SECONDS = 0.025
 SECONDS_TO_WAIT_WHEN_POLLING_QUEUES = 0.02  # Due to the unreliability of the :method:`.empty()` :method:`.qsize()` methods in queues, switched to a :method:`.get(timeout=)` approach for polling the queues in the subprocesses.  Eli (10/26/20): 0.01 seconds was still causing sporadic failures in Linux CI in Github, so bumped to 0.02 seconds.
 
 # Serial Communication Values
-SERIAL_COMM_BAUD_RATE = 4e6
+STM_VID = 1155
+SERIAL_COMM_BAUD_RATE = int(5e6)
 
 MAX_MC_REBOOT_DURATION_SECONDS = 5
 
 SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES = 3
 
-SERIAL_COMM_TIMESTAMP_EPOCH = datetime.datetime(
-    year=2021, month=1, day=1, tzinfo=datetime.timezone.utc
-)
+SERIAL_COMM_TIMESTAMP_EPOCH = datetime.datetime(year=2021, month=1, day=1, tzinfo=datetime.timezone.utc)
 
 SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS = 5
 SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS = 5
@@ -249,17 +248,27 @@ SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS = 6
 SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS = 7
 SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS = 8
 
+# general packet components
 SERIAL_COMM_MAGIC_WORD_BYTES = b"CURI BIO"
 SERIAL_COMM_PACKET_INFO_LENGTH_BYTES = 2
 SERIAL_COMM_TIMESTAMP_LENGTH_BYTES = 8
 SERIAL_COMM_CHECKSUM_LENGTH_BYTES = 4
 SERIAL_COMM_STATUS_CODE_LENGTH_BYTES = 4
+# data stream components
+SERIAL_COMM_TIME_INDEX_LENGTH_BYTES = 5
+SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES = 2
 
 # following two values do not include the magic word or packet info bytes
-SERIAL_COMM_MIN_PACKET_SIZE_BYTES = (
+SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES = (
     SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 2 + SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 )  # 2 bytes for module ID and packet type bytes
 SERIAL_COMM_MAX_PACKET_LENGTH_BYTES = 2 ** 16
+
+SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES = (
+    SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
+    + SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
+    + len(SERIAL_COMM_MAGIC_WORD_BYTES)
+)
 SERIAL_COMM_MAX_DATA_LENGTH_BYTES = (
     SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
     - SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
@@ -269,9 +278,7 @@ SERIAL_COMM_MAX_DATA_LENGTH_BYTES = (
 )
 SERIAL_COMM_MAX_TIMESTAMP_VALUE = 2 ** (8 * SERIAL_COMM_TIMESTAMP_LENGTH_BYTES) - 1
 
-SERIAL_COMM_TIMESTAMP_BYTES_INDEX = (
-    len(SERIAL_COMM_MAGIC_WORD_BYTES) + SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
-)
+SERIAL_COMM_TIMESTAMP_BYTES_INDEX = len(SERIAL_COMM_MAGIC_WORD_BYTES) + SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 SERIAL_COMM_MODULE_ID_INDEX = 18
 SERIAL_COMM_PACKET_TYPE_INDEX = 19
 SERIAL_COMM_ADDITIONAL_BYTES_INDEX = 20
@@ -283,10 +290,15 @@ SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE = 3
 SERIAL_COMM_HANDSHAKE_PACKET_TYPE = 4
 # Mantarray to PC Packet Types
 SERIAL_COMM_STATUS_BEACON_PACKET_TYPE = 0
+SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE = 1
 SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE = 4
+SERIAL_COMM_PLATE_EVENT_PACKET_TYPE = 6
 SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE = 255
 # Simple Command Codes
 SERIAL_COMM_REBOOT_COMMAND_BYTE = 0
+SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE = 1
+SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE = 2
+SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE = 3
 SERIAL_COMM_GET_METADATA_COMMAND_BYTE = 6
 SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE = 7
 SERIAL_COMM_SET_TIME_COMMAND_BYTE = 8
@@ -298,5 +310,25 @@ SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE = 2
 SERIAL_COMM_BOOT_UP_CODE = 3
 SERIAL_COMM_FATAL_ERROR_CODE = 4
 SERIAL_COMM_SOFT_ERROR_CODE = 5
+# Command Response Info
+SERIAL_COMM_STREAM_MODE_CHANGED_BYTE = 0
+SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE = 1
+# Magnetometer configuration
+SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE = {
+    "A": {"X": 0, "Y": 1, "Z": 2},
+    "B": {"X": 3, "Y": 4, "Z": 5},
+    "C": {"X": 6, "Y": 7, "Z": 8},
+}
+SERIAL_COMM_NUM_CHANNELS_PER_SENSOR = 3
+SERIAL_COMM_NUM_SENSORS_PER_WELL = 3
+SERIAL_COMM_NUM_DATA_CHANNELS = SERIAL_COMM_NUM_SENSORS_PER_WELL * SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 
 SERIAL_COMM_METADATA_BYTES_LENGTH = 32
+
+# Mappings
+SERIAL_COMM_WELL_IDX_TO_MODULE_ID = immutabledict(
+    {well_idx: well_idx % 4 * 6 + well_idx // 4 + 1 for well_idx in range(24)}
+)
+SERIAL_COMM_MODULE_ID_TO_WELL_IDX = immutabledict(
+    {module_id: well_idx for well_idx, module_id in SERIAL_COMM_WELL_IDX_TO_MODULE_ID.items()}
+)

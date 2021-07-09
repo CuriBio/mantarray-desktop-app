@@ -29,7 +29,8 @@ from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import CONSTRUCT_SENSORS_PER_REF_SENSOR
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
-from mantarray_desktop_app import CURRENT_HDF5_FILE_FORMAT_VERSION
+from mantarray_desktop_app import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
+from mantarray_desktop_app import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from mantarray_desktop_app import DATA_FRAME_PERIOD
@@ -51,6 +52,7 @@ from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import MAX_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app import MAX_POSSIBLE_CONNECTED_BOARDS
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
+from mantarray_desktop_app import MICROSECONDS_PER_MILLISECOND
 from mantarray_desktop_app import MIDSCALE_CODE
 from mantarray_desktop_app import MILLIVOLTS_PER_VOLT
 from mantarray_desktop_app import NANOSECONDS_PER_CENTIMILLISECOND
@@ -65,6 +67,7 @@ from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from mantarray_desktop_app import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
+from mantarray_desktop_app import SERIAL_COMM_BAUD_RATE
 from mantarray_desktop_app import SERIAL_COMM_BOOT_UP_CODE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
@@ -78,35 +81,55 @@ from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_IDLE_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
+from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY
+from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_DATA_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_METADATA_BYTES_LENGTH
-from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_SIZE_BYTES
+from mantarray_desktop_app import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_INDEX
+from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from mantarray_desktop_app import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
+from mantarray_desktop_app import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
+from mantarray_desktop_app import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_CY
+from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
+from mantarray_desktop_app import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_TYPE_INDEX
+from mantarray_desktop_app import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
+from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_SOFT_ERROR_CODE
+from mantarray_desktop_app import SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_STREAM_MODE_CHANGED_BYTE
+from mantarray_desktop_app import SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE
+from mantarray_desktop_app import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_CY
+from mantarray_desktop_app import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_TIME_SYNC_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_EPOCH
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import START_BARCODE_SCAN_TRIG_BIT
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_desktop_app import STM_VID
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import SUBPROCESS_POLL_DELAY_SECONDS
 from mantarray_desktop_app import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
@@ -115,6 +138,7 @@ from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
 from mantarray_desktop_app import VALID_CONFIG_SETTINGS
 from mantarray_desktop_app import VALID_SCRIPTING_COMMANDS
 from mantarray_desktop_app import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
+import mantarray_file_manager.constants
 import numpy as np
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 
@@ -163,9 +187,7 @@ def test_running_fifo_simulator_constants():
         (FIFO_READ_PRODUCER_CYCLES_PER_ITERATION * ROUND_ROBIN_PERIOD) / 100000
     )
     assert FIFO_READ_PRODUCER_CYCLES_PER_ITERATION == 20
-    assert FIFO_READ_PRODUCER_SAWTOOTH_PERIOD == (
-        (100000 // TIMESTEP_CONVERSION_FACTOR) / (2 * np.pi)
-    )
+    assert FIFO_READ_PRODUCER_SAWTOOTH_PERIOD == ((100000 // TIMESTEP_CONVERSION_FACTOR) / (2 * np.pi))
     assert FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE == 0xFFFFFFFF
     assert RAW_TO_SIGNED_CONVERSION_VALUE == 2 ** 23
     assert FIFO_READ_PRODUCER_DATA_OFFSET == 0x800000
@@ -181,6 +203,7 @@ def test_hardware_time_constants():
     assert TIMESTEP_CONVERSION_FACTOR == 5
     assert MICROSECONDS_PER_CENTIMILLISECOND == 10
     assert NANOSECONDS_PER_CENTIMILLISECOND == 10 ** 4
+    assert MICROSECONDS_PER_MILLISECOND == 10 ** 3
 
 
 def test_adc_reading_constants():
@@ -247,8 +270,20 @@ def test_sensors_and_mappings():
         assert ADC_CH_TO_24_WELL_INDEX[adc_num][ch_num] == well_idx
 
 
-def test_CURRENT_HDF5_FILE_FORMAT_VERSION():
-    assert CURRENT_HDF5_FILE_FORMAT_VERSION == "0.4.1"
+def test_current_file_versions():
+    latest_beta1_hdf5_file_format_version = (
+        mantarray_file_manager.constants.CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
+    )
+    assert (
+        CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION == latest_beta1_hdf5_file_format_version
+    ), "FileWriterProcess needs an update to match the beta 1 file format with the latest file version from mantarray-file-manager. Make the changes then update CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION to match the latest version"
+
+    latest_beta2_hdf5_file_format_version = (
+        mantarray_file_manager.constants.CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
+    )
+    assert (
+        CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION == latest_beta2_hdf5_file_format_version
+    ), "FileWriterProcess needs an update to match the beta 2 file format with the latest file version from mantarray-file-manager. Make the changes then update CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION to match the latest version"
 
 
 def test_COMPILED_EXE_BUILD_TIMESTAMP():
@@ -310,9 +345,7 @@ def test_system_status_uuids():
     assert SYSTEM_STATUS_UUIDS == {
         SERVER_INITIALIZING_STATE: uuid.UUID("04471bcf-1a00-4a0d-83c8-4160622f9a25"),
         SERVER_READY_STATE: uuid.UUID("8e24ef4d-2353-4e9d-aa32-4346126e73e3"),
-        INSTRUMENT_INITIALIZING_STATE: uuid.UUID(
-            "d2e3d386-b760-4c9a-8b2d-410362ff11c4"
-        ),
+        INSTRUMENT_INITIALIZING_STATE: uuid.UUID("d2e3d386-b760-4c9a-8b2d-410362ff11c4"),
         CALIBRATION_NEEDED_STATE: uuid.UUID("009301eb-625c-4dc4-9e92-1a4d0762465f"),
         CALIBRATING_STATE: uuid.UUID("43c08fc5-ca2f-4dcd-9dff-5e9324cb5dbf"),
         CALIBRATED_STATE: uuid.UUID("b480373b-9466-4fa0-92a6-fa5f8e340d30"),
@@ -342,6 +375,9 @@ def test_parallelism_config():
 
 
 def test_serial_comm():
+    assert STM_VID == 1155
+    assert SERIAL_COMM_BAUD_RATE == int(5e6)
+
     assert MAX_MC_REBOOT_DURATION_SECONDS == 5
 
     assert SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES == 3
@@ -360,6 +396,8 @@ def test_serial_comm():
     assert SERIAL_COMM_MAGIC_WORD_BYTES == b"CURI BIO"
     assert SERIAL_COMM_PACKET_INFO_LENGTH_BYTES == 2
     assert SERIAL_COMM_TIMESTAMP_LENGTH_BYTES == 8
+    assert SERIAL_COMM_TIME_INDEX_LENGTH_BYTES == 5
+    assert SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES == 2
     assert SERIAL_COMM_CHECKSUM_LENGTH_BYTES == 4
     assert SERIAL_COMM_STATUS_CODE_LENGTH_BYTES == 4
     assert SERIAL_COMM_MAX_PACKET_LENGTH_BYTES == 2 ** 16
@@ -370,15 +408,18 @@ def test_serial_comm():
         - SERIAL_COMM_CHECKSUM_LENGTH_BYTES
         - 10
     )
-    assert SERIAL_COMM_MIN_PACKET_SIZE_BYTES == (
+    assert SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES == (
         SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
         + SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
         + SERIAL_COMM_CHECKSUM_LENGTH_BYTES
     )
     assert (
-        SERIAL_COMM_MAX_TIMESTAMP_VALUE
-        == 2 ** (8 * SERIAL_COMM_TIMESTAMP_LENGTH_BYTES) - 1
+        SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
+        == SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
+        + SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
+        + len(SERIAL_COMM_MAGIC_WORD_BYTES)
     )
+    assert SERIAL_COMM_MAX_TIMESTAMP_VALUE == 2 ** (8 * SERIAL_COMM_TIMESTAMP_LENGTH_BYTES) - 1
 
     assert (
         SERIAL_COMM_TIMESTAMP_BYTES_INDEX
@@ -390,9 +431,11 @@ def test_serial_comm():
 
     assert SERIAL_COMM_MAIN_MODULE_ID == 0
     assert SERIAL_COMM_STATUS_BEACON_PACKET_TYPE == 0
+    assert SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE == 1
     assert SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE == 3
     assert SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE == 4
     assert SERIAL_COMM_HANDSHAKE_PACKET_TYPE == 4
+    assert SERIAL_COMM_PLATE_EVENT_PACKET_TYPE == 6
     assert SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE == 255
     assert SERIAL_COMM_REBOOT_COMMAND_BYTE == 0
     assert SERIAL_COMM_GET_METADATA_COMMAND_BYTE == 6
@@ -402,11 +445,18 @@ def test_serial_comm():
     assert SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE == 4
     assert SERIAL_COMM_HANDSHAKE_PACKET_TYPE == 4
     assert SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE == 255
+
     assert SERIAL_COMM_REBOOT_COMMAND_BYTE == 0
+    assert SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE == 1
+    assert SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE == 2
+    assert SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE == 3
     assert SERIAL_COMM_GET_METADATA_COMMAND_BYTE == 6
     assert SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE == 7
     assert SERIAL_COMM_SET_TIME_COMMAND_BYTE == 8
     assert SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE == 9
+
+    assert SERIAL_COMM_STREAM_MODE_CHANGED_BYTE == 0
+    assert SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE == 1
 
     assert SERIAL_COMM_METADATA_BYTES_LENGTH == 32
 
@@ -416,3 +466,35 @@ def test_serial_comm():
     assert SERIAL_COMM_BOOT_UP_CODE == 3
     assert SERIAL_COMM_FATAL_ERROR_CODE == 4
     assert SERIAL_COMM_SOFT_ERROR_CODE == 5
+
+    assert SERIAL_COMM_NUM_DATA_CHANNELS == 9
+    assert SERIAL_COMM_NUM_CHANNELS_PER_SENSOR == 3
+    assert SERIAL_COMM_NUM_SENSORS_PER_WELL == 3
+    assert (
+        SERIAL_COMM_NUM_DATA_CHANNELS
+        == SERIAL_COMM_NUM_CHANNELS_PER_SENSOR * SERIAL_COMM_NUM_SENSORS_PER_WELL
+    )
+
+
+def test_cython_constants():
+    assert SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY == len(SERIAL_COMM_MAGIC_WORD_BYTES)
+    assert SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_CY == SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
+    assert SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_CY == SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
+
+
+def test_beta_2_mappings():
+    assert SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE == {
+        "A": {"X": 0, "Y": 1, "Z": 2},
+        "B": {"X": 3, "Y": 4, "Z": 5},
+        "C": {"X": 6, "Y": 7, "Z": 8},
+    }
+    assert SERIAL_COMM_WELL_IDX_TO_MODULE_ID == {
+        well_idx: module_id for module_id, well_idx in SERIAL_COMM_MODULE_ID_TO_WELL_IDX.items()
+    }
+    assert SERIAL_COMM_MODULE_ID_TO_WELL_IDX == {
+        module_id: (module_id - 1) % 6 * 4 + (module_id - 1) // 6 for module_id in range(1, 25)
+    }
+    for well_idx in range(24):
+        module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]
+        well_idx_from_module_id = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
+        assert well_idx_from_module_id == well_idx

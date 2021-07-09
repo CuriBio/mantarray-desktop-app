@@ -3,6 +3,7 @@
 
 import os
 
+import numpy
 from setuptools import Extension
 from setuptools import find_packages
 from setuptools import setup
@@ -20,7 +21,10 @@ ext = ".pyx" if USE_CYTHON else ".cpp"
 extensions = [
     Extension(
         "mantarray_desktop_app.data_parsing_cy",
-        [os.path.join("src", "mantarray_desktop_app", "data_parsing_cy") + ext],
+        [
+            os.path.join("src", "mantarray_desktop_app", "data_parsing_cy") + ext,
+            os.path.join("src", "zlib", "crc32.c"),
+        ],
     )
 ]
 
@@ -38,5 +42,6 @@ setup(
     license="MIT",
     packages=find_packages("src"),
     package_dir={"": "src"},
+    include_dirs=[numpy.get_include()],
     ext_modules=extensions,
 )
