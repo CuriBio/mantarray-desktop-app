@@ -22,8 +22,10 @@ from typing import List
 from typing import Optional
 import uuid
 
+from eventlet.queue import Empty
 from stdlib_utils import configure_logging
 from stdlib_utils import get_current_file_abs_directory
+from stdlib_utils import is_port_in_use
 from stdlib_utils import resource_path
 
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
@@ -31,12 +33,17 @@ from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import SERVER_INITIALIZING_STATE
 from .exceptions import InvalidBeta2FlagOptionError
+from .exceptions import LocalServerPortAlreadyInUseError
 from .exceptions import MultiprocessingNotSetToSpawnError
+from .log_formatter import SensitiveFormatter
 from .process_manager import MantarrayProcessesManager
 from .process_monitor import MantarrayProcessesMonitor
 from .server import clear_the_server_thread
+from .server import flask_app
+from .server import get_server_address_components
 from .server import get_the_server_thread
 from .server import ServerThreadNotInitializedError
+from .server import socketio
 from .utils import convert_request_args_to_config_dict
 from .utils import redact_sensitive_info_from_path
 from .utils import update_shared_dict
@@ -96,6 +103,7 @@ def main(
     command_line_args: List[str],
     object_access_for_testing: Optional[Dict[str, Any]] = None,
 ) -> None:
+    # pylint: disable=too-many-locals,too-many-statements  # Tanner (6/17/21): long start up script needed
     """Parse command line arguments and run."""
     if object_access_for_testing is None:
         object_access_for_testing = dict()
@@ -151,6 +159,11 @@ def main(
         action="store_true",
         help="indicates the software will be connecting to a beta 2 mantarray instrument",
     )
+    parser.add_argument(
+        "--main-script-test",
+        action="store_true",
+        help="indicates the server thread should not be started",
+    )
     parsed_args = parser.parse_args(command_line_args)
 
     if parsed_args.beta_2_mode:
@@ -169,6 +182,15 @@ def main(
         log_file_prefix="mantarray_log",
         log_level=log_level,
     )
+
+    # TODO Tanner (6/17/21): make this part of configure_logging
+    for handler in logging.root.handlers:
+        handler.setFormatter(
+            SensitiveFormatter(
+                "[%(asctime)s UTC] %(name)s-{%(filename)s:%(lineno)d} %(levelname)s - %(message)s"
+            )
+        )
+
     scrubbed_path_to_log_folder = redact_sensitive_info_from_path(path_to_log_folder)
 
     msg = f"Mantarray Controller v{CURRENT_SOFTWARE_VERSION} started"
@@ -224,10 +246,13 @@ def main(
     shared_values_dict["system_status"] = SERVER_INITIALIZING_STATE
     if parsed_args.port_number is not None:
         shared_values_dict["server_port_number"] = parsed_args.port_number
-    global _server_port_number  # pylint:disable=global-statement,invalid-name# Eli (12/8/20) this is deliberately setting a global singleton
+    global _server_port_number  # pylint:disable=global-statement,invalid-name# Eli (12/8/20) this is deliberately setting a global variable
     _server_port_number = shared_values_dict.get("server_port_number", DEFAULT_SERVER_PORT_NUMBER)
     msg = f"Using server port number: {_server_port_number}"
     logger.info(msg)
+
+    if is_port_in_use(_server_port_number):
+        raise LocalServerPortAlreadyInUseError(_server_port_number)
 
     if settings_dict:
         update_shared_dict(shared_values_dict, convert_request_args_to_config_dict(settings_dict))
@@ -238,7 +263,10 @@ def main(
     process_manager.set_logging_level(log_level)
     object_access_for_testing["process_manager"] = process_manager
     object_access_for_testing["values_to_share_to_server"] = shared_values_dict
-    process_manager.spawn_processes()
+
+    process_manager.create_processes()
+    if not parsed_args.main_script_test:
+        process_manager.start_processes()
 
     boot_up_after_processes_start = not parsed_args.skip_mantarray_boot_up and not parsed_args.beta_2_mode
     load_firmware_file = not parsed_args.no_load_firmware and not parsed_args.beta_2_mode
@@ -258,8 +286,31 @@ def main(
     object_access_for_testing["process_monitor"] = process_monitor_thread
     logger.info("Starting process monitor thread")
     process_monitor_thread.start()
-    server_thread = process_manager.get_server_thread()
-    server_thread.join()
+    logger.info("Starting Flask SocketIO")
+    _, host, _ = get_server_address_components()
+
+    data_queue_to_server = process_manager.queue_container().get_data_queue_to_server()
+
+    def data_sender() -> None:  # pragma: no cover  # Tanner (6/21/21): code coverage can't follow into start_background_task where this function is run
+        while True:
+            try:
+                item = data_queue_to_server.get(timeout=0.0001)
+            except Empty:
+                continue
+            socketio.send(item)
+
+    object_access_for_testing["data_sender"] = data_sender
+
+    socketio.start_background_task(data_sender)
+    socketio.run(
+        flask_app,
+        host=host,
+        port=_server_port_number,
+        log=logger,
+        log_output=True,
+        log_format='%(client_ip)s - - "%(request_line)s" %(status_code)s %(body_length)s - %(wall_seconds).6f',
+    )
+
     logger.info("Server shut down, about to stop processes")
     process_monitor_thread.soft_stop()
     process_monitor_thread.join()

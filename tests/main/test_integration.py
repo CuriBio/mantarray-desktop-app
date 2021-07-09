@@ -21,7 +21,6 @@ from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
-from mantarray_desktop_app import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from mantarray_desktop_app import DATA_FRAME_PERIOD
 from mantarray_desktop_app import FIFO_READ_PRODUCER_DATA_OFFSET
 from mantarray_desktop_app import FIFO_READ_PRODUCER_SAWTOOTH_PERIOD
@@ -109,12 +108,14 @@ from ..fixtures_file_writer import GENERIC_BOARD_MAGNETOMETER_CONFIGURATION
 from ..fixtures_file_writer import GENERIC_NUM_CHANNELS_ENABLED
 from ..fixtures_file_writer import GENERIC_NUM_SENSORS_ENABLED
 from ..fixtures_file_writer import WELL_DEF_24
+from ..fixtures_server import fixture_test_socketio_client
 from ..helpers import confirm_queue_is_eventually_empty
 
 __fixtures__ = [
     fixture_fully_running_app_from_main_entrypoint,
     fixture_patched_xem_scripts_folder,
     fixture_patched_firmware_folder,
+    fixture_test_socketio_client,
 ]
 LIVE_VIEW_ACTIVE_WAIT_TIME = 150
 CALIBRATED_WAIT_TIME = 10
@@ -265,10 +266,13 @@ def test_managed_acquisition_can_be_stopped_and_restarted_with_simulator(
     patched_xem_scripts_folder,
     patched_firmware_folder,
     fully_running_app_from_main_entrypoint,
+    test_socketio_client,
 ):
     app_info = fully_running_app_from_main_entrypoint()
     wait_for_subprocesses_to_start()
     test_process_manager = app_info["object_access_inside_main"]["process_manager"]
+
+    sio, msg_list = test_socketio_client()
 
     assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
 
@@ -286,11 +290,8 @@ def test_managed_acquisition_can_be_stopped_and_restarted_with_simulator(
     assert response.status_code == 200
     assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
 
-    # Tanner (12/30/20): Clear available data and double check that the expected amount of data passed through the system
-    response = requests.get(f"{get_api_endpoint()}get_available_data")
-    assert response.status_code == 200
-    response = requests.get(f"{get_api_endpoint()}get_available_data")
-    assert response.status_code == 200
+    # Tanner (6/21/21): Double check that the expected amount of data passed through the system
+    assert len(msg_list) == 2
 
     time.sleep(3)  # allow remaining data to pass through subprocesses
 
@@ -302,6 +303,9 @@ def test_managed_acquisition_can_be_stopped_and_restarted_with_simulator(
     response = requests.get(f"{get_api_endpoint()}stop_managed_acquisition")
     assert response.status_code == 200
     assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
+
+    # Tanner (6/21/21): disconnect here to avoid problems with attempting to disconnect after the server stops
+    sio.disconnect()
 
     # Tanner (12/29/20): Good to do this at the end of tests to make sure they don't cause problems with other integration tests. This will also clear available data in Data Analyzer
     test_process_manager.hard_stop_and_join_processes()
@@ -572,10 +576,13 @@ def test_full_datapath(
     patched_xem_scripts_folder,
     patched_firmware_folder,
     fully_running_app_from_main_entrypoint,
+    test_socketio_client,
 ):
     app_info = fully_running_app_from_main_entrypoint()
     wait_for_subprocesses_to_start()
     test_process_manager = app_info["object_access_inside_main"]["process_manager"]
+
+    sio, msg_list = test_socketio_client()
 
     # Tanner (12/30/20): Auto boot-up is completed when system reaches calibration_needed state
     assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
@@ -599,24 +606,15 @@ def test_full_datapath(
     assert response.status_code == 200
     assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
     # Tanner (12/30/20): Make sure first set of data is available
-    response = requests.get(f"{get_api_endpoint()}get_available_data")
-    assert response.status_code == 200
-    actual = json.loads(response.text)
-    waveform_data_points = actual["waveform_data"]["basic_data"]["waveform_data_points"]
-    # Tanner (12/29/20): Make sure second set of data is available and clear the remaining data
-    response = requests.get(f"{get_api_endpoint()}get_available_data")
-    assert response.status_code == 200
-    # Tanner (12/29/20): One more call to get_available_data to assert that no more data is available
-    response = requests.get(f"{get_api_endpoint()}get_available_data")
-    assert response.status_code == 204
+    assert len(msg_list) == 2
     confirm_queue_is_eventually_empty(da_out)
 
     # Tanner (12/29/20): create expected data
     test_well_index = 0
     x_values = np.array(
         [
-            (ROUND_ROBIN_PERIOD * (i + 1) // TIMESTEP_CONVERSION_FACTOR)
-            for i in range(math.ceil(DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS / ROUND_ROBIN_PERIOD))
+            ROUND_ROBIN_PERIOD * (i + 1) // TIMESTEP_CONVERSION_FACTOR
+            for i in range(math.ceil(CENTIMILLISECONDS_PER_SECOND / ROUND_ROBIN_PERIOD))
         ]
     )
     sawtooth_points = signal.sawtooth(x_values / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5)
@@ -641,6 +639,7 @@ def test_full_datapath(
     expected_well_data = pipeline.get_compressed_displacement()
 
     # Tanner (12/29/20): Assert data is as expected for two wells
+    waveform_data_points = json.loads(msg_list[0])["waveform_data"]["basic_data"]["waveform_data_points"]
     actual_well_0_y_data = waveform_data_points["0"]["y_data_points"]
     np.testing.assert_almost_equal(
         actual_well_0_y_data[0],
@@ -648,10 +647,13 @@ def test_full_datapath(
         decimal=4,
     )
     np.testing.assert_almost_equal(
-        actual_well_0_y_data[9],
-        expected_well_data[1][9] * MILLIVOLTS_PER_VOLT,
+        actual_well_0_y_data[2],
+        expected_well_data[1][2] * MILLIVOLTS_PER_VOLT,
         decimal=4,
     )
+
+    # Tanner (6/21/21): disconnect here to avoid problems with attempting to disconnect after the server stops
+    sio.disconnect()
 
     # Tanner (12/29/20): Good to do this at the end of tests to make sure they don't cause problems with other integration tests
     remaining_queue_items = test_process_manager.hard_stop_and_join_processes()
@@ -669,7 +671,6 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
     mocker,
 ):
     spied_logger = mocker.spy(main.logger, "info")
-    spied_server_logger = mocker.spy(server.logger, "info")
     app_info = fully_running_app_from_main_entrypoint()
     wait_for_subprocesses_to_start()
     test_process_manager = app_info["object_access_inside_main"]["process_manager"]
@@ -718,15 +719,12 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
         # Tanner (12/29/20): Shutdown now that data is being acquired and actively written to files, which means each subprocess is doing something
         response = requests.get(f"{get_api_endpoint()}shutdown")
         assert response.status_code == 200
-        # TODO (Eli 12/9/20): have /shutdown wait to return until the other processes have been stopped, or have a separate route to shut down other processes (that also waits)
+        # TODO (Tanner 6/17/20): have /shutdown wait to return until the other processes have been stopped, or have a separate route to shut down other processes (that also waits)
 
         # Tanner (12/30/20): Confirming the port is available to make sure that the Flask server has shutdown
         confirm_port_available(get_server_port_number(), timeout=10)
-        # Tanner (12/30/20): Double check that the system acknowledges that Flask sever has shutdown
-        spied_server_logger.assert_any_call("Flask server successfully shut down.")
-
-        # Eli (12/4/20): currently, Flask immediately shuts down and communicates up to ProcessMonitor to start shutting everything else down. So for now need to sleep a bit before attempting to confirm everything else is shut down
-        time.sleep(10)
+        # Tanner (6/21/21): sleep to ensure program exit log message is produced
+        time.sleep(5)
 
         # Tanner (12/30/20): This is the very last log message before the app is completely shutdown
         spied_logger.assert_any_call("Program exiting")
@@ -742,10 +740,10 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
 @freeze_time(datetime.datetime(year=2021, month=5, day=24, hour=21, minute=23, second=4, microsecond=141738))
 def test_full_datapath_and_recorded_files_in_beta_2_mode(
     fully_running_app_from_main_entrypoint,
+    test_socketio_client,
     mocker,
 ):
     # pylint: disable=too-many-statements,too-many-locals  # Tanner (6/1/21): This is a long integration test, it needs extra statements and local variables
-    # TODO Tanner (4/23/21): This integration test does not actually test the full data path or recorded files yet. When that functionality is added for beta 2 mode, this test needs to be updated
 
     # Tanner (12/29/20): Freeze time in order to make assertions on timestamps in the metadata
     expected_time = datetime.datetime(
@@ -765,13 +763,14 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
             BACKEND_LOG_UUID
         ],
     )
-    expected_timestamp_1 = "2021_05_24_212304"
 
     app_info = fully_running_app_from_main_entrypoint(["--beta-2-mode"])
     wait_for_subprocesses_to_start()
     test_process_manager = app_info["object_access_inside_main"]["process_manager"]
 
-    assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
+    sio, msg_list = test_socketio_client()
+
+    assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 10) is True
 
     # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
@@ -800,10 +799,10 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         # Tanner (6/1/21): Start managed_acquisition in order to start recording
         response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
         assert response.status_code == 200
+
         # Tanner (6/1/21): managed_acquisition in beta 2 mode will currently only cause the system to enter buffering state. This is because no beta 2 data will come out of Data Analyzer yet
         assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
-        time.sleep(2)  # sleep in place of waiting for live view
-        # TODO Tanner (5/25/20): Confirm system reaches live view active once beta 2 mode implemented in data analyzer
+        assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
 
         expected_barcode_1 = GENERIC_BETA_2_START_RECORDING_COMMAND[
             "metadata_to_copy_onto_main_file_attributes"
@@ -833,8 +832,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert response.status_code == 200
         # Tanner (6/1/21): managed_acquisition in beta 2 mode will currently only cause the system to enter buffering state. This is because no beta 2 data will come out of Data Analyzer yet
         assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
-        time.sleep(2)  # sleep in place of waiting for live view
-        # TODO Tanner (5/25/20): Confirm system reaches live view active once beta 2 mode implemented in data analyzer
+        assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
 
         # Tanner (6/1/21): Use new barcode for second set of recordings
         expected_barcode_2 = (
@@ -862,12 +860,15 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert response.status_code == 200
         assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
 
+        # Tanner (6/19/21): disconnect here to avoid problems with attempting to disconnect after the server stops
+        sio.disconnect()
         # Tanner (12/30/20): Stop processes in order to make assertions on recorded data
         test_process_manager.soft_stop_processes()
 
         fw_process = test_process_manager.get_file_writer_process()
         fw_process.close_all_files()
 
+        expected_timestamp_1 = "2021_05_24_212304"
         actual_set_of_files = set(
             os.listdir(
                 os.path.join(
@@ -1002,6 +1003,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         ) // expected_sampling_period + 1
         for row_idx in range(4):
             for col_idx in range(6):
+                well_idx = WELL_DEF_24.get_well_index_from_row_and_column(row_idx, col_idx)
                 with h5py.File(
                     os.path.join(
                         expected_recordings_dir,
@@ -1019,7 +1021,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                     assert str(UTC_FIRST_TISSUE_DATA_POINT_UUID) in this_file.attrs
                     # test recorded data
                     actual_time_index_data = get_time_index_dataset_from_file(this_file)
-                    assert actual_time_index_data.shape == (num_recorded_data_points_2,)
+                    assert actual_time_index_data.shape == (num_recorded_data_points_2,), f"Well {well_idx}"
                     assert actual_time_index_data[0] == expected_start_index_2
                     assert actual_time_index_data[-1] == expected_stop_index_2
                     actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
@@ -1032,3 +1034,6 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                         GENERIC_NUM_CHANNELS_ENABLED,
                         num_recorded_data_points_2,
                     )
+
+        # for now, just make sure that a non-zero number of messages were send through the websocket
+        assert len(msg_list) > 0

@@ -220,6 +220,7 @@ from .firmware_manager import get_latest_firmware_name
 from .firmware_manager import get_latest_firmware_version
 from .firmware_manager import sort_firmware_files
 from .instrument_comm import InstrumentCommProcess
+from .log_formatter import SensitiveFormatter
 from .main import clear_server_singletons
 from .main import get_server_port_number
 from .mantarray_front_panel import MantarrayFrontPanel
@@ -254,6 +255,7 @@ from .server import flask_app
 from .server import get_api_endpoint
 from .server import get_the_server_thread
 from .server import ServerThread
+from .server import socketio
 from .system_utils import system_state_eventually_equals
 from .system_utils import wait_for_subprocesses_to_start
 from .utils import check_barcode_for_errors
@@ -547,4 +549,6 @@ __all__ = [
     "sort_nested_dict",
     "SerialCommNotEnoughAdditionalBytesReadError",
     "STM_VID",
+    "socketio",
+    "SensitiveFormatter",
 ]

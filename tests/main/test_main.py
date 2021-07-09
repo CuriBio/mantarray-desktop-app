@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
+import logging
+
 from mantarray_desktop_app import clear_the_server_thread
 from mantarray_desktop_app import DEFAULT_SERVER_PORT_NUMBER
 from mantarray_desktop_app import get_server_port_number
 from mantarray_desktop_app import main
+from mantarray_desktop_app import SensitiveFormatter
 from mantarray_desktop_app import ServerThread
 
 from ..fixtures import fixture_generic_queue_container
@@ -36,3 +39,23 @@ def test_get_server_port_number__returns_port_number_from_server_if_instantiated
     assert get_server_port_number() == expected_port
 
     _clean_up_server_thread(st, to_main_queue, error_queue)
+
+
+def test_SensitiveFormatter__redacts_from_request_log_entries_correctly():
+    test_formatter = SensitiveFormatter("%(message)s")
+
+    test_nickname = "Secret Mantarray Name"
+    test_sensitive_log_entry = (
+        f"<any text here>set_mantarray_nickname?nickname={test_nickname} HTTP<any text here>"
+    )
+    actual = test_formatter.format(logging.makeLogRecord({"msg": test_sensitive_log_entry}))
+
+    redacted_nickname = "*" * len(test_nickname)
+    expected_message_with_redaction = (
+        f"<any text here>set_mantarray_nickname?nickname={redacted_nickname} HTTP<any text here>"
+    )
+    assert actual == expected_message_with_redaction
+
+    test_unsensitive_log_entry = "<any text here>system_status HTTP<any text here>"
+    actual = test_formatter.format(logging.makeLogRecord({"msg": test_unsensitive_log_entry}))
+    assert actual == test_unsensitive_log_entry

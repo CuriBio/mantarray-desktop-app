@@ -1,6 +1,14 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+
+0.5.0 (unreleased)
+------------------
+
+- Updated data stream in order remove most of the 14 second lag between data capture on istrument
+  and display in app.
+
+
 0.4.6 (2021-07-08)
 ------------------
 
@@ -10,8 +18,7 @@ Changelog for Mantarray Desktop App
 0.4.5 (2021-04-13)
 ------------------
 
-- Fixed issue with Mantarray serial numbers created after 2020
-  being disallowed.
+- Fixed issue with Mantarray serial numbers created after 2020 being disallowed.
 
 
 0.4.4 (2021-04-02)
@@ -44,10 +51,8 @@ Changelog for Mantarray Desktop App
 0.4.1 (2021-01-15)
 ------------------
 
-- Added 520 error code from ``system_status`` route if Electron and Flask EXE versions
-  don't match.
-- Added ability to override barcode scanner in case of malfunction allowing users to
-  manually enter barcodes.
+- Added 520 error code from ``system_status`` route if Electron and Flask EXE versions don't match.
+- Added ability to override barcode scanner in case of malfunction allowing users to manually enter barcodes.
 - Added redaction of username from file path in log messages for finalized recording files.
 - Added the following metadata values to H5 files:
 

@@ -19,7 +19,7 @@ Custom HTTP Error Codes:
 * 406 - Call to /start_managed_acquisition before magnetometer configuration is set
 * 406 - Call to /start_managed_acquisition when Mantarray device does not have a serial number assigned to it
 * 406 - Call to /start_recording before customer_account_uuid and user_account_uuid are set
-* 520 - Electron and Flask EXE versions don't match
+* 520 - Call to /system_status when Electron and Flask EXE versions don't match
 """
 from __future__ import annotations
 
@@ -28,7 +28,6 @@ from copy import deepcopy
 import datetime
 import json
 import logging
-import multiprocessing
 import os
 from queue import Empty
 from queue import Queue
@@ -44,6 +43,7 @@ from flask import Flask
 from flask import request
 from flask import Response
 from flask_cors import CORS
+from flask_socketio import SocketIO
 from immutabledict import immutabledict
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
@@ -74,10 +74,8 @@ from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import requests
 from stdlib_utils import drain_queue
-from stdlib_utils import get_formatted_stack_trace
 from stdlib_utils import InfiniteThread
 from stdlib_utils import is_port_in_use
-from stdlib_utils import print_exception
 from stdlib_utils import put_log_message_into_queue
 
 from .constants import BUFFERING_STATE
@@ -103,12 +101,12 @@ from .exceptions import ServerThreadNotInitializedError
 from .exceptions import ServerThreadSingletonAlreadySetError
 from .ok_comm import check_mantarray_serial_number
 from .queue_container import MantarrayQueueContainer
-from .request_handler import MantarrayRequestHandler
 from .utils import check_barcode_for_errors
 from .utils import convert_request_args_to_config_dict
 from .utils import get_current_software_version
 from .utils import validate_magnetometer_config_keys
 from .utils import validate_settings
+
 
 logger = logging.getLogger(__name__)
 os.environ[
@@ -118,6 +116,7 @@ flask_app = Flask(  # pylint: disable=invalid-name # yes, this is intentionally 
     __name__
 )
 CORS(flask_app)
+socketio = SocketIO(flask_app)
 
 _the_server_thread: Optional[  # pylint: disable=invalid-name # Eli (11/3/20) yes, this is intentionally a singleton, not a constant. This is the current best guess at how to allow Flask routes to access some info they need
     "ServerThread"
@@ -270,12 +269,13 @@ def system_status() -> Response:
 
 @flask_app.route("/get_available_data", methods=["GET"])
 def get_available_data() -> Response:
+    # Tanner (6/21/21): Leaving this route for now. It's likely that it can be removed later
     """Get available data if any from Data Analyzer.
 
     Can be invoked by: curl http://localhost:4567/get_available_data
     """
     server_thread = get_the_server_thread()
-    data_out_queue = server_thread.get_data_analyzer_data_out_queue()
+    data_out_queue = server_thread.get_data_queue_to_server()
     try:
         data = data_out_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
     except Empty:
@@ -983,23 +983,20 @@ def shutdown_server() -> None:
     Eli (11/18/20): If separate routes call this, then it needs to be
     broken out into a subfunction not decorated as a Flask route.
     """
-    shutdown_function = request.environ.get("werkzeug.server.shutdown")
-    if shutdown_function is None:
-        raise NotImplementedError("Not running with the Werkzeug Server")
     logger.info("Calling function to shut down Flask Server.")
-    shutdown_function()
-    logger.info("Flask server successfully shut down.")
+    socketio.stop()
+    # Tanner (6/20/21): SystemExit is raised here, so no lines after this will execute
 
 
 @flask_app.route("/stop_server", methods=["GET"])
 def stop_server() -> str:
     """Shut down Flask.
 
-    Obtained from https://stackoverflow.com/questions/15562446/how-to-stop-flask-application-without-using-ctrl-c
     curl http://localhost:4567/stop_server
     """
     shutdown_server()
-    return "Server shutting down..."
+    # Tanner (6/20/21): SystemExit is raised here, so no lines after this will execute
+    return "Server shutting down..."  # pragma: no cover
 
 
 @flask_app.route("/shutdown", methods=["GET"])
@@ -1007,14 +1004,7 @@ def shutdown() -> Response:
     # curl http://localhost:4567/shutdown
     queue_command_to_main({"communication_type": "shutdown", "command": "soft_stop"})
     response = queue_command_to_main({"communication_type": "shutdown", "command": "hard_stop"})
-    shutdown_server()
     return response
-
-
-@flask_app.route("/health_check", methods=["GET"])
-def health_check() -> Response:
-    # curl http://localhost:4567/health_check
-    return Response(status=200)
 
 
 @flask_app.before_request
@@ -1063,9 +1053,9 @@ def after_request(response: Response) -> Response:
     return response
 
 
-# TODO (Eli 11/3/20): refactor :package:`stdlib-utils` to separate some of the more generic multiprocessing functionality out of the "InfiniteLooping" mixin so that it could be included here without all the other things
+# TODO Tanner (6/17/21): change this from a thread to something more appropriate. figure out if this can be changed from a singleton (and a global if possible)
 class ServerThread(InfiniteThread):
-    """Thread to run the Flask server."""
+    """Thread to run populate the websocket with data packets."""
 
     def __init__(
         self,
@@ -1075,7 +1065,7 @@ class ServerThread(InfiniteThread):
         fatal_error_reporter: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
             Tuple[Exception, str]
         ],
-        processes_queue_container: MantarrayQueueContainer,  # TODO (Eli 11/4/20): This should eventually be removed as it tightly couples the independent processes together. Ideally all messages should go from server to main and then be routed where they need to by the ProcessMonitor
+        processes_queue_container: MantarrayQueueContainer,  # TODO Tanner (6/21/21): remove this once
         values_from_process_monitor: Optional[Dict[str, Any]] = None,
         port: int = DEFAULT_SERVER_PORT_NUMBER,
         logging_level: int = logging.INFO,
@@ -1132,32 +1122,14 @@ class ServerThread(InfiniteThread):
         if is_port_in_use(port):
             raise LocalServerPortAlreadyInUseError(port)
 
-    # TODO Eli (12/8/20): refactor so there's something other than InfiniteThread this can inherit from which retains the other abilities for communication but not the infinite looping
-    def run(  # pylint:disable=arguments-differ # Eli (12/8/20): this should be fixed by a refactor, see TODO above
-        self,
-    ) -> None:
-        try:
-            _, host, _ = get_server_address_components()
-            self.check_port()
-            flask_app.run(
-                host=host,
-                port=self._port,
-                request_handler=MantarrayRequestHandler,
-                threaded=True,
-            )
-            # Note (Eli 1/14/20) it appears with the current method of using werkzeug.server.shutdown that nothing after this line will ever be executed. somehow the program exists before returning from app.run
-        except Exception as e:  # pylint: disable=broad-except # The deliberate goal of this is to catch everything and put it into the error queue
-            print_exception(e, "0d6e8031-6653-47d7-8490-8c28f92494c3")
-            formatted_stack_trace = get_formatted_stack_trace(e)
-            self._fatal_error_reporter.put_nowait((e, formatted_stack_trace))
+    def _commands_for_each_run_iteration(self) -> None:
+        return
 
     def _shutdown_server(self) -> None:
-        http_route = f"{get_api_endpoint()}stop_server"
         try:
-            requests.get(http_route)
-            message = "Server has been successfully shutdown."
+            requests.get(f"{get_api_endpoint()}stop_server")
         except requests.exceptions.ConnectionError:
-            message = f"Server was not running on {http_route} during shutdown attempt."
+            message = "Server is shutdown"
         put_log_message_into_queue(
             logging.INFO,
             message,
@@ -1179,19 +1151,18 @@ class ServerThread(InfiniteThread):
     def soft_stop(self) -> None:
         self.stop()
 
-    def get_data_analyzer_data_out_queue(
+    def get_data_queue_to_server(
         self,
-    ) -> multiprocessing.Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+    ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
         Dict[str, Any]
     ]:
-        # TODO (Eli 11/5/20): Even after the QueueContainer is removed, this queue should be made available to the server thread through the init as it needs this to pass data to the Frontend app
-        return self._queue_container.get_data_analyzer_data_out_queue()
+        return self._queue_container.get_data_queue_to_server()
 
     def _drain_all_queues(self) -> Dict[str, Any]:
         queue_items = dict()
 
         queue_items["to_main"] = drain_queue(self._to_main_queue)
-        queue_items["from_data_analyzer"] = drain_queue(self.get_data_analyzer_data_out_queue())
+        queue_items["outgoing_data"] = drain_queue(self.get_data_queue_to_server())
         return queue_items
 
     def _teardown_after_loop(self) -> None:

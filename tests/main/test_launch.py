@@ -23,6 +23,7 @@ from mantarray_desktop_app import get_server_port_number
 from mantarray_desktop_app import ImproperlyFormattedCustomerAccountUUIDError
 from mantarray_desktop_app import ImproperlyFormattedUserAccountUUIDError
 from mantarray_desktop_app import InvalidBeta2FlagOptionError
+from mantarray_desktop_app import LocalServerPortAlreadyInUseError
 from mantarray_desktop_app import main
 from mantarray_desktop_app import MantarrayProcessesManager
 from mantarray_desktop_app import MantarrayProcessesMonitor
@@ -32,6 +33,7 @@ from mantarray_desktop_app import redact_sensitive_info_from_path
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import system_state_eventually_equals
 from mantarray_desktop_app import wait_for_subprocesses_to_start
+from mantarray_desktop_app.server import get_server_address_components
 import pytest
 import requests
 from stdlib_utils import confirm_port_available
@@ -143,6 +145,7 @@ def test_main__logs_command_line_arguments(mocker):
         "no_load_firmware": False,
         "skip_software_version_verification": False,
         "beta_2_mode": False,
+        "main_script_test": False,
     }
     spied_info_logger.assert_any_call(f"Command Line Args: {expected_cmd_line_args_dict}")
 
@@ -166,7 +169,7 @@ def test_main_configures_logging(mocker):
     )
 
 
-@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS * 1.5)
 def test_main__logs_system_info__and_software_version_at_very_start(
     mocker,
     fully_running_app_from_main_entrypoint,
@@ -278,7 +281,9 @@ def test_main_configures_process_manager_logging_level__and_standard_logging_lev
 
 @pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS * 1.5)
 def test_main_can_launch_server_with_no_args_from_entrypoint__default_exe_execution(
-    fully_running_app_from_main_entrypoint, patched_xem_scripts_folder
+    fully_running_app_from_main_entrypoint,
+    patched_xem_scripts_folder,
+    patched_firmware_folder,
 ):
     _ = fully_running_app_from_main_entrypoint()
     wait_for_subprocesses_to_start()
@@ -459,9 +464,7 @@ def test_main_can_launch_server_and_processes_and_initial_boot_up_of_ok_comm_pro
     assert any(
         (expected_initiated_str in call[0][0] for call in mocked_process_monitor_info_logger.call_args_list)
     )
-    expected_connection_str = (
-        "Communication from the OpalKelly Controller: {'communication_type': 'board_connection_status_change'"
-    )
+    expected_connection_str = "Communication from the Instrument Controller: {'communication_type': 'board_connection_status_change'"
     time.sleep(
         0.5
     )  # Eli (12/9/20): There was periodic failure of asserting that this log message had been made, so trying to sleep a tiny amount to allow more time for the log message to be processed
@@ -511,6 +514,60 @@ def test_main__boots_up_instrument_without_a_bitfile_when_using_a_simulator__whe
     confirm_port_in_use(port, timeout=5)
     wait_for_subprocesses_to_start()
     assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
+
+
+@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
+def test_main__full_launch_script_runs_as_expected(fully_running_app_from_main_entrypoint, mocker):
+    spied_info = mocker.spy(main.logger, "info")
+    mocked_start_bg_task = mocker.patch.object(main.socketio, "start_background_task", autospec=True)
+
+    app_info = fully_running_app_from_main_entrypoint(["--main-script-test", "--beta-2-mode"])
+
+    # assert log messages were called in correct order
+    expected_info_calls = iter(
+        [
+            "Spawning subprocesses and starting server thread",
+            "Starting process monitor thread",
+            "Starting Flask SocketIO",
+            "Server shut down, about to stop processes",
+            "Process monitor shut down",
+            "Program exiting",
+        ]
+    )
+    next_call_args = next(expected_info_calls)
+    for call_args in spied_info.call_args_list:
+        if next_call_args not in call_args[0]:
+            continue
+        try:
+            next_call_args = next(expected_info_calls)
+        except StopIteration:
+            break
+    else:
+        assert False, f"Message: '{next_call_args}' not found"
+
+    # make sure background thread was started correctly
+    mocked_start_bg_task.assert_called_once_with(app_info["object_access_inside_main"]["data_sender"])
+    # assert Flask was started correctly
+    _, host, port = get_server_address_components()
+    mocked_socketio_run = app_info["mocked_socketio_run"]
+    mocked_socketio_run.assert_called_once_with(
+        main.flask_app,
+        host=host,
+        port=port,
+        log=main.logger,
+        log_output=True,
+        log_format='%(client_ip)s - - "%(request_line)s" %(status_code)s %(body_length)s - %(wall_seconds).6f',
+    )
+
+
+def test_main__raises_error_if_port_in_use_before_starting_socketio(mocker):
+    mocked_socketio_run = mocker.patch.object(main.socketio, "run", autospec=True)
+    mocker.patch.object(main, "is_port_in_use", autospec=True, return_value=True)
+
+    port = get_server_port_number()
+    with pytest.raises(LocalServerPortAlreadyInUseError, match=str(port)):
+        main.main(["--main-script-test", "--beta-2-mode"])
+    mocked_socketio_run.assert_not_called()
 
 
 def test_main__disallows_cmd_line_args_that_do_not_apply_to_beta_2__when_in_beta_2_mode():

@@ -41,15 +41,13 @@ def convert_24_bit_codes_to_voltage(codes: NDArray[int]) -> NDArray[float]:
     return voltages
 
 
-def _drain_board_queues(  # pylint: disable=duplicate-code
-    board: Tuple[
-        Queue[Any],  # pylint: disable=unsubscriptable-object
-        Queue[Any],  # pylint: disable=unsubscriptable-object
-    ],
-) -> Dict[str, List[Any]]:  # pylint: disable=duplicate-code
-    board_dict = dict()
-    board_dict["file_writer_to_data_analyzer"] = drain_queue(board[0])
-    board_dict["outgoing_data"] = drain_queue(board[1])
+def _drain_board_queues(
+    board_queues: Tuple[Queue[Any], Queue[Any]],  # pylint: disable=unsubscriptable-object
+) -> Dict[str, List[Any]]:
+    board_dict = {
+        "file_writer_to_data_analyzer": drain_queue(board_queues[0]),
+        "outgoing_data": drain_queue(board_queues[1]),
+    }
     return board_dict
 
 
@@ -82,10 +80,10 @@ class DataAnalyzerProcess(InfiniteProcess):
         beta_2_mode: bool = False,
     ):
         super().__init__(fatal_error_reporter, logging_level=logging_level)
+        self._beta_2_mode = beta_2_mode
         self._board_queues = the_board_queues
         self._comm_from_main_queue = comm_from_main_queue
         self._comm_to_main_queue = comm_to_main_queue
-        self._calibration_settings: Union[None, Dict[Any, Any]] = None
         self._is_managed_acquisition_running = False
         self._data_buffer: Dict[int, Dict[str, Any]] = dict()
         self._outgoing_data_creation_durations: List[float] = list()
@@ -95,17 +93,24 @@ class DataAnalyzerProcess(InfiniteProcess):
             noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
             tissue_sampling_period=CONSTRUCT_SENSOR_SAMPLING_PERIOD,
         )
-        self._beta_2_mode = beta_2_mode
+        # Beta 1 values
+        self._calibration_settings: Union[None, Dict[Any, Any]] = None
 
     def get_calibration_settings(self) -> Union[None, Dict[Any, Any]]:
+        if self._beta_2_mode:
+            raise NotImplementedError("Beta 2 mode does not currently have calibration settings")
         return self._calibration_settings
 
     def _commands_for_each_run_iteration(self) -> None:
+        # TODO Tanner (7/7/21): eventually need to add process performance metrics in beta 2 mode
         self._process_next_command_from_main()
-        # TODO Tanner (6/30/20): Apply sensor sensitivity calibration settings once they are fleshed out.  # Tanner (5/19/21): This TODO may be unnecessary now
-        self._load_memory_into_buffer()
-        if self._is_buffer_full():
-            outgoing_data = self._create_outgoing_data()
+        self._handle_incoming_data()
+
+        if self._beta_2_mode:
+            return
+
+        if self._is_data_from_each_well_present():
+            outgoing_data = self._create_outgoing_beta_1_data()
             self._dump_data_into_queue(outgoing_data)
 
     def _process_next_command_from_main(self) -> None:
@@ -135,20 +140,23 @@ class DataAnalyzerProcess(InfiniteProcess):
         else:
             raise UnrecognizedCommTypeFromMainToDataAnalyzerError(communication_type)
 
-    def _load_memory_into_buffer(self) -> None:
+    def _handle_incoming_data(self) -> None:
         input_queue = self._board_queues[0][0]
         try:
             data_dict = input_queue.get_nowait()
         except queue.Empty:
             return
 
-        if self._beta_2_mode:
-            # Tanner (5/24/21): This if check should be removed once beta 2 mode is implemented in this process
-            return
-
         if not self._is_managed_acquisition_running:
             return
 
+        if self._beta_2_mode:
+            outgoing_data = self._create_outgoing_beta_2_data(data_dict)
+            self._dump_data_into_queue(outgoing_data)
+        else:
+            self._load_memory_into_buffer(data_dict)
+
+    def _load_memory_into_buffer(self, data_dict: Dict[Any, Any]) -> None:
         if data_dict["is_reference_sensor"]:
             reverse = False
             for ref in range(3, 6):
@@ -193,15 +201,35 @@ class DataAnalyzerProcess(InfiniteProcess):
                 return False
         return True
 
-    def _create_outgoing_data(self) -> Dict[str, Any]:
-        outgoing_data_creation_start = time.perf_counter()
+    def _is_data_from_each_well_present(self) -> bool:
+        for data_pair in self._data_buffer.values():
+            if data_pair["construct_data"] is None or data_pair["ref_data"] is None:
+                return False
+        return True
+
+    def _create_outgoing_beta_2_data(self, data_dict: Dict[Any, Any]) -> Dict[str, Any]:
+        # pylint: disable=no-self-use  # will eventually use self
+        waveform_data_points: Dict[int, Dict[int, List[int]]] = dict()
+        # convert arrays to lists for json conversion later
+        for well_idx in range(24):
+            waveform_data_points[well_idx] = dict()
+            for key, data in data_dict[well_idx].items():
+                # TODO Tanner (7/7/21): need to figure out what exactly to send to the frontend. Might be best to just pick one magnetometer channel to send
+                if key == "time_offsets":
+                    continue
+                waveform_data_points[well_idx][key] = data.tolist()
+        # create formatted dict
         outgoing_data: Dict[str, Any] = {
-            "waveform_data": {
-                "basic_data": {"waveform_data_points": None},
-                # TODO Tanner (4/21/20): Add data_metrics once possible
-                "data_metrics": dict(),
-            },
+            "waveform_data": {"basic_data": {"waveform_data_points": waveform_data_points}},
+            "earliest_timepoint": data_dict["time_indices"][0].item(),
+            "latest_timepoint": data_dict["time_indices"][-1].item(),
+            "num_data_points": len(data_dict["time_indices"]),
         }
+        return outgoing_data
+
+    def _create_outgoing_beta_1_data(self) -> Dict[str, Any]:
+        outgoing_data_creation_start = time.perf_counter()
+        outgoing_data: Dict[str, Any] = {"waveform_data": {"basic_data": {"waveform_data_points": None}}}
 
         basic_waveform_data_points = dict()
         earliest_timepoint: Optional[int] = None
@@ -279,9 +307,12 @@ class DataAnalyzerProcess(InfiniteProcess):
 
     def _dump_data_into_queue(self, outgoing_data: Dict[str, Any]) -> None:
         timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
-        num_data_points = (
-            outgoing_data["latest_timepoint"] - outgoing_data["earliest_timepoint"]
-        ) // CONSTRUCT_SENSOR_SAMPLING_PERIOD
+        if self._beta_2_mode:
+            num_data_points = outgoing_data["num_data_points"]
+        else:
+            num_data_points = (
+                outgoing_data["latest_timepoint"] - outgoing_data["earliest_timepoint"]
+            ) // CONSTRUCT_SENSOR_SAMPLING_PERIOD
         self._comm_to_main_queue.put_nowait(
             {
                 "communication_type": "data_available",
@@ -291,6 +322,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                 "latest_timepoint": outgoing_data["latest_timepoint"],
             }
         )
+        # Tanner (6/21/21): converting to json may no longer be necessary here
         outgoing_data_json = json.dumps(outgoing_data)
         self._board_queues[0][1].put_nowait(outgoing_data_json)
 

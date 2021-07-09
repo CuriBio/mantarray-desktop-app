@@ -230,6 +230,7 @@ class FileWriterProcess(InfiniteProcess):
             Deque[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
             ...,  # noqa: W504 # flake8 doesn't understand the 3 dots for type definition
         ] = tuple(deque() for _ in range(len(self._board_queues)))
+        self._end_of_data_stream_reached: List[Optional[bool]] = [False] * len(self._board_queues)
         self._latest_data_timepoints: Tuple[
             Dict[int, int],
             ...,  # noqa: W504 # flake8 doesn't understand the 3 dots for type definition
@@ -578,9 +579,8 @@ class FileWriterProcess(InfiniteProcess):
                 }
             )
         elif command == "stop_managed_acquisition":
-            if not self._beta_2_mode:
-                # data buffer clear is handled differently in beta 2 mode
-                self._data_packet_buffers[0].clear()
+            self._data_packet_buffers[0].clear()
+            self._end_of_data_stream_reached[0] = True
             to_main.put_nowait(
                 {
                     "communication_type": "command_receipt",
@@ -651,9 +651,7 @@ class FileWriterProcess(InfiniteProcess):
                 this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] = (
                     this_start_recording_timestamps[0]
                     + datetime.timedelta(seconds=time_indices[0] / int(1e6))
-                ).strftime(
-                    "%Y-%m-%d %H:%M:%S.%f"
-                )  # pylint: disable=wrong-spelling-in-comment
+                ).strftime("%Y-%m-%d %H:%M:%S.%f")
             tissue_dataset.resize((tissue_dataset.shape[0], previous_data_size + new_data_size))
 
             well_data_dict = data_packet[well_idx]
@@ -755,8 +753,10 @@ class FileWriterProcess(InfiniteProcess):
             )
 
         if self._beta_2_mode and data_packet["is_first_packet_of_stream"]:
+            self._end_of_data_stream_reached[0] = False
             self._data_packet_buffers[0].clear()
-        self._data_packet_buffers[0].append(data_packet)
+        if not self._end_of_data_stream_reached[0]:
+            self._data_packet_buffers[0].append(data_packet)
 
         output_queue = self._board_queues[0][1]
         output_queue.put_nowait(data_packet)

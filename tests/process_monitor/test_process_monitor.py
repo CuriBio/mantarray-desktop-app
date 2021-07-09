@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import copy
 import datetime
+import json
 import os
 import queue
 import threading
@@ -36,6 +37,7 @@ import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 from xem_wrapper import FrontPanelSimulator
 
+from ..fixtures import fixture_patch_print
 from ..fixtures import fixture_test_process_manager
 from ..fixtures import fixture_test_process_manager_beta_2_mode
 from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
@@ -55,6 +57,7 @@ __fixtures__ = [
     fixture_test_monitor,
     fixture_test_monitor_beta_2_mode,
     fixture_patch_connection_to_board,
+    fixture_patch_print,
 ]
 
 
@@ -102,7 +105,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_instrument_comm(
     assert is_queue_eventually_not_empty(instrument_comm_to_main) is True
     invoke_process_run_and_check_errors(monitor_thread)
     assert is_queue_eventually_empty(instrument_comm_to_main) is True
-    mocked_logger.assert_called_once_with(f"Communication from the OpalKelly Controller: {expected_comm}")
+    mocked_logger.assert_called_once_with(f"Communication from the Instrument Controller: {expected_comm}")
 
 
 def test_MantarrayProcessesMonitor__logs_messages_from_file_writer(
@@ -173,7 +176,30 @@ def test_MantarrayProcessesMonitor__logs_messages_from_data_analyzer(
     mocked_logger.assert_called_once_with(f"Communication from the Data Analyzer: {expected_comm}")
 
 
-def test_MantarrayProcessesMonitor__logs_errors_from_InstrumentCommProcess(
+def test_MantarrayProcessesMonitor__pulls_outgoing_data_from_data_analyzer_and_makes_it_available_to_server(
+    mocker, test_process_manager, test_monitor
+):
+    monitor_thread, shared_values_dict, _, _ = test_monitor
+    shared_values_dict["system_status"] = LIVE_VIEW_ACTIVE_STATE
+
+    da_data_out_queue = test_process_manager.queue_container().get_data_analyzer_board_queues()[0][1]
+    pm_data_out_queue = test_process_manager.queue_container().get_data_queue_to_server()
+
+    # add dummy data here. In this test, the item is never actually looked at, so it can be any string value
+    expected_json_data = json.dumps({"well": 0, "data": [1, 2, 3, 4, 5]})
+    da_data_out_queue.put_nowait(expected_json_data)
+    confirm_queue_is_eventually_of_size(
+        da_data_out_queue, 1, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    )
+
+    invoke_process_run_and_check_errors(monitor_thread)
+    confirm_queue_is_eventually_empty(da_data_out_queue)
+    confirm_queue_is_eventually_of_size(pm_data_out_queue, 1)
+    actual = pm_data_out_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert actual == expected_json_data
+
+
+def test_MantarrayProcessesMonitor__logs_errors_from_instrument_comm_process(
     mocker, test_process_manager, test_monitor
 ):
     monitor_thread, _, _, _ = test_monitor
@@ -195,7 +221,7 @@ def test_MantarrayProcessesMonitor__logs_errors_from_InstrumentCommProcess(
     mocked_logger.assert_any_call(expected_message)
 
 
-def test_MantarrayProcessesMonitor__logs_errors_from_FileWriter(mocker, test_process_manager, test_monitor):
+def test_MantarrayProcessesMonitor__logs_errors_from_file_writer(mocker, test_process_manager, test_monitor):
     monitor_thread, _, _, _ = test_monitor
 
     mocked_logger = mocker.patch.object(process_monitor.logger, "error", autospec=True)
@@ -213,7 +239,9 @@ def test_MantarrayProcessesMonitor__logs_errors_from_FileWriter(mocker, test_pro
     mocked_logger.assert_any_call(expected_message)
 
 
-def test_MantarrayProcessesMonitor__logs_errors_from_DataAnalyzer(mocker, test_process_manager, test_monitor):
+def test_MantarrayProcessesMonitor__logs_errors_from_data_analyzer(
+    mocker, test_process_manager, test_monitor
+):
     monitor_thread, _, _, _ = test_monitor
 
     mocked_logger = mocker.patch.object(process_monitor.logger, "error", autospec=True)
@@ -330,7 +358,7 @@ def test_MantarrayProcessesMonitor__updates_timestamp_in_shared_values_dict_afte
     )
 
 
-def test_MantarrayProcessesMonitor__correctly_sets_system_status_to_live_view_active_only_when_initial_required_number_of_data_dumps_become_available_from_DataAnalyzer(
+def test_MantarrayProcessesMonitor__correctly_sets_system_status_to_live_view_active_only_when_initial_required_number_of_data_dumps_become_available_from_data_analyzer(
     test_monitor, test_process_manager
 ):
     monitor_thread, shared_values_dict, _, _ = test_monitor
@@ -1026,7 +1054,7 @@ def test_MantarrayProcessesMonitor__redacts_mantarray_nickname_from_logged_manta
 
     expected_comm = copy.deepcopy(test_comm)
     expected_comm["mantarray_nickname"] = "*" * len(test_nickname)
-    mocked_logger.assert_called_once_with(f"Communication from the OpalKelly Controller: {expected_comm}")
+    mocked_logger.assert_called_once_with(f"Communication from the Instrument Controller: {expected_comm}")
 
 
 def test_MantarrayProcessesMonitor__redacts_mantarray_nickname_from_logged_board_connection_status_change_ok_comm_messages(
@@ -1055,7 +1083,7 @@ def test_MantarrayProcessesMonitor__redacts_mantarray_nickname_from_logged_board
 
     expected_comm = copy.deepcopy(test_comm)
     expected_comm["mantarray_nickname"] = "*" * len(test_nickname)
-    mocked_logger.assert_called_once_with(f"Communication from the OpalKelly Controller: {expected_comm}")
+    mocked_logger.assert_called_once_with(f"Communication from the Instrument Controller: {expected_comm}")
 
 
 def test_MantarrayProcessesMonitor__passes_magnetometer_config_dict_from_server_to_mc_comm(
@@ -1092,7 +1120,7 @@ def test_MantarrayProcessesMonitor__passes_magnetometer_config_dict_from_server_
 
 
 def test_MantarrayProcessesMonitor__raises_error_if_config_dict_in_start_data_stream_command_response_from_instrument_does_not_match_expected_value(
-    test_process_manager, test_monitor
+    test_process_manager, test_monitor, patch_print
 ):
     monitor_thread, shared_values_dict, _, _ = test_monitor
     queues = test_process_manager.queue_container()

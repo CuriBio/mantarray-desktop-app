@@ -126,8 +126,9 @@ def test_MantarrayProcessesManager__hard_stop_processes__calls_hard_stop_on_all_
     assert actual["server_items"] == expected_server_items
 
 
+@pytest.mark.timeout(20)
 def test_MantarrayProcessesManager__join_processes__calls_join_on_all_processes(mocker, generic_manager):
-    generic_manager.create_processes()
+    generic_manager.spawn_processes()
     mocked_ok_comm_join = mocker.patch.object(OkCommunicationProcess, "join")
     mocked_file_writer_join = mocker.patch.object(FileWriterProcess, "join")
     mocked_data_analyzer_join = mocker.patch.object(DataAnalyzerProcess, "join")
@@ -144,7 +145,6 @@ def test_MantarrayProcessesManager__join_processes__calls_join_on_all_processes(
 def test_MantarrayProcessesManager__spawn_processes__stop_and_join_processes__starts_and_stops_all_processes(
     mocker, generic_manager
 ):
-
     spied_ok_comm_start = mocker.spy(OkCommunicationProcess, "start")
     spied_ok_comm_stop = mocker.spy(OkCommunicationProcess, "stop")
     spied_ok_comm_join = mocker.spy(OkCommunicationProcess, "join")
@@ -165,7 +165,6 @@ def test_MantarrayProcessesManager__spawn_processes__stop_and_join_processes__st
     generic_manager.get_file_writer_process()._drain_all_queues()  # pylint:disable=protected-access
     generic_manager.get_data_analyzer_process()._drain_all_queues()  # pylint:disable=protected-access
     generic_manager.get_server_thread()._drain_all_queues()  # pylint:disable=protected-access
-    # instrument_to_main_queue=generic_manager.queue_container().get_communication_queue_from_instrument_comm_to_main()
 
     generic_manager.stop_and_join_processes()
     spied_ok_comm_start.assert_called_once()

@@ -197,13 +197,12 @@ def test_send_single_get_available_data_command__gets_item_from_data_out_queue_w
     expected_response = {
         "waveform_data": {
             "basic_data": [100, 200, 300],
-            "data_metrics": "dummy_metrics",
         }
     }
 
-    data_out_queue = test_server.get_data_analyzer_data_out_queue()
+    data_to_server_queue = test_server.get_data_queue_to_server()
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        json.dumps(expected_response), data_out_queue
+        json.dumps(expected_response), data_to_server_queue
     )
 
     response = test_client.get("/get_available_data")
@@ -221,8 +220,7 @@ def test_server__handles_logging_after_request_when_get_available_data_is_called
 
     spied_logger = mocker.spy(server.logger, "info")
 
-    # test_process_manager.create_processes()
-    data_out_queue = test_server.get_data_analyzer_data_out_queue()
+    data_to_server_queue = test_server.get_data_queue_to_server()
 
     test_data = json.dumps(
         {
@@ -232,7 +230,7 @@ def test_server__handles_logging_after_request_when_get_available_data_is_called
             }
         }
     )
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data, data_out_queue)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data, data_to_server_queue)
 
     response = test_client.get("/get_available_data")
     assert response.status_code == 200
