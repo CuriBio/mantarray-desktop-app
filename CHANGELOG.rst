@@ -1,6 +1,11 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+0.4.6 (2021-07-08)
+------------------
+
+- Updated Y-axis zoom features.
+
 
 0.4.5 (2021-04-13)
 ------------------

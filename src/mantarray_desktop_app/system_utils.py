@@ -31,13 +31,13 @@ def system_state_eventually_equals(state_name: str, timeout: int) -> bool:
 def wait_for_subprocesses_to_start() -> None:
     """Wait for subprocesses to complete their start up routines.
 
-    Raises SystemStartUpError if the system takes longer than 5 seconds
+    Raises SystemStartUpError if the system takes longer than 15 seconds
     to start up.
     """
     start = time.perf_counter()
     elapsed_time = 0.0
     response: Optional[Response]
-    while elapsed_time < 10:
+    while elapsed_time < 15:
         try:
             response = requests.get(f"{get_api_endpoint()}system_status")
         except requests.exceptions.ConnectionError:
