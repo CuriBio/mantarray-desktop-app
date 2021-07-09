@@ -356,6 +356,9 @@ describe("window_opening", () => {
 
   test("When first initialized, Then it shows an initial window of the correct dimensions and position", async () => {
     const app = sandbox.the_app;
+
+    await app.client.getWindowHandles();
+    await app.client.waitUntilWindowLoaded();
     const window_count = await app.client.getWindowCount();
 
     expect(window_count).toStrictEqual(1); // Please note that getWindowCount() will return 2 if `dev tools` are opened.
