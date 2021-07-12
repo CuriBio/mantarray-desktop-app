@@ -32,6 +32,7 @@ from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
+from mantarray_desktop_app import DATA_ANALYZER_BETA_1_BUFFER_SIZE
 from mantarray_desktop_app import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from mantarray_desktop_app import DATA_FRAME_PERIOD
 from mantarray_desktop_app import DEFAULT_SERVER_PORT_NUMBER
@@ -325,6 +326,10 @@ def test_buffer_size_constants():
     assert DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS == 700000
     assert FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS == 3000000
     assert OUTGOING_DATA_BUFFER_SIZE == 2
+
+    assert (
+        DATA_ANALYZER_BETA_1_BUFFER_SIZE == DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS // ROUND_ROBIN_PERIOD
+    )
 
 
 def test_performance_logging_constants():

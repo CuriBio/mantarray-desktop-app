@@ -23,10 +23,12 @@ import numpy as np
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
+from streamz import Stream
 
 from .constants import ADC_GAIN
 from .constants import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from .constants import CONSTRUCT_SENSORS_PER_REF_SENSOR
+from .constants import DATA_ANALYZER_BETA_1_BUFFER_SIZE
 from .constants import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from .constants import MILLIVOLTS_PER_VOLT
 from .constants import REF_INDEX_TO_24_WELL_INDEX
@@ -39,6 +41,17 @@ def convert_24_bit_codes_to_voltage(codes: NDArray[int]) -> NDArray[float]:
     """Convert 'signed' 24-bit values from an ADC to measured voltage."""
     voltages = codes.astype(np.float32) * 2 ** -23 * (REFERENCE_VOLTAGE / ADC_GAIN) * MILLIVOLTS_PER_VOLT
     return voltages
+
+
+# TODO consider making Tuple[List[int], List[int]]
+def append_data(
+    data_buf: List[List[int]], new_data: NDArray[(2, Any), int]
+) -> Tuple[List[List[int]], List[List[int]]]:
+    data_buf[0].extend(new_data[0])
+    data_buf[1].extend(new_data[1])
+    data_buf[0] = data_buf[0][-DATA_ANALYZER_BETA_1_BUFFER_SIZE:]
+    data_buf[1] = data_buf[1][-DATA_ANALYZER_BETA_1_BUFFER_SIZE:]
+    return data_buf, data_buf
 
 
 def _drain_board_queues(
@@ -86,9 +99,12 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._comm_to_main_queue = comm_to_main_queue
         self._is_managed_acquisition_running = False
         self._data_buffer: Dict[int, Dict[str, Any]] = dict()
+        self._data_analysis_buffer = dict()
         self._outgoing_data_creation_durations: List[float] = list()
         for index in range(24):
             self._data_buffer[index] = {"construct_data": None, "ref_data": None}
+            self._data_analysis_buffer[index] = Stream()
+            # self.init_stream(self._data_analysis_buffer[index])
         self._pipeline_template = PipelineTemplate(
             noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
             tissue_sampling_period=CONSTRUCT_SENSOR_SAMPLING_PERIOD,
@@ -100,6 +116,11 @@ class DataAnalyzerProcess(InfiniteProcess):
         if self._beta_2_mode:
             raise NotImplementedError("Beta 2 mode does not currently have calibration settings")
         return self._calibration_settings
+
+    # def init_stream(stream: Stream, beta_version: int = 1) -> None:
+    #     return
+    #     # skeleton
+    #     source.accumulate(append_data).?.sink()
 
     def _commands_for_each_run_iteration(self) -> None:
         # TODO Tanner (7/7/21): eventually need to add process performance metrics in beta 2 mode

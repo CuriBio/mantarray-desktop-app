@@ -43,6 +43,7 @@ from .constants import CURI_BIO_USER_ACCOUNT_ID
 from .constants import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
 from .constants import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from .constants import CURRENT_SOFTWARE_VERSION
+from .constants import DATA_ANALYZER_BETA_1_BUFFER_SIZE
 from .constants import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from .constants import DATA_FRAME_PERIOD
 from .constants import DEFAULT_SERVER_PORT_NUMBER
@@ -551,4 +552,5 @@ __all__ = [
     "STM_VID",
     "socketio",
     "SensitiveFormatter",
+    "DATA_ANALYZER_BETA_1_BUFFER_SIZE",
 ]
