@@ -67,6 +67,7 @@ from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MICROSECONDS_PER_MILLISECOND
 from .constants import MIDSCALE_CODE
 from .constants import MILLIVOLTS_PER_VOLT
+from .constants import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from .constants import NANOSECONDS_PER_CENTIMILLISECOND
 from .constants import NO_PLATE_DETECTED_BARCODE_VALUE
 from .constants import NO_PLATE_DETECTED_UUID
@@ -553,4 +554,5 @@ __all__ = [
     "socketio",
     "SensitiveFormatter",
     "DATA_ANALYZER_BETA_1_BUFFER_SIZE",
+    "MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS",
 ]

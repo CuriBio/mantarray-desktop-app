@@ -37,21 +37,34 @@ from .exceptions import UnrecognizedCommandToInstrumentError
 from .exceptions import UnrecognizedCommTypeFromMainToDataAnalyzerError
 
 
+PIPELINE_TEMPLATE = PipelineTemplate(
+    noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
+    tissue_sampling_period=CONSTRUCT_SENSOR_SAMPLING_PERIOD,
+)
+
+
 def convert_24_bit_codes_to_voltage(codes: NDArray[int]) -> NDArray[float]:
     """Convert 'signed' 24-bit values from an ADC to measured voltage."""
     voltages = codes.astype(np.float32) * 2 ** -23 * (REFERENCE_VOLTAGE / ADC_GAIN) * MILLIVOLTS_PER_VOLT
     return voltages
 
 
-# TODO consider making Tuple[List[int], List[int]]
 def append_data(
     data_buf: List[List[int]], new_data: NDArray[(2, Any), int]
 ) -> Tuple[List[List[int]], List[List[int]]]:
+    # Tanner (7/12/21): using lists here since list.extend is faster than ndarray.concatenate
     data_buf[0].extend(new_data[0])
     data_buf[1].extend(new_data[1])
     data_buf[0] = data_buf[0][-DATA_ANALYZER_BETA_1_BUFFER_SIZE:]
     data_buf[1] = data_buf[1][-DATA_ANALYZER_BETA_1_BUFFER_SIZE:]
     return data_buf, data_buf
+
+
+def get_pipeline_analysis(data_buf: List[List[int]]) -> Dict[Any, Any]:
+    data_buf_arr = np.array(data_buf, dtype=np.int32)
+    pipeline = PIPELINE_TEMPLATE.create_pipeline()
+    pipeline.load_raw_gmr_data(data_buf_arr, np.zeros(data_buf_arr.shape))
+    return pipeline.get_displacement_data_metrics()[0]  # type: ignore
 
 
 def _drain_board_queues(
@@ -105,10 +118,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             self._data_buffer[index] = {"construct_data": None, "ref_data": None}
             self._data_analysis_buffer[index] = Stream()
             # self.init_stream(self._data_analysis_buffer[index])
-        self._pipeline_template = PipelineTemplate(
-            noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
-            tissue_sampling_period=CONSTRUCT_SENSOR_SAMPLING_PERIOD,
-        )
+        self._pipeline_template = PIPELINE_TEMPLATE
         # Beta 1 values
         self._calibration_settings: Union[None, Dict[Any, Any]] = None
 
@@ -118,9 +128,12 @@ class DataAnalyzerProcess(InfiniteProcess):
         return self._calibration_settings
 
     # def init_stream(stream: Stream, beta_version: int = 1) -> None:
-    #     return
-    #     # skeleton
-    #     source.accumulate(append_data).?.sink()
+    #     source
+    #     .accumulate(append_data)       -- manage 7 second buffer of data
+    #     .filter(?)                     -- don't push downstream unless 7 seconds are present
+    #     .map(pipeline_analysis)        -- get data metrics for heatmap
+    #     .filter?                       -- check for metrics on a new twitch
+    #     .sink(<data dump function>)    --
 
     def _commands_for_each_run_iteration(self) -> None:
         # TODO Tanner (7/7/21): eventually need to add process performance metrics in beta 2 mode
