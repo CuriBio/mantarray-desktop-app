@@ -64,7 +64,23 @@ def get_pipeline_analysis(data_buf: List[List[int]]) -> Dict[Any, Any]:
     data_buf_arr = np.array(data_buf, dtype=np.int32)
     pipeline = PIPELINE_TEMPLATE.create_pipeline()
     pipeline.load_raw_gmr_data(data_buf_arr, np.zeros(data_buf_arr.shape))
+    # TODO Tanner: need to improve speed of following method
     return pipeline.get_displacement_data_metrics()[0]  # type: ignore
+
+
+def check_for_new_twitches(
+    latest_time_index: int, per_twitch_metrics: Dict[int, Any]
+) -> Tuple[int, Dict[Any, Any]]:
+    """Pass only new twitches through the data stream."""
+    time_index_list = list(per_twitch_metrics.keys())
+
+    if time_index_list[-1] <= latest_time_index:
+        return latest_time_index, {}
+
+    for twitch_time_index in time_index_list:
+        if twitch_time_index <= latest_time_index:
+            del per_twitch_metrics[twitch_time_index]
+    return time_index_list[-1], per_twitch_metrics
 
 
 def _drain_board_queues(
@@ -127,16 +143,17 @@ class DataAnalyzerProcess(InfiniteProcess):
             raise NotImplementedError("Beta 2 mode does not currently have calibration settings")
         return self._calibration_settings
 
-    # def init_stream(stream: Stream, beta_version: int = 1) -> None:
+    # def init_stream(stream: Stream) -> None:
+    #     if beta_2_mode: ...
     #     source
-    #     .accumulate(append_data)       -- manage 7 second buffer of data
-    #     .filter(?)                     -- don't push downstream unless 7 seconds are present
-    #     .map(pipeline_analysis)        -- get data metrics for heatmap
-    #     .filter?                       -- check for metrics on a new twitch
-    #     .sink(<data dump function>)    --
-
+    #     .accumulate(append_data)                                  √  manage 7 second buffer of data
+    #     .filter(?)                                                X  don't push downstream unless 7 seconds are present
+    #     .map(pipeline_analysis)                                   √  get data metrics for heatmap
+    #     .accumulate(check_for_new_twitches)                       √  update latest twitch timepoint, send new twitches (if any) downstream
+    #     .filter(lambda per_twitch_dict: bool(per_twitch_dict))    √  make sure dict is not empty
+    #     .sink(<metric dump function>)                             X  send data to main
     def _commands_for_each_run_iteration(self) -> None:
-        # TODO Tanner (7/7/21): eventually need to add process performance metrics in beta 2 mode
+        # TODO Tanner (7/7/21): eventually need to add process performance metric reporting to beta 2 mode
         self._process_next_command_from_main()
         self._handle_incoming_data()
 
