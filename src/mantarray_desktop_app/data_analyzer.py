@@ -16,8 +16,10 @@ from typing import Optional
 from typing import Tuple
 from typing import Union
 
+from mantarray_waveform_analysis import AMPLITUDE_UUID
 from mantarray_waveform_analysis import BUTTERWORTH_LOWPASS_30_UUID
 from mantarray_waveform_analysis import PipelineTemplate
+from mantarray_waveform_analysis import TWITCH_FREQUENCY_UUID
 from nptyping import NDArray
 import numpy as np
 from stdlib_utils import drain_queue
@@ -49,7 +51,7 @@ def convert_24_bit_codes_to_voltage(codes: NDArray[int]) -> NDArray[float]:
     return voltages
 
 
-def append_data(
+def append_beta_1_data(
     data_buf: List[List[int]], new_data: NDArray[(2, Any), int]
 ) -> Tuple[List[List[int]], List[List[int]]]:
     # Tanner (7/12/21): using lists here since list.extend is faster than ndarray.concatenate
@@ -64,14 +66,14 @@ def get_pipeline_analysis(data_buf: List[List[int]]) -> Dict[Any, Any]:
     data_buf_arr = np.array(data_buf, dtype=np.int32)
     pipeline = PIPELINE_TEMPLATE.create_pipeline()
     pipeline.load_raw_gmr_data(data_buf_arr, np.zeros(data_buf_arr.shape))
-    # TODO Tanner: need to improve speed of following method
-    return pipeline.get_displacement_data_metrics()[0]  # type: ignore
+    return pipeline.get_displacement_data_metrics(metrics_to_create=[AMPLITUDE_UUID, TWITCH_FREQUENCY_UUID])[0]  # type: ignore
 
 
 def check_for_new_twitches(
     latest_time_index: int, per_twitch_metrics: Dict[int, Any]
 ) -> Tuple[int, Dict[Any, Any]]:
     """Pass only new twitches through the data stream."""
+    # TODO Tanner: could try storing peak of and valley after the twitch and use those values to check for new twitches
     time_index_list = list(per_twitch_metrics.keys())
 
     if time_index_list[-1] <= latest_time_index:
@@ -128,12 +130,12 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._comm_to_main_queue = comm_to_main_queue
         self._is_managed_acquisition_running = False
         self._data_buffer: Dict[int, Dict[str, Any]] = dict()
-        self._data_analysis_buffer = dict()
+        self._data_analysis_streams = dict()
         self._outgoing_data_creation_durations: List[float] = list()
-        for index in range(24):
-            self._data_buffer[index] = {"construct_data": None, "ref_data": None}
-            self._data_analysis_buffer[index] = Stream()
-            # self.init_stream(self._data_analysis_buffer[index])
+        for well_idx in range(24):
+            self._data_buffer[well_idx] = {"construct_data": None, "ref_data": None}
+            self._data_analysis_streams[well_idx] = Stream()
+            self.init_stream(self._data_analysis_streams[well_idx], well_idx)
         self._pipeline_template = PIPELINE_TEMPLATE
         # Beta 1 values
         self._calibration_settings: Union[None, Dict[Any, Any]] = None
@@ -143,19 +145,27 @@ class DataAnalyzerProcess(InfiniteProcess):
             raise NotImplementedError("Beta 2 mode does not currently have calibration settings")
         return self._calibration_settings
 
-    # def init_stream(stream: Stream) -> None:
-    #     if beta_2_mode: ...
-    #     source
-    #     .accumulate(append_data)                                  √  manage 7 second buffer of data
-    #     .filter(?)                                                X  don't push downstream unless 7 seconds are present
-    #     .map(pipeline_analysis)                                   √  get data metrics for heatmap
-    #     .accumulate(check_for_new_twitches)                       √  update latest twitch timepoint, send new twitches (if any) downstream
-    #     .filter(lambda per_twitch_dict: bool(per_twitch_dict))    √  make sure dict is not empty
-    #     .sink(<metric dump function>)                             X  send data to main
+    def init_stream(self, source: Stream, well_idx: int) -> None:
+        #     if beta_2_mode: ...
+        #     source
+        #     .accumulate(append_beta_1_data)                                                   √  manage 7 second buffer of data
+        #     .filter(lambda data_buf: len(data_buf[0]) >= DATA_ANALYZER_BETA_1_BUFFER_SIZE)    √  don't push downstream unless 7 seconds are present
+        #     .map(pipeline_analysis)                                                           √  get data metrics for heatmap
+        #     .accumulate(check_for_new_twitches)                                               √  update latest twitch timepoint, send new twitches (if any) downstream
+        #     .filter(lambda per_twitch_dict: bool(per_twitch_dict))                            √  make sure dict is not empty
+        #     .sink(<metric dump function>)                                                     X  send data to main
+        source.accumulate(append_beta_1_data).filter(
+            lambda data_buf: len(data_buf[0]) >= DATA_ANALYZER_BETA_1_BUFFER_SIZE
+        ).map(get_pipeline_analysis).accumulate(check_for_new_twitches).filter(bool).sink(
+            lambda per_twitch_dict: self._dump_outgoing_beta_1_metrics(well_idx, per_twitch_dict)
+        )
+
     def _commands_for_each_run_iteration(self) -> None:
         # TODO Tanner (7/7/21): eventually need to add process performance metric reporting to beta 2 mode
         self._process_next_command_from_main()
         self._handle_incoming_data()
+
+        # TODO Tanner (7/13/21): eventually need to add heatmap metric creation metric reporting for both beta version
 
         if self._beta_2_mode:
             return
@@ -205,6 +215,9 @@ class DataAnalyzerProcess(InfiniteProcess):
             outgoing_data = self._create_outgoing_beta_2_data(data_dict)
             self._dump_data_into_queue(outgoing_data)
         else:
+            if not data_dict["is_reference_sensor"]:
+                well_idx = data_dict["well_index"]
+                self._data_analysis_streams[well_idx].emit(data_dict["data"])
             self._load_memory_into_buffer(data_dict)
 
     def _load_memory_into_buffer(self, data_dict: Dict[Any, Any]) -> None:
@@ -320,6 +333,21 @@ class DataAnalyzerProcess(InfiniteProcess):
         outgoing_data["latest_timepoint"] = latest_timepoint
         return outgoing_data
 
+    def _dump_outgoing_beta_1_metrics(self, well_idx: int, per_twitch_dict: Dict[int, Any]) -> None:
+        outgoing_metrics: Dict[int, Dict[str, List[Any]]] = {
+            well_idx: {
+                str(AMPLITUDE_UUID): [],
+                str(TWITCH_FREQUENCY_UUID): [],
+            }
+        }
+        for twitch_metric_dict in per_twitch_dict.values():
+            for metric_id, metric_val in twitch_metric_dict.items():
+                outgoing_metrics[well_idx][str(metric_id)].append(metric_val)
+
+        outgoing_metrics_json = json.dumps(outgoing_metrics)
+        outgoing_msg = {"data_type": "twitch_metrics", "data_json": outgoing_metrics_json}
+        self._board_queues[0][1].put_nowait(outgoing_msg)
+
     def _handle_performance_logging(self, analysis_durations: List[float]) -> None:
         performance_metrics: Dict[str, Any] = {
             "communication_type": "performance_metrics",
@@ -375,6 +403,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         )
         # Tanner (6/21/21): converting to json may no longer be necessary here
         outgoing_data_json = json.dumps(outgoing_data)
+        # TODO put this json into a dict with a key to indicate what kind of data it is
         self._board_queues[0][1].put_nowait(outgoing_data_json)
 
     def _drain_all_queues(self) -> Dict[str, Any]:
