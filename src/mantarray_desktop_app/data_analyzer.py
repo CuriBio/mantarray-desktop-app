@@ -67,6 +67,7 @@ def append_beta_1_data(
 def get_pipeline_analysis(data_buf: List[List[int]]) -> Dict[Any, Any]:
     data_buf_arr = np.array(data_buf, dtype=np.int32)
     pipeline = PIPELINE_TEMPLATE.create_pipeline()
+    # Tanner (7/14/21): reference data is currently unused by waveform analysis package, so sending zero array instead
     pipeline.load_raw_gmr_data(data_buf_arr, np.zeros(data_buf_arr.shape))
     return pipeline.get_displacement_data_metrics(metrics_to_create=[AMPLITUDE_UUID, TWITCH_FREQUENCY_UUID])[0]  # type: ignore
 
@@ -75,7 +76,7 @@ def check_for_new_twitches(
     latest_time_index: int, per_twitch_metrics: Dict[int, Any]
 ) -> Tuple[int, Dict[Any, Any]]:
     """Pass only new twitches through the data stream."""
-    # TODO Tanner: could try storing peak of and valley after the twitch and use those values to check for new twitches
+    # Tanner (7/14/21): if issues come up with peaks being reported twice, could try storing peak of and valley after the latest twitch and use those values to check for new twitches
     time_index_list = list(per_twitch_metrics.keys())
 
     if time_index_list[-1] <= latest_time_index:

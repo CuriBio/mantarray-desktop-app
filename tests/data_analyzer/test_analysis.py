@@ -260,4 +260,125 @@ def test_DataAnalyzerProcess__sends_beta_2_metrics_of_all_wells_to_main_when_rea
     drain_queue(board_queues[0][1])
 
 
-# TODO add tests for only new twitches passing through
+def test_DataAnalyzerProcess__only_dumps_new_twitch_metrics__with_beta_1_data(
+    four_board_analyzer_process, mantarray_mc_simulator
+):
+    # Tanner (7/13/21): this test assumes no waveform data will be put into the data queue to main
+    da_process, board_queues, from_main_queue, _, _ = four_board_analyzer_process
+    da_process.init_streams()
+    # make sure data analyzer knows that managed acquisition is running
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        START_MANAGED_ACQUISITION_COMMUNICATION, from_main_queue
+    )
+
+    expected_well_idx = 0
+
+    single_second_of_data = mantarray_mc_simulator["simulator"].get_interpolated_data(
+        ROUND_ROBIN_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
+    )
+    num_data_points_per_second = len(single_second_of_data)
+
+    test_y_data = single_second_of_data.tolist() * (MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS + 1)
+    test_x_data = np.arange(0, ROUND_ROBIN_PERIOD * len(test_y_data), ROUND_ROBIN_PERIOD)
+    test_data_arr = np.array([test_x_data, test_y_data], dtype=np.int32)
+
+    # send first round of data through for analysis
+    test_packet_1 = copy.deepcopy(SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0)
+    test_packet_1["data"] = test_data_arr[:, :-num_data_points_per_second]
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet_1, board_queues[0][0])
+    invoke_process_run_and_check_errors(da_process)
+    confirm_queue_is_eventually_of_size(board_queues[0][1], 1)
+    # check all analyzable twitches are reported
+    outgoing_metrics = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    actual_well_metric_dict = json.loads(outgoing_metrics["data_json"])[str(expected_well_idx)]
+    for metric_id, metric_list in actual_well_metric_dict.items():
+        assert len(metric_list) == 5, metric_id
+
+    # send remaining data (1 second / 1 new twitch)
+    test_packet_2 = copy.deepcopy(SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0)
+    test_packet_2["data"] = test_data_arr[:, -num_data_points_per_second:]
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet_2, board_queues[0][0])
+    invoke_process_run_and_check_errors(da_process)
+    confirm_queue_is_eventually_of_size(board_queues[0][1], 1)
+    # check that only the newly analyzable twitch is reported
+    outgoing_metrics = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    actual_well_metric_dict = json.loads(outgoing_metrics["data_json"])[str(expected_well_idx)]
+    for metric_id, metric_list in actual_well_metric_dict.items():
+        assert len(metric_list) == 1, metric_id
+
+
+def test_DataAnalyzerProcess__only_dumps_new_twitch_metrics__with_beta_2_data(
+    four_board_analyzer_process_beta_2_mode, mantarray_mc_simulator
+):
+    # Tanner (7/13/21): this test assumes one waveform data packet will be put into the data queue to main
+    da_process = four_board_analyzer_process_beta_2_mode["da_process"]
+    da_process.init_streams()
+
+    expected_sampling_period = 17000
+    set_sampling_period(four_board_analyzer_process_beta_2_mode, expected_sampling_period)
+
+    da_process = four_board_analyzer_process_beta_2_mode["da_process"]
+    board_queues = four_board_analyzer_process_beta_2_mode["board_queues"]
+    from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
+    # make sure data analyzer knows that managed acquisition is running
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        START_MANAGED_ACQUISITION_COMMUNICATION, from_main_queue
+    )
+
+    expected_well_idx = 0
+
+    single_second_of_data = mantarray_mc_simulator["simulator"].get_interpolated_data(
+        expected_sampling_period
+    )
+    num_data_points_per_second = len(single_second_of_data)
+
+    test_y_data = single_second_of_data.tolist() * (MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS + 1)
+    test_x_data = np.arange(
+        0, expected_sampling_period * len(test_y_data), expected_sampling_period, dtype=np.uint64
+    )
+
+    # send first round of data through for analysis
+    test_packet_1 = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
+    test_packet_1["time_indices"] = test_x_data[:-num_data_points_per_second]
+    for well_idx in range(24):
+        # Tanner (7/14/21): time offsets are currently unused in data analyzer so not modifying them here
+        first_channel = list(test_packet_1[well_idx].keys())[0]
+        test_packet_1[well_idx][first_channel] = np.array(
+            test_y_data[:-num_data_points_per_second], dtype=np.int16
+        )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet_1, board_queues[0][0])
+    invoke_process_run_and_check_errors(da_process)
+    # remove waveform_data
+    board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    confirm_queue_is_eventually_of_size(board_queues[0][1], 24)
+    # check all analyzable twitches are reported
+    outgoing_metrics = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    actual_well_metric_dict = json.loads(outgoing_metrics["data_json"])[str(expected_well_idx)]
+    for metric_id, metric_list in actual_well_metric_dict.items():
+        assert len(metric_list) == 5, metric_id
+
+    # remove remaining items before next dump
+    drain_queue(board_queues[0][1])
+
+    # send remaining data (1 second / 1 new twitch)
+    test_packet_2 = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
+    test_packet_2["time_indices"] = test_x_data[-num_data_points_per_second:]
+    for well_idx in range(24):
+        # Tanner (7/14/21): time offsets are currently unused in data analyzer so not modifying them here
+        first_channel = list(test_packet_2[well_idx].keys())[0]
+        test_packet_2[well_idx][first_channel] = np.array(
+            test_y_data[-num_data_points_per_second:], dtype=np.int16
+        )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet_2, board_queues[0][0])
+    invoke_process_run_and_check_errors(da_process)
+    # remove waveform_data
+    board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    confirm_queue_is_eventually_of_size(board_queues[0][1], 24)
+    # check that only the newly analyzable twitch is reported
+    outgoing_metrics = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    actual_well_metric_dict = json.loads(outgoing_metrics["data_json"])[str(expected_well_idx)]
+    for metric_id, metric_list in actual_well_metric_dict.items():
+        assert len(metric_list) == 1, metric_id
+
+    # prevent BrokenPipeErrors
+    drain_queue(board_queues[0][1])
