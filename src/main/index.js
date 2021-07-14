@@ -1,6 +1,6 @@
 /* globals INCLUDE_RESOURCES_PATH */
 import { app } from "electron";
-const autoUpdater = require("electron-updater");
+const autoUpdater = require("electron-updater"); // eslint-disable-line no-unused-vars
 const log = require("electron-log");
 const path = require("path");
 const features = require("./features.json");
@@ -176,11 +176,13 @@ app.on("window-all-closed", function () {
 });
 // let win_handler = null;
 app.on("ready", () => {
-  console.log("ready in index.js");
-  if (features.autoupdate) {
-    autoUpdater.checkForUpdatesAndNotify();
-  } else {
-    console.log("Autoupdate feature disabled");
+  if (!process.env.SPECTRON) {
+    // disable on e2e test environment
+    if (features.autoupdate) {
+      autoUpdater.checkForUpdatesAndNotify();
+    } else {
+      console.log("Autoupdate feature disabled");
+    }
   }
 });
 
