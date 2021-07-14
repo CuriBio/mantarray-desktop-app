@@ -9,6 +9,7 @@ from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_sti
 
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process_beta_2_mode
+from ..fixtures_data_analyzer import set_sampling_period
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..parsed_channel_data_packets import SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS
@@ -23,6 +24,9 @@ __fixtures__ = [
 def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_retrieves_a_data_packet_from_file_writer__and_sends_data_available_message_to_main(
     four_board_analyzer_process_beta_2_mode,
 ):
+    # set arbitrary sampling period
+    set_sampling_period(four_board_analyzer_process_beta_2_mode, 1000)
+
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
     from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
     to_main_queue = four_board_analyzer_process_beta_2_mode["to_main_queue"]

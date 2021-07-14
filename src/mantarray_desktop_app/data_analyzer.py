@@ -33,6 +33,7 @@ from .constants import CONSTRUCT_SENSORS_PER_REF_SENSOR
 from .constants import DATA_ANALYZER_BETA_1_BUFFER_SIZE
 from .constants import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from .constants import MILLIVOLTS_PER_VOLT
+from .constants import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from .constants import REF_INDEX_TO_24_WELL_INDEX
 from .constants import REFERENCE_VOLTAGE
 from .exceptions import UnrecognizedCommandToInstrumentError
@@ -54,6 +55,7 @@ def convert_24_bit_codes_to_voltage(codes: NDArray[int]) -> NDArray[float]:
 def append_beta_1_data(
     data_buf: List[List[int]], new_data: NDArray[(2, Any), int]
 ) -> Tuple[List[List[int]], List[List[int]]]:
+    # TODO remove this and just use one append function with buffer size determined by self.get_buffer_size()
     # Tanner (7/12/21): using lists here since list.extend is faster than ndarray.concatenate
     data_buf[0].extend(new_data[0])
     data_buf[1].extend(new_data[1])
@@ -105,16 +107,10 @@ class DataAnalyzerProcess(InfiniteProcess):
         fatal_error_reporter: a queue to report fatal errors back to the main process
     """
 
-    # pylint: disable=duplicate-code # Eli (12/8/20): I can't figure out how to use mypy type aliases correctly...but the type definitions are triggering duplicate code warnings
-    def __init__(  # pylint: disable=duplicate-code # Eli (12/8/20): I can't figure out how to use mypy type aliases correctly...but the type definitions are triggering duplicate code warnings
+    def __init__(
         self,
         the_board_queues: Tuple[
-            Tuple[
-                Queue[Any],  # pylint: disable=unsubscriptable-object
-                Queue[  # pylint: disable=unsubscriptable-object,duplicate-code # https://github.com/PyCQA/pylint/issues/1498
-                    Any
-                ],  # pylint: disable=duplicate-code
-            ],
+            Tuple[Queue[Any], Queue[Any]],  # pylint: disable=unsubscriptable-object
             ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
         ],
         comm_from_main_queue: Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
@@ -130,34 +126,36 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._comm_to_main_queue = comm_to_main_queue
         self._is_managed_acquisition_running = False
         self._data_buffer: Dict[int, Dict[str, Any]] = dict()
-        self._data_analysis_streams = dict()
+        self._data_analysis_streams: Dict[int, Stream] = dict()
         self._outgoing_data_creation_durations: List[float] = list()
+        # data analysis items
         for well_idx in range(24):
             self._data_buffer[well_idx] = {"construct_data": None, "ref_data": None}
             self._data_analysis_streams[well_idx] = Stream()
             self.init_stream(self._data_analysis_streams[well_idx], well_idx)
         self._pipeline_template = PIPELINE_TEMPLATE
-        # Beta 1 values
+        # Beta 1 items
         self._calibration_settings: Union[None, Dict[Any, Any]] = None
+        # Beta 2 items
+        self._beta_2_buffer_size: Optional[int] = None
 
     def get_calibration_settings(self) -> Union[None, Dict[Any, Any]]:
         if self._beta_2_mode:
             raise NotImplementedError("Beta 2 mode does not currently have calibration settings")
         return self._calibration_settings
 
+    def get_buffer_size(self) -> int:
+        return self._beta_2_buffer_size if self._beta_2_mode else DATA_ANALYZER_BETA_1_BUFFER_SIZE  # type: ignore
+
     def init_stream(self, source: Stream, well_idx: int) -> None:
-        #     if beta_2_mode: ...
-        #     source
-        #     .accumulate(append_beta_1_data)                                                   √  manage 7 second buffer of data
-        #     .filter(lambda data_buf: len(data_buf[0]) >= DATA_ANALYZER_BETA_1_BUFFER_SIZE)    √  don't push downstream unless 7 seconds are present
-        #     .map(pipeline_analysis)                                                           √  get data metrics for heatmap
-        #     .accumulate(check_for_new_twitches)                                               √  update latest twitch timepoint, send new twitches (if any) downstream
-        #     .filter(lambda per_twitch_dict: bool(per_twitch_dict))                            √  make sure dict is not empty
-        #     .sink(<metric dump function>)                                                     X  send data to main
-        source.accumulate(append_beta_1_data).filter(
-            lambda data_buf: len(data_buf[0]) >= DATA_ANALYZER_BETA_1_BUFFER_SIZE
-        ).map(get_pipeline_analysis).accumulate(check_for_new_twitches).filter(bool).sink(
-            lambda per_twitch_dict: self._dump_outgoing_beta_1_metrics(well_idx, per_twitch_dict)
+        append_func = self.append_beta_2_data if self._beta_2_mode else append_beta_1_data
+
+        source.accumulate(append_func, returns_state=True, start=[[], []]).filter(
+            lambda data_buf: len(data_buf[0]) >= self.get_buffer_size()
+        ).map(get_pipeline_analysis).accumulate(check_for_new_twitches, returns_state=True, start=-1).filter(
+            bool
+        ).sink(
+            lambda per_twitch_dict: self._dump_outgoing_well_metrics(well_idx, per_twitch_dict)
         )
 
     def _commands_for_each_run_iteration(self) -> None:
@@ -165,7 +163,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._process_next_command_from_main()
         self._handle_incoming_data()
 
-        # TODO Tanner (7/13/21): eventually need to add heatmap metric creation metric reporting for both beta version
+        # TODO Tanner (7/13/21): eventually need to add heatmap value creation metric reporting for both beta versions
 
         if self._beta_2_mode:
             return
@@ -198,6 +196,10 @@ class DataAnalyzerProcess(InfiniteProcess):
             else:
                 raise UnrecognizedCommandToInstrumentError(communication["command"])
             self._comm_to_main_queue.put_nowait(communication)
+        elif communication_type == "sampling_period_update":
+            self._beta_2_buffer_size = MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS * int(
+                1e6 / communication["sampling_period"]
+            )
         else:
             raise UnrecognizedCommTypeFromMainToDataAnalyzerError(communication_type)
 
@@ -214,11 +216,31 @@ class DataAnalyzerProcess(InfiniteProcess):
         if self._beta_2_mode:
             outgoing_data = self._create_outgoing_beta_2_data(data_dict)
             self._dump_data_into_queue(outgoing_data)
+            for key, well_dict in data_dict.items():
+                if not isinstance(key, int):
+                    continue
+                # Tanner (7/13/21): For now, this is just taking the first channel of data present and pushing it through the data analysis stream
+                first_channel_id = list(well_dict.keys())[0]
+                first_channel_data = [
+                    data_dict["time_indices"],
+                    well_dict[first_channel_id],
+                ]
+                self._data_analysis_streams[key].emit(first_channel_data)
         else:
             if not data_dict["is_reference_sensor"]:
                 well_idx = data_dict["well_index"]
                 self._data_analysis_streams[well_idx].emit(data_dict["data"])
             self._load_memory_into_buffer(data_dict)
+
+    def append_beta_2_data(
+        self, data_buf: List[List[int]], new_data: NDArray[(2, Any), int]
+    ) -> Tuple[List[List[int]], List[List[int]]]:
+        # Tanner (7/12/21): using lists here since list.extend is faster than ndarray.concatenate
+        data_buf[0].extend(new_data[0])
+        data_buf[1].extend(new_data[1])
+        data_buf[0] = data_buf[0][-self.get_buffer_size() :]
+        data_buf[1] = data_buf[1][-self.get_buffer_size() :]
+        return data_buf, data_buf
 
     def _load_memory_into_buffer(self, data_dict: Dict[Any, Any]) -> None:
         if data_dict["is_reference_sensor"]:
@@ -333,7 +355,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         outgoing_data["latest_timepoint"] = latest_timepoint
         return outgoing_data
 
-    def _dump_outgoing_beta_1_metrics(self, well_idx: int, per_twitch_dict: Dict[int, Any]) -> None:
+    def _dump_outgoing_well_metrics(self, well_idx: int, per_twitch_dict: Dict[int, Any]) -> None:
         outgoing_metrics: Dict[int, Dict[str, List[Any]]] = {
             well_idx: {
                 str(AMPLITUDE_UUID): [],

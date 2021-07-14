@@ -5,6 +5,7 @@ from statistics import stdev
 import time
 
 from mantarray_desktop_app import DataAnalyzerProcess
+from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import UnrecognizedCommandToInstrumentError
 from mantarray_desktop_app import UnrecognizedCommTypeFromMainToDataAnalyzerError
 from mantarray_waveform_analysis import Pipeline
@@ -19,12 +20,14 @@ from ..fixtures import fixture_patch_print
 from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process
+from ..fixtures_data_analyzer import fixture_four_board_analyzer_process_beta_2_mode
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 
 
 __fixtures__ = [
     fixture_four_board_analyzer_process,
+    fixture_four_board_analyzer_process_beta_2_mode,
     fixture_patch_print,
 ]
 
@@ -260,3 +263,21 @@ def test_DataAnalyzerProcess__does_not_include_performance_metrics_in_first_logg
     actual = actual["message"]
     assert "percent_use_metrics" not in actual
     assert "data_creating_duration_metrics" not in actual
+
+
+def test_DataAnalyzerProcess__processes_set_sampling_period_command(four_board_analyzer_process_beta_2_mode):
+    da_process = four_board_analyzer_process_beta_2_mode["da_process"]
+    from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
+
+    expected_sampling_period = 15000
+    set_sampling_period_command = {
+        "communication_type": "sampling_period_update",
+        "sampling_period": expected_sampling_period,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        set_sampling_period_command, from_main_queue
+    )
+
+    invoke_process_run_and_check_errors(da_process)
+    expected_buffer_size = MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS * int(1e6 / expected_sampling_period)
+    assert da_process.get_buffer_size() == expected_buffer_size

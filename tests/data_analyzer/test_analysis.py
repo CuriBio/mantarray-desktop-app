@@ -14,17 +14,25 @@ from mantarray_desktop_app.data_analyzer import PIPELINE_TEMPLATE
 from mantarray_waveform_analysis import AMPLITUDE_UUID
 from mantarray_waveform_analysis import TWITCH_FREQUENCY_UUID
 import numpy as np
+from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
 
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process
+from ..fixtures_data_analyzer import fixture_four_board_analyzer_process_beta_2_mode
+from ..fixtures_data_analyzer import set_sampling_period
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 from ..parsed_channel_data_packets import SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0
+from ..parsed_channel_data_packets import SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS
 
 
-__fixtures__ = [fixture_four_board_analyzer_process, fixture_mantarray_mc_simulator]
+__fixtures__ = [
+    fixture_four_board_analyzer_process,
+    fixture_four_board_analyzer_process_beta_2_mode,
+    fixture_mantarray_mc_simulator,
+]
 
 
 def test_append_beta_1_data__correctly_appends_x_and_y_data_from_numpy_array_to_list():
@@ -37,7 +45,7 @@ def test_append_beta_1_data__correctly_appends_x_and_y_data_from_numpy_array_to_
     assert downstream_new_list[1] == expected_list[1]
 
 
-def test_append_beta_1_data__removes_oldest_data_points_when_buffer_exceeds_max_size():
+def test_append_beta_1_data__removes_oldest_data_points_when_buffer_exceeds_required_size():
     init_list = init_list = [
         list(range(DATA_ANALYZER_BETA_1_BUFFER_SIZE)),
         list(range(DATA_ANALYZER_BETA_1_BUFFER_SIZE)),
@@ -53,7 +61,49 @@ def test_append_beta_1_data__removes_oldest_data_points_when_buffer_exceeds_max_
     assert new_list[1] == list(range(3, DATA_ANALYZER_BETA_1_BUFFER_SIZE + 3))
 
 
-def test_get_pipeline_analysis__returns_displacement_metrics_from_given_data(mantarray_mc_simulator):
+def test_append_beta_2_data__correctly_appends_x_and_y_data_from_numpy_array_to_list(
+    four_board_analyzer_process_beta_2_mode,
+):
+    da_process = four_board_analyzer_process_beta_2_mode["da_process"]
+
+    expected_sampling_period = 13000
+    set_sampling_period(four_board_analyzer_process_beta_2_mode, expected_sampling_period)
+
+    init_list = [list(), list()]
+    expected_list = [[0], [1]]
+    new_list, downstream_new_list = da_process.append_beta_2_data(init_list, expected_list)
+    assert new_list[0] == expected_list[0]
+    assert new_list[1] == expected_list[1]
+    assert downstream_new_list[0] == expected_list[0]
+    assert downstream_new_list[1] == expected_list[1]
+
+
+def test_append_beta_2_data__removes_oldest_data_points_when_buffer_exceeds_required_size(
+    four_board_analyzer_process_beta_2_mode,
+):
+    da_process = four_board_analyzer_process_beta_2_mode["da_process"]
+
+    expected_sampling_period = 15000
+    set_sampling_period(four_board_analyzer_process_beta_2_mode, expected_sampling_period)
+
+    expected_buffer_size = MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS * int(1e6 / expected_sampling_period)
+
+    init_list = init_list = [
+        list(range(expected_buffer_size)),
+        list(range(expected_buffer_size)),
+    ]
+    new_data = np.array(
+        [
+            np.arange(expected_buffer_size, expected_buffer_size + 3),
+            np.arange(expected_buffer_size, expected_buffer_size + 3),
+        ]
+    )
+    new_list, _ = da_process.append_beta_2_data(init_list, new_data)
+    assert new_list[0] == list(range(3, expected_buffer_size + 3))
+    assert new_list[1] == list(range(3, expected_buffer_size + 3))
+
+
+def test_get_pipeline_analysis__returns_displacement_metrics_from_given_beta_1_data(mantarray_mc_simulator):
     # Tanner (7/12/21): This test is "True by definition", but can't think of a better way to test waveform analysis
     test_y_data = (
         mantarray_mc_simulator["simulator"]
@@ -77,6 +127,10 @@ def test_get_pipeline_analysis__returns_displacement_metrics_from_given_data(man
         assert actual[k] == expected_metrics[k], f"Incorrect twitch dict at idx {k}"
 
 
+# TODO:
+# def test_get_pipeline_analysis__returns_displacement_metrics_from_given_beta_2_data(mantarray_mc_simulator):
+
+
 def test_check_for_new_twitches__returns_latest_twitch_index_and_empty_metric_dict__when_no_new_twitch_metrics_present():
     latest_time_index = 10
     # Tanner (7/12/21): function should only check keys of the top-level dict, so values can be None
@@ -97,14 +151,17 @@ def test_check_for_new_twitches__returns_latest_twitch_index_and_populated_metri
     assert actual_dict == {(latest_time_index + 1): None, 10: None}
 
 
+# TODO make these tests send 6 seconds of data first, then the remaining 1 second of data
+
+
 def test_DataAnalyzerProcess__sends_single_beta_1_well_metrics_to_main_when_ready(
     four_board_analyzer_process, mantarray_mc_simulator
 ):
     # Tanner (7/13/21): this test assumes no waveform data will be put into the data queue to main
-    da_process, board_queues, comm_from_main_queue, _, _ = four_board_analyzer_process
+    da_process, board_queues, from_main_queue, _, _ = four_board_analyzer_process
     # make sure data analyzer knows that managed acquisition is running
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        START_MANAGED_ACQUISITION_COMMUNICATION, comm_from_main_queue
+        START_MANAGED_ACQUISITION_COMMUNICATION, from_main_queue
     )
 
     expected_well_idx = 0
@@ -132,3 +189,57 @@ def test_DataAnalyzerProcess__sends_single_beta_1_well_metrics_to_main_when_read
     for metric_id, metric_list in expected_well_metric_dict.items():
         # Tanner (7/13/21): to guard against future changes to mantarray-waveform-analysis breaking this test, only asserting that the correct number of data points are present
         assert len(metric_list) == 5, metric_id
+
+
+def test_DataAnalyzerProcess__sends_beta_2_metrics_of_all_wells_to_main_when_ready(
+    four_board_analyzer_process_beta_2_mode, mantarray_mc_simulator
+):
+    # Tanner (7/13/21): this test assumes one waveform data packet will be put into the data queue to main
+    da_process = four_board_analyzer_process_beta_2_mode["da_process"]
+
+    expected_sampling_period = 17000
+    set_sampling_period(four_board_analyzer_process_beta_2_mode, expected_sampling_period)
+
+    da_process = four_board_analyzer_process_beta_2_mode["da_process"]
+    board_queues = four_board_analyzer_process_beta_2_mode["board_queues"]
+    from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
+    # make sure data analyzer knows that managed acquisition is running
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        START_MANAGED_ACQUISITION_COMMUNICATION, from_main_queue
+    )
+
+    expected_well_idx = 0
+
+    test_y_data = (
+        mantarray_mc_simulator["simulator"].get_interpolated_data(expected_sampling_period).tolist()
+        * MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
+    )
+    test_x_data = np.arange(
+        0, expected_sampling_period * len(test_y_data), expected_sampling_period, dtype=np.uint64
+    )
+
+    test_packet = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
+    test_packet["time_indices"] = test_x_data
+    for well_idx in range(24):
+        first_channel = list(test_packet[well_idx].keys())[0]
+        test_packet[well_idx][first_channel] = np.array(test_y_data, dtype=np.int16)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet, board_queues[0][0])
+
+    invoke_process_run_and_check_errors(da_process)
+    confirm_queue_is_eventually_of_size(board_queues[0][1], 25)
+    # remove waveform_data
+    board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+
+    outgoing_metrics = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert outgoing_metrics["data_type"] == "twitch_metrics"
+    expected_well_metric_dict = json.loads(outgoing_metrics["data_json"])[str(expected_well_idx)]
+    assert list(expected_well_metric_dict.keys()) == [str(AMPLITUDE_UUID), str(TWITCH_FREQUENCY_UUID)]
+    for metric_id, metric_list in expected_well_metric_dict.items():
+        # Tanner (7/13/21): to guard against future changes to mantarray-waveform-analysis breaking this test, only asserting that the correct number of data points are present
+        assert len(metric_list) == 5, metric_id
+
+    # prevent BrokenPipeErrors
+    drain_queue(board_queues[0][1])
+
+
+# TODO add tests for only new twitches passing through

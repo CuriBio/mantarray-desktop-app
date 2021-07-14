@@ -3,6 +3,23 @@ from multiprocessing import Queue
 
 from mantarray_desktop_app import DataAnalyzerProcess
 import pytest
+from stdlib_utils import invoke_process_run_and_check_errors
+
+from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
+
+
+def set_sampling_period(da_fixture, sampling_period):
+    da_process = da_fixture["da_process"]
+    from_main_queue = da_fixture["from_main_queue"]
+
+    set_sampling_period_command = {
+        "communication_type": "sampling_period_update",
+        "sampling_period": sampling_period,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        set_sampling_period_command, from_main_queue
+    )
+    invoke_process_run_and_check_errors(da_process)
 
 
 @pytest.fixture(scope="function", name="four_board_analyzer_process")
