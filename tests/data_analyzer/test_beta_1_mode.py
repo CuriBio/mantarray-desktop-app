@@ -15,6 +15,7 @@ from mantarray_desktop_app import FIFO_READ_PRODUCER_SAWTOOTH_PERIOD
 from mantarray_desktop_app import FIFO_READ_PRODUCER_WELL_AMPLITUDE
 from mantarray_desktop_app import MIDSCALE_CODE
 from mantarray_desktop_app import MILLIVOLTS_PER_VOLT
+from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
 from mantarray_desktop_app import REF_INDEX_TO_24_WELL_INDEX
 from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
@@ -29,6 +30,7 @@ from mantarray_waveform_analysis import PipelineTemplate
 import numpy as np
 import pytest
 from scipy import signal
+from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
@@ -88,18 +90,79 @@ def test_convert_24_bit_code_to_voltage_returns_correct_values_with_numpy_array(
 
 
 @pytest.mark.slow
-def test_DataAnalyzerProcess_beta_1_performance(four_board_analyzer_process):
+def test_DataAnalyzerProcess_beta_1_performance__fill_data_analysis_buffer(four_board_analyzer_process):
     # 8 seconds of data (625 Hz) coming in from File Writer to going back to Main
     #
-    # mantarray-waveform-analysis v0.3:     4148136512
-    # mantarray-waveform-analysis v0.3.1:   3829136133
-    # mantarray-waveform-analysis v0.4.0:   3323093677
-    # remove concatenate:                   2966678695
-    # 30 Hz Bessel filter:                  2930061808  # Tanner (9/3/20): not intended to speed anything up, just adding this to show it had it didn't have much affect on performance
-    # 30 Hz Butterworth filter:             2935009033  # Tanner (9/10/20): not intended to speed anything up, just adding this to show it had it didn't have much affect on performance
+    # mantarray-waveform-analysis v0.3:     4.148136512
+    # mantarray-waveform-analysis v0.3.1:   3.829136133
+    # mantarray-waveform-analysis v0.4.0:   3.323093677
+    # remove concatenate:                   2.966678695
+    # 30 Hz Bessel filter:                  2.930061808  # Tanner (9/3/20): not intended to speed anything up, just adding this to show it had it didn't have much affect on performance
+    # 30 Hz Butterworth filter:             2.935009033  # Tanner (9/10/20): not intended to speed anything up, just adding this to show it had it didn't have much affect on performance
     #
+    # added twitch metric analysis:         3.012551866
+
+    p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = four_board_analyzer_process
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
+        comm_from_main_queue,
+    )
+    invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
+
+    num_seconds = MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS + 1
+    fill_da_input_data_queue(board_queues[0][0], num_seconds)
+    start = time.perf_counter_ns()
+    invoke_process_run_and_check_errors(p, num_iterations=num_seconds * (24 + 6))
+    dur_seconds = (time.perf_counter_ns() - start) / 10 ** 9
+
+    # prevent BrokenPipeErrors
+    drain_queue(board_queues[0][1])
+    drain_queue(comm_to_main_queue)
+
+    # print(f"Duration (seconds): {dur_seconds}")  # pylint:disable=wrong-spelling-in-comment # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
+    assert dur_seconds < 10
+
+
+@pytest.mark.slow
+def test_DataAnalyzerProcess_beta_1_performance__first_second_of_data_with_analysis(
+    four_board_analyzer_process,
+):
+    # Fill data analysis buffer with 7 seconds of data to start metric analysis,
+    # Then record duration of sending 1 additional second of data
+    #
+    # start:                                 0.547061958
+
+    p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = four_board_analyzer_process
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
+        comm_from_main_queue,
+    )
+    invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
+
+    # load data
+    num_seconds = MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS + 1
+    fill_da_input_data_queue(board_queues[0][0], num_seconds)
+    invoke_process_run_and_check_errors(p, num_iterations=MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS * (24 + 6))
+
+    # send additional data and time analysis
+    start = time.perf_counter_ns()
+    invoke_process_run_and_check_errors(p, num_iterations=(24 + 6))
+    dur_seconds = (time.perf_counter_ns() - start) / 10 ** 9
+
+    # prevent BrokenPipeErrors
+    drain_queue(board_queues[0][1])
+    drain_queue(comm_to_main_queue)
+
+    # print(f"Duration (seconds): {dur_seconds}")  # pylint:disable=wrong-spelling-in-comment # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
+    assert dur_seconds < 2
+
+
+@pytest.mark.slow
+def test_DataAnalyzerProcess_beta_1_performance__single_data_packet_per_well(four_board_analyzer_process):
     # 1 second of data (625 Hz) coming in from File Writer to going back to Main
-    # start:                                 530731389
+    #
+    # start:                                 0.530731389
+    # added twitch metric analysis:          0.581163184
 
     p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -112,14 +175,14 @@ def test_DataAnalyzerProcess_beta_1_performance(four_board_analyzer_process):
     fill_da_input_data_queue(board_queues[0][0], num_seconds)
     start = time.perf_counter_ns()
     invoke_process_run_and_check_errors(p, num_iterations=num_seconds * (24 + 6))
-    dur = time.perf_counter_ns() - start
+    dur_seconds = (time.perf_counter_ns() - start) / 10 ** 9
 
     # prevent BrokenPipeErrors
-    board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    comm_to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    drain_queue(board_queues[0][1])
+    drain_queue(comm_to_main_queue)
 
-    # print(f"Duration (ns): {dur}") # pylint:disable=wrong-spelling-in-comment # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
-    assert dur < 2000000000
+    # print(f"Duration (seconds): {dur_seconds}")  # pylint:disable=wrong-spelling-in-comment # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
+    assert dur_seconds < 2
 
 
 def test_DataAnalyzerProcess_commands_for_each_run_iteration__checks_for_calibration_update_from_main(
