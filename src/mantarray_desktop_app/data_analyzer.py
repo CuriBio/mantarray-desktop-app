@@ -131,8 +131,6 @@ class DataAnalyzerProcess(InfiniteProcess):
         # data analysis items
         for well_idx in range(24):
             self._data_buffer[well_idx] = {"construct_data": None, "ref_data": None}
-            self._data_analysis_streams[well_idx] = Stream()
-            self.init_stream(self._data_analysis_streams[well_idx], well_idx)
         self._pipeline_template = PIPELINE_TEMPLATE
         # Beta 1 items
         self._calibration_settings: Union[None, Dict[Any, Any]] = None
@@ -147,16 +145,26 @@ class DataAnalyzerProcess(InfiniteProcess):
     def get_buffer_size(self) -> int:
         return self._beta_2_buffer_size if self._beta_2_mode else DATA_ANALYZER_BETA_1_BUFFER_SIZE  # type: ignore
 
-    def init_stream(self, source: Stream, well_idx: int) -> None:
+    def init_streams(self) -> None:
         append_func = self.append_beta_2_data if self._beta_2_mode else append_beta_1_data
+        for well_idx in range(24):
+            self._data_analysis_streams[well_idx] = Stream()
 
-        source.accumulate(append_func, returns_state=True, start=[[], []]).filter(
-            lambda data_buf: len(data_buf[0]) >= self.get_buffer_size()
-        ).map(get_pipeline_analysis).accumulate(check_for_new_twitches, returns_state=True, start=-1).filter(
-            bool
-        ).sink(
-            lambda per_twitch_dict: self._dump_outgoing_well_metrics(well_idx, per_twitch_dict)
-        )
+            self._data_analysis_streams[well_idx].accumulate(
+                append_func, returns_state=True, start=[[], []]
+            ).filter(lambda data_buf: len(data_buf[0]) >= self.get_buffer_size()).map(
+                get_pipeline_analysis
+            ).accumulate(
+                check_for_new_twitches, returns_state=True, start=-1
+            ).filter(
+                bool
+            ).sink(
+                lambda per_twitch_dict, i=well_idx: self._dump_outgoing_well_metrics(i, per_twitch_dict)
+            )
+
+    def _setup_before_loop(self) -> None:
+        super()._setup_before_loop()
+        self.init_streams()
 
     def _commands_for_each_run_iteration(self) -> None:
         # TODO Tanner (7/7/21): eventually need to add process performance metric reporting to beta 2 mode
@@ -425,8 +433,8 @@ class DataAnalyzerProcess(InfiniteProcess):
         )
         # Tanner (6/21/21): converting to json may no longer be necessary here
         outgoing_data_json = json.dumps(outgoing_data)
-        # TODO put this json into a dict with a key to indicate what kind of data it is
-        self._board_queues[0][1].put_nowait(outgoing_data_json)
+        outgoing_msg = {"data_type": "waveform_data", "data_json": outgoing_data_json}
+        self._board_queues[0][1].put_nowait(outgoing_msg)
 
     def _drain_all_queues(self) -> Dict[str, Any]:
         queue_items: Dict[str, Any] = dict()

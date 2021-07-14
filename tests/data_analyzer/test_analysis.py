@@ -159,6 +159,7 @@ def test_DataAnalyzerProcess__sends_single_beta_1_well_metrics_to_main_when_read
 ):
     # Tanner (7/13/21): this test assumes no waveform data will be put into the data queue to main
     da_process, board_queues, from_main_queue, _, _ = four_board_analyzer_process
+    da_process.init_streams()
     # make sure data analyzer knows that managed acquisition is running
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         START_MANAGED_ACQUISITION_COMMUNICATION, from_main_queue
@@ -184,9 +185,9 @@ def test_DataAnalyzerProcess__sends_single_beta_1_well_metrics_to_main_when_read
 
     outgoing_metrics = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert outgoing_metrics["data_type"] == "twitch_metrics"
-    expected_well_metric_dict = json.loads(outgoing_metrics["data_json"])[str(expected_well_idx)]
-    assert list(expected_well_metric_dict.keys()) == [str(AMPLITUDE_UUID), str(TWITCH_FREQUENCY_UUID)]
-    for metric_id, metric_list in expected_well_metric_dict.items():
+    actual_well_metric_dict = json.loads(outgoing_metrics["data_json"])[str(expected_well_idx)]
+    assert list(actual_well_metric_dict.keys()) == [str(AMPLITUDE_UUID), str(TWITCH_FREQUENCY_UUID)]
+    for metric_id, metric_list in actual_well_metric_dict.items():
         # Tanner (7/13/21): to guard against future changes to mantarray-waveform-analysis breaking this test, only asserting that the correct number of data points are present
         assert len(metric_list) == 5, metric_id
 
@@ -196,6 +197,7 @@ def test_DataAnalyzerProcess__sends_beta_2_metrics_of_all_wells_to_main_when_rea
 ):
     # Tanner (7/13/21): this test assumes one waveform data packet will be put into the data queue to main
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
+    da_process.init_streams()
 
     expected_sampling_period = 17000
     set_sampling_period(four_board_analyzer_process_beta_2_mode, expected_sampling_period)
@@ -232,9 +234,9 @@ def test_DataAnalyzerProcess__sends_beta_2_metrics_of_all_wells_to_main_when_rea
 
     outgoing_metrics = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert outgoing_metrics["data_type"] == "twitch_metrics"
-    expected_well_metric_dict = json.loads(outgoing_metrics["data_json"])[str(expected_well_idx)]
-    assert list(expected_well_metric_dict.keys()) == [str(AMPLITUDE_UUID), str(TWITCH_FREQUENCY_UUID)]
-    for metric_id, metric_list in expected_well_metric_dict.items():
+    actual_well_metric_dict = json.loads(outgoing_metrics["data_json"])[str(expected_well_idx)]
+    assert list(actual_well_metric_dict.keys()) == [str(AMPLITUDE_UUID), str(TWITCH_FREQUENCY_UUID)]
+    for metric_id, metric_list in actual_well_metric_dict.items():
         # Tanner (7/13/21): to guard against future changes to mantarray-waveform-analysis breaking this test, only asserting that the correct number of data points are present
         assert len(metric_list) == 5, metric_id
 

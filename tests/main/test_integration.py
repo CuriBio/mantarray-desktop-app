@@ -272,7 +272,7 @@ def test_managed_acquisition_can_be_stopped_and_restarted_with_simulator(
     wait_for_subprocesses_to_start()
     test_process_manager = app_info["object_access_inside_main"]["process_manager"]
 
-    sio, msg_list = test_socketio_client()
+    sio, msg_list_container = test_socketio_client()
 
     assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
 
@@ -291,7 +291,7 @@ def test_managed_acquisition_can_be_stopped_and_restarted_with_simulator(
     assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
 
     # Tanner (6/21/21): Double check that the expected amount of data passed through the system
-    assert len(msg_list) == 2
+    assert len(msg_list_container["waveform_data"]) == 2
 
     time.sleep(3)  # allow remaining data to pass through subprocesses
 
@@ -582,7 +582,7 @@ def test_full_datapath(
     wait_for_subprocesses_to_start()
     test_process_manager = app_info["object_access_inside_main"]["process_manager"]
 
-    sio, msg_list = test_socketio_client()
+    sio, msg_list_container = test_socketio_client()
 
     # Tanner (12/30/20): Auto boot-up is completed when system reaches calibration_needed state
     assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
@@ -606,7 +606,7 @@ def test_full_datapath(
     assert response.status_code == 200
     assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
     # Tanner (12/30/20): Make sure first set of data is available
-    assert len(msg_list) == 2
+    assert len(msg_list_container["waveform_data"]) == 2
     confirm_queue_is_eventually_empty(da_out)
 
     # Tanner (12/29/20): create expected data
@@ -639,7 +639,9 @@ def test_full_datapath(
     expected_well_data = pipeline.get_compressed_displacement()
 
     # Tanner (12/29/20): Assert data is as expected for two wells
-    waveform_data_points = json.loads(msg_list[0])["waveform_data"]["basic_data"]["waveform_data_points"]
+    waveform_data_points = json.loads(msg_list_container["waveform_data"][0])["waveform_data"]["basic_data"][
+        "waveform_data_points"
+    ]
     actual_well_0_y_data = waveform_data_points["0"]["y_data_points"]
     np.testing.assert_almost_equal(
         actual_well_0_y_data[0],
@@ -768,7 +770,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
     wait_for_subprocesses_to_start()
     test_process_manager = app_info["object_access_inside_main"]["process_manager"]
 
-    sio, msg_list = test_socketio_client()
+    sio, msg_list_container = test_socketio_client()
 
     assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 10) is True
 
@@ -1036,4 +1038,4 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                     )
 
         # for now, just make sure that a non-zero number of messages were send through the websocket
-        assert len(msg_list) > 0
+        assert len(msg_list_container["waveform_data"]) > 0

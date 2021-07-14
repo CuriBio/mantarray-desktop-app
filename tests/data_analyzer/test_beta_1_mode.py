@@ -166,6 +166,7 @@ def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_wh
     test_well_index, test_construct_data, test_description, four_board_analyzer_process
 ):
     p, board_queues, comm_from_main_queue, _, _ = four_board_analyzer_process
+    p.init_streams()
     incoming_data = board_queues[0][0]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -211,6 +212,7 @@ def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_wh
     test_well_index, test_construct_data, test_description, four_board_analyzer_process
 ):
     p, board_queues, comm_from_main_queue, _, _ = four_board_analyzer_process
+    p.init_streams()
     incoming_data = board_queues[0][0]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -392,10 +394,11 @@ def test_DataAnalyzerProcess__dumps_all_data_when_buffer_is_full_and_clears_buff
 
     invoke_process_run_and_check_errors(p)
 
-    actual_json = outgoing_data.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    actual_msg = outgoing_data.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     confirm_queue_is_eventually_empty(outgoing_data)
 
-    actual = json.loads(actual_json)
+    assert actual_msg["data_type"] == "waveform_data"
+    actual = json.loads(actual_msg["data_json"])
     waveform_data_points = actual["waveform_data"]["basic_data"]["waveform_data_points"]
     expected_construct_data_0 = {
         "x_data_points": expected_x_vals,

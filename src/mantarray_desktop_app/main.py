@@ -297,7 +297,7 @@ def main(
                 item = data_queue_to_server.get(timeout=0.0001)
             except Empty:
                 continue
-            socketio.send(item)
+            socketio.emit(item["data_type"], item["data_json"])
 
     object_access_for_testing["data_sender"] = data_sender
 

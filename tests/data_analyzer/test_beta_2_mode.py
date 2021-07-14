@@ -33,6 +33,8 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
     incoming_data_queue = four_board_analyzer_process_beta_2_mode["board_queues"][0][0]
     outgoing_data_queue = four_board_analyzer_process_beta_2_mode["board_queues"][0][1]
 
+    da_process.init_streams()
+
     # start managed_acquisition
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         dict(START_MANAGED_ACQUISITION_COMMUNICATION), from_main_queue
@@ -53,7 +55,6 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
 
     # test data dump
-    outgoing_data_dict = outgoing_data_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     waveform_data_points = dict()
     for well_idx in range(24):
         waveform_data_points[well_idx] = dict()
@@ -67,7 +68,10 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
         "latest_timepoint": test_data_packet["time_indices"][-1].item(),
         "num_data_points": len(test_data_packet["time_indices"]),
     }
-    assert outgoing_data_dict == json.dumps(expected_outgoing_dict)
+
+    outgoing_msg = outgoing_data_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert outgoing_msg["data_type"] == "waveform_data"
+    assert outgoing_msg["data_json"] == json.dumps(expected_outgoing_dict)
     # test message sent to main
     outgoing_msg = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     expected_msg = {
