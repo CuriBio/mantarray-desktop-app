@@ -22,6 +22,7 @@ from ..fixtures_data_analyzer import fixture_four_board_analyzer_process
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process_beta_2_mode
 from ..fixtures_data_analyzer import set_sampling_period
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
+from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 from ..parsed_channel_data_packets import SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0
@@ -148,9 +149,6 @@ def test_check_for_new_twitches__returns_latest_twitch_index_and_populated_metri
     assert actual_dict == {(latest_time_index + 1): None, 10: None}
 
 
-# TODO make these tests send 6 seconds of data first, then the remaining 1 second of data
-
-
 def test_DataAnalyzerProcess__sends_single_beta_1_well_metrics_to_main_when_ready(
     four_board_analyzer_process, mantarray_mc_simulator
 ):
@@ -173,10 +171,17 @@ def test_DataAnalyzerProcess__sends_single_beta_1_well_metrics_to_main_when_read
     test_x_data = np.arange(0, ROUND_ROBIN_PERIOD * len(test_y_data), ROUND_ROBIN_PERIOD)
     test_data_arr = np.array([test_x_data, test_y_data], dtype=np.int32)
 
-    test_packet = copy.deepcopy(SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0)
-    test_packet["data"] = test_data_arr
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet, board_queues[0][0])
+    # send less data than required for analysis first
+    test_packet_1 = copy.deepcopy(SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0)
+    test_packet_1["data"] = test_data_arr[:, :-100]
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet_1, board_queues[0][0])
+    invoke_process_run_and_check_errors(da_process)
+    confirm_queue_is_eventually_empty(board_queues[0][1])
 
+    # send remaining data
+    test_packet_2 = copy.deepcopy(SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0)
+    test_packet_2["data"] = test_data_arr[:, -100:]
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet_2, board_queues[0][0])
     invoke_process_run_and_check_errors(da_process)
     confirm_queue_is_eventually_of_size(board_queues[0][1], 1)
 
@@ -217,17 +222,31 @@ def test_DataAnalyzerProcess__sends_beta_2_metrics_of_all_wells_to_main_when_rea
         0, expected_sampling_period * len(test_y_data), expected_sampling_period, dtype=np.uint64
     )
 
-    test_packet = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
-    test_packet["time_indices"] = test_x_data
+    # send less data than required for analysis first
+    test_packet_1 = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
+    test_packet_1["time_indices"] = test_x_data[-50:]
     for well_idx in range(24):
-        first_channel = list(test_packet[well_idx].keys())[0]
-        test_packet[well_idx][first_channel] = np.array(test_y_data, dtype=np.int16)
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet, board_queues[0][0])
-
+        # Tanner (7/14/21): time offsets are currently unused in data analyzer so not modifying them here
+        first_channel = list(test_packet_1[well_idx].keys())[0]
+        test_packet_1[well_idx][first_channel] = np.array(test_y_data[-50:], dtype=np.int16)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet_1, board_queues[0][0])
     invoke_process_run_and_check_errors(da_process)
-    confirm_queue_is_eventually_of_size(board_queues[0][1], 25)
     # remove waveform_data
     board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    confirm_queue_is_eventually_empty(board_queues[0][1])
+
+    # send remaining data
+    test_packet_2 = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
+    test_packet_2["time_indices"] = test_x_data[:-50]
+    for well_idx in range(24):
+        # Tanner (7/14/21): time offsets are currently unused in data analyzer so not modifying them here
+        first_channel = list(test_packet_2[well_idx].keys())[0]
+        test_packet_2[well_idx][first_channel] = np.array(test_y_data[:-50], dtype=np.int16)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet_2, board_queues[0][0])
+    invoke_process_run_and_check_errors(da_process)
+    # remove waveform_data
+    board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    confirm_queue_is_eventually_of_size(board_queues[0][1], 24)
 
     outgoing_metrics = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert outgoing_metrics["data_type"] == "twitch_metrics"
