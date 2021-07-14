@@ -5,6 +5,7 @@ Changelog for Mantarray Desktop App
 0.5.0 (unreleased)
 ------------------
 
+- Updated Live View to display waveform displacement in units of meters.
 - Updated data stream in order remove most of the 14 second lag between data capture on istrument
   and display in app.
 

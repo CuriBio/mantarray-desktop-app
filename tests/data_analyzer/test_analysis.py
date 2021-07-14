@@ -104,6 +104,7 @@ def test_append_beta_2_data__removes_oldest_data_points_when_buffer_exceeds_requ
 
 
 def test_get_pipeline_analysis__returns_displacement_metrics_from_given_beta_1_data(mantarray_mc_simulator):
+    # TODO Tanner (7/14/21): after waveform-analysis update make sure to add this same test for beta 2 data
     # Tanner (7/12/21): This test is "True by definition", but can't think of a better way to test waveform analysis
     test_y_data = (
         mantarray_mc_simulator["simulator"]
@@ -125,10 +126,6 @@ def test_get_pipeline_analysis__returns_displacement_metrics_from_given_beta_1_d
     assert actual.keys() == expected_metrics.keys()
     for k in expected_metrics.keys():
         assert actual[k] == expected_metrics[k], f"Incorrect twitch dict at idx {k}"
-
-
-# TODO:
-# def test_get_pipeline_analysis__returns_displacement_metrics_from_given_beta_2_data(mantarray_mc_simulator):
 
 
 def test_check_for_new_twitches__returns_latest_twitch_index_and_empty_metric_dict__when_no_new_twitch_metrics_present():
