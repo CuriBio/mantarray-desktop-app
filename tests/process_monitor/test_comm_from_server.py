@@ -8,6 +8,7 @@ from freezegun import freeze_time
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
+from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import process_monitor
@@ -660,3 +661,72 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     assert expected_fw_item in actual_log_message
     assert expected_da_item in actual_log_message
     assert expected_server_item in actual_log_message
+
+
+def test_MantarrayProcessesMonitor__logs_messages_from_server__and_redacts_mantarray_nickname(
+    mocker, test_process_manager, test_monitor
+):
+    monitor_thread, _, _, _ = test_monitor
+
+    mocked_logger = mocker.patch.object(process_monitor.logger, "info", autospec=True)
+
+    to_main_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+
+    test_nickname = "The Nautilus"
+    test_comm = {
+        "communication_type": "mantarray_naming",
+        "command": "set_mantarray_nickname",
+        "mantarray_nickname": test_nickname,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_comm, to_main_queue)
+    invoke_process_run_and_check_errors(monitor_thread)
+    confirm_queue_is_eventually_empty(to_main_queue)
+
+    expected_comm = copy.deepcopy(test_comm)
+    expected_comm["mantarray_nickname"] = "*" * len(test_nickname)
+    mocked_logger.assert_called_once_with(f"Communication from the Server: {expected_comm}")
+
+
+def test_MantarrayProcessesMonitor__passes_magnetometer_config_dict_from_server_to_mc_comm__and_sends_sampling_period_to_data_analyzer(
+    test_process_manager, test_monitor
+):
+    monitor_thread, _, _, _ = test_monitor
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+    main_to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+    main_to_da_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
+    )
+
+    test_num_wells = 24
+    expected_sampling_period = 10000
+    expected_config_dict = {
+        "magnetometer_config": create_magnetometer_config_dict(test_num_wells),
+        "sampling_period": expected_sampling_period,
+    }
+    test_dict_from_server = {
+        "communication_type": "set_magnetometer_config",
+        "magnetometer_config_dict": expected_config_dict,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_dict_from_server, server_to_main_queue
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    confirm_queue_is_eventually_of_size(main_to_ic_queue, 1)
+    confirm_queue_is_eventually_of_size(main_to_da_queue, 1)
+
+    expected_comm_to_ic = {
+        "communication_type": "to_instrument",
+        "command": "change_magnetometer_config",
+    }
+    expected_comm_to_ic.update(expected_config_dict)
+    actual_to_ic = main_to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert actual_to_ic == expected_comm_to_ic
+
+    expected_comm_to_da = {
+        "communication_type": "sampling_period_update",
+        "sampling_period": expected_sampling_period,
+    }
+    actual_to_da = main_to_da_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert actual_to_da == expected_comm_to_da

@@ -168,12 +168,22 @@ class MantarrayProcessesMonitor(InfiniteThread):
             self._values_to_share_to_server["magnetometer_config_dict"] = communication[
                 "magnetometer_config_dict"
             ]
+
             comm_to_mc_process = {
                 "communication_type": "to_instrument",
                 "command": "change_magnetometer_config",
             }
             comm_to_mc_process.update(communication["magnetometer_config_dict"])
             self._put_communication_into_instrument_comm_queue(comm_to_mc_process)
+
+            comm_to_da_process = {
+                "communication_type": "sampling_period_update",
+                "sampling_period": communication["magnetometer_config_dict"]["sampling_period"],
+            }
+            main_to_da_queue = (
+                self._process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
+            )
+            main_to_da_queue.put_nowait(comm_to_da_process)
         elif communication_type == "xem_scripts":
             # Tanner (12/28/20): start_calibration is the only xem_scripts command that will come from server (called directly from /start_calibration). This comm type will be removed/replaced in beta 2 so not adding handling for unrecognized command.
             if shared_values_dict["beta_2_mode"]:
