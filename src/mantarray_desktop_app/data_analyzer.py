@@ -65,7 +65,7 @@ def append_beta_1_data(
 
 
 def get_pipeline_analysis(data_buf: List[List[int]]) -> Dict[Any, Any]:
-    data_buf_arr = np.array(data_buf, dtype=np.int32)
+    data_buf_arr = np.array(data_buf, dtype=np.int64)
     pipeline = PIPELINE_TEMPLATE.create_pipeline()
     # Tanner (7/14/21): reference data is currently unused by waveform analysis package, so sending zero array instead
     pipeline.load_raw_gmr_data(data_buf_arr, np.zeros(data_buf_arr.shape))
@@ -228,8 +228,8 @@ class DataAnalyzerProcess(InfiniteProcess):
             for key, well_dict in data_dict.items():
                 if not isinstance(key, int):
                     continue
-                # Tanner (7/13/21): For now, this is just taking the first channel of data present and pushing it through the data analysis stream
-                first_channel_id = list(well_dict.keys())[0]
+                # Tanner (7/13/21): For now, this is just taking the first channel of data present and pushing it through the data analysis stream. "time_offsets are the first key, so channel keys start at idx 0"
+                first_channel_id = list(well_dict.keys())[1]
                 first_channel_data = [
                     data_dict["time_indices"],
                     well_dict[first_channel_id],

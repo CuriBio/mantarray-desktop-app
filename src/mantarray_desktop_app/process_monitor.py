@@ -271,12 +271,13 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
     def _check_and_handle_data_analyzer_data_out_queue(self) -> None:
         da_data_out_queue = self._process_manager.queue_container().get_data_analyzer_board_queues()[0][1]
-        try:
-            outgoing_data_json = da_data_out_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
-        except queue.Empty:
-            return
-        data_to_server_queue = self._process_manager.queue_container().get_data_queue_to_server()
-        data_to_server_queue.put_nowait(outgoing_data_json)
+        while True:  # TODO add a timeout and unit test this
+            try:
+                outgoing_data_json = da_data_out_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
+            except queue.Empty:
+                return
+            data_to_server_queue = self._process_manager.queue_container().get_data_queue_to_server()
+            data_to_server_queue.put_nowait(outgoing_data_json)
 
     def _check_and_handle_instrument_comm_to_main_queue(self) -> None:
         # pylint: disable=too-many-branches  # Tanner (5/22/21): many branches needed here

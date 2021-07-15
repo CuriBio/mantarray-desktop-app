@@ -37,6 +37,7 @@ from mantarray_desktop_app import main
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import MILLIVOLTS_PER_VOLT
+from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
@@ -121,6 +122,7 @@ LIVE_VIEW_ACTIVE_WAIT_TIME = 150
 CALIBRATED_WAIT_TIME = 10
 STOP_MANAGED_ACQUISITION_WAIT_TIME = 40
 INTEGRATION_TEST_TIMEOUT = 720
+FIRST_METRIC_WAIT_TIME = 20
 
 
 @pytest.mark.timeout(60)
@@ -291,7 +293,7 @@ def test_managed_acquisition_can_be_stopped_and_restarted_with_simulator(
     assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
 
     # Tanner (6/21/21): Double check that the expected amount of data passed through the system
-    assert len(msg_list_container["waveform_data"]) == 2
+    assert len(msg_list_container["waveform_data"]) >= 2
 
     time.sleep(3)  # allow remaining data to pass through subprocesses
 
@@ -572,7 +574,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
 
 @pytest.mark.slow
 @pytest.mark.timeout(INTEGRATION_TEST_TIMEOUT)
-def test_full_datapath(
+def test_full_datapath_in_beta_1_mode(
     patched_xem_scripts_folder,
     patched_firmware_folder,
     fully_running_app_from_main_entrypoint,
@@ -598,15 +600,23 @@ def test_full_datapath(
     acquisition_request = f"{get_api_endpoint()}start_managed_acquisition"
     response = requests.get(acquisition_request)
     assert response.status_code == 200
-    # Tanner (12/29/20): When system status equals LIVE_VIEW_ACTIVE_STATE then enough data has passed through the data path to make assertions
     assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
 
-    # Tanner (12/30/20): stop managed_acquisition now that we have a known amount of data available
+    # Tanner (7/14/21): Wait for data metric message to be produced
+    start = time.perf_counter()
+    while time.perf_counter() - start < FIRST_METRIC_WAIT_TIME:
+        if msg_list_container["twitch_metrics"]:
+            break
+        time.sleep(0.5)
+    # Tanner (7/14/21): Check that list was populated after loop
+    assert len(msg_list_container["twitch_metrics"]) > 0
+
+    # Tanner (12/30/20): stop managed_acquisition now that we have a known min amount of data available
     response = requests.get(f"{get_api_endpoint()}stop_managed_acquisition")
     assert response.status_code == 200
     assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
-    # Tanner (12/30/20): Make sure first set of data is available
-    assert len(msg_list_container["waveform_data"]) == 2
+    # Tanner (7/14/21): Beta 1 data packets are sent once per second, so there should be at least one data packet for every second needed to run analysis
+    assert len(msg_list_container["waveform_data"]) >= MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
     confirm_queue_is_eventually_empty(da_out)
 
     # Tanner (12/29/20): create expected data
@@ -801,8 +811,6 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         # Tanner (6/1/21): Start managed_acquisition in order to start recording
         response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
         assert response.status_code == 200
-
-        # Tanner (6/1/21): managed_acquisition in beta 2 mode will currently only cause the system to enter buffering state. This is because no beta 2 data will come out of Data Analyzer yet
         assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
 
@@ -816,7 +824,14 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert response.status_code == 200
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
 
-        time.sleep(3)  # Tanner (6/1/21): This allows data to be written to files
+        # Tanner (7/14/21): Wait for data metric message to be produced
+        start = time.perf_counter()
+        while time.perf_counter() - start < FIRST_METRIC_WAIT_TIME:
+            if msg_list_container["twitch_metrics"]:
+                break
+            time.sleep(0.5)
+        # Tanner (7/14/21): Check that list was populated after loop
+        assert len(msg_list_container["twitch_metrics"]) > 0
 
         # Tanner (6/1/21): End recording at a known timepoint
         expected_stop_index_1 = expected_start_index_1 + int(2e6)
@@ -824,10 +839,12 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert response.status_code == 200
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
 
-        # Tanner (6/1/21): Stop managed_acquisition
+        # Tanner (7/14/21): Stop managed_acquisition now that we have a known min amount of data available
         response = requests.get(f"{get_api_endpoint()}stop_managed_acquisition")
         assert response.status_code == 200
         assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
+        # Tanner (7/14/21): Beta 2 data packets are currently sent once per second, so there should be at least one data packet for every second needed to run analysis
+        assert len(msg_list_container["waveform_data"]) >= MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 
         # Tanner (6/1/21): Make sure managed_acquisition can be restarted
         response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
@@ -857,7 +874,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert response.status_code == 200
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
 
-        # Tanner (12/30/20): Stop managed_acquisition so processes can be stopped
+        # Tanner (6/1/21): Stop managed_acquisition
         response = requests.get(f"{get_api_endpoint()}stop_managed_acquisition")
         assert response.status_code == 200
         assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
@@ -1036,6 +1053,3 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                         GENERIC_NUM_CHANNELS_ENABLED,
                         num_recorded_data_points_2,
                     )
-
-        # for now, just make sure that a non-zero number of messages were send through the websocket
-        assert len(msg_list_container["waveform_data"]) > 0

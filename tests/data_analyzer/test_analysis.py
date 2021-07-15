@@ -227,7 +227,7 @@ def test_DataAnalyzerProcess__sends_beta_2_metrics_of_all_wells_to_main_when_rea
     test_packet_1["time_indices"] = test_x_data[-50:]
     for well_idx in range(24):
         # Tanner (7/14/21): time offsets are currently unused in data analyzer so not modifying them here
-        first_channel = list(test_packet_1[well_idx].keys())[0]
+        first_channel = list(test_packet_1[well_idx].keys())[1]
         test_packet_1[well_idx][first_channel] = np.array(test_y_data[-50:], dtype=np.int16)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet_1, board_queues[0][0])
     invoke_process_run_and_check_errors(da_process)
@@ -240,7 +240,7 @@ def test_DataAnalyzerProcess__sends_beta_2_metrics_of_all_wells_to_main_when_rea
     test_packet_2["time_indices"] = test_x_data[:-50]
     for well_idx in range(24):
         # Tanner (7/14/21): time offsets are currently unused in data analyzer so not modifying them here
-        first_channel = list(test_packet_2[well_idx].keys())[0]
+        first_channel = list(test_packet_2[well_idx].keys())[1]
         test_packet_2[well_idx][first_channel] = np.array(test_y_data[:-50], dtype=np.int16)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet_2, board_queues[0][0])
     invoke_process_run_and_check_errors(da_process)
@@ -342,7 +342,7 @@ def test_DataAnalyzerProcess__only_dumps_new_twitch_metrics__with_beta_2_data(
     test_packet_1["time_indices"] = test_x_data[:-num_data_points_per_second]
     for well_idx in range(24):
         # Tanner (7/14/21): time offsets are currently unused in data analyzer so not modifying them here
-        first_channel = list(test_packet_1[well_idx].keys())[0]
+        first_channel = list(test_packet_1[well_idx].keys())[1]
         test_packet_1[well_idx][first_channel] = np.array(
             test_y_data[:-num_data_points_per_second], dtype=np.int16
         )
@@ -365,7 +365,7 @@ def test_DataAnalyzerProcess__only_dumps_new_twitch_metrics__with_beta_2_data(
     test_packet_2["time_indices"] = test_x_data[-num_data_points_per_second:]
     for well_idx in range(24):
         # Tanner (7/14/21): time offsets are currently unused in data analyzer so not modifying them here
-        first_channel = list(test_packet_2[well_idx].keys())[0]
+        first_channel = list(test_packet_2[well_idx].keys())[1]
         test_packet_2[well_idx][first_channel] = np.array(
             test_y_data[-num_data_points_per_second:], dtype=np.int16
         )
