@@ -12,6 +12,7 @@ from mantarray_desktop_app.data_analyzer import check_for_new_twitches
 from mantarray_desktop_app.data_analyzer import get_pipeline_analysis
 from mantarray_desktop_app.data_analyzer import PIPELINE_TEMPLATE
 from mantarray_waveform_analysis import AMPLITUDE_UUID
+from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 from mantarray_waveform_analysis import TWITCH_FREQUENCY_UUID
 import numpy as np
 from stdlib_utils import drain_queue
@@ -67,8 +68,8 @@ def test_append_beta_2_data__correctly_appends_x_and_y_data_from_numpy_array_to_
 ):
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
 
-    expected_sampling_period = 13000
-    set_sampling_period(four_board_analyzer_process_beta_2_mode, expected_sampling_period)
+    expected_sampling_period_us = 13000
+    set_sampling_period(four_board_analyzer_process_beta_2_mode, expected_sampling_period_us)
 
     init_list = [list(), list()]
     expected_list = [[0], [1]]
@@ -84,10 +85,10 @@ def test_append_beta_2_data__removes_oldest_data_points_when_buffer_exceeds_requ
 ):
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
 
-    expected_sampling_period = 15000
-    set_sampling_period(four_board_analyzer_process_beta_2_mode, expected_sampling_period)
+    expected_sampling_period_us = 15000
+    set_sampling_period(four_board_analyzer_process_beta_2_mode, expected_sampling_period_us)
 
-    expected_buffer_size = MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS * int(1e6 / expected_sampling_period)
+    expected_buffer_size = MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS * int(1e6 / expected_sampling_period_us)
 
     init_list = init_list = [
         list(range(expected_buffer_size)),
@@ -102,6 +103,19 @@ def test_append_beta_2_data__removes_oldest_data_points_when_buffer_exceeds_requ
     new_list, _ = da_process.append_beta_2_data(init_list, new_data)
     assert new_list[0] == list(range(3, expected_buffer_size + 3))
     assert new_list[1] == list(range(3, expected_buffer_size + 3))
+
+
+def test_get_pipeline_analysis__returns_error_dict_when_peak_detection_error_occurs_during_analysis():
+    # Tanner (7/14/21): using Beta 1 data here, but error catching should work for Beta 2 data as well
+    data_len = MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS * int(CENTIMILLISECONDS_PER_SECOND / ROUND_ROBIN_PERIOD)
+
+    # use a flat line here to raise an error due to no peaks being detected
+    test_y_data = np.zeros(data_len)
+    test_x_data = np.arange(0, ROUND_ROBIN_PERIOD * len(test_y_data), ROUND_ROBIN_PERIOD)
+    test_data_arr = np.array([test_x_data, test_y_data], dtype=np.int32)
+
+    actual = get_pipeline_analysis(test_data_arr.tolist())
+    assert actual == {-1: None}
 
 
 def test_get_pipeline_analysis__returns_displacement_metrics_from_given_beta_1_data(mantarray_mc_simulator):
@@ -127,6 +141,16 @@ def test_get_pipeline_analysis__returns_displacement_metrics_from_given_beta_1_d
     assert actual.keys() == expected_metrics.keys()
     for k in expected_metrics.keys():
         assert actual[k] == expected_metrics[k], f"Incorrect twitch dict at idx {k}"
+
+
+def test_check_for_new_twitches__returns_empty_dict_when_receiving_peak_detection_error_dict():
+    latest_time_index = 0
+
+    error_dict = {-1: None}
+    updated_time_index, actual_dict = check_for_new_twitches(latest_time_index, error_dict)
+
+    assert updated_time_index == latest_time_index
+    assert actual_dict == {}
 
 
 def test_check_for_new_twitches__returns_latest_twitch_index_and_empty_metric_dict__when_no_new_twitch_metrics_present():
@@ -201,8 +225,8 @@ def test_DataAnalyzerProcess__sends_beta_2_metrics_of_all_wells_to_main_when_rea
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
     da_process.init_streams()
 
-    expected_sampling_period = 17000
-    set_sampling_period(four_board_analyzer_process_beta_2_mode, expected_sampling_period)
+    expected_sampling_period_us = 17000
+    set_sampling_period(four_board_analyzer_process_beta_2_mode, expected_sampling_period_us)
 
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
     board_queues = four_board_analyzer_process_beta_2_mode["board_queues"]
@@ -215,11 +239,11 @@ def test_DataAnalyzerProcess__sends_beta_2_metrics_of_all_wells_to_main_when_rea
     expected_well_idx = 0
 
     test_y_data = (
-        mantarray_mc_simulator["simulator"].get_interpolated_data(expected_sampling_period).tolist()
+        mantarray_mc_simulator["simulator"].get_interpolated_data(expected_sampling_period_us).tolist()
         * MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
     )
     test_x_data = np.arange(
-        0, expected_sampling_period * len(test_y_data), expected_sampling_period, dtype=np.uint64
+        0, expected_sampling_period_us * len(test_y_data), expected_sampling_period_us, dtype=np.uint64
     )
 
     # send less data than required for analysis first
@@ -314,8 +338,8 @@ def test_DataAnalyzerProcess__only_dumps_new_twitch_metrics__with_beta_2_data(
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
     da_process.init_streams()
 
-    expected_sampling_period = 17000
-    set_sampling_period(four_board_analyzer_process_beta_2_mode, expected_sampling_period)
+    expected_sampling_period_us = 17000
+    set_sampling_period(four_board_analyzer_process_beta_2_mode, expected_sampling_period_us)
 
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
     board_queues = four_board_analyzer_process_beta_2_mode["board_queues"]
@@ -328,13 +352,13 @@ def test_DataAnalyzerProcess__only_dumps_new_twitch_metrics__with_beta_2_data(
     expected_well_idx = 0
 
     single_second_of_data = mantarray_mc_simulator["simulator"].get_interpolated_data(
-        expected_sampling_period
+        expected_sampling_period_us
     )
     num_data_points_per_second = len(single_second_of_data)
 
     test_y_data = single_second_of_data.tolist() * (MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS + 1)
     test_x_data = np.arange(
-        0, expected_sampling_period * len(test_y_data), expected_sampling_period, dtype=np.uint64
+        0, expected_sampling_period_us * len(test_y_data), expected_sampling_period_us, dtype=np.uint64
     )
 
     # send first round of data through for analysis

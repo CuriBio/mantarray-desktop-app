@@ -20,6 +20,7 @@ from mantarray_waveform_analysis import AMPLITUDE_UUID
 from mantarray_waveform_analysis import BUTTERWORTH_LOWPASS_30_UUID
 from mantarray_waveform_analysis import PipelineTemplate
 from mantarray_waveform_analysis import TWITCH_FREQUENCY_UUID
+from mantarray_waveform_analysis.exceptions import PeakDetectionError
 from nptyping import NDArray
 import numpy as np
 from stdlib_utils import drain_queue
@@ -69,7 +70,11 @@ def get_pipeline_analysis(data_buf: List[List[int]]) -> Dict[Any, Any]:
     pipeline = PIPELINE_TEMPLATE.create_pipeline()
     # Tanner (7/14/21): reference data is currently unused by waveform analysis package, so sending zero array instead
     pipeline.load_raw_gmr_data(data_buf_arr, np.zeros(data_buf_arr.shape))
-    return pipeline.get_displacement_data_metrics(metrics_to_create=[AMPLITUDE_UUID, TWITCH_FREQUENCY_UUID])[0]  # type: ignore
+    try:
+        return pipeline.get_displacement_data_metrics(metrics_to_create=[AMPLITUDE_UUID, TWITCH_FREQUENCY_UUID])[0]  # type: ignore
+    except PeakDetectionError:
+        # Tanner (7/14/21): this dict will be filter out by downstream elements of analysis stream
+        return {-1: None}
 
 
 def check_for_new_twitches(
@@ -156,7 +161,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             ).filter(lambda data_buf: len(data_buf[0]) >= self.get_buffer_size()).map(
                 get_pipeline_analysis
             ).accumulate(
-                check_for_new_twitches, returns_state=True, start=-1
+                check_for_new_twitches, returns_state=True, start=0
             ).filter(
                 bool
             ).sink(
