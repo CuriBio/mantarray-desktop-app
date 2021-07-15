@@ -7,7 +7,6 @@ from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
-from mantarray_desktop_app.data_analyzer import append_beta_1_data
 from mantarray_desktop_app.data_analyzer import check_for_new_twitches
 from mantarray_desktop_app.data_analyzer import get_pipeline_analysis
 from mantarray_desktop_app.data_analyzer import PIPELINE_TEMPLATE
@@ -37,17 +36,25 @@ __fixtures__ = [
 ]
 
 
-def test_append_beta_1_data__correctly_appends_x_and_y_data_from_numpy_array_to_list():
+def test_append_data__beta_1__correctly_appends_x_and_y_data_from_numpy_array_to_list(
+    four_board_analyzer_process,
+):
+    da_process, *_ = four_board_analyzer_process
+
     init_list = [list(), list()]
     expected_list = [[0], [1]]
-    new_list, downstream_new_list = append_beta_1_data(init_list, expected_list)
+    new_list, downstream_new_list = da_process.append_data(init_list, expected_list)
     assert new_list[0] == expected_list[0]
     assert new_list[1] == expected_list[1]
     assert downstream_new_list[0] == expected_list[0]
     assert downstream_new_list[1] == expected_list[1]
 
 
-def test_append_beta_1_data__removes_oldest_data_points_when_buffer_exceeds_required_size():
+def test_append_data__beta_1__removes_oldest_data_points_when_buffer_exceeds_required_size(
+    four_board_analyzer_process,
+):
+    da_process, *_ = four_board_analyzer_process
+
     init_list = init_list = [
         list(range(DATA_ANALYZER_BETA_1_BUFFER_SIZE)),
         list(range(DATA_ANALYZER_BETA_1_BUFFER_SIZE)),
@@ -58,12 +65,12 @@ def test_append_beta_1_data__removes_oldest_data_points_when_buffer_exceeds_requ
             np.arange(DATA_ANALYZER_BETA_1_BUFFER_SIZE, DATA_ANALYZER_BETA_1_BUFFER_SIZE + 3),
         ]
     )
-    new_list, _ = append_beta_1_data(init_list, new_data)
+    new_list, _ = da_process.append_data(init_list, new_data)
     assert new_list[0] == list(range(3, DATA_ANALYZER_BETA_1_BUFFER_SIZE + 3))
     assert new_list[1] == list(range(3, DATA_ANALYZER_BETA_1_BUFFER_SIZE + 3))
 
 
-def test_append_beta_2_data__correctly_appends_x_and_y_data_from_numpy_array_to_list(
+def test_append_data__beta_2__correctly_appends_x_and_y_data_from_numpy_array_to_list(
     four_board_analyzer_process_beta_2_mode,
 ):
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
@@ -73,14 +80,14 @@ def test_append_beta_2_data__correctly_appends_x_and_y_data_from_numpy_array_to_
 
     init_list = [list(), list()]
     expected_list = [[0], [1]]
-    new_list, downstream_new_list = da_process.append_beta_2_data(init_list, expected_list)
+    new_list, downstream_new_list = da_process.append_data(init_list, expected_list)
     assert new_list[0] == expected_list[0]
     assert new_list[1] == expected_list[1]
     assert downstream_new_list[0] == expected_list[0]
     assert downstream_new_list[1] == expected_list[1]
 
 
-def test_append_beta_2_data__removes_oldest_data_points_when_buffer_exceeds_required_size(
+def test_append_data__beta_2__removes_oldest_data_points_when_buffer_exceeds_required_size(
     four_board_analyzer_process_beta_2_mode,
 ):
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
@@ -100,7 +107,7 @@ def test_append_beta_2_data__removes_oldest_data_points_when_buffer_exceeds_requ
             np.arange(expected_buffer_size, expected_buffer_size + 3),
         ]
     )
-    new_list, _ = da_process.append_beta_2_data(init_list, new_data)
+    new_list, _ = da_process.append_data(init_list, new_data)
     assert new_list[0] == list(range(3, expected_buffer_size + 3))
     assert new_list[1] == list(range(3, expected_buffer_size + 3))
 

@@ -53,18 +53,6 @@ def convert_24_bit_codes_to_voltage(codes: NDArray[int]) -> NDArray[float]:
     return voltages
 
 
-def append_beta_1_data(
-    data_buf: List[List[int]], new_data: NDArray[(2, Any), int]
-) -> Tuple[List[List[int]], List[List[int]]]:
-    # TODO remove this and just use one append function with buffer size determined by self.get_buffer_size()
-    # Tanner (7/12/21): using lists here since list.extend is faster than ndarray.concatenate
-    data_buf[0].extend(new_data[0])
-    data_buf[1].extend(new_data[1])
-    data_buf[0] = data_buf[0][-DATA_ANALYZER_BETA_1_BUFFER_SIZE:]
-    data_buf[1] = data_buf[1][-DATA_ANALYZER_BETA_1_BUFFER_SIZE:]
-    return data_buf, data_buf
-
-
 def get_pipeline_analysis(data_buf: List[List[int]]) -> Dict[Any, Any]:
     data_buf_arr = np.array(data_buf, dtype=np.int64)
     pipeline = PIPELINE_TEMPLATE.create_pipeline()
@@ -73,7 +61,7 @@ def get_pipeline_analysis(data_buf: List[List[int]]) -> Dict[Any, Any]:
     try:
         return pipeline.get_displacement_data_metrics(metrics_to_create=[AMPLITUDE_UUID, TWITCH_FREQUENCY_UUID])[0]  # type: ignore
     except PeakDetectionError:
-        # Tanner (7/14/21): this dict will be filter out by downstream elements of analysis stream
+        # Tanner (7/14/21): this dict will be filtered out by downstream elements of analysis stream
         return {-1: None}
 
 
@@ -152,12 +140,11 @@ class DataAnalyzerProcess(InfiniteProcess):
         return self._beta_2_buffer_size if self._beta_2_mode else DATA_ANALYZER_BETA_1_BUFFER_SIZE  # type: ignore
 
     def init_streams(self) -> None:
-        append_func = self.append_beta_2_data if self._beta_2_mode else append_beta_1_data
         for well_idx in range(24):
             self._data_analysis_streams[well_idx] = Stream()
 
             self._data_analysis_streams[well_idx].accumulate(
-                append_func, returns_state=True, start=[[], []]
+                self.append_data, returns_state=True, start=[[], []]
             ).filter(lambda data_buf: len(data_buf[0]) >= self.get_buffer_size()).map(
                 get_pipeline_analysis
             ).accumulate(
@@ -246,7 +233,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                 self._data_analysis_streams[well_idx].emit(data_dict["data"])
             self._load_memory_into_buffer(data_dict)
 
-    def append_beta_2_data(
+    def append_data(
         self, data_buf: List[List[int]], new_data: NDArray[(2, Any), int]
     ) -> Tuple[List[List[int]], List[List[int]]]:
         # Tanner (7/12/21): using lists here since list.extend is faster than ndarray.concatenate
