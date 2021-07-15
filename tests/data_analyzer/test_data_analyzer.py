@@ -4,8 +4,10 @@ from multiprocessing import Queue
 from statistics import stdev
 import time
 
+from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import DataAnalyzerProcess
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
+from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import UnrecognizedCommandToInstrumentError
 from mantarray_desktop_app import UnrecognizedCommTypeFromMainToDataAnalyzerError
 from mantarray_waveform_analysis import Pipeline
@@ -265,13 +267,24 @@ def test_DataAnalyzerProcess__does_not_include_performance_metrics_in_first_logg
     assert "data_creating_duration_metrics" not in actual
 
 
-def test_DataAnalyzerProcess__processes_set_sampling_period_command(four_board_analyzer_process_beta_2_mode):
+def test_DataAnalyzerProcess__processes_change_magnetometer_config_command(
+    four_board_analyzer_process_beta_2_mode,
+):
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
     from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
 
+    test_num_wells = 24
+    expected_wells = [5, 6, 15, 16]
+    test_config_dict = create_magnetometer_config_dict(test_num_wells)
+    for well_idx in expected_wells:
+        module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]
+        test_config_dict[module_id][3] = True
+
     expected_sampling_period = 15000
     set_sampling_period_command = {
-        "communication_type": "sampling_period_update",
+        "communication_type": "to_instrument",
+        "command": "change_magnetometer_config",
+        "magnetometer_config": test_config_dict,
         "sampling_period": expected_sampling_period,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -279,5 +292,6 @@ def test_DataAnalyzerProcess__processes_set_sampling_period_command(four_board_a
     )
 
     invoke_process_run_and_check_errors(da_process)
+    assert da_process.get_active_wells() == expected_wells
     expected_buffer_size = MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS * int(1e6 / expected_sampling_period)
     assert da_process.get_buffer_size() == expected_buffer_size

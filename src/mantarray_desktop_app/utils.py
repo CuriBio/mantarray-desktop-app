@@ -20,6 +20,7 @@ from stdlib_utils import is_frozen_as_exe
 from .constants import CURI_BIO_ACCOUNT_UUID
 from .constants import CURI_BIO_USER_ACCOUNT_ID
 from .constants import CURRENT_SOFTWARE_VERSION
+from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from .constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
@@ -228,6 +229,21 @@ def validate_magnetometer_config_keys(
         return f"Configuration dictionary has invalid {key_name} {invalid_key}" + error_msg_addition
     except StopIteration:
         return ""
+
+
+def get_active_wells_from_config(magnetometer_config: Dict[int, Dict[int, bool]]) -> List[int]:
+    """Get ascending list of enabled wells.
+
+    Enabled wells are those who have at least one channel enabled in the
+    given magnetometer configuration dictionary.
+    """
+    active_well_list = []
+    for module_id, config_dict in magnetometer_config.items():
+        if not any(config_dict.values()):
+            continue
+        well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
+        active_well_list.append(well_idx)
+    return sorted(active_well_list)
 
 
 def create_active_channel_per_sensor_list(  # pylint: disable=invalid-name  # Tanner (5/27/21): it's a little long but descriptive

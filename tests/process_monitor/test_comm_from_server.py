@@ -536,7 +536,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     mocked_hard_stop_and_join.assert_called_once()
 
 
-@pytest.mark.timeout(13)
+@pytest.mark.timeout(15)
 @pytest.mark.slow
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_shutdown_hard_stop__by_soft_stop_then_checking_if_processes_are_stopped_for_desired_time_and_then_finally_hard_stop_and_join_all_processes(
     test_process_manager, test_monitor, mocker
@@ -687,7 +687,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_server__and_redacts_manta
     mocked_logger.assert_called_once_with(f"Communication from the Server: {expected_comm}")
 
 
-def test_MantarrayProcessesMonitor__passes_magnetometer_config_dict_from_server_to_mc_comm__and_sends_sampling_period_to_data_analyzer(
+def test_MantarrayProcessesMonitor__passes_magnetometer_config_dict_from_server_to_mc_comm_and__data_analyzer(
     test_process_manager, test_monitor
 ):
     monitor_thread, _, _, _ = test_monitor
@@ -716,17 +716,10 @@ def test_MantarrayProcessesMonitor__passes_magnetometer_config_dict_from_server_
     confirm_queue_is_eventually_of_size(main_to_ic_queue, 1)
     confirm_queue_is_eventually_of_size(main_to_da_queue, 1)
 
-    expected_comm_to_ic = {
+    expected_comm = {
         "communication_type": "to_instrument",
         "command": "change_magnetometer_config",
     }
-    expected_comm_to_ic.update(expected_config_dict)
-    actual_to_ic = main_to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert actual_to_ic == expected_comm_to_ic
-
-    expected_comm_to_da = {
-        "communication_type": "sampling_period_update",
-        "sampling_period": expected_sampling_period,
-    }
-    actual_to_da = main_to_da_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert actual_to_da == expected_comm_to_da
+    expected_comm.update(expected_config_dict)
+    assert main_to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_comm
+    assert main_to_da_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_comm

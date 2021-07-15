@@ -39,6 +39,7 @@ from .constants import REF_INDEX_TO_24_WELL_INDEX
 from .constants import REFERENCE_VOLTAGE
 from .exceptions import UnrecognizedCommandToInstrumentError
 from .exceptions import UnrecognizedCommTypeFromMainToDataAnalyzerError
+from .utils import get_active_wells_from_config
 
 
 PIPELINE_TEMPLATE = PipelineTemplate(
@@ -91,6 +92,7 @@ def _drain_board_queues(
     return board_dict
 
 
+# pylint: disable=too-many-instance-attributes
 class DataAnalyzerProcess(InfiniteProcess):
     """Process that analyzes data.
 
@@ -120,9 +122,11 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._comm_to_main_queue = comm_to_main_queue
         self._is_managed_acquisition_running = False
         self._data_buffer: Dict[int, Dict[str, Any]] = dict()
-        self._data_analysis_streams: Dict[int, Stream] = dict()
+        self._data_analysis_streams: Dict[int, Tuple[Stream, Stream]] = dict()
+        self._data_analysis_stream_zipper: Optional[Stream] = None
         self._outgoing_data_creation_durations: List[float] = list()
         # data analysis items
+        self._active_wells: List[int] = list(range(24))
         for well_idx in range(24):
             self._data_buffer[well_idx] = {"construct_data": None, "ref_data": None}
         self._pipeline_template = PIPELINE_TEMPLATE
@@ -136,24 +140,30 @@ class DataAnalyzerProcess(InfiniteProcess):
             raise NotImplementedError("Beta 2 mode does not currently have calibration settings")
         return self._calibration_settings
 
+    def get_active_wells(self) -> List[int]:
+        return self._active_wells
+
     def get_buffer_size(self) -> int:
         return self._beta_2_buffer_size if self._beta_2_mode else DATA_ANALYZER_BETA_1_BUFFER_SIZE  # type: ignore
 
     def init_streams(self) -> None:
-        for well_idx in range(24):
-            self._data_analysis_streams[well_idx] = Stream()
-
-            self._data_analysis_streams[well_idx].accumulate(
-                self.append_data, returns_state=True, start=[[], []]
-            ).filter(lambda data_buf: len(data_buf[0]) >= self.get_buffer_size()).map(
-                get_pipeline_analysis
-            ).accumulate(
-                check_for_new_twitches, returns_state=True, start=0
-            ).filter(
-                bool
-            ).sink(
-                lambda per_twitch_dict, i=well_idx: self._dump_outgoing_well_metrics(i, per_twitch_dict)
+        """Set up data analysis streams for active wells."""
+        ends = []
+        for well_idx in self._active_wells:
+            source = Stream()
+            end = (
+                source.accumulate(self.append_data, returns_state=True, start=[[], []])
+                .filter(lambda data_buf: len(data_buf[0]) >= self.get_buffer_size())
+                .map(get_pipeline_analysis)
+                .accumulate(check_for_new_twitches, returns_state=True, start=0)
+                .map(lambda per_twitch_dict, i=well_idx: (i, per_twitch_dict))
             )
+
+            self._data_analysis_streams[well_idx] = (source, end)
+            ends.append(end)
+
+        self._data_analysis_stream_zipper = Stream.zip(*ends)
+        self._data_analysis_stream_zipper.sink(self._dump_outgoing_well_metrics)
 
     def _setup_before_loop(self) -> None:
         super()._setup_before_loop()
@@ -194,13 +204,18 @@ class DataAnalyzerProcess(InfiniteProcess):
                         "construct_data": None,
                         "ref_data": None,
                     }
+            elif communication["command"] == "change_magnetometer_config":
+                if not self._beta_2_mode:
+                    raise NotImplementedError("Beta 1 device does not have a magnetometer config")
+                self._active_wells = get_active_wells_from_config(communication["magnetometer_config"])
+                self._beta_2_buffer_size = MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS * int(
+                    1e6 / communication["sampling_period"]
+                )
+                self.init_streams()
             else:
                 raise UnrecognizedCommandToInstrumentError(communication["command"])
             self._comm_to_main_queue.put_nowait(communication)
-        elif communication_type == "sampling_period_update":
-            self._beta_2_buffer_size = MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS * int(
-                1e6 / communication["sampling_period"]
-            )
+
         else:
             raise UnrecognizedCommTypeFromMainToDataAnalyzerError(communication_type)
 
@@ -220,17 +235,18 @@ class DataAnalyzerProcess(InfiniteProcess):
             for key, well_dict in data_dict.items():
                 if not isinstance(key, int):
                     continue
-                # Tanner (7/13/21): For now, this is just taking the first channel of data present and pushing it through the data analysis stream. "time_offsets are the first key, so channel keys start at idx 0"
+                # TODO Tanner (7/13/21): need to figure out what exactly to send to the frontend. Might be best to just pick one magnetometer channel to send
+                # For now, this is just taking the first channel of data present and pushing it through the data analysis stream. time_offsets are the first key, so channel keys start at idx 1
                 first_channel_id = list(well_dict.keys())[1]
                 first_channel_data = [
                     data_dict["time_indices"],
                     well_dict[first_channel_id],
                 ]
-                self._data_analysis_streams[key].emit(first_channel_data)
+                self._data_analysis_streams[key][0].emit(first_channel_data)
         else:
             if not data_dict["is_reference_sensor"]:
                 well_idx = data_dict["well_index"]
-                self._data_analysis_streams[well_idx].emit(data_dict["data"])
+                self._data_analysis_streams[well_idx][0].emit(data_dict["data"])
             self._load_memory_into_buffer(data_dict)
 
     def append_data(
@@ -356,21 +372,6 @@ class DataAnalyzerProcess(InfiniteProcess):
         outgoing_data["latest_timepoint"] = latest_timepoint
         return outgoing_data
 
-    def _dump_outgoing_well_metrics(self, well_idx: int, per_twitch_dict: Dict[int, Any]) -> None:
-        outgoing_metrics: Dict[int, Dict[str, List[Any]]] = {
-            well_idx: {
-                str(AMPLITUDE_UUID): [],
-                str(TWITCH_FREQUENCY_UUID): [],
-            }
-        }
-        for twitch_metric_dict in per_twitch_dict.values():
-            for metric_id, metric_val in twitch_metric_dict.items():
-                outgoing_metrics[well_idx][str(metric_id)].append(metric_val)
-
-        outgoing_metrics_json = json.dumps(outgoing_metrics)
-        outgoing_msg = {"data_type": "twitch_metrics", "data_json": outgoing_metrics_json}
-        self._board_queues[0][1].put_nowait(outgoing_msg)
-
     def _handle_performance_logging(self, analysis_durations: List[float]) -> None:
         performance_metrics: Dict[str, Any] = {
             "communication_type": "performance_metrics",
@@ -427,6 +428,25 @@ class DataAnalyzerProcess(InfiniteProcess):
         # Tanner (6/21/21): converting to json may no longer be necessary here
         outgoing_data_json = json.dumps(outgoing_data)
         outgoing_msg = {"data_type": "waveform_data", "data_json": outgoing_data_json}
+        self._board_queues[0][1].put_nowait(outgoing_msg)
+
+    def _dump_outgoing_well_metrics(self, well_tuples: Tuple[Tuple[int, Dict[int, Any]], ...]) -> None:
+        outgoing_metrics: Dict[int, Dict[str, List[Any]]] = dict()
+        for well_idx, per_twitch_dict in well_tuples:
+            if (
+                not per_twitch_dict
+            ):  # Tanner (7/15/21): in Beta 1 mode, wells with no analyzable data will still be passed through analysis stream, so catching the empty metric dicts here
+                continue
+            outgoing_metrics[well_idx] = {
+                str(AMPLITUDE_UUID): [],
+                str(TWITCH_FREQUENCY_UUID): [],
+            }
+            for twitch_metric_dict in per_twitch_dict.values():
+                for metric_id, metric_val in twitch_metric_dict.items():
+                    outgoing_metrics[well_idx][str(metric_id)].append(metric_val)
+
+        outgoing_metrics_json = json.dumps(outgoing_metrics)
+        outgoing_msg = {"data_type": "twitch_metrics", "data_json": outgoing_metrics_json}
         self._board_queues[0][1].put_nowait(outgoing_msg)
 
     def _drain_all_queues(self) -> Dict[str, Any]:

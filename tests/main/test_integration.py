@@ -784,6 +784,8 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
 
     assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 10) is True
 
+    da_out = test_process_manager.queue_container().get_data_analyzer_data_out_queue()
+
     # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         # Tanner (12/29/20): Manually set recording directory through update_settings route
@@ -845,6 +847,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
         # Tanner (7/14/21): Beta 2 data packets are currently sent once per second, so there should be at least one data packet for every second needed to run analysis
         assert len(msg_list_container["waveform_data"]) >= MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
+        confirm_queue_is_eventually_empty(da_out)
 
         # Tanner (6/1/21): Make sure managed_acquisition can be restarted
         response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
@@ -878,6 +881,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         response = requests.get(f"{get_api_endpoint()}stop_managed_acquisition")
         assert response.status_code == 200
         assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
+        confirm_queue_is_eventually_empty(da_out)
 
         # Tanner (6/19/21): disconnect here to avoid problems with attempting to disconnect after the server stops
         sio.disconnect()

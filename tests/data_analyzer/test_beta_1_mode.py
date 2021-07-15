@@ -74,7 +74,6 @@ def fill_da_input_data_queue(input_queue, num_seconds):
                 "data": np.array([time_indices, ref_data], dtype=np.int32),
             }
             input_queue.put_nowait(ref_packet)
-    confirm_queue_is_eventually_of_size(input_queue, num_seconds * (24 + 6), sleep_after_confirm_seconds=2)
 
 
 def test_convert_24_bit_code_to_voltage_returns_correct_values_with_numpy_array():
@@ -89,6 +88,9 @@ def test_convert_24_bit_code_to_voltage_returns_correct_values_with_numpy_array(
     np.testing.assert_almost_equal(actual_converted_data, expected_data, decimal=4)
 
 
+# TODO Tanner (7/15/21): Should eventually add the following 3 tests for Beta 2 mode
+
+
 @pytest.mark.slow
 def test_DataAnalyzerProcess_beta_1_performance__fill_data_analysis_buffer(four_board_analyzer_process):
     # 8 seconds of data (625 Hz) coming in from File Writer to going back to Main
@@ -100,7 +102,7 @@ def test_DataAnalyzerProcess_beta_1_performance__fill_data_analysis_buffer(four_
     # 30 Hz Bessel filter:                  2.930061808  # Tanner (9/3/20): not intended to speed anything up, just adding this to show it had it didn't have much affect on performance
     # 30 Hz Butterworth filter:             2.935009033  # Tanner (9/10/20): not intended to speed anything up, just adding this to show it had it didn't have much affect on performance
     #
-    # added twitch metric analysis:         3.012551866
+    # added twitch metric analysis:         3.013469479
 
     p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -130,7 +132,7 @@ def test_DataAnalyzerProcess_beta_1_performance__first_second_of_data_with_analy
     # Fill data analysis buffer with 7 seconds of data to start metric analysis,
     # Then record duration of sending 1 additional second of data
     #
-    # start:                                 0.547061958
+    # start:                                 0.547285524
 
     p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -162,7 +164,7 @@ def test_DataAnalyzerProcess_beta_1_performance__single_data_packet_per_well(fou
     # 1 second of data (625 Hz) coming in from File Writer to going back to Main
     #
     # start:                                 0.530731389
-    # added twitch metric analysis:          0.581163184
+    # added twitch metric analysis:          0.578328276
 
     p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(

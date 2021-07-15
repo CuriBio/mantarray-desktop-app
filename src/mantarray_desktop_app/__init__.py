@@ -264,6 +264,7 @@ from .utils import check_barcode_for_errors
 from .utils import create_active_channel_per_sensor_list
 from .utils import create_magnetometer_config_dict
 from .utils import create_sensor_axis_dict
+from .utils import get_active_wells_from_config
 from .utils import get_current_software_version
 from .utils import redact_sensitive_info_from_path
 from .utils import sort_nested_dict
@@ -555,4 +556,5 @@ __all__ = [
     "SensitiveFormatter",
     "DATA_ANALYZER_BETA_1_BUFFER_SIZE",
     "MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS",
+    "get_active_wells_from_config",
 ]

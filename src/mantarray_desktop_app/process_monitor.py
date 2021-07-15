@@ -169,21 +169,18 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 "magnetometer_config_dict"
             ]
 
-            comm_to_mc_process = {
-                "communication_type": "to_instrument",
-                "command": "change_magnetometer_config",
-            }
-            comm_to_mc_process.update(communication["magnetometer_config_dict"])
-            self._put_communication_into_instrument_comm_queue(comm_to_mc_process)
-
-            comm_to_da_process = {
-                "communication_type": "sampling_period_update",
-                "sampling_period": communication["magnetometer_config_dict"]["sampling_period"],
-            }
             main_to_da_queue = (
                 self._process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
             )
-            main_to_da_queue.put_nowait(comm_to_da_process)
+
+            comm_to_subprocesses = {
+                "communication_type": "to_instrument",
+                "command": "change_magnetometer_config",
+            }
+            comm_to_subprocesses.update(communication["magnetometer_config_dict"])
+
+            self._put_communication_into_instrument_comm_queue(comm_to_subprocesses)
+            main_to_da_queue.put_nowait(comm_to_subprocesses)
         elif communication_type == "xem_scripts":
             # Tanner (12/28/20): start_calibration is the only xem_scripts command that will come from server (called directly from /start_calibration). This comm type will be removed/replaced in beta 2 so not adding handling for unrecognized command.
             if shared_values_dict["beta_2_mode"]:
@@ -271,13 +268,12 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
     def _check_and_handle_data_analyzer_data_out_queue(self) -> None:
         da_data_out_queue = self._process_manager.queue_container().get_data_analyzer_board_queues()[0][1]
-        while True:  # TODO add a timeout and unit test this
-            try:
-                outgoing_data_json = da_data_out_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
-            except queue.Empty:
-                return
-            data_to_server_queue = self._process_manager.queue_container().get_data_queue_to_server()
-            data_to_server_queue.put_nowait(outgoing_data_json)
+        try:
+            outgoing_data_json = da_data_out_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
+        except queue.Empty:
+            return
+        data_to_server_queue = self._process_manager.queue_container().get_data_queue_to_server()
+        data_to_server_queue.put_nowait(outgoing_data_json)
 
     def _check_and_handle_instrument_comm_to_main_queue(self) -> None:
         # pylint: disable=too-many-branches  # Tanner (5/22/21): many branches needed here
