@@ -16,29 +16,70 @@ from typing import Optional
 from typing import Tuple
 from typing import Union
 
+from mantarray_waveform_analysis import AMPLITUDE_UUID
 from mantarray_waveform_analysis import BUTTERWORTH_LOWPASS_30_UUID
 from mantarray_waveform_analysis import PipelineTemplate
+from mantarray_waveform_analysis import TWITCH_FREQUENCY_UUID
+from mantarray_waveform_analysis.exceptions import PeakDetectionError
 from nptyping import NDArray
 import numpy as np
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
+from streamz import Stream
 
 from .constants import ADC_GAIN
 from .constants import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from .constants import CONSTRUCT_SENSORS_PER_REF_SENSOR
+from .constants import DATA_ANALYZER_BETA_1_BUFFER_SIZE
 from .constants import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from .constants import MILLIVOLTS_PER_VOLT
+from .constants import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from .constants import REF_INDEX_TO_24_WELL_INDEX
 from .constants import REFERENCE_VOLTAGE
 from .exceptions import UnrecognizedCommandToInstrumentError
 from .exceptions import UnrecognizedCommTypeFromMainToDataAnalyzerError
+from .utils import get_active_wells_from_config
+
+
+PIPELINE_TEMPLATE = PipelineTemplate(
+    noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
+    tissue_sampling_period=CONSTRUCT_SENSOR_SAMPLING_PERIOD,
+)
 
 
 def convert_24_bit_codes_to_voltage(codes: NDArray[int]) -> NDArray[float]:
     """Convert 'signed' 24-bit values from an ADC to measured voltage."""
     voltages = codes.astype(np.float32) * 2 ** -23 * (REFERENCE_VOLTAGE / ADC_GAIN) * MILLIVOLTS_PER_VOLT
     return voltages
+
+
+def get_pipeline_analysis(data_buf: List[List[int]]) -> Dict[Any, Any]:
+    data_buf_arr = np.array(data_buf, dtype=np.int64)
+    pipeline = PIPELINE_TEMPLATE.create_pipeline()
+    # Tanner (7/14/21): reference data is currently unused by waveform analysis package, so sending zero array instead
+    pipeline.load_raw_gmr_data(data_buf_arr, np.zeros(data_buf_arr.shape))
+    try:
+        return pipeline.get_displacement_data_metrics(metrics_to_create=[AMPLITUDE_UUID, TWITCH_FREQUENCY_UUID])[0]  # type: ignore
+    except PeakDetectionError:
+        # Tanner (7/14/21): this dict will be filtered out by downstream elements of analysis stream
+        return {-1: None}
+
+
+def check_for_new_twitches(
+    latest_time_index: int, per_twitch_metrics: Dict[int, Any]
+) -> Tuple[int, Dict[Any, Any]]:
+    """Pass only new twitches through the data stream."""
+    # Tanner (7/14/21): if issues come up with peaks being reported twice, could try storing peak of and valley after the latest twitch and use those values to check for new twitches
+    time_index_list = list(per_twitch_metrics.keys())
+
+    if time_index_list[-1] <= latest_time_index:
+        return latest_time_index, {}
+
+    for twitch_time_index in time_index_list:
+        if twitch_time_index <= latest_time_index:
+            del per_twitch_metrics[twitch_time_index]
+    return time_index_list[-1], per_twitch_metrics
 
 
 def _drain_board_queues(
@@ -51,6 +92,7 @@ def _drain_board_queues(
     return board_dict
 
 
+# pylint: disable=too-many-instance-attributes
 class DataAnalyzerProcess(InfiniteProcess):
     """Process that analyzes data.
 
@@ -61,16 +103,10 @@ class DataAnalyzerProcess(InfiniteProcess):
         fatal_error_reporter: a queue to report fatal errors back to the main process
     """
 
-    # pylint: disable=duplicate-code # Eli (12/8/20): I can't figure out how to use mypy type aliases correctly...but the type definitions are triggering duplicate code warnings
-    def __init__(  # pylint: disable=duplicate-code # Eli (12/8/20): I can't figure out how to use mypy type aliases correctly...but the type definitions are triggering duplicate code warnings
+    def __init__(
         self,
         the_board_queues: Tuple[
-            Tuple[
-                Queue[Any],  # pylint: disable=unsubscriptable-object
-                Queue[  # pylint: disable=unsubscriptable-object,duplicate-code # https://github.com/PyCQA/pylint/issues/1498
-                    Any
-                ],  # pylint: disable=duplicate-code
-            ],
+            Tuple[Queue[Any], Queue[Any]],  # pylint: disable=unsubscriptable-object
             ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
         ],
         comm_from_main_queue: Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
@@ -86,25 +122,59 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._comm_to_main_queue = comm_to_main_queue
         self._is_managed_acquisition_running = False
         self._data_buffer: Dict[int, Dict[str, Any]] = dict()
+        self._data_analysis_streams: Dict[int, Tuple[Stream, Stream]] = dict()
+        self._data_analysis_stream_zipper: Optional[Stream] = None
         self._outgoing_data_creation_durations: List[float] = list()
-        for index in range(24):
-            self._data_buffer[index] = {"construct_data": None, "ref_data": None}
-        self._pipeline_template = PipelineTemplate(
-            noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
-            tissue_sampling_period=CONSTRUCT_SENSOR_SAMPLING_PERIOD,
-        )
-        # Beta 1 values
+        # data analysis items
+        self._active_wells: List[int] = list(range(24))
+        for well_idx in range(24):
+            self._data_buffer[well_idx] = {"construct_data": None, "ref_data": None}
+        self._pipeline_template = PIPELINE_TEMPLATE
+        # Beta 1 items
         self._calibration_settings: Union[None, Dict[Any, Any]] = None
+        # Beta 2 items
+        self._beta_2_buffer_size: Optional[int] = None
 
     def get_calibration_settings(self) -> Union[None, Dict[Any, Any]]:
         if self._beta_2_mode:
             raise NotImplementedError("Beta 2 mode does not currently have calibration settings")
         return self._calibration_settings
 
+    def get_active_wells(self) -> List[int]:
+        return self._active_wells
+
+    def get_buffer_size(self) -> int:
+        return self._beta_2_buffer_size if self._beta_2_mode else DATA_ANALYZER_BETA_1_BUFFER_SIZE  # type: ignore
+
+    def init_streams(self) -> None:
+        """Set up data analysis streams for active wells."""
+        ends = []
+        for well_idx in self._active_wells:
+            source = Stream()
+            end = (
+                source.accumulate(self.append_data, returns_state=True, start=[[], []])
+                .filter(lambda data_buf: len(data_buf[0]) >= self.get_buffer_size())
+                .map(get_pipeline_analysis)
+                .accumulate(check_for_new_twitches, returns_state=True, start=0)
+                .map(lambda per_twitch_dict, i=well_idx: (i, per_twitch_dict))
+            )
+
+            self._data_analysis_streams[well_idx] = (source, end)
+            ends.append(end)
+
+        self._data_analysis_stream_zipper = Stream.zip(*ends)
+        self._data_analysis_stream_zipper.sink(self._dump_outgoing_well_metrics)
+
+    def _setup_before_loop(self) -> None:
+        super()._setup_before_loop()
+        self.init_streams()
+
     def _commands_for_each_run_iteration(self) -> None:
-        # TODO Tanner (7/7/21): eventually need to add process performance metrics in beta 2 mode
+        # TODO Tanner (7/7/21): eventually need to add process performance metric reporting to beta 2 mode
         self._process_next_command_from_main()
         self._handle_incoming_data()
+
+        # TODO Tanner (7/13/21): eventually need to add heatmap value creation metric reporting for both beta versions
 
         if self._beta_2_mode:
             return
@@ -134,9 +204,18 @@ class DataAnalyzerProcess(InfiniteProcess):
                         "construct_data": None,
                         "ref_data": None,
                     }
+            elif communication["command"] == "change_magnetometer_config":
+                if not self._beta_2_mode:
+                    raise NotImplementedError("Beta 1 device does not have a magnetometer config")
+                self._active_wells = get_active_wells_from_config(communication["magnetometer_config"])
+                self._beta_2_buffer_size = MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS * int(
+                    1e6 / communication["sampling_period"]
+                )
+                self.init_streams()
             else:
                 raise UnrecognizedCommandToInstrumentError(communication["command"])
             self._comm_to_main_queue.put_nowait(communication)
+
         else:
             raise UnrecognizedCommTypeFromMainToDataAnalyzerError(communication_type)
 
@@ -153,8 +232,32 @@ class DataAnalyzerProcess(InfiniteProcess):
         if self._beta_2_mode:
             outgoing_data = self._create_outgoing_beta_2_data(data_dict)
             self._dump_data_into_queue(outgoing_data)
+            for key, well_dict in data_dict.items():
+                if not isinstance(key, int):
+                    continue
+                # TODO Tanner (7/13/21): need to figure out what exactly to send to the frontend. Might be best to just pick one magnetometer channel to send
+                # For now, this is just taking the first channel of data present and pushing it through the data analysis stream. time_offsets are the first key, so channel keys start at idx 1
+                first_channel_id = list(well_dict.keys())[1]
+                first_channel_data = [
+                    data_dict["time_indices"],
+                    well_dict[first_channel_id],
+                ]
+                self._data_analysis_streams[key][0].emit(first_channel_data)
         else:
+            if not data_dict["is_reference_sensor"]:
+                well_idx = data_dict["well_index"]
+                self._data_analysis_streams[well_idx][0].emit(data_dict["data"])
             self._load_memory_into_buffer(data_dict)
+
+    def append_data(
+        self, data_buf: List[List[int]], new_data: NDArray[(2, Any), int]
+    ) -> Tuple[List[List[int]], List[List[int]]]:
+        # Tanner (7/12/21): using lists here since list.extend is faster than ndarray.concatenate
+        data_buf[0].extend(new_data[0])
+        data_buf[1].extend(new_data[1])
+        data_buf[0] = data_buf[0][-self.get_buffer_size() :]
+        data_buf[1] = data_buf[1][-self.get_buffer_size() :]
+        return data_buf, data_buf
 
     def _load_memory_into_buffer(self, data_dict: Dict[Any, Any]) -> None:
         if data_dict["is_reference_sensor"]:
@@ -324,7 +427,27 @@ class DataAnalyzerProcess(InfiniteProcess):
         )
         # Tanner (6/21/21): converting to json may no longer be necessary here
         outgoing_data_json = json.dumps(outgoing_data)
-        self._board_queues[0][1].put_nowait(outgoing_data_json)
+        outgoing_msg = {"data_type": "waveform_data", "data_json": outgoing_data_json}
+        self._board_queues[0][1].put_nowait(outgoing_msg)
+
+    def _dump_outgoing_well_metrics(self, well_tuples: Tuple[Tuple[int, Dict[int, Any]], ...]) -> None:
+        outgoing_metrics: Dict[int, Dict[str, List[Any]]] = dict()
+        for well_idx, per_twitch_dict in well_tuples:
+            if (
+                not per_twitch_dict
+            ):  # Tanner (7/15/21): in Beta 1 mode, wells with no analyzable data will still be passed through analysis stream, so catching the empty metric dicts here
+                continue
+            outgoing_metrics[well_idx] = {
+                str(AMPLITUDE_UUID): [],
+                str(TWITCH_FREQUENCY_UUID): [],
+            }
+            for twitch_metric_dict in per_twitch_dict.values():
+                for metric_id, metric_val in twitch_metric_dict.items():
+                    outgoing_metrics[well_idx][str(metric_id)].append(metric_val)
+
+        outgoing_metrics_json = json.dumps(outgoing_metrics)
+        outgoing_msg = {"data_type": "twitch_metrics", "data_json": outgoing_metrics_json}
+        self._board_queues[0][1].put_nowait(outgoing_msg)
 
     def _drain_all_queues(self) -> Dict[str, Any]:
         queue_items: Dict[str, Any] = dict()

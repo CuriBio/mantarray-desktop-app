@@ -9,6 +9,8 @@ from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_sti
 
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process_beta_2_mode
+from ..fixtures_data_analyzer import set_magnetometer_config
+from ..fixtures_file_writer import GENERIC_BOARD_MAGNETOMETER_CONFIGURATION
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..parsed_channel_data_packets import SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS
@@ -21,13 +23,26 @@ __fixtures__ = [
 
 @freeze_time("2021-06-15 16:39:10.120589")
 def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_retrieves_a_data_packet_from_file_writer__and_sends_data_available_message_to_main(
-    four_board_analyzer_process_beta_2_mode,
+    four_board_analyzer_process_beta_2_mode, mocker
 ):
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
     from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
     to_main_queue = four_board_analyzer_process_beta_2_mode["to_main_queue"]
     incoming_data_queue = four_board_analyzer_process_beta_2_mode["board_queues"][0][0]
     outgoing_data_queue = four_board_analyzer_process_beta_2_mode["board_queues"][0][1]
+
+    # mock so that well metrics don't populate outgoing data queue
+    mocker.patch.object(da_process, "_dump_outgoing_well_metrics", autospec=True)
+
+    da_process.init_streams()
+    # set config arbitrary sampling period
+    set_magnetometer_config(
+        four_board_analyzer_process_beta_2_mode,
+        {
+            "magnetometer_config": GENERIC_BOARD_MAGNETOMETER_CONFIGURATION,
+            "sampling_period": 1000,
+        },
+    )
 
     # start managed_acquisition
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -49,7 +64,6 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
 
     # test data dump
-    outgoing_data_dict = outgoing_data_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     waveform_data_points = dict()
     for well_idx in range(24):
         waveform_data_points[well_idx] = dict()
@@ -63,7 +77,10 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
         "latest_timepoint": test_data_packet["time_indices"][-1].item(),
         "num_data_points": len(test_data_packet["time_indices"]),
     }
-    assert outgoing_data_dict == json.dumps(expected_outgoing_dict)
+
+    outgoing_msg = outgoing_data_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert outgoing_msg["data_type"] == "waveform_data"
+    assert outgoing_msg["data_json"] == json.dumps(expected_outgoing_dict)
     # test message sent to main
     outgoing_msg = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     expected_msg = {

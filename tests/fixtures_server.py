@@ -194,18 +194,25 @@ def fixture_generic_beta_2_start_recording_info_in_shared_dict(
 
 @pytest.fixture(scope="function", name="test_socketio_client")
 def fixture_test_socketio_client():
-    msg_list = list()
+    msg_list_container = {
+        "waveform_data": list(),
+        "twitch_metrics": list(),
+    }
 
     sio = python_socketio.Client()
 
-    @sio.on("message")
-    def message_handler(data):
-        msg_list.append(data)
+    @sio.on("waveform_data")
+    def waveform_data_handler(data):
+        msg_list_container["waveform_data"].append(data)
+
+    @sio.on("twitch_metrics")
+    def twitch_metrics_handler(data):
+        msg_list_container["twitch_metrics"].append(data)
 
     def _connect_client_to_server():
         confirm_port_in_use(get_server_port_number(), timeout=4)  # wait for server to boot up
         sio.connect(get_api_endpoint())
-        return sio, msg_list
+        return sio, msg_list_container
 
     yield _connect_client_to_server
 

@@ -43,6 +43,7 @@ from .constants import CURI_BIO_USER_ACCOUNT_ID
 from .constants import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
 from .constants import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from .constants import CURRENT_SOFTWARE_VERSION
+from .constants import DATA_ANALYZER_BETA_1_BUFFER_SIZE
 from .constants import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from .constants import DATA_FRAME_PERIOD
 from .constants import DEFAULT_SERVER_PORT_NUMBER
@@ -66,6 +67,7 @@ from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MICROSECONDS_PER_MILLISECOND
 from .constants import MIDSCALE_CODE
 from .constants import MILLIVOLTS_PER_VOLT
+from .constants import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from .constants import NANOSECONDS_PER_CENTIMILLISECOND
 from .constants import NO_PLATE_DETECTED_BARCODE_VALUE
 from .constants import NO_PLATE_DETECTED_UUID
@@ -262,6 +264,7 @@ from .utils import check_barcode_for_errors
 from .utils import create_active_channel_per_sensor_list
 from .utils import create_magnetometer_config_dict
 from .utils import create_sensor_axis_dict
+from .utils import get_active_wells_from_config
 from .utils import get_current_software_version
 from .utils import redact_sensitive_info_from_path
 from .utils import sort_nested_dict
@@ -551,4 +554,7 @@ __all__ = [
     "STM_VID",
     "socketio",
     "SensitiveFormatter",
+    "DATA_ANALYZER_BETA_1_BUFFER_SIZE",
+    "MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS",
+    "get_active_wells_from_config",
 ]

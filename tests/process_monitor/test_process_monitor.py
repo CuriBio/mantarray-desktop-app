@@ -130,30 +130,6 @@ def test_MantarrayProcessesMonitor__logs_messages_from_file_writer(
     mocked_logger.assert_called_once_with(f"Communication from the File Writer: {expected_comm}")
 
 
-def test_MantarrayProcessesMonitor__logs_messages_from_server__and_redacts_mantarray_nickname(
-    mocker, test_process_manager, test_monitor
-):
-    monitor_thread, _, _, _ = test_monitor
-
-    mocked_logger = mocker.patch.object(process_monitor.logger, "info", autospec=True)
-
-    to_main_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-
-    test_nickname = "The Nautilus"
-    test_comm = {
-        "communication_type": "mantarray_naming",
-        "command": "set_mantarray_nickname",
-        "mantarray_nickname": test_nickname,
-    }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_comm, to_main_queue)
-    invoke_process_run_and_check_errors(monitor_thread)
-    confirm_queue_is_eventually_empty(to_main_queue)
-
-    expected_comm = copy.deepcopy(test_comm)
-    expected_comm["mantarray_nickname"] = "*" * len(test_nickname)
-    mocked_logger.assert_called_once_with(f"Communication from the Server: {expected_comm}")
-
-
 def test_MantarrayProcessesMonitor__logs_messages_from_data_analyzer(
     mocker, test_process_manager, test_monitor
 ):
@@ -1086,39 +1062,6 @@ def test_MantarrayProcessesMonitor__redacts_mantarray_nickname_from_logged_board
     mocked_logger.assert_called_once_with(f"Communication from the Instrument Controller: {expected_comm}")
 
 
-def test_MantarrayProcessesMonitor__passes_magnetometer_config_dict_from_server_to_mc_comm(
-    test_process_manager, test_monitor
-):
-    monitor_thread, _, _, _ = test_monitor
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
-    main_to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
-
-    test_num_wells = 24
-    expected_config_dict = {
-        "magnetometer_config": create_magnetometer_config_dict(test_num_wells),
-        "sampling_period": 10000,
-    }
-    test_dict_from_server = {
-        "communication_type": "set_magnetometer_config",
-        "magnetometer_config_dict": expected_config_dict,
-    }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_dict_from_server, server_to_main_queue
-    )
-    invoke_process_run_and_check_errors(monitor_thread)
-    confirm_queue_is_eventually_of_size(main_to_ic_queue, 1)
-
-    expected_comm_to_ic = {
-        "communication_type": "to_instrument",
-        "command": "change_magnetometer_config",
-    }
-    expected_comm_to_ic.update(expected_config_dict)
-    actual = main_to_ic_queue.get_nowait()
-    assert actual == expected_comm_to_ic
-
-
 def test_MantarrayProcessesMonitor__raises_error_if_config_dict_in_start_data_stream_command_response_from_instrument_does_not_match_expected_value(
     test_process_manager, test_monitor, patch_print
 ):
@@ -1146,3 +1089,24 @@ def test_MantarrayProcessesMonitor__raises_error_if_config_dict_in_start_data_st
     )
     with pytest.raises(IncorrectMagnetometerConfigFromInstrumentError):
         invoke_process_run_and_check_errors(monitor_thread)
+
+
+def test_MantarrayProcessesMonitor__drains_data_analyzer_data_out_queue_after_receiving_stop_managed_acquisition_command_receipt(
+    test_process_manager,
+    test_monitor,
+):
+    monitor_thread, shared_values_dict, _, _ = test_monitor
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+
+    da_data_out_queue = test_process_manager.queue_container().get_data_analyzer_board_queues()[0][1]
+    put_object_into_queue_and_raise_error_if_eventually_still_empty("test_item", da_data_out_queue)
+
+    data_analyzer_to_main = (
+        test_process_manager.queue_container().get_communication_queue_from_data_analyzer_to_main()
+    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        STOP_MANAGED_ACQUISITION_COMMUNICATION, data_analyzer_to_main
+    )
+
+    invoke_process_run_and_check_errors(monitor_thread)
+    confirm_queue_is_eventually_empty(da_data_out_queue)
