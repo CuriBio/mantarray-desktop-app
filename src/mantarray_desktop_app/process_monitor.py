@@ -17,6 +17,7 @@ import uuid
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
+from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import InfiniteThread
 
@@ -265,6 +266,15 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._data_dump_buffer_size += 1
                 if self._data_dump_buffer_size == 2:
                     self._values_to_share_to_server["system_status"] = LIVE_VIEW_ACTIVE_STATE
+        elif communication_type == "to_instrument":
+            if communication["command"] == "stop_managed_acquisition":
+                # fmt: off
+                # remove any leftover outgoing items
+                da_data_out_queue = (
+                    self._process_manager.queue_container().get_data_analyzer_board_queues()[0][1]
+                )
+                # fmt: on
+                drain_queue(da_data_out_queue)
 
     def _check_and_handle_data_analyzer_data_out_queue(self) -> None:
         da_data_out_queue = self._process_manager.queue_container().get_data_analyzer_board_queues()[0][1]

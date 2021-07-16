@@ -1089,3 +1089,24 @@ def test_MantarrayProcessesMonitor__raises_error_if_config_dict_in_start_data_st
     )
     with pytest.raises(IncorrectMagnetometerConfigFromInstrumentError):
         invoke_process_run_and_check_errors(monitor_thread)
+
+
+def test_MantarrayProcessesMonitor__drains_data_analyzer_data_out_queue_after_receiving_stop_managed_acquisition_command_receipt(
+    test_process_manager,
+    test_monitor,
+):
+    monitor_thread, shared_values_dict, _, _ = test_monitor
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+
+    da_data_out_queue = test_process_manager.queue_container().get_data_analyzer_board_queues()[0][1]
+    put_object_into_queue_and_raise_error_if_eventually_still_empty("test_item", da_data_out_queue)
+
+    data_analyzer_to_main = (
+        test_process_manager.queue_container().get_communication_queue_from_data_analyzer_to_main()
+    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        STOP_MANAGED_ACQUISITION_COMMUNICATION, data_analyzer_to_main
+    )
+
+    invoke_process_run_and_check_errors(monitor_thread)
+    confirm_queue_is_eventually_empty(da_data_out_queue)
