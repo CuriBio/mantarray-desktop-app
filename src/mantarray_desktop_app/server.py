@@ -3,7 +3,6 @@
 
 Custom HTTP Error Codes:
 
-* 204 - Call to /get_available_data when no available data in outgoing data queue from Data Analyzer
 * 400 - Call to /start_recording with invalid or missing barcode parameter
 * 400 - Call to /set_mantarray_nickname with invalid nickname parameter
 * 400 - Call to /update_settings with unexpected argument, invalid account UUID, or a recording directory that doesn't exist
@@ -29,7 +28,6 @@ import datetime
 import json
 import logging
 import os
-from queue import Empty
 from queue import Queue
 import threading
 from typing import Any
@@ -86,7 +84,6 @@ from .constants import LIVE_VIEW_ACTIVE_STATE
 from .constants import MICROSECONDS_PER_MILLISECOND
 from .constants import RECORDING_STATE
 from .constants import REFERENCE_VOLTAGE
-from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
@@ -263,25 +260,6 @@ def system_status() -> Response:
         )
 
     response = Response(json.dumps(status_dict), mimetype="application/json")
-
-    return response
-
-
-@flask_app.route("/get_available_data", methods=["GET"])
-def get_available_data() -> Response:
-    # Tanner (6/21/21): Leaving this route for now. It's likely that it can be removed later
-    """Get available data if any from Data Analyzer.
-
-    Can be invoked by: curl http://localhost:4567/get_available_data
-    """
-    server_thread = get_the_server_thread()
-    data_out_queue = server_thread.get_data_queue_to_server()
-    try:
-        data = data_out_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
-    except Empty:
-        return Response(status=204)
-
-    response = Response(data, mimetype="application/json")
 
     return response
 
@@ -1027,8 +1005,6 @@ def after_request(response: Response) -> Response:
     if rule is None:
         response = Response(status="404 Route not implemented")
     elif response.status_code == 200:
-        if "get_available_data" in rule.rule:
-            del response_json["waveform_data"]["basic_data"]
         if "system_status" in rule.rule:
             mantarray_nicknames = response_json.get("mantarray_nickname", {})
             for board in mantarray_nicknames:
