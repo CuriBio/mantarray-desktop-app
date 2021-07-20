@@ -35,8 +35,8 @@ from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import main
 from mantarray_desktop_app import MantarrayMcSimulator
+from mantarray_desktop_app import MICRONS_PER_METER
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
-from mantarray_desktop_app import MILLIVOLTS_PER_VOLT
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
 from mantarray_desktop_app import RECORDING_STATE
@@ -655,13 +655,13 @@ def test_full_datapath_in_beta_1_mode(
     actual_well_0_y_data = waveform_data_points["0"]["y_data_points"]
     np.testing.assert_almost_equal(
         actual_well_0_y_data[0],
-        expected_well_data[1][0] * MILLIVOLTS_PER_VOLT,
-        decimal=4,
+        expected_well_data[1][0] * MICRONS_PER_METER,
+        decimal=2,
     )
     np.testing.assert_almost_equal(
         actual_well_0_y_data[2],
-        expected_well_data[1][2] * MILLIVOLTS_PER_VOLT,
-        decimal=4,
+        expected_well_data[1][2] * MICRONS_PER_METER,
+        decimal=2,
     )
 
     # Tanner (6/21/21): disconnect here to avoid problems with attempting to disconnect after the server stops

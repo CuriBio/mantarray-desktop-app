@@ -28,15 +28,13 @@ from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
 from streamz import Stream
 
-from .constants import ADC_GAIN
 from .constants import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from .constants import CONSTRUCT_SENSORS_PER_REF_SENSOR
 from .constants import DATA_ANALYZER_BETA_1_BUFFER_SIZE
 from .constants import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
-from .constants import MILLIVOLTS_PER_VOLT
+from .constants import MICRONS_PER_METER
 from .constants import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from .constants import REF_INDEX_TO_24_WELL_INDEX
-from .constants import REFERENCE_VOLTAGE
 from .exceptions import UnrecognizedCommandToInstrumentError
 from .exceptions import UnrecognizedCommTypeFromMainToDataAnalyzerError
 from .utils import get_active_wells_from_config
@@ -46,12 +44,6 @@ PIPELINE_TEMPLATE = PipelineTemplate(
     noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
     tissue_sampling_period=CONSTRUCT_SENSOR_SAMPLING_PERIOD,
 )
-
-
-def convert_24_bit_codes_to_voltage(codes: NDArray[int]) -> NDArray[float]:
-    """Convert 'signed' 24-bit values from an ADC to measured voltage."""
-    voltages = codes.astype(np.float32) * 2 ** -23 * (REFERENCE_VOLTAGE / ADC_GAIN) * MILLIVOLTS_PER_VOLT
-    return voltages
 
 
 def get_pipeline_analysis(data_buf: List[List[int]]) -> Dict[Any, Any]:
@@ -351,7 +343,7 @@ class DataAnalyzerProcess(InfiniteProcess):
 
             basic_waveform_data_points[well_index] = {
                 "x_data_points": compressed_data[0].tolist(),
-                "y_data_points": (compressed_data[1] * MILLIVOLTS_PER_VOLT).tolist(),
+                "y_data_points": (compressed_data[1] * MICRONS_PER_METER).tolist(),
             }  # Tanner (4/23/20): json cannot by default serialize numpy arrays, so we must convert to a list
             if earliest_timepoint is None or compressed_data[0][0] < earliest_timepoint:
                 # Tanner (4/23/20): json cannot by default serialize type numpy types, so we must use the item as native type

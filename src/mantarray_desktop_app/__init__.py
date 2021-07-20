@@ -63,6 +63,7 @@ from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import MAX_POSSIBLE_CONNECTED_BOARDS
+from .constants import MICRONS_PER_METER
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MICROSECONDS_PER_MILLISECOND
 from .constants import MIDSCALE_CODE
@@ -148,7 +149,6 @@ from .constants import TIMESTEP_CONVERSION_FACTOR
 from .constants import VALID_CONFIG_SETTINGS
 from .constants import VALID_SCRIPTING_COMMANDS
 from .constants import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
-from .data_analyzer import convert_24_bit_codes_to_voltage
 from .data_analyzer import DataAnalyzerProcess
 from .exceptions import AttemptToAddCyclesWhileSPIRunningError
 from .exceptions import AttemptToInitializeFIFOReadsError
@@ -323,7 +323,6 @@ __all__ = [
     "MIDSCALE_CODE",
     "REFERENCE_VOLTAGE",
     "MILLIVOLTS_PER_VOLT",
-    "convert_24_bit_codes_to_voltage",
     "FileWriterProcess",
     "InvalidDataTypeFromOkCommError",
     "build_file_writer_objects",
@@ -557,4 +556,5 @@ __all__ = [
     "DATA_ANALYZER_BETA_1_BUFFER_SIZE",
     "MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS",
     "get_active_wells_from_config",
+    "MICRONS_PER_METER",
 ]

@@ -6,20 +6,16 @@ import math
 import time
 
 from freezegun import freeze_time
-from mantarray_desktop_app import ADC_GAIN
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
-from mantarray_desktop_app import convert_24_bit_codes_to_voltage
 from mantarray_desktop_app import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from mantarray_desktop_app import FIFO_READ_PRODUCER_DATA_OFFSET
 from mantarray_desktop_app import FIFO_READ_PRODUCER_SAWTOOTH_PERIOD
 from mantarray_desktop_app import FIFO_READ_PRODUCER_WELL_AMPLITUDE
-from mantarray_desktop_app import MIDSCALE_CODE
-from mantarray_desktop_app import MILLIVOLTS_PER_VOLT
+from mantarray_desktop_app import MICRONS_PER_METER
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
 from mantarray_desktop_app import REF_INDEX_TO_24_WELL_INDEX
 from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
-from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
@@ -74,18 +70,6 @@ def fill_da_input_data_queue(input_queue, num_seconds):
                 "data": np.array([time_indices, ref_data], dtype=np.int32),
             }
             input_queue.put_nowait(ref_packet)
-
-
-def test_convert_24_bit_code_to_voltage_returns_correct_values_with_numpy_array():
-    test_data = np.array([-0x800000, MIDSCALE_CODE - RAW_TO_SIGNED_CONVERSION_VALUE, 0x7FFFFF])
-    actual_converted_data = convert_24_bit_codes_to_voltage(test_data)
-
-    expected_data = [
-        -(REFERENCE_VOLTAGE / ADC_GAIN) * MILLIVOLTS_PER_VOLT,
-        0,
-        (REFERENCE_VOLTAGE / ADC_GAIN) * MILLIVOLTS_PER_VOLT,
-    ]
-    np.testing.assert_almost_equal(actual_converted_data, expected_data, decimal=4)
 
 
 # TODO Tanner (7/15/21): Should eventually add the following 3 tests for Beta 2 mode
@@ -467,11 +451,11 @@ def test_DataAnalyzerProcess__dumps_all_data_when_buffer_is_full_and_clears_buff
     waveform_data_points = actual["waveform_data"]["basic_data"]["waveform_data_points"]
     expected_construct_data_0 = {
         "x_data_points": expected_x_vals,
-        "y_data_points": np.array(expected_y_vals[0]) * MILLIVOLTS_PER_VOLT,
+        "y_data_points": np.array(expected_y_vals[0]) * MICRONS_PER_METER,
     }
     expected_construct_data_23 = {
         "x_data_points": expected_x_vals,
-        "y_data_points": np.array(expected_y_vals[23]) * MILLIVOLTS_PER_VOLT,
+        "y_data_points": np.array(expected_y_vals[23]) * MICRONS_PER_METER,
     }
     np.testing.assert_equal(waveform_data_points["0"], expected_construct_data_0)
     np.testing.assert_equal(waveform_data_points["23"], expected_construct_data_23)
@@ -553,11 +537,11 @@ def test_DataAnalyzerProcess__create_outgoing_data__compresses_displacement_data
     pipeline.load_raw_gmr_data(test_data, np.zeros(test_data.shape))
     expected_compressed_data = pipeline.get_compressed_displacement()
     np.testing.assert_equal(actual[0]["x_data_points"], expected_compressed_data[0, :])
-    np.testing.assert_equal(actual[0]["y_data_points"], expected_compressed_data[1, :] * MILLIVOLTS_PER_VOLT)
+    np.testing.assert_equal(actual[0]["y_data_points"], expected_compressed_data[1, :] * MICRONS_PER_METER)
     np.testing.assert_equal(actual[23]["x_data_points"], expected_compressed_data[0, :])
     np.testing.assert_equal(
         actual[23]["y_data_points"],
-        expected_compressed_data[1, :] * MILLIVOLTS_PER_VOLT,
+        expected_compressed_data[1, :] * MICRONS_PER_METER,
     )
 
 

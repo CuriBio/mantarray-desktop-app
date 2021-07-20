@@ -18,7 +18,7 @@
         <ContinuousWaveform
           :display_waveform_idx="waveform_index"
           :x_label="'Time (seconds)'"
-          :y_label="'Contraction Magnitude (AU)'"
+          :y_label="'Contraction Magnitude (microns)'"
           :display_data_prior_to_current_timepoint="true"
         ></ContinuousWaveform>
       </div>
