@@ -154,7 +154,7 @@ def test_get_pipeline_analysis__returns_displacement_metrics_from_given_beta_1_d
 
     pipeline = PIPELINE_TEMPLATE.create_pipeline()
     pipeline.load_raw_gmr_data(test_data_arr, np.zeros(test_data_arr.shape))
-    expected_metrics = pipeline.get_displacement_data_metrics(
+    expected_metrics = pipeline.get_force_data_metrics(
         metrics_to_create=[AMPLITUDE_UUID, TWITCH_FREQUENCY_UUID]
     )[0]
 

@@ -52,7 +52,7 @@ def get_pipeline_analysis(data_buf: List[List[int]]) -> Dict[Any, Any]:
     # Tanner (7/14/21): reference data is currently unused by waveform analysis package, so sending zero array instead
     pipeline.load_raw_gmr_data(data_buf_arr, np.zeros(data_buf_arr.shape))
     try:
-        return pipeline.get_displacement_data_metrics(metrics_to_create=[AMPLITUDE_UUID, TWITCH_FREQUENCY_UUID])[0]  # type: ignore
+        return pipeline.get_force_data_metrics(metrics_to_create=[AMPLITUDE_UUID, TWITCH_FREQUENCY_UUID])[0]  # type: ignore
     except PeakDetectionError:
         # Tanner (7/14/21): this dict will be filtered out by downstream elements of analysis stream
         return {-1: None}
