@@ -281,10 +281,10 @@ jobs:
       #   with:
       #     run: pipenv run npm run test:e2e-no-prebuild
 
-      # - name: Run E2E Tests (Windows)
-      #   timeout-minutes: 3
-      #   if: runner.os == 'Windows'
-      #   run: pipenv run npm run test:e2e-ci
+      - name: Run E2E Tests (Windows)
+        timeout-minutes: 3
+        if: runner.os == 'Windows'
+        run: pipenv run npm run test:e2e-ci
 
       - name: Digitally Signing the installation and win_unpacked EXE files
         if: matrix.IS_DEPLOYMENT_CONFIG == true

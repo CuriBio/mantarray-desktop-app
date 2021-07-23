@@ -24,13 +24,13 @@ const baseConfig = {
 };
 
 const baseExtend = (config, { isClient }) => {
-  config.externals = [
-    nodeExternals({
-      modulesFromFile: {
-        include: ["dependencies"],
-      },
-    }),
-  ];
+  // config.externals = [
+  //   nodeExternals({
+  //     modulesFromFile: {
+  //       include: ["dependencies"],
+  //     },
+  //   }),
+  // ];
 
   config.target = "electron-renderer";
 
