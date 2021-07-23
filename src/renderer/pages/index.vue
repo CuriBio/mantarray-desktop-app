@@ -83,6 +83,11 @@ export default {
   },
   layout: "default",
   created() {
+    this.$store.commit("data/set_heatmap_values", {
+      "Twitch Force": { data: Array(24).fill([]) },
+      "Twitch Frequency": { data: Array(24).fill([]) },
+    });
+
     this.$store.commit("waveform/set_y_axis_zoom_idx", 2);
     this.$store.commit("waveform/set_y_axis_zoom_levels", [
       { y_min: -100, y_max: 200 },
