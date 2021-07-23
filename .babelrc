@@ -9,7 +9,6 @@
       }
     ]
   ],
-  "ignore": ["/node_modules/(?!colorjs.io)/.*"],
   "plugins": ["@babel/plugin-syntax-dynamic-import"],
   "env": {
     "test": {
@@ -23,7 +22,6 @@
           }
         ]
       ],
-      "ignore": ["/node_modules/(?!colorjs.io)/.*"],
       "plugins": ["@babel/plugin-transform-runtime"]
     }
   }

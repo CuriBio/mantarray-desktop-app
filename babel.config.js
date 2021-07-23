@@ -20,7 +20,6 @@ module.exports = function (api) {
           },
         ],
       ],
-      ignore: ["/node_modules/(?!colorjs.io)/.*"],
     };
   }
   return {};
