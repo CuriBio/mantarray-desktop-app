@@ -16,10 +16,15 @@
       </div>
       <div class="div__screen-view-container">
         <div class="div__waveform-screen-view">
-          <img src="../assets/img/waveform-screen-view.png" @click="1" />
+          <!-- Default view is waveform screen -->
+          <NuxtLink to="/">
+            <img src="../assets/img/waveform-screen-view.png" />
+          </NuxtLink>
         </div>
         <div class="div__heatmap-screen-view">
-          <img src="../assets/img/heatmap-screen-view.png" @click="1" />
+          <NuxtLink to="/heatmap">
+            <img src="../assets/img/heatmap-screen-view.png" />
+          </NuxtLink>
         </div>
       </div>
       <div class="div__simulation-mode-container">

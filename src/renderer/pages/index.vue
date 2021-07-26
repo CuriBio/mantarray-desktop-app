@@ -83,6 +83,8 @@ export default {
   },
   layout: "default",
   created() {
+    // need to create this here so that errors won't happen if heatmap screen view is never selected
+    // TODO make sure these only get called once
     this.$store.commit("data/set_heatmap_values", {
       "Twitch Force": { data: Array(24).fill([]) },
       "Twitch Frequency": { data: Array(24).fill([]) },

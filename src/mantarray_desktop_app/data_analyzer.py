@@ -435,6 +435,9 @@ class DataAnalyzerProcess(InfiniteProcess):
             }
             for twitch_metric_dict in per_twitch_dict.values():
                 for metric_id, metric_val in twitch_metric_dict.items():
+                    if metric_id == AMPLITUDE_UUID:
+                        # convert force amplitude from Newtons to micro Newtons
+                        metric_val *= int(1e6)  # TODO make this a constant
                     outgoing_metrics[well_idx][str(metric_id)].append(metric_val)
 
         outgoing_metrics_json = json.dumps(outgoing_metrics)
