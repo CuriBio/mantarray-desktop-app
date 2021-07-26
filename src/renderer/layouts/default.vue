@@ -14,6 +14,14 @@
       <div class="div__player-controls-container">
         <DesktopPlayerControls></DesktopPlayerControls>
       </div>
+      <div class="div__screen-view-container">
+        <div class="div__waveform-screen-view">
+          <img src="../assets/img/waveform-screen-view.png" @click="1" />
+        </div>
+        <div class="div__heatmap-screen-view">
+          <img src="../assets/img/heatmap-screen-view.png" @click="1" />
+        </div>
+      </div>
       <div class="div__simulation-mode-container">
         <SimulationMode></SimulationMode>
       </div>
@@ -101,6 +109,19 @@ body {
   position: absolute;
   top: 291px;
   left: 0px;
+}
+.div__screen-view-container {
+  position: absolute;
+  left: 20px;
+  top: 400px;
+}
+.div__waveform-screen-view- {
+  position: absolute;
+  left: 5px;
+}
+.div__heatmap-screen-view- {
+  position: absolute;
+  left: 185px;
 }
 .div__simulation-mode-container {
   position: absolute;
