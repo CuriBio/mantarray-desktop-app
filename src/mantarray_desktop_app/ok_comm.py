@@ -830,7 +830,6 @@ class OkCommunicationProcess(InstrumentCommProcess):
         )
 
         msg = f"Timestamp: {_get_formatted_utc_now()} About to read from FIFO"
-
         put_log_message_into_queue(
             logging.DEBUG,
             msg,

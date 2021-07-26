@@ -597,10 +597,10 @@ class MantarrayMcSimulator(InfiniteProcess):
         if self._timepoint_of_last_data_packet_us is None:  # making mypy happy
             raise NotImplementedError("_timepoint_of_last_data_packet_us should never be None here")
         us_since_last_data_packet = _get_us_since_last_data_packet(self._timepoint_of_last_data_packet_us)
-        simulated_data_len = len(self._simulated_data)
         num_packets_to_send = us_since_last_data_packet // self._sampling_period_us
         if num_packets_to_send == 0:
             return
+        simulated_data_len = len(self._simulated_data)
 
         data_packet_bytes = bytes(0)
         for _ in range(num_packets_to_send):

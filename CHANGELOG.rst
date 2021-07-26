@@ -8,9 +8,10 @@ Changelog for Mantarray Desktop App
 - Added Gen 1 Heat Map.
 - Added automatic updating.
 - Fixed issue with min values >= 10 not being allowed with Y-axis absolute zoom.
+- Fixed issue with waveforms eventually lagging behind and falling off screen in Beta 1 simulation mode.
 - Updated Live View to display waveform displacement in units of microns.
 - Updated data stream buffering in order remove most of the 14 second lag between data capture on instrument
-  and display in app.
+  and display in app. This fix also speeds up the time it takes to start Live View.
 
 
 0.4.6 (2021-07-08)

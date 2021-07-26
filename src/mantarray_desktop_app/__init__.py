@@ -48,11 +48,9 @@ from .constants import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from .constants import DATA_FRAME_PERIOD
 from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import DEFAULT_USER_CONFIG
-from .constants import FIFO_READ_PRODUCER_CYCLES_PER_ITERATION
 from .constants import FIFO_READ_PRODUCER_DATA_OFFSET
 from .constants import FIFO_READ_PRODUCER_REF_AMPLITUDE
 from .constants import FIFO_READ_PRODUCER_SAWTOOTH_PERIOD
-from .constants import FIFO_READ_PRODUCER_SLEEP_DURATION
 from .constants import FIFO_READ_PRODUCER_WELL_AMPLITUDE
 from .constants import FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
 from .constants import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
@@ -332,8 +330,6 @@ __all__ = [
     "AttemptToInitializeFIFOReadsError",
     "fifo_read_producer",
     "FIFOReadProducer",
-    "FIFO_READ_PRODUCER_SLEEP_DURATION",
-    "FIFO_READ_PRODUCER_CYCLES_PER_ITERATION",
     "ADC_GAIN",
     "FIFO_READ_PRODUCER_SAWTOOTH_PERIOD",
     "ROUND_ROBIN_PERIOD",

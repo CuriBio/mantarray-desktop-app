@@ -11,6 +11,25 @@ const { RENDERER_PROCESS_DIR, DIST_DIR } = require("../config");
 const userNuxtConfig = require("../../src/renderer/nuxt.config");
 
 const baseConfig = {
+  // TANNER DON'T DELETE THIS LATER IT IS THE ONLY THING ACTUALLY AFFECTING BABEL
+  // build: {
+  //   babel: {
+  //     babelrc: false,
+  //     presets:  [
+  //       [
+  //         "@babel/preset-env",
+  //         {
+  //           "targets": {
+  //             node: "current",
+  //           }
+  //         }
+  //       ]
+  //     ],
+  //     exclude: /node_modules(?!\/(colorjs\.io)\/).*/
+  //   }
+  //   transpile: "node_modules/colorjs.io"
+  // },
+  
   srcDir: RENDERER_PROCESS_DIR,
   rootDir: RENDERER_PROCESS_DIR,
   router: {
