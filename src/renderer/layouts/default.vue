@@ -35,6 +35,11 @@
         {{ package_version }}
       </span>
     </div>
+    <div class="div__top-bar-above-waveforms">
+      <div class="div__recording-time-container">
+        <RecordingTime></RecordingTime>
+      </div>
+    </div>
 
     <div class="div__nuxt-page">
       <nuxt />
@@ -48,6 +53,7 @@ import {
   DesktopPlayerControls,
   StatusBar,
   SimulationMode,
+  RecordingTime,
 } from "@curi-bio/mantarray-frontend-components";
 
 // const pkginfo = require('pkginfo')(module, 'version');
@@ -59,6 +65,7 @@ export default {
     DesktopPlayerControls,
     StatusBar,
     SimulationMode,
+    RecordingTime,
   },
   data: function () {
     return {
@@ -196,5 +203,19 @@ body {
   font-size: 9px;
   color: #ffffff;
   text-align: center;
+}
+.div__top-bar-above-waveforms {
+  position: absolute;
+  left: 289px;
+  background-color: #111111;
+  height: 45px;
+  width: calc(100vw - 303px);
+}
+/* alignment within a div: https://jsfiddle.net/72aqsq83/1/ */
+.div__recording-time-container {
+  float: right;
+  position: relative;
+  height: 45px;
+  width: 215px;
 }
 </style>

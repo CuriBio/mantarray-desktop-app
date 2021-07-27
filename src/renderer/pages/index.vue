@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="div__y-axis-controls-container">
-      <YAxisControls :height="'930px'"></YAxisControls>
+      <YAxisControls :height="'885px'"></YAxisControls>
     </div>
     <div class="div__grid-of-waveforms">
       <div
@@ -25,11 +25,6 @@
     </div>
     <div class="div__x-axis-controls-container">
       <XAxisControls></XAxisControls>
-    </div>
-    <div class="div__top-bar-above-waveforms">
-      <div class="div__recording-time-container">
-        <RecordingTime></RecordingTime>
-      </div>
     </div>
   </div>
 </template>
@@ -72,25 +67,20 @@ import {
   ContinuousWaveform,
   XAxisControls,
   YAxisControls,
-  RecordingTime,
 } from "@curi-bio/mantarray-frontend-components";
 export default {
   components: {
     ContinuousWaveform,
     XAxisControls,
     YAxisControls,
-    RecordingTime,
   },
   layout: "default",
-  // created() {
-
-  // },
-  // mounted() {},
 };
 </script>
 
 <style type="text/css">
 .div__y-axis-controls-container {
+  top: 45px;
   position: absolute;
 }
 .div__x-axis-controls-container {
@@ -105,19 +95,5 @@ export default {
   height: 840px;
   width: calc(100vw - 353px);
   background-color: #4c4c4c;
-}
-.div__top-bar-above-waveforms {
-  position: absolute;
-  left: 45px;
-  background-color: #111111;
-  height: 45px;
-  width: calc(100vw - 353px);
-}
-/* alignment within a div: https://jsfiddle.net/72aqsq83/1/ */
-.div__recording-time-container {
-  float: right;
-  position: relative;
-  height: 45px;
-  width: 215px;
 }
 </style>
