@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div style="top: 45px; position: absolute">
     <HeatMap></HeatMap>
   </div>
 </template>

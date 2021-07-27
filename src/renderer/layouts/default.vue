@@ -209,7 +209,7 @@ body {
   left: 289px;
   background-color: #111111;
   height: 45px;
-  width: calc(100vw - 303px);
+  width: calc(100vw - 287px);
 }
 /* alignment within a div: https://jsfiddle.net/72aqsq83/1/ */
 .div__recording-time-container {
