@@ -137,7 +137,7 @@ def test_produce_data__returns_correct_bytearray_with_given_num_cycles_and_start
                         t / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5
                     )
                 else:
-                    scaling_factor = (ADC_CH_TO_24_WELL_INDEX[adc_num][adc_ch_num] + 1) / 24 * 6
+                    scaling_factor = ADC_CH_TO_24_WELL_INDEX[adc_num][adc_ch_num] + 1
                     amplitude = FIFO_READ_PRODUCER_WELL_AMPLITUDE * scaling_factor
                     data_value = FIFO_READ_PRODUCER_DATA_OFFSET + amplitude * signal.sawtooth(
                         t / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5

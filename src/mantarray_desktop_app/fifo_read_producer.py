@@ -98,7 +98,7 @@ def produce_data(num_cycles: int, starting_sample_index: int) -> bytearray:
                 amplitude: int
                 if is_ref_sensor:
                     amplitude = FIFO_READ_PRODUCER_REF_AMPLITUDE * (adc_num + 1)
-                else:  # TODO still 20 µN too low
+                else:
                     scaling_factor = ADC_CH_TO_24_WELL_INDEX[adc_num][adc_ch_num] + 1
                     amplitude = int(FIFO_READ_PRODUCER_WELL_AMPLITUDE * scaling_factor)
                 data_value = FIFO_READ_PRODUCER_DATA_OFFSET + amplitude * sawtooth_vals[idx]

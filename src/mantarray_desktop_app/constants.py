@@ -89,7 +89,7 @@ FIFO_READ_PRODUCER_WELL_AMPLITUDE = 0x1014  # this value chosen so the force of 
 FIFO_READ_PRODUCER_REF_AMPLITUDE = (
     0x100  # this value will likely never be used in analysis or demos/simulation
 )
-FIFO_READ_PRODUCER_DATA_OFFSET = (  # 0xA000 chosen through empirical testing
+FIFO_READ_PRODUCER_DATA_OFFSET = (  # 0xB000 chosen through empirical testing
     MIDSCALE_CODE + 0xB000 + FIFO_READ_PRODUCER_WELL_AMPLITUDE * 24 // 2
 )
 
