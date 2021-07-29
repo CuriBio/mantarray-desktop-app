@@ -13,6 +13,7 @@ from mantarray_desktop_app import InstrumentDataStreamingAlreadyStoppedError
 from mantarray_desktop_app import MagnetometerConfigUpdateWhileDataStreamingError
 from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import mc_simulator
+from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
@@ -466,7 +467,7 @@ def test_handle_data_packets__performance_test():
     # start:                                        1397497
     # added time offsets + memory views:            2190868
 
-    num_us_of_data_to_send = int(1e6)
+    num_us_of_data_to_send = MICRO_TO_BASE_CONVERSION
     max_sampling_rate_us = 1000
     test_num_data_packets = num_us_of_data_to_send // max_sampling_rate_us
     expected_time_indices = list(range(0, num_us_of_data_to_send, max_sampling_rate_us))

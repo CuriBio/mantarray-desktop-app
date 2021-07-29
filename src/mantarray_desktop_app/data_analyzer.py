@@ -32,7 +32,7 @@ from .constants import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from .constants import CONSTRUCT_SENSORS_PER_REF_SENSOR
 from .constants import DATA_ANALYZER_BETA_1_BUFFER_SIZE
 from .constants import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
-from .constants import MICRONS_PER_METER
+from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from .constants import REF_INDEX_TO_24_WELL_INDEX
 from .exceptions import UnrecognizedCommandToInstrumentError
@@ -338,13 +338,13 @@ class DataAnalyzerProcess(InfiniteProcess):
                 np.array(self._data_buffer[well_index]["construct_data"], dtype=np.int32),
                 np.array(self._data_buffer[well_index]["ref_data"], dtype=np.int32),
             )
-            compressed_data = pipeline.get_compressed_displacement()
+            compressed_data = pipeline.get_compressed_force()
             analysis_dur = time.perf_counter() - start
             analysis_durations.append(analysis_dur)
 
             basic_waveform_data_points[well_index] = {
                 "x_data_points": compressed_data[0].tolist(),
-                "y_data_points": (compressed_data[1] * MICRONS_PER_METER).tolist(),
+                "y_data_points": (compressed_data[1] * MICRO_TO_BASE_CONVERSION).tolist(),
             }  # Tanner (4/23/20): json cannot by default serialize numpy arrays, so we must convert to a list
             if earliest_timepoint is None or compressed_data[0][0] < earliest_timepoint:
                 # Tanner (4/23/20): json cannot by default serialize type numpy types, so we must use the item as native type
@@ -438,7 +438,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                 for metric_id, metric_val in twitch_metric_dict.items():
                     if metric_id == AMPLITUDE_UUID:
                         # convert force amplitude from Newtons to micro Newtons
-                        metric_val *= int(1e6)  # TODO make this a constant
+                        metric_val *= MICRO_TO_BASE_CONVERSION  # TODO make this a constant
                     outgoing_metrics[well_idx][str(metric_id)].append(metric_val)
 
         outgoing_metrics_json = json.dumps(outgoing_metrics)

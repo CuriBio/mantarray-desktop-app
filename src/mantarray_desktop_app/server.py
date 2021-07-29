@@ -81,6 +81,7 @@ from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import LIVE_VIEW_ACTIVE_STATE
+from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_MILLISECOND
 from .constants import RECORDING_STATE
 from .constants import REFERENCE_VOLTAGE
@@ -465,7 +466,7 @@ def start_recording() -> Response:
     else:
         time_since_index_0 = timestamp_of_begin_recording - timestamp_of_sample_idx_zero
         begin_timepoint = time_since_index_0.total_seconds() * (
-            int(1e6) if shared_values_dict["beta_2_mode"] else CENTIMILLISECONDS_PER_SECOND
+            MICRO_TO_BASE_CONVERSION if shared_values_dict["beta_2_mode"] else CENTIMILLISECONDS_PER_SECOND
         )
 
     are_barcodes_matching = _check_scanned_barcode_vs_user_value(barcode)
@@ -584,7 +585,7 @@ def stop_recording() -> Response:
     else:
         time_since_index_0 = datetime.datetime.utcnow() - timestamp_of_sample_idx_zero
         stop_timepoint = time_since_index_0.total_seconds() * (
-            int(1e6) if shared_values_dict["beta_2_mode"] else CENTIMILLISECONDS_PER_SECOND
+            MICRO_TO_BASE_CONVERSION if shared_values_dict["beta_2_mode"] else CENTIMILLISECONDS_PER_SECOND
         )
 
     comm_dict: Dict[str, Any] = {

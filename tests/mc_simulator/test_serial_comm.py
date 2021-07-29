@@ -9,6 +9,7 @@ from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import create_magnetometer_config_bytes
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
+from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import SERIAL_COMM_BOOT_UP_CODE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
@@ -108,8 +109,8 @@ def test_MantarrayMcSimulator__makes_status_beacon_available_to_read_every_5_sec
 
     expected_durs = [
         0,
-        int(1e6) * SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS,
-        int(1e6) * SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS * 2 + 1,
+        MICRO_TO_BASE_CONVERSION * SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS,
+        MICRO_TO_BASE_CONVERSION * SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS * 2 + 1,
     ]
     mocker.patch.object(simulator, "get_cms_since_init", autospec=True, side_effect=expected_durs)
     mocker.patch.object(

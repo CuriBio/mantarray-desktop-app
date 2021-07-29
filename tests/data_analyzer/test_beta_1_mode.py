@@ -11,7 +11,7 @@ from mantarray_desktop_app import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from mantarray_desktop_app import FIFO_READ_PRODUCER_DATA_OFFSET
 from mantarray_desktop_app import FIFO_READ_PRODUCER_SAWTOOTH_PERIOD
 from mantarray_desktop_app import FIFO_READ_PRODUCER_WELL_AMPLITUDE
-from mantarray_desktop_app import MICRONS_PER_METER
+from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
 from mantarray_desktop_app import REF_INDEX_TO_24_WELL_INDEX
@@ -418,12 +418,12 @@ def test_DataAnalyzerProcess__dumps_all_data_when_buffer_is_full_and_clears_buff
     expected_y_vals = [[0, i] for i in range(24)]
 
     # Tanner (6/16/20): The tiny amount of data used in this test doesn't work with mantarray_waveform_analysis functions, so we can mock them to prevent errors
-    mocked_displacement_vals = [np.array([expected_x_vals, expected_y_vals[i]]) for i in range(24)]
-    mocked_compressed_displacement = mocker.patch.object(
+    mocked_force_vals = [np.array([expected_x_vals, expected_y_vals[i]]) for i in range(24)]
+    mocked_compressed_force = mocker.patch.object(
         Pipeline,
-        "get_compressed_displacement",
+        "get_compressed_force",
         autospec=True,
-        side_effect=mocked_displacement_vals,
+        side_effect=mocked_force_vals,
     )
 
     p, board_queues, _, _, _ = four_board_analyzer_process
@@ -451,11 +451,11 @@ def test_DataAnalyzerProcess__dumps_all_data_when_buffer_is_full_and_clears_buff
     waveform_data_points = actual["waveform_data"]["basic_data"]["waveform_data_points"]
     expected_construct_data_0 = {
         "x_data_points": expected_x_vals,
-        "y_data_points": np.array(expected_y_vals[0]) * MICRONS_PER_METER,
+        "y_data_points": np.array(expected_y_vals[0]) * MICRO_TO_BASE_CONVERSION,
     }
     expected_construct_data_23 = {
         "x_data_points": expected_x_vals,
-        "y_data_points": np.array(expected_y_vals[23]) * MICRONS_PER_METER,
+        "y_data_points": np.array(expected_y_vals[23]) * MICRO_TO_BASE_CONVERSION,
     }
     np.testing.assert_equal(waveform_data_points["0"], expected_construct_data_0)
     np.testing.assert_equal(waveform_data_points["23"], expected_construct_data_23)
@@ -468,7 +468,7 @@ def test_DataAnalyzerProcess__dumps_all_data_when_buffer_is_full_and_clears_buff
     assert data_buffer[23]["construct_data"] is None
     assert data_buffer[23]["ref_data"] is None
 
-    assert mocked_compressed_displacement.call_count == 24
+    assert mocked_compressed_force.call_count == 24
 
 
 @freeze_time("2020-06-1 13:45:30.123456")
@@ -501,7 +501,7 @@ def test_DataAnalyzerProcess__dump_data_into_queue__sends_message_to_main_indica
     assert actual == expected_message
 
 
-def test_DataAnalyzerProcess__create_outgoing_data__compresses_displacement_data(
+def test_DataAnalyzerProcess__create_outgoing_data__compresses_force_data(
     four_board_analyzer_process,
 ):
     p, _, _, _, _ = four_board_analyzer_process
@@ -535,13 +535,15 @@ def test_DataAnalyzerProcess__create_outgoing_data__compresses_displacement_data
     )
     pipeline = pt.create_pipeline()
     pipeline.load_raw_gmr_data(test_data, np.zeros(test_data.shape))
-    expected_compressed_data = pipeline.get_compressed_displacement()
+    expected_compressed_data = pipeline.get_compressed_force()
     np.testing.assert_equal(actual[0]["x_data_points"], expected_compressed_data[0, :])
-    np.testing.assert_equal(actual[0]["y_data_points"], expected_compressed_data[1, :] * MICRONS_PER_METER)
+    np.testing.assert_equal(
+        actual[0]["y_data_points"], expected_compressed_data[1, :] * MICRO_TO_BASE_CONVERSION
+    )
     np.testing.assert_equal(actual[23]["x_data_points"], expected_compressed_data[0, :])
     np.testing.assert_equal(
         actual[23]["y_data_points"],
-        expected_compressed_data[1, :] * MICRONS_PER_METER,
+        expected_compressed_data[1, :] * MICRO_TO_BASE_CONVERSION,
     )
 
 

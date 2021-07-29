@@ -6,6 +6,7 @@ from freezegun import freeze_time
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
+from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import server
@@ -983,7 +984,8 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
 @freeze_time(
     datetime.datetime(year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332598)
     + datetime.timedelta(
-        seconds=GENERIC_BETA_2_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"] / int(1e6)
+        seconds=GENERIC_BETA_2_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
+        / MICRO_TO_BASE_CONVERSION
     )
 )
 def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__24_wells__utcnow_recording_start_time__and_metadata(
@@ -994,7 +996,7 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     )
     expected_recording_timepoint = GENERIC_BETA_2_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
     expected_recording_timestamp = expected_acquisition_timestamp + datetime.timedelta(
-        seconds=(expected_recording_timepoint / int(1e6))
+        seconds=(expected_recording_timepoint / MICRO_TO_BASE_CONVERSION)
     )
 
     generic_beta_2_start_recording_info_in_shared_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [

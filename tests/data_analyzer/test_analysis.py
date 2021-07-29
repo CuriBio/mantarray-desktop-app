@@ -140,7 +140,7 @@ def test_get_pipeline_analysis__returns_error_dict_when_peak_detection_error_occ
     assert actual == {-1: None}
 
 
-def test_get_pipeline_analysis__returns_displacement_metrics_from_given_beta_1_data(mantarray_mc_simulator):
+def test_get_pipeline_analysis__returns_force_metrics_from_given_beta_1_data(mantarray_mc_simulator):
     # TODO Tanner (7/14/21): after waveform-analysis update make sure to add this same test for beta 2 data
     # Tanner (7/12/21): This test is "True by definition", but can't think of a better way to test waveform analysis
     test_y_data = (

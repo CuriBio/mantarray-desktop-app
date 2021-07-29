@@ -35,7 +35,7 @@ from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import main
 from mantarray_desktop_app import MantarrayMcSimulator
-from mantarray_desktop_app import MICRONS_PER_METER
+from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
@@ -646,7 +646,7 @@ def test_full_datapath_in_beta_1_mode(
     )
     pipeline = pl_template.create_pipeline()
     pipeline.load_raw_gmr_data(test_data, np.zeros(test_data.shape))
-    expected_well_data = pipeline.get_compressed_displacement()
+    expected_well_data = pipeline.get_compressed_force()
 
     # Tanner (12/29/20): Assert data is as expected for two wells
     waveform_data_points = json.loads(msg_list_container["waveform_data"][0])["waveform_data"]["basic_data"][
@@ -655,12 +655,12 @@ def test_full_datapath_in_beta_1_mode(
     actual_well_0_y_data = waveform_data_points["0"]["y_data_points"]
     np.testing.assert_almost_equal(
         actual_well_0_y_data[0],
-        expected_well_data[1][0] * MICRONS_PER_METER,
+        expected_well_data[1][0] * MICRO_TO_BASE_CONVERSION,
         decimal=2,
     )
     np.testing.assert_almost_equal(
         actual_well_0_y_data[2],
-        expected_well_data[1][2] * MICRONS_PER_METER,
+        expected_well_data[1][2] * MICRO_TO_BASE_CONVERSION,
         decimal=2,
     )
 
@@ -861,7 +861,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
             expected_barcode_1[:-1] + "2"
         )  # change last char of default barcode from '1' to '2'
         # Tanner (5/25/21): Start at a different timepoint to create a different timestamp in the names of the second set of files
-        expected_start_index_2 = int(1e6)
+        expected_start_index_2 = MICRO_TO_BASE_CONVERSION
 
         # Tanner (6/1/21): Start recording with second barcode to create second set of files
         response = requests.get(

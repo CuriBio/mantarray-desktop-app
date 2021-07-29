@@ -61,7 +61,7 @@ from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import MAX_POSSIBLE_CONNECTED_BOARDS
-from .constants import MICRONS_PER_METER
+from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MICROSECONDS_PER_MILLISECOND
 from .constants import MIDSCALE_CODE
@@ -552,5 +552,5 @@ __all__ = [
     "DATA_ANALYZER_BETA_1_BUFFER_SIZE",
     "MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS",
     "get_active_wells_from_config",
-    "MICRONS_PER_METER",
+    "MICRO_TO_BASE_CONVERSION",
 ]

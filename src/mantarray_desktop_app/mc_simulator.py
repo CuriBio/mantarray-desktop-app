@@ -33,6 +33,7 @@ from stdlib_utils import InfiniteProcess
 from stdlib_utils import resource_path
 
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
+from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_MILLISECOND
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BOOT_UP_CODE
@@ -309,7 +310,7 @@ class MantarrayMcSimulator(InfiniteProcess):
 
     def get_interpolated_data(self, sampling_period_us: int) -> NDArray[np.int16]:
         """Return one second (one twitch) of interpolated data."""
-        data_indices = np.arange(0, int(1e6), sampling_period_us)
+        data_indices = np.arange(0, MICRO_TO_BASE_CONVERSION, sampling_period_us)
         return self._interpolator(data_indices).astype(np.int16)
 
     def get_num_wells(self) -> int:
