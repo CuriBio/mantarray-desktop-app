@@ -1,5 +1,5 @@
 <template>
-  <div style="top: 45px; position: absolute">
+  <div class="div__heatmap-container">
     <HeatMap></HeatMap>
   </div>
 </template>
@@ -13,3 +13,10 @@ export default {
   layout: "default",
 };
 </script>
+
+<style type="text/css">
+.div__heatmap-container {
+  top: 45px;
+  position: absolute;
+}
+</style>
