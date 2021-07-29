@@ -473,7 +473,7 @@ def test_DataAnalyzerProcess__only_dumps_new_twitch_metrics__with_beta_2_data(
             assert len(metric_list) == 1, f"Well: {well_idx}, Metric ID: {metric_id}"
 
 
-def test_DataAnalyzerProcess__data_analysis_stream_can_be_reconfigured_in_beta_2_mode(
+def test_DataAnalyzerProcess__data_analysis_stream_is_reconfigured_in_beta_2_mode_upon_receiving_change_magnetometer_config_command(
     four_board_analyzer_process_beta_2_mode, mantarray_mc_simulator, mocker
 ):
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
