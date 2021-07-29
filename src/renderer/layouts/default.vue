@@ -75,7 +75,7 @@ export default {
     };
   },
   created: function () {
-    // init pages here since this side bar is only created once
+    // init store values needed in pages here since this side bar is only created once
 
     this.$store.commit("data/set_heatmap_values", {
       "Twitch Force": { data: [...Array(24)].map((e) => Array(0)) },
@@ -167,16 +167,17 @@ body {
 }
 .div__screen-view-container {
   position: absolute;
-  left: 20px;
   top: 400px;
+  width: 287px;
+  display: grid;
+  grid-template-columns: 50% 50%;
+  justify-items: center;
 }
 .div__waveform-screen-view- {
-  position: absolute;
-  left: 5px;
+  grid-column: 1 / 2;
 }
 .div__heatmap-screen-view- {
-  position: absolute;
-  left: 185px;
+  grid-column: 2;
 }
 .div__simulation-mode-container {
   position: absolute;

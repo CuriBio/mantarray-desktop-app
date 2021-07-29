@@ -196,6 +196,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                         "construct_data": None,
                         "ref_data": None,
                     }
+                self.init_streams()  # TODO add a test for this
             elif communication["command"] == "change_magnetometer_config":
                 if not self._beta_2_mode:
                     raise NotImplementedError("Beta 1 device does not have a magnetometer config")
