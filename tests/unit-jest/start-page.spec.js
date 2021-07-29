@@ -22,6 +22,8 @@ let mocked_axios;
 const propsData = {};
 
 describe("StartPage", () => {
+  // TODO Tanner (7/29/21): should eventually add more thorough testing
+
   beforeAll(async () => {
     // note the store will mutate across tests, so make sure to re-create it in beforeEach
     const storePath = `${process.env.buildDir}/store.js`;
