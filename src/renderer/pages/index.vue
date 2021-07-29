@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div class="div__y-axis-controls-container">
+    <div class="div__y-axis-controls-container" @click="fix_y_axis_labels">
       <YAxisControls :height="'885px'"></YAxisControls>
     </div>
     <div class="div__grid-of-waveforms">
@@ -75,6 +75,17 @@ export default {
     YAxisControls,
   },
   layout: "default",
+  // Tanner (7/29/21): hacky short term solution for incorrect labels on y-axis zoom controls
+  methods: {
+    fix_y_axis_labels() {
+      document.getElementsByClassName(
+        "span__y-axis-controls-settings-input-max-units"
+      )[0].textContent = "µN";
+      document.getElementsByClassName(
+        "span__y-axis-controls-settings-input-min-units"
+      )[0].textContent = "µN";
+    },
+  },
 };
 </script>
 

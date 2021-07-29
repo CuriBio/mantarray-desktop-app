@@ -15,7 +15,7 @@ To calculate the value for a given construct or reference sensor at a given poin
     * Get sawtooth_vals:
         sawtooth_vals = signal.sawtooth(sawtooth_indices, width=0.5)
     * Find data value for Construct Sensor:
-        value = FIFO_READ_PRODUCER_DATA_OFFSET + int(FIFO_READ_PRODUCER_WELL_AMPLITUDE * ((well_index + 1) / 24 * 6)) * sawtooth_vals[idx]
+        value = FIFO_READ_PRODUCER_DATA_OFFSET + FIFO_READ_PRODUCER_WELL_AMPLITUDE * (well_index + 1) * sawtooth_vals[idx]
     * Find data value for Reference Sensor:
         value = FIFO_READ_PRODUCER_DATA_OFFSET + FIFO_READ_PRODUCER_WELL_AMPLITUDE * (adc_number + 1) * sawtooth_vals[idx]
 """
@@ -98,8 +98,8 @@ def produce_data(num_cycles: int, starting_sample_index: int) -> bytearray:
                 amplitude: int
                 if is_ref_sensor:
                     amplitude = FIFO_READ_PRODUCER_REF_AMPLITUDE * (adc_num + 1)
-                else:
-                    scaling_factor = (ADC_CH_TO_24_WELL_INDEX[adc_num][adc_ch_num] + 1) / 24 * 6
+                else:  # TODO still 20 µN too low
+                    scaling_factor = ADC_CH_TO_24_WELL_INDEX[adc_num][adc_ch_num] + 1
                     amplitude = int(FIFO_READ_PRODUCER_WELL_AMPLITUDE * scaling_factor)
                 data_value = FIFO_READ_PRODUCER_DATA_OFFSET + amplitude * sawtooth_vals[idx]
                 data_byte = struct.pack("<L", int(data_value))
