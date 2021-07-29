@@ -14,6 +14,7 @@
       <div class="div__player-controls-container">
         <DesktopPlayerControls></DesktopPlayerControls>
       </div>
+      <span class="span__screen-view-options-text">Screen View Options</span>
       <div class="div__screen-view-container">
         <div class="div__waveform-screen-view">
           <!-- Default view is waveform screen -->
@@ -130,6 +131,21 @@ body {
   /* TODO Tanner (7/28/21): switch this and top bar to left: 289px once heatmap is resized */
   left: 288px;
 }
+
+.div__top-bar-above-waveforms {
+  position: absolute;
+  left: 288px;
+  background-color: #111111;
+  height: 45px;
+  width: calc(100vw - 288px);
+}
+.div__recording-time-container {
+  float: right;
+  position: relative;
+  height: 45px;
+  width: 215px;
+}
+
 .div__sidebar {
   background-color: #1c1c1c;
   position: absolute;
@@ -176,6 +192,19 @@ body {
   grid-template-columns: 50% 50%;
   justify-items: center;
 }
+.span__screen-view-options-text {
+  line-height: 100%;
+  position: absolute;
+  width: 207px;
+  height: 23px;
+  left: 11px;
+  top: 372px;
+  padding: 5px;
+  user-select: none;
+  font-size: 16px;
+  color: #ffffff;
+  text-align: left;
+}
 .div__waveform-screen-view- {
   grid-column: 1 / 2;
 }
@@ -207,19 +236,5 @@ body {
   font-size: 9px;
   color: #ffffff;
   text-align: center;
-}
-.div__top-bar-above-waveforms {
-  position: absolute;
-  left: 288px;
-  background-color: #111111;
-  height: 45px;
-  width: calc(100vw - 288px);
-}
-/* alignment within a div: https://jsfiddle.net/72aqsq83/1/ */
-.div__recording-time-container {
-  float: right;
-  position: relative;
-  height: 45px;
-  width: 215px;
 }
 </style>
