@@ -37,11 +37,9 @@ from mantarray_desktop_app import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from mantarray_desktop_app import DATA_FRAME_PERIOD
 from mantarray_desktop_app import DEFAULT_SERVER_PORT_NUMBER
 from mantarray_desktop_app import DEFAULT_USER_CONFIG
-from mantarray_desktop_app import FIFO_READ_PRODUCER_CYCLES_PER_ITERATION
 from mantarray_desktop_app import FIFO_READ_PRODUCER_DATA_OFFSET
 from mantarray_desktop_app import FIFO_READ_PRODUCER_REF_AMPLITUDE
 from mantarray_desktop_app import FIFO_READ_PRODUCER_SAWTOOTH_PERIOD
-from mantarray_desktop_app import FIFO_READ_PRODUCER_SLEEP_DURATION
 from mantarray_desktop_app import FIFO_READ_PRODUCER_WELL_AMPLITUDE
 from mantarray_desktop_app import FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
 from mantarray_desktop_app import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
@@ -185,16 +183,14 @@ def test_default_UUIDs():
 
 
 def test_running_fifo_simulator_constants():
-    assert FIFO_READ_PRODUCER_SLEEP_DURATION == (
-        (FIFO_READ_PRODUCER_CYCLES_PER_ITERATION * ROUND_ROBIN_PERIOD) / 100000
-    )
-    assert FIFO_READ_PRODUCER_CYCLES_PER_ITERATION == 20
     assert FIFO_READ_PRODUCER_SAWTOOTH_PERIOD == ((100000 // TIMESTEP_CONVERSION_FACTOR) / (2 * np.pi))
     assert FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE == 0xFFFFFFFF
     assert RAW_TO_SIGNED_CONVERSION_VALUE == 2 ** 23
-    assert FIFO_READ_PRODUCER_DATA_OFFSET == 0x800000
-    assert FIFO_READ_PRODUCER_WELL_AMPLITUDE == 0xA8000
-    assert FIFO_READ_PRODUCER_REF_AMPLITUDE == 0x100000
+    assert (
+        FIFO_READ_PRODUCER_DATA_OFFSET == MIDSCALE_CODE + 0xB000 + FIFO_READ_PRODUCER_WELL_AMPLITUDE * 24 // 2
+    )
+    assert FIFO_READ_PRODUCER_WELL_AMPLITUDE == 0x1014
+    assert FIFO_READ_PRODUCER_REF_AMPLITUDE == 0x100
 
 
 def test_hardware_time_constants():

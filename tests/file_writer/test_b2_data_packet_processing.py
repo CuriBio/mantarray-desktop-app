@@ -5,6 +5,7 @@ import datetime
 from mantarray_desktop_app import get_time_index_dataset_from_file
 from mantarray_desktop_app import get_time_offset_dataset_from_file
 from mantarray_desktop_app import get_tissue_dataset_from_file
+from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_file_manager import UTC_FIRST_TISSUE_DATA_POINT_UUID
@@ -140,7 +141,7 @@ def test_FileWriterProcess_process_next_data_packet__writes_data_if_the_whole_da
 
     expected_timestamp = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
         UTC_BEGINNING_DATA_ACQUISTION_UUID
-    ] + datetime.timedelta(seconds=start_timepoint / int(1e6))
+    ] + datetime.timedelta(seconds=start_timepoint / MICRO_TO_BASE_CONVERSION)
     assert this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == expected_timestamp.strftime(
         "%Y-%m-%d %H:%M:%S.%f"
     )
@@ -193,7 +194,9 @@ def test_FileWriterProcess_process_next_data_packet__writes_data_if_the_timestam
 
     expected_timestamp = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
         UTC_BEGINNING_DATA_ACQUISTION_UUID
-    ] + datetime.timedelta(seconds=(start_recording_command["timepoint_to_begin_recording_at"]) / int(1e6))
+    ] + datetime.timedelta(
+        seconds=(start_recording_command["timepoint_to_begin_recording_at"]) / MICRO_TO_BASE_CONVERSION
+    )
 
     this_file = open_the_generic_h5_file(file_dir, beta_version=2)
     assert this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == expected_timestamp.strftime(
@@ -299,7 +302,9 @@ def test_FileWriterProcess_process_next_data_packet__writes_data_for_two_packets
     this_file = open_the_generic_h5_file(file_dir, beta_version=2)
     expected_timestamp = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
         UTC_BEGINNING_DATA_ACQUISTION_UUID
-    ] + datetime.timedelta(seconds=(start_recording_command["timepoint_to_begin_recording_at"]) / int(1e6))
+    ] + datetime.timedelta(
+        seconds=(start_recording_command["timepoint_to_begin_recording_at"]) / MICRO_TO_BASE_CONVERSION
+    )
     assert this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == expected_timestamp.strftime(
         "%Y-%m-%d %H:%M:%S.%f"
     )

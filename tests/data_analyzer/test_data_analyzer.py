@@ -8,6 +8,7 @@ from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import DataAnalyzerProcess
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
+from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import UnrecognizedCommandToInstrumentError
 from mantarray_desktop_app import UnrecognizedCommTypeFromMainToDataAnalyzerError
 from mantarray_waveform_analysis import Pipeline
@@ -295,3 +296,19 @@ def test_DataAnalyzerProcess__processes_change_magnetometer_config_command(
     assert da_process.get_active_wells() == expected_wells
     expected_buffer_size = MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS * int(1e6 / expected_sampling_period)
     assert da_process.get_buffer_size() == expected_buffer_size
+
+
+def test_DataAnalyzerProcess__reinits_streams_upon_receiving_stop_managed_acquisition_command(
+    four_board_analyzer_process, mocker
+):
+    p, _, from_main_queue, _, _ = four_board_analyzer_process
+
+    spied_init_streams = mocker.spy(p, "init_streams")
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        STOP_MANAGED_ACQUISITION_COMMUNICATION,
+        from_main_queue,
+    )
+    invoke_process_run_and_check_errors(p)
+
+    spied_init_streams.assert_called_once_with()

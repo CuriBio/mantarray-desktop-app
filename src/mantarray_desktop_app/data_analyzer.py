@@ -28,15 +28,13 @@ from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
 from streamz import Stream
 
-from .constants import ADC_GAIN
 from .constants import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from .constants import CONSTRUCT_SENSORS_PER_REF_SENSOR
 from .constants import DATA_ANALYZER_BETA_1_BUFFER_SIZE
 from .constants import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
-from .constants import MILLIVOLTS_PER_VOLT
+from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from .constants import REF_INDEX_TO_24_WELL_INDEX
-from .constants import REFERENCE_VOLTAGE
 from .exceptions import UnrecognizedCommandToInstrumentError
 from .exceptions import UnrecognizedCommTypeFromMainToDataAnalyzerError
 from .utils import get_active_wells_from_config
@@ -48,19 +46,13 @@ PIPELINE_TEMPLATE = PipelineTemplate(
 )
 
 
-def convert_24_bit_codes_to_voltage(codes: NDArray[int]) -> NDArray[float]:
-    """Convert 'signed' 24-bit values from an ADC to measured voltage."""
-    voltages = codes.astype(np.float32) * 2 ** -23 * (REFERENCE_VOLTAGE / ADC_GAIN) * MILLIVOLTS_PER_VOLT
-    return voltages
-
-
 def get_pipeline_analysis(data_buf: List[List[int]]) -> Dict[Any, Any]:
     data_buf_arr = np.array(data_buf, dtype=np.int64)
     pipeline = PIPELINE_TEMPLATE.create_pipeline()
     # Tanner (7/14/21): reference data is currently unused by waveform analysis package, so sending zero array instead
     pipeline.load_raw_gmr_data(data_buf_arr, np.zeros(data_buf_arr.shape))
     try:
-        return pipeline.get_displacement_data_metrics(metrics_to_create=[AMPLITUDE_UUID, TWITCH_FREQUENCY_UUID])[0]  # type: ignore
+        return pipeline.get_force_data_metrics(metrics_to_create=[AMPLITUDE_UUID, TWITCH_FREQUENCY_UUID])[0]  # type: ignore
     except PeakDetectionError:
         # Tanner (7/14/21): this dict will be filtered out by downstream elements of analysis stream
         return {-1: None}
@@ -204,6 +196,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                         "construct_data": None,
                         "ref_data": None,
                     }
+                self.init_streams()
             elif communication["command"] == "change_magnetometer_config":
                 if not self._beta_2_mode:
                     raise NotImplementedError("Beta 1 device does not have a magnetometer config")
@@ -235,7 +228,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             for key, well_dict in data_dict.items():
                 if not isinstance(key, int):
                     continue
-                # TODO Tanner (7/13/21): need to figure out what exactly to send to the frontend. Might be best to just pick one magnetometer channel to send
+                # TODO Tanner (7/13/21): make sure channel 0 is always enabled and explicitly only send that
                 # For now, this is just taking the first channel of data present and pushing it through the data analysis stream. time_offsets are the first key, so channel keys start at idx 1
                 first_channel_id = list(well_dict.keys())[1]
                 first_channel_data = [
@@ -345,13 +338,13 @@ class DataAnalyzerProcess(InfiniteProcess):
                 np.array(self._data_buffer[well_index]["construct_data"], dtype=np.int32),
                 np.array(self._data_buffer[well_index]["ref_data"], dtype=np.int32),
             )
-            compressed_data = pipeline.get_compressed_displacement()
+            compressed_data = pipeline.get_compressed_force()
             analysis_dur = time.perf_counter() - start
             analysis_durations.append(analysis_dur)
 
             basic_waveform_data_points[well_index] = {
                 "x_data_points": compressed_data[0].tolist(),
-                "y_data_points": (compressed_data[1] * MILLIVOLTS_PER_VOLT).tolist(),
+                "y_data_points": (compressed_data[1] * MICRO_TO_BASE_CONVERSION).tolist(),
             }  # Tanner (4/23/20): json cannot by default serialize numpy arrays, so we must convert to a list
             if earliest_timepoint is None or compressed_data[0][0] < earliest_timepoint:
                 # Tanner (4/23/20): json cannot by default serialize type numpy types, so we must use the item as native type
@@ -443,6 +436,9 @@ class DataAnalyzerProcess(InfiniteProcess):
             }
             for twitch_metric_dict in per_twitch_dict.values():
                 for metric_id, metric_val in twitch_metric_dict.items():
+                    if metric_id == AMPLITUDE_UUID:
+                        # convert force amplitude from Newtons to micro Newtons
+                        metric_val *= MICRO_TO_BASE_CONVERSION
                     outgoing_metrics[well_idx][str(metric_id)].append(metric_val)
 
         outgoing_metrics_json = json.dumps(outgoing_metrics)

@@ -203,6 +203,8 @@ async function wait_for_flask_to_be_shutdown() {
 }
 
 describe("window_opening", () => {
+  // TODO Tanner (7/29/21): Add E2E test for heatmap once the page is styled correctly
+
   afterAll(() => {
     console.log("at end of test suite");
   });

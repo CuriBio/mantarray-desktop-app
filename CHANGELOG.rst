@@ -7,15 +7,18 @@ Changelog for Mantarray Desktop App
 
 - Added Gen 1 Heat Map.
 - Added automatic updating.
-- Updated Live View to display waveform displacement in units of meters.
+- Fixed issue with min values >= 10 not being allowed with Y-axis absolute zoom.
+- Fixed issue with waveforms eventually lagging behind and falling off screen in Beta 1 simulation mode.
+- Updated Live View to display waveform displacement in units of µN.
 - Updated data stream buffering in order remove most of the 14 second lag between data capture on instrument
-  and display in app.
+  and display in app. This fix also speeds up the time it takes to start Live View.
+- Updated minor styling features.
 
 
 0.4.6 (2021-07-08)
 ------------------
 
-- Updated Y-axis zoom features.
+- Updated existing Y-axis zoom and added absolute zoom.
 
 
 0.4.5 (2021-04-13)
@@ -27,14 +30,14 @@ Changelog for Mantarray Desktop App
 0.4.4 (2021-04-02)
 ------------------
 
-- Added fix to catch up playback if rendering is lagging
+- Added fix to catch up playback if rendering is lagging.
 
 
 0.4.3 (2021-03-30)
 ------------------
 
-- Added logging for frontend user interface
-- Fixed performance tracking issues for backend server logging
+- Added logging for frontend user interface.
+- Fixed performance tracking issues for backend server logging.
 
 
 0.4.2 (2021-01-17)
@@ -47,7 +50,8 @@ Changelog for Mantarray Desktop App
   - Log file path in command line args.
 
 - Changed SHA512 output format from raw bytes to a hex value.
-- Brought in v0.1.12 of frontend component library to patch issue of potentially different states between frontend and backend after initiating a state change from the GUI.
+- Brought in v0.1.12 of frontend component library to patch issue of potentially different states between
+  frontend and backend after initiating a state change from the GUI.
 - Trimmed any \x00 characters off of the end of the barcode before passing it to ProcessMonitor.
 
 

@@ -17,7 +17,6 @@ from xem_wrapper import FrontPanelSimulator
 from xem_wrapper import OpalKellyBoardNotInitializedError
 
 from .constants import BARCODE_SCANNER_TOP_WIRE_OUT_ADDRESS
-from .constants import FIFO_READ_PRODUCER_CYCLES_PER_ITERATION
 from .constants import FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
 from .constants import FIRMWARE_VERSION_WIRE_OUT_ADDRESS
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
@@ -165,7 +164,7 @@ class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
                 num_words += (
                     DATA_FRAME_SIZE_WORDS
                     * DATA_FRAMES_PER_ROUND_ROBIN
-                    * FIFO_READ_PRODUCER_CYCLES_PER_ITERATION
+                    * 20  # Tanner (7/25/21): this value is no longer accurate, but is only used by ok_comm for logging purposes
                 )
                 temp_queue.put_nowait(iter_data)
 

@@ -140,7 +140,7 @@ def test_get_pipeline_analysis__returns_error_dict_when_peak_detection_error_occ
     assert actual == {-1: None}
 
 
-def test_get_pipeline_analysis__returns_displacement_metrics_from_given_beta_1_data(mantarray_mc_simulator):
+def test_get_pipeline_analysis__returns_force_metrics_from_given_beta_1_data(mantarray_mc_simulator):
     # TODO Tanner (7/14/21): after waveform-analysis update make sure to add this same test for beta 2 data
     # Tanner (7/12/21): This test is "True by definition", but can't think of a better way to test waveform analysis
     test_y_data = (
@@ -154,7 +154,7 @@ def test_get_pipeline_analysis__returns_displacement_metrics_from_given_beta_1_d
 
     pipeline = PIPELINE_TEMPLATE.create_pipeline()
     pipeline.load_raw_gmr_data(test_data_arr, np.zeros(test_data_arr.shape))
-    expected_metrics = pipeline.get_displacement_data_metrics(
+    expected_metrics = pipeline.get_force_data_metrics(
         metrics_to_create=[AMPLITUDE_UUID, TWITCH_FREQUENCY_UUID]
     )[0]
 
@@ -473,7 +473,7 @@ def test_DataAnalyzerProcess__only_dumps_new_twitch_metrics__with_beta_2_data(
             assert len(metric_list) == 1, f"Well: {well_idx}, Metric ID: {metric_id}"
 
 
-def test_DataAnalyzerProcess__data_analysis_stream_can_be_reconfigured_in_beta_2_mode(
+def test_DataAnalyzerProcess__data_analysis_stream_is_reconfigured_in_beta_2_mode_upon_receiving_change_magnetometer_config_command(
     four_board_analyzer_process_beta_2_mode, mantarray_mc_simulator, mocker
 ):
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]

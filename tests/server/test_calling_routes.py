@@ -25,7 +25,6 @@ from ..fixtures_server import fixture_client_and_server_thread_and_shared_values
 from ..fixtures_server import fixture_generic_beta_1_start_recording_info_in_shared_dict
 from ..fixtures_server import fixture_server_thread
 from ..fixtures_server import fixture_test_client
-from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 __fixtures__ = [
     fixture_client_and_server_thread_and_shared_values,
@@ -178,68 +177,6 @@ def test_dev_begin_hardware_script__returns_correct_response(test_client):
 def test_dev_end_hardware_script__returns_correct_response(test_client):
     response = test_client.get("/development/end_hardware_script")
     assert response.status_code == 200
-
-
-def test_send_single_get_available_data_command__returns_correct_error_code_when_no_data_available(
-    client_and_server_thread_and_shared_values,
-):
-    test_client, _, _ = client_and_server_thread_and_shared_values
-
-    response = test_client.get("/get_available_data")
-    assert response.status_code == 204
-
-
-def test_send_single_get_available_data_command__gets_item_from_data_out_queue_when_data_is_available(
-    client_and_server_thread_and_shared_values,
-):
-    test_client, server_info, _ = client_and_server_thread_and_shared_values
-    test_server, _, _ = server_info
-    expected_response = {
-        "waveform_data": {
-            "basic_data": [100, 200, 300],
-        }
-    }
-
-    data_to_server_queue = test_server.get_data_queue_to_server()
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        json.dumps(expected_response), data_to_server_queue
-    )
-
-    response = test_client.get("/get_available_data")
-    assert response.status_code == 200
-
-    actual = response.get_json()
-    assert actual == expected_response
-
-
-def test_server__handles_logging_after_request_when_get_available_data_is_called(
-    client_and_server_thread_and_shared_values, mocker
-):
-    test_client, server_info, _ = client_and_server_thread_and_shared_values
-    test_server, _, _ = server_info
-
-    spied_logger = mocker.spy(server.logger, "info")
-
-    data_to_server_queue = test_server.get_data_queue_to_server()
-
-    test_data = json.dumps(
-        {
-            "waveform_data": {
-                "basic_data": [100, 200, 300],
-                "data_metrics": "dummy_metrics",
-            }
-        }
-    )
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data, data_to_server_queue)
-
-    response = test_client.get("/get_available_data")
-    assert response.status_code == 200
-    assert "basic_data" not in spied_logger.call_args[0][0]
-    assert "waveform_data" in spied_logger.call_args[0][0]
-    assert "data_metrics" in spied_logger.call_args[0][0]
-
-    response = test_client.get("/get_available_data")
-    assert response.status_code == 204
 
 
 @pytest.mark.parametrize(

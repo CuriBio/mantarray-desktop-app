@@ -2,24 +2,20 @@
 import queue
 import struct
 import threading
-import time
 
 from mantarray_desktop_app import ADC_CH_TO_24_WELL_INDEX
 from mantarray_desktop_app import DATA_FRAME_PERIOD
-from mantarray_desktop_app import FIFO_READ_PRODUCER_CYCLES_PER_ITERATION
+from mantarray_desktop_app import fifo_read_producer
 from mantarray_desktop_app import FIFO_READ_PRODUCER_DATA_OFFSET
 from mantarray_desktop_app import FIFO_READ_PRODUCER_REF_AMPLITUDE
 from mantarray_desktop_app import FIFO_READ_PRODUCER_SAWTOOTH_PERIOD
-from mantarray_desktop_app import FIFO_READ_PRODUCER_SLEEP_DURATION
 from mantarray_desktop_app import FIFO_READ_PRODUCER_WELL_AMPLITUDE
 from mantarray_desktop_app import FIFOReadProducer
 from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
 import pytest
-from pytest import approx
 from scipy import signal
-import stdlib_utils
 from stdlib_utils import invoke_process_run_and_check_errors
 from xem_wrapper import build_header_magic_number_bytes
 from xem_wrapper import HEADER_MAGIC_NUMBER
@@ -37,54 +33,45 @@ def test_FIFOReadProducer__super_is_called_during_init(mocker):
     assert mocked_super_init.call_count == 1
 
 
-def test_FIFOReadProducer__sleeps_for_correct_duration_every_cycle(mocker):
-    test_iteration_time_ns = 10
-    expected_sleep_time = FIFO_READ_PRODUCER_SLEEP_DURATION - test_iteration_time_ns / 10 ** 9
-
-    mocked_sleep = mocker.patch.object(
-        time, "sleep", autospec=True
-    )  # Tanner (11/25/20): mock instead of spy so test runs faster
-    mocker.patch.object(
-        stdlib_utils.parallelism_framework,
-        "calculate_iteration_time_ns",
-        autospec=True,
-        return_value=test_iteration_time_ns,
-    )
-
-    data_out_queue = queue.Queue()
-    error_queue = queue.Queue()
-    producer_thread = FIFOReadProducer(data_out_queue, error_queue, threading.Lock())
-
-    # Tanner (4/30/20): num_iterations=2 so that we check for idle time once. There is no check on the final iteration.
-    invoke_process_run_and_check_errors(producer_thread, num_iterations=2)
-
-    mocked_sleep_first_call = mocked_sleep.call_args_list[0]
-    assert mocked_sleep_first_call[0][0] == approx(expected_sleep_time)
-
-    # clean up the queues to avoid BrokenPipe errors
-    producer_thread.hard_stop()
-
-
-def test_FIFOReadProducer__increments_sample_idx_by_correct_number_of_round_robin_periods_each_iteration():
+def test_FIFOReadProducer__increments_sample_idx_by_correct_number_of_round_robin_periods_each_iteration(
+    mocker,
+):
     data_out_queue = queue.Queue()
     error_queue = queue.Queue()
     producer_thread = FIFOReadProducer(data_out_queue, error_queue, threading.Lock())
     assert producer_thread._sample_index == 0  # pylint: disable=protected-access
+
+    expected_num_cycles = 21
+    expected_cms_of_data = expected_num_cycles * ROUND_ROBIN_PERIOD
+    mocker.patch.object(
+        fifo_read_producer, "_get_cms_since_last_data_packet", side_effect=[expected_cms_of_data]
+    )
+
     invoke_process_run_and_check_errors(producer_thread)
     assert (
         producer_thread._sample_index * TIMESTEP_CONVERSION_FACTOR  # pylint: disable=protected-access
-        == FIFO_READ_PRODUCER_CYCLES_PER_ITERATION * ROUND_ROBIN_PERIOD
+        == expected_cms_of_data
     )
 
     # clean up the queues to avoid BrokenPipe errors
     producer_thread.hard_stop()
 
 
-def test_FIFOReadProducer__puts_sawtooth_waveform_in_data_out_queue_each_iteration_with_increasing_sample_idx():
-    expected_read_1 = produce_data(FIFO_READ_PRODUCER_CYCLES_PER_ITERATION, 0)
+def test_FIFOReadProducer__puts_sawtooth_waveform_in_data_out_queue_each_iteration_with_increasing_sample_idx(
+    mocker,
+):
+    expected_num_cycles_1 = 30
+    expected_num_cycles_2 = 17
+    mocker.patch.object(
+        fifo_read_producer,
+        "_get_cms_since_last_data_packet",
+        side_effect=[expected_num_cycles_1 * ROUND_ROBIN_PERIOD, expected_num_cycles_2 * ROUND_ROBIN_PERIOD],
+    )
+
+    expected_read_1 = produce_data(expected_num_cycles_1, 0)
     expected_read_2 = produce_data(
-        FIFO_READ_PRODUCER_CYCLES_PER_ITERATION,
-        (FIFO_READ_PRODUCER_CYCLES_PER_ITERATION * ROUND_ROBIN_PERIOD) // TIMESTEP_CONVERSION_FACTOR,
+        expected_num_cycles_2,
+        (expected_num_cycles_1 * ROUND_ROBIN_PERIOD) // TIMESTEP_CONVERSION_FACTOR,
     )
 
     data_out_queue = queue.Queue()
@@ -108,12 +95,12 @@ def test_FIFOReadProducer__puts_sawtooth_waveform_in_data_out_queue_each_iterati
         (0, 0, "returns correct bytearray given 0 cycles starting at sample index 0"),
         (1, 0, "returns correct bytearray given 1 cycle starting at sample index 0"),
         (
-            FIFO_READ_PRODUCER_CYCLES_PER_ITERATION,
+            20,
             0,
             "returns correct bytearray given 20 cycles starting at sample index 0",
         ),
         (
-            FIFO_READ_PRODUCER_CYCLES_PER_ITERATION,
+            20,
             20000,
             "returns correct bytearray given 20 cycles starting at sample index 20000",
         ),
@@ -150,7 +137,7 @@ def test_produce_data__returns_correct_bytearray_with_given_num_cycles_and_start
                         t / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5
                     )
                 else:
-                    scaling_factor = (ADC_CH_TO_24_WELL_INDEX[adc_num][adc_ch_num] + 1) / 24 * 6
+                    scaling_factor = ADC_CH_TO_24_WELL_INDEX[adc_num][adc_ch_num] + 1
                     amplitude = FIFO_READ_PRODUCER_WELL_AMPLITUDE * scaling_factor
                     data_value = FIFO_READ_PRODUCER_DATA_OFFSET + amplitude * signal.sawtooth(
                         t / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5
