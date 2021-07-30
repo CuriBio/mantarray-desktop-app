@@ -58,7 +58,15 @@ import {
 } from "@curi-bio/mantarray-frontend-components";
 
 // const pkginfo = require('pkginfo')(module, 'version');
-const electron_app = require("electron").remote.app;
+const dummy_electron_app = {
+  getVersion() {
+    return "0.0.0";
+  },
+};
+const electron_app =
+  process.env.NODE_ENV === "test"
+    ? dummy_electron_app
+    : require("electron").remote.app;
 export default {
   components: {
     PlateNavigator,
