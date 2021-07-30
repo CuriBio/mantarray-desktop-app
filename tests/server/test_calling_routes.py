@@ -362,7 +362,12 @@ def test_start_recording__returns_error_code_and_message_if_barcode_is_not_given
         (
             "MA1234567890",
             "Barcode exceeds max length",
-            "returns error message when barcode is too long",
+            "returns error message when pre-ML barcode is too long",
+        ),
+        (
+            "",
+            "Barcode does not reach min length",
+            "returns error message when barcode is empty",
         ),
         (
             "MA1234567",
@@ -424,6 +429,47 @@ def test_start_recording__returns_error_code_and_message_if_barcode_is_not_given
             "Barcode contains nom-numeric string after Julian date: '00A'",
             "returns error message when barcode ending is non-numeric",
         ),
+        # new barcode format
+        (
+            "ML12345678901",
+            "Barcode is incorrect length",
+            "returns error message when ML barcode is too long",
+        ),
+        (
+            "ML123456789",
+            "Barcode is incorrect length",
+            "returns error message when ML barcode is too short",
+        ),
+        (
+            "ML2021$72144",
+            "Barcode contains invalid character: '$'",
+            "returns error message when '$' is present in ML barcode",
+        ),
+        (
+            "ML2020172144",
+            "Barcode contains invalid year: '2020'",
+            "returns error message when ML barcode contains invalid year",
+        ),
+        (
+            "ML2021000144",
+            "Barcode contains invalid Julian date: '000'",
+            "returns error message when ML barcode contains Julian date: '000'",
+        ),
+        (
+            "ML2021367144",
+            "Barcode contains invalid Julian date: '367'",
+            "returns error message when ML barcode contains Julian date: '367'",
+        ),
+        (
+            "ML2021172002",
+            "Barcode contains invalid kit ID: '002'",
+            "returns error message when ML barcode contains kit ID: '002'",
+        ),
+        (
+            "ML2021172003",
+            "Barcode contains invalid kit ID: '003'",
+            "returns error message when ML barcode contains kit ID: '003'",
+        ),
     ],
 )
 def test_start_recording__returns_error_code_and_message_if_barcode_is_invalid(
@@ -476,9 +522,36 @@ def test_start_recording__allows_years_other_than_20_in_barcode(
             "MB200440001",
             "allows header 'MB'",
         ),
+        (
+            "ML2021172144",
+            "allows header 'ML'",
+        ),
     ],
 )
 def test_start_recording__allows_correct_barcode_headers(
+    test_barcode,
+    test_description,
+    test_client,
+    generic_beta_1_start_recording_info_in_shared_dict,
+):
+    response = test_client.get(f"/start_recording?barcode={test_barcode}")
+    assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "test_barcode,test_description",
+    [
+        (
+            "ML2021172004",
+            "allows kit ID '004'",
+        ),
+        (
+            "ML2021172001",
+            "allows kit ID '001'",
+        ),
+    ],
+)
+def test_start_recording__allows_correct_kit_ids_in_ML_barcodes(
     test_barcode,
     test_description,
     test_client,

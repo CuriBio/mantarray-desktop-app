@@ -146,6 +146,28 @@ def get_current_software_version() -> str:
 # Tanner (12/30/20): Need to support this function until barcodes are no longer accepted in /start_recording route. Creating a wrapper function `check_barcode_is_valid` to make the transition easier once this function is removed
 def check_barcode_for_errors(barcode: str) -> str:
     """Return error message if barcode contains an error."""
+    return _check_new_barcode(barcode) if barcode[:2] == "ML" else _check_old_barcode(barcode)
+
+
+def _check_new_barcode(barcode: str) -> str:
+    """Check new barcode format (ML)."""
+    if len(barcode) != 12:
+        return "Barcode is incorrect length"
+    for char in barcode[2:]:
+        if not char.isnumeric():
+            return f"Barcode contains invalid character: '{char}'"
+    if int(barcode[2:6]) < 2021:
+        return f"Barcode contains invalid year: '{barcode[2:6]}'"
+    if int(barcode[6:9]) < 1 or int(barcode[6:9]) > 366:
+        return f"Barcode contains invalid Julian date: '{barcode[6:9]}'"
+    kit_id_remainder = int(barcode[9:]) % 4
+    if kit_id_remainder not in (0, 1):
+        return f"Barcode contains invalid kit ID: '{barcode[9:]}'"
+    return ""
+
+
+def _check_old_barcode(barcode: str) -> str:
+    """Check old barcode format."""
     if len(barcode) > 11:
         return "Barcode exceeds max length"
     if len(barcode) < 10:

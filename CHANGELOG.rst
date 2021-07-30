@@ -2,11 +2,12 @@ Changelog for Mantarray Desktop App
 ===================================
 
 
-0.5.0 (unreleased)
+0.5.0 (2021-08-02)
 ------------------
 
 - Added Gen 1 Heat Map.
 - Added automatic updating.
+- Added support for "ML" barcode format.
 - Fixed issue with min values >= 10 not being allowed with Y-axis absolute zoom.
 - Fixed issue with waveforms eventually lagging behind and falling off screen in Beta 1 simulation mode.
 - Updated Live View to display waveform displacement in units of µN.
