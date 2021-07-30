@@ -815,3 +815,25 @@ def test_start_managed_acquisition__returns_error_code_if_called_in_beta_2_mode_
     response = test_client.get("/start_managed_acquisition")
     assert response.status_code == 406
     assert response.status.endswith("Magnetometer Configuration has not been set yet") is True
+
+
+def test_set_stim_status__returns_error_code_if_called_in_beta_1_mode(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = False
+
+    response = test_client.post("/set_stim_status?running=true")
+    assert response.status_code == 403
+    assert response.status.endswith("Route cannot be called in beta 1 mode") is True
+
+
+def test_set_stim_status__returns_error_code_and_message_if_running_arg_is_not_given(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+
+    response = test_client.post("/set_stim_status")
+    assert response.status_code == 400
+    assert response.status.endswith("Request missing 'running' parameter") is True

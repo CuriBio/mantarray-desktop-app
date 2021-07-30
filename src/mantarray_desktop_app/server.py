@@ -9,11 +9,13 @@ Custom HTTP Error Codes:
 * 400 - Call to /insert_xem_command_into_queue/set_mantarray_serial_number with invalid serial_number parameter
 * 400 - Call to /set_magnetometer_config with invalid configuration dict
 * 400 - Call to /set_magnetometer_config with invalid or missing sampling period
+* 400 - Call to /set_stim_status with missing 'running' status
 * 403 - Call to /start_recording with is_hardware_test_recording=False after calling route with is_hardware_test_recording=True (default value)
 * 403 - Call to any /insert_xem_command_into_queue/* route when in Beta 2 mode
 * 403 - Call to /boot_up when in Beta 2 mode
 * 403 - Call to /set_magnetometer_config when in Beta 1 mode
 * 403 - Call to /set_magnetometer_config while data is streaming in Beta 2 mode
+* 403 - Call to /set_stim_status when in Beta 1 mode
 * 403 - Call to /set_magnetometer_config before instrument finishes initializing in Beta 2 mode
 * 404 - Route not implemented
 * 406 - Call to /start_managed_acquisition before magnetometer configuration is set
@@ -430,6 +432,7 @@ def _is_data_streaming() -> bool:
     return current_system_status in (BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE, RECORDING_STATE)
 
 
+<<<<<<< HEAD
 def _is_instrument_initialized() -> bool:
     current_system_status = _get_values_from_process_monitor()["system_status"]
     return current_system_status not in (
@@ -437,6 +440,31 @@ def _is_instrument_initialized() -> bool:
         SERVER_READY_STATE,
         INSTRUMENT_INITIALIZING_STATE,
     )
+=======
+@flask_app.route("/set_stim_status", methods=["POST"])
+def set_stim_status() -> Response:
+    """Begin stimulation on hardware.
+
+    Can be invoked by TODO curl
+    http://localhost:4567/set_stim_status?running=true
+    """
+    if not _get_values_from_process_monitor()["beta_2_mode"]:
+        return Response(status="403 Route cannot be called in beta 1 mode")
+
+    try:
+        status = request.args["running"] in ("true", "True")
+    except KeyError:
+        return Response(status="400 Request missing 'running' parameter")
+
+    response = queue_command_to_main(
+        {
+            "communication_type": "stimulation",
+            "command": "set_stim_status",
+            "status": status,
+        }
+    )
+    return response
+>>>>>>> added /set_stim_status
 
 
 @flask_app.route("/start_recording", methods=["GET"])

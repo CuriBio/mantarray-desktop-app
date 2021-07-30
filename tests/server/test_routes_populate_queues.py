@@ -1135,3 +1135,33 @@ def test_shutdown__populates_queue_with_request_to_soft_stop_then_request_to_har
     assert communication["command"] == "hard_stop"
     response_json = response.get_json()
     assert response_json == communication
+
+
+@pytest.mark.parametrize(
+    "test_status,test_description",
+    [
+        ("true", "populates correctly with true"),
+        ("True", "populates correctly with True"),
+        ("false", "populates correctly with false"),
+        ("False", "populates correctly with False"),
+    ],
+)
+def test_set_stim_status__populates_queue_to_process_monitor_with_new_stim_status(
+    test_status,
+    test_description,
+    test_process_manager_beta_2_mode,
+    test_client,
+):
+    response = test_client.post(f"/set_stim_status?running={test_status}")
+    assert response.status_code == 200
+
+    expected_status_bool = test_status in ("true", "True")
+
+    comm_queue = (
+        test_process_manager_beta_2_mode.queue_container().get_communication_queue_from_server_to_main()
+    )
+    confirm_queue_is_eventually_of_size(comm_queue, 1)
+    communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["communication_type"] == "stimulation"
+    assert communication["command"] == "set_stim_status"
+    assert communication["status"] is expected_status_bool
