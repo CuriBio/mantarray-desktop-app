@@ -196,7 +196,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                         "construct_data": None,
                         "ref_data": None,
                     }
-                self.init_streams()  # TODO add a test for this
+                self.init_streams()
             elif communication["command"] == "change_magnetometer_config":
                 if not self._beta_2_mode:
                     raise NotImplementedError("Beta 1 device does not have a magnetometer config")
@@ -228,7 +228,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             for key, well_dict in data_dict.items():
                 if not isinstance(key, int):
                     continue
-                # TODO Tanner (7/13/21): need to figure out what exactly to send to the frontend. Might be best to just pick one magnetometer channel to send
+                # TODO Tanner (7/13/21): make sure channel 0 is always enabled and explicitly only send that
                 # For now, this is just taking the first channel of data present and pushing it through the data analysis stream. time_offsets are the first key, so channel keys start at idx 1
                 first_channel_id = list(well_dict.keys())[1]
                 first_channel_data = [
@@ -438,7 +438,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                 for metric_id, metric_val in twitch_metric_dict.items():
                     if metric_id == AMPLITUDE_UUID:
                         # convert force amplitude from Newtons to micro Newtons
-                        metric_val *= MICRO_TO_BASE_CONVERSION  # TODO make this a constant
+                        metric_val *= MICRO_TO_BASE_CONVERSION
                     outgoing_metrics[well_idx][str(metric_id)].append(metric_val)
 
         outgoing_metrics_json = json.dumps(outgoing_metrics)
