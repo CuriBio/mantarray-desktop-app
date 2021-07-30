@@ -1,18 +1,18 @@
 <template>
   <div>
     <div class="div__sidebar">
-      <div class="div__sidebar-page-divider"></div>
+      <div class="div__sidebar-page-divider" />
       <div class="div__plate-barcode-container">
-        <PlateBarcode></PlateBarcode>
+        <PlateBarcode />
       </div>
       <div class="div__plate-navigator-container">
-        <PlateNavigator></PlateNavigator>
+        <PlateNavigator />
       </div>
       <div class="div__status-bar-container">
-        <StatusBar></StatusBar>
+        <StatusBar />
       </div>
       <div class="div__player-controls-container">
-        <DesktopPlayerControls></DesktopPlayerControls>
+        <DesktopPlayerControls />
       </div>
       <span class="span__screen-view-options-text">Screen View Options</span>
       <div class="div__screen-view-container">
@@ -29,7 +29,7 @@
         </div>
       </div>
       <div class="div__simulation-mode-container">
-        <SimulationMode></SimulationMode>
+        <SimulationMode />
       </div>
       <span class="span__copyright"
         >&copy;{{ current_year }} Curi Bio. All Rights Reserved. Version:
@@ -38,7 +38,7 @@
     </div>
     <div class="div__top-bar-above-waveforms">
       <div class="div__recording-time-container">
-        <RecordingTime></RecordingTime>
+        <RecordingTime />
       </div>
     </div>
 

@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="div__y-axis-controls-container" @click="fix_y_axis_labels">
-      <YAxisControls :height="'885px'"></YAxisControls>
+      <YAxisControls :height="'885px'" />
     </div>
     <div class="div__grid-of-waveforms">
       <div
@@ -20,11 +20,11 @@
           :x_label="'Time (seconds)'"
           :y_label="'Absolute Force (µN)'"
           :display_data_prior_to_current_timepoint="true"
-        ></ContinuousWaveform>
+        />
       </div>
     </div>
     <div class="div__x-axis-controls-container">
-      <XAxisControls></XAxisControls>
+      <XAxisControls />
     </div>
   </div>
 </template>
