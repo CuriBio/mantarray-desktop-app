@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div class="div__y-axis-controls-container" @click="fix_y_axis_labels">
+    <div class="div__y-axis-controls-container">
       <YAxisControls :height="'885px'" />
     </div>
     <div class="div__grid-of-waveforms">
