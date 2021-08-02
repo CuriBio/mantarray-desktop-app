@@ -1033,6 +1033,8 @@ def stop_server() -> str:
 @flask_app.route("/shutdown", methods=["GET"])
 def shutdown() -> Response:
     # curl http://localhost:4567/shutdown
+
+    # TODO Tanner (8/2/21): consider removing the soft stop here
     queue_command_to_main({"communication_type": "shutdown", "command": "soft_stop"})
     response = queue_command_to_main({"communication_type": "shutdown", "command": "hard_stop"})
     return response
