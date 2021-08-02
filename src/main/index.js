@@ -1,6 +1,6 @@
 /* globals INCLUDE_RESOURCES_PATH */
 import { app } from "electron";
-const autoUpdater = require("electron-updater"); // eslint-disable-line no-unused-vars
+const { autoUpdater } = require("electron-updater");
 const log = require("electron-log");
 const path = require("path");
 const features = require("./features.json");

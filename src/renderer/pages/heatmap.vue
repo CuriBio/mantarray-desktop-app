@@ -1,6 +1,6 @@
 <template>
   <div class="div__heatmap-container">
-    <HeatMap></HeatMap>
+    <HeatMap />
   </div>
 </template>
 
