@@ -136,16 +136,15 @@ body {
 .div__nuxt-page {
   position: absolute;
   top: 0px;
-  /* TODO Tanner (7/28/21): switch this and top bar to left: 289px once heatmap is resized */
-  left: 288px;
+  left: 289px;
 }
 
 .div__top-bar-above-waveforms {
   position: absolute;
-  left: 288px;
+  left: 289px;
   background-color: #111111;
   height: 45px;
-  width: calc(100vw - 288px);
+  width: calc(100vw - 289px);
 }
 .div__recording-time-container {
   float: right;
@@ -161,8 +160,6 @@ body {
   left: 0px;
   height: 930px;
   width: 287px;
-  /* TODO Tanner (7/28/21): remove overflow hiding once all sidebar components are resized to width: 287px */
-  overflow: hidden;
 }
 .div__sidebar-page-divider {
   position: absolute;
