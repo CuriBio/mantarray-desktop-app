@@ -29,6 +29,7 @@ from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
+from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import ADC_REF_OFFSET_UUID
 from mantarray_file_manager import ADC_TISSUE_OFFSET_UUID
@@ -649,7 +650,7 @@ def test_FileWriterProcess__closes_the_files_and_adds_crc32_checksum_and_sends_c
     assert "_B2" in second_comm_to_main["file_path"]
 
 
-def test_FileWriterProcess__begins_building_data_buffer_when_managed_acquisition_starts(
+def test_FileWriterProcess__adds_incoming_data_to_internal_buffer(
     four_board_file_writer_process,
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
@@ -667,6 +668,44 @@ def test_FileWriterProcess__begins_building_data_buffer_when_managed_acquisition
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=expected_num_items)
     actual_num_items = len(file_writer_process._data_packet_buffers[0])  # pylint: disable=protected-access
     assert actual_num_items == expected_num_items
+
+
+def test_FileWriterProcess__does_not_add_incoming_beta_2_data_to_internal_buffer_if_after_stop_timepoint(
+    four_board_file_writer_process,
+):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    file_writer_process.set_beta_2_mode()
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    board_queues = four_board_file_writer_process["board_queues"]
+
+    test_data_buffer = file_writer_process._data_packet_buffers[0]  # pylint: disable=protected-access
+
+    test_num_items = 4
+    packet_len = len(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS["time_indices"])
+    for packet_num in range(test_num_items):
+        test_packet = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
+        start = packet_num * packet_len
+        test_packet["time_indices"] = np.arange(start, start + packet_len, dtype=np.uint64)
+        board_queues[0][0].put_nowait(test_packet)
+    confirm_queue_is_eventually_of_size(
+        board_queues[0][0],
+        test_num_items,
+        sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
+    )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
+    invoke_process_run_and_check_errors(file_writer_process, num_iterations=test_num_items - 1)
+    assert len(test_data_buffer) == test_num_items - 1
+
+    # send stop managed acquisition command to clear data buffer and set stop timepoint
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        STOP_MANAGED_ACQUISITION_COMMUNICATION, from_main_queue
+    )
+    invoke_process_run_and_check_errors(file_writer_process)
+    # send a data packet from the end of the stream and make sure it is not added to buffer
+    invoke_process_run_and_check_errors(file_writer_process)
+    assert len(test_data_buffer) == 0
+
+    # Tanner (6/19/21): prevent BrokenPipeErrors
+    drain_queue(board_queues[0][1])
 
 
 def test_FileWriterProcess__clears_leftover_beta_2_data_from_previous_data_stream_from_buffer_when_receiving_first_packet_of_new_stream(
@@ -771,12 +810,8 @@ def test_FileWriterProcess__clears_data_buffer_when_stop_managed_acquisition_com
     for _ in range(3):
         data_packet_buffer.append(SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0)
 
-    stop_managed_acquisition_command = {
-        "communication_type": "to_instrument",
-        "command": "stop_managed_acquisition",
-    }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        stop_managed_acquisition_command, from_main_queue
+        STOP_MANAGED_ACQUISITION_COMMUNICATION, from_main_queue
     )
     invoke_process_run_and_check_errors(file_writer_process)
 

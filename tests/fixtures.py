@@ -39,7 +39,7 @@ from stdlib_utils import resource_path
 
 PATH_TO_CURRENT_FILE = get_current_file_abs_directory()
 QUEUE_CHECK_TIMEOUT_SECONDS = 1.3  # for is_queue_eventually_of_size, is_queue_eventually_not_empty, is_queue_eventually_empty, put_object_into_queue_and_raise_error_if_eventually_still_empty, etc. # Eli (10/28/20) issue encountered where even 0.5 seconds was insufficient, so raising to 1 second # Eli (12/10/20) issue encountered where 1.1 second was not enough, so now 1.2 seconds # Eli (12/15/20): issue in test_ServerThread_start__puts_error_into_queue_if_flask_run_raises_error in Windows Github where 1.2 was not enough, so now 1.3
-GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS = 15
+GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS = 20
 
 
 def generate_board_and_error_queues(num_boards: int = 4):
@@ -97,8 +97,15 @@ def fixture_fully_running_app_from_main_entrypoint(mocker):
             kwargs={"object_access_for_testing": thread_access_inside_main},
         )
         main_thread.start()
-        time.sleep(1)  # wait for the server to initialize so that the port number could be updated
-        confirm_port_in_use(get_server_port_number(), timeout=4)  # wait for server to boot up
+        # if just testing main script, just wait for it to complete. Otherwise, wait until server is up and running
+        if "--main-script-test" in command_line_args:
+            mocked_socketio_run = mocker.patch.object(main.socketio, "run", autospec=True)
+            dict_to_yield["mocked_socketio_run"] = mocked_socketio_run
+            while main_thread.is_alive():
+                time.sleep(0.5)
+        else:
+            time.sleep(1)  # wait for the server to initialize so that the port number could be updated
+            confirm_port_in_use(get_server_port_number(), timeout=4)  # wait for server to boot up
         dict_to_yield["main_thread"] = main_thread
         dict_to_yield["mocked_configure_logging"] = mocked_configure_logging
         dict_to_yield["object_access_inside_main"] = thread_access_inside_main
@@ -108,8 +115,12 @@ def fixture_fully_running_app_from_main_entrypoint(mocker):
 
     # some tests may perform the shutdown on their own to assert things about the shutdown behavior. So only attempt shutdown if server is still running.
     if is_port_in_use(get_server_port_number()):
-        response = requests.get(f"{get_api_endpoint()}shutdown")
-        assert response.status_code == 200
+        try:
+            response = requests.get(f"{get_api_endpoint()}shutdown")
+            assert response.status_code == 200
+        except requests.exceptions.ConnectionError:
+            # Tanner (6/21/21): sometimes the server takes a few seconds to shut down, so guard against case where it shuts down before processing this request
+            pass
     dict_to_yield["main_thread"].join()
     confirm_port_available(get_server_port_number(), timeout=5)
     # clean up singletons
@@ -134,7 +145,6 @@ def fixture_test_process_manager(mocker):
 
 @pytest.fixture(scope="function", name="test_process_manager_beta_2_mode")
 def fixture_test_process_manager_beta_2_mode(mocker):
-    # TODO Tanner (4/23/21): remove this fixture once beta 1 is phased out
     with tempfile.TemporaryDirectory() as tmp_dir:
         manager = MantarrayProcessesManager(
             file_directory=tmp_dir, values_to_share_to_server={"beta_2_mode": True}

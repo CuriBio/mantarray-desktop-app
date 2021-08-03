@@ -8,6 +8,7 @@ from freezegun import freeze_time
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
+from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import process_monitor
@@ -535,19 +536,23 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     mocked_hard_stop_and_join.assert_called_once()
 
 
-@pytest.mark.timeout(13)
+@pytest.mark.timeout(15)
 @pytest.mark.slow
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_shutdown_hard_stop__by_soft_stop_then_checking_if_processes_are_stopped_for_desired_time_and_then_finally_hard_stop_and_join_all_processes(
     test_process_manager, test_monitor, mocker
 ):
     monitor_thread, _, _, _ = test_monitor
 
+    # starting server thread causes weird issues with mocked values, so mocking its start and join methods
+    server_thread = test_process_manager.get_server_thread()
+    mocker.patch.object(server_thread, "start", autospec=True)
+    mocker.patch.object(server_thread, "join", autospec=True)
+
     test_process_manager.start_processes()
 
     okc_process = test_process_manager.get_instrument_process()
     fw_process = test_process_manager.get_file_writer_process()
     da_process = test_process_manager.get_data_analyzer_process()
-    server_thread = test_process_manager.get_server_thread()
 
     spied_okc_join = mocker.spy(okc_process, "join")
     spied_fw_join = mocker.spy(fw_process, "join")
@@ -559,11 +564,11 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     spied_da_hard_stop = mocker.spy(da_process, "hard_stop")
     spied_server_hard_stop = mocker.spy(server_thread, "hard_stop")
 
+    mocked_st_is_stopped = mocker.patch.object(
+        server_thread, "is_stopped", side_effect=[False, True, True, True]
+    )
     mocked_okc_is_stopped = mocker.patch.object(
         okc_process, "is_stopped", autospec=True, side_effect=[False, True, True]
-    )
-    mocked_server_is_stopped = mocker.patch.object(
-        server_thread, "is_stopped", side_effect=[False, True, True, True]
     )
     mocked_fw_is_stopped = mocker.patch.object(
         fw_process, "is_stopped", autospec=True, side_effect=[False, True]
@@ -603,8 +608,8 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     spied_server_join.assert_called_once()
 
     assert mocked_counter.call_count == 5
+    assert mocked_st_is_stopped.call_count == 4
     assert mocked_okc_is_stopped.call_count == 3
-    assert mocked_server_is_stopped.call_count == 4
     assert mocked_fw_is_stopped.call_count == 2
     assert mocked_da_is_stopped.call_count == 1
 
@@ -656,3 +661,65 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     assert expected_fw_item in actual_log_message
     assert expected_da_item in actual_log_message
     assert expected_server_item in actual_log_message
+
+
+def test_MantarrayProcessesMonitor__logs_messages_from_server__and_redacts_mantarray_nickname(
+    mocker, test_process_manager, test_monitor
+):
+    monitor_thread, _, _, _ = test_monitor
+
+    mocked_logger = mocker.patch.object(process_monitor.logger, "info", autospec=True)
+
+    to_main_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+
+    test_nickname = "The Nautilus"
+    test_comm = {
+        "communication_type": "mantarray_naming",
+        "command": "set_mantarray_nickname",
+        "mantarray_nickname": test_nickname,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_comm, to_main_queue)
+    invoke_process_run_and_check_errors(monitor_thread)
+    confirm_queue_is_eventually_empty(to_main_queue)
+
+    expected_comm = copy.deepcopy(test_comm)
+    expected_comm["mantarray_nickname"] = "*" * len(test_nickname)
+    mocked_logger.assert_called_once_with(f"Communication from the Server: {expected_comm}")
+
+
+def test_MantarrayProcessesMonitor__passes_magnetometer_config_dict_from_server_to_mc_comm_and__data_analyzer(
+    test_process_manager, test_monitor
+):
+    monitor_thread, _, _, _ = test_monitor
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+    main_to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+    main_to_da_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
+    )
+
+    test_num_wells = 24
+    expected_sampling_period = 10000
+    expected_config_dict = {
+        "magnetometer_config": create_magnetometer_config_dict(test_num_wells),
+        "sampling_period": expected_sampling_period,
+    }
+    test_dict_from_server = {
+        "communication_type": "set_magnetometer_config",
+        "magnetometer_config_dict": expected_config_dict,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_dict_from_server, server_to_main_queue
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    confirm_queue_is_eventually_of_size(main_to_ic_queue, 1)
+    confirm_queue_is_eventually_of_size(main_to_da_queue, 1)
+
+    expected_comm = {
+        "communication_type": "to_instrument",
+        "command": "change_magnetometer_config",
+    }
+    expected_comm.update(expected_config_dict)
+    assert main_to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_comm
+    assert main_to_da_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_comm

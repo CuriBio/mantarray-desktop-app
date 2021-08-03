@@ -21,6 +21,7 @@ from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import FileWriterProcess
 from mantarray_desktop_app import MantarrayMcSimulator
+from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import RunningFIFOSimulator
@@ -125,7 +126,7 @@ GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
         UTC_BEGINNING_RECORDING_UUID: GENERIC_BASE_START_RECORDING_COMMAND[
             "metadata_to_copy_onto_main_file_attributes"
         ][UTC_BEGINNING_DATA_ACQUISTION_UUID]
-        + datetime.timedelta(seconds=(298518 * 125 / int(1e6))),
+        + datetime.timedelta(seconds=(298518 * 125 / MICRO_TO_BASE_CONVERSION)),
         MAIN_FIRMWARE_VERSION_UUID: MantarrayMcSimulator.default_firmware_version,
         MANTARRAY_SERIAL_NUMBER_UUID: MantarrayMcSimulator.default_mantarray_serial_number,
         MANTARRAY_NICKNAME_UUID: MantarrayMcSimulator.default_mantarray_nickname,

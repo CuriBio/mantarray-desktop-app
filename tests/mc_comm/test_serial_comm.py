@@ -9,6 +9,7 @@ from mantarray_desktop_app import InstrumentFatalError
 from mantarray_desktop_app import InstrumentSoftError
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_comm
+from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_FATAL_ERROR_CODE
@@ -370,7 +371,7 @@ def test_McCommunicationProcess__sends_handshake_every_5_seconds__and_includes_c
 
     expected_durs = [
         0,
-        int(1e6) * SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS,
+        MICRO_TO_BASE_CONVERSION * SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS,
     ]
     mocker.patch.object(mc_comm, "get_serial_comm_timestamp", autospec=True, side_effect=expected_durs)
     mocker.patch.object(

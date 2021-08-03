@@ -17,6 +17,7 @@ import uuid
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
+from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import InfiniteThread
 
@@ -168,12 +169,19 @@ class MantarrayProcessesMonitor(InfiniteThread):
             self._values_to_share_to_server["magnetometer_config_dict"] = communication[
                 "magnetometer_config_dict"
             ]
-            comm_to_mc_process = {
+
+            main_to_da_queue = (
+                self._process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
+            )
+
+            comm_to_subprocesses = {
                 "communication_type": "to_instrument",
                 "command": "change_magnetometer_config",
             }
-            comm_to_mc_process.update(communication["magnetometer_config_dict"])
-            self._put_communication_into_instrument_comm_queue(comm_to_mc_process)
+            comm_to_subprocesses.update(communication["magnetometer_config_dict"])
+
+            self._put_communication_into_instrument_comm_queue(comm_to_subprocesses)
+            main_to_da_queue.put_nowait(comm_to_subprocesses)
         elif communication_type == "xem_scripts":
             # Tanner (12/28/20): start_calibration is the only xem_scripts command that will come from server (called directly from /start_calibration). This comm type will be removed/replaced in beta 2 so not adding handling for unrecognized command.
             if shared_values_dict["beta_2_mode"]:
@@ -253,10 +261,29 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         communication_type = communication["communication_type"]
         if communication_type == "data_available":
+            # TODO Tanner (6/17/21): Try having this update come from the server thread
             if self._values_to_share_to_server["system_status"] == BUFFERING_STATE:
                 self._data_dump_buffer_size += 1
                 if self._data_dump_buffer_size == 2:
                     self._values_to_share_to_server["system_status"] = LIVE_VIEW_ACTIVE_STATE
+        elif communication_type == "to_instrument":
+            if communication["command"] == "stop_managed_acquisition":
+                # fmt: off
+                # remove any leftover outgoing items
+                da_data_out_queue = (
+                    self._process_manager.queue_container().get_data_analyzer_board_queues()[0][1]
+                )
+                # fmt: on
+                drain_queue(da_data_out_queue)
+
+    def _check_and_handle_data_analyzer_data_out_queue(self) -> None:
+        da_data_out_queue = self._process_manager.queue_container().get_data_analyzer_board_queues()[0][1]
+        try:
+            outgoing_data_json = da_data_out_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
+        except queue.Empty:
+            return
+        data_to_server_queue = self._process_manager.queue_container().get_data_queue_to_server()
+        data_to_server_queue.put_nowait(outgoing_data_json)
 
     def _check_and_handle_instrument_comm_to_main_queue(self) -> None:
         # pylint: disable=too-many-branches  # Tanner (5/22/21): many branches needed here
@@ -282,9 +309,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
             # Tanner (1/20/21): items in communication dict are used after this log message is generated, so need to create a copy of the dict when redacting info
             comm_copy = copy.deepcopy(communication)
             comm_copy["mantarray_nickname"] = "*" * len(comm_copy["mantarray_nickname"])
-            msg = f"Communication from the OpalKelly Controller: {comm_copy}"
+            msg = f"Communication from the Instrument Controller: {comm_copy}"
         else:
-            msg = f"Communication from the OpalKelly Controller: {communication}".replace(
+            msg = f"Communication from the Instrument Controller: {communication}".replace(
                 r"\\",
                 "\\",  # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
             )
@@ -434,6 +461,14 @@ class MantarrayProcessesMonitor(InfiniteThread):
         self._check_and_handle_file_writer_to_main_queue()
         self._check_and_handle_data_analyzer_to_main_queue()
         self._check_and_handle_server_to_main_queue()
+
+        # if managed acquisition is running, check for available data
+        if self._values_to_share_to_server["system_status"] in (
+            BUFFERING_STATE,
+            LIVE_VIEW_ACTIVE_STATE,
+            RECORDING_STATE,
+        ):
+            self._check_and_handle_data_analyzer_data_out_queue()
 
         # handle barcode polling. This should be removed once the physical instrument is able to detect plate placement/removal on its own. The Beta 2 instrument will be able to do this on its own from the start, so no need to send barcode comm in Beta 2 mode.
         if self._last_barcode_clear_time is None:

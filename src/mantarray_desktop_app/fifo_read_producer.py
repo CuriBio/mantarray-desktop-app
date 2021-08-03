@@ -15,7 +15,7 @@ To calculate the value for a given construct or reference sensor at a given poin
     * Get sawtooth_vals:
         sawtooth_vals = signal.sawtooth(sawtooth_indices, width=0.5)
     * Find data value for Construct Sensor:
-        value = FIFO_READ_PRODUCER_DATA_OFFSET + int(FIFO_READ_PRODUCER_WELL_AMPLITUDE * ((well_index + 1) / 24 * 6)) * sawtooth_vals[idx]
+        value = FIFO_READ_PRODUCER_DATA_OFFSET + FIFO_READ_PRODUCER_WELL_AMPLITUDE * (well_index + 1) * sawtooth_vals[idx]
     * Find data value for Reference Sensor:
         value = FIFO_READ_PRODUCER_DATA_OFFSET + FIFO_READ_PRODUCER_WELL_AMPLITUDE * (adc_number + 1) * sawtooth_vals[idx]
 """
@@ -24,6 +24,7 @@ from __future__ import annotations
 from queue import Queue
 import struct
 import threading
+from time import perf_counter_ns
 from typing import Any
 from typing import Dict
 
@@ -35,14 +36,21 @@ from xem_wrapper import HEADER_MAGIC_NUMBER
 
 from .constants import ADC_CH_TO_24_WELL_INDEX
 from .constants import DATA_FRAME_PERIOD
-from .constants import FIFO_READ_PRODUCER_CYCLES_PER_ITERATION
 from .constants import FIFO_READ_PRODUCER_DATA_OFFSET
 from .constants import FIFO_READ_PRODUCER_REF_AMPLITUDE
 from .constants import FIFO_READ_PRODUCER_SAWTOOTH_PERIOD
-from .constants import FIFO_READ_PRODUCER_SLEEP_DURATION
 from .constants import FIFO_READ_PRODUCER_WELL_AMPLITUDE
 from .constants import ROUND_ROBIN_PERIOD
 from .constants import TIMESTEP_CONVERSION_FACTOR
+
+
+def _perf_counter_cms() -> int:
+    """Return perf_counter value as centimilliseconds."""
+    return perf_counter_ns() // 10 ** 4
+
+
+def _get_cms_since_last_data_packet(last_time_cms: int) -> int:
+    return _perf_counter_cms() - last_time_cms
 
 
 def produce_data(num_cycles: int, starting_sample_index: int) -> bytearray:
@@ -91,7 +99,7 @@ def produce_data(num_cycles: int, starting_sample_index: int) -> bytearray:
                 if is_ref_sensor:
                     amplitude = FIFO_READ_PRODUCER_REF_AMPLITUDE * (adc_num + 1)
                 else:
-                    scaling_factor = (ADC_CH_TO_24_WELL_INDEX[adc_num][adc_ch_num] + 1) / 24 * 6
+                    scaling_factor = ADC_CH_TO_24_WELL_INDEX[adc_num][adc_ch_num] + 1
                     amplitude = int(FIFO_READ_PRODUCER_WELL_AMPLITUDE * scaling_factor)
                 data_value = FIFO_READ_PRODUCER_DATA_OFFSET + amplitude * sawtooth_vals[idx]
                 data_byte = struct.pack("<L", int(data_value))
@@ -118,17 +126,21 @@ class FIFOReadProducer(InfiniteThread):
     ):
         super().__init__(fatal_error_reporter, the_lock)
         self._data_out_queue = data_out_queue
+        self._timepoint_of_last_data_packet_cms = _perf_counter_cms()
         self._sample_index = 0
-        self._minimum_iteration_duration_seconds = FIFO_READ_PRODUCER_SLEEP_DURATION
 
     def _commands_for_each_run_iteration(self) -> None:
-        data = produce_data(FIFO_READ_PRODUCER_CYCLES_PER_ITERATION, self._sample_index)
+        cms_since_last_data_packet = _get_cms_since_last_data_packet(self._timepoint_of_last_data_packet_cms)
+        num_cycles_to_create = cms_since_last_data_packet // ROUND_ROBIN_PERIOD
+        if num_cycles_to_create == 0:
+            return
+
+        data = produce_data(num_cycles_to_create, self._sample_index)
         # Tanner (4/30/20) is not sure how to test that we are using a lock here. The purpose of this lock is to ensure that data is not pulled from the queue at the same time it is being added.
         with self._lock:
             self._data_out_queue.put_nowait(data)
-        self._sample_index += (
-            FIFO_READ_PRODUCER_CYCLES_PER_ITERATION * ROUND_ROBIN_PERIOD
-        ) // TIMESTEP_CONVERSION_FACTOR
+        self._sample_index += (num_cycles_to_create * ROUND_ROBIN_PERIOD) // TIMESTEP_CONVERSION_FACTOR
+        self._timepoint_of_last_data_packet_cms += num_cycles_to_create * ROUND_ROBIN_PERIOD
 
     def _drain_all_queues(self) -> Dict[str, Any]:
         queue_items: Dict[str, Any] = dict()

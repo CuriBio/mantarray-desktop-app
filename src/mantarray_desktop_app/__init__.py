@@ -43,15 +43,14 @@ from .constants import CURI_BIO_USER_ACCOUNT_ID
 from .constants import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
 from .constants import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from .constants import CURRENT_SOFTWARE_VERSION
+from .constants import DATA_ANALYZER_BETA_1_BUFFER_SIZE
 from .constants import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from .constants import DATA_FRAME_PERIOD
 from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import DEFAULT_USER_CONFIG
-from .constants import FIFO_READ_PRODUCER_CYCLES_PER_ITERATION
 from .constants import FIFO_READ_PRODUCER_DATA_OFFSET
 from .constants import FIFO_READ_PRODUCER_REF_AMPLITUDE
 from .constants import FIFO_READ_PRODUCER_SAWTOOTH_PERIOD
-from .constants import FIFO_READ_PRODUCER_SLEEP_DURATION
 from .constants import FIFO_READ_PRODUCER_WELL_AMPLITUDE
 from .constants import FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
 from .constants import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
@@ -62,10 +61,12 @@ from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import MAX_POSSIBLE_CONNECTED_BOARDS
+from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MICROSECONDS_PER_MILLISECOND
 from .constants import MIDSCALE_CODE
 from .constants import MILLIVOLTS_PER_VOLT
+from .constants import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from .constants import NANOSECONDS_PER_CENTIMILLISECOND
 from .constants import NO_PLATE_DETECTED_BARCODE_VALUE
 from .constants import NO_PLATE_DETECTED_UUID
@@ -146,7 +147,6 @@ from .constants import TIMESTEP_CONVERSION_FACTOR
 from .constants import VALID_CONFIG_SETTINGS
 from .constants import VALID_SCRIPTING_COMMANDS
 from .constants import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
-from .data_analyzer import convert_24_bit_codes_to_voltage
 from .data_analyzer import DataAnalyzerProcess
 from .exceptions import AttemptToAddCyclesWhileSPIRunningError
 from .exceptions import AttemptToInitializeFIFOReadsError
@@ -220,6 +220,7 @@ from .firmware_manager import get_latest_firmware_name
 from .firmware_manager import get_latest_firmware_version
 from .firmware_manager import sort_firmware_files
 from .instrument_comm import InstrumentCommProcess
+from .log_formatter import SensitiveFormatter
 from .main import clear_server_singletons
 from .main import get_server_port_number
 from .mantarray_front_panel import MantarrayFrontPanel
@@ -254,12 +255,14 @@ from .server import flask_app
 from .server import get_api_endpoint
 from .server import get_the_server_thread
 from .server import ServerThread
+from .server import socketio
 from .system_utils import system_state_eventually_equals
 from .system_utils import wait_for_subprocesses_to_start
 from .utils import check_barcode_for_errors
 from .utils import create_active_channel_per_sensor_list
 from .utils import create_magnetometer_config_dict
 from .utils import create_sensor_axis_dict
+from .utils import get_active_wells_from_config
 from .utils import get_current_software_version
 from .utils import redact_sensitive_info_from_path
 from .utils import sort_nested_dict
@@ -318,7 +321,6 @@ __all__ = [
     "MIDSCALE_CODE",
     "REFERENCE_VOLTAGE",
     "MILLIVOLTS_PER_VOLT",
-    "convert_24_bit_codes_to_voltage",
     "FileWriterProcess",
     "InvalidDataTypeFromOkCommError",
     "build_file_writer_objects",
@@ -328,8 +330,6 @@ __all__ = [
     "AttemptToInitializeFIFOReadsError",
     "fifo_read_producer",
     "FIFOReadProducer",
-    "FIFO_READ_PRODUCER_SLEEP_DURATION",
-    "FIFO_READ_PRODUCER_CYCLES_PER_ITERATION",
     "ADC_GAIN",
     "FIFO_READ_PRODUCER_SAWTOOTH_PERIOD",
     "ROUND_ROBIN_PERIOD",
@@ -547,4 +547,10 @@ __all__ = [
     "sort_nested_dict",
     "SerialCommNotEnoughAdditionalBytesReadError",
     "STM_VID",
+    "socketio",
+    "SensitiveFormatter",
+    "DATA_ANALYZER_BETA_1_BUFFER_SIZE",
+    "MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS",
+    "get_active_wells_from_config",
+    "MICRO_TO_BASE_CONVERSION",
 ]

@@ -198,7 +198,7 @@ def test_OkCommunicationProcess_commands_for_each_run_iteration__sends_fifo_read
     expected_well_idx = 0
     test_value_1 = FIFO_READ_PRODUCER_DATA_OFFSET + FIFO_READ_PRODUCER_WELL_AMPLITUDE * (
         expected_well_idx + 1
-    ) / 24 * 6 * signal.sawtooth(0 / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5)
+    ) * signal.sawtooth(0 / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5)
     expected_first_dict_sent = {
         "is_reference_sensor": False,
         "well_index": expected_well_idx,
@@ -306,7 +306,7 @@ def test_OkCommunicationProcess_managed_acquisition__handles_ignoring_first_data
     expected_well_idx = 0
     test_value_1 = FIFO_READ_PRODUCER_DATA_OFFSET + FIFO_READ_PRODUCER_WELL_AMPLITUDE * (
         expected_well_idx + 1
-    ) / 24 * 6 * signal.sawtooth(
+    ) * signal.sawtooth(
         (ROUND_ROBIN_PERIOD // TIMESTEP_CONVERSION_FACTOR) / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD,
         width=0.5,
     )

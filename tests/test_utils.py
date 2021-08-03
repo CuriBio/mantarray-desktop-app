@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
+import copy
 import json
 import os
 
+from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
+from mantarray_desktop_app import get_active_wells_from_config
 from mantarray_desktop_app import get_current_software_version
 from mantarray_desktop_app import redact_sensitive_info_from_path
+from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import sort_nested_dict
 from mantarray_desktop_app import utils
 import pytest
@@ -102,6 +106,20 @@ def test_redact_sensitive_info_from_path__scrubs_everything_if_does_not_match_pa
 ):
     actual = redact_sensitive_info_from_path(test_path)
     assert actual == "*" * len(test_path)
+
+
+def test_get_active_wells_from_config__returns_correct_values():
+    test_num_wells = 24
+    default_config_dict = create_magnetometer_config_dict(test_num_wells)
+    assert get_active_wells_from_config(default_config_dict) == []
+
+    expected_wells = [0, 8, 9, 17]
+    test_config_dict = copy.deepcopy(default_config_dict)
+    for well_idx in expected_wells:
+        module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]
+        test_config_dict[module_id][0] = True
+
+    assert get_active_wells_from_config(test_config_dict) == expected_wells
 
 
 def test_sort_nested_dict__returns_correct_dict():

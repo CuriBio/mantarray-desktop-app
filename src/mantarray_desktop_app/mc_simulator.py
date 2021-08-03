@@ -33,6 +33,7 @@ from stdlib_utils import InfiniteProcess
 from stdlib_utils import resource_path
 
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
+from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_MILLISECOND
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BOOT_UP_CODE
@@ -309,7 +310,7 @@ class MantarrayMcSimulator(InfiniteProcess):
 
     def get_interpolated_data(self, sampling_period_us: int) -> NDArray[np.int16]:
         """Return one second (one twitch) of interpolated data."""
-        data_indices = np.arange(0, int(1e6), sampling_period_us)
+        data_indices = np.arange(0, MICRO_TO_BASE_CONVERSION, sampling_period_us)
         return self._interpolator(data_indices).astype(np.int16)
 
     def get_num_wells(self) -> int:
@@ -597,10 +598,10 @@ class MantarrayMcSimulator(InfiniteProcess):
         if self._timepoint_of_last_data_packet_us is None:  # making mypy happy
             raise NotImplementedError("_timepoint_of_last_data_packet_us should never be None here")
         us_since_last_data_packet = _get_us_since_last_data_packet(self._timepoint_of_last_data_packet_us)
-        simulated_data_len = len(self._simulated_data)
         num_packets_to_send = us_since_last_data_packet // self._sampling_period_us
         if num_packets_to_send == 0:
             return
+        simulated_data_len = len(self._simulated_data)
 
         data_packet_bytes = bytes(0)
         for _ in range(num_packets_to_send):

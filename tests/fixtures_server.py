@@ -6,6 +6,8 @@ from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import DEFAULT_SERVER_PORT_NUMBER
 from mantarray_desktop_app import flask_app
+from mantarray_desktop_app import get_api_endpoint
+from mantarray_desktop_app import get_server_port_number
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import ServerThread
@@ -16,6 +18,7 @@ from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 import pytest
+import socketio as python_socketio
 from stdlib_utils import confirm_port_available
 from stdlib_utils import confirm_port_in_use
 
@@ -66,8 +69,6 @@ def fixture_test_client():
     """Create a test client to call Flask routes.
 
     Modeled on https://www.patricksoftwareblog.com/testing-a-flask-application-using-pytest/
-
-    Note, the routes require a ServerThread to be created using another fixture or within the test itself before the test Client will be fully functional.
     """
     testing_client = flask_app.test_client()
 
@@ -94,7 +95,6 @@ def fixture_running_server_thread(server_thread):
         DEFAULT_SERVER_PORT_NUMBER
     )  # confirm port is not already active prior to starting test
     st.start()
-    confirm_port_in_use(DEFAULT_SERVER_PORT_NUMBER, timeout=3)  # wait for server to boot up
     yield server_thread
 
     # clean up
@@ -190,3 +190,31 @@ def fixture_generic_beta_2_start_recording_info_in_shared_dict(
     }
     shared_values_dict["instrument_metadata"] = {board_idx: MantarrayMcSimulator.default_metadata_values}
     yield shared_values_dict
+
+
+@pytest.fixture(scope="function", name="test_socketio_client")
+def fixture_test_socketio_client():
+    msg_list_container = {
+        "waveform_data": list(),
+        "twitch_metrics": list(),
+    }
+
+    sio = python_socketio.Client()
+
+    @sio.on("waveform_data")
+    def waveform_data_handler(data):
+        msg_list_container["waveform_data"].append(data)
+
+    @sio.on("twitch_metrics")
+    def twitch_metrics_handler(data):
+        msg_list_container["twitch_metrics"].append(data)
+
+    def _connect_client_to_server():
+        confirm_port_in_use(get_server_port_number(), timeout=4)  # wait for server to boot up
+        sio.connect(get_api_endpoint())
+        return sio, msg_list_container
+
+    yield _connect_client_to_server
+
+    if sio.connected:
+        sio.disconnect()
