@@ -837,3 +837,64 @@ def test_set_stim_status__returns_error_code_and_message_if_running_arg_is_not_g
     response = test_client.post("/set_stim_status")
     assert response.status_code == 400
     assert response.status.endswith("Request missing 'running' parameter") is True
+
+
+def test_set_protocol__returns_error_code_if_called_in_beta_1_mode(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = False
+
+    response = test_client.post("/set_protocol")
+    assert response.status_code == 403
+    assert response.status.endswith("Route cannot be called in beta 1 mode") is True
+
+
+def test_set_protocol__returns_error_code_if_protocol_list_is_empty(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+
+    response = test_client.post("/set_protocol", json=json.dumps({"protocol": []}))
+    assert response.status_code == 400
+    assert response.status.endswith("Protocol list is empty") is True
+
+
+@pytest.mark.parametrize(
+    "test_stimulation_type,test_description",
+    [
+        (None, "return error code with None"),
+        (1, "return error code with int"),
+        ("A", "return error code with invalid string"),
+    ],
+)
+def test_set_protocol__returns_error_code_with_invalid_stimulation_type(
+    client_and_server_thread_and_shared_values, test_stimulation_type, test_description
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+
+    test_protocol_dict = {"protocol": [{"stimulation_type": test_stimulation_type}]}
+    response = test_client.post("/set_protocol", json=json.dumps(test_protocol_dict))
+    assert response.status_code == 400
+    assert response.status.endswith(f"Invalid stimulation type: {test_stimulation_type}") is True
+
+
+@pytest.mark.parametrize(
+    "test_well_number,test_description",
+    [
+        ("Z1", "return error code with well Z1"),
+        ("A99", "return error code with well A99"),
+    ],
+)
+def test_set_protocol__returns_error_code_with_invalid_well_number(
+    client_and_server_thread_and_shared_values, test_well_number, test_description
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+
+    test_protocol_dict = {"protocol": [{"stimulation_type": "C", "well_number": test_well_number}]}
+    response = test_client.post("/set_protocol", json=json.dumps(test_protocol_dict))
+    assert response.status_code == 400
+    assert response.status.endswith(f"Invalid well: {test_well_number}") is True

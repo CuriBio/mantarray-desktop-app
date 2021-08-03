@@ -10,11 +10,13 @@ Custom HTTP Error Codes:
 * 400 - Call to /set_magnetometer_config with invalid configuration dict
 * 400 - Call to /set_magnetometer_config with invalid or missing sampling period
 * 400 - Call to /set_stim_status with missing 'running' status
+* 400 - Call to /set_protocol with an invalid protocol
 * 403 - Call to /start_recording with is_hardware_test_recording=False after calling route with is_hardware_test_recording=True (default value)
 * 403 - Call to any /insert_xem_command_into_queue/* route when in Beta 2 mode
 * 403 - Call to /boot_up when in Beta 2 mode
 * 403 - Call to /set_magnetometer_config when in Beta 1 mode
 * 403 - Call to /set_magnetometer_config while data is streaming in Beta 2 mode
+* 403 - Call to /set_protocol when in Beta 1 mode
 * 403 - Call to /set_stim_status when in Beta 1 mode
 * 403 - Call to /set_magnetometer_config before instrument finishes initializing in Beta 2 mode
 * 404 - Route not implemented
@@ -46,6 +48,8 @@ from flask import Response
 from flask_cors import CORS
 from flask_socketio import SocketIO
 from immutabledict import immutabledict
+from labware_domain_models import get_row_and_column_from_well_name
+from labware_domain_models import PositionInvalidForLabwareDefinitionError
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
@@ -84,6 +88,7 @@ from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import INSTRUMENT_INITIALIZING_STATE
+from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import LIVE_VIEW_ACTIVE_STATE
 from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_MILLISECOND
@@ -432,7 +437,6 @@ def _is_data_streaming() -> bool:
     return current_system_status in (BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE, RECORDING_STATE)
 
 
-<<<<<<< HEAD
 def _is_instrument_initialized() -> bool:
     current_system_status = _get_values_from_process_monitor()["system_status"]
     return current_system_status not in (
@@ -440,12 +444,46 @@ def _is_instrument_initialized() -> bool:
         SERVER_READY_STATE,
         INSTRUMENT_INITIALIZING_STATE,
     )
-=======
+
+
+@flask_app.route("/set_protocol", methods=["POST"])
+def set_protocol() -> Response:
+    """Set the stimulation protocol in hardware memory.
+
+    Can be invoked by: curl -d '<stimulation protocol as json>' -H
+    'Content-Type: application/json' -X POST
+    http://localhost:4567/set_protocol
+    """
+    if not _get_values_from_process_monitor()["beta_2_mode"]:
+        return Response(status="403 Route cannot be called in beta 1 mode")
+
+    protocol_json = request.get_json()
+    protocol_list = json.loads(protocol_json)["protocol"]
+    if not protocol_list:
+        return Response(status="400 Protocol list is empty")
+
+    # validate protocols
+    for protocol in protocol_list:
+        if protocol["stimulation_type"] not in ("C", "V"):
+            return Response(status=f"400 Invalid stimulation type: {protocol['stimulation_type']}")
+        try:
+            GENERIC_24_WELL_DEFINITION.validate_position(
+                *get_row_and_column_from_well_name(protocol["well_number"])
+            )
+        except PositionInvalidForLabwareDefinitionError:
+            return Response(status=f"400 Invalid well: {protocol['well_number']}")
+        # for pulse in protocol["pulses"]:
+
+    # queue_command_to_main({})
+
+    return Response(protocol_json, mimetype="application/json")
+
+
 @flask_app.route("/set_stim_status", methods=["POST"])
 def set_stim_status() -> Response:
-    """Begin stimulation on hardware.
+    """Start or stop stimulation on hardware.
 
-    Can be invoked by TODO curl
+    Can be invoked by: curl -X POST
     http://localhost:4567/set_stim_status?running=true
     """
     if not _get_values_from_process_monitor()["beta_2_mode"]:
@@ -464,7 +502,6 @@ def set_stim_status() -> Response:
         }
     )
     return response
->>>>>>> added /set_stim_status
 
 
 @flask_app.route("/start_recording", methods=["GET"])
@@ -1034,7 +1071,7 @@ def stop_server() -> str:
 def shutdown() -> Response:
     # curl http://localhost:4567/shutdown
 
-    # TODO Tanner (8/2/21): consider removing the soft stop here
+    # TODO Tanner (8/2/21): should wait for subprocesses to stop and join before returning response from this route
     queue_command_to_main({"communication_type": "shutdown", "command": "soft_stop"})
     response = queue_command_to_main({"communication_type": "shutdown", "command": "hard_stop"})
     return response

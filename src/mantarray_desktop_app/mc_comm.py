@@ -766,6 +766,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._data_packet_cache += board.read_all()
         # wait for at least 1 second of data to be present unless stop data stream command has been sent to instrument
         if len(self._data_packet_cache) < num_bytes_per_second and not self._is_stopping_data_stream:
+            # TODO need to also return if _data_packet_cache is empty
             return
 
         (
