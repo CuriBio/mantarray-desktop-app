@@ -3,7 +3,10 @@ import copy
 import json
 
 from freezegun import freeze_time
+from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
+from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
+import numpy as np
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
@@ -36,11 +39,12 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
 
     da_process.init_streams()
     # set config arbitrary sampling period
+    test_sampling_period = 1000
     set_magnetometer_config(
         four_board_analyzer_process_beta_2_mode,
         {
             "magnetometer_config": GENERIC_BOARD_MAGNETOMETER_CONFIGURATION,
-            "sampling_period": 1000,
+            "sampling_period": test_sampling_period,
         },
     )
 
@@ -66,11 +70,18 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
     # test data dump
     waveform_data_points = dict()
     for well_idx in range(24):
-        waveform_data_points[well_idx] = dict()
-        for key in test_data_packet[well_idx].keys():
-            if key == "time_offsets":
-                continue
-            waveform_data_points[well_idx][key] = test_data_packet[well_idx][key].tolist()
+        default_channel_data = test_data_packet[well_idx][SERIAL_COMM_DEFAULT_DATA_CHANNEL]
+        pipeline = da_process.get_pipeline_template().create_pipeline()
+        pipeline.load_raw_gmr_data(
+            np.array([test_data_packet["time_indices"], default_channel_data], np.int64),
+            np.zeros((2, len(default_channel_data))),
+        )
+        # TODO figure out it not compressing data performs well
+        compressed_data = pipeline.get_force()
+        waveform_data_points[well_idx] = {
+            "x_data_points": compressed_data[0].tolist(),
+            "y_data_points": (compressed_data[1] * MICRO_TO_BASE_CONVERSION).tolist(),
+        }
     expected_outgoing_dict = {
         "waveform_data": {"basic_data": {"waveform_data_points": waveform_data_points}},
         "earliest_timepoint": test_data_packet["time_indices"][0].item(),

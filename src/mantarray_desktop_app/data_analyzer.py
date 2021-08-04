@@ -33,29 +33,13 @@ from .constants import CONSTRUCT_SENSORS_PER_REF_SENSOR
 from .constants import DATA_ANALYZER_BETA_1_BUFFER_SIZE
 from .constants import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from .constants import MICRO_TO_BASE_CONVERSION
+from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from .constants import REF_INDEX_TO_24_WELL_INDEX
+from .constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from .exceptions import UnrecognizedCommandToInstrumentError
 from .exceptions import UnrecognizedCommTypeFromMainToDataAnalyzerError
 from .utils import get_active_wells_from_config
-
-
-PIPELINE_TEMPLATE = PipelineTemplate(
-    noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
-    tissue_sampling_period=CONSTRUCT_SENSOR_SAMPLING_PERIOD,
-)
-
-
-def get_pipeline_analysis(data_buf: List[List[int]]) -> Dict[Any, Any]:
-    data_buf_arr = np.array(data_buf, dtype=np.int64)
-    pipeline = PIPELINE_TEMPLATE.create_pipeline()
-    # Tanner (7/14/21): reference data is currently unused by waveform analysis package, so sending zero array instead
-    pipeline.load_raw_gmr_data(data_buf_arr, np.zeros(data_buf_arr.shape))
-    try:
-        return pipeline.get_force_data_metrics(metrics_to_create=[AMPLITUDE_UUID, TWITCH_FREQUENCY_UUID])[0]  # type: ignore
-    except PeakDetectionError:
-        # Tanner (7/14/21): this dict will be filtered out by downstream elements of analysis stream
-        return {-1: None}
 
 
 def check_for_new_twitches(
@@ -121,11 +105,17 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._active_wells: List[int] = list(range(24))
         for well_idx in range(24):
             self._data_buffer[well_idx] = {"construct_data": None, "ref_data": None}
-        self._pipeline_template = PIPELINE_TEMPLATE
+        self._pipeline_template = PipelineTemplate(
+            noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
+            tissue_sampling_period=CONSTRUCT_SENSOR_SAMPLING_PERIOD,
+        )
         # Beta 1 items
         self._calibration_settings: Union[None, Dict[Any, Any]] = None
         # Beta 2 items
         self._beta_2_buffer_size: Optional[int] = None
+
+    def get_pipeline_template(self) -> PipelineTemplate:
+        return self._pipeline_template
 
     def get_calibration_settings(self) -> Union[None, Dict[Any, Any]]:
         if self._beta_2_mode:
@@ -138,6 +128,27 @@ class DataAnalyzerProcess(InfiniteProcess):
     def get_buffer_size(self) -> int:
         return self._beta_2_buffer_size if self._beta_2_mode else DATA_ANALYZER_BETA_1_BUFFER_SIZE  # type: ignore
 
+    def append_data(
+        self, data_buf: List[List[int]], new_data: NDArray[(2, Any), int]
+    ) -> Tuple[List[List[int]], List[List[int]]]:
+        # Tanner (7/12/21): using lists here since list.extend is faster than ndarray.concatenate
+        data_buf[0].extend(new_data[0])
+        data_buf[1].extend(new_data[1])
+        data_buf[0] = data_buf[0][-self.get_buffer_size() :]
+        data_buf[1] = data_buf[1][-self.get_buffer_size() :]
+        return data_buf, data_buf
+
+    def get_pipeline_analysis(self, data_buf: List[List[int]]) -> Dict[Any, Any]:
+        data_buf_arr = np.array(data_buf, dtype=np.int64)
+        pipeline = self._pipeline_template.create_pipeline()
+        # Tanner (7/14/21): reference data is currently unused by waveform analysis package, so sending zero array instead
+        pipeline.load_raw_gmr_data(data_buf_arr, np.zeros(data_buf_arr.shape))
+        try:
+            return pipeline.get_force_data_metrics(metrics_to_create=[AMPLITUDE_UUID, TWITCH_FREQUENCY_UUID])[0]  # type: ignore
+        except PeakDetectionError:
+            # Tanner (7/14/21): this dict will be filtered out by downstream elements of analysis stream
+            return {-1: None}
+
     def init_streams(self) -> None:
         """Set up data analysis streams for active wells."""
         ends = []
@@ -146,7 +157,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             end = (
                 source.accumulate(self.append_data, returns_state=True, start=[[], []])
                 .filter(lambda data_buf: len(data_buf[0]) >= self.get_buffer_size())
-                .map(get_pipeline_analysis)
+                .map(self.get_pipeline_analysis)
                 .accumulate(check_for_new_twitches, returns_state=True, start=0)
                 .map(lambda per_twitch_dict, i=well_idx: (i, per_twitch_dict))
             )
@@ -162,7 +173,6 @@ class DataAnalyzerProcess(InfiniteProcess):
         self.init_streams()
 
     def _commands_for_each_run_iteration(self) -> None:
-        # TODO Tanner (7/7/21): eventually need to add process performance metric reporting to beta 2 mode
         self._process_next_command_from_main()
         self._handle_incoming_data()
 
@@ -201,9 +211,17 @@ class DataAnalyzerProcess(InfiniteProcess):
                 if not self._beta_2_mode:
                     raise NotImplementedError("Beta 1 device does not have a magnetometer config")
                 self._active_wells = get_active_wells_from_config(communication["magnetometer_config"])
+
+                sampling_period_us = communication["sampling_period"]
                 self._beta_2_buffer_size = MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS * int(
-                    1e6 / communication["sampling_period"]
+                    MICRO_TO_BASE_CONVERSION / sampling_period_us
                 )
+                self._pipeline_template = PipelineTemplate(
+                    noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
+                    # TODO Tanner (8/4/21): for some reason sampling periods > 16000 µs cause errors when creating filters. Need to update waveform analysis package before they will be usable
+                    tissue_sampling_period=sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND,
+                )
+
                 self.init_streams()
             else:
                 raise UnrecognizedCommandToInstrumentError(communication["command"])
@@ -228,12 +246,9 @@ class DataAnalyzerProcess(InfiniteProcess):
             for key, well_dict in data_dict.items():
                 if not isinstance(key, int):
                     continue
-                # TODO Tanner (7/13/21): make sure channel 0 is always enabled and explicitly only send that
-                # For now, this is just taking the first channel of data present and pushing it through the data analysis stream. time_offsets are the first key, so channel keys start at idx 1
-                first_channel_id = list(well_dict.keys())[1]
                 first_channel_data = [
                     data_dict["time_indices"],
-                    well_dict[first_channel_id],
+                    well_dict[SERIAL_COMM_DEFAULT_DATA_CHANNEL],
                 ]
                 self._data_analysis_streams[key][0].emit(first_channel_data)
         else:
@@ -241,16 +256,6 @@ class DataAnalyzerProcess(InfiniteProcess):
                 well_idx = data_dict["well_index"]
                 self._data_analysis_streams[well_idx][0].emit(data_dict["data"])
             self._load_memory_into_buffer(data_dict)
-
-    def append_data(
-        self, data_buf: List[List[int]], new_data: NDArray[(2, Any), int]
-    ) -> Tuple[List[List[int]], List[List[int]]]:
-        # Tanner (7/12/21): using lists here since list.extend is faster than ndarray.concatenate
-        data_buf[0].extend(new_data[0])
-        data_buf[1].extend(new_data[1])
-        data_buf[0] = data_buf[0][-self.get_buffer_size() :]
-        data_buf[1] = data_buf[1][-self.get_buffer_size() :]
-        return data_buf, data_buf
 
     def _load_memory_into_buffer(self, data_dict: Dict[Any, Any]) -> None:
         if data_dict["is_reference_sensor"]:
@@ -304,16 +309,33 @@ class DataAnalyzerProcess(InfiniteProcess):
         return True
 
     def _create_outgoing_beta_2_data(self, data_dict: Dict[Any, Any]) -> Dict[str, Any]:
-        # pylint: disable=no-self-use  # will eventually use self
-        waveform_data_points: Dict[int, Dict[int, List[int]]] = dict()
+        # outgoing_data_creation_start = time.perf_counter()
+        waveform_data_points: Dict[int, Dict[str, List[float]]] = dict()
+
+        # analysis_durations = list()
         # convert arrays to lists for json conversion later
         for well_idx in range(24):
-            waveform_data_points[well_idx] = dict()
-            for key, data in data_dict[well_idx].items():
-                # TODO Tanner (7/7/21): need to figure out what exactly to send to the frontend. Might be best to just pick one magnetometer channel to send
-                if key == "time_offsets":
-                    continue
-                waveform_data_points[well_idx][key] = data.tolist()
+            # TODO create and log performance metrics
+            # start = time.perf_counter()
+            default_channel_data = data_dict[well_idx][SERIAL_COMM_DEFAULT_DATA_CHANNEL]
+            pipeline = self._pipeline_template.create_pipeline()
+            pipeline.load_raw_gmr_data(
+                np.array([data_dict["time_indices"], default_channel_data], np.int64),
+                np.zeros((2, len(default_channel_data))),
+            )
+            # TODO figure out if not compressing data performs well in frontend or get force compressing to work
+            force_data = pipeline.get_force()
+            # analysis_dur = time.perf_counter() - start
+            # analysis_durations.append(analysis_dur)
+
+            waveform_data_points[well_idx] = {
+                "x_data_points": force_data[0].tolist(),
+                "y_data_points": (force_data[1] * MICRO_TO_BASE_CONVERSION).tolist(),
+            }
+        # outgoing_data_creation_dur = time.perf_counter() - outgoing_data_creation_start
+        # self._outgoing_data_creation_durations.append(outgoing_data_creation_dur)
+        # self._handle_performance_logging(analysis_durations)
+
         # create formatted dict
         outgoing_data: Dict[str, Any] = {
             "waveform_data": {"basic_data": {"waveform_data_points": waveform_data_points}},

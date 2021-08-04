@@ -10,8 +10,6 @@ from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app.data_analyzer import check_for_new_twitches
-from mantarray_desktop_app.data_analyzer import get_pipeline_analysis
-from mantarray_desktop_app.data_analyzer import PIPELINE_TEMPLATE
 from mantarray_waveform_analysis import AMPLITUDE_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 from mantarray_waveform_analysis import TWITCH_FREQUENCY_UUID
@@ -127,7 +125,11 @@ def test_append_data__beta_2__removes_oldest_data_points_when_buffer_exceeds_req
     assert new_list[1] == list(range(3, expected_buffer_size + 3))
 
 
-def test_get_pipeline_analysis__returns_error_dict_when_peak_detection_error_occurs_during_analysis():
+def test_get_pipeline_analysis__returns_error_dict_when_peak_detection_error_occurs_during_analysis(
+    four_board_analyzer_process,
+):
+    da_process, *_ = four_board_analyzer_process
+
     # Tanner (7/14/21): using Beta 1 data here, but error catching should work for Beta 2 data as well
     data_len = MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS * int(CENTIMILLISECONDS_PER_SECOND / ROUND_ROBIN_PERIOD)
 
@@ -136,11 +138,14 @@ def test_get_pipeline_analysis__returns_error_dict_when_peak_detection_error_occ
     test_x_data = np.arange(0, ROUND_ROBIN_PERIOD * len(test_y_data), ROUND_ROBIN_PERIOD)
     test_data_arr = np.array([test_x_data, test_y_data], dtype=np.int32)
 
-    actual = get_pipeline_analysis(test_data_arr.tolist())
+    actual = da_process.get_pipeline_analysis(test_data_arr.tolist())
     assert actual == {-1: None}
 
 
-def test_get_pipeline_analysis__returns_force_metrics_from_given_beta_1_data(mantarray_mc_simulator):
+def test_get_pipeline_analysis__returns_force_metrics_from_given_beta_1_data(
+    four_board_analyzer_process, mantarray_mc_simulator
+):
+    da_process, *_ = four_board_analyzer_process
     # TODO Tanner (7/14/21): after waveform-analysis update make sure to add this same test for beta 2 data
     # Tanner (7/12/21): This test is "True by definition", but can't think of a better way to test waveform analysis
     test_y_data = (
@@ -152,13 +157,13 @@ def test_get_pipeline_analysis__returns_force_metrics_from_given_beta_1_data(man
     test_x_data = np.arange(0, ROUND_ROBIN_PERIOD * len(test_y_data), ROUND_ROBIN_PERIOD)
     test_data_arr = np.array([test_x_data, test_y_data], dtype=np.int32)
 
-    pipeline = PIPELINE_TEMPLATE.create_pipeline()
+    pipeline = da_process.get_pipeline_template().create_pipeline()
     pipeline.load_raw_gmr_data(test_data_arr, np.zeros(test_data_arr.shape))
     expected_metrics = pipeline.get_force_data_metrics(
         metrics_to_create=[AMPLITUDE_UUID, TWITCH_FREQUENCY_UUID]
     )[0]
 
-    actual = get_pipeline_analysis(test_data_arr.tolist())
+    actual = da_process.get_pipeline_analysis(test_data_arr.tolist())
 
     assert actual.keys() == expected_metrics.keys()
     for k in expected_metrics.keys():
@@ -264,7 +269,7 @@ def test_DataAnalyzerProcess__sends_beta_2_metrics_of_all_wells_to_main_when_rea
     # mock so waveform data doesn't populate outgoing data queue
     mocker.patch.object(da_process, "_dump_data_into_queue", autospec=True)
 
-    expected_sampling_period_us = 17000
+    expected_sampling_period_us = 11000
     set_magnetometer_config(
         four_board_analyzer_process_beta_2_mode,
         {
@@ -401,7 +406,7 @@ def test_DataAnalyzerProcess__only_dumps_new_twitch_metrics__with_beta_2_data(
     # mock so waveform data doesn't populate outgoing data queue
     mocker.patch.object(da_process, "_dump_data_into_queue", autospec=True)
 
-    expected_sampling_period_us = 17000
+    expected_sampling_period_us = 13000
     set_magnetometer_config(
         four_board_analyzer_process_beta_2_mode,
         {
@@ -482,7 +487,7 @@ def test_DataAnalyzerProcess__data_analysis_stream_is_reconfigured_in_beta_2_mod
     # mock so waveform data doesn't populate outgoing data queue
     mocker.patch.object(da_process, "_dump_data_into_queue", autospec=True)
 
-    expected_sampling_period_us = 17000
+    expected_sampling_period_us = 12000
     set_magnetometer_config(
         four_board_analyzer_process_beta_2_mode,
         {
