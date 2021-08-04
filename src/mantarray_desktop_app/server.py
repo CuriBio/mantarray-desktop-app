@@ -9,16 +9,16 @@ Custom HTTP Error Codes:
 * 400 - Call to /insert_xem_command_into_queue/set_mantarray_serial_number with invalid serial_number parameter
 * 400 - Call to /set_magnetometer_config with invalid configuration dict
 * 400 - Call to /set_magnetometer_config with invalid or missing sampling period
-* 400 - Call to /set_stim_status with missing 'running' status
 * 400 - Call to /set_protocol with an invalid protocol
+* 400 - Call to /set_stim_status with missing 'running' status
 * 403 - Call to /start_recording with is_hardware_test_recording=False after calling route with is_hardware_test_recording=True (default value)
 * 403 - Call to any /insert_xem_command_into_queue/* route when in Beta 2 mode
 * 403 - Call to /boot_up when in Beta 2 mode
 * 403 - Call to /set_magnetometer_config when in Beta 1 mode
 * 403 - Call to /set_magnetometer_config while data is streaming in Beta 2 mode
+* 403 - Call to /set_magnetometer_config before instrument finishes initializing in Beta 2 mode
 * 403 - Call to /set_protocol when in Beta 1 mode
 * 403 - Call to /set_stim_status when in Beta 1 mode
-* 403 - Call to /set_magnetometer_config before instrument finishes initializing in Beta 2 mode
 * 404 - Route not implemented
 * 406 - Call to /start_managed_acquisition before magnetometer configuration is set
 * 406 - Call to /start_managed_acquisition when Mantarray device does not have a serial number assigned to it
@@ -87,8 +87,8 @@ from .constants import BUFFERING_STATE
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import DEFAULT_SERVER_PORT_NUMBER
-from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import GENERIC_24_WELL_DEFINITION
+from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
 from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_MILLISECOND
@@ -100,6 +100,8 @@ from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
 from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
+from .constants import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
+from .constants import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
 from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SYSTEM_STATUS_UUIDS
 from .constants import VALID_CONFIG_SETTINGS
@@ -448,6 +450,7 @@ def _is_instrument_initialized() -> bool:
 
 @flask_app.route("/set_protocol", methods=["POST"])
 def set_protocol() -> Response:
+    # pylint: disable=too-many-return-statements  # Tanner (8/9/21): lots of error codes that can be returned here
     """Set the stimulation protocol in hardware memory.
 
     Can be invoked by: curl -d '<stimulation protocol as json>' -H
@@ -458,7 +461,7 @@ def set_protocol() -> Response:
         return Response(status="403 Route cannot be called in beta 1 mode")
 
     protocol_json = request.get_json()
-    protocol_list = json.loads(protocol_json)["protocol"]
+    protocol_list = json.loads(protocol_json)["protocols"]
     if not protocol_list:
         return Response(status="400 Protocol list is empty")
 
@@ -466,13 +469,44 @@ def set_protocol() -> Response:
     for protocol in protocol_list:
         if protocol["stimulation_type"] not in ("C", "V"):
             return Response(status=f"400 Invalid stimulation type: {protocol['stimulation_type']}")
+        max_abs_charge = (
+            STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
+            if protocol["stimulation_type"] == "V"
+            else STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
+        )
+        charge_unit = "mV" if protocol["stimulation_type"] == "V" else "µA"
         try:
             GENERIC_24_WELL_DEFINITION.validate_position(
                 *get_row_and_column_from_well_name(protocol["well_number"])
             )
         except PositionInvalidForLabwareDefinitionError:
             return Response(status=f"400 Invalid well: {protocol['well_number']}")
-        # for pulse in protocol["pulses"]:
+        # validate pulse dictionaries
+        for pulse in protocol["pulses"]:
+            if pulse["phase_one_duration"] <= 0:
+                return Response(status=f"400 Invalid phase one duration: {pulse['phase_one_duration']}")
+            if pulse["interpulse_interval"] < 0:
+                return Response(status=f"400 Invalid interpulse interval: {pulse['interpulse_interval']}")
+            if pulse["phase_two_duration"] < 0:
+                return Response(status=f"400 Invalid phase two duration: {pulse['phase_two_duration']}")
+            if abs(int(pulse["phase_one_charge"])) > max_abs_charge:
+                return Response(
+                    status=f"400 Invalid phase one charge: {pulse['phase_one_charge']} {charge_unit}"
+                )
+            if abs(int(pulse["phase_two_charge"])) > max_abs_charge:
+                return Response(
+                    status=f"400 Invalid phase two charge: {pulse['phase_two_charge']} {charge_unit}"
+                )
+            if pulse["repeat_delay_interval"] < 0:
+                return Response(status=f"400 Invalid repeat delay interval: {pulse['repeat_delay_interval']}")
+            total_pulse_dur_microsecs = (
+                pulse["phase_one_duration"]
+                + pulse["phase_two_duration"]
+                + pulse["interpulse_interval"]
+                + pulse["repeat_delay_interval"]
+            )
+            if pulse["total_active_duration"] < total_pulse_dur_microsecs:
+                return Response(status="400 Total active duration less than the duration of the pulse")
 
     # queue_command_to_main({})
 

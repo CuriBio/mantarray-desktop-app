@@ -17,6 +17,9 @@ from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import server
 from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE
+from mantarray_desktop_app import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
+from mantarray_desktop_app import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
+from mantarray_desktop_app import STIM_MAX_PULSE_DURATION_MICROSECONDS
 from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
 import pytest
 
@@ -856,7 +859,7 @@ def test_set_protocol__returns_error_code_if_protocol_list_is_empty(
     test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
     shared_values_dict["beta_2_mode"] = True
 
-    response = test_client.post("/set_protocol", json=json.dumps({"protocol": []}))
+    response = test_client.post("/set_protocol", json=json.dumps({"protocols": []}))
     assert response.status_code == 400
     assert response.status.endswith("Protocol list is empty") is True
 
@@ -875,7 +878,7 @@ def test_set_protocol__returns_error_code_with_invalid_stimulation_type(
     test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
     shared_values_dict["beta_2_mode"] = True
 
-    test_protocol_dict = {"protocol": [{"stimulation_type": test_stimulation_type}]}
+    test_protocol_dict = {"protocols": [{"stimulation_type": test_stimulation_type}]}
     response = test_client.post("/set_protocol", json=json.dumps(test_protocol_dict))
     assert response.status_code == 400
     assert response.status.endswith(f"Invalid stimulation type: {test_stimulation_type}") is True
@@ -894,7 +897,114 @@ def test_set_protocol__returns_error_code_with_invalid_well_number(
     test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
     shared_values_dict["beta_2_mode"] = True
 
-    test_protocol_dict = {"protocol": [{"stimulation_type": "C", "well_number": test_well_number}]}
+    test_protocol_dict = {"protocols": [{"stimulation_type": "C", "well_number": test_well_number}]}
     response = test_client.post("/set_protocol", json=json.dumps(test_protocol_dict))
     assert response.status_code == 400
     assert response.status.endswith(f"Invalid well: {test_well_number}") is True
+
+
+def test_set_protocol__returns_error_code_with_single_invalid_pulse_value(
+    client_and_server_thread_and_shared_values, mocker
+):
+    mocker.patch.object(server, "queue_command_to_main", autospec=True)
+
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+
+    # TODO Tanner (8/9/21): handling different values here instead of using pytest parametrize so that test runs faster, but need to check if this test can use normal pytest parametrization after server thread is refactored
+    errors = []
+    for (test_pulse_item, test_value, test_stim_type, error_msg) in [
+        (
+            "phase_one_charge",
+            STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS + 1,
+            "C",
+            f"Invalid phase one charge: {STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS + 1} µA",
+        ),
+        (
+            "phase_one_charge",
+            -STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS - 1,
+            "C",
+            f"Invalid phase one charge: {-STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS - 1} µA",
+        ),
+        (
+            "phase_two_charge",
+            STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS + 1,
+            "C",
+            f"Invalid phase two charge: {STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS + 1} µA",
+        ),
+        (
+            "phase_two_charge",
+            -STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS - 1,
+            "C",
+            f"Invalid phase two charge: {-STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS - 1} µA",
+        ),
+        (
+            "phase_one_charge",
+            STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS + 1,
+            "V",
+            f"Invalid phase one charge: {STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS + 1} mV",
+        ),
+        (
+            "phase_one_charge",
+            -STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS - 1,
+            "V",
+            f"Invalid phase one charge: {-STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS - 1} mV",
+        ),
+        (
+            "phase_two_charge",
+            STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS + 1,
+            "V",
+            f"Invalid phase two charge: {STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS + 1} mV",
+        ),
+        (
+            "phase_two_charge",
+            -STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS - 1,
+            "V",
+            f"Invalid phase two charge: {-STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS - 1} mV",
+        ),
+        ("phase_one_duration", 0, "C", "Invalid phase one duration: 0"),
+        ("phase_one_duration", -1, "C", "Invalid phase one duration: -1"),
+        ("phase_two_duration", -1, "C", "Invalid phase two duration: -1"),
+        ("interpulse_interval", -1, "C", "Invalid interpulse interval: -1"),
+        ("repeat_delay_interval", -1, "C", "Invalid repeat delay interval: -1"),
+        (
+            "total_active_duration",
+            STIM_MAX_PULSE_DURATION_MICROSECONDS - 1,
+            "C",
+            "Total active duration less than the duration of the pulse",
+        ),
+    ]:
+        test_base_charge = (
+            STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
+            if test_stim_type == "V"
+            else STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
+        )
+        # create an arbitrary protocol to which an invalid value can easily be added
+        test_protocol_dict = {
+            "protocols": [
+                {
+                    "stimulation_type": test_stim_type,
+                    "well_number": "A1",
+                    "total_protocol_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS,
+                    "pulses": [
+                        {
+                            "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
+                            "phase_one_charge": test_base_charge,
+                            "interpulse_interval": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
+                            "phase_two_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
+                            "phase_two_charge": -test_base_charge,
+                            "repeat_delay_interval": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
+                            "total_active_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS,
+                        }
+                    ],
+                }
+            ]
+        }
+        # add bad value
+        test_protocol_dict["protocols"][0]["pulses"][0][test_pulse_item] = test_value
+
+        response = test_client.post("/set_protocol", json=json.dumps(test_protocol_dict))
+        if f"400 {error_msg}" not in response.status:
+            errors.append((response.status, error_msg))
+
+    assert len(errors) == 0, errors
