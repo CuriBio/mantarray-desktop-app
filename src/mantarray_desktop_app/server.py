@@ -388,6 +388,10 @@ def set_magnetometer_config() -> Response:
     if error_msg:
         return Response(status=f"400 {error_msg}")
 
+    # make sure default channel is enabled
+    for module_dict in magnetometer_config_dict["magnetometer_config"].values():
+        module_dict[0] = True
+
     queue_command_to_main(
         {
             "communication_type": "set_magnetometer_config",
