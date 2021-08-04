@@ -85,6 +85,7 @@ from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_MILLISECOND
 from .constants import RECORDING_STATE
 from .constants import REFERENCE_VOLTAGE
+from .constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
@@ -390,7 +391,7 @@ def set_magnetometer_config() -> Response:
 
     # make sure default channel is enabled
     for module_dict in magnetometer_config_dict["magnetometer_config"].values():
-        module_dict[0] = True
+        module_dict[SERIAL_COMM_DEFAULT_DATA_CHANNEL] = True
 
     queue_command_to_main(
         {

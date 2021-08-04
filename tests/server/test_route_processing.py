@@ -23,6 +23,7 @@ from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import redact_sensitive_info_from_path
 from mantarray_desktop_app import RunningFIFOSimulator
+from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import server
 from mantarray_desktop_app import utils
@@ -1641,7 +1642,7 @@ def test_set_magnetometer_config__gets_processed__and_default_channel_is_enabled
 
     # enable default channel in expected config
     for module_dict in expected_config_dict["magnetometer_config"].values():
-        module_dict[0] = True
+        module_dict[SERIAL_COMM_DEFAULT_DATA_CHANNEL] = True
 
     assert shared_values_dict["magnetometer_config_dict"] == expected_config_dict
     # make sure module ID keys and inner channel keys are fully sorted

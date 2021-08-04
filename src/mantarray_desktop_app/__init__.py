@@ -84,6 +84,7 @@ from .constants import SERIAL_COMM_BOOT_UP_CODE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+from .constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from .constants import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
 from .constants import SERIAL_COMM_FATAL_ERROR_CODE
 from .constants import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
@@ -553,4 +554,5 @@ __all__ = [
     "MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS",
     "get_active_wells_from_config",
     "MICRO_TO_BASE_CONVERSION",
+    "SERIAL_COMM_DEFAULT_DATA_CHANNEL",
 ]
