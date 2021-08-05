@@ -8,7 +8,7 @@ import logging
 from multiprocessing import Queue
 import queue
 from statistics import stdev
-import time
+from time import perf_counter
 from typing import Any
 from typing import Dict
 from typing import List
@@ -40,6 +40,10 @@ from .constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from .exceptions import UnrecognizedCommandToInstrumentError
 from .exceptions import UnrecognizedCommTypeFromMainToDataAnalyzerError
 from .utils import get_active_wells_from_config
+
+
+def _get_secs_since_data_creation_start(start: float) -> float:
+    return perf_counter() - start
 
 
 def check_for_new_twitches(
@@ -142,7 +146,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         data_buf_arr = np.array(data_buf, dtype=np.int64)
         pipeline = self._pipeline_template.create_pipeline()
         # Tanner (7/14/21): reference data is currently unused by waveform analysis package, so sending zero array instead
-        pipeline.load_raw_gmr_data(data_buf_arr, np.zeros(data_buf_arr.shape))
+        pipeline.load_raw_magnetic_data(data_buf_arr, np.zeros(data_buf_arr.shape))
         try:
             return pipeline.get_force_data_metrics(metrics_to_create=[AMPLITUDE_UUID, TWITCH_FREQUENCY_UUID])[0]  # type: ignore
         except PeakDetectionError:
@@ -309,32 +313,27 @@ class DataAnalyzerProcess(InfiniteProcess):
         return True
 
     def _create_outgoing_beta_2_data(self, data_dict: Dict[Any, Any]) -> Dict[str, Any]:
-        # outgoing_data_creation_start = time.perf_counter()
+        start = perf_counter()
         waveform_data_points: Dict[int, Dict[str, List[float]]] = dict()
-
-        # analysis_durations = list()
-        # convert arrays to lists for json conversion later
         for well_idx in range(24):
-            # TODO create and log performance metrics
-            # start = time.perf_counter()
             default_channel_data = data_dict[well_idx][SERIAL_COMM_DEFAULT_DATA_CHANNEL]
             pipeline = self._pipeline_template.create_pipeline()
-            pipeline.load_raw_gmr_data(
+            pipeline.load_raw_magnetic_data(
                 np.array([data_dict["time_indices"], default_channel_data], np.int64),
                 np.zeros((2, len(default_channel_data))),
             )
             # TODO figure out if not compressing data performs well in frontend or get force compressing to work
             force_data = pipeline.get_force()
-            # analysis_dur = time.perf_counter() - start
-            # analysis_durations.append(analysis_dur)
 
+            # convert arrays to lists for json conversion later
             waveform_data_points[well_idx] = {
                 "x_data_points": force_data[0].tolist(),
                 "y_data_points": (force_data[1] * MICRO_TO_BASE_CONVERSION).tolist(),
             }
-        # outgoing_data_creation_dur = time.perf_counter() - outgoing_data_creation_start
-        # self._outgoing_data_creation_durations.append(outgoing_data_creation_dur)
-        # self._handle_performance_logging(analysis_durations)
+
+        outgoing_data_creation_dur_secs = _get_secs_since_data_creation_start(start)
+        self._outgoing_data_creation_durations.append(outgoing_data_creation_dur_secs)
+        self._handle_performance_logging()
 
         # create formatted dict
         outgoing_data: Dict[str, Any] = {
@@ -346,23 +345,19 @@ class DataAnalyzerProcess(InfiniteProcess):
         return outgoing_data
 
     def _create_outgoing_beta_1_data(self) -> Dict[str, Any]:
-        outgoing_data_creation_start = time.perf_counter()
+        outgoing_data_creation_start = perf_counter()
         outgoing_data: Dict[str, Any] = {"waveform_data": {"basic_data": {"waveform_data_points": None}}}
 
         basic_waveform_data_points = dict()
         earliest_timepoint: Optional[int] = None
         latest_timepoint: Optional[int] = None
-        analysis_durations = list()
         for well_index in range(24):
-            start = time.perf_counter()
             pipeline = self._pipeline_template.create_pipeline()
-            pipeline.load_raw_gmr_data(
+            pipeline.load_raw_magnetic_data(
                 np.array(self._data_buffer[well_index]["construct_data"], dtype=np.int32),
                 np.array(self._data_buffer[well_index]["ref_data"], dtype=np.int32),
             )
             compressed_data = pipeline.get_compressed_force()
-            analysis_dur = time.perf_counter() - start
-            analysis_durations.append(analysis_dur)
 
             basic_waveform_data_points[well_index] = {
                 "x_data_points": compressed_data[0].tolist(),
@@ -378,31 +373,30 @@ class DataAnalyzerProcess(InfiniteProcess):
                 "construct_data": None,
                 "ref_data": None,
             }
-        outgoing_data_creation_dur = time.perf_counter() - outgoing_data_creation_start
+        outgoing_data_creation_dur = perf_counter() - outgoing_data_creation_start
         self._outgoing_data_creation_durations.append(outgoing_data_creation_dur)
-        self._handle_performance_logging(analysis_durations)
+        self._handle_performance_logging()
 
         outgoing_data["waveform_data"]["basic_data"]["waveform_data_points"] = basic_waveform_data_points
         outgoing_data["earliest_timepoint"] = earliest_timepoint
         outgoing_data["latest_timepoint"] = latest_timepoint
         return outgoing_data
 
-    def _handle_performance_logging(self, analysis_durations: List[float]) -> None:
-        performance_metrics: Dict[str, Any] = {
-            "communication_type": "performance_metrics",
-        }
+    def _handle_performance_logging(self) -> None:
+        # TODO Tanner (8/4/21): create metrics for heatmap value creation
+        performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}
         tracker = self.reset_performance_tracker()
         performance_metrics["longest_iterations"] = sorted(tracker["longest_iterations"])
         performance_metrics["percent_use"] = tracker["percent_use"]
-        performance_metrics["data_creating_duration"] = self._outgoing_data_creation_durations[-1]
+        performance_metrics["data_creation_duration"] = self._outgoing_data_creation_durations[-1]
 
-        name_measurement_list = [("analysis_durations", analysis_durations)]
+        name_measurement_list = list()  # [("analysis_durations", analysis_durations)]
         if len(self._percent_use_values) > 1:
             performance_metrics["percent_use_metrics"] = self.get_percent_use_metrics()
         if len(self._outgoing_data_creation_durations) > 1:
             name_measurement_list.append(
                 (
-                    "data_creating_duration_metrics",
+                    "data_creation_duration_metrics",
                     self._outgoing_data_creation_durations,
                 )
             )

@@ -36,7 +36,10 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
 
     # mock so that well metrics don't populate outgoing data queue
     mocker.patch.object(da_process, "_dump_outgoing_well_metrics", autospec=True)
+    # mock so performance log messages don't populate queue to main
+    mocker.patch.object(da_process, "_handle_performance_logging", autospec=True)
 
+    # run setup_before_loop to init streams and setup logging attributes
     da_process.init_streams()
     # set config arbitrary sampling period
     test_sampling_period = 1000
@@ -76,7 +79,7 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
             np.array([test_data_packet["time_indices"], default_channel_data], np.int64),
             np.zeros((2, len(default_channel_data))),
         )
-        # TODO figure out it not compressing data performs well
+        # TODO figure out if not compressing data performs well
         compressed_data = pipeline.get_force()
         waveform_data_points[well_idx] = {
             "x_data_points": compressed_data[0].tolist(),

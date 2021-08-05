@@ -268,6 +268,7 @@ def test_DataAnalyzerProcess__sends_beta_2_metrics_of_all_wells_to_main_when_rea
 
     # mock so waveform data doesn't populate outgoing data queue
     mocker.patch.object(da_process, "_dump_data_into_queue", autospec=True)
+    mocker.patch.object(da_process, "_create_outgoing_beta_2_data", autospec=True)
 
     expected_sampling_period_us = 11000
     set_magnetometer_config(
@@ -405,6 +406,7 @@ def test_DataAnalyzerProcess__only_dumps_new_twitch_metrics__with_beta_2_data(
 
     # mock so waveform data doesn't populate outgoing data queue
     mocker.patch.object(da_process, "_dump_data_into_queue", autospec=True)
+    mocker.patch.object(da_process, "_create_outgoing_beta_2_data", autospec=True)
 
     expected_sampling_period_us = 13000
     set_magnetometer_config(
@@ -486,6 +488,7 @@ def test_DataAnalyzerProcess__data_analysis_stream_is_reconfigured_in_beta_2_mod
 
     # mock so waveform data doesn't populate outgoing data queue
     mocker.patch.object(da_process, "_dump_data_into_queue", autospec=True)
+    mocker.patch.object(da_process, "_create_outgoing_beta_2_data", autospec=True)
 
     expected_sampling_period_us = 12000
     set_magnetometer_config(

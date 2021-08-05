@@ -12,7 +12,7 @@ SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0 = {
     "data": np.zeros((2, 100), dtype=np.int32),
 }
 
-# X Axis of Sensor A and Z Axis of Sensor C from 24 wells. This should match GENERIC_WELL_MAGNETOMETER_CONFIGURATION
+# X Axis of Sensor A (default channel) and Z Axis of Sensor C from 24 wells. This should match GENERIC_WELL_MAGNETOMETER_CONFIGURATION
 SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS: Dict[Any, Any] = {
     "time_indices": np.zeros(100, dtype=np.uint64),
     "is_first_packet_of_stream": False,

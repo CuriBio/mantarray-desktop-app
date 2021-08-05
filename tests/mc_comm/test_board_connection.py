@@ -288,7 +288,7 @@ def test_McCommunicationProcess_register_magic_word__raises_error_if_reading_nex
     # mock with only two return values to speed up the test
     mocker.patch.object(
         mc_comm,
-        "_get_seconds_since_read_start",
+        "_get_secs_since_read_start",
         autospec=True,
         side_effect=[0, SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS],
     )

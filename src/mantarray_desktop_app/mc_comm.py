@@ -115,7 +115,7 @@ def _get_formatted_utc_now() -> str:
     return datetime.datetime.utcnow().strftime(DATETIME_STR_FORMAT)
 
 
-def _get_seconds_since_read_start(start: float) -> float:
+def _get_secs_since_read_start(start: float) -> float:
     return perf_counter() - start
 
 
@@ -718,13 +718,14 @@ class McCommunicationProcess(InstrumentCommProcess):
                 # A magic word should be encountered if this many bytes are read. If not, we can assume there was a problem with the mantarray
                 if num_bytes_checked > SERIAL_COMM_MAX_PACKET_LENGTH_BYTES:
                     raise SerialCommPacketRegistrationSearchExhaustedError()
-            read_dur_secs = _get_seconds_since_read_start(start)
+            read_dur_secs = _get_secs_since_read_start(start)
         # if this point is reached and the magic word has not been found, then at some point no additional bytes were being read
         if magic_word_test_bytes != SERIAL_COMM_MAGIC_WORD_BYTES:
             raise SerialCommPacketRegistrationReadEmptyError()
         self._is_registered_with_serial_comm[board_idx] = True
 
     def _handle_data_stream(self) -> None:
+        # TODO Tanner (8/4/21): add general performance + data parsing metric creation and logging, ideally before stim testing
         board_idx = 0
         board = self._board_connections[board_idx]
         if board is None:
