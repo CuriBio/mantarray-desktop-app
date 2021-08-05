@@ -56,6 +56,8 @@ from .constants import FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
 from .constants import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
 from .constants import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import FIRMWARE_VERSION_WIRE_OUT_ADDRESS
+from .constants import INITIAL_MAGNETOMETER_CONFIG
+from .constants import INITIAL_SAMPLING_PERIOD
 from .constants import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
@@ -555,4 +557,6 @@ __all__ = [
     "get_active_wells_from_config",
     "MICRO_TO_BASE_CONVERSION",
     "SERIAL_COMM_DEFAULT_DATA_CHANNEL",
+    "INITIAL_SAMPLING_PERIOD",
+    "INITIAL_MAGNETOMETER_CONFIG",
 ]

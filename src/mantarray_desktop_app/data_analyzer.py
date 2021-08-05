@@ -383,7 +383,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         return outgoing_data
 
     def _handle_performance_logging(self) -> None:
-        # TODO Tanner (8/4/21): create metrics for heatmap value creation
+        # TODO Tanner (8/4/21): create performance metrics for heatmap value creation
         performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}
         tracker = self.reset_performance_tracker()
         performance_metrics["longest_iterations"] = sorted(tracker["longest_iterations"])

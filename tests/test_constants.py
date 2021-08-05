@@ -45,6 +45,8 @@ from mantarray_desktop_app import FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
 from mantarray_desktop_app import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
 from mantarray_desktop_app import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import FIRMWARE_VERSION_WIRE_OUT_ADDRESS
+from mantarray_desktop_app import INITIAL_MAGNETOMETER_CONFIG
+from mantarray_desktop_app import INITIAL_SAMPLING_PERIOD
 from mantarray_desktop_app import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
@@ -72,6 +74,7 @@ from mantarray_desktop_app import SERIAL_COMM_BOOT_UP_CODE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from mantarray_desktop_app import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_FATAL_ERROR_CODE
 from mantarray_desktop_app import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
@@ -477,6 +480,21 @@ def test_serial_comm():
         SERIAL_COMM_NUM_DATA_CHANNELS
         == SERIAL_COMM_NUM_CHANNELS_PER_SENSOR * SERIAL_COMM_NUM_SENSORS_PER_WELL
     )
+
+    assert SERIAL_COMM_DEFAULT_DATA_CHANNEL == SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]
+    assert INITIAL_SAMPLING_PERIOD == 10000
+    for module_id in range(24):
+        assert INITIAL_MAGNETOMETER_CONFIG[module_id] == {
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: True,
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Y"]: False,
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Z"]: False,
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["X"]: False,
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["Y"]: False,
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["Z"]: False,
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["X"]: False,
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Y"]: False,
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: False,
+        }
 
 
 def test_cython_constants():

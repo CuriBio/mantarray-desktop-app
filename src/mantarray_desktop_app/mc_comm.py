@@ -24,6 +24,8 @@ import serial
 import serial.tools.list_ports as list_ports
 from stdlib_utils import put_log_message_into_queue
 
+from .constants import INITIAL_MAGNETOMETER_CONFIG
+from .constants import INITIAL_SAMPLING_PERIOD
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BAUD_RATE
@@ -156,6 +158,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._num_wells = 24
         self._is_registered_with_serial_comm: List[bool] = [False] * len(self._board_queues)
         self._auto_get_metadata = False
+        self._auto_set_magnetometer_config = False
         self._time_of_last_handshake_secs: Optional[float] = None
         self._time_of_last_beacon_secs: Optional[float] = None
         self._commands_awaiting_response: Deque[  # pylint: disable=unsubscriptable-object
@@ -198,6 +201,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             while not board.is_start_up_complete():
                 # sleep so as to not relentlessly ping the simulator
                 sleep(0.1)
+        self._auto_set_magnetometer_config = True
         self._auto_get_metadata = True
 
     def _teardown_after_loop(self) -> None:
@@ -590,33 +594,59 @@ class McCommunicationProcess(InstrumentCommProcess):
                         "timepoint": perf_counter(),
                     }
                 )
-            elif status_code == SERIAL_COMM_IDLE_READY_CODE and self._auto_get_metadata:
-                if (
-                    not self._in_simulation_mode
-                ):  # pragma: no cover  # TODO Tanner (6/11/21): remove this once get_metadata command is implemented on real board
-                    self._board_queues[0][1].put_nowait(
-                        {
-                            "communication_type": "metadata_comm",
-                            "board_index": 0,
-                            "metadata": MantarrayMcSimulator.default_metadata_values,
-                        }
-                    )
-                else:
+            elif status_code == SERIAL_COMM_IDLE_READY_CODE:
+                # Tanner (8/5/21): not explicitly unit tested, but magnetometer config should be sent before automatic metadata collection
+                if self._auto_set_magnetometer_config:
+                    initial_config_copy = copy.deepcopy(INITIAL_MAGNETOMETER_CONFIG)
+                    self._set_magnetometer_config(initial_config_copy, INITIAL_SAMPLING_PERIOD)
+                    bytes_to_send = bytes([SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE])
+                    bytes_to_send += INITIAL_SAMPLING_PERIOD.to_bytes(2, byteorder="little")
+                    bytes_to_send += create_magnetometer_config_bytes(initial_config_copy)
                     self._send_data_packet(
                         board_idx,
                         SERIAL_COMM_MAIN_MODULE_ID,
                         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-                        bytes([SERIAL_COMM_GET_METADATA_COMMAND_BYTE])
-                        + convert_to_timestamp_bytes(get_serial_comm_timestamp()),
+                        bytes_to_send,
                     )
                     self._commands_awaiting_response.append(
                         {
-                            "communication_type": "metadata_comm",
-                            "command": "get_metadata",
+                            "communication_type": "default_magnetometer_config",
+                            "command": "change_magnetometer_config",
+                            "magnetometer_config_dict": {
+                                "magnetometer_config": initial_config_copy,
+                                "sampling_period": INITIAL_SAMPLING_PERIOD,
+                            },
                             "timepoint": perf_counter(),
                         }
                     )
-                self._auto_get_metadata = False
+                    self._auto_set_magnetometer_config = False
+                if self._auto_get_metadata:
+                    if (
+                        not self._in_simulation_mode
+                    ):  # pragma: no cover  # TODO Tanner (6/11/21): remove this once get_metadata command is implemented on real board
+                        self._board_queues[0][1].put_nowait(
+                            {
+                                "communication_type": "metadata_comm",
+                                "board_index": 0,
+                                "metadata": MantarrayMcSimulator.default_metadata_values,
+                            }
+                        )
+                    else:
+                        self._send_data_packet(
+                            board_idx,
+                            SERIAL_COMM_MAIN_MODULE_ID,
+                            SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+                            bytes([SERIAL_COMM_GET_METADATA_COMMAND_BYTE])
+                            + convert_to_timestamp_bytes(get_serial_comm_timestamp()),
+                        )
+                        self._commands_awaiting_response.append(
+                            {
+                                "communication_type": "metadata_comm",
+                                "command": "get_metadata",
+                                "timepoint": perf_counter(),
+                            }
+                        )
+                    self._auto_get_metadata = False
         elif packet_type == SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE:
             response_data = packet_body[SERIAL_COMM_TIMESTAMP_LENGTH_BYTES:]
             if not self._commands_awaiting_response:
