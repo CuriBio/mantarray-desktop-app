@@ -14,6 +14,7 @@ Custom HTTP Error Codes:
 * 403 - Call to /boot_up when in Beta 2 mode
 * 403 - Call to /set_magnetometer_config when in Beta 1 mode
 * 403 - Call to /set_magnetometer_config while data is streaming in Beta 2 mode
+* 403 - Call to /set_magnetometer_config before instrument finishes initializing in Beta 2 mode
 * 404 - Route not implemented
 * 406 - Call to /start_managed_acquisition before magnetometer configuration is set
 * 406 - Call to /start_managed_acquisition when Mantarray device does not have a serial number assigned to it
@@ -80,6 +81,7 @@ from .constants import BUFFERING_STATE
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import DEFAULT_SERVER_PORT_NUMBER
+from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
 from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_MILLISECOND
@@ -88,6 +90,8 @@ from .constants import REFERENCE_VOLTAGE
 from .constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
+from .constants import SERVER_INITIALIZING_STATE
+from .constants import SERVER_READY_STATE
 from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SYSTEM_STATUS_UUIDS
@@ -365,10 +369,16 @@ def set_magnetometer_config() -> Response:
     Can be invoked by: curl -d '<magnetometer configuration as json>' -H 'Content-Type: application/json' -X POST http://localhost:4567/set_magnetometer_config
     """
     # TODO Tanner (6/3/21): should separate out setting the sampling period into its own route
-    if not _get_values_from_process_monitor()["beta_2_mode"]:
+    shared_values_dict = _get_values_from_process_monitor()
+    if not shared_values_dict["beta_2_mode"]:
         return Response(status="403 Route cannot be called in beta 1 mode")
     if _is_data_streaming():
         return Response(status="403 Magnetometer Configuration cannot be changed while data is streaming")
+    if not _is_instrument_initialized():
+        return Response(
+            status="403 Magnetometer Configuration cannot be set until instrument finishes initializing"
+        )
+
     # load configuration
     magnetometer_config_dict_json = request.get_json()
     magnetometer_config_dict = json.loads(
@@ -418,6 +428,15 @@ def _fix_json_key(key: str) -> Union[int, str]:
 def _is_data_streaming() -> bool:
     current_system_status = _get_values_from_process_monitor()["system_status"]
     return current_system_status in (BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE, RECORDING_STATE)
+
+
+def _is_instrument_initialized() -> bool:
+    current_system_status = _get_values_from_process_monitor()["system_status"]
+    return current_system_status not in (
+        SERVER_INITIALIZING_STATE,
+        SERVER_READY_STATE,
+        INSTRUMENT_INITIALIZING_STATE,
+    )
 
 
 @flask_app.route("/start_recording", methods=["GET"])

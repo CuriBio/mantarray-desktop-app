@@ -208,7 +208,7 @@ STOP_MANAGED_ACQUISITION_COMMUNICATION = immutabledict(
 #   "instrument_initializing" state could correspond to boot up status code
 #   "configuration_needed" state means that magnetometer config and sampling period need to be set
 #   should change "calibrated" state to something better like idle/ready to stream
-#   "buffering" state may be removed
+#   "buffering" state should be kept
 SERVER_INITIALIZING_STATE = "server_initializing"
 SERVER_READY_STATE = "server_ready"
 INSTRUMENT_INITIALIZING_STATE = "instrument_initializing"
