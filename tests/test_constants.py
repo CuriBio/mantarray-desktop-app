@@ -483,7 +483,7 @@ def test_serial_comm():
 
     assert SERIAL_COMM_DEFAULT_DATA_CHANNEL == SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]
     assert INITIAL_SAMPLING_PERIOD == 10000
-    for module_id in range(24):
+    for module_id in range(1, 25):
         assert INITIAL_MAGNETOMETER_CONFIG[module_id] == {
             SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: True,
             SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Y"]: False,

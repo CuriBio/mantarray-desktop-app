@@ -336,7 +336,7 @@ INITIAL_MAGNETOMETER_CONFIG = {
         channel_id: channel_id == SERIAL_COMM_DEFAULT_DATA_CHANNEL
         for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS)
     }
-    for module_id in range(24)
+    for module_id in range(1, 25)
 }
 
 # Metadata
