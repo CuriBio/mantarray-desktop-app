@@ -17,6 +17,8 @@ from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import IncorrectMagnetometerConfigFromInstrumentError
+from mantarray_desktop_app import INITIAL_MAGNETOMETER_CONFIG
+from mantarray_desktop_app import INITIAL_SAMPLING_PERIOD
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import MantarrayMcSimulator
@@ -1110,3 +1112,45 @@ def test_MantarrayProcessesMonitor__drains_data_analyzer_data_out_queue_after_re
 
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(da_data_out_queue)
+
+
+def test_MantarrayProcessesMonitor__updates_magnetometer_config_after_receiving_default_config_message_from_mc_comm(
+    test_process_manager,
+    test_monitor,
+):
+    monitor_thread, shared_values_dict, _, _ = test_monitor
+
+    expected_magnetometer_config_dict = {
+        "magnetometer_config": copy.deepcopy(INITIAL_MAGNETOMETER_CONFIG),
+        "sampling_period": INITIAL_SAMPLING_PERIOD,
+    }
+
+    instrument_comm_to_main = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
+    )
+    main_to_da = test_process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
+    main_to_ic = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+
+    default_config_comm = {
+        "communication_type": "default_magnetometer_config",
+        "command": "change_magnetometer_config",
+        "magnetometer_config_dict": expected_magnetometer_config_dict,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        default_config_comm, instrument_comm_to_main
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+
+    # make sure update was stored
+    assert shared_values_dict["magnetometer_config_dict"] == expected_magnetometer_config_dict
+    # make sure update was passed to data analyzer
+    confirm_queue_is_eventually_of_size(main_to_da, 1)
+    comm_to_da = main_to_da.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    expected_comm_to_da = {
+        "communication_type": "to_instrument",
+        "command": "change_magnetometer_config",
+    }
+    expected_comm_to_da.update(expected_magnetometer_config_dict)
+    assert comm_to_da == expected_comm_to_da
+    # make sure update was not sent back to mc_comm
+    confirm_queue_is_eventually_empty(main_to_ic)

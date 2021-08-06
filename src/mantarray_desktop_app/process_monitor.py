@@ -414,8 +414,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
             self._values_to_share_to_server["mantarray_nickname"] = {
                 board_idx: communication["metadata"][MANTARRAY_NICKNAME_UUID]
             }
-        # elif communication_type == "default_magnetometer_config":
-        #     self._update_magnetometer_config_dict(communcation("magnetometer_config_dict"), False)
+        elif communication_type == "default_magnetometer_config":
+            self._update_magnetometer_config_dict(
+                communication["magnetometer_config_dict"], update_instrument_comm=False
+            )
 
     def _commands_for_each_run_iteration(self) -> None:
         """Execute additional commands inside the run loop."""
