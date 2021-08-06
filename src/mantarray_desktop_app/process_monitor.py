@@ -213,9 +213,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 main_to_fw_queue = (
                     self._process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
                 )
-                main_to_ic_queue.put_nowait(communication)
-                main_to_fw_queue.put_nowait(communication)
+                # need to send stop command to the process the furthest downstream the data path first then move upstream
                 main_to_da_queue.put_nowait(communication)
+                main_to_fw_queue.put_nowait(communication)
+                main_to_ic_queue.put_nowait(communication)
             else:
                 raise UnrecognizedCommandToInstrumentError(command)
         elif communication_type == "barcode_read_receipt":

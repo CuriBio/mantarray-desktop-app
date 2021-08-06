@@ -100,7 +100,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._board_queues = the_board_queues
         self._comm_from_main_queue = comm_from_main_queue
         self._comm_to_main_queue = comm_to_main_queue
-        self._is_managed_acquisition_running = False
+        self._end_of_data_stream_reached: List[Optional[bool]] = [False] * len(self._board_queues)
         self._data_buffer: Dict[int, Dict[str, Any]] = dict()
         self._data_analysis_streams: Dict[int, Tuple[Stream, Stream]] = dict()
         self._data_analysis_stream_zipper: Optional[Stream] = None
@@ -201,10 +201,11 @@ class DataAnalyzerProcess(InfiniteProcess):
             self._calibration_settings = communication["calibration_settings"]
         elif communication_type == "to_instrument":
             if communication["command"] == "start_managed_acquisition":
-                self._is_managed_acquisition_running = True
+                if not self._beta_2_mode:
+                    self._end_of_data_stream_reached[0] = False
                 drain_queue(self._board_queues[0][1])
             elif communication["command"] == "stop_managed_acquisition":
-                self._is_managed_acquisition_running = False
+                self._end_of_data_stream_reached[0] = True
                 for well_index in range(24):
                     self._data_buffer[well_index] = {
                         "construct_data": None,
@@ -241,25 +242,30 @@ class DataAnalyzerProcess(InfiniteProcess):
         except queue.Empty:
             return
 
-        if not self._is_managed_acquisition_running:
+        if self._beta_2_mode and data_dict["is_first_packet_of_stream"]:
+            self._end_of_data_stream_reached[0] = False
+        if self._end_of_data_stream_reached[0]:
             return
 
         if self._beta_2_mode:
-            outgoing_data = self._create_outgoing_beta_2_data(data_dict)
-            self._dump_data_into_queue(outgoing_data)
-            for key, well_dict in data_dict.items():
-                if not isinstance(key, int):
-                    continue
-                first_channel_data = [
-                    data_dict["time_indices"],
-                    well_dict[SERIAL_COMM_DEFAULT_DATA_CHANNEL],
-                ]
-                self._data_analysis_streams[key][0].emit(first_channel_data)
+            self._process_beta_2_data(data_dict)
         else:
             if not data_dict["is_reference_sensor"]:
                 well_idx = data_dict["well_index"]
                 self._data_analysis_streams[well_idx][0].emit(data_dict["data"])
             self._load_memory_into_buffer(data_dict)
+
+    def _process_beta_2_data(self, data_dict: Dict[Any, Any]) -> None:
+        outgoing_data = self._create_outgoing_beta_2_data(data_dict)
+        self._dump_data_into_queue(outgoing_data)
+        for key, well_dict in data_dict.items():
+            if not isinstance(key, int):
+                continue
+            first_channel_data = [
+                data_dict["time_indices"],
+                well_dict[SERIAL_COMM_DEFAULT_DATA_CHANNEL],
+            ]
+            self._data_analysis_streams[key][0].emit(first_channel_data)
 
     def _load_memory_into_buffer(self, data_dict: Dict[Any, Any]) -> None:
         if data_dict["is_reference_sensor"]:
