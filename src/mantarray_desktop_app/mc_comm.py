@@ -773,7 +773,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             time_offsets,
             data,
             num_data_packets_read,
-            other_packet_info,
+            other_packet_info_list,
             unread_bytes,
         ) = handle_data_packets(bytearray(self._data_packet_cache), self._active_sensors_list)
         self._data_packet_cache = unread_bytes
@@ -804,8 +804,8 @@ class McCommunicationProcess(InstrumentCommProcess):
             to_fw_queue.put_nowait(fw_item)
             self._has_data_packet_been_sent = True
 
-        # check for interrupting packet
-        if other_packet_info is not None:
+        # send any interrupting packets
+        for other_packet_info in other_packet_info_list:
             self._process_comm_from_instrument(
                 *other_packet_info[1:],
             )
