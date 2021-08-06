@@ -804,7 +804,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             to_fw_queue.put_nowait(fw_item)
             self._has_data_packet_been_sent = True
 
-        # send any interrupting packets
+        # process any interrupting packets
         for other_packet_info in other_packet_info_list:
             self._process_comm_from_instrument(
                 *other_packet_info[1:],
