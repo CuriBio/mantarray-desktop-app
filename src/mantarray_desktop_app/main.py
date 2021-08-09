@@ -233,6 +233,10 @@ def main(
     shared_values_dict["computer_name_hash"] = computer_name_hash
 
     shared_values_dict["beta_2_mode"] = parsed_args.beta_2_mode
+    if shared_values_dict["beta_2_mode"]:
+        # TODO unit test these
+        shared_values_dict["stimulation_running"] = False
+        shared_values_dict["stimulation_protocols"] = None
 
     msg = f"Log File UUID: {log_file_uuid}"
     logger.info(msg)

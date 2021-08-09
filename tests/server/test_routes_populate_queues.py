@@ -11,6 +11,7 @@ from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import server
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_desktop_app import STIM_MAX_PULSE_DURATION_MICROSECONDS
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
@@ -1165,3 +1166,40 @@ def test_set_stim_status__populates_queue_to_process_monitor_with_new_stim_statu
     assert communication["communication_type"] == "stimulation"
     assert communication["command"] == "set_stim_status"
     assert communication["status"] is expected_status_bool
+
+
+def test_set_protocol__populates_queue_to_process_monitor_with_new_protocol(
+    test_process_manager_beta_2_mode,
+    test_client,
+):
+    test_protocol_dict = {
+        "protocols": [
+            {
+                "stimulation_type": "C",
+                "well_number": "B1",
+                "total_protocol_duration": -1,
+                "pulses": [
+                    {
+                        "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
+                        "phase_one_charge": 0,
+                        "interpulse_interval": 0,
+                        "phase_two_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
+                        "phase_two_charge": 0,
+                        "repeat_delay_interval": 0,
+                        "total_active_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS * 20,
+                    }
+                ],
+            }
+        ]
+    }
+    response = test_client.post("/set_protocol", json=json.dumps(test_protocol_dict))
+    assert response.status_code == 200
+
+    comm_queue = (
+        test_process_manager_beta_2_mode.queue_container().get_communication_queue_from_server_to_main()
+    )
+    confirm_queue_is_eventually_of_size(comm_queue, 1)
+    communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["communication_type"] == "stimulation"
+    assert communication["command"] == "set_protocol"
+    assert communication["protocols"] == test_protocol_dict["protocols"]

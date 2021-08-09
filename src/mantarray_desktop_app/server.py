@@ -463,8 +463,8 @@ def set_protocol() -> Response:
 
     protocol_json = request.get_json()
     protocol_list = json.loads(protocol_json)["protocols"]
-    if not protocol_list:
-        return Response(status="400 Protocol list is empty")
+    if len(protocol_list) < 24:
+        return Response(status="400 Not enough protocols for all 24 wells")
     # validate protocols
     for protocol in protocol_list:
         if protocol["stimulation_type"] not in ("C", "V"):
@@ -520,7 +520,13 @@ def set_protocol() -> Response:
         ):
             return Response(status="400 Total protocol duration less than duration of all pulses")
 
-    # queue_command_to_main({})
+    queue_command_to_main(
+        {
+            "communication_type": "stimulation",
+            "command": "set_protocol",
+            "protocols": protocol_list,
+        }
+    )
 
     return Response(protocol_json, mimetype="application/json")
 

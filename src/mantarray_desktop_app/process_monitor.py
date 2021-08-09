@@ -167,6 +167,16 @@ class MantarrayProcessesMonitor(InfiniteThread):
             update_shared_dict(shared_values_dict, new_values)
         elif communication_type == "set_magnetometer_config":
             self._update_magnetometer_config_dict(communication["magnetometer_config_dict"])
+        elif communication_type == "stimulation":
+            command = communication["command"]
+            if command == "set_stim_status":
+                self._values_to_share_to_server["stimulation_running"] = communication["status"]
+            elif command == "set_protocol":
+                self._values_to_share_to_server["stimulation_protocols"] = communication["protocols"]
+            else:
+                # Tanner (8/9/21): could make this a custom error if needed
+                raise NotImplementedError(f"Unrecognized stimulation command: '{command}'")
+            self._put_communication_into_instrument_comm_queue(communication)
         elif communication_type == "xem_scripts":
             # Tanner (12/28/20): start_calibration is the only xem_scripts command that will come from server (called directly from /start_calibration). This comm type will be removed/replaced in beta 2 so not adding handling for unrecognized command.
             if shared_values_dict["beta_2_mode"]:
