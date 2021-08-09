@@ -990,7 +990,7 @@ def test_set_protocol__returns_error_code_with_single_invalid_pulse_value(
                         {
                             "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
                             "phase_one_charge": test_base_charge,
-                            "interpulse_interval": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
+                            "interpulse_interval": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
                             "phase_two_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
                             "phase_two_charge": -test_base_charge,
                             "repeat_delay_interval": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
@@ -1008,3 +1008,72 @@ def test_set_protocol__returns_error_code_with_single_invalid_pulse_value(
             errors.append((response.status, error_msg))
 
     assert len(errors) == 0, errors
+
+
+@pytest.mark.parametrize(
+    "test_protocol_dur,test_description",
+    [
+        (-2, "returns error code with -2"),
+        (0, "returns error code with 0"),
+        (STIM_MAX_PULSE_DURATION_MICROSECONDS * 2 - 1, "returns error code when 1 µs too short"),
+    ],
+)
+def test_set_protocol__returns_error_code_with_invalid_total_protocol_duration(
+    client_and_server_thread_and_shared_values, test_protocol_dur, test_description
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+
+    test_protocol_dict = {
+        "protocols": [
+            {
+                "stimulation_type": "V",
+                "well_number": "A1",
+                "total_protocol_duration": test_protocol_dur,
+                "pulses": [
+                    {
+                        "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS,
+                        "phase_one_charge": 0,
+                        "interpulse_interval": 0,
+                        "phase_two_duration": 0,
+                        "phase_two_charge": 0,
+                        "repeat_delay_interval": 0,
+                        "total_active_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS,
+                    }
+                ]
+                * 2,
+            }
+        ]
+    }
+    response = test_client.post("/set_protocol", json=json.dumps(test_protocol_dict))
+    assert "400 Total protocol duration less than duration of all pulses" in response.status
+
+
+def test_set_protocol__returns_error_code_when_pulse_duration_is_too_long(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+
+    test_protocol_dict = {
+        "protocols": [
+            {
+                "stimulation_type": "V",
+                "well_number": "A1",
+                "total_protocol_duration": -1,
+                "pulses": [
+                    {
+                        "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
+                        "phase_one_charge": 0,
+                        "interpulse_interval": 1,
+                        "phase_two_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
+                        "phase_two_charge": 0,
+                        "repeat_delay_interval": STIM_MAX_PULSE_DURATION_MICROSECONDS * 10,
+                        "total_active_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS * 20,
+                    }
+                ],
+            }
+        ]
+    }
+    response = test_client.post("/set_protocol", json=json.dumps(test_protocol_dict))
+    assert "400 Pulse duration too long" in response.status

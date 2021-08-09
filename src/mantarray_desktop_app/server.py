@@ -102,6 +102,7 @@ from .constants import SERVER_READY_STATE
 from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
 from .constants import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
+from .constants import STIM_MAX_PULSE_DURATION_MICROSECONDS
 from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SYSTEM_STATUS_UUIDS
 from .constants import VALID_CONFIG_SETTINGS
@@ -464,7 +465,6 @@ def set_protocol() -> Response:
     protocol_list = json.loads(protocol_json)["protocols"]
     if not protocol_list:
         return Response(status="400 Protocol list is empty")
-
     # validate protocols
     for protocol in protocol_list:
         if protocol["stimulation_type"] not in ("C", "V"):
@@ -482,7 +482,9 @@ def set_protocol() -> Response:
         except PositionInvalidForLabwareDefinitionError:
             return Response(status=f"400 Invalid well: {protocol['well_number']}")
         # validate pulse dictionaries
+        total_protocol_dur_microsecs = 0
         for pulse in protocol["pulses"]:
+            # pulse components
             if pulse["phase_one_duration"] <= 0:
                 return Response(status=f"400 Invalid phase one duration: {pulse['phase_one_duration']}")
             if pulse["interpulse_interval"] < 0:
@@ -497,16 +499,26 @@ def set_protocol() -> Response:
                 return Response(
                     status=f"400 Invalid phase two charge: {pulse['phase_two_charge']} {charge_unit}"
                 )
+            # delay before repeating pulse
             if pulse["repeat_delay_interval"] < 0:
                 return Response(status=f"400 Invalid repeat delay interval: {pulse['repeat_delay_interval']}")
-            total_pulse_dur_microsecs = (
-                pulse["phase_one_duration"]
-                + pulse["phase_two_duration"]
-                + pulse["interpulse_interval"]
-                + pulse["repeat_delay_interval"]
+            # make sure pulse duration (not including delay after) is not too large
+            single_pulse_dur_microsecs = (
+                pulse["phase_one_duration"] + pulse["phase_two_duration"] + pulse["interpulse_interval"]
             )
-            if pulse["total_active_duration"] < total_pulse_dur_microsecs:
+            if single_pulse_dur_microsecs > STIM_MAX_PULSE_DURATION_MICROSECONDS:
+                return Response(status="400 Pulse duration too long")
+            # make sure pulse is set to run for at least the duration of a single complete pulse
+            if pulse["total_active_duration"] < single_pulse_dur_microsecs:
                 return Response(status="400 Total active duration less than the duration of the pulse")
+            # add total time for running this pulse to total time of protocol
+            total_protocol_dur_microsecs += pulse["total_active_duration"]
+        # make sure the total duration of the protocol is at least the sum of each pulse's total duration
+        if (
+            protocol["total_protocol_duration"] < total_protocol_dur_microsecs
+            and protocol["total_protocol_duration"] != -1
+        ):
+            return Response(status="400 Total protocol duration less than duration of all pulses")
 
     # queue_command_to_main({})
 
@@ -1157,7 +1169,7 @@ def after_request(response: Response) -> Response:
 
 # TODO Tanner (6/17/21): change this from a thread to something more appropriate. figure out if this can be changed from a singleton (and a global if possible)
 class ServerThread(InfiniteThread):
-    """Thread to run populate the websocket with data packets."""
+    """Container of values used by Flask routes."""
 
     def __init__(
         self,
@@ -1167,7 +1179,7 @@ class ServerThread(InfiniteThread):
         fatal_error_reporter: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
             Tuple[Exception, str]
         ],
-        processes_queue_container: MantarrayQueueContainer,  # TODO Tanner (6/21/21): remove this once
+        processes_queue_container: MantarrayQueueContainer,  # TODO Tanner (6/21/21): remove this once this object is refactored
         values_from_process_monitor: Optional[Dict[str, Any]] = None,
         port: int = DEFAULT_SERVER_PORT_NUMBER,
         logging_level: int = logging.INFO,
