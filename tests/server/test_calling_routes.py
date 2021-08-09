@@ -8,12 +8,14 @@ from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import ImproperlyFormattedCustomerAccountUUIDError
 from mantarray_desktop_app import ImproperlyFormattedUserAccountUUIDError
+from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import RecordingFolderDoesNotExistError
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import server
+from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
 import pytest
@@ -766,6 +768,38 @@ def test_set_magnetometer_config__returns_error_code_if_called_while_data_is_str
     assert response.status_code == 403
     assert (
         response.status.endswith("Magnetometer Configuration cannot be changed while data is streaming")
+        is True
+    )
+
+
+@pytest.mark.parametrize(
+    "test_system_status,test_description",
+    [
+        (SERVER_INITIALIZING_STATE, "returns error code in server initializing state"),
+        (SERVER_READY_STATE, "returns error code in server ready state"),
+        (INSTRUMENT_INITIALIZING_STATE, "returns error code in instrument initializing state"),
+    ],
+)
+def test_set_magnetometer_config__returns_error_code_if_called_before_instrument_finishes_initialization(
+    test_system_status,
+    test_description,
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = test_system_status
+
+    test_num_wells = 24
+    test_config_dict = {
+        "magnetometer_config": create_magnetometer_config_dict(test_num_wells),
+        "sampling_period": 100000,
+    }
+    response = test_client.post("/set_magnetometer_config", json=json.dumps(test_config_dict))
+    assert response.status_code == 403
+    assert (
+        response.status.endswith(
+            "Magnetometer Configuration cannot be set until instrument finishes initializing"
+        )
         is True
     )
 

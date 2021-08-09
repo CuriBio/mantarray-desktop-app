@@ -296,13 +296,34 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager.get_instrument_process().hard_stop()
 
 
-def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_stop_managed_acquisition__puts_command_into_subprocess_queues(
-    test_process_manager, test_monitor
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_stop_managed_acquisition__puts_command_into_subprocess_queues_in_correct_order(
+    test_process_manager, test_monitor, mocker
 ):
     monitor_thread, _, _, _ = test_monitor
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+
+    main_to_da = test_process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
+    main_to_fw = test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
+    main_to_ic = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+
+    mocked_to_ic_put_nowait = mocker.patch.object(main_to_ic, "put_nowait", autospec=True)
+
+    def fw_side_effect(*args, **kwargs):
+        assert mocked_to_ic_put_nowait.call_count == 0, "Item passed to IC queue before FW queue"
+
+    mocked_to_fw_put_nowait = mocker.patch.object(
+        main_to_fw, "put_nowait", autospec=True, side_effect=fw_side_effect
+    )
+
+    def da_side_effect(*args, **kwargs):
+        assert mocked_to_ic_put_nowait.call_count == 0, "Item passed to IC queue before DA queue"
+        assert mocked_to_fw_put_nowait.call_count == 0, "Item passed to FW queue before DA queue"
+
+    mocked_to_da_put_nowait = mocker.patch.object(
+        main_to_da, "put_nowait", autospec=True, side_effect=da_side_effect
     )
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -311,21 +332,9 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     )
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
-
-    main_to_ic = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
-    confirm_queue_is_eventually_of_size(main_to_ic, 1)
-    actual_comm = main_to_ic.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert actual_comm == STOP_MANAGED_ACQUISITION_COMMUNICATION
-
-    main_to_fw = test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
-    confirm_queue_is_eventually_of_size(main_to_fw, 1)
-    actual_comm = main_to_fw.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert actual_comm == STOP_MANAGED_ACQUISITION_COMMUNICATION
-
-    main_to_da = test_process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
-    confirm_queue_is_eventually_of_size(main_to_da, 1)
-    actual_comm = main_to_da.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert actual_comm == STOP_MANAGED_ACQUISITION_COMMUNICATION
+    mocked_to_da_put_nowait.assert_called_once_with(STOP_MANAGED_ACQUISITION_COMMUNICATION)
+    mocked_to_fw_put_nowait.assert_called_once_with(STOP_MANAGED_ACQUISITION_COMMUNICATION)
+    mocked_to_ic_put_nowait.assert_called_once_with(STOP_MANAGED_ACQUISITION_COMMUNICATION)
 
     # clean up subprocesses prevent BrokenPipeErrors
     test_process_manager.hard_stop_processes()

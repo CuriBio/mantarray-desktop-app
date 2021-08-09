@@ -4,6 +4,8 @@ import copy
 from freezegun import freeze_time
 from mantarray_desktop_app import convert_to_timestamp_bytes
 from mantarray_desktop_app import create_data_packet
+from mantarray_desktop_app import INITIAL_MAGNETOMETER_CONFIG
+from mantarray_desktop_app import INITIAL_SAMPLING_PERIOD
 from mantarray_desktop_app import InstrumentRebootTimeoutError
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import MAX_MC_REBOOT_DURATION_SECONDS
@@ -288,7 +290,7 @@ def test_McCommunicationProcess_register_magic_word__raises_error_if_reading_nex
     # mock with only two return values to speed up the test
     mocker.patch.object(
         mc_comm,
-        "_get_seconds_since_read_start",
+        "_get_secs_since_read_start",
         autospec=True,
         side_effect=[0, SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS],
     )
@@ -560,6 +562,8 @@ def test_McCommunicationProcess__requests_metadata_from_instrument_after_it_init
     )
 
     invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
+    # setting this value to False so as to not have unrelated queue messages interfere with this test
+    mc_process._auto_set_magnetometer_config = False  # pylint: disable=protected-access
 
     # put simulator in time sync ready status and send beacon
     test_commands = [
@@ -585,3 +589,53 @@ def test_McCommunicationProcess__requests_metadata_from_instrument_after_it_init
     metadata_comm = to_main_items[-1]
     assert metadata_comm["communication_type"] == "metadata_comm"
     assert metadata_comm["metadata"] == MantarrayMcSimulator.default_metadata_values
+
+
+def test_McCommunicationProcess__sets_default_magnetometer_config_after_instrument_initially_reaches_idle_ready_state__and_sends_default_config_process_monitor__if_setup_before_loop_was_performed(
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    output_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
+    simulator = mantarray_mc_simulator["simulator"]
+    testing_queue = mantarray_mc_simulator["testing_queue"]
+    set_connection_and_register_simulator(four_board_mc_comm_process_no_handshake, mantarray_mc_simulator)
+
+    mocker.patch.object(  # Tanner (4/6/21): Need to prevent automatic beacons without interrupting the beacons sent after status code updates
+        mc_simulator,
+        "_get_secs_since_last_status_beacon",
+        return_value=0,
+        autospec=True,
+    )
+    mocker.patch.object(  # Tanner (5/22/21): performing set up before loop means that mc_comm will try to start the simulator process which will slow this test down
+        simulator, "start", autospec=True
+    )
+
+    invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
+
+    # put simulator in time sync ready status and send beacon
+    test_commands = [
+        {"command": "set_status_code", "status_code": SERIAL_COMM_TIME_SYNC_READY_CODE},
+        {"command": "send_single_beacon"},
+    ]
+    handle_putting_multiple_objects_into_empty_queue(test_commands, testing_queue)
+
+    invoke_process_run_and_check_errors(simulator, num_iterations=2)
+    # read status beacon and send time sync command
+    invoke_process_run_and_check_errors(mc_process)
+    # process command and switch to idle ready state
+    invoke_process_run_and_check_errors(simulator)
+
+    # run mc_process 3 times to process set time command response, process barcode comm, then trigger automatic setting of default magnetometer config
+    invoke_process_run_and_check_errors(mc_process, num_iterations=3)
+    # process change magnetometer config command response
+    invoke_process_run_and_check_errors(simulator)
+    # send config to main
+    invoke_process_run_and_check_errors(mc_process)
+    # check that config was sent to main
+    to_main_items = drain_queue(output_queue)
+    comm_to_main = to_main_items[-1]
+    assert comm_to_main["communication_type"] == "default_magnetometer_config"
+    assert comm_to_main["magnetometer_config_dict"] == {
+        "sampling_period": INITIAL_SAMPLING_PERIOD,
+        "magnetometer_config": INITIAL_MAGNETOMETER_CONFIG,
+    }

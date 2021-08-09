@@ -208,7 +208,7 @@ STOP_MANAGED_ACQUISITION_COMMUNICATION = immutabledict(
 #   "instrument_initializing" state could correspond to boot up status code
 #   "configuration_needed" state means that magnetometer config and sampling period need to be set
 #   should change "calibrated" state to something better like idle/ready to stream
-#   "buffering" state may be removed
+#   "buffering" state should be kept
 SERVER_INITIALIZING_STATE = "server_initializing"
 SERVER_READY_STATE = "server_ready"
 INSTRUMENT_INITIALIZING_STATE = "instrument_initializing"
@@ -328,7 +328,18 @@ SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE = {
 SERIAL_COMM_NUM_CHANNELS_PER_SENSOR = 3
 SERIAL_COMM_NUM_SENSORS_PER_WELL = 3
 SERIAL_COMM_NUM_DATA_CHANNELS = SERIAL_COMM_NUM_SENSORS_PER_WELL * SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
+SERIAL_COMM_DEFAULT_DATA_CHANNEL = SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]
 
+INITIAL_SAMPLING_PERIOD = 10000
+INITIAL_MAGNETOMETER_CONFIG = {
+    module_id: {
+        channel_id: channel_id == SERIAL_COMM_DEFAULT_DATA_CHANNEL
+        for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS)
+    }
+    for module_id in range(1, 25)
+}
+
+# Metadata
 SERIAL_COMM_METADATA_BYTES_LENGTH = 32
 
 # Mappings

@@ -23,6 +23,7 @@ from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import redact_sensitive_info_from_path
 from mantarray_desktop_app import RunningFIFOSimulator
+from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import server
 from mantarray_desktop_app import utils
@@ -1610,7 +1611,7 @@ def test_system_status__returns_correct_plate_barcode_and_status__only_when_barc
     assert "plate_barcode" not in response_json
 
 
-def test_set_magnetometer_config__gets_processed(test_monitor, test_client):
+def test_set_magnetometer_config__gets_processed__and_default_channel_is_enabled(test_monitor, test_client):
     monitor_thread, shared_values_dict, _, _ = test_monitor
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["system_status"] = CALIBRATED_STATE
@@ -1638,8 +1639,13 @@ def test_set_magnetometer_config__gets_processed(test_monitor, test_client):
     assert "sampling_period" in response_json
 
     invoke_process_run_and_check_errors(monitor_thread)
+
+    # enable default channel in expected config
+    for module_dict in expected_config_dict["magnetometer_config"].values():
+        module_dict[SERIAL_COMM_DEFAULT_DATA_CHANNEL] = True
+
     assert shared_values_dict["magnetometer_config_dict"] == expected_config_dict
-    # make sure dict is fully sorted
+    # make sure module ID keys and inner channel keys are fully sorted
     module_configs = shared_values_dict["magnetometer_config_dict"]["magnetometer_config"]
     key_list = list(module_configs.keys())
     assert all(key_list[i] == key_list[i + 1] - 1 for i in range(len(key_list) - 1)) is True

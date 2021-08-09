@@ -553,6 +553,8 @@ def test_DataAnalyzerProcess__does_not_load_data_to_buffer_if_managed_acquisitio
     p, board_queues, _, _, _ = four_board_analyzer_process
     incoming_data = board_queues[0][0]
 
+    p._end_of_data_stream_reached[0] = True  # pylint:disable=protected-access
+
     test_well_index = 0
     test_construct_dict = {
         "is_reference_sensor": False,
@@ -597,7 +599,7 @@ def test_DataAnalyzerProcess__processes_stop_managed_acquisition_command(
     )
 
     invoke_process_run_and_check_errors(p)
-    assert p._is_managed_acquisition_running is False  # pylint:disable=protected-access
+    assert p._end_of_data_stream_reached[0] is True  # pylint:disable=protected-access
     assert data_buffer[0]["construct_data"] is None
     assert data_buffer[0]["ref_data"] is None
     assert data_buffer[23]["construct_data"] is None
