@@ -61,6 +61,7 @@ def fixture_server_thread(generic_queue_container):
 
     yield st, to_main_queue, error_queue
     # drain queues to avoid broken pipe errors
+    # TODO Tanner (8/10/21): change this to clear_the_server_thread
     _clean_up_server_thread(st, to_main_queue, error_queue)
 
 
