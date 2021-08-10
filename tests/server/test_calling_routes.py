@@ -842,6 +842,36 @@ def test_set_stim_status__returns_error_code_and_message_if_running_arg_is_not_g
     assert response.status.endswith("Request missing 'running' parameter") is True
 
 
+def test_set_stim_status__returns_error_code_and_message_if_set_to_true_before_a_protocol_is_set(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = False
+    shared_values_dict["stimulation_protocols"] = None
+
+    response = test_client.post("/set_stim_status?running=True")
+    assert response.status_code == 406
+    assert response.status.endswith("Protocol has not been set") is True
+
+
+def test_set_stim_status__returns_code_and_message_if_new_status_is_the_same_as_the_current_status(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+
+    shared_values_dict["stimulation_running"] = False
+    response = test_client.post("/set_stim_status?running=false")
+    assert response.status_code == 304
+    assert response.status.endswith("Status not updated") is True
+
+    shared_values_dict["stimulation_running"] = True
+    response = test_client.post("/set_stim_status?running=true")
+    assert response.status_code == 304
+    assert response.status.endswith("Status not updated") is True
+
+
 def test_set_protocol__returns_error_code_if_called_in_beta_1_mode(
     client_and_server_thread_and_shared_values,
 ):
@@ -853,11 +883,24 @@ def test_set_protocol__returns_error_code_if_called_in_beta_1_mode(
     assert response.status.endswith("Route cannot be called in beta 1 mode") is True
 
 
+def test_set_protocol__returns_error_code_if_called_while_stimulation_is_running(
+    client_and_server_thread_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = True
+
+    response = test_client.post("/set_protocol")
+    assert response.status_code == 403
+    assert response.status.endswith("Cannot change protocol while stimulation is running") is True
+
+
 def test_set_protocol__returns_error_code_if_protocol_list_does_not_contain_enough_items(
     client_and_server_thread_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = False
 
     response = test_client.post("/set_protocol", json=json.dumps({"protocols": [None] * 23}))
     assert response.status_code == 400
@@ -877,6 +920,7 @@ def test_set_protocol__returns_error_code_with_invalid_stimulation_type(
 ):
     test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = False
 
     test_protocol_dict = {"protocols": [{"stimulation_type": test_stimulation_type}] * 24}
     response = test_client.post("/set_protocol", json=json.dumps(test_protocol_dict))
@@ -896,6 +940,7 @@ def test_set_protocol__returns_error_code_with_invalid_well_number(
 ):
     test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = False
 
     test_protocol_dict = {"protocols": [{"stimulation_type": "C", "well_number": test_well_number}] * 24}
     response = test_client.post("/set_protocol", json=json.dumps(test_protocol_dict))
@@ -910,6 +955,7 @@ def test_set_protocol__returns_error_code_with_single_invalid_pulse_value(
 
     test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = False
 
     # TODO Tanner (8/9/21): handling different values here instead of using pytest parametrize so that test runs faster, but need to check if this test can use normal pytest parametrization after server thread is refactored
     errors = []
@@ -1024,6 +1070,7 @@ def test_set_protocol__returns_error_code_with_invalid_total_protocol_duration(
 ):
     test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = False
 
     test_protocol_dict = {
         "protocols": [
@@ -1056,6 +1103,7 @@ def test_set_protocol__returns_error_code_when_pulse_duration_is_too_long(
 ):
     test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = False
 
     test_protocol_dict = {
         "protocols": [

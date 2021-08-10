@@ -1150,17 +1150,23 @@ def test_shutdown__populates_queue_with_request_to_soft_stop_then_request_to_har
 def test_set_stim_status__populates_queue_to_process_monitor_with_new_stim_status(
     test_status,
     test_description,
-    test_process_manager_beta_2_mode,
-    test_client,
+    client_and_server_thread_and_shared_values,
 ):
+    (
+        test_client,
+        (server_thread, *_),
+        shared_values_dict,
+    ) = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_protocols"] = [None] * 24
+
+    expected_status_bool = test_status in ("true", "True")
+    shared_values_dict["stimulation_running"] = not expected_status_bool
+
     response = test_client.post(f"/set_stim_status?running={test_status}")
     assert response.status_code == 200
 
-    expected_status_bool = test_status in ("true", "True")
-
-    comm_queue = (
-        test_process_manager_beta_2_mode.queue_container().get_communication_queue_from_server_to_main()
-    )
+    comm_queue = server_thread.get_queue_to_main()
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "stimulation"
@@ -1169,9 +1175,16 @@ def test_set_stim_status__populates_queue_to_process_monitor_with_new_stim_statu
 
 
 def test_set_protocol__populates_queue_to_process_monitor_with_new_protocol(
-    test_process_manager_beta_2_mode,
-    test_client,
+    client_and_server_thread_and_shared_values,
 ):
+    (
+        test_client,
+        (server_thread, *_),
+        shared_values_dict,
+    ) = client_and_server_thread_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = False
+
     test_protocol_dict = {
         "protocols": [
             {
@@ -1191,13 +1204,12 @@ def test_set_protocol__populates_queue_to_process_monitor_with_new_protocol(
                 ],
             }
         ]
+        * 24
     }
     response = test_client.post("/set_protocol", json=json.dumps(test_protocol_dict))
     assert response.status_code == 200
 
-    comm_queue = (
-        test_process_manager_beta_2_mode.queue_container().get_communication_queue_from_server_to_main()
-    )
+    comm_queue = server_thread.get_queue_to_main()
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "stimulation"

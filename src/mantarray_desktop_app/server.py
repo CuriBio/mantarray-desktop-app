@@ -3,6 +3,7 @@
 
 Custom HTTP Error Codes:
 
+* 304 - Call to /set_stim_status with the current stim status (no updates will be made to status)
 * 400 - Call to /start_recording with invalid or missing barcode parameter
 * 400 - Call to /set_mantarray_nickname with invalid nickname parameter
 * 400 - Call to /update_settings with unexpected argument, invalid account UUID, or a recording directory that doesn't exist
@@ -18,8 +19,10 @@ Custom HTTP Error Codes:
 * 403 - Call to /set_magnetometer_config while data is streaming in Beta 2 mode
 * 403 - Call to /set_magnetometer_config before instrument finishes initializing in Beta 2 mode
 * 403 - Call to /set_protocol when in Beta 1 mode
+* 403 - Call to /set_protocol while stimulation is running
 * 403 - Call to /set_stim_status when in Beta 1 mode
 * 404 - Route not implemented
+* 406 - Call to /set_stim_status when before protocol is set
 * 406 - Call to /start_managed_acquisition before magnetometer configuration is set
 * 406 - Call to /start_managed_acquisition when Mantarray device does not have a serial number assigned to it
 * 406 - Call to /start_recording before customer_account_uuid and user_account_uuid are set
@@ -454,12 +457,15 @@ def set_protocol() -> Response:
     # pylint: disable=too-many-return-statements  # Tanner (8/9/21): lots of error codes that can be returned here
     """Set the stimulation protocol in hardware memory.
 
-    Can be invoked by: curl -d '<stimulation protocol as json>' -H
-    'Content-Type: application/json' -X POST
-    http://localhost:4567/set_protocol
+    Not available for Beta 1 instruments.
+
+    Can be invoked by: curl -d '<stimulation protocol as json>' -H 'Content-Type: application/json' -X POST http://localhost:4567/set_protocol
     """
-    if not _get_values_from_process_monitor()["beta_2_mode"]:
+    shared_values_dict = _get_values_from_process_monitor()
+    if not shared_values_dict["beta_2_mode"]:
         return Response(status="403 Route cannot be called in beta 1 mode")
+    if shared_values_dict["stimulation_running"]:
+        return Response(status="403 Cannot change protocol while stimulation is running")
 
     protocol_json = request.get_json()
     protocol_list = json.loads(protocol_json)["protocols"]
@@ -535,16 +541,23 @@ def set_protocol() -> Response:
 def set_stim_status() -> Response:
     """Start or stop stimulation on hardware.
 
-    Can be invoked by: curl -X POST
-    http://localhost:4567/set_stim_status?running=true
+    Not available for Beta 1 instruments.
+
+    Can be invoked by: curl -X POST http://localhost:4567/set_stim_status?running=true
     """
-    if not _get_values_from_process_monitor()["beta_2_mode"]:
+    shared_values_dict = _get_values_from_process_monitor()
+    if not shared_values_dict["beta_2_mode"]:
         return Response(status="403 Route cannot be called in beta 1 mode")
 
     try:
         status = request.args["running"] in ("true", "True")
     except KeyError:
         return Response(status="400 Request missing 'running' parameter")
+
+    if status is shared_values_dict["stimulation_running"]:
+        return Response(status="304 Status not updated")
+    if status and shared_values_dict["stimulation_protocols"] is None:
+        return Response(status="406 Protocol has not been set")
 
     response = queue_command_to_main(
         {
