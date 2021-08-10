@@ -764,9 +764,15 @@ class McCommunicationProcess(InstrumentCommProcess):
         num_bytes_per_second = self._packet_len * int(1e6 // self._sampling_period_us)
 
         self._data_packet_cache += board.read_all()
-        # wait for at least 1 second of data to be present unless stop data stream command has been sent to instrument
-        if len(self._data_packet_cache) < num_bytes_per_second and not self._is_stopping_data_stream:
-            # TODO need to also return if _data_packet_cache is empty
+
+        # If stopping data stream, make sure at least 1 byte is available.
+        # Otherwise, wait for at least 1 second of data
+        return_cond = (
+            len(self._data_packet_cache) == 0
+            if self._is_stopping_data_stream
+            else len(self._data_packet_cache) < num_bytes_per_second
+        )
+        if return_cond:
             return
 
         (

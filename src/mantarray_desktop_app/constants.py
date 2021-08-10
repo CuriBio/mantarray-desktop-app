@@ -341,7 +341,7 @@ INITIAL_MAGNETOMETER_CONFIG = {
     }
     for module_id in range(1, 25)
 }
-# Stimulation  # TODO add tests for these values
+# Stimulation
 STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS = int(100e3)
 STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS = int(1.2e3)
 STIM_MAX_PULSE_DURATION_MICROSECONDS = int(50e3)

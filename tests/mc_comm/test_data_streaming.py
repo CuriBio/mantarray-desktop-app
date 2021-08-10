@@ -8,6 +8,7 @@ from mantarray_desktop_app import create_active_channel_per_sensor_list
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import handle_data_packets
+from mantarray_desktop_app import INITIAL_MAGNETOMETER_CONFIG
 from mantarray_desktop_app import InstrumentDataStreamingAlreadyStartedError
 from mantarray_desktop_app import InstrumentDataStreamingAlreadyStoppedError
 from mantarray_desktop_app import MagnetometerConfigUpdateWhileDataStreamingError
@@ -1183,3 +1184,41 @@ def test_McCommunicationProcess__handles_less_than_one_second_read_when_stopping
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
     assert to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_response
     confirm_queue_is_eventually_empty(to_fw_queue)
+
+
+def test_McCommunicationProcess__does_not_attempt_to_parse_when_stopping_data_stream_if_no_bytes_are_present(
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+    mocker,
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    from_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][0]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    test_sampling_period_us = 10000
+    mocker.patch.object(
+        mc_simulator,
+        "_get_us_since_last_data_packet",
+        autospec=True,
+        side_effect=[0, test_sampling_period_us],
+    )
+
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+    set_magnetometer_config_and_start_streaming(
+        four_board_mc_comm_process_no_handshake,
+        simulator,
+        INITIAL_MAGNETOMETER_CONFIG,
+        test_sampling_period_us,
+    )
+
+    # tell mc_comm to stop data stream before 1 second of data is present
+    expected_response = {
+        "communication_type": "to_instrument",
+        "command": "stop_managed_acquisition",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(expected_response), from_main_queue
+    )
+    invoke_process_run_and_check_errors(mc_process)
