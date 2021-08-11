@@ -118,16 +118,19 @@ from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
+from .constants import SERIAL_COMM_SET_BIPHASIC_PULSE_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_SOFT_ERROR_CODE
 from .constants import SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE
+from .constants import SERIAL_COMM_START_STIMULATORS_COMMAND_BYTE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from .constants import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
+from .constants import SERIAL_COMM_STOP_STIMULATORS_COMMAND_BYTE
 from .constants import SERIAL_COMM_STREAM_MODE_CHANGED_BYTE
 from .constants import SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE
 from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
@@ -246,7 +249,9 @@ from .process_monitor import MantarrayProcessesMonitor
 from .queue_container import MantarrayQueueContainer
 from .serial_comm_utils import convert_bitmask_to_config_dict
 from .serial_comm_utils import convert_bytes_to_config_dict
+from .serial_comm_utils import convert_bytes_to_pulse_dict
 from .serial_comm_utils import convert_metadata_bytes_to_str
+from .serial_comm_utils import convert_pulse_dict_to_bytes
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_status_code_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
@@ -565,4 +570,9 @@ __all__ = [
     "STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS",
     "STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS",
     "STIM_MAX_PULSE_DURATION_MICROSECONDS",
+    "SERIAL_COMM_SET_BIPHASIC_PULSE_COMMAND_BYTE",
+    "SERIAL_COMM_START_STIMULATORS_COMMAND_BYTE",
+    "SERIAL_COMM_STOP_STIMULATORS_COMMAND_BYTE",
+    "convert_pulse_dict_to_bytes",
+    "convert_bytes_to_pulse_dict",
 ]

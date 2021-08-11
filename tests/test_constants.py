@@ -108,16 +108,19 @@ from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
+from mantarray_desktop_app import SERIAL_COMM_SET_BIPHASIC_PULSE_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_SOFT_ERROR_CODE
 from mantarray_desktop_app import SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_START_STIMULATORS_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_STOP_STIMULATORS_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_STREAM_MODE_CHANGED_BYTE
 from mantarray_desktop_app import SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE
 from mantarray_desktop_app import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
@@ -463,6 +466,9 @@ def test_serial_comm():
     assert SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE == 7
     assert SERIAL_COMM_SET_TIME_COMMAND_BYTE == 8
     assert SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE == 9
+    assert SERIAL_COMM_SET_BIPHASIC_PULSE_COMMAND_BYTE == 16
+    assert SERIAL_COMM_START_STIMULATORS_COMMAND_BYTE == 17
+    assert SERIAL_COMM_STOP_STIMULATORS_COMMAND_BYTE == 18
 
     assert SERIAL_COMM_STREAM_MODE_CHANGED_BYTE == 0
     assert SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE == 1

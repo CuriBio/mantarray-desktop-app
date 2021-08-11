@@ -2,6 +2,7 @@
 import random
 from random import randint
 
+from mantarray_desktop_app import convert_pulse_dict_to_bytes
 from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import convert_to_status_code_bytes
 from mantarray_desktop_app import convert_to_timestamp_bytes
@@ -30,10 +31,12 @@ from mantarray_desktop_app import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
+from mantarray_desktop_app import SERIAL_COMM_SET_BIPHASIC_PULSE_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_START_STIMULATORS_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
@@ -874,3 +877,83 @@ def test_MantarrayMcSimulator__processes_change_magnetometer_config_command__whe
     assert updated_magnetometer_config == MantarrayMcSimulator.default_24_well_magnetometer_config
 
     simulator.hard_stop()  # prevent BrokenPipeErrors
+
+
+def test_MantarrayMcSimulator__processes_set_biphasic_pulse_command__when_stimulators_are_not_running(
+    mantarray_mc_simulator_no_beacon, mocker
+):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+
+    expected_module_id = 5
+    expected_pulse_dict = {
+        "phase_one_duration": 100,
+        "phase_one_charge": 1000,
+        "interpulse_interval": 30,
+        "phase_two_duration": 120,
+        "phase_two_charge": -1000,
+        "repeat_delay_interval": 0,
+    }
+
+    expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+    test_set_biphasic_pulse_command = create_data_packet(
+        expected_pc_timestamp,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+        bytes([SERIAL_COMM_SET_BIPHASIC_PULSE_COMMAND_BYTE, expected_module_id, 0])  # 0 for Current mode
+        + convert_pulse_dict_to_bytes(expected_pulse_dict),
+    )
+    simulator.write(test_set_biphasic_pulse_command)
+    invoke_process_run_and_check_errors(simulator)
+    # assert response is correct
+    additional_bytes = convert_to_timestamp_bytes(expected_pc_timestamp)
+    command_response_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
+    command_response = simulator.read(size=command_response_size)
+    assert_serial_packet_is_expected(
+        command_response,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+        additional_bytes=additional_bytes,
+    )
+
+    assert simulator.get_stim_config()[expected_module_id] == {
+        "stimulation_type": "C",
+        "pulse": expected_pulse_dict,
+    }
+
+
+def test_MantarrayMcSimulator__processes_start_stimulator_command(mantarray_mc_simulator_no_beacon, mocker):
+    # TODO
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+    # TODO add test command for setting stim protocols
+
+    # need to send command once before data is being streamed and once after to test the response in both cases
+    for response_byte_value in (
+        SERIAL_COMM_STREAM_MODE_CHANGED_BYTE,
+        SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE,
+    ):
+        # send start stimulators command
+        expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+        test_start_data_streaming_command = create_data_packet(
+            expected_pc_timestamp,
+            SERIAL_COMM_MAIN_MODULE_ID,
+            SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+            bytes([SERIAL_COMM_START_STIMULATORS_COMMAND_BYTE]),
+        )
+        simulator.write(test_start_data_streaming_command)
+        invoke_process_run_and_check_errors(simulator)
+        # assert response is correct
+        additional_bytes = convert_to_timestamp_bytes(expected_pc_timestamp) + bytes([response_byte_value])
+        if response_byte_value == SERIAL_COMM_STREAM_MODE_CHANGED_BYTE:
+            additional_bytes += create_magnetometer_config_bytes(simulator.get_magnetometer_config())
+        command_response_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
+        command_response = simulator.read(size=command_response_size)
+        assert_serial_packet_is_expected(
+            command_response,
+            SERIAL_COMM_MAIN_MODULE_ID,
+            SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+            additional_bytes=additional_bytes,
+        )

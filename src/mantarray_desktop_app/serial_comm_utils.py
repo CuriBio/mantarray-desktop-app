@@ -182,9 +182,7 @@ def convert_bitmask_to_config_dict(bitmask: int) -> Dict[int, bool]:
     return config_dict
 
 
-def convert_bytes_to_config_dict(
-    magnetometer_config_bytes: bytes,
-) -> Dict[int, Dict[int, bool]]:
+def convert_bytes_to_config_dict(magnetometer_config_bytes: bytes) -> Dict[int, Dict[int, bool]]:
     """Covert bytes from the instrument to a configuration dictionary."""
     config_dict: Dict[int, Dict[int, bool]] = dict()
     for config_block_idx in range(0, len(magnetometer_config_bytes), 3):
@@ -193,3 +191,27 @@ def convert_bytes_to_config_dict(
         bitmask = int.from_bytes(bitmask_bytes, byteorder="little")
         config_dict[module_id] = convert_bitmask_to_config_dict(bitmask)
     return config_dict
+
+
+def convert_pulse_dict_to_bytes(pulse_dict: Dict[str, int]) -> bytes:
+    return (
+        pulse_dict["phase_one_duration"].to_bytes(4, byteorder="little")
+        + pulse_dict["phase_one_charge"].to_bytes(2, byteorder="little", signed=True)
+        + pulse_dict["interpulse_interval"].to_bytes(4, byteorder="little")
+        + bytes(2)
+        + pulse_dict["phase_two_duration"].to_bytes(4, byteorder="little")
+        + pulse_dict["phase_two_charge"].to_bytes(2, byteorder="little", signed=True)
+        + pulse_dict["repeat_delay_interval"].to_bytes(4, byteorder="little")
+        + bytes(2)
+    )
+
+
+def convert_bytes_to_pulse_dict(pulse_bytes: bytes) -> Dict[str, int]:
+    return {
+        "phase_one_duration": int.from_bytes(pulse_bytes[:4], byteorder="little"),
+        "phase_one_charge": int.from_bytes(pulse_bytes[4:6], byteorder="little", signed=True),
+        "interpulse_interval": int.from_bytes(pulse_bytes[6:10], byteorder="little"),
+        "phase_two_duration": int.from_bytes(pulse_bytes[12:16], byteorder="little"),
+        "phase_two_charge": int.from_bytes(pulse_bytes[16:18], byteorder="little", signed=True),
+        "repeat_delay_interval": int.from_bytes(pulse_bytes[18:22], byteorder="little"),
+    }

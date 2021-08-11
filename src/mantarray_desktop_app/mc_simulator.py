@@ -62,6 +62,7 @@ from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
+from .constants import SERIAL_COMM_SET_BIPHASIC_PULSE_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
@@ -80,6 +81,7 @@ from .exceptions import UnrecognizedSerialCommModuleIdError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .exceptions import UnrecognizedSimulatorTestCommandError
 from .serial_comm_utils import convert_bytes_to_config_dict
+from .serial_comm_utils import convert_bytes_to_pulse_dict
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_status_code_bytes
 from .serial_comm_utils import create_data_packet
@@ -197,6 +199,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._reboot_time_secs: Optional[float]
         self._status_code: int
         self._magnetometer_config: Dict[int, Dict[int, bool]]
+        self._stim_config: Dict[int, Dict[str, Any]]
         self._baseline_time_usec: Optional[int]
         self._timepoint_of_time_sync_us: Optional[int]
         self._sampling_period_us: int
@@ -259,6 +262,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._reboot_time_secs = None
         self._status_code = SERIAL_COMM_BOOT_UP_CODE
         self._reset_magnetometer_config()
+        self._reset_stim_config()
         self._baseline_time_usec = None
         self._timepoint_of_time_sync_us = None
         self._sampling_period_us = 0
@@ -275,6 +279,9 @@ class MantarrayMcSimulator(InfiniteProcess):
 
     def _reset_magnetometer_config(self) -> None:
         self._magnetometer_config = dict(self.default_24_well_magnetometer_config)
+
+    def _reset_stim_config(self) -> None:
+        self._stim_config = {module_id: {} for module_id in range(1, 25)}
 
     def _get_us_since_time_sync(self) -> int:
         return (
@@ -307,6 +314,10 @@ class MantarrayMcSimulator(InfiniteProcess):
     def get_magnetometer_config(self) -> Dict[int, Dict[int, bool]]:
         """Mainly for use in unit tests."""
         return self._magnetometer_config
+
+    def get_stim_config(self) -> Dict[int, Dict[str, Any]]:
+        """Mainly for use in unit tests."""
+        return self._stim_config
 
     def get_interpolated_data(self, sampling_period_us: int) -> NDArray[np.int16]:
         """Return one second (one twitch) of interpolated data."""
@@ -461,6 +472,8 @@ class MantarrayMcSimulator(InfiniteProcess):
                 start_idx = SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 1
                 nickname_bytes = comm_from_pc[start_idx : start_idx + SERIAL_COMM_METADATA_BYTES_LENGTH]
                 self._metadata_dict[MANTARRAY_NICKNAME_UUID.bytes] = nickname_bytes
+            elif command_byte == SERIAL_COMM_SET_BIPHASIC_PULSE_COMMAND_BYTE:
+                self._update_stim_config(comm_from_pc)
             else:
                 # TODO Tanner (3/4/21): Determine what to do if command_byte, module_id, or packet_type are incorrect. It may make more sense to respond with a message rather than raising an error
                 raise NotImplementedError(command_byte)
@@ -502,6 +515,14 @@ class MantarrayMcSimulator(InfiniteProcess):
         # Tanner (6/2/21): Need to make sure module ID keys are in order
         self._magnetometer_config.update(sort_nested_dict(config_dict_updates))
         return update_status_byte
+
+    def _update_stim_config(self, comm_from_pc: bytes) -> None:
+        module_id = comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 1]
+        stim_type = "V" if comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 2] else "C"
+        pulse = convert_bytes_to_pulse_dict(
+            comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 3 : SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 27]
+        )
+        self._stim_config[module_id] = {"stimulation_type": stim_type, "pulse": pulse}
 
     def _update_status_code(self, new_code: int) -> None:
         self._status_code = new_code
