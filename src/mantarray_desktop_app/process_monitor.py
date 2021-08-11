@@ -142,11 +142,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
             self._put_communication_into_instrument_comm_queue(communication)
         elif communication_type == "shutdown":
             command = communication["command"]
-            if command == "soft_stop":
-                self._process_manager.soft_stop_processes_except_server()
-            else:
-                self._process_manager.are_processes_stopped()
+            if command == "hard_stop":
                 self._hard_stop_and_join_processes_and_log_leftovers()
+            else:
+                raise NotImplementedError("Unrecognized shutdown command")
         elif communication_type == "update_shared_values_dictionary":
             new_values = communication["content"]
             new_recording_directory: Optional[str] = attempt_to_get_recording_directory_from_new_dict(

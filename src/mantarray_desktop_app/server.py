@@ -82,7 +82,6 @@ from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import requests
 from stdlib_utils import drain_queue
-from stdlib_utils import InfiniteThread
 from stdlib_utils import is_port_in_use
 from stdlib_utils import put_log_message_into_queue
 
@@ -1136,9 +1135,10 @@ def stop_server() -> str:
 def shutdown() -> Response:
     # curl http://localhost:4567/shutdown
 
-    # TODO Tanner (8/2/21): should wait for subprocesses to stop and join before returning response from this route
-    queue_command_to_main({"communication_type": "shutdown", "command": "soft_stop"})
     response = queue_command_to_main({"communication_type": "shutdown", "command": "hard_stop"})
+    # TODO Tanner (8/2/21): should wait for subprocesses to stop and join before returning response from this route
+    # while
+
     return response
 
 
@@ -1187,7 +1187,7 @@ def after_request(response: Response) -> Response:
     return response
 
 
-class ServerManager():
+class ServerManager:
     """Convenience class for managing Flask/SocketIO server."""
 
     def __init__(
@@ -1222,8 +1222,8 @@ class ServerManager():
 
     def get_queue_to_main(self) -> Queue[Dict[str, Any]]:  # pylint: disable=unsubscriptable-object
         return self._to_main_queue
-    
-    def get_data_queue_to_server(self) -> Queue[Dict[str, Any]]: # pylint: disable=unsubscriptable-object
+
+    def get_data_queue_to_server(self) -> Queue[Dict[str, Any]]:  # pylint: disable=unsubscriptable-object
         return self._queue_container.get_data_queue_to_server()
 
     def queue_container(self) -> MantarrayQueueContainer:
@@ -1250,7 +1250,8 @@ class ServerManager():
         if is_port_in_use(port):
             raise LocalServerPortAlreadyInUseError(port)
 
-    def shutdown_server(self) -> Dict[str, Any]:
+    def shutdown_server(self) -> None:
+        """Shutdown the Flask/SocketIO server."""
         try:
             requests.get(f"{get_api_endpoint()}stop_server")
         except requests.exceptions.ConnectionError:

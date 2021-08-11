@@ -8,10 +8,11 @@ from time import perf_counter
 from time import sleep
 from typing import Any
 from typing import Dict
-from typing import Iterable
 from typing import Optional
 from typing import Tuple
 from typing import Union
+
+from stdlib_utils import InfiniteProcess
 
 from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import INSTRUMENT_INITIALIZING_STATE
@@ -25,8 +26,6 @@ from .mc_comm import McCommunicationProcess
 from .ok_comm import OkCommunicationProcess
 from .queue_container import MantarrayQueueContainer
 from .server import ServerManager
-
-from stdlib_utils import drain_queue
 
 
 class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
@@ -51,10 +50,8 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         self._instrument_communication_process: InstrumentCommProcess
         self._file_writer_process: FileWriterProcess
         self._data_analyzer_process: DataAnalyzerProcess
-        self._all_processes: Optional[
-            Tuple[InstrumentCommProcess, FileWriterProcess, DataAnalyzerProcess]
-        ] = None
-        
+        self._all_processes: Optional[Tuple[InfiniteProcess, InfiniteProcess, InfiniteProcess]] = None
+
         self._file_directory: str = file_directory
         self.set_logging_level(logging_level)
 

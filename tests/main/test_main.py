@@ -9,7 +9,6 @@ from mantarray_desktop_app import SensitiveFormatter
 from mantarray_desktop_app import ServerManager
 
 from ..fixtures import fixture_generic_queue_container
-from ..fixtures_server import clear_the_server_manager()
 
 __fixtures__ = [
     fixture_generic_queue_container,
@@ -33,7 +32,8 @@ def test_get_server_port_number__returns_port_number_from_server_if_instantiated
 ):
     to_main_queue = generic_queue_container.get_communication_queue_from_server_to_main()
     expected_port = 4321
-    sm = ServerManager(to_main_queue, generic_queue_container, port=expected_port)
+
+    ServerManager(to_main_queue, generic_queue_container, port=expected_port)
 
     assert get_server_port_number() == expected_port
 

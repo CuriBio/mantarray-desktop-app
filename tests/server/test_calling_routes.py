@@ -947,6 +947,7 @@ def test_set_protocol__returns_error_code_with_invalid_well_number(
     assert response.status_code == 400
     assert response.status.endswith(f"Invalid well: {test_well_number}") is True
 
+
 @pytest.mark.parametrize(
     "test_pulse_item,test_value,test_stim_type,test_description",
     [
@@ -1009,10 +1010,15 @@ def test_set_protocol__returns_error_code_with_invalid_well_number(
             "C",
             "Total active duration less than the duration of the pulse",
         ),
-    ]
+    ],
 )
 def test_set_protocol__returns_error_code_with_single_invalid_pulse_value(
-    client_and_server_manager_and_shared_values, mocker,test_pulse_item, test_value, test_stim_type, test_description
+    client_and_server_manager_and_shared_values,
+    mocker,
+    test_pulse_item,
+    test_value,
+    test_stim_type,
+    test_description,
 ):
     mocker.patch.object(server, "queue_command_to_main", autospec=True)
 
@@ -1021,9 +1027,7 @@ def test_set_protocol__returns_error_code_with_single_invalid_pulse_value(
     shared_values_dict["stimulation_running"] = False
 
     test_base_charge = (
-        STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
-        if test_stim_type == "V"
-        else STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
+        STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS if test_stim_type == "V" else STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
     )
     # create an arbitrary protocol to which an invalid value can easily be added
     test_protocol_dict = {

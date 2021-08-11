@@ -34,7 +34,7 @@ __fixtures__ = [
 def fixture_generic_manager():
     manager = MantarrayProcessesManager()
     yield manager
-    
+
     if not manager.are_processes_stopped():
         manager.hard_stop_processes()
 
@@ -42,7 +42,9 @@ def fixture_generic_manager():
     clear_the_server_manager()
 
 
-def test_MantarrayProcessesManager__stop_processes__calls_stop_on_all_processes_and_shuts_down_server(mocker, generic_manager):
+def test_MantarrayProcessesManager__stop_processes__calls_stop_on_all_processes_and_shuts_down_server(
+    mocker, generic_manager
+):
     generic_manager.create_processes()
     mocked_ok_comm_stop = mocker.patch.object(OkCommunicationProcess, "stop")
     mocked_file_writer_stop = mocker.patch.object(FileWriterProcess, "stop")
@@ -72,6 +74,7 @@ def test_MantarrayProcessesManager__soft_stop_processes__calls_soft_stop_on_all_
     mocked_ok_comm_soft_stop.assert_called_once()
     mocked_file_writer_soft_stop.assert_called_once()
     mocked_data_analyzer_soft_stop.assert_called_once()
+    mocked_shutdown_server.assert_called_once()
 
 
 def test_MantarrayProcessesManager__hard_stop_processes__calls_hard_stop_on_all_processes_and_shuts_down_server__and_returns_process_queue_items(
@@ -369,7 +372,7 @@ def test_MantarrayProcessesManager__are_processes_stopped__waits_correct_amount_
     mocked_counter = mocker.patch.object(
         process_manager,
         "perf_counter",
-        side_effect=[0, 0,  SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS, expected_timeout],
+        side_effect=[0, 0, SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS, expected_timeout],
         autospec=True,
     )
 

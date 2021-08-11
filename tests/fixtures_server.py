@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
-from queue import Empty
-
 from mantarray_desktop_app import clear_the_server_manager
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
-from mantarray_desktop_app import DEFAULT_SERVER_PORT_NUMBER
 from mantarray_desktop_app import flask_app
 from mantarray_desktop_app import get_api_endpoint
 from mantarray_desktop_app import get_server_port_number
@@ -19,12 +16,10 @@ from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 import pytest
 import socketio as python_socketio
-from stdlib_utils import confirm_port_available, drain_queue
 from stdlib_utils import confirm_port_in_use
 
 from .fixtures import fixture_generic_queue_container
 from .fixtures import fixture_patch_print
-from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from .fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from .fixtures_process_monitor import fixture_test_monitor

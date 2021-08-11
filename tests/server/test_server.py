@@ -12,7 +12,6 @@ from mantarray_desktop_app import ServerManager
 from mantarray_desktop_app import ServerManagerNotInitializedError
 from mantarray_desktop_app import ServerManagerSingletonAlreadySetError
 import pytest
-from stdlib_utils import confirm_parallelism_is_stopped
 from stdlib_utils import confirm_port_available
 
 from ..fixtures import fixture_generic_queue_container
@@ -22,9 +21,7 @@ from ..fixtures_server import clear_the_server_manager
 from ..fixtures_server import fixture_server_manager
 from ..fixtures_server import fixture_test_client
 from ..helpers import confirm_queue_is_eventually_of_size
-from ..helpers import is_queue_eventually_empty
 from ..helpers import is_queue_eventually_of_size
-from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 __fixtures__ = [
     fixture_patch_print,
@@ -37,12 +34,11 @@ __fixtures__ = [
 def test_ServerManager__raises_an_error_if_instantiated_when_singleton_already_set(
     generic_queue_container,
 ):
-    
     to_main_queue = Queue()
-    sm_1 = ServerManager(to_main_queue,  generic_queue_container)
+    ServerManager(to_main_queue, generic_queue_container)
 
     with pytest.raises(ServerManagerSingletonAlreadySetError):
-        ServerManager(to_main_queue,  generic_queue_container)
+        ServerManager(to_main_queue, generic_queue_container)
 
     clear_the_server_manager()
 
@@ -50,17 +46,15 @@ def test_ServerManager__raises_an_error_if_instantiated_when_singleton_already_s
 def test_ServerManager__init__sets_the_module_singleton_of_the_class_to_new_instance(
     generic_queue_container,
 ):
-    
     to_main_queue = Queue()
-    sm = ServerManager(to_main_queue,  generic_queue_container)
+    ServerManager(to_main_queue, generic_queue_container)
     value_after_first_server_init = get_the_server_manager()
 
     # need to clear the module level singleton before attempting to set it again
     clear_the_server_manager()
 
-    error_queue_2 = Queue()
     to_main_queue_2 = Queue()
-    sm_2 = ServerManager(to_main_queue, generic_queue_container)
+    ServerManager(to_main_queue_2, generic_queue_container)
     value_after_second_server_init = get_the_server_manager()
 
     assert value_after_second_server_init != value_after_first_server_init
@@ -85,11 +79,12 @@ def test_ServerManager__check_port__raises_error_if_port_in_use(server_manager, 
 
 
 @pytest.mark.timeout(5)
-def test_ServerManager__check_port__calls_with_port_number_passed_in_as_kwarg(mocker, generic_queue_container):
-    
+def test_ServerManager__check_port__calls_with_port_number_passed_in_as_kwarg(
+    mocker, generic_queue_container
+):
     to_main_queue = Queue()
     expected_port = 7654
-    sm = ServerManager(to_main_queue,  generic_queue_container, port=expected_port)
+    sm = ServerManager(to_main_queue, generic_queue_container, port=expected_port)
     spied_is_port_in_use = mocker.spy(server, "is_port_in_use")
 
     sm.check_port()
@@ -129,7 +124,6 @@ def test_ServerManager__shutdown_server__shuts_down_flask_and_socketio__and_send
 def test_ServerManager__get_values_from_process_monitor__acquires_lock_and_returns_an_immutable_copy(
     mocker, generic_queue_container
 ):
-    
     to_main_queue = Queue()
     initial_dict = {"some key here": "some other value"}
     lock = threading.Lock()
@@ -142,7 +136,6 @@ def test_ServerManager__get_values_from_process_monitor__acquires_lock_and_retur
     # spied_lock_release=mocker.spy(lock,'release')
     sm = ServerManager(
         to_main_queue,
-        
         generic_queue_container,
         values_from_process_monitor=initial_dict,
         lock=lock,
