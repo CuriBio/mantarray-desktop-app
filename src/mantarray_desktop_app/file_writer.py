@@ -21,7 +21,6 @@ from typing import Union
 from uuid import UUID
 
 import h5py
-from labware_domain_models import LabwareDefinition
 from mantarray_file_manager import ADC_REF_OFFSET_UUID
 from mantarray_file_manager import ADC_TISSUE_OFFSET_UUID
 from mantarray_file_manager import IS_FILE_ORIGINAL_UNTRIMMED_UUID
@@ -56,6 +55,7 @@ from .constants import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
 from .constants import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from .constants import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
 from .constants import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
+from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
@@ -65,8 +65,6 @@ from .exceptions import InvalidDataTypeFromOkCommError
 from .exceptions import InvalidStopRecordingTimepointError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
 from .utils import create_sensor_axis_dict
-
-GENERIC_24_WELL_DEFINITION = LabwareDefinition(row_count=4, column_count=6)
 
 # TODO Tanner (5/28/21): import these from mantarray_file_manager when new version is published
 TIME_INDICES = "time_indices"

@@ -15,6 +15,7 @@ from typing import Tuple
 import uuid
 
 from immutabledict import immutabledict
+from labware_domain_models import LabwareDefinition
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
@@ -30,6 +31,8 @@ CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION = "1.0.0"
 DEFAULT_SERVER_PORT_NUMBER = 4567
 
 MAX_POSSIBLE_CONNECTED_BOARDS = 4
+
+GENERIC_24_WELL_DEFINITION = LabwareDefinition(row_count=4, column_count=6)
 
 FIRMWARE_VERSION_WIRE_OUT_ADDRESS = 0x21
 BARCODE_SCANNER_TRIGGER_IN_ADDRESS = 0x41
@@ -338,6 +341,10 @@ INITIAL_MAGNETOMETER_CONFIG = {
     }
     for module_id in range(1, 25)
 }
+# Stimulation
+STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS = int(100e3)
+STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS = int(1.2e3)
+STIM_MAX_PULSE_DURATION_MICROSECONDS = int(50e3)
 
 # Metadata
 SERIAL_COMM_METADATA_BYTES_LENGTH = 32

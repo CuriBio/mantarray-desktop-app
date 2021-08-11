@@ -43,7 +43,7 @@ from .exceptions import UnrecognizedCommandToInstrumentError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
 from .exceptions import UnrecognizedRecordingCommandError
 from .process_manager import MantarrayProcessesManager
-from .server import ServerThread
+from .server import ServerManager
 from .utils import _trim_barcode
 from .utils import attempt_to_get_recording_directory_from_new_dict
 from .utils import redact_sensitive_info_from_path
@@ -142,11 +142,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
             self._put_communication_into_instrument_comm_queue(communication)
         elif communication_type == "shutdown":
             command = communication["command"]
-            if command == "soft_stop":
-                self._process_manager.soft_stop_processes_except_server()
-            else:
-                self._process_manager.are_processes_stopped()
+            if command == "hard_stop":
                 self._hard_stop_and_join_processes_and_log_leftovers()
+            else:
+                raise NotImplementedError("Unrecognized shutdown command")
         elif communication_type == "update_shared_values_dictionary":
             new_values = communication["content"]
             new_recording_directory: Optional[str] = attempt_to_get_recording_directory_from_new_dict(
@@ -167,6 +166,16 @@ class MantarrayProcessesMonitor(InfiniteThread):
             update_shared_dict(shared_values_dict, new_values)
         elif communication_type == "set_magnetometer_config":
             self._update_magnetometer_config_dict(communication["magnetometer_config_dict"])
+        elif communication_type == "stimulation":
+            command = communication["command"]
+            if command == "set_stim_status":
+                self._values_to_share_to_server["stimulation_running"] = communication["status"]
+            elif command == "set_protocol":
+                self._values_to_share_to_server["stimulation_protocols"] = communication["protocols"]
+            else:
+                # Tanner (8/9/21): could make this a custom error if needed
+                raise NotImplementedError(f"Unrecognized stimulation command: '{command}'")
+            self._put_communication_into_instrument_comm_queue(communication)
         elif communication_type == "xem_scripts":
             # Tanner (12/28/20): start_calibration is the only xem_scripts command that will come from server (called directly from /start_calibration). This comm type will be removed/replaced in beta 2 so not adding handling for unrecognized command.
             if shared_values_dict["beta_2_mode"]:
@@ -424,7 +433,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         """Execute additional commands inside the run loop."""
         process_manager = self._process_manager
 
-        # any potential errors should be handled first
+        # any potential errors should be checked for first
         for iter_error_queue, iter_process in (
             (
                 process_manager.queue_container().get_instrument_communication_error_queue(),
@@ -437,10 +446,6 @@ class MantarrayProcessesMonitor(InfiniteThread):
             (
                 process_manager.queue_container().get_data_analyzer_error_queue(),
                 process_manager.get_data_analyzer_process(),
-            ),
-            (
-                process_manager.queue_container().get_server_error_queue(),
-                process_manager.get_server_thread(),
             ),
         ):
             try:
@@ -519,7 +524,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
     def _handle_error_in_subprocess(
         self,
-        process: Union[InfiniteProcess, ServerThread],
+        process: Union[InfiniteProcess, ServerManager],
         error_communication: Tuple[Exception, str],
     ) -> None:
         this_err, this_stack_trace = error_communication

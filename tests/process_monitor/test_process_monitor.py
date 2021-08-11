@@ -32,6 +32,7 @@ from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE
+from mantarray_desktop_app import ServerManager
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app.server import queue_command_to_instrument_comm
 import numpy as np
@@ -75,6 +76,10 @@ def test_MantarrayProcessesMonitor__soft_stop_calls_manager_soft_stop_and_join(
     test_monitor, test_process_manager, mocker
 ):
     monitor_thread, _, _, _ = test_monitor
+
+    # mock to avoid issues with test hanging
+    mocker.patch.object(ServerManager, "shutdown_server", autospec=True)
+
     spied_stop = mocker.spy(test_process_manager, "soft_stop_and_join_processes")
     test_process_manager.start_processes()
     monitor_thread.start()
@@ -238,32 +243,13 @@ def test_MantarrayProcessesMonitor__logs_errors_from_data_analyzer(
     mocked_logger.assert_any_call(expected_message)
 
 
-def test_MantarrayProcessesMonitor__logs_errors_from_ServerThread(mocker, test_process_manager, test_monitor):
-    monitor_thread, _, _, _ = test_monitor
-
-    mocked_logger = mocker.patch.object(process_monitor.logger, "error", autospec=True)
-
-    test_process_manager.start_processes()
-
-    server_error_queue = test_process_manager.queue_container().get_server_error_queue()
-    expected_error = KeyError("something wrong inside the server")
-    expected_stack_trace = "my stack trace from deep within the server"
-    expected_message = f"Error raised by subprocess {test_process_manager.get_server_thread()}\n{expected_stack_trace}\n{expected_error}"
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        (expected_error, expected_stack_trace), server_error_queue
-    )
-    invoke_process_run_and_check_errors(monitor_thread)
-    assert is_queue_eventually_empty(server_error_queue) is True
-    mocked_logger.assert_any_call(expected_message)
-
-
 def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queue_items_when_error_is_raised_in_ok_comm_subprocess(
     mocker, test_process_manager, test_monitor
 ):
     expected_ok_comm_item = "ok_comm_queue_item"
     expected_file_writer_item = "file_writer_queue_item"
     expected_da_item = "data_analyzer_queue_item"
-    expected_server_item = "server_thread_queue_item"
+    expected_server_item = "server_manager_queue_item"
 
     monitor_thread, _, _, _ = test_monitor
 
@@ -272,11 +258,11 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
     okc_process = test_process_manager.get_instrument_process()
     fw_process = test_process_manager.get_file_writer_process()
     da_process = test_process_manager.get_data_analyzer_process()
-    server_thread = test_process_manager.get_server_thread()
+    server_manager = test_process_manager.get_server_manager()
     mocked_okc_join = mocker.patch.object(okc_process, "join", autospec=True)
     mocked_fw_join = mocker.patch.object(fw_process, "join", autospec=True)
     mocked_da_join = mocker.patch.object(da_process, "join", autospec=True)
-    mocked_server_join = mocker.patch.object(server_thread, "join", autospec=True)
+    mocked_shutdown_server = mocker.patch.object(server_manager, "shutdown_server", autospec=True)
 
     ok_comm_error_queue = test_process_manager.queue_container().get_data_analyzer_error_queue()
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -302,7 +288,7 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
     mocked_okc_join.assert_called_once()
     mocked_fw_join.assert_called_once()
     mocked_da_join.assert_called_once()
-    mocked_server_join.assert_called_once()
+    mocked_shutdown_server.assert_called_once()
 
     actual = mocked_logger.call_args_list[1][0][0]
     assert "Remaining items in process queues: {" in actual

@@ -16,7 +16,7 @@ from typing import Optional
 from typing import Tuple
 
 from mantarray_desktop_app import clear_server_singletons
-from mantarray_desktop_app import clear_the_server_thread
+from mantarray_desktop_app import clear_the_server_manager
 from mantarray_desktop_app import DataAnalyzerProcess
 from mantarray_desktop_app import FileWriterProcess
 from mantarray_desktop_app import get_api_endpoint
@@ -26,7 +26,6 @@ from mantarray_desktop_app import MantarrayProcessesManager
 from mantarray_desktop_app import MantarrayQueueContainer
 from mantarray_desktop_app import OkCommunicationProcess
 from mantarray_desktop_app import process_manager
-from mantarray_desktop_app import ServerThread
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 import pytest
 import requests
@@ -38,7 +37,7 @@ from stdlib_utils import resource_path
 
 
 PATH_TO_CURRENT_FILE = get_current_file_abs_directory()
-QUEUE_CHECK_TIMEOUT_SECONDS = 1.3  # for is_queue_eventually_of_size, is_queue_eventually_not_empty, is_queue_eventually_empty, put_object_into_queue_and_raise_error_if_eventually_still_empty, etc. # Eli (10/28/20) issue encountered where even 0.5 seconds was insufficient, so raising to 1 second # Eli (12/10/20) issue encountered where 1.1 second was not enough, so now 1.2 seconds # Eli (12/15/20): issue in test_ServerThread_start__puts_error_into_queue_if_flask_run_raises_error in Windows Github where 1.2 was not enough, so now 1.3
+QUEUE_CHECK_TIMEOUT_SECONDS = 1.3  # for is_queue_eventually_of_size, is_queue_eventually_not_empty, is_queue_eventually_empty, put_object_into_queue_and_raise_error_if_eventually_still_empty, etc. # Eli (10/28/20) issue encountered where even 0.5 seconds was insufficient, so raising to 1 second # Eli (12/10/20) issue encountered where 1.1 second was not enough, so now 1.2 seconds # Eli (12/15/20): issue in test_ServerManager_start__puts_error_into_queue_if_flask_run_raises_error in Windows Github where 1.2 was not enough, so now 1.3
 GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS = 20
 
 
@@ -140,7 +139,7 @@ def fixture_test_process_manager(mocker):
             fw.close_all_files()
 
     # clean up the server singleton
-    clear_the_server_thread()
+    clear_the_server_manager()
 
 
 @pytest.fixture(scope="function", name="test_process_manager_beta_2_mode")
@@ -158,7 +157,7 @@ def fixture_test_process_manager_beta_2_mode(mocker):
             fw.close_all_files()
 
     # clean up the server singleton
-    clear_the_server_thread()
+    clear_the_server_manager()
 
 
 def start_processes_and_wait_for_start_ups_to_complete(
@@ -180,7 +179,6 @@ def fixture_patch_subprocess_joins(mocker):
     mocker.patch.object(OkCommunicationProcess, "join", autospec=True)
     mocker.patch.object(FileWriterProcess, "join", autospec=True)
     mocker.patch.object(DataAnalyzerProcess, "join", autospec=True)
-    mocker.patch.object(ServerThread, "join", autospec=True)
 
 
 @pytest.fixture(scope="function", name="patch_subprocess_is_stopped_to_false")
@@ -188,7 +186,6 @@ def fixture_patch_subprocess_is_stopped_to_false(mocker):
     mocker.patch.object(OkCommunicationProcess, "is_stopped", autospec=True, return_value=False)
     mocker.patch.object(FileWriterProcess, "is_stopped", autospec=True, return_value=False)
     mocker.patch.object(DataAnalyzerProcess, "is_stopped", autospec=True, return_value=False)
-    mocker.patch.object(ServerThread, "is_stopped", autospec=True, return_value=False)
 
 
 @pytest.fixture(scope="function", name="test_process_manager_without_created_processes")

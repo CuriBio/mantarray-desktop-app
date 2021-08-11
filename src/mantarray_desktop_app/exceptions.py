@@ -122,11 +122,11 @@ class BarcodeScannerNotRespondingError(Exception):
     pass
 
 
-class ServerThreadNotInitializedError(Exception):
+class ServerManagerNotInitializedError(Exception):
     pass
 
 
-class ServerThreadSingletonAlreadySetError(Exception):
+class ServerManagerSingletonAlreadySetError(Exception):
     """Helps ensure that test cases clean up after themselves."""
 
 

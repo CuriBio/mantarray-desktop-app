@@ -3,19 +3,26 @@
 
 Custom HTTP Error Codes:
 
+* 304 - Call to /set_stim_status with the current stim status (no updates will be made to status)
 * 400 - Call to /start_recording with invalid or missing barcode parameter
 * 400 - Call to /set_mantarray_nickname with invalid nickname parameter
 * 400 - Call to /update_settings with unexpected argument, invalid account UUID, or a recording directory that doesn't exist
 * 400 - Call to /insert_xem_command_into_queue/set_mantarray_serial_number with invalid serial_number parameter
 * 400 - Call to /set_magnetometer_config with invalid configuration dict
 * 400 - Call to /set_magnetometer_config with invalid or missing sampling period
+* 400 - Call to /set_protocol with an invalid protocol
+* 400 - Call to /set_stim_status with missing 'running' status
 * 403 - Call to /start_recording with is_hardware_test_recording=False after calling route with is_hardware_test_recording=True (default value)
 * 403 - Call to any /insert_xem_command_into_queue/* route when in Beta 2 mode
 * 403 - Call to /boot_up when in Beta 2 mode
 * 403 - Call to /set_magnetometer_config when in Beta 1 mode
 * 403 - Call to /set_magnetometer_config while data is streaming in Beta 2 mode
 * 403 - Call to /set_magnetometer_config before instrument finishes initializing in Beta 2 mode
+* 403 - Call to /set_protocol when in Beta 1 mode
+* 403 - Call to /set_protocol while stimulation is running
+* 403 - Call to /set_stim_status when in Beta 1 mode
 * 404 - Route not implemented
+* 406 - Call to /set_stim_status when before protocol is set
 * 406 - Call to /start_managed_acquisition before magnetometer configuration is set
 * 406 - Call to /start_managed_acquisition when Mantarray device does not have a serial number assigned to it
 * 406 - Call to /start_recording before customer_account_uuid and user_account_uuid are set
@@ -44,6 +51,8 @@ from flask import Response
 from flask_cors import CORS
 from flask_socketio import SocketIO
 from immutabledict import immutabledict
+from labware_domain_models import get_row_and_column_from_well_name
+from labware_domain_models import PositionInvalidForLabwareDefinitionError
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
@@ -73,7 +82,6 @@ from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import requests
 from stdlib_utils import drain_queue
-from stdlib_utils import InfiniteThread
 from stdlib_utils import is_port_in_use
 from stdlib_utils import put_log_message_into_queue
 
@@ -81,6 +89,7 @@ from .constants import BUFFERING_STATE
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import DEFAULT_SERVER_PORT_NUMBER
+from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
 from .constants import MICRO_TO_BASE_CONVERSION
@@ -93,6 +102,9 @@ from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
 from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
+from .constants import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
+from .constants import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
+from .constants import STIM_MAX_PULSE_DURATION_MICROSECONDS
 from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SYSTEM_STATUS_UUIDS
 from .constants import VALID_CONFIG_SETTINGS
@@ -100,8 +112,8 @@ from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
 from .exceptions import ImproperlyFormattedUserAccountUUIDError
 from .exceptions import LocalServerPortAlreadyInUseError
 from .exceptions import RecordingFolderDoesNotExistError
-from .exceptions import ServerThreadNotInitializedError
-from .exceptions import ServerThreadSingletonAlreadySetError
+from .exceptions import ServerManagerNotInitializedError
+from .exceptions import ServerManagerSingletonAlreadySetError
 from .ok_comm import check_mantarray_serial_number
 from .queue_container import MantarrayQueueContainer
 from .utils import check_barcode_for_errors
@@ -121,29 +133,29 @@ flask_app = Flask(  # pylint: disable=invalid-name # yes, this is intentionally 
 CORS(flask_app)
 socketio = SocketIO(flask_app)
 
-_the_server_thread: Optional[  # pylint: disable=invalid-name # Eli (11/3/20) yes, this is intentionally a singleton, not a constant. This is the current best guess at how to allow Flask routes to access some info they need
-    "ServerThread"
+_the_server_manager: Optional[  # pylint: disable=invalid-name # Eli (11/3/20) yes, this is intentionally a singleton, not a constant. This is the current best guess at how to allow Flask routes to access some info they need
+    "ServerManager"
 ] = None
 
 
-def clear_the_server_thread() -> None:
-    global _the_server_thread  # pylint:disable=global-statement,invalid-name # Eli (12/8/20) this is deliberately setting a module-level singleton
-    _the_server_thread = None
+def clear_the_server_manager() -> None:
+    global _the_server_manager  # pylint:disable=global-statement,invalid-name # Eli (12/8/20) this is deliberately setting a module-level singleton
+    _the_server_manager = None
 
 
-def get_the_server_thread() -> "ServerThread":
+def get_the_server_manager() -> "ServerManager":
     """Return the singleton instance."""
-    if _the_server_thread is None:
-        raise ServerThreadNotInitializedError(
-            "This function should not be called when the ServerThread is None and hasn't been initialized yet."
+    if _the_server_manager is None:
+        raise ServerManagerNotInitializedError(
+            "This function should not be called when the ServerManager is None and hasn't been initialized yet."
         )
-    return _the_server_thread
+    return _the_server_manager
 
 
 def get_server_to_main_queue() -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
     Dict[str, Any]
 ]:
-    return get_the_server_thread().get_queue_to_main()
+    return get_the_server_manager().get_queue_to_main()
 
 
 def get_server_address_components() -> Tuple[str, str, int]:
@@ -153,8 +165,8 @@ def get_server_address_components() -> Tuple[str, str, int]:
         protocol (i.e. HTTP), host (i.e. 127.0.0.1), port (i.e. 4567)
     """
     try:
-        port_number = get_the_server_thread().get_port_number()
-    except (NameError, ServerThreadNotInitializedError):
+        port_number = get_the_server_manager().get_port_number()
+    except (NameError, ServerManagerNotInitializedError):
         port_number = DEFAULT_SERVER_PORT_NUMBER
     return (
         "http",
@@ -169,7 +181,7 @@ def get_api_endpoint() -> str:
 
 
 def _get_values_from_process_monitor() -> Dict[str, Any]:
-    return get_the_server_thread().get_values_from_process_monitor()
+    return get_the_server_manager().get_values_from_process_monitor()
 
 
 def queue_command_to_instrument_comm(comm_dict: Dict[str, Any]) -> Response:
@@ -179,7 +191,7 @@ def queue_command_to_instrument_comm(comm_dict: Dict[str, Any]) -> Response:
     order to make pylint happier.
     """
     to_instrument_comm_queue = (
-        get_the_server_thread().queue_container().get_communication_to_instrument_comm_queue(0)
+        get_the_server_manager().queue_container().get_communication_to_instrument_comm_queue(0)
     )
     comm_dict = dict(comm_dict)  # make a mutable version to pass into ok_comm
     to_instrument_comm_queue.put_nowait(comm_dict)
@@ -437,6 +449,123 @@ def _is_instrument_initialized() -> bool:
         SERVER_READY_STATE,
         INSTRUMENT_INITIALIZING_STATE,
     )
+
+
+@flask_app.route("/set_protocol", methods=["POST"])
+def set_protocol() -> Response:
+    # pylint: disable=too-many-return-statements  # Tanner (8/9/21): lots of error codes that can be returned here
+    """Set the stimulation protocol in hardware memory.
+
+    Not available for Beta 1 instruments.
+
+    Can be invoked by: curl -d '<stimulation protocol as json>' -H 'Content-Type: application/json' -X POST http://localhost:4567/set_protocol
+    """
+    shared_values_dict = _get_values_from_process_monitor()
+    if not shared_values_dict["beta_2_mode"]:
+        return Response(status="403 Route cannot be called in beta 1 mode")
+    if shared_values_dict["stimulation_running"]:
+        return Response(status="403 Cannot change protocol while stimulation is running")
+
+    protocol_json = request.get_json()
+    protocol_list = json.loads(protocol_json)["protocols"]
+    if len(protocol_list) < 24:
+        return Response(status="400 Not enough protocols for all 24 wells")
+    # validate protocols
+    for protocol in protocol_list:
+        if protocol["stimulation_type"] not in ("C", "V"):
+            return Response(status=f"400 Invalid stimulation type: {protocol['stimulation_type']}")
+        max_abs_charge = (
+            STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
+            if protocol["stimulation_type"] == "V"
+            else STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
+        )
+        charge_unit = "mV" if protocol["stimulation_type"] == "V" else "µA"
+        try:
+            GENERIC_24_WELL_DEFINITION.validate_position(
+                *get_row_and_column_from_well_name(protocol["well_number"])
+            )
+        except PositionInvalidForLabwareDefinitionError:
+            return Response(status=f"400 Invalid well: {protocol['well_number']}")
+        # validate pulse dictionaries
+        total_protocol_dur_microsecs = 0
+        for pulse in protocol["pulses"]:
+            # pulse components
+            if pulse["phase_one_duration"] <= 0:
+                return Response(status=f"400 Invalid phase one duration: {pulse['phase_one_duration']}")
+            if pulse["interpulse_interval"] < 0:
+                return Response(status=f"400 Invalid interpulse interval: {pulse['interpulse_interval']}")
+            if pulse["phase_two_duration"] < 0:
+                return Response(status=f"400 Invalid phase two duration: {pulse['phase_two_duration']}")
+            if abs(int(pulse["phase_one_charge"])) > max_abs_charge:
+                return Response(
+                    status=f"400 Invalid phase one charge: {pulse['phase_one_charge']} {charge_unit}"
+                )
+            if abs(int(pulse["phase_two_charge"])) > max_abs_charge:
+                return Response(
+                    status=f"400 Invalid phase two charge: {pulse['phase_two_charge']} {charge_unit}"
+                )
+            # delay before repeating pulse
+            if pulse["repeat_delay_interval"] < 0:
+                return Response(status=f"400 Invalid repeat delay interval: {pulse['repeat_delay_interval']}")
+            # make sure pulse duration (not including delay after) is not too large
+            single_pulse_dur_microsecs = (
+                pulse["phase_one_duration"] + pulse["phase_two_duration"] + pulse["interpulse_interval"]
+            )
+            if single_pulse_dur_microsecs > STIM_MAX_PULSE_DURATION_MICROSECONDS:
+                return Response(status="400 Pulse duration too long")
+            # make sure pulse is set to run for at least the duration of a single complete pulse
+            if pulse["total_active_duration"] < single_pulse_dur_microsecs:
+                return Response(status="400 Total active duration less than the duration of the pulse")
+            # add total time for running this pulse to total time of protocol
+            total_protocol_dur_microsecs += pulse["total_active_duration"]
+        # make sure the total duration of the protocol is at least the sum of each pulse's total duration
+        if (
+            protocol["total_protocol_duration"] < total_protocol_dur_microsecs
+            and protocol["total_protocol_duration"] != -1
+        ):
+            return Response(status="400 Total protocol duration less than duration of all pulses")
+
+    queue_command_to_main(
+        {
+            "communication_type": "stimulation",
+            "command": "set_protocol",
+            "protocols": protocol_list,
+        }
+    )
+
+    return Response(protocol_json, mimetype="application/json")
+
+
+@flask_app.route("/set_stim_status", methods=["POST"])
+def set_stim_status() -> Response:
+    """Start or stop stimulation on hardware.
+
+    Not available for Beta 1 instruments.
+
+    Can be invoked by: curl -X POST http://localhost:4567/set_stim_status?running=true
+    """
+    shared_values_dict = _get_values_from_process_monitor()
+    if not shared_values_dict["beta_2_mode"]:
+        return Response(status="403 Route cannot be called in beta 1 mode")
+
+    try:
+        status = request.args["running"] in ("true", "True")
+    except KeyError:
+        return Response(status="400 Request missing 'running' parameter")
+
+    if status is shared_values_dict["stimulation_running"]:
+        return Response(status="304 Status not updated")
+    if status and shared_values_dict["stimulation_protocols"] is None:
+        return Response(status="406 Protocol has not been set")
+
+    response = queue_command_to_main(
+        {
+            "communication_type": "stimulation",
+            "command": "set_stim_status",
+            "status": status,
+        }
+    )
+    return response
 
 
 @flask_app.route("/start_recording", methods=["GET"])
@@ -998,15 +1127,18 @@ def stop_server() -> str:
     curl http://localhost:4567/stop_server
     """
     shutdown_server()
-    # Tanner (6/20/21): SystemExit is raised here, so no lines after this will execute
+    # Tanner (6/20/21): SystemExit is raised inside the previous function call, so no lines after this will execute
     return "Server shutting down..."  # pragma: no cover
 
 
 @flask_app.route("/shutdown", methods=["GET"])
 def shutdown() -> Response:
     # curl http://localhost:4567/shutdown
-    queue_command_to_main({"communication_type": "shutdown", "command": "soft_stop"})
+
     response = queue_command_to_main({"communication_type": "shutdown", "command": "hard_stop"})
+    # TODO Tanner (8/2/21): should wait for subprocesses to stop and join before returning response from this route
+    # while
+
     return response
 
 
@@ -1040,6 +1172,7 @@ def after_request(response: Response) -> Response:
             mantarray_nickname = response_json["metadata_to_copy_onto_main_file_attributes"][
                 str(MANTARRAY_NICKNAME_UUID)
             ]
+            # TODO Tanner (8/10/21): make a function for redacting sensitive information and replace all instances of this manual insertion of asterisks
             response_json["metadata_to_copy_onto_main_file_attributes"][
                 str(MANTARRAY_NICKNAME_UUID)
             ] = "*" * len(mantarray_nickname)
@@ -1054,32 +1187,26 @@ def after_request(response: Response) -> Response:
     return response
 
 
-# TODO Tanner (6/17/21): change this from a thread to something more appropriate. figure out if this can be changed from a singleton (and a global if possible)
-class ServerThread(InfiniteThread):
-    """Thread to run populate the websocket with data packets."""
+class ServerManager:
+    """Convenience class for managing Flask/SocketIO server."""
 
     def __init__(
         self,
         to_main_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
             Dict[str, Any]
         ],
-        fatal_error_reporter: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-            Tuple[Exception, str]
-        ],
-        processes_queue_container: MantarrayQueueContainer,  # TODO Tanner (6/21/21): remove this once
+        processes_queue_container: MantarrayQueueContainer,
         values_from_process_monitor: Optional[Dict[str, Any]] = None,
         port: int = DEFAULT_SERVER_PORT_NUMBER,
         logging_level: int = logging.INFO,
         lock: Optional[threading.Lock] = None,
     ) -> None:
-        global _the_server_thread  # pylint:disable=global-statement,invalid-name # Eli (1/21/21): deliberately using a module-level singleton
-        if _the_server_thread is not None:
-            raise ServerThreadSingletonAlreadySetError()
+        global _the_server_manager  # pylint:disable=global-statement,invalid-name # Eli (1/21/21): deliberately using a module-level singleton
+        if _the_server_manager is not None:
+            # TODO Tanner (8/10/21): look into ways to avoid using this as a singleton
+            raise ServerManagerSingletonAlreadySetError()
 
-        if lock is None:
-            lock = threading.Lock()
-
-        super().__init__(fatal_error_reporter, lock=lock)
+        self._lock = lock if lock is not None else threading.Lock()
         self._queue_container = processes_queue_container
         self._to_main_queue = to_main_queue
         self._port = port
@@ -1087,18 +1214,17 @@ class ServerThread(InfiniteThread):
         if values_from_process_monitor is None:
             values_from_process_monitor = dict()
 
-        _the_server_thread = self
+        _the_server_manager = self
         self._values_from_process_monitor = values_from_process_monitor
 
     def get_port_number(self) -> int:
         return self._port
 
-    def get_queue_to_main(
-        self,
-    ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Dict[str, Any]
-    ]:
+    def get_queue_to_main(self) -> Queue[Dict[str, Any]]:  # pylint: disable=unsubscriptable-object
         return self._to_main_queue
+
+    def get_data_queue_to_server(self) -> Queue[Dict[str, Any]]:  # pylint: disable=unsubscriptable-object
+        return self._queue_container.get_data_queue_to_server()
 
     def queue_container(self) -> MantarrayQueueContainer:
         return self._queue_container
@@ -1110,7 +1236,8 @@ class ServerThread(InfiniteThread):
         acquired, only attempt to read from the copy, and don't attempt
         to mutate it.
         """
-        with self._lock:  # Eli (11/3/20): still unable to test if lock was acquired.
+        # Tanner (8/10/21): not sure if using a lock here is necessary as nothing else accessing this dictionary is using a lock before modifying it
+        with self._lock:
             copied_values = deepcopy(self._values_from_process_monitor)
         immutable_version: Dict[str, Any] = immutabledict(copied_values)
         return immutable_version
@@ -1123,49 +1250,25 @@ class ServerThread(InfiniteThread):
         if is_port_in_use(port):
             raise LocalServerPortAlreadyInUseError(port)
 
-    def _commands_for_each_run_iteration(self) -> None:
-        return
-
-    def _shutdown_server(self) -> None:
+    def shutdown_server(self) -> None:
+        """Shutdown the Flask/SocketIO server."""
         try:
             requests.get(f"{get_api_endpoint()}stop_server")
         except requests.exceptions.ConnectionError:
             message = "Server is shutdown"
+        else:
+            raise NotImplementedError("Not sure why this happened, nothing should return from /stop_server")
         put_log_message_into_queue(
             logging.INFO,
             message,
             self._to_main_queue,
             self.get_logging_level(),
         )
+        clear_the_server_manager()
 
-    def stop(self) -> None:
-        """Stop the thread.
-
-        Because there is no actual infinite loop running here, the
-        super().stop() needs to be called to activate the right events
-        being set.
-        """
-        self._shutdown_server()
-        self._teardown_after_loop()
-        super().stop()
-
-    def soft_stop(self) -> None:
-        self.stop()
-
-    def get_data_queue_to_server(
-        self,
-    ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Dict[str, Any]
-    ]:
-        return self._queue_container.get_data_queue_to_server()
-
-    def _drain_all_queues(self) -> Dict[str, Any]:
+    def drain_all_queues(self) -> Dict[str, Any]:
         queue_items = dict()
 
         queue_items["to_main"] = drain_queue(self._to_main_queue)
         queue_items["outgoing_data"] = drain_queue(self.get_data_queue_to_server())
         return queue_items
-
-    def _teardown_after_loop(self) -> None:
-        clear_the_server_thread()
-        super()._teardown_after_loop()

@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
 import logging
 
-from mantarray_desktop_app import clear_the_server_thread
+from mantarray_desktop_app import clear_the_server_manager
 from mantarray_desktop_app import DEFAULT_SERVER_PORT_NUMBER
 from mantarray_desktop_app import get_server_port_number
 from mantarray_desktop_app import main
 from mantarray_desktop_app import SensitiveFormatter
-from mantarray_desktop_app import ServerThread
+from mantarray_desktop_app import ServerManager
 
 from ..fixtures import fixture_generic_queue_container
-from ..fixtures_server import _clean_up_server_thread
 
 __fixtures__ = [
     fixture_generic_queue_container,
@@ -19,26 +18,26 @@ __fixtures__ = [
 def test_get_server_port_number__returns_default_port_number_if_server_never_instantiated(
     mocker,
 ):
-    mocker.patch.object(main, "get_the_server_thread", autospec=True, side_effect=NameError)
+    mocker.patch.object(main, "get_the_server_manager", autospec=True, side_effect=NameError)
     assert get_server_port_number() == DEFAULT_SERVER_PORT_NUMBER
 
 
 def test_get_server_port_number__returns_default_port_number_if_server_has_been_cleared():
-    clear_the_server_thread()
+    clear_the_server_manager()
     assert get_server_port_number() == DEFAULT_SERVER_PORT_NUMBER
 
 
 def test_get_server_port_number__returns_port_number_from_server_if_instantiated(
     generic_queue_container,
 ):
-    error_queue = generic_queue_container.get_server_error_queue()
     to_main_queue = generic_queue_container.get_communication_queue_from_server_to_main()
     expected_port = 4321
-    st = ServerThread(to_main_queue, error_queue, generic_queue_container, port=expected_port)
+
+    ServerManager(to_main_queue, generic_queue_container, port=expected_port)
 
     assert get_server_port_number() == expected_port
 
-    _clean_up_server_thread(st, to_main_queue, error_queue)
+    clear_the_server_manager()
 
 
 def test_SensitiveFormatter__redacts_from_request_log_entries_correctly():
