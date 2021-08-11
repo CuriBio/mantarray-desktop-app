@@ -43,7 +43,7 @@ from .exceptions import UnrecognizedCommandToInstrumentError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
 from .exceptions import UnrecognizedRecordingCommandError
 from .process_manager import MantarrayProcessesManager
-from .server import ServerThread
+from .server import ServerManager
 from .utils import _trim_barcode
 from .utils import attempt_to_get_recording_directory_from_new_dict
 from .utils import redact_sensitive_info_from_path
@@ -434,7 +434,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         """Execute additional commands inside the run loop."""
         process_manager = self._process_manager
 
-        # any potential errors should be handled first
+        # any potential errors should be checked for first
         for iter_error_queue, iter_process in (
             (
                 process_manager.queue_container().get_instrument_communication_error_queue(),
@@ -447,10 +447,6 @@ class MantarrayProcessesMonitor(InfiniteThread):
             (
                 process_manager.queue_container().get_data_analyzer_error_queue(),
                 process_manager.get_data_analyzer_process(),
-            ),
-            (
-                process_manager.queue_container().get_server_error_queue(),
-                process_manager.get_server_thread(),
             ),
         ):
             try:
@@ -529,7 +525,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
     def _handle_error_in_subprocess(
         self,
-        process: Union[InfiniteProcess, ServerThread],
+        process: Union[InfiniteProcess, ServerManager],
         error_communication: Tuple[Exception, str],
     ) -> None:
         this_err, this_stack_trace = error_communication

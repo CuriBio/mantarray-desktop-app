@@ -26,14 +26,14 @@ import pytest
 from ..fixtures import fixture_generic_queue_container
 from ..fixtures import fixture_test_process_manager
 from ..fixtures_process_monitor import fixture_test_monitor
-from ..fixtures_server import fixture_client_and_server_thread_and_shared_values
+from ..fixtures_server import fixture_client_and_server_manager_and_shared_values
 from ..fixtures_server import fixture_generic_beta_1_start_recording_info_in_shared_dict
-from ..fixtures_server import fixture_server_thread
+from ..fixtures_server import fixture_server_manager
 from ..fixtures_server import fixture_test_client
 
 __fixtures__ = [
-    fixture_client_and_server_thread_and_shared_values,
-    fixture_server_thread,
+    fixture_client_and_server_manager_and_shared_values,
+    fixture_server_manager,
     fixture_test_client,
     fixture_generic_queue_container,
     fixture_generic_beta_1_start_recording_info_in_shared_dict,
@@ -54,9 +54,9 @@ def test_system_status__returns_correct_state_and_simulation_values(
     expected_status,
     expected_in_simulation,
     test_description,
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["system_status"] = expected_status
     shared_values_dict["in_simulation_mode"] = expected_in_simulation
 
@@ -69,9 +69,9 @@ def test_system_status__returns_correct_state_and_simulation_values(
 
 
 def test_system_status__returns_in_simulator_mode_False_as_default_value(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     expected_status = CALIBRATION_NEEDED_STATE
     shared_values_dict["system_status"] = expected_status
 
@@ -94,10 +94,10 @@ def test_system_status__returns_correct_serial_number_and_nickname_in_dict_with_
     expected_serial,
     expected_nickname,
     test_description,
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
     board_idx = 0
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["system_status"] = SERVER_READY_STATE
 
     if expected_serial:
@@ -129,9 +129,9 @@ def test_system_status__returns_correct_serial_number_and_nickname_in_dict_with_
 def test_set_mantarray_nickname__returns_error_code_and_message_if_nickname_is_too_many_bytes__in_beta_1_mode(
     test_nickname,
     test_description,
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
 
     shared_values_dict["beta_2_mode"] = False
     shared_values_dict["mantarray_nickname"] = dict()
@@ -154,9 +154,9 @@ def test_set_mantarray_nickname__returns_error_code_and_message_if_nickname_is_t
 def test_set_mantarray_nickname__returns_error_code_and_message_if_nickname_is_too_many_bytes__in_beta_2_mode(
     test_nickname,
     test_description,
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
 
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["mantarray_nickname"] = dict()
@@ -167,9 +167,9 @@ def test_set_mantarray_nickname__returns_error_code_and_message_if_nickname_is_t
 
 
 def test_send_single_start_calibration_command__returns_200(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, _, _ = client_and_server_thread_and_shared_values
+    test_client, _, _ = client_and_server_manager_and_shared_values
     response = test_client.get("/start_calibration")
     assert response.status_code == 200
 
@@ -228,10 +228,10 @@ def test_set_mantarray_serial_number__returns_error_code_and_message_if_serial_n
     test_serial_number,
     expected_error_message,
     test_description,
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
     mocker,
 ):
-    test_client, _, _ = client_and_server_thread_and_shared_values
+    test_client, _, _ = client_and_server_manager_and_shared_values
 
     response = test_client.get(
         f"/insert_xem_command_into_queue/set_mantarray_serial_number?serial_number={test_serial_number}"
@@ -241,9 +241,9 @@ def test_set_mantarray_serial_number__returns_error_code_and_message_if_serial_n
 
 
 def test_start_managed_acquisition__returns_error_code_and_message_if_mantarray_serial_number_is_empty(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     board_idx = 0
     shared_values_dict["mantarray_serial_number"] = {board_idx: ""}
 
@@ -577,9 +577,9 @@ def test_route_with_no_url_rule__returns_error_message__and_logs_reponse_to_requ
 
 
 def test_insert_xem_command_into_queue_routes__return_error_code_and_message_if_called_in_beta_2_mode(
-    client_and_server_thread_and_shared_values, mocker
+    client_and_server_manager_and_shared_values, mocker
 ):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
 
     spied_queue_set_device_id = mocker.spy(server, "queue_set_device_id")
 
@@ -593,9 +593,9 @@ def test_insert_xem_command_into_queue_routes__return_error_code_and_message_if_
 
 
 def test_boot_up__return_error_code_and_message_if_called_in_beta_2_mode(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
 
     response = test_client.get("/boot_up")
@@ -604,9 +604,9 @@ def test_boot_up__return_error_code_and_message_if_called_in_beta_2_mode(
 
 
 def test_set_magnetometer_config__returns_error_code_if_called_in_beta_1_mode(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = False
     shared_values_dict["system_status"] = CALIBRATED_STATE
 
@@ -616,9 +616,9 @@ def test_set_magnetometer_config__returns_error_code_if_called_in_beta_1_mode(
 
 
 def test_set_magnetometer_config__returns_error_code_if_called_with_config_dict_missing_module_id(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["system_status"] = CALIBRATED_STATE
 
@@ -635,9 +635,9 @@ def test_set_magnetometer_config__returns_error_code_if_called_with_config_dict_
 
 
 def test_set_magnetometer_config__returns_error_code_if_called_with_config_dict_missing_channel_id(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["system_status"] = CALIBRATED_STATE
 
@@ -661,9 +661,9 @@ def test_set_magnetometer_config__returns_error_code_if_called_with_config_dict_
 
 
 def test_set_magnetometer_config__returns_error_code_if_called_with_config_dict_that_has_invalid_module_id(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["system_status"] = CALIBRATED_STATE
 
@@ -688,9 +688,9 @@ def test_set_magnetometer_config__returns_error_code_if_called_with_config_dict_
 
 
 def test_set_magnetometer_config__returns_error_code_if_called_with_config_dict_that_has_invalid_channel_id(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["system_status"] = CALIBRATED_STATE
 
@@ -723,9 +723,9 @@ def test_set_magnetometer_config__returns_error_code_if_called_with_config_dict_
 
 
 def test_set_magnetometer_config__returns_error_code_if_called_sampling_period_is_not_given_or_is_invalid(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["system_status"] = CALIBRATED_STATE
 
@@ -756,9 +756,9 @@ def test_set_magnetometer_config__returns_error_code_if_called_sampling_period_i
 def test_set_magnetometer_config__returns_error_code_if_called_while_data_is_streaming(
     test_system_status,
     test_description,
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["system_status"] = test_system_status
 
@@ -786,9 +786,9 @@ def test_set_magnetometer_config__returns_error_code_if_called_while_data_is_str
 def test_set_magnetometer_config__returns_error_code_if_called_before_instrument_finishes_initialization(
     test_system_status,
     test_description,
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["system_status"] = test_system_status
 
@@ -808,9 +808,9 @@ def test_set_magnetometer_config__returns_error_code_if_called_before_instrument
 
 
 def test_start_managed_acquisition__returns_error_code_if_called_in_beta_2_mode_before_magnetometer_configuration_is_set(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["mantarray_serial_number"] = MantarrayMcSimulator.default_mantarray_serial_number
     shared_values_dict["system_status"] = CALIBRATED_STATE
@@ -821,9 +821,9 @@ def test_start_managed_acquisition__returns_error_code_if_called_in_beta_2_mode_
 
 
 def test_set_stim_status__returns_error_code_if_called_in_beta_1_mode(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = False
 
     response = test_client.post("/set_stim_status?running=true")
@@ -832,9 +832,9 @@ def test_set_stim_status__returns_error_code_if_called_in_beta_1_mode(
 
 
 def test_set_stim_status__returns_error_code_and_message_if_running_arg_is_not_given(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
 
     response = test_client.post("/set_stim_status")
@@ -843,9 +843,9 @@ def test_set_stim_status__returns_error_code_and_message_if_running_arg_is_not_g
 
 
 def test_set_stim_status__returns_error_code_and_message_if_set_to_true_before_a_protocol_is_set(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["stimulation_running"] = False
     shared_values_dict["stimulation_protocols"] = None
@@ -856,9 +856,9 @@ def test_set_stim_status__returns_error_code_and_message_if_set_to_true_before_a
 
 
 def test_set_stim_status__returns_code_and_message_if_new_status_is_the_same_as_the_current_status(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
 
     shared_values_dict["stimulation_running"] = False
@@ -873,9 +873,9 @@ def test_set_stim_status__returns_code_and_message_if_new_status_is_the_same_as_
 
 
 def test_set_protocol__returns_error_code_if_called_in_beta_1_mode(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = False
 
     response = test_client.post("/set_protocol")
@@ -884,9 +884,9 @@ def test_set_protocol__returns_error_code_if_called_in_beta_1_mode(
 
 
 def test_set_protocol__returns_error_code_if_called_while_stimulation_is_running(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["stimulation_running"] = True
 
@@ -896,9 +896,9 @@ def test_set_protocol__returns_error_code_if_called_while_stimulation_is_running
 
 
 def test_set_protocol__returns_error_code_if_protocol_list_does_not_contain_enough_items(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["stimulation_running"] = False
 
@@ -916,9 +916,9 @@ def test_set_protocol__returns_error_code_if_protocol_list_does_not_contain_enou
     ],
 )
 def test_set_protocol__returns_error_code_with_invalid_stimulation_type(
-    client_and_server_thread_and_shared_values, test_stimulation_type, test_description
+    client_and_server_manager_and_shared_values, test_stimulation_type, test_description
 ):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["stimulation_running"] = False
 
@@ -936,9 +936,9 @@ def test_set_protocol__returns_error_code_with_invalid_stimulation_type(
     ],
 )
 def test_set_protocol__returns_error_code_with_invalid_well_number(
-    client_and_server_thread_and_shared_values, test_well_number, test_description
+    client_and_server_manager_and_shared_values, test_well_number, test_description
 ):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["stimulation_running"] = False
 
@@ -947,19 +947,9 @@ def test_set_protocol__returns_error_code_with_invalid_well_number(
     assert response.status_code == 400
     assert response.status.endswith(f"Invalid well: {test_well_number}") is True
 
-
-def test_set_protocol__returns_error_code_with_single_invalid_pulse_value(
-    client_and_server_thread_and_shared_values, mocker
-):
-    mocker.patch.object(server, "queue_command_to_main", autospec=True)
-
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
-    shared_values_dict["beta_2_mode"] = True
-    shared_values_dict["stimulation_running"] = False
-
-    # TODO Tanner (8/9/21): handling different values here instead of using pytest parametrize so that test runs faster, but need to check if this test can use normal pytest parametrization after server thread is refactored
-    errors = []
-    for (test_pulse_item, test_value, test_stim_type, error_msg) in [
+@pytest.mark.parametrize(
+    "test_pulse_item,test_value,test_stim_type,test_description",
+    [
         (
             "phase_one_charge",
             STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS + 1,
@@ -1019,42 +1009,49 @@ def test_set_protocol__returns_error_code_with_single_invalid_pulse_value(
             "C",
             "Total active duration less than the duration of the pulse",
         ),
-    ]:
-        test_base_charge = (
-            STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
-            if test_stim_type == "V"
-            else STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
-        )
-        # create an arbitrary protocol to which an invalid value can easily be added
-        test_protocol_dict = {
-            "protocols": [
-                {
-                    "stimulation_type": test_stim_type,
-                    "well_number": "A1",
-                    "total_protocol_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS,
-                    "pulses": [
-                        {
-                            "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
-                            "phase_one_charge": test_base_charge,
-                            "interpulse_interval": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
-                            "phase_two_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
-                            "phase_two_charge": -test_base_charge,
-                            "repeat_delay_interval": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
-                            "total_active_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS,
-                        }
-                    ],
-                }
-            ]
-            * 24
-        }
-        # add bad value
-        test_protocol_dict["protocols"][0]["pulses"][0][test_pulse_item] = test_value
+    ]
+)
+def test_set_protocol__returns_error_code_with_single_invalid_pulse_value(
+    client_and_server_manager_and_shared_values, mocker,test_pulse_item, test_value, test_stim_type, test_description
+):
+    mocker.patch.object(server, "queue_command_to_main", autospec=True)
 
-        response = test_client.post("/set_protocol", json=json.dumps(test_protocol_dict))
-        if f"400 {error_msg}" not in response.status:
-            errors.append((response.status, error_msg))
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = False
 
-    assert len(errors) == 0, errors
+    test_base_charge = (
+        STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
+        if test_stim_type == "V"
+        else STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
+    )
+    # create an arbitrary protocol to which an invalid value can easily be added
+    test_protocol_dict = {
+        "protocols": [
+            {
+                "stimulation_type": test_stim_type,
+                "well_number": "A1",
+                "total_protocol_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS,
+                "pulses": [
+                    {
+                        "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
+                        "phase_one_charge": test_base_charge,
+                        "interpulse_interval": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
+                        "phase_two_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
+                        "phase_two_charge": -test_base_charge,
+                        "repeat_delay_interval": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
+                        "total_active_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS,
+                    }
+                ],
+            }
+        ]
+        * 24
+    }
+    # add bad value
+    test_protocol_dict["protocols"][0]["pulses"][0][test_pulse_item] = test_value
+
+    response = test_client.post("/set_protocol", json=json.dumps(test_protocol_dict))
+    assert f"400 {test_description}" in response.status
 
 
 @pytest.mark.parametrize(
@@ -1066,9 +1063,9 @@ def test_set_protocol__returns_error_code_with_single_invalid_pulse_value(
     ],
 )
 def test_set_protocol__returns_error_code_with_invalid_total_protocol_duration(
-    client_and_server_thread_and_shared_values, test_protocol_dur, test_description
+    client_and_server_manager_and_shared_values, test_protocol_dur, test_description
 ):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["stimulation_running"] = False
 
@@ -1099,9 +1096,9 @@ def test_set_protocol__returns_error_code_with_invalid_total_protocol_duration(
 
 
 def test_set_protocol__returns_error_code_when_pulse_duration_is_too_long(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, _, shared_values_dict = client_and_server_thread_and_shared_values
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["stimulation_running"] = False
 

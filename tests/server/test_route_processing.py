@@ -57,11 +57,10 @@ from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_process_monitor import fixture_test_monitor
 from ..fixtures_process_monitor import fixture_test_monitor_beta_2_mode
-from ..fixtures_server import fixture_client_and_server_thread_and_shared_values
+from ..fixtures_server import fixture_client_and_server_manager_and_shared_values
 from ..fixtures_server import fixture_generic_beta_1_start_recording_info_in_shared_dict
 from ..fixtures_server import fixture_generic_beta_2_start_recording_info_in_shared_dict
-from ..fixtures_server import fixture_running_server_thread
-from ..fixtures_server import fixture_server_thread
+from ..fixtures_server import fixture_server_manager
 from ..fixtures_server import fixture_test_client
 from ..helpers import assert_queue_is_eventually_not_empty
 from ..helpers import confirm_queue_is_eventually_empty
@@ -72,8 +71,8 @@ from ..helpers import is_queue_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 __fixtures__ = [
-    fixture_client_and_server_thread_and_shared_values,
-    fixture_server_thread,
+    fixture_client_and_server_manager_and_shared_values,
+    fixture_server_manager,
     fixture_generic_queue_container,
     fixture_test_process_manager,
     fixture_test_process_manager_beta_2_mode,
@@ -87,7 +86,6 @@ __fixtures__ = [
     fixture_patch_print,
     fixture_generic_beta_1_start_recording_info_in_shared_dict,
     fixture_generic_beta_2_start_recording_info_in_shared_dict,
-    fixture_running_server_thread,
 ]
 
 
@@ -1655,9 +1653,9 @@ def test_set_magnetometer_config__gets_processed__and_default_channel_is_enabled
 
 
 def test_system_status__returns_no_plate_barcode_and_status_when_none_present(
-    client_and_server_thread_and_shared_values, test_client
+    client_and_server_manager_and_shared_values, test_client
 ):
-    _, _, shared_values_dict = client_and_server_thread_and_shared_values
+    _, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["system_status"] = CALIBRATED_STATE
 
     response = test_client.get("/system_status")
@@ -1691,10 +1689,10 @@ def test_after_request__redacts_mantarray_nicknames_from_system_status_log_messa
 
 
 def test_after_request__redacts_mantarray_nickname_from_set_mantarray_nickname_log_message(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
     mocker,
 ):
-    test_client, _, _ = client_and_server_thread_and_shared_values
+    test_client, _, _ = client_and_server_manager_and_shared_values
     spied_server_logger = mocker.spy(server.logger, "info")
 
     expected_nickname = "A New Nickname"

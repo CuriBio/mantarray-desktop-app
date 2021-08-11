@@ -553,9 +553,9 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     monitor_thread, _, _, _ = test_monitor
 
     # starting server thread causes weird issues with mocked values, so mocking its start and join methods
-    server_thread = test_process_manager.get_server_thread()
-    mocker.patch.object(server_thread, "start", autospec=True)
-    mocker.patch.object(server_thread, "join", autospec=True)
+    server_manager = test_process_manager.get_server_manager()
+    mocker.patch.object(server_manager, "start", autospec=True)
+    mocker.patch.object(server_manager, "join", autospec=True)
 
     test_process_manager.start_processes()
 
@@ -566,15 +566,15 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     spied_okc_join = mocker.spy(okc_process, "join")
     spied_fw_join = mocker.spy(fw_process, "join")
     spied_da_join = mocker.spy(da_process, "join")
-    spied_server_join = mocker.spy(server_thread, "join")
+    spied_server_join = mocker.spy(server_manager, "join")
 
     spied_okc_hard_stop = mocker.spy(okc_process, "hard_stop")
     spied_fw_hard_stop = mocker.spy(fw_process, "hard_stop")
     spied_da_hard_stop = mocker.spy(da_process, "hard_stop")
-    spied_server_hard_stop = mocker.spy(server_thread, "hard_stop")
+    spied_server_hard_stop = mocker.spy(server_manager, "hard_stop")
 
     mocked_st_is_stopped = mocker.patch.object(
-        server_thread, "is_stopped", side_effect=[False, True, True, True]
+        server_manager, "is_stopped", side_effect=[False, True, True, True]
     )
     mocked_okc_is_stopped = mocker.patch.object(
         okc_process, "is_stopped", autospec=True, side_effect=[False, True, True]
@@ -631,7 +631,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     okc_process = test_process_manager.get_instrument_process()
     fw_process = test_process_manager.get_file_writer_process()
     da_process = test_process_manager.get_data_analyzer_process()
-    server_thread = test_process_manager.get_server_thread()
+    server_manager = test_process_manager.get_server_manager()
     expected_okc_item = "item 1"
     expected_fw_item = "item 2"
     expected_da_item = "item 3"
@@ -640,7 +640,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     mocker.patch.object(okc_process, "hard_stop", autospec=True, return_value=expected_okc_item)
     mocker.patch.object(fw_process, "hard_stop", autospec=True, return_value=expected_fw_item)
     mocker.patch.object(da_process, "hard_stop", autospec=True, return_value=expected_da_item)
-    mocker.patch.object(server_thread, "hard_stop", autospec=True, return_value=expected_server_item)
+    mocker.patch.object(server_manager, "hard_stop", autospec=True, return_value=expected_server_item)
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()

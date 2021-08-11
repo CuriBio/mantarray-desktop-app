@@ -38,11 +38,11 @@ from .exceptions import MultiprocessingNotSetToSpawnError
 from .log_formatter import SensitiveFormatter
 from .process_manager import MantarrayProcessesManager
 from .process_monitor import MantarrayProcessesMonitor
-from .server import clear_the_server_thread
+from .server import clear_the_server_manager
 from .server import flask_app
 from .server import get_server_address_components
-from .server import get_the_server_thread
-from .server import ServerThreadNotInitializedError
+from .server import get_the_server_manager
+from .server import ServerManagerNotInitializedError
 from .server import socketio
 from .utils import convert_request_args_to_config_dict
 from .utils import redact_sensitive_info_from_path
@@ -56,17 +56,17 @@ _server_port_number = DEFAULT_SERVER_PORT_NUMBER  # pylint:disable=invalid-name 
 
 
 def clear_server_singletons() -> None:
-    clear_the_server_thread()
+    clear_the_server_manager()
     global _server_port_number  # pylint:disable=global-statement,invalid-name # Eli (12/8/20) this is deliberately setting a module-level singleton
     _server_port_number = DEFAULT_SERVER_PORT_NUMBER
 
 
 def get_server_port_number() -> int:
     try:
-        server_thread = get_the_server_thread()
-    except (NameError, ServerThreadNotInitializedError):
+        server_manager = get_the_server_manager()
+    except (NameError, ServerManagerNotInitializedError):
         return _server_port_number
-    return server_thread.get_port_number()
+    return server_manager.get_port_number()
 
 
 def _create_process_manager(shared_values_dict: Dict[str, Any]) -> MantarrayProcessesManager:

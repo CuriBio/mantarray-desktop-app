@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import logging
 
-from mantarray_desktop_app import clear_the_server_thread
+from mantarray_desktop_app import clear_the_server_manager
 from mantarray_desktop_app import DataAnalyzerProcess
 from mantarray_desktop_app import FileWriterProcess
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
@@ -9,7 +9,7 @@ from mantarray_desktop_app import MantarrayProcessesManager
 from mantarray_desktop_app import McCommunicationProcess
 from mantarray_desktop_app import OkCommunicationProcess
 from mantarray_desktop_app import process_manager
-from mantarray_desktop_app import ServerThread
+from mantarray_desktop_app import ServerManager
 from mantarray_desktop_app import SUBPROCESS_POLL_DELAY_SECONDS
 from mantarray_desktop_app import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 import pytest
@@ -34,28 +34,30 @@ __fixtures__ = [
 def fixture_generic_manager():
     manager = MantarrayProcessesManager()
     yield manager
+    
+    if not manager.are_processes_stopped():
+        manager.hard_stop_processes()
 
-    # hard stop all processes to make sure to clean up queues
-    manager.hard_stop_processes()
-    # aspects of processes are often mocked just to assert they are called, so make sure to explicitly clean up the ServerThread module singleton
-    clear_the_server_thread()
+    # aspects of processes are often mocked just to assert they are called, so make sure to explicitly clean up the ServerManager module singleton
+    clear_the_server_manager()
 
 
-def test_MantarrayProcessesManager__stop_processes__calls_stop_on_all_processes(mocker, generic_manager):
+def test_MantarrayProcessesManager__stop_processes__calls_stop_on_all_processes_and_shuts_down_server(mocker, generic_manager):
     generic_manager.create_processes()
     mocked_ok_comm_stop = mocker.patch.object(OkCommunicationProcess, "stop")
     mocked_file_writer_stop = mocker.patch.object(FileWriterProcess, "stop")
     mocked_data_analyzer_stop = mocker.patch.object(DataAnalyzerProcess, "stop")
-    mocked_server_stop = mocker.patch.object(ServerThread, "stop")
+    mocked_shutdown_server = mocker.patch.object(ServerManager, "shutdown_server")
+
     generic_manager.stop_processes()
 
     mocked_ok_comm_stop.assert_called_once()
     mocked_file_writer_stop.assert_called_once()
     mocked_data_analyzer_stop.assert_called_once()
-    mocked_server_stop.assert_called_once()
+    mocked_shutdown_server.assert_called_once()
 
 
-def test_MantarrayProcessesManager__soft_stop_processes__calls_soft_stop_on_all_processes(
+def test_MantarrayProcessesManager__soft_stop_processes__calls_soft_stop_on_all_processes_and_shuts_down_server(
     generic_manager,
     mocker,
 ):
@@ -63,36 +65,16 @@ def test_MantarrayProcessesManager__soft_stop_processes__calls_soft_stop_on_all_
     mocked_ok_comm_soft_stop = mocker.patch.object(OkCommunicationProcess, "soft_stop")
     mocked_file_writer_soft_stop = mocker.patch.object(FileWriterProcess, "soft_stop")
     mocked_data_analyzer_soft_stop = mocker.patch.object(DataAnalyzerProcess, "soft_stop")
-    mocked_server_soft_stop = mocker.patch.object(ServerThread, "soft_stop")
+    mocked_shutdown_server = mocker.patch.object(ServerManager, "shutdown_server")
 
     generic_manager.soft_stop_processes()
 
     mocked_ok_comm_soft_stop.assert_called_once()
-    # mocked_ok_comm_stop.assert_called_once() # Eli (1/15/20) not sure why this isn't being called, but if things get joined back together, then soft stop appears to be working fine
     mocked_file_writer_soft_stop.assert_called_once()
     mocked_data_analyzer_soft_stop.assert_called_once()
-    mocked_server_soft_stop.assert_called_once()
 
 
-def test_MantarrayProcessesManager__soft_stop_processes_except_server__calls_soft_stop_on_all_processes_except_server(
-    generic_manager,
-    mocker,
-):
-    generic_manager.create_processes()
-    mocked_ok_comm_soft_stop = mocker.patch.object(OkCommunicationProcess, "soft_stop")
-    mocked_file_writer_soft_stop = mocker.patch.object(FileWriterProcess, "soft_stop")
-    mocked_data_analyzer_soft_stop = mocker.patch.object(DataAnalyzerProcess, "soft_stop")
-    mocked_server_soft_stop = mocker.patch.object(ServerThread, "soft_stop")
-
-    generic_manager.soft_stop_processes_except_server()
-
-    mocked_ok_comm_soft_stop.assert_called_once()
-    mocked_file_writer_soft_stop.assert_called_once()
-    mocked_data_analyzer_soft_stop.assert_called_once()
-    assert mocked_server_soft_stop.call_count == 0
-
-
-def test_MantarrayProcessesManager__hard_stop_processes__calls_hard_stop_on_all_processes_and_returns_process_queue_items(
+def test_MantarrayProcessesManager__hard_stop_processes__calls_hard_stop_on_all_processes_and_shuts_down_server__and_returns_process_queue_items(
     mocker, generic_manager
 ):
     expected_ok_comm_items = {"instrument_comm_queue": ["instrument_item"]}
@@ -110,15 +92,16 @@ def test_MantarrayProcessesManager__hard_stop_processes__calls_hard_stop_on_all_
     mocked_data_analyzer_hard_stop = mocker.patch.object(
         DataAnalyzerProcess, "hard_stop", return_value=expected_da_items
     )
-    mocked_server_hard_stop = mocker.patch.object(
-        ServerThread, "hard_stop", return_value=expected_server_items
+    mocked_server_drain_queues = mocker.patch.object(
+        ServerManager, "drain_all_queues", return_value=expected_server_items
     )
+
     actual = generic_manager.hard_stop_processes()
 
     mocked_ok_comm_hard_stop.assert_called_once()
     mocked_file_writer_hard_stop.assert_called_once()
     mocked_data_analyzer_hard_stop.assert_called_once()
-    mocked_server_hard_stop.assert_called_once()
+    mocked_server_drain_queues.assert_called_once()
 
     assert actual["instrument_comm_items"] == expected_ok_comm_items
     assert actual["file_writer_items"] == expected_file_writer_items
@@ -129,20 +112,20 @@ def test_MantarrayProcessesManager__hard_stop_processes__calls_hard_stop_on_all_
 @pytest.mark.timeout(20)
 def test_MantarrayProcessesManager__join_processes__calls_join_on_all_processes(mocker, generic_manager):
     generic_manager.spawn_processes()
+
     mocked_ok_comm_join = mocker.patch.object(OkCommunicationProcess, "join")
     mocked_file_writer_join = mocker.patch.object(FileWriterProcess, "join")
     mocked_data_analyzer_join = mocker.patch.object(DataAnalyzerProcess, "join")
-    mocked_server_join = mocker.patch.object(ServerThread, "join")
+
     generic_manager.join_processes()
 
     mocked_ok_comm_join.assert_called_once()
     mocked_file_writer_join.assert_called_once()
     mocked_data_analyzer_join.assert_called_once()
-    mocked_server_join.assert_called_once()
 
 
 @pytest.mark.timeout(20)
-def test_MantarrayProcessesManager__spawn_processes__stop_and_join_processes__starts_and_stops_all_processes(
+def test_MantarrayProcessesManager__spawn_processes__stop_and_join_processes__starts_and_stops_all_processes_and_shuts_down_server(
     mocker, generic_manager
 ):
     spied_ok_comm_start = mocker.spy(OkCommunicationProcess, "start")
@@ -154,9 +137,7 @@ def test_MantarrayProcessesManager__spawn_processes__stop_and_join_processes__st
     spied_data_analyzer_start = mocker.spy(DataAnalyzerProcess, "start")
     spied_data_analyzer_stop = mocker.spy(DataAnalyzerProcess, "stop")
     spied_data_analyzer_join = mocker.spy(DataAnalyzerProcess, "join")
-    spied_server_start = mocker.spy(ServerThread, "start")
-    spied_server_stop = mocker.spy(ServerThread, "stop")
-    spied_server_join = mocker.spy(ServerThread, "join")
+    mocked_shutdown_server = mocker.patch.object(ServerManager, "shutdown_server")
 
     generic_manager.spawn_processes()
 
@@ -164,9 +145,9 @@ def test_MantarrayProcessesManager__spawn_processes__stop_and_join_processes__st
     generic_manager.get_instrument_process()._drain_all_queues()  # pylint:disable=protected-access
     generic_manager.get_file_writer_process()._drain_all_queues()  # pylint:disable=protected-access
     generic_manager.get_data_analyzer_process()._drain_all_queues()  # pylint:disable=protected-access
-    generic_manager.get_server_thread()._drain_all_queues()  # pylint:disable=protected-access
 
     generic_manager.stop_and_join_processes()
+
     spied_ok_comm_start.assert_called_once()
     spied_ok_comm_stop.assert_called_once()
     spied_ok_comm_join.assert_called_once()
@@ -179,44 +160,32 @@ def test_MantarrayProcessesManager__spawn_processes__stop_and_join_processes__st
     spied_data_analyzer_stop.assert_called_once()
     spied_data_analyzer_join.assert_called_once()
 
-    spied_server_start.assert_called_once()
-    spied_server_stop.assert_called_once()
-    spied_server_join.assert_called_once()
+    mocked_shutdown_server.assert_called_once()
 
 
 @pytest.mark.timeout(20)
-def test_MantarrayProcessesManager__soft_stop_and_join_processes__soft_stops_processes(
-    mocker,
+def test_MantarrayProcessesManager__soft_stop_and_join_processes__soft_stops_and_joins_processes_and_shuts_down_server(
+    mocker, generic_manager
 ):
-    manager = MantarrayProcessesManager()
     spied_ok_comm_start = mocker.spy(OkCommunicationProcess, "start")
     spied_ok_comm_soft_stop = mocker.spy(OkCommunicationProcess, "soft_stop")
-    spied_ok_comm_join = mocker.spy(OkCommunicationProcess, "join")
+    spied_ok_comm_join = mocker.patch.object(OkCommunicationProcess, "join")
 
     spied_file_writer_start = mocker.spy(FileWriterProcess, "start")
     spied_file_writer_soft_stop = mocker.spy(FileWriterProcess, "soft_stop")
-    spied_file_writer_join = mocker.spy(FileWriterProcess, "join")
+    spied_file_writer_join = mocker.patch.object(FileWriterProcess, "join")
 
     spied_data_analyzer_start = mocker.spy(DataAnalyzerProcess, "start")
     spied_data_analyzer_soft_stop = mocker.spy(DataAnalyzerProcess, "soft_stop")
-    spied_data_analyzer_join = mocker.spy(DataAnalyzerProcess, "join")
+    spied_data_analyzer_join = mocker.patch.object(DataAnalyzerProcess, "join")
 
-    spied_server_start = mocker.spy(ServerThread, "start")
-    spied_server_soft_stop = mocker.spy(ServerThread, "soft_stop")
-    spied_server_join = mocker.spy(ServerThread, "join")
+    mocked_shutdown_server = mocker.patch.object(ServerManager, "shutdown_server")
 
-    manager.spawn_processes()
+    generic_manager.spawn_processes()
+    generic_manager.soft_stop_and_join_processes()
 
-    # drain all queues of start-up messages before attempting to join
-    manager.get_instrument_process()._drain_all_queues()  # pylint:disable=protected-access
-    manager.get_file_writer_process()._drain_all_queues()  # pylint:disable=protected-access
-    manager.get_data_analyzer_process()._drain_all_queues()  # pylint:disable=protected-access
-    manager.get_server_thread()._drain_all_queues()  # pylint:disable=protected-access
-
-    manager.soft_stop_and_join_processes()
     spied_ok_comm_start.assert_called_once()
     spied_ok_comm_soft_stop.assert_called_once()
-    # spied_ok_comm_stop.assert_called_once() # Eli (1/15/20) not sure why this isn't being called, but if things get joined back together, then soft stop appears to be working fine
     spied_ok_comm_join.assert_called_once()
 
     spied_file_writer_start.assert_called_once()
@@ -227,20 +196,17 @@ def test_MantarrayProcessesManager__soft_stop_and_join_processes__soft_stops_pro
     spied_data_analyzer_soft_stop.assert_called_once()
     spied_data_analyzer_join.assert_called_once()
 
-    spied_server_start.assert_called_once()
-    spied_server_soft_stop.assert_called_once()
-    spied_server_join.assert_called_once()
+    mocked_shutdown_server.assert_called_once()
 
 
 @pytest.mark.timeout(25)
-def test_MantarrayProcessesManager__hard_stop_and_join_processes__hard_stops_processes_and_returns_queue_items(
-    mocker,
+def test_MantarrayProcessesManager__hard_stop_and_join_processes__hard_stops_processes_and_shuts_down_server__and_returns_queue_items(
+    mocker, generic_manager
 ):
     expected_ok_comm_item = "ok_comm_item"
     expected_file_writer_item = "file_writer_item"
     expected_da_item = "data_analyzer_item"
-    expected_server_items = {"to_main": ["server_item"]}
-    manager = MantarrayProcessesManager()
+    expected_server_item = "server_item"
 
     spied_ok_comm_start = mocker.spy(OkCommunicationProcess, "start")
     spied_ok_comm_hard_stop = mocker.spy(OkCommunicationProcess, "hard_stop")
@@ -254,12 +220,11 @@ def test_MantarrayProcessesManager__hard_stop_and_join_processes__hard_stops_pro
     spied_data_analyzer_hard_stop = mocker.spy(DataAnalyzerProcess, "hard_stop")
     spied_data_analyzer_join = mocker.spy(DataAnalyzerProcess, "join")
 
-    spied_server_start = mocker.spy(ServerThread, "start")
-    spied_server_hard_stop = mocker.spy(ServerThread, "hard_stop")
-    spied_server_join = mocker.spy(ServerThread, "join")
+    mocked_shutdown_server = mocker.patch.object(ServerManager, "shutdown_server")
+    spied_server_drain_queues = mocker.spy(ServerManager, "drain_all_queues")
 
-    manager.spawn_processes()
-    container = manager.queue_container()
+    generic_manager.spawn_processes()
+    container = generic_manager.queue_container()
     instrument_comm_to_main = container.get_communication_queue_from_instrument_comm_to_main(0)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         expected_ok_comm_item, instrument_comm_to_main
@@ -272,9 +237,10 @@ def test_MantarrayProcessesManager__hard_stop_and_join_processes__hard_stops_pro
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_da_item, data_analyzer_to_main)
 
     server_to_main = container.get_communication_queue_from_server_to_main()
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_server_items, server_to_main)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_server_item, server_to_main)
 
-    actual = manager.hard_stop_and_join_processes()
+    actual = generic_manager.hard_stop_and_join_processes()
+
     spied_ok_comm_start.assert_called_once()
     spied_ok_comm_hard_stop.assert_called_once()
     spied_ok_comm_join.assert_called_once()
@@ -287,15 +253,13 @@ def test_MantarrayProcessesManager__hard_stop_and_join_processes__hard_stops_pro
     spied_data_analyzer_hard_stop.assert_called_once()
     spied_data_analyzer_join.assert_called_once()
 
-    spied_server_start.assert_called_once()
-    spied_server_hard_stop.assert_called_once()
-    spied_server_join.assert_called_once()
+    mocked_shutdown_server.assert_called_once()
+    spied_server_drain_queues.assert_called_once()
 
     assert expected_ok_comm_item in actual["instrument_comm_items"]["board_0"]["instrument_comm_to_main"]
     assert expected_file_writer_item in actual["file_writer_items"]["from_file_writer_to_main"]
     assert expected_da_item in actual["data_analyzer_items"]["from_data_analyzer_to_main"]
-
-    assert expected_server_items in actual["server_items"]["to_main"]
+    assert expected_server_item in actual["server_items"]["to_main"]
 
 
 def test_MantarrayProcessesManager__passes_file_directory_to_FileWriter():
@@ -303,15 +267,15 @@ def test_MantarrayProcessesManager__passes_file_directory_to_FileWriter():
     manager.create_processes()
     assert manager.get_file_writer_process().get_file_directory() == "blahdir"
 
-    # clean up the ServerThread singleton
-    clear_the_server_thread()
+    # clean up the ServerManager singleton
+    clear_the_server_manager()
 
 
 def test_MantarrayProcessesManager__passes_shared_values_dict_to_server():
     expected_dict = {"beta_2_mode": False}
     manager = MantarrayProcessesManager(values_to_share_to_server=expected_dict)
     manager.create_processes()
-    assert manager.get_server_thread().get_values_from_process_monitor() == expected_dict
+    assert manager.get_server_manager().get_values_from_process_monitor() == expected_dict
 
     # clean up
     manager.hard_stop_processes()
@@ -324,10 +288,10 @@ def test_MantarrayProcessesManager__passes_logging_level_to_subprocesses():
     assert manager.get_file_writer_process().get_logging_level() == expected_level
     assert manager.get_instrument_process().get_logging_level() == expected_level
     assert manager.get_data_analyzer_process().get_logging_level() == expected_level
-    assert manager.get_server_thread().get_logging_level() == expected_level
+    assert manager.get_server_manager().get_logging_level() == expected_level
 
-    # clean up the ServerThread singleton
-    clear_the_server_thread()
+    # clean up the ServerManager singleton
+    clear_the_server_manager()
 
 
 def test_MantarrayProcessesManager__boot_up_instrument__populates_ok_comm_queue__and_sets_system_status(
@@ -363,13 +327,6 @@ def test_MantarrayProcessesManager__are_processes_stopped__waits_correct_amount_
     okc_process = test_process_manager.get_instrument_process()
     fw_process = test_process_manager.get_file_writer_process()
     da_process = test_process_manager.get_data_analyzer_process()
-    server_thread = test_process_manager.get_server_thread()
-    mocked_server_is_stopped = mocker.patch.object(
-        server_thread,
-        "is_stopped",
-        autospec=True,
-        side_effect=[False, True, True, True],
-    )
     mocked_okc_is_stopped = mocker.patch.object(
         okc_process, "is_stopped", autospec=True, side_effect=[False, True, True]
     )
@@ -381,14 +338,13 @@ def test_MantarrayProcessesManager__are_processes_stopped__waits_correct_amount_
     mocked_counter = mocker.patch.object(
         process_manager,
         "perf_counter",
-        side_effect=[0, 0, 0, 0, SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS],
+        side_effect=[0, 0, 0, SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS],
         autospec=True,
     )
 
     assert test_process_manager.are_processes_stopped() is False
 
-    assert mocked_counter.call_count == 5
-    assert mocked_server_is_stopped.call_count == 4
+    assert mocked_counter.call_count == 4
     assert mocked_okc_is_stopped.call_count == 3
     assert mocked_fw_is_stopped.call_count == 2
     assert mocked_da_is_stopped.call_count == 1
@@ -402,13 +358,6 @@ def test_MantarrayProcessesManager__are_processes_stopped__waits_correct_amount_
     okc_process = test_process_manager.get_instrument_process()
     fw_process = test_process_manager.get_file_writer_process()
     da_process = test_process_manager.get_data_analyzer_process()
-    server_thread = test_process_manager.get_server_thread()
-    mocked_server_is_stopped = mocker.patch.object(
-        server_thread,
-        "is_stopped",
-        autospec=True,
-        side_effect=[False, True, True, True],
-    )
     mocked_okc_is_stopped = mocker.patch.object(
         okc_process, "is_stopped", autospec=True, side_effect=[False, True, True]
     )
@@ -420,20 +369,19 @@ def test_MantarrayProcessesManager__are_processes_stopped__waits_correct_amount_
     mocked_counter = mocker.patch.object(
         process_manager,
         "perf_counter",
-        side_effect=[0, 0, 0, SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS, expected_timeout],
+        side_effect=[0, 0,  SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS, expected_timeout],
         autospec=True,
     )
 
     assert test_process_manager.are_processes_stopped(timeout_seconds=expected_timeout) is False
 
-    assert mocked_counter.call_count == 5
-    assert mocked_server_is_stopped.call_count == 4
+    assert mocked_counter.call_count == 4
     assert mocked_okc_is_stopped.call_count == 3
     assert mocked_fw_is_stopped.call_count == 2
     assert mocked_da_is_stopped.call_count == 1
 
 
-def test_MantarrayProcessesManager__create_processes__passes_port_value_from_dictionary_to_server_thread(
+def test_MantarrayProcessesManager__create_processes__passes_port_value_from_dictionary_to_server_manager(
     mocker,
 ):
     expected_port = 5432
@@ -443,15 +391,15 @@ def test_MantarrayProcessesManager__create_processes__passes_port_value_from_dic
             "beta_2_mode": False,
         }
     )
-    spied_create_server_thread = mocker.spy(ServerThread, "__init__")
+    spied_create_server_manager = mocker.spy(ServerManager, "__init__")
 
     manager.create_processes()
 
-    spied_create_server_thread.assert_called_once()
-    assert spied_create_server_thread.call_args.kwargs["port"] == expected_port
+    spied_create_server_manager.assert_called_once()
+    assert spied_create_server_manager.call_args.kwargs["port"] == expected_port
 
-    # clean up the ServerThread singleton
-    clear_the_server_thread()
+    # clean up the ServerManager singleton
+    clear_the_server_manager()
 
 
 def test_MantarrayProcessesManager__are_processes_stopped__returns_true_if_stop_occurs_during_polling(
@@ -460,8 +408,6 @@ def test_MantarrayProcessesManager__are_processes_stopped__returns_true_if_stop_
     instrument_process = test_process_manager.get_instrument_process()
     da_process = test_process_manager.get_data_analyzer_process()
     fw_process = test_process_manager.get_file_writer_process()
-    server_thread = test_process_manager.get_server_thread()
-    mocker.patch.object(server_thread, "is_stopped", autospec=True, return_value=True)
     mocker.patch.object(instrument_process, "is_stopped", autospec=True, return_value=True)
     mocker.patch.object(fw_process, "is_stopped", autospec=True, return_value=True)
     mocker.patch.object(da_process, "is_stopped", autospec=True, side_effect=[False, True])
@@ -480,13 +426,6 @@ def test_MantarrayProcessesManager__are_processes_stopped__returns_true_if_stop_
     instrument_process = test_process_manager.get_instrument_process()
     da_process = test_process_manager.get_data_analyzer_process()
     fw_process = test_process_manager.get_file_writer_process()
-    server_thread = test_process_manager.get_server_thread()
-    mocked_server_is_stopped = mocker.patch.object(
-        server_thread,
-        "is_stopped",
-        autospec=True,
-        return_value=True,
-    )
     mocked_instrument_is_stopped = mocker.patch.object(
         instrument_process, "is_stopped", autospec=True, return_value=True
     )
@@ -494,7 +433,6 @@ def test_MantarrayProcessesManager__are_processes_stopped__returns_true_if_stop_
     mocked_da_is_stopped = mocker.patch.object(da_process, "is_stopped", autospec=True, return_value=True)
     assert test_process_manager.are_processes_stopped() is True
 
-    assert mocked_server_is_stopped.call_count == 1
     assert mocked_instrument_is_stopped.call_count == 1
     assert mocked_fw_is_stopped.call_count == 1
     assert mocked_da_is_stopped.call_count == 1
@@ -565,8 +503,8 @@ def test_MantarrayProcessesManager__passes_beta_2_flag_to_subprocesses_other_tha
     assert spied_fw_init.call_args.kwargs["beta_2_mode"] is expected_beta_2_flag
     assert spied_da_init.call_args.kwargs["beta_2_mode"] is expected_beta_2_flag
 
-    # clean up the ServerThread singleton
-    clear_the_server_thread()
+    # clean up the ServerManager singleton
+    clear_the_server_manager()
 
 
 def test_MantarrayProcessesManager__creates_mc_comm_instead_of_ok_comm_when_beta_2_flag_is_set_true(
@@ -579,5 +517,5 @@ def test_MantarrayProcessesManager__creates_mc_comm_instead_of_ok_comm_when_beta
     mc_comm_process = manager.get_instrument_process()
     assert isinstance(mc_comm_process, McCommunicationProcess) is True
 
-    # clean up the ServerThread singleton
-    clear_the_server_thread()
+    # clean up the ServerManager singleton
+    clear_the_server_manager()

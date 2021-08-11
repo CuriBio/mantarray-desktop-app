@@ -24,7 +24,9 @@ from .instrument_comm import InstrumentCommProcess
 from .mc_comm import McCommunicationProcess
 from .ok_comm import OkCommunicationProcess
 from .queue_container import MantarrayQueueContainer
-from .server import ServerThread
+from .server import ServerManager
+
+from stdlib_utils import drain_queue
 
 
 class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
@@ -38,23 +40,22 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
     ) -> None:
         self._queue_container: MantarrayQueueContainer
 
-        self._instrument_communication_process: InstrumentCommProcess
         self._logging_level: int
         if values_to_share_to_server is None:
             # Tanner (4/23/21): 'values_to_share_to_server' kwarg is only None during testing, so default to Beta 1 mode. Tests that need beta 2 mode should use the kwarg to provide a dict where this value is True
             values_to_share_to_server = {"beta_2_mode": False}
 
         self._values_to_share_to_server = values_to_share_to_server
-        self._server_thread: ServerThread
+        self._server_manager: ServerManager
+
+        self._instrument_communication_process: InstrumentCommProcess
         self._file_writer_process: FileWriterProcess
-        self._file_directory: str = file_directory
         self._data_analyzer_process: DataAnalyzerProcess
-
-        # TODO Tanner (6/1/21): refactor this initialization, see last statement in self.create_processes
-        self._all_processes = Tuple[
-            ServerThread, InstrumentCommProcess, FileWriterProcess, DataAnalyzerProcess
-        ]  # server takes longest to start, so have that first
-
+        self._all_processes: Optional[
+            Tuple[InstrumentCommProcess, FileWriterProcess, DataAnalyzerProcess]
+        ] = None
+        
+        self._file_directory: str = file_directory
         self.set_logging_level(logging_level)
 
     def set_logging_level(self, logging_level: int) -> None:
@@ -81,8 +82,8 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
     def get_file_writer_process(self) -> FileWriterProcess:
         return self._file_writer_process
 
-    def get_server_thread(self) -> ServerThread:
-        return self._server_thread
+    def get_server_manager(self) -> ServerManager:
+        return self._server_manager
 
     def get_data_analyzer_process(self) -> DataAnalyzerProcess:
         return self._data_analyzer_process
@@ -94,9 +95,8 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
 
         beta_2_mode = self._values_to_share_to_server["beta_2_mode"]
 
-        self._server_thread = ServerThread(
+        self._server_manager = ServerManager(
             queue_container.get_communication_queue_from_server_to_main(),
-            queue_container.get_server_error_queue(),
             queue_container,
             logging_level=self._logging_level,
             values_from_process_monitor=self._values_to_share_to_server,
@@ -130,16 +130,13 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         )
 
         self._all_processes = (
-            self._server_thread,
             self._instrument_communication_process,
             self._file_writer_process,
             self._data_analyzer_process,
         )
 
     def start_processes(self) -> None:
-        if not isinstance(  # pylint:disable=isinstance-second-argument-not-valid-type # Eli (12/8/20): pylint issue https://github.com/PyCQA/pylint/issues/3507
-            self._all_processes, Iterable
-        ):
+        if self._all_processes is None:
             raise NotImplementedError("Processes must be created first.")
         for iter_process in self._all_processes:
             iter_process.start()
@@ -184,45 +181,38 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         return response_dict
 
     def stop_processes(self) -> None:
-        if not isinstance(  # pylint:disable=isinstance-second-argument-not-valid-type # Eli (12/8/20): pylint issue https://github.com/PyCQA/pylint/issues/3507
-            self._all_processes, Iterable
-        ):
+        if self._all_processes is None:
             raise NotImplementedError("Processes must be created first.")
         for iter_process in self._all_processes:
             iter_process.stop()
+        self.get_server_manager().shutdown_server()
 
     def soft_stop_processes(self) -> None:
-        self.soft_stop_processes_except_server()
-        self.get_server_thread().soft_stop()
-
-    def soft_stop_processes_except_server(self) -> None:
-        if not isinstance(  # pylint:disable=isinstance-second-argument-not-valid-type # Eli (12/8/20): pylint issue https://github.com/PyCQA/pylint/issues/3507
-            self._all_processes, Iterable
-        ):
+        if self._all_processes is None:
             raise NotImplementedError("Processes must be created first.")
         for iter_process in self._all_processes:
-            if isinstance(iter_process, ServerThread):
-                continue
             iter_process.soft_stop()
+        self.get_server_manager().shutdown_server()
 
     def hard_stop_processes(self) -> Dict[str, Any]:
         """Immediately stop subprocesses."""
         instrument_comm_items = self._instrument_communication_process.hard_stop()
         file_writer_items = self._file_writer_process.hard_stop()
         data_analyzer_items = self._data_analyzer_process.hard_stop()
-        server_items = self._server_thread.hard_stop()
         process_items = {
             "instrument_comm_items": instrument_comm_items,
             "file_writer_items": file_writer_items,
             "data_analyzer_items": data_analyzer_items,
-            "server_items": server_items,
         }
+
+        server_manager = self.get_server_manager()
+        server_manager.shutdown_server()
+        process_items["server_items"] = server_manager.drain_all_queues()
+
         return process_items
 
     def join_processes(self) -> None:
-        if not isinstance(  # pylint:disable=isinstance-second-argument-not-valid-type # Eli (12/8/20): pylint issue https://github.com/PyCQA/pylint/issues/3507
-            self._all_processes, Iterable
-        ):
+        if self._all_processes is None:
             raise NotImplementedError("Processes must be created first.")
         for iter_process in self._all_processes:
             if iter_process.ident is not None:
@@ -244,14 +234,16 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         self._file_writer_process.join()
         data_analyzer_items = self._data_analyzer_process.hard_stop()
         self._data_analyzer_process.join()
-        server_items = self._server_thread.hard_stop()
-        self._server_thread.join()
         process_items = {
             "instrument_comm_items": instrument_comm_items,
             "file_writer_items": file_writer_items,
             "data_analyzer_items": data_analyzer_items,
-            "server_items": server_items,
         }
+
+        server_manager = self.get_server_manager()
+        server_manager.shutdown_server()
+        process_items["server_items"] = server_manager.drain_all_queues()
+
         return process_items
 
     def are_processes_stopped(
@@ -260,9 +252,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         """Check if processes are stopped."""
         start = perf_counter()
         processes = self._all_processes
-        if not isinstance(  # pylint:disable=isinstance-second-argument-not-valid-type # Eli (12/8/20): pylint issue https://github.com/PyCQA/pylint/issues/3507
-            processes, Iterable
-        ):
+        if processes is None:
             raise NotImplementedError("Processes must be created first.")
 
         are_stopped = all(p.is_stopped() for p in processes)
@@ -280,14 +270,9 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         Often useful in unit-testing or other places where the processes
         should be fully running before attempting the next command.
         """
-        if not isinstance(  # pylint:disable=isinstance-second-argument-not-valid-type # Eli (12/8/20): pylint issue https://github.com/PyCQA/pylint/issues/3507
-            self._all_processes, Iterable
-        ):
+        if self._all_processes is None:
             return False
         for iter_process in self._all_processes:
-            if isinstance(iter_process, ServerThread):
-                # Tanner (6/1/21): skip the ServerThread because it is a thread running in the main process, not a subprocess
-                continue
             if not iter_process.is_start_up_complete():
                 return False
 

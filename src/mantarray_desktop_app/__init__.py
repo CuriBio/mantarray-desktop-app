@@ -196,8 +196,8 @@ from .exceptions import SerialCommPacketRegistrationTimoutError
 from .exceptions import SerialCommStatusBeaconTimeoutError
 from .exceptions import SerialCommTooManyMissedHandshakesError
 from .exceptions import SerialCommUntrackedCommandResponseError
-from .exceptions import ServerThreadNotInitializedError
-from .exceptions import ServerThreadSingletonAlreadySetError
+from .exceptions import ServerManagerNotInitializedError
+from .exceptions import ServerManagerSingletonAlreadySetError
 from .exceptions import SystemStartUpError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
 from .exceptions import UnrecognizedCommandFromMainToMcCommError
@@ -256,11 +256,11 @@ from .serial_comm_utils import create_sensor_axis_bitmask
 from .serial_comm_utils import get_serial_comm_timestamp
 from .serial_comm_utils import parse_metadata_bytes
 from .serial_comm_utils import validate_checksum
-from .server import clear_the_server_thread
+from .server import clear_the_server_manager
 from .server import flask_app
 from .server import get_api_endpoint
-from .server import get_the_server_thread
-from .server import ServerThread
+from .server import get_the_server_manager
+from .server import ServerManager
 from .server import socketio
 from .system_utils import system_state_eventually_equals
 from .system_utils import wait_for_subprocesses_to_start
@@ -405,10 +405,10 @@ __all__ = [
     "WELL_24_INDEX_TO_ADC_AND_CH_INDEX",
     "FirmwareFileNameDoesNotMatchWireOutVersionError",
     "SECONDS_TO_WAIT_WHEN_POLLING_QUEUES",
-    "ServerThread",
+    "ServerManager",
     "server",
-    "get_the_server_thread",
-    "clear_the_server_thread",
+    "get_the_server_manager",
+    "clear_the_server_manager",
     "clear_server_singletons",
     "MantarrayQueueContainer",
     "BARCODE_SCANNER_TRIGGER_IN_ADDRESS",
@@ -432,8 +432,8 @@ __all__ = [
     "UnrecognizedRecordingCommandError",
     "UnrecognizedCommandToInstrumentError",
     "get_current_software_version",
-    "ServerThreadNotInitializedError",
-    "ServerThreadSingletonAlreadySetError",
+    "ServerManagerNotInitializedError",
+    "ServerManagerSingletonAlreadySetError",
     "mc_simulator",
     "MantarrayMcSimulator",
     "create_data_packet",

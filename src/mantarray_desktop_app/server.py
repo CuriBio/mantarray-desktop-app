@@ -113,8 +113,8 @@ from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
 from .exceptions import ImproperlyFormattedUserAccountUUIDError
 from .exceptions import LocalServerPortAlreadyInUseError
 from .exceptions import RecordingFolderDoesNotExistError
-from .exceptions import ServerThreadNotInitializedError
-from .exceptions import ServerThreadSingletonAlreadySetError
+from .exceptions import ServerManagerNotInitializedError
+from .exceptions import ServerManagerSingletonAlreadySetError
 from .ok_comm import check_mantarray_serial_number
 from .queue_container import MantarrayQueueContainer
 from .utils import check_barcode_for_errors
@@ -134,29 +134,29 @@ flask_app = Flask(  # pylint: disable=invalid-name # yes, this is intentionally 
 CORS(flask_app)
 socketio = SocketIO(flask_app)
 
-_the_server_thread: Optional[  # pylint: disable=invalid-name # Eli (11/3/20) yes, this is intentionally a singleton, not a constant. This is the current best guess at how to allow Flask routes to access some info they need
-    "ServerThread"
+_the_server_manager: Optional[  # pylint: disable=invalid-name # Eli (11/3/20) yes, this is intentionally a singleton, not a constant. This is the current best guess at how to allow Flask routes to access some info they need
+    "ServerManager"
 ] = None
 
 
-def clear_the_server_thread() -> None:
-    global _the_server_thread  # pylint:disable=global-statement,invalid-name # Eli (12/8/20) this is deliberately setting a module-level singleton
-    _the_server_thread = None
+def clear_the_server_manager() -> None:
+    global _the_server_manager  # pylint:disable=global-statement,invalid-name # Eli (12/8/20) this is deliberately setting a module-level singleton
+    _the_server_manager = None
 
 
-def get_the_server_thread() -> "ServerThread":
+def get_the_server_manager() -> "ServerManager":
     """Return the singleton instance."""
-    if _the_server_thread is None:
-        raise ServerThreadNotInitializedError(
-            "This function should not be called when the ServerThread is None and hasn't been initialized yet."
+    if _the_server_manager is None:
+        raise ServerManagerNotInitializedError(
+            "This function should not be called when the ServerManager is None and hasn't been initialized yet."
         )
-    return _the_server_thread
+    return _the_server_manager
 
 
 def get_server_to_main_queue() -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
     Dict[str, Any]
 ]:
-    return get_the_server_thread().get_queue_to_main()
+    return get_the_server_manager().get_queue_to_main()
 
 
 def get_server_address_components() -> Tuple[str, str, int]:
@@ -166,8 +166,8 @@ def get_server_address_components() -> Tuple[str, str, int]:
         protocol (i.e. HTTP), host (i.e. 127.0.0.1), port (i.e. 4567)
     """
     try:
-        port_number = get_the_server_thread().get_port_number()
-    except (NameError, ServerThreadNotInitializedError):
+        port_number = get_the_server_manager().get_port_number()
+    except (NameError, ServerManagerNotInitializedError):
         port_number = DEFAULT_SERVER_PORT_NUMBER
     return (
         "http",
@@ -182,7 +182,7 @@ def get_api_endpoint() -> str:
 
 
 def _get_values_from_process_monitor() -> Dict[str, Any]:
-    return get_the_server_thread().get_values_from_process_monitor()
+    return get_the_server_manager().get_values_from_process_monitor()
 
 
 def queue_command_to_instrument_comm(comm_dict: Dict[str, Any]) -> Response:
@@ -192,7 +192,7 @@ def queue_command_to_instrument_comm(comm_dict: Dict[str, Any]) -> Response:
     order to make pylint happier.
     """
     to_instrument_comm_queue = (
-        get_the_server_thread().queue_container().get_communication_to_instrument_comm_queue(0)
+        get_the_server_manager().queue_container().get_communication_to_instrument_comm_queue(0)
     )
     comm_dict = dict(comm_dict)  # make a mutable version to pass into ok_comm
     to_instrument_comm_queue.put_nowait(comm_dict)
@@ -1128,7 +1128,7 @@ def stop_server() -> str:
     curl http://localhost:4567/stop_server
     """
     shutdown_server()
-    # Tanner (6/20/21): SystemExit is raised here, so no lines after this will execute
+    # Tanner (6/20/21): SystemExit is raised inside the previous function call, so no lines after this will execute
     return "Server shutting down..."  # pragma: no cover
 
 
@@ -1172,6 +1172,7 @@ def after_request(response: Response) -> Response:
             mantarray_nickname = response_json["metadata_to_copy_onto_main_file_attributes"][
                 str(MANTARRAY_NICKNAME_UUID)
             ]
+            # TODO Tanner (8/10/21): make a function for redacting sensitive information and replace all instances of this manual insertion of asterisks
             response_json["metadata_to_copy_onto_main_file_attributes"][
                 str(MANTARRAY_NICKNAME_UUID)
             ] = "*" * len(mantarray_nickname)
@@ -1186,32 +1187,26 @@ def after_request(response: Response) -> Response:
     return response
 
 
-# TODO Tanner (6/17/21): change this from a thread to something more appropriate. figure out if this can be changed from a singleton (and a global if possible)
-class ServerThread(InfiniteThread):
-    """Container of values used by Flask routes."""
+class ServerManager():
+    """Convenience class for managing Flask/SocketIO server."""
 
     def __init__(
         self,
         to_main_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
             Dict[str, Any]
         ],
-        fatal_error_reporter: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-            Tuple[Exception, str]
-        ],
-        processes_queue_container: MantarrayQueueContainer,  # TODO Tanner (6/21/21): remove this once this object is refactored
+        processes_queue_container: MantarrayQueueContainer,
         values_from_process_monitor: Optional[Dict[str, Any]] = None,
         port: int = DEFAULT_SERVER_PORT_NUMBER,
         logging_level: int = logging.INFO,
         lock: Optional[threading.Lock] = None,
     ) -> None:
-        global _the_server_thread  # pylint:disable=global-statement,invalid-name # Eli (1/21/21): deliberately using a module-level singleton
-        if _the_server_thread is not None:
-            raise ServerThreadSingletonAlreadySetError()
+        global _the_server_manager  # pylint:disable=global-statement,invalid-name # Eli (1/21/21): deliberately using a module-level singleton
+        if _the_server_manager is not None:
+            # TODO Tanner (8/10/21): look into ways to avoid using this as a singleton
+            raise ServerManagerSingletonAlreadySetError()
 
-        if lock is None:
-            lock = threading.Lock()
-
-        super().__init__(fatal_error_reporter, lock=lock)
+        self._lock = lock if lock is not None else threading.Lock()
         self._queue_container = processes_queue_container
         self._to_main_queue = to_main_queue
         self._port = port
@@ -1219,18 +1214,17 @@ class ServerThread(InfiniteThread):
         if values_from_process_monitor is None:
             values_from_process_monitor = dict()
 
-        _the_server_thread = self
+        _the_server_manager = self
         self._values_from_process_monitor = values_from_process_monitor
 
     def get_port_number(self) -> int:
         return self._port
 
-    def get_queue_to_main(
-        self,
-    ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Dict[str, Any]
-    ]:
+    def get_queue_to_main(self) -> Queue[Dict[str, Any]]:  # pylint: disable=unsubscriptable-object
         return self._to_main_queue
+    
+    def get_data_queue_to_server(self) -> Queue[Dict[str, Any]]: # pylint: disable=unsubscriptable-object
+        return self._queue_container.get_data_queue_to_server()
 
     def queue_container(self) -> MantarrayQueueContainer:
         return self._queue_container
@@ -1242,7 +1236,8 @@ class ServerThread(InfiniteThread):
         acquired, only attempt to read from the copy, and don't attempt
         to mutate it.
         """
-        with self._lock:  # Eli (11/3/20): still unable to test if lock was acquired.
+        # Tanner (8/10/21): not sure if using a lock here is necessary as nothing else accessing this dictionary is using a lock before modifying it
+        with self._lock:
             copied_values = deepcopy(self._values_from_process_monitor)
         immutable_version: Dict[str, Any] = immutabledict(copied_values)
         return immutable_version
@@ -1255,49 +1250,24 @@ class ServerThread(InfiniteThread):
         if is_port_in_use(port):
             raise LocalServerPortAlreadyInUseError(port)
 
-    def _commands_for_each_run_iteration(self) -> None:
-        return
-
-    def _shutdown_server(self) -> None:
+    def shutdown_server(self) -> Dict[str, Any]:
         try:
             requests.get(f"{get_api_endpoint()}stop_server")
         except requests.exceptions.ConnectionError:
             message = "Server is shutdown"
+        else:
+            raise NotImplementedError("Not sure why this happened, nothing should return from /stop_server")
         put_log_message_into_queue(
             logging.INFO,
             message,
             self._to_main_queue,
             self.get_logging_level(),
         )
+        clear_the_server_manager()
 
-    def stop(self) -> None:
-        """Stop the thread.
-
-        Because there is no actual infinite loop running here, the
-        super().stop() needs to be called to activate the right events
-        being set.
-        """
-        self._shutdown_server()
-        self._teardown_after_loop()
-        super().stop()
-
-    def soft_stop(self) -> None:
-        self.stop()
-
-    def get_data_queue_to_server(
-        self,
-    ) -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Dict[str, Any]
-    ]:
-        return self._queue_container.get_data_queue_to_server()
-
-    def _drain_all_queues(self) -> Dict[str, Any]:
+    def drain_all_queues(self) -> Dict[str, Any]:
         queue_items = dict()
 
         queue_items["to_main"] = drain_queue(self._to_main_queue)
         queue_items["outgoing_data"] = drain_queue(self.get_data_queue_to_server())
         return queue_items
-
-    def _teardown_after_loop(self) -> None:
-        clear_the_server_thread()
-        super()._teardown_after_loop()
