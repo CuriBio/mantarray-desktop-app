@@ -67,6 +67,7 @@ from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE
+from .constants import SERIAL_COMM_START_STIMULATORS_COMMAND_BYTE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
@@ -195,6 +196,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._metadata_dict: Dict[bytes, bytes] = dict()
         self._reset_metadata_dict()
         self._setup_data_interpolator()
+        self._is_stimulating = False
         # simulator values (set in _handle_boot_up_config)
         self._reboot_time_secs: Optional[float]
         self._status_code: int
@@ -474,6 +476,15 @@ class MantarrayMcSimulator(InfiniteProcess):
                 self._metadata_dict[MANTARRAY_NICKNAME_UUID.bytes] = nickname_bytes
             elif command_byte == SERIAL_COMM_SET_BIPHASIC_PULSE_COMMAND_BYTE:
                 self._update_stim_config(comm_from_pc)
+            elif command_byte == SERIAL_COMM_START_STIMULATORS_COMMAND_BYTE:
+                response_byte = int(self._is_stimulating)
+                response_body += bytes([response_byte])
+                if not self._is_stimulating:
+                    pass
+                    # for module_id in self._stim_config.keys():
+                    #     stim_type_byte = bytes([self._stim_config[module_id]["stimulation_type"] == "V"])
+                    #     response_body += bytes([module_id]) + int() convert_bytes_to_pulse_dict(self._stim_config[module_id])
+                self._is_stimulating = True
             else:
                 # TODO Tanner (3/4/21): Determine what to do if command_byte, module_id, or packet_type are incorrect. It may make more sense to respond with a message rather than raising an error
                 raise NotImplementedError(command_byte)

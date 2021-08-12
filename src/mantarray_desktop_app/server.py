@@ -468,24 +468,33 @@ def set_protocol() -> Response:
 
     protocol_json = request.get_json()
     protocol_list = json.loads(protocol_json)["protocols"]
-    if len(protocol_list) < 24:
-        return Response(status="400 Not enough protocols for all 24 wells")
+    if len(protocol_list) == 0:
+        return Response(status="400 Protocol list cannot be empty")
+    set_of_wells = set()
     # validate protocols
     for protocol in protocol_list:
-        if protocol["stimulation_type"] not in ("C", "V"):
-            return Response(status=f"400 Invalid stimulation type: {protocol['stimulation_type']}")
-        max_abs_charge = (
-            STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
-            if protocol["stimulation_type"] == "V"
-            else STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
-        )
-        charge_unit = "mV" if protocol["stimulation_type"] == "V" else "µA"
+        # validate well number
         try:
             GENERIC_24_WELL_DEFINITION.validate_position(
                 *get_row_and_column_from_well_name(protocol["well_number"])
             )
         except PositionInvalidForLabwareDefinitionError:
             return Response(status=f"400 Invalid well: {protocol['well_number']}")
+        # keep track of wells specified and prevent duplicates
+        well = protocol["well_number"]
+        if well in set_of_wells:
+            return Response(status=f"400 Multiple protocols for well {well}")
+        set_of_wells.add(well)
+        # validate stimulation type
+        if protocol["stimulation_type"] not in ("C", "V"):
+            return Response(status=f"400 Invalid stimulation type: {protocol['stimulation_type']}")
+        # set max absolute charge values
+        max_abs_charge = (
+            STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
+            if protocol["stimulation_type"] == "V"
+            else STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
+        )
+        charge_unit = "mV" if protocol["stimulation_type"] == "V" else "µA"
         # validate pulse dictionaries
         total_protocol_dur_microsecs = 0
         for pulse in protocol["pulses"]:
@@ -1137,8 +1146,6 @@ def shutdown() -> Response:
 
     response = queue_command_to_main({"communication_type": "shutdown", "command": "hard_stop"})
     # TODO Tanner (8/2/21): should wait for subprocesses to stop and join before returning response from this route
-    # while
-
     return response
 
 

@@ -27,6 +27,8 @@ from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
+from mantarray_desktop_app import SERIAL_COMM_MODE_CHANGED_BYTE
+from mantarray_desktop_app import SERIAL_COMM_MODE_UNCHANGED_BYTE
 from mantarray_desktop_app import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
@@ -41,8 +43,6 @@ from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
-from mantarray_desktop_app import SERIAL_COMM_STREAM_MODE_CHANGED_BYTE
-from mantarray_desktop_app import SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE
 from mantarray_desktop_app import SERIAL_COMM_TIME_SYNC_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import SerialCommTooManyMissedHandshakesError
@@ -674,8 +674,8 @@ def test_MantarrayMcSimulator__processes_start_data_streaming_command(
 
     # need to send command once before data is being streamed and once after to test the response in both cases
     for response_byte_value in (
-        SERIAL_COMM_STREAM_MODE_CHANGED_BYTE,
-        SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE,
+        SERIAL_COMM_MODE_CHANGED_BYTE,
+        SERIAL_COMM_MODE_UNCHANGED_BYTE,
     ):
         # send start streaming command
         expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
@@ -689,7 +689,7 @@ def test_MantarrayMcSimulator__processes_start_data_streaming_command(
         invoke_process_run_and_check_errors(simulator)
         # assert response is correct
         additional_bytes = convert_to_timestamp_bytes(expected_pc_timestamp) + bytes([response_byte_value])
-        if response_byte_value == SERIAL_COMM_STREAM_MODE_CHANGED_BYTE:
+        if response_byte_value == SERIAL_COMM_MODE_CHANGED_BYTE:
             additional_bytes += create_magnetometer_config_bytes(simulator.get_magnetometer_config())
         command_response_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
         command_response = simulator.read(size=command_response_size)
@@ -736,8 +736,8 @@ def test_MantarrayMcSimulator__processes_stop_data_streaming_command(
 
     # need to send command once while data is being streamed and once after it stops to test the response in both cases
     for response_byte_value in (
-        SERIAL_COMM_STREAM_MODE_CHANGED_BYTE,
-        SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE,
+        SERIAL_COMM_MODE_CHANGED_BYTE,
+        SERIAL_COMM_MODE_UNCHANGED_BYTE,
     ):
         # send stop streaming command
         expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
@@ -924,7 +924,6 @@ def test_MantarrayMcSimulator__processes_set_biphasic_pulse_command__when_stimul
 
 
 def test_MantarrayMcSimulator__processes_start_stimulator_command(mantarray_mc_simulator_no_beacon, mocker):
-    # TODO
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
@@ -932,8 +931,8 @@ def test_MantarrayMcSimulator__processes_start_stimulator_command(mantarray_mc_s
 
     # need to send command once before data is being streamed and once after to test the response in both cases
     for response_byte_value in (
-        SERIAL_COMM_STREAM_MODE_CHANGED_BYTE,
-        SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE,
+        SERIAL_COMM_MODE_CHANGED_BYTE,
+        SERIAL_COMM_MODE_UNCHANGED_BYTE,
     ):
         # send start stimulators command
         expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
@@ -947,8 +946,8 @@ def test_MantarrayMcSimulator__processes_start_stimulator_command(mantarray_mc_s
         invoke_process_run_and_check_errors(simulator)
         # assert response is correct
         additional_bytes = convert_to_timestamp_bytes(expected_pc_timestamp) + bytes([response_byte_value])
-        if response_byte_value == SERIAL_COMM_STREAM_MODE_CHANGED_BYTE:
-            additional_bytes += create_magnetometer_config_bytes(simulator.get_magnetometer_config())
+        if response_byte_value == SERIAL_COMM_MODE_CHANGED_BYTE:
+            pass
         command_response_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
         command_response = simulator.read(size=command_response_size)
         assert_serial_packet_is_expected(

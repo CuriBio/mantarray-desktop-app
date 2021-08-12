@@ -895,16 +895,16 @@ def test_set_protocol__returns_error_code_if_called_while_stimulation_is_running
     assert response.status.endswith("Cannot change protocol while stimulation is running") is True
 
 
-def test_set_protocol__returns_error_code_if_protocol_list_does_not_contain_enough_items(
+def test_set_protocol__returns_error_code_if_protocol_list_is_empty(
     client_and_server_manager_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["stimulation_running"] = False
 
-    response = test_client.post("/set_protocol", json=json.dumps({"protocols": [None] * 23}))
+    response = test_client.post("/set_protocol", json=json.dumps({"protocols": []}))
     assert response.status_code == 400
-    assert response.status.endswith("Not enough protocols for all 24 wells") is True
+    assert response.status.endswith("Protocol list cannot be empty") is True
 
 
 @pytest.mark.parametrize(
@@ -922,7 +922,14 @@ def test_set_protocol__returns_error_code_with_invalid_stimulation_type(
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["stimulation_running"] = False
 
-    test_protocol_dict = {"protocols": [{"stimulation_type": test_stimulation_type}] * 24}
+    test_protocol_dict = {
+        "protocols": [
+            {
+                "stimulation_type": test_stimulation_type,
+                "well_number": "B1",
+            }
+        ]
+    }
     response = test_client.post("/set_protocol", json=json.dumps(test_protocol_dict))
     assert response.status_code == 400
     assert response.status.endswith(f"Invalid stimulation type: {test_stimulation_type}") is True
@@ -942,10 +949,42 @@ def test_set_protocol__returns_error_code_with_invalid_well_number(
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["stimulation_running"] = False
 
-    test_protocol_dict = {"protocols": [{"stimulation_type": "C", "well_number": test_well_number}] * 24}
+    test_protocol_dict = {"protocols": [{"stimulation_type": "C", "well_number": test_well_number}]}
     response = test_client.post("/set_protocol", json=json.dumps(test_protocol_dict))
     assert response.status_code == 400
     assert response.status.endswith(f"Invalid well: {test_well_number}") is True
+
+
+def test_set_protocol__returns_error_code_if_multiple_protocols_given_for_a_single_well(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = False
+
+    test_protocol_dict = {
+        "protocols": [
+            {
+                "stimulation_type": "V",
+                "well_number": "D1",
+                "total_protocol_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS,
+                "pulses": [
+                    {
+                        "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS,
+                        "phase_one_charge": 0,
+                        "interpulse_interval": 0,
+                        "phase_two_duration": 0,
+                        "phase_two_charge": 0,
+                        "repeat_delay_interval": 0,
+                        "total_active_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS,
+                    }
+                ],
+            }
+        ]
+        * 2
+    }
+    response = test_client.post("/set_protocol", json=json.dumps(test_protocol_dict))
+    assert "400 Multiple protocols for well D1" in response.status
 
 
 @pytest.mark.parametrize(
@@ -1049,7 +1088,6 @@ def test_set_protocol__returns_error_code_with_single_invalid_pulse_value(
                 ],
             }
         ]
-        * 24
     }
     # add bad value
     test_protocol_dict["protocols"][0]["pulses"][0][test_pulse_item] = test_value
@@ -1093,7 +1131,6 @@ def test_set_protocol__returns_error_code_with_invalid_total_protocol_duration(
                 * 2,
             }
         ]
-        * 24
     }
     response = test_client.post("/set_protocol", json=json.dumps(test_protocol_dict))
     assert "400 Total protocol duration less than duration of all pulses" in response.status
@@ -1125,7 +1162,6 @@ def test_set_protocol__returns_error_code_when_pulse_duration_is_too_long(
                 ],
             }
         ]
-        * 24
     }
     response = test_client.post("/set_protocol", json=json.dumps(test_protocol_dict))
     assert "400 Pulse duration too long" in response.status
