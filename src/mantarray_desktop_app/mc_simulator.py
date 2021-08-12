@@ -12,6 +12,7 @@ from time import perf_counter
 from time import perf_counter_ns
 from typing import Any
 from typing import Dict
+from typing import List
 from typing import Optional
 from typing import Union
 from uuid import UUID
@@ -83,6 +84,8 @@ from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .exceptions import UnrecognizedSimulatorTestCommandError
 from .serial_comm_utils import convert_bytes_to_config_dict
 from .serial_comm_utils import convert_bytes_to_pulse_dict
+from .serial_comm_utils import convert_pulse_dict_to_bytes
+from .serial_comm_utils import convert_stim_status_list_to_bitmask
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_status_code_bytes
 from .serial_comm_utils import create_data_packet
@@ -196,7 +199,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._metadata_dict: Dict[bytes, bytes] = dict()
         self._reset_metadata_dict()
         self._setup_data_interpolator()
-        self._is_stimulating = False
+        self._is_stimulating: List[bool] = [False] * self._num_wells
         # simulator values (set in _handle_boot_up_config)
         self._reboot_time_secs: Optional[float]
         self._status_code: int
@@ -283,7 +286,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._magnetometer_config = dict(self.default_24_well_magnetometer_config)
 
     def _reset_stim_config(self) -> None:
-        self._stim_config = {module_id: {} for module_id in range(1, 25)}
+        self._stim_config = {module_id: {} for module_id in range(1, self._num_wells + 1)}
 
     def _get_us_since_time_sync(self) -> int:
         return (
@@ -477,14 +480,14 @@ class MantarrayMcSimulator(InfiniteProcess):
             elif command_byte == SERIAL_COMM_SET_BIPHASIC_PULSE_COMMAND_BYTE:
                 self._update_stim_config(comm_from_pc)
             elif command_byte == SERIAL_COMM_START_STIMULATORS_COMMAND_BYTE:
-                response_byte = int(self._is_stimulating)
-                response_body += bytes([response_byte])
-                if not self._is_stimulating:
-                    pass
-                    # for module_id in self._stim_config.keys():
-                    #     stim_type_byte = bytes([self._stim_config[module_id]["stimulation_type"] == "V"])
-                    #     response_body += bytes([module_id]) + int() convert_bytes_to_pulse_dict(self._stim_config[module_id])
-                self._is_stimulating = True
+                start_idx = SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 1
+                modules_to_enable = comm_from_pc[start_idx:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
+                self._is_stimulating = [i in modules_to_enable for i in range(1, self._num_wells + 1)]
+                response_body += convert_stim_status_list_to_bitmask(self._is_stimulating)
+                for module_id in range(1, self._num_wells + 1):
+                    stim_type_int = int(self._stim_config[module_id]["stimulation_type"] == "V")
+                    response_body += bytes([module_id, stim_type_int])
+                    response_body += convert_pulse_dict_to_bytes(self._stim_config[module_id]["pulse"])
             else:
                 # TODO Tanner (3/4/21): Determine what to do if command_byte, module_id, or packet_type are incorrect. It may make more sense to respond with a message rather than raising an error
                 raise NotImplementedError(command_byte)
@@ -519,7 +522,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             raise SerialCommInvalidSamplingPeriodError(sampling_period)
         self._sampling_period_us = sampling_period
         # parse and store magnetometer configuration
-        magnetometer_config_bytes = comm_from_pc[  #
+        magnetometer_config_bytes = comm_from_pc[
             SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 3 : -SERIAL_COMM_CHECKSUM_LENGTH_BYTES
         ]
         config_dict_updates = convert_bytes_to_config_dict(magnetometer_config_bytes)
@@ -618,6 +621,8 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._simulated_data_index = test_comm.get("simulated_data_index", 0)
         elif command == "set_sampling_period":
             self._sampling_period_us = test_comm["sampling_period"]
+        elif command == "set_stim_config":
+            self._stim_config = test_comm["stim_config"]
         else:
             raise UnrecognizedSimulatorTestCommandError(command)
 

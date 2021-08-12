@@ -105,8 +105,6 @@ from .constants import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
-from .constants import SERIAL_COMM_MODE_CHANGED_BYTE
-from .constants import SERIAL_COMM_MODE_UNCHANGED_BYTE
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from .constants import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
@@ -133,6 +131,8 @@ from .constants import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from .constants import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
 from .constants import SERIAL_COMM_STOP_STIMULATORS_COMMAND_BYTE
+from .constants import SERIAL_COMM_STREAM_MODE_CHANGED_BYTE
+from .constants import SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE
 from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
@@ -252,6 +252,8 @@ from .serial_comm_utils import convert_bytes_to_config_dict
 from .serial_comm_utils import convert_bytes_to_pulse_dict
 from .serial_comm_utils import convert_metadata_bytes_to_str
 from .serial_comm_utils import convert_pulse_dict_to_bytes
+from .serial_comm_utils import convert_stim_status_bitmask_to_list
+from .serial_comm_utils import convert_stim_status_list_to_bitmask
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_status_code_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
@@ -518,8 +520,8 @@ __all__ = [
     "InstrumentSoftError",
     "SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE",
     "SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE",
-    "SERIAL_COMM_MODE_CHANGED_BYTE",
-    "SERIAL_COMM_MODE_UNCHANGED_BYTE",
+    "SERIAL_COMM_STREAM_MODE_CHANGED_BYTE",
+    "SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE",
     "InstrumentDataStreamingAlreadyStartedError",
     "InstrumentDataStreamingAlreadyStoppedError",
     "SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE",
@@ -575,4 +577,6 @@ __all__ = [
     "SERIAL_COMM_STOP_STIMULATORS_COMMAND_BYTE",
     "convert_pulse_dict_to_bytes",
     "convert_bytes_to_pulse_dict",
+    "convert_stim_status_bitmask_to_list",
+    "convert_stim_status_list_to_bitmask",
 ]

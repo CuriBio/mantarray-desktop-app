@@ -8,6 +8,8 @@ from mantarray_desktop_app import convert_bytes_to_config_dict
 from mantarray_desktop_app import convert_bytes_to_pulse_dict
 from mantarray_desktop_app import convert_metadata_bytes_to_str
 from mantarray_desktop_app import convert_pulse_dict_to_bytes
+from mantarray_desktop_app import convert_stim_status_bitmask_to_list
+from mantarray_desktop_app import convert_stim_status_list_to_bitmask
 from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import create_magnetometer_config_bytes
@@ -286,3 +288,19 @@ def test_convert_bytes_to_pulse_dict__returns_expected_dict():
 
     actual = convert_bytes_to_pulse_dict(test_bytes)
     assert actual == expected_pulse_dict
+
+
+def test_convert_stim_status_bitmask_to_list__returns_expected_list():
+    test_bitmask = (0b000010000100001000010000).to_bytes(4, byteorder="little")
+    expected_list = [module_id % 5 == 0 for module_id in range(1, 25)]
+
+    actual = convert_stim_status_bitmask_to_list(test_bitmask)
+    assert actual == expected_list
+
+
+def test_convert_stim_status_list_to_bitmask__returns_expected_bytes():
+    test_list = [module_id % 3 == 0 for module_id in range(1, 25)]
+    expected_bitmask = (0b100100100100100100100100).to_bytes(4, byteorder="little")
+
+    actual = convert_stim_status_list_to_bitmask(test_list)
+    assert actual == expected_bitmask

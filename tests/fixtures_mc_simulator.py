@@ -59,16 +59,6 @@ class MantarrayMcSimulatorSleepAfterWrite(MantarrayMcSimulator):
         raise NotImplementedError("This class is only for unit tests not requiring a running process")
 
 
-def set_simulator_idle_ready(simulator_fixture):
-    simulator = simulator_fixture["simulator"]
-    testing_queue = simulator_fixture["testing_queue"]
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "set_status_code", "status_code": SERIAL_COMM_IDLE_READY_CODE},
-        testing_queue,
-    )
-    invoke_process_run_and_check_errors(simulator)
-
-
 @pytest.fixture(scope="function", name="mantarray_mc_simulator")
 def fixture_mantarray_mc_simulator():
     """Fixture is specifically for unit tests.
@@ -164,3 +154,23 @@ def fixture_runnable_mantarray_mc_simulator():
     drain_queue(output_queue)
 
     simulator.join()
+
+
+def set_simulator_idle_ready(simulator_fixture):
+    simulator = simulator_fixture["simulator"]
+    testing_queue = simulator_fixture["testing_queue"]
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "set_status_code", "status_code": SERIAL_COMM_IDLE_READY_CODE},
+        testing_queue,
+    )
+    invoke_process_run_and_check_errors(simulator)
+
+
+def set_stim_config(simulator_fixture, stim_config):
+    simulator = simulator_fixture["simulator"]
+    testing_queue = simulator_fixture["testing_queue"]
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "set_stim_config", "stim_config": stim_config},
+        testing_queue,
+    )
+    invoke_process_run_and_check_errors(simulator)

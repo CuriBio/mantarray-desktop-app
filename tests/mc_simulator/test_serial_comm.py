@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 import random
+from random import choice
 from random import randint
 
 from mantarray_desktop_app import convert_pulse_dict_to_bytes
+from mantarray_desktop_app import convert_stim_status_list_to_bitmask
 from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import convert_to_status_code_bytes
 from mantarray_desktop_app import convert_to_timestamp_bytes
@@ -27,8 +29,6 @@ from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
-from mantarray_desktop_app import SERIAL_COMM_MODE_CHANGED_BYTE
-from mantarray_desktop_app import SERIAL_COMM_MODE_UNCHANGED_BYTE
 from mantarray_desktop_app import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
@@ -43,6 +43,8 @@ from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_STREAM_MODE_CHANGED_BYTE
+from mantarray_desktop_app import SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE
 from mantarray_desktop_app import SERIAL_COMM_TIME_SYNC_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import SerialCommTooManyMissedHandshakesError
@@ -60,6 +62,7 @@ from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import HANDSHAKE_RESPONSE_SIZE_BYTES
 from ..fixtures_mc_simulator import set_simulator_idle_ready
+from ..fixtures_mc_simulator import set_stim_config
 from ..fixtures_mc_simulator import STATUS_BEACON_SIZE_BYTES
 from ..fixtures_mc_simulator import TEST_HANDSHAKE
 from ..fixtures_mc_simulator import TEST_HANDSHAKE_TIMESTAMP
@@ -674,8 +677,8 @@ def test_MantarrayMcSimulator__processes_start_data_streaming_command(
 
     # need to send command once before data is being streamed and once after to test the response in both cases
     for response_byte_value in (
-        SERIAL_COMM_MODE_CHANGED_BYTE,
-        SERIAL_COMM_MODE_UNCHANGED_BYTE,
+        SERIAL_COMM_STREAM_MODE_CHANGED_BYTE,
+        SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE,
     ):
         # send start streaming command
         expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
@@ -689,7 +692,7 @@ def test_MantarrayMcSimulator__processes_start_data_streaming_command(
         invoke_process_run_and_check_errors(simulator)
         # assert response is correct
         additional_bytes = convert_to_timestamp_bytes(expected_pc_timestamp) + bytes([response_byte_value])
-        if response_byte_value == SERIAL_COMM_MODE_CHANGED_BYTE:
+        if response_byte_value == SERIAL_COMM_STREAM_MODE_CHANGED_BYTE:
             additional_bytes += create_magnetometer_config_bytes(simulator.get_magnetometer_config())
         command_response_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
         command_response = simulator.read(size=command_response_size)
@@ -736,8 +739,8 @@ def test_MantarrayMcSimulator__processes_stop_data_streaming_command(
 
     # need to send command once while data is being streamed and once after it stops to test the response in both cases
     for response_byte_value in (
-        SERIAL_COMM_MODE_CHANGED_BYTE,
-        SERIAL_COMM_MODE_UNCHANGED_BYTE,
+        SERIAL_COMM_STREAM_MODE_CHANGED_BYTE,
+        SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE,
     ):
         # send stop streaming command
         expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
@@ -927,32 +930,55 @@ def test_MantarrayMcSimulator__processes_start_stimulator_command(mantarray_mc_s
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
-    # TODO add test command for setting stim protocols
 
-    # need to send command once before data is being streamed and once after to test the response in both cases
-    for response_byte_value in (
-        SERIAL_COMM_MODE_CHANGED_BYTE,
-        SERIAL_COMM_MODE_UNCHANGED_BYTE,
-    ):
-        # send start stimulators command
-        expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
-        test_start_data_streaming_command = create_data_packet(
-            expected_pc_timestamp,
-            SERIAL_COMM_MAIN_MODULE_ID,
-            SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-            bytes([SERIAL_COMM_START_STIMULATORS_COMMAND_BYTE]),
-        )
-        simulator.write(test_start_data_streaming_command)
-        invoke_process_run_and_check_errors(simulator)
-        # assert response is correct
-        additional_bytes = convert_to_timestamp_bytes(expected_pc_timestamp) + bytes([response_byte_value])
-        if response_byte_value == SERIAL_COMM_MODE_CHANGED_BYTE:
-            pass
-        command_response_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
-        command_response = simulator.read(size=command_response_size)
-        assert_serial_packet_is_expected(
-            command_response,
-            SERIAL_COMM_MAIN_MODULE_ID,
-            SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-            additional_bytes=additional_bytes,
-        )
+    test_stim_config = dict()
+    expected_stim_types = list()
+    expected_pulses = list()
+    for module_id in range(1, 25):
+        stim_type = choice(["C", "V"])
+        expected_stim_types.append(stim_type)
+        pulse = {
+            "phase_one_duration": randint(1, 100),
+            "phase_one_charge": randint(0, 100),
+            "interpulse_interval": randint(0, 100),
+            "phase_two_duration": randint(0, 100),
+            "phase_two_charge": randint(-100, 0),
+            "repeat_delay_interval": randint(0, 100),
+        }
+        expected_pulses.append(pulse)
+        test_stim_config[module_id] = {"stimulation_type": stim_type, "pulse": pulse}
+    set_stim_config(mantarray_mc_simulator_no_beacon, test_stim_config)
+
+    test_stim_status_list = [choice([True, False]) for _ in range(24)]
+    module_ids_to_enable = [i + 1 for i, status in enumerate(test_stim_status_list) if status]
+
+    additional_command_bytes = bytes([SERIAL_COMM_START_STIMULATORS_COMMAND_BYTE])
+    additional_command_bytes += bytes(module_ids_to_enable)
+    # send start stimulators command
+    expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+    test_start_data_streaming_command = create_data_packet(
+        expected_pc_timestamp,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+        additional_command_bytes,
+    )
+    simulator.write(test_start_data_streaming_command)
+    invoke_process_run_and_check_errors(simulator)
+    # assert response is correct
+    additional_repsonse_bytes = convert_to_timestamp_bytes(
+        expected_pc_timestamp
+    ) + convert_stim_status_list_to_bitmask(test_stim_status_list)
+    for i in range(24):
+        module_id = i + 1
+        stim_type_int = int(expected_stim_types[i] == "V")
+        additional_repsonse_bytes += bytes([module_id, stim_type_int])
+        additional_repsonse_bytes += convert_pulse_dict_to_bytes(expected_pulses[i])
+
+    command_response_size = get_full_packet_size_from_packet_body_size(len(additional_repsonse_bytes))
+    command_response = simulator.read(size=command_response_size)
+    assert_serial_packet_is_expected(
+        command_response,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+        additional_bytes=additional_repsonse_bytes,
+    )

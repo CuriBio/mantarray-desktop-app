@@ -94,8 +94,6 @@ from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_METADATA_BYTES_LENGTH
 from mantarray_desktop_app import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
-from mantarray_desktop_app import SERIAL_COMM_MODE_CHANGED_BYTE
-from mantarray_desktop_app import SERIAL_COMM_MODE_UNCHANGED_BYTE
 from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_INDEX
 from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from mantarray_desktop_app import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
@@ -123,6 +121,8 @@ from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_STOP_STIMULATORS_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_STREAM_MODE_CHANGED_BYTE
+from mantarray_desktop_app import SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE
 from mantarray_desktop_app import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_CY
 from mantarray_desktop_app import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
@@ -470,8 +470,8 @@ def test_serial_comm():
     assert SERIAL_COMM_START_STIMULATORS_COMMAND_BYTE == 17
     assert SERIAL_COMM_STOP_STIMULATORS_COMMAND_BYTE == 18
 
-    assert SERIAL_COMM_MODE_CHANGED_BYTE == 0
-    assert SERIAL_COMM_MODE_UNCHANGED_BYTE == 1
+    assert SERIAL_COMM_STREAM_MODE_CHANGED_BYTE == 0
+    assert SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE == 1
 
     assert SERIAL_COMM_METADATA_BYTES_LENGTH == 32
 

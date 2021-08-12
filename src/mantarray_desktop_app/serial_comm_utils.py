@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime
 from typing import Any
 from typing import Dict
+from typing import List
 from typing import Union
 from uuid import UUID
 from zlib import crc32
@@ -215,3 +216,17 @@ def convert_bytes_to_pulse_dict(pulse_bytes: bytes) -> Dict[str, int]:
         "phase_two_charge": int.from_bytes(pulse_bytes[16:18], byteorder="little", signed=True),
         "repeat_delay_interval": int.from_bytes(pulse_bytes[18:22], byteorder="little"),
     }
+
+
+def convert_stim_status_bitmask_to_list(bitmask: bytes) -> List[bool]:
+    bitmask_as_int = int.from_bytes(bitmask, byteorder="little")
+    stim_status_list = [bool(bitmask_as_int & (1 << module_status_bit)) for module_status_bit in range(24)]
+    return stim_status_list
+
+
+def convert_stim_status_list_to_bitmask(stim_status_list: List[bool]) -> bytes:
+    bitmask_as_int = 0
+    for i, module_stim_status in enumerate(stim_status_list):
+        if module_stim_status:
+            bitmask_as_int |= 1 << i
+    return bitmask_as_int.to_bytes(4, byteorder="little")
