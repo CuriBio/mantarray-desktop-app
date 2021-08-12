@@ -174,3 +174,13 @@ def set_stim_config(simulator_fixture, stim_config):
         testing_queue,
     )
     invoke_process_run_and_check_errors(simulator)
+
+
+def set_stim_statuses(simulator_fixture, status_list):
+    simulator = simulator_fixture["simulator"]
+    testing_queue = simulator_fixture["testing_queue"]
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "set_stim_statuses", "stim_statuses": status_list},
+        testing_queue,
+    )
+    invoke_process_run_and_check_errors(simulator)

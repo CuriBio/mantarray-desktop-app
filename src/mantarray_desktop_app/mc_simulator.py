@@ -72,6 +72,7 @@ from .constants import SERIAL_COMM_START_STIMULATORS_COMMAND_BYTE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
+from .constants import SERIAL_COMM_STOP_STIMULATORS_COMMAND_BYTE
 from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
@@ -481,13 +482,18 @@ class MantarrayMcSimulator(InfiniteProcess):
                 self._update_stim_config(comm_from_pc)
             elif command_byte == SERIAL_COMM_START_STIMULATORS_COMMAND_BYTE:
                 start_idx = SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 1
-                modules_to_enable = comm_from_pc[start_idx:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
-                self._is_stimulating = [i in modules_to_enable for i in range(1, self._num_wells + 1)]
+                module_ids_to_enable = comm_from_pc[start_idx:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
+                self._update_stim_statuses(module_ids_to_enable, True)
                 response_body += convert_stim_status_list_to_bitmask(self._is_stimulating)
                 for module_id in range(1, self._num_wells + 1):
                     stim_type_int = int(self._stim_config[module_id]["stimulation_type"] == "V")
                     response_body += bytes([module_id, stim_type_int])
                     response_body += convert_pulse_dict_to_bytes(self._stim_config[module_id]["pulse"])
+            elif command_byte == SERIAL_COMM_STOP_STIMULATORS_COMMAND_BYTE:
+                start_idx = SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 1
+                module_ids_to_disable = comm_from_pc[start_idx:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
+                self._update_stim_statuses(module_ids_to_disable, False)
+                response_body += convert_stim_status_list_to_bitmask(self._is_stimulating)
             else:
                 # TODO Tanner (3/4/21): Determine what to do if command_byte, module_id, or packet_type are incorrect. It may make more sense to respond with a message rather than raising an error
                 raise NotImplementedError(command_byte)
@@ -537,6 +543,10 @@ class MantarrayMcSimulator(InfiniteProcess):
             comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 3 : SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 27]
         )
         self._stim_config[module_id] = {"stimulation_type": stim_type, "pulse": pulse}
+
+    def _update_stim_statuses(self, module_id_bytes: bytes, new_status: bool) -> None:
+        for module_id in module_id_bytes:
+            self._is_stimulating[module_id - 1] = new_status
 
     def _update_status_code(self, new_code: int) -> None:
         self._status_code = new_code
@@ -623,6 +633,8 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._sampling_period_us = test_comm["sampling_period"]
         elif command == "set_stim_config":
             self._stim_config = test_comm["stim_config"]
+        elif command == "set_stim_statuses":
+            self._is_stimulating = test_comm["stim_statuses"]
         else:
             raise UnrecognizedSimulatorTestCommandError(command)
 
