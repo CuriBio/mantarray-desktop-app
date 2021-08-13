@@ -206,7 +206,11 @@ class MagnetometerConfigUpdateWhileDataStreamingError(Exception):
     pass
 
 
-class ProtocolUpdateWhileStimulationIsRunning(Exception):
+class ProtocolUpdateWhileStimulationIsRunningError(Exception):
+    pass
+
+
+class StimStatusUpdateBeforeProtocolsSetError(Exception):
     pass
 
 

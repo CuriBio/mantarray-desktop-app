@@ -182,7 +182,7 @@ from .exceptions import MagnetometerConfigUpdateWhileDataStreamingError
 from .exceptions import MantarrayInstrumentError
 from .exceptions import MismatchedScriptTypeError
 from .exceptions import MultiprocessingNotSetToSpawnError
-from .exceptions import ProtocolUpdateWhileStimulationIsRunning
+from .exceptions import ProtocolUpdateWhileStimulationIsRunningError
 from .exceptions import RecordingFolderDoesNotExistError
 from .exceptions import ScriptDoesNotContainEndCommandError
 from .exceptions import SerialCommCommandResponseTimeoutError
@@ -202,6 +202,7 @@ from .exceptions import SerialCommTooManyMissedHandshakesError
 from .exceptions import SerialCommUntrackedCommandResponseError
 from .exceptions import ServerManagerNotInitializedError
 from .exceptions import ServerManagerSingletonAlreadySetError
+from .exceptions import StimStatusUpdateBeforeProtocolsSetError
 from .exceptions import SystemStartUpError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
 from .exceptions import UnrecognizedCommandFromMainToMcCommError
@@ -580,5 +581,6 @@ __all__ = [
     "convert_bytes_to_pulse_dict",
     "convert_stim_status_bitmask_to_list",
     "convert_stim_status_list_to_bitmask",
-    "ProtocolUpdateWhileStimulationIsRunning",
+    "ProtocolUpdateWhileStimulationIsRunningError",
+    "StimStatusUpdateBeforeProtocolsSetError",
 ]

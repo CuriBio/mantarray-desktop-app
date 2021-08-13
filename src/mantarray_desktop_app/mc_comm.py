@@ -83,7 +83,7 @@ from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import InstrumentSoftError
 from .exceptions import MagnetometerConfigUpdateWhileDataStreamingError
 from .exceptions import MantarrayInstrumentError
-from .exceptions import ProtocolUpdateWhileStimulationIsRunning
+from .exceptions import ProtocolUpdateWhileStimulationIsRunningError
 from .exceptions import SerialCommCommandResponseTimeoutError
 from .exceptions import SerialCommHandshakeTimeoutError
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
@@ -96,6 +96,7 @@ from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
 from .exceptions import SerialCommPacketRegistrationTimoutError
 from .exceptions import SerialCommStatusBeaconTimeoutError
 from .exceptions import SerialCommUntrackedCommandResponseError
+from .exceptions import StimStatusUpdateBeforeProtocolsSetError
 from .exceptions import UnrecognizedCommandFromMainToMcCommError
 from .exceptions import UnrecognizedSerialCommModuleIdError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
@@ -452,7 +453,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         elif communication_type == "stimulation":
             if comm_from_main["command"] == "set_protocol":
                 if any(self._module_stim_statuses):
-                    raise ProtocolUpdateWhileStimulationIsRunning()
+                    raise ProtocolUpdateWhileStimulationIsRunningError()
                 self._stim_protocols = {}
                 for protocol in comm_from_main["protocols"]:
                     module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[
@@ -470,6 +471,8 @@ class McCommunicationProcess(InstrumentCommProcess):
                     self._handle_sending_command(board_idx, bytes_to_send, module_comm_dict)
                 packet_sending_completed = True
             elif comm_from_main["command"] == "set_stim_status":
+                if not self._stim_protocols:
+                    raise StimStatusUpdateBeforeProtocolsSetError()
                 modules_to_update = list(self._stim_protocols.keys())
                 if comm_from_main["status"]:
                     command_byte = SERIAL_COMM_START_STIMULATORS_COMMAND_BYTE
@@ -581,7 +584,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         packet_type: int,
         packet_body: bytes,
     ) -> None:
-        # pylint: disable=too-many-branches  # Tanner (6/4/21): need more branches for hardware test mode
+        # pylint: disable=too-many-branches,too-many-statements  # TODO Tanner (8/13/21): refactor this into multiple methods
         if packet_type == SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE:
             returned_packet = SERIAL_COMM_MAGIC_WORD_BYTES + packet_body
             raise SerialCommIncorrectChecksumFromPCError(returned_packet)
@@ -742,6 +745,8 @@ class McCommunicationProcess(InstrumentCommProcess):
                     prev_command["hardware_test_message"] = "Data stream already stopped"  # pragma: no cover
                 self._is_stopping_data_stream = False
                 self._is_data_streaming = False
+            elif prev_command["command"] == "set_protocol":
+                pass  # TODO remove the full protocol and add 'first_pulse' field
             elif prev_command["command"] == "set_stim_status":
                 if prev_command["status"]:
                     # stim_status_list = convert_stim_status_bitmask_to_list(response_data[:4])

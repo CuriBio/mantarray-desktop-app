@@ -2,10 +2,11 @@
 import copy
 
 from mantarray_desktop_app import mc_comm
-from mantarray_desktop_app import ProtocolUpdateWhileStimulationIsRunning
+from mantarray_desktop_app import ProtocolUpdateWhileStimulationIsRunningError
 from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import STIM_MAX_PULSE_DURATION_MICROSECONDS
+from mantarray_desktop_app import StimStatusUpdateBeforeProtocolsSetError
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 import pytest
 from stdlib_utils import drain_queue
@@ -271,5 +272,32 @@ def test_McCommunicationProcess__handles_set_protocol_command__when_stimulation_
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(expected_response), from_main_queue
     )
-    with pytest.raises(ProtocolUpdateWhileStimulationIsRunning):
+    with pytest.raises(ProtocolUpdateWhileStimulationIsRunningError):
+        invoke_process_run_and_check_errors(mc_process)
+
+
+def test_McCommunicationProcess__handles_set_stim_status_command__before_any_protocols_are_set(
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+    mocker,
+):
+    # patching so errors aren't raised
+    mocker.patch.object(mc_comm, "_get_secs_since_command_sent", autospec=True, return_value=0)
+
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    from_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][0]
+
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+
+    # send set_stim_status and make sure error is raised (status value currently doesn't matter from this test)
+    expected_response = {
+        "communication_type": "stimulation",
+        "command": "set_stim_status",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(expected_response), from_main_queue
+    )
+    with pytest.raises(StimStatusUpdateBeforeProtocolsSetError):
         invoke_process_run_and_check_errors(mc_process)
