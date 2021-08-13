@@ -62,6 +62,7 @@ from ..fixtures_mc_simulator import DEFAULT_SIMULATOR_STATUS_CODE
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import HANDSHAKE_RESPONSE_SIZE_BYTES
+from ..fixtures_mc_simulator import random_module_stim_config
 from ..fixtures_mc_simulator import set_simulator_idle_ready
 from ..fixtures_mc_simulator import set_stim_config
 from ..fixtures_mc_simulator import set_stim_statuses
@@ -939,14 +940,7 @@ def test_MantarrayMcSimulator__processes_start_stimulators_command(mantarray_mc_
     for module_id in range(1, 25):
         stim_type = choice(["C", "V"])
         expected_stim_types.append(stim_type)
-        pulse = {
-            "phase_one_duration": randint(1, 100),
-            "phase_one_charge": randint(0, 100),
-            "interpulse_interval": randint(0, 100),
-            "phase_two_duration": randint(0, 100),
-            "phase_two_charge": randint(-100, 0),
-            "repeat_delay_interval": randint(0, 100),
-        }
+        pulse = random_module_stim_config()
         expected_pulses.append(pulse)
         test_stim_config[module_id] = {"stimulation_type": stim_type, "pulse": pulse}
     set_stim_config(mantarray_mc_simulator_no_beacon, test_stim_config)
@@ -996,20 +990,7 @@ def test_MantarrayMcSimulator__processes_stop_stimulators_command(mantarray_mc_s
 
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
-    test_stim_config = {
-        module_id: {
-            "stimulation_type": choice(["C", "V"]),
-            "pulse": {
-                "phase_one_duration": randint(1, 100),
-                "phase_one_charge": randint(0, 100),
-                "interpulse_interval": randint(0, 100),
-                "phase_two_duration": randint(0, 100),
-                "phase_two_charge": randint(-100, 0),
-                "repeat_delay_interval": randint(0, 100),
-            },
-        }
-        for module_id in range(1, 25)
-    }
+    test_stim_config = {module_id: random_module_stim_config() for module_id in range(1, 25)}
     set_stim_config(mantarray_mc_simulator_no_beacon, test_stim_config)
 
     initial_stim_status_list = [choice([True, False]) for _ in range(24)]

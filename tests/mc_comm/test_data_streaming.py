@@ -1221,4 +1221,6 @@ def test_McCommunicationProcess__does_not_attempt_to_parse_when_stopping_data_st
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(expected_response), from_main_queue
     )
+
+    # this would raise an error if 0 bytes were attempted to be parsed
     invoke_process_run_and_check_errors(mc_process)

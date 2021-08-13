@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 from multiprocessing import Queue
+from random import choice
+from random import randint
 import time
 
 from mantarray_desktop_app import convert_to_status_code_bytes
@@ -184,3 +186,17 @@ def set_stim_statuses(simulator_fixture, status_list):
         testing_queue,
     )
     invoke_process_run_and_check_errors(simulator)
+
+
+def random_module_stim_config():
+    return {
+        "stimulation_type": choice(["C", "V"]),
+        "pulse": {
+            "phase_one_duration": randint(1, 100),
+            "phase_one_charge": randint(0, 100),
+            "interpulse_interval": randint(0, 100),
+            "phase_two_duration": randint(0, 100),
+            "phase_two_charge": randint(-100, 0),
+            "repeat_delay_interval": randint(0, 100),
+        },
+    }

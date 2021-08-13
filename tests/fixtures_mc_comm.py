@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-
 import time
 
 from mantarray_desktop_app import mc_comm

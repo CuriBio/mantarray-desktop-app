@@ -24,9 +24,11 @@ import serial
 import serial.tools.list_ports as list_ports
 from stdlib_utils import put_log_message_into_queue
 
+from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import INITIAL_MAGNETOMETER_CONFIG
 from .constants import INITIAL_SAMPLING_PERIOD
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
+from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BAUD_RATE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
@@ -55,6 +57,7 @@ from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
+from .constants import SERIAL_COMM_SET_BIPHASIC_PULSE_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
@@ -69,6 +72,7 @@ from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from .constants import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from .constants import STM_VID
 from .exceptions import InstrumentDataStreamingAlreadyStartedError
 from .exceptions import InstrumentDataStreamingAlreadyStoppedError
@@ -95,6 +99,7 @@ from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .instrument_comm import InstrumentCommProcess
 from .mc_simulator import MantarrayMcSimulator
 from .serial_comm_utils import convert_bytes_to_config_dict
+from .serial_comm_utils import convert_pulse_dict_to_bytes
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
 from .serial_comm_utils import create_data_packet
@@ -398,7 +403,9 @@ class McCommunicationProcess(InstrumentCommProcess):
             comm_from_main = input_queue.get_nowait()
         except queue.Empty:
             return
+
         board_idx = 0
+        packet_sending_completed = False
         bytes_to_send: bytes
 
         communication_type = comm_from_main["communication_type"]
@@ -436,13 +443,39 @@ class McCommunicationProcess(InstrumentCommProcess):
                 raise UnrecognizedCommandFromMainToMcCommError(
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
                 )
+        elif communication_type == "stimulation":
+            if comm_from_main["command"] == "set_protocol":
+                # if any(self._module_stimulator_statuses):
+                #     raise error
+                for protocol in comm_from_main["protocols"]:
+                    module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[
+                        GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(protocol["well_number"])
+                    ]
+                    stim_type_int = int(protocol["stimulation_type"] == "V")
+                    bytes_to_send = bytes(
+                        [SERIAL_COMM_SET_BIPHASIC_PULSE_COMMAND_BYTE, module_id, stim_type_int]
+                    ) + convert_pulse_dict_to_bytes(protocol["pulses"][0])
+
+                    module_comm_dict = copy.deepcopy(comm_from_main)
+                    module_comm_dict["module_id"] = module_id
+                    self._handle_sending_command(board_idx, bytes_to_send, module_comm_dict)
+                packet_sending_completed = True
+            # else:
+            #     raise UnrecognizedCommandFromMainToMcCommError(
+            #         f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
+            #     )
         elif communication_type == "metadata_comm":
             bytes_to_send = bytes([SERIAL_COMM_GET_METADATA_COMMAND_BYTE])
         else:
             raise UnrecognizedCommandFromMainToMcCommError(
                 f"Invalid communication_type: {communication_type}"
             )
+        if not packet_sending_completed:
+            self._handle_sending_command(board_idx, bytes_to_send, comm_from_main)
 
+    def _handle_sending_command(
+        self, board_idx: int, bytes_to_send: bytes, comm_from_main: Dict[str, Any]
+    ) -> None:
         self._send_data_packet(
             board_idx,
             SERIAL_COMM_MAIN_MODULE_ID,
@@ -761,7 +794,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         if board is None:
             raise NotImplementedError("board should never be None here")
 
-        num_bytes_per_second = self._packet_len * int(1e6 // self._sampling_period_us)
+        num_bytes_per_second = self._packet_len * int(MICRO_TO_BASE_CONVERSION // self._sampling_period_us)
 
         self._data_packet_cache += board.read_all()
 
