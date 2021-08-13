@@ -206,6 +206,10 @@ class MagnetometerConfigUpdateWhileDataStreamingError(Exception):
     pass
 
 
+class ProtocolUpdateWhileStimulationIsRunning(Exception):
+    pass
+
+
 class InstrumentRebootTimeoutError(Exception):
     pass
 

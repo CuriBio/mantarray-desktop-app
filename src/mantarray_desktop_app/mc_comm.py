@@ -83,6 +83,7 @@ from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import InstrumentSoftError
 from .exceptions import MagnetometerConfigUpdateWhileDataStreamingError
 from .exceptions import MantarrayInstrumentError
+from .exceptions import ProtocolUpdateWhileStimulationIsRunning
 from .exceptions import SerialCommCommandResponseTimeoutError
 from .exceptions import SerialCommHandshakeTimeoutError
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
@@ -102,7 +103,6 @@ from .instrument_comm import InstrumentCommProcess
 from .mc_simulator import MantarrayMcSimulator
 from .serial_comm_utils import convert_bytes_to_config_dict
 from .serial_comm_utils import convert_pulse_dict_to_bytes
-from .serial_comm_utils import convert_stim_status_bitmask_to_list
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
 from .serial_comm_utils import create_data_packet
@@ -177,7 +177,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             float
         ] = None  # Tanner (4/1/21): This value will be None until this process receives a response to a reboot command. It will be set back to None after receiving a status beacon upon reboot completion
         # data streaming values
-        self._magnetometer_config: Dict[int, Dict[Any, Any]] = dict()
+        self._magnetometer_config: Dict[int, Dict[Any, Any]] = dict()  # top level key is module ID
         self._active_sensors_list: List[int] = list()
         self._packet_len = 0
         self._sampling_period_us = 0
@@ -187,7 +187,8 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._data_packet_cache = bytes(0)
         self._hardware_test_mode = hardware_test_mode
         # stimulation values
-        self._stim_protocols: Dict[int, Dict[str, Any]] = {}
+        self._stim_protocols: Dict[int, Dict[str, Any]] = dict()  # top level key is module ID
+        self._module_stim_statuses: List[int] = [False] * self._num_wells
 
     def _setup_before_loop(self) -> None:
         super()._setup_before_loop()
@@ -450,8 +451,8 @@ class McCommunicationProcess(InstrumentCommProcess):
                 )
         elif communication_type == "stimulation":
             if comm_from_main["command"] == "set_protocol":
-                # if any(self._module_stimulator_statuses):
-                #     raise error
+                if any(self._module_stim_statuses):
+                    raise ProtocolUpdateWhileStimulationIsRunning()
                 self._stim_protocols = {}
                 for protocol in comm_from_main["protocols"]:
                     module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[
@@ -469,13 +470,17 @@ class McCommunicationProcess(InstrumentCommProcess):
                     self._handle_sending_command(board_idx, bytes_to_send, module_comm_dict)
                 packet_sending_completed = True
             elif comm_from_main["command"] == "set_stim_status":
-                command_byte = (
-                    SERIAL_COMM_START_STIMULATORS_COMMAND_BYTE
-                    if comm_from_main["status"]
-                    else SERIAL_COMM_STOP_STIMULATORS_COMMAND_BYTE
-                )
+                modules_to_update = list(self._stim_protocols.keys())
+                if comm_from_main["status"]:
+                    command_byte = SERIAL_COMM_START_STIMULATORS_COMMAND_BYTE
+                    self._module_stim_statuses = [
+                        module_id in modules_to_update for module_id in range(1, self._num_wells + 1)
+                    ]
+                else:
+                    command_byte = SERIAL_COMM_STOP_STIMULATORS_COMMAND_BYTE
+                    self._module_stim_statuses = [False] * self._num_wells
                 bytes_to_send = bytes([command_byte])
-                bytes_to_send += bytes(list(self._stim_protocols.keys()))
+                bytes_to_send += bytes(modules_to_update)
             # else:
             #     raise UnrecognizedCommandFromMainToMcCommError(
             #         f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
@@ -739,11 +744,13 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._is_data_streaming = False
             elif prev_command["command"] == "set_stim_status":
                 if prev_command["status"]:
-                    stim_status_list = convert_stim_status_bitmask_to_list(response_data[:4])
+                    # stim_status_list = convert_stim_status_bitmask_to_list(response_data[:4])
+                    # if converted stim_status_list != self._module_stim_statuses:
+                    #     raise Error
                     prev_command["wells_currently_stimulating"] = [
                         SERIAL_COMM_MODULE_ID_TO_WELL_IDX[i + 1]
-                        for i, module_stim_status in enumerate(stim_status_list)
-                        if module_stim_status
+                        for i, status in enumerate(self._module_stim_statuses)
+                        if status
                     ]
 
             del prev_command[

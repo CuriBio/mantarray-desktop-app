@@ -182,6 +182,7 @@ from .exceptions import MagnetometerConfigUpdateWhileDataStreamingError
 from .exceptions import MantarrayInstrumentError
 from .exceptions import MismatchedScriptTypeError
 from .exceptions import MultiprocessingNotSetToSpawnError
+from .exceptions import ProtocolUpdateWhileStimulationIsRunning
 from .exceptions import RecordingFolderDoesNotExistError
 from .exceptions import ScriptDoesNotContainEndCommandError
 from .exceptions import SerialCommCommandResponseTimeoutError
@@ -579,4 +580,5 @@ __all__ = [
     "convert_bytes_to_pulse_dict",
     "convert_stim_status_bitmask_to_list",
     "convert_stim_status_list_to_bitmask",
+    "ProtocolUpdateWhileStimulationIsRunning",
 ]
