@@ -723,13 +723,13 @@ def test_MantarrayMcSimulator__processes_stop_data_streaming_command(
     )
 
     dummy_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
-    test_start_data_streaming_command = create_data_packet(
+    test_stop_data_streaming_command = create_data_packet(
         dummy_timestamp,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
         bytes([SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE]),
     )
-    simulator.write(test_start_data_streaming_command)
+    simulator.write(test_stop_data_streaming_command)
     invoke_process_run_and_check_errors(simulator)
     # remove start data streaming response
     command_response = simulator.read(
@@ -934,20 +934,20 @@ def test_MantarrayMcSimulator__processes_start_stimulators_command(mantarray_mc_
 
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
+    initial_stim_status_list = [choice([True, False]) for _ in range(24)]
+    set_stim_statuses(mantarray_mc_simulator_no_beacon, initial_stim_status_list)
+
     test_stim_config = dict()
     expected_stim_types = list()
     expected_pulses = list()
     for module_id in range(1, 25):
-        stim_type = choice(["C", "V"])
-        expected_stim_types.append(stim_type)
-        pulse = random_module_stim_config()
-        expected_pulses.append(pulse)
-        test_stim_config[module_id] = {"stimulation_type": stim_type, "pulse": pulse}
+        module_config = random_module_stim_config()
+        test_stim_config[module_id] = module_config
+        expected_stim_types.append(module_config["stimulation_type"])
+        expected_pulses.append(module_config["pulse"])
     set_stim_config(mantarray_mc_simulator_no_beacon, test_stim_config)
 
-    initial_stim_status_list = [choice([True, False]) for _ in range(24)]
-    set_stim_statuses(mantarray_mc_simulator_no_beacon, initial_stim_status_list)
-
+    # make sure at least one module is enabled, set the rest to a random value
     module_ids_to_enable = [module_id for module_id in range(1, 25) if choice([True, False])]
     expected_stim_status_list = [
         True if i + 1 in module_ids_to_enable else initial_stim_status_list[i] for i in range(24)
@@ -957,31 +957,33 @@ def test_MantarrayMcSimulator__processes_start_stimulators_command(mantarray_mc_
     additional_command_bytes += bytes(module_ids_to_enable)
     # send start stimulators command
     expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
-    test_start_data_streaming_command = create_data_packet(
+    test_start_stimulators_command = create_data_packet(
         expected_pc_timestamp,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
         additional_command_bytes,
     )
-    simulator.write(test_start_data_streaming_command)
+    simulator.write(test_start_stimulators_command)
     invoke_process_run_and_check_errors(simulator)
     # assert response is correct
-    additional_repsonse_bytes = convert_to_timestamp_bytes(
+    additional_response_bytes = convert_to_timestamp_bytes(
         expected_pc_timestamp
     ) + convert_stim_status_list_to_bitmask(expected_stim_status_list)
-    for i in range(24):
+    for i, module_stim_status in enumerate(expected_stim_status_list):
+        if not module_stim_status:
+            continue
         module_id = i + 1
         stim_type_int = int(expected_stim_types[i] == "V")
-        additional_repsonse_bytes += bytes([module_id, stim_type_int])
-        additional_repsonse_bytes += convert_pulse_dict_to_bytes(expected_pulses[i])
+        additional_response_bytes += bytes([module_id, stim_type_int])
+        additional_response_bytes += convert_pulse_dict_to_bytes(expected_pulses[i])
 
-    command_response_size = get_full_packet_size_from_packet_body_size(len(additional_repsonse_bytes))
+    command_response_size = get_full_packet_size_from_packet_body_size(len(additional_response_bytes))
     command_response = simulator.read(size=command_response_size)
     assert_serial_packet_is_expected(
         command_response,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-        additional_bytes=additional_repsonse_bytes,
+        additional_bytes=additional_response_bytes,
     )
 
 
@@ -1005,24 +1007,24 @@ def test_MantarrayMcSimulator__processes_stop_stimulators_command(mantarray_mc_s
     additional_command_bytes += bytes(module_ids_to_disable)
     # send start stimulators command
     expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
-    test_start_data_streaming_command = create_data_packet(
+    test_stop_stimulators_command = create_data_packet(
         expected_pc_timestamp,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
         additional_command_bytes,
     )
-    simulator.write(test_start_data_streaming_command)
+    simulator.write(test_stop_stimulators_command)
     invoke_process_run_and_check_errors(simulator)
     # assert response is correct
-    additional_repsonse_bytes = convert_to_timestamp_bytes(
+    additional_response_bytes = convert_to_timestamp_bytes(
         expected_pc_timestamp
     ) + convert_stim_status_list_to_bitmask(expected_stim_status_list)
 
-    command_response_size = get_full_packet_size_from_packet_body_size(len(additional_repsonse_bytes))
+    command_response_size = get_full_packet_size_from_packet_body_size(len(additional_response_bytes))
     command_response = simulator.read(size=command_response_size)
     assert_serial_packet_is_expected(
         command_response,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-        additional_bytes=additional_repsonse_bytes,
+        additional_bytes=additional_response_bytes,
     )

@@ -325,6 +325,10 @@ class MantarrayMcSimulator(InfiniteProcess):
         """Mainly for use in unit tests."""
         return self._stim_config
 
+    def get_stimulation_statuses(self) -> List[bool]:
+        """Mainly for use in unit tests."""
+        return self._is_stimulating
+
     def get_interpolated_data(self, sampling_period_us: int) -> NDArray[np.int16]:
         """Return one second (one twitch) of interpolated data."""
         data_indices = np.arange(0, MICRO_TO_BASE_CONVERSION, sampling_period_us)
@@ -486,6 +490,8 @@ class MantarrayMcSimulator(InfiniteProcess):
                 self._update_stim_statuses(module_ids_to_enable, True)
                 response_body += convert_stim_status_list_to_bitmask(self._is_stimulating)
                 for module_id in range(1, self._num_wells + 1):
+                    if not self._is_stimulating[module_id - 1]:
+                        continue
                     stim_type_int = int(self._stim_config[module_id]["stimulation_type"] == "V")
                     response_body += bytes([module_id, stim_type_int])
                     response_body += convert_pulse_dict_to_bytes(self._stim_config[module_id]["pulse"])

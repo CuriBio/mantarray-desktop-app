@@ -63,11 +63,13 @@ from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_SOFT_ERROR_CODE
 from .constants import SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE
+from .constants import SERIAL_COMM_START_STIMULATORS_COMMAND_BYTE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from .constants import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
+from .constants import SERIAL_COMM_STOP_STIMULATORS_COMMAND_BYTE
 from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
@@ -100,6 +102,7 @@ from .instrument_comm import InstrumentCommProcess
 from .mc_simulator import MantarrayMcSimulator
 from .serial_comm_utils import convert_bytes_to_config_dict
 from .serial_comm_utils import convert_pulse_dict_to_bytes
+from .serial_comm_utils import convert_stim_status_bitmask_to_list
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
 from .serial_comm_utils import create_data_packet
@@ -183,6 +186,8 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._has_data_packet_been_sent = False
         self._data_packet_cache = bytes(0)
         self._hardware_test_mode = hardware_test_mode
+        # stimulation values
+        self._stim_protocols: Dict[int, Dict[str, Any]] = {}
 
     def _setup_before_loop(self) -> None:
         super()._setup_before_loop()
@@ -447,10 +452,13 @@ class McCommunicationProcess(InstrumentCommProcess):
             if comm_from_main["command"] == "set_protocol":
                 # if any(self._module_stimulator_statuses):
                 #     raise error
+                self._stim_protocols = {}
                 for protocol in comm_from_main["protocols"]:
                     module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[
                         GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(protocol["well_number"])
                     ]
+                    self._stim_protocols[module_id] = protocol
+
                     stim_type_int = int(protocol["stimulation_type"] == "V")
                     bytes_to_send = bytes(
                         [SERIAL_COMM_SET_BIPHASIC_PULSE_COMMAND_BYTE, module_id, stim_type_int]
@@ -460,6 +468,14 @@ class McCommunicationProcess(InstrumentCommProcess):
                     module_comm_dict["module_id"] = module_id
                     self._handle_sending_command(board_idx, bytes_to_send, module_comm_dict)
                 packet_sending_completed = True
+            elif comm_from_main["command"] == "set_stim_status":
+                command_byte = (
+                    SERIAL_COMM_START_STIMULATORS_COMMAND_BYTE
+                    if comm_from_main["status"]
+                    else SERIAL_COMM_STOP_STIMULATORS_COMMAND_BYTE
+                )
+                bytes_to_send = bytes([command_byte])
+                bytes_to_send += bytes(list(self._stim_protocols.keys()))
             # else:
             #     raise UnrecognizedCommandFromMainToMcCommError(
             #         f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
@@ -721,6 +737,14 @@ class McCommunicationProcess(InstrumentCommProcess):
                     prev_command["hardware_test_message"] = "Data stream already stopped"  # pragma: no cover
                 self._is_stopping_data_stream = False
                 self._is_data_streaming = False
+            elif prev_command["command"] == "set_stim_status":
+                if prev_command["status"]:
+                    stim_status_list = convert_stim_status_bitmask_to_list(response_data[:4])
+                    prev_command["wells_currently_stimulating"] = [
+                        SERIAL_COMM_MODULE_ID_TO_WELL_IDX[i + 1]
+                        for i, module_stim_status in enumerate(stim_status_list)
+                        if module_stim_status
+                    ]
 
             del prev_command[
                 "timepoint"
