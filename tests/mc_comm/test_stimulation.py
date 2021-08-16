@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 import copy
 
+from mantarray_desktop_app import convert_pulse_dict_to_bytes
 from mantarray_desktop_app import convert_stim_status_list_to_bitmask
 from mantarray_desktop_app import create_data_packet
+from mantarray_desktop_app import IncorrectPulseFromInstrumentError
 from mantarray_desktop_app import IncorrectStimStatusesFromInstrumentError
+from mantarray_desktop_app import IncorrectStimTypeFromInstrumentError
 from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import ProtocolUpdateWhileStimulationIsRunningError
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
@@ -35,6 +38,9 @@ __fixtures__ = [
     fixture_patch_print,
     fixture_four_board_mc_comm_process_no_handshake,
 ]
+
+
+# TODO add patch print where necessary
 
 
 @pytest.mark.slow
@@ -331,6 +337,9 @@ def test_McCommunicationProcess__raises_error_if_instrument_responds_with_differ
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
 
+    test_well_idx = 0
+    test_module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[test_well_idx]
+
     # set protocol on a single well
     test_stim_config = random_module_stim_config()
     test_stim_config["pulse"]["total_active_duration"] = STIM_MAX_PULSE_DURATION_MICROSECONDS
@@ -340,7 +349,7 @@ def test_McCommunicationProcess__raises_error_if_instrument_responds_with_differ
         "protocols": [
             {
                 "stimulation_type": test_stim_config["stimulation_type"],
-                "well_number": GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(0),
+                "well_number": GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_idx),
                 "total_protocol_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS,
                 "pulses": [test_stim_config["pulse"]],
             }
@@ -367,7 +376,7 @@ def test_McCommunicationProcess__raises_error_if_instrument_responds_with_differ
 
     # add a data packet to simulator with invalid bitmask to create bad response
     bad_stim_statuses = [
-        module_id == 20 for module_id in range(24)
+        module_id == 20 for module_id in range(1, 25)
     ]  # arbitrary status list, just needs to be incorrect
     data_to_send = bytes(8) + convert_stim_status_list_to_bitmask(bad_stim_statuses)
     bad_response = create_data_packet(
@@ -394,6 +403,194 @@ def test_McCommunicationProcess__raises_error_if_instrument_responds_with_differ
     with pytest.raises(IncorrectStimStatusesFromInstrumentError) as exc_info:
         invoke_process_run_and_check_errors(mc_process)
     # make sure correct message is included in error
-    expected_statuses = [test_status if i == 0 else False for i in range(24)]
-    expected_msg = f"Expected: {expected_statuses}, Actual: {bad_stim_statuses}"
+    expected_statuses = [test_status if i == test_module_id else False for i in range(1, 25)]
+    expected_msg = f"Expected Module Statuses: {expected_statuses}, Actual: {bad_stim_statuses}"
+    assert expected_msg in str(exc_info.value)
+
+
+@pytest.mark.slow
+def test_McCommunicationProcess__raises_error_if_instrument_responds_to_start_stimulators_command_with_unexpected_stim_type_for_a_single_module(
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+    mocker,
+):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    from_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][0]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+
+    # patching so errors aren't raised
+    mocker.patch.object(mc_comm, "_get_secs_since_command_sent", autospec=True, return_value=0)
+
+    test_well_idx = 1
+    test_module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[test_well_idx]
+
+    # set protocol on a single well
+    test_pulse = {
+        "phase_one_duration": 200,
+        "phase_one_charge": 300,
+        "interpulse_interval": 40,
+        "phase_two_duration": 100,
+        "phase_two_charge": -750,
+        "repeat_delay_interval": 100,
+        "total_active_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS,
+    }
+    set_protocol_command = {
+        "communication_type": "stimulation",
+        "command": "set_protocol",
+        "protocols": [
+            {
+                "stimulation_type": "V",
+                "well_number": GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx),
+                "total_protocol_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS,
+                "pulses": [test_pulse],
+            }
+            for well_idx in range(2)
+        ],
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocol_command, from_main_queue)
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator, num_iterations=2)
+    invoke_process_run_and_check_errors(mc_process, num_iterations=2)
+
+    # add a data packet to simulator with invalid pulse
+    stim_statuses = [
+        SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id] in (0, 1) for module_id in range(1, 25)
+    ]  # arbitrary status list, just needs to be incorrect
+    data_to_send = (
+        bytes(8)  # dummy timestamp bytes
+        + convert_stim_status_list_to_bitmask(stim_statuses)
+        + bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[0], 1])  # module ID, correct stim type
+        + convert_pulse_dict_to_bytes(test_pulse)
+        + bytes([test_module_id, 0])  # module ID, incorrect stim type
+        + convert_pulse_dict_to_bytes(test_pulse)
+    )
+    bad_response = create_data_packet(
+        0,  # dummy timestamp
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+        data_to_send,
+    )
+    test_command = {"command": "add_read_bytes", "read_bytes": bad_response}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, testing_queue)
+
+    # send command and run simulator to send bad response
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {
+            "communication_type": "stimulation",
+            "command": "set_stim_status",
+            "status": True,
+        },
+        from_main_queue,
+    )
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
+    # make sure error is raised
+    with pytest.raises(IncorrectStimTypeFromInstrumentError) as exc_info:
+        invoke_process_run_and_check_errors(mc_process)
+    # make sure correct message is included in error
+    expected_msg = f"Incorrect stim type (C) for module {test_module_id}"
+    assert expected_msg in str(exc_info.value)
+
+
+@pytest.mark.slow
+def test_McCommunicationProcess__raises_error_if_instrument_responds_to_start_stimulators_command_with_unexpected_pulse_for_a_single_module(
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+    mocker,
+):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    from_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][0]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+
+    # patching so errors aren't raised
+    mocker.patch.object(mc_comm, "_get_secs_since_command_sent", autospec=True, return_value=0)
+
+    test_well_idx = 1
+    test_module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[test_well_idx]
+
+    # set protocol on a single well
+    test_pulse = {
+        "phase_one_duration": 200,
+        "phase_one_charge": 300,
+        "interpulse_interval": 40,
+        "phase_two_duration": 100,
+        "phase_two_charge": -750,
+        "repeat_delay_interval": 100,
+        "total_active_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS,
+    }
+    set_protocol_command = {
+        "communication_type": "stimulation",
+        "command": "set_protocol",
+        "protocols": [
+            {
+                "stimulation_type": "C",
+                "well_number": GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx),
+                "total_protocol_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS,
+                "pulses": [copy.deepcopy(test_pulse)],
+            }
+            for well_idx in range(2)
+        ],
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocol_command, from_main_queue)
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator, num_iterations=2)
+    invoke_process_run_and_check_errors(mc_process, num_iterations=2)
+
+    bad_pulse = {
+        "phase_one_duration": 100,
+        "phase_one_charge": 100,
+        "interpulse_interval": 0,
+        "phase_two_duration": 0,
+        "phase_two_charge": 0,
+        "repeat_delay_interval": 0,
+    }
+
+    # add a data packet to simulator with invalid pulse
+    stim_statuses = [
+        SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id] in (0, 1) for module_id in range(1, 25)
+    ]  # arbitrary status list, just needs to be incorrect
+    data_to_send = (
+        bytes(8)  # dummy timestamp bytes
+        + convert_stim_status_list_to_bitmask(stim_statuses)
+        + bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[0], 0])  # module ID, stim type
+        + convert_pulse_dict_to_bytes(test_pulse)
+        + bytes([test_module_id, 0])  # module ID, stim type
+        + convert_pulse_dict_to_bytes(bad_pulse)
+    )
+    bad_response = create_data_packet(
+        0,  # dummy timestamp
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+        data_to_send,
+    )
+    test_command = {"command": "add_read_bytes", "read_bytes": bad_response}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, testing_queue)
+
+    # send command and run simulator to send bad response
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {
+            "communication_type": "stimulation",
+            "command": "set_stim_status",
+            "status": True,
+        },
+        from_main_queue,
+    )
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
+    # make sure error is raised
+    with pytest.raises(IncorrectPulseFromInstrumentError) as exc_info:
+        invoke_process_run_and_check_errors(mc_process)
+    # make sure correct message is included in error
+    del test_pulse["total_active_duration"]
+    expected_msg = (
+        f"Incorrect pulse for module ID {test_module_id}. Expected: {test_pulse}, Actual: {bad_pulse}"
+    )
     assert expected_msg in str(exc_info.value)

@@ -218,6 +218,14 @@ class IncorrectStimStatusesFromInstrumentError(Exception):
     pass
 
 
+class IncorrectStimTypeFromInstrumentError(Exception):
+    pass
+
+
+class IncorrectPulseFromInstrumentError(Exception):
+    pass
+
+
 class InstrumentRebootTimeoutError(Exception):
     pass
 

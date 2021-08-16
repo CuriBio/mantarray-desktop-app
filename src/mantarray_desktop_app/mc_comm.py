@@ -76,7 +76,9 @@ from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from .constants import STM_VID
+from .exceptions import IncorrectPulseFromInstrumentError
 from .exceptions import IncorrectStimStatusesFromInstrumentError
+from .exceptions import IncorrectStimTypeFromInstrumentError
 from .exceptions import InstrumentDataStreamingAlreadyStartedError
 from .exceptions import InstrumentDataStreamingAlreadyStoppedError
 from .exceptions import InstrumentFatalError
@@ -104,6 +106,7 @@ from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .instrument_comm import InstrumentCommProcess
 from .mc_simulator import MantarrayMcSimulator
 from .serial_comm_utils import convert_bytes_to_config_dict
+from .serial_comm_utils import convert_bytes_to_pulse_dict
 from .serial_comm_utils import convert_pulse_dict_to_bytes
 from .serial_comm_utils import convert_stim_status_bitmask_to_list
 from .serial_comm_utils import convert_to_metadata_bytes
@@ -475,7 +478,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             elif comm_from_main["command"] == "set_stim_status":
                 if not self._stim_protocols:
                     raise StimStatusUpdateBeforeProtocolsSetError()
-                modules_to_update = list(self._stim_protocols.keys())
+                modules_to_update = sorted(list(self._stim_protocols.keys()))
                 if comm_from_main["status"]:
                     command_byte = SERIAL_COMM_START_STIMULATORS_COMMAND_BYTE
                     self._module_stim_statuses = [
@@ -748,14 +751,35 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._is_stopping_data_stream = False
                 self._is_data_streaming = False
             elif prev_command["command"] == "set_protocol":
-                pass  # TODO remove the full protocol and add 'first_pulse' field
+                pass  # TODO remove the full protocol
             elif prev_command["command"] == "set_stim_status":
                 stim_status_list = convert_stim_status_bitmask_to_list(response_data[:4])
                 if stim_status_list != self._module_stim_statuses:
                     raise IncorrectStimStatusesFromInstrumentError(
-                        f"Expected: {self._module_stim_statuses}, Actual: {stim_status_list}"
+                        f"Expected Module Statuses: {self._module_stim_statuses}, Actual: {stim_status_list}"
                     )
                 if prev_command.get("status", True):
+                    num_bytes_per_module = 2 + 6 * 4  # module ID and stim type  # time/amplitude pairs
+                    info_bytes = response_data[4:]
+                    for module_info_idx in range(0, len(info_bytes), num_bytes_per_module):
+                        module_bytes = info_bytes[module_info_idx : module_info_idx + num_bytes_per_module]
+                        module_id = module_bytes[0]
+                        module_protocol = self._stim_protocols[module_id]
+                        # validate stimulation type
+                        stimulation_type = "V" if module_bytes[1] else "C"
+                        if stimulation_type != module_protocol["stimulation_type"]:
+                            raise IncorrectStimTypeFromInstrumentError(
+                                f"Incorrect stim type ({stimulation_type}) for module {module_id}"
+                            )
+                        # validate pulse
+                        module_pulse_dict = convert_bytes_to_pulse_dict(module_bytes[2:])
+                        expected_pulse_dict = copy.deepcopy(module_protocol["pulses"][0])
+                        del expected_pulse_dict["total_active_duration"]
+                        if module_pulse_dict != expected_pulse_dict:
+                            raise IncorrectPulseFromInstrumentError(
+                                f"Incorrect pulse for module ID {module_id}. Expected: {expected_pulse_dict}, Actual: {module_pulse_dict}"
+                            )
+
                     prev_command["wells_currently_stimulating"] = [
                         SERIAL_COMM_MODULE_ID_TO_WELL_IDX[i + 1]
                         for i, status in enumerate(self._module_stim_statuses)

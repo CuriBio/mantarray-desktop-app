@@ -166,7 +166,9 @@ from .exceptions import FirstManagedReadLessThanOneRoundRobinError
 from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
 from .exceptions import ImproperlyFormattedUserAccountUUIDError
 from .exceptions import IncorrectMagnetometerConfigFromInstrumentError
+from .exceptions import IncorrectPulseFromInstrumentError
 from .exceptions import IncorrectStimStatusesFromInstrumentError
+from .exceptions import IncorrectStimTypeFromInstrumentError
 from .exceptions import InstrumentCommIncorrectHeaderError
 from .exceptions import InstrumentDataStreamingAlreadyStartedError
 from .exceptions import InstrumentDataStreamingAlreadyStoppedError
@@ -585,4 +587,6 @@ __all__ = [
     "ProtocolUpdateWhileStimulationIsRunningError",
     "StimStatusUpdateBeforeProtocolsSetError",
     "IncorrectStimStatusesFromInstrumentError",
+    "IncorrectStimTypeFromInstrumentError",
+    "IncorrectPulseFromInstrumentError",
 ]
