@@ -214,6 +214,10 @@ class StimStatusUpdateBeforeProtocolsSetError(Exception):
     pass
 
 
+class IncorrectStimStatusesFromInstrumentError(Exception):
+    pass
+
+
 class InstrumentRebootTimeoutError(Exception):
     pass
 

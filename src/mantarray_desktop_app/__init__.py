@@ -166,6 +166,7 @@ from .exceptions import FirstManagedReadLessThanOneRoundRobinError
 from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
 from .exceptions import ImproperlyFormattedUserAccountUUIDError
 from .exceptions import IncorrectMagnetometerConfigFromInstrumentError
+from .exceptions import IncorrectStimStatusesFromInstrumentError
 from .exceptions import InstrumentCommIncorrectHeaderError
 from .exceptions import InstrumentDataStreamingAlreadyStartedError
 from .exceptions import InstrumentDataStreamingAlreadyStoppedError
@@ -583,4 +584,5 @@ __all__ = [
     "convert_stim_status_list_to_bitmask",
     "ProtocolUpdateWhileStimulationIsRunningError",
     "StimStatusUpdateBeforeProtocolsSetError",
+    "IncorrectStimStatusesFromInstrumentError",
 ]

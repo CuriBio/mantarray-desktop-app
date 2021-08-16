@@ -76,6 +76,7 @@ from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from .constants import STM_VID
+from .exceptions import IncorrectStimStatusesFromInstrumentError
 from .exceptions import InstrumentDataStreamingAlreadyStartedError
 from .exceptions import InstrumentDataStreamingAlreadyStoppedError
 from .exceptions import InstrumentFatalError
@@ -104,6 +105,7 @@ from .instrument_comm import InstrumentCommProcess
 from .mc_simulator import MantarrayMcSimulator
 from .serial_comm_utils import convert_bytes_to_config_dict
 from .serial_comm_utils import convert_pulse_dict_to_bytes
+from .serial_comm_utils import convert_stim_status_bitmask_to_list
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
 from .serial_comm_utils import create_data_packet
@@ -748,10 +750,12 @@ class McCommunicationProcess(InstrumentCommProcess):
             elif prev_command["command"] == "set_protocol":
                 pass  # TODO remove the full protocol and add 'first_pulse' field
             elif prev_command["command"] == "set_stim_status":
-                if prev_command["status"]:
-                    # stim_status_list = convert_stim_status_bitmask_to_list(response_data[:4])
-                    # if converted stim_status_list != self._module_stim_statuses:
-                    #     raise Error
+                stim_status_list = convert_stim_status_bitmask_to_list(response_data[:4])
+                if stim_status_list != self._module_stim_statuses:
+                    raise IncorrectStimStatusesFromInstrumentError(
+                        f"Expected: {self._module_stim_statuses}, Actual: {stim_status_list}"
+                    )
+                if prev_command.get("status", True):
                     prev_command["wells_currently_stimulating"] = [
                         SERIAL_COMM_MODULE_ID_TO_WELL_IDX[i + 1]
                         for i, status in enumerate(self._module_stim_statuses)
