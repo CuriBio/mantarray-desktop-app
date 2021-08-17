@@ -151,12 +151,16 @@ def _get_secs_since_reboot_start(reboot_start_time: float) -> float:
     return perf_counter() - reboot_start_time
 
 
+def _get_secs_since_pulse_started(pulse_start_time: float) -> float:
+    return perf_counter() - pulse_start_time
+
+
 # pylint: disable=too-many-instance-attributes
 class McCommunicationProcess(InstrumentCommProcess):
     """Process that controls communication with the Mantarray Beta 2 Board(s).
 
     Args:
-        board_queues: A tuple (the max number of MC board connections should be predefined, so not a mutable list) of tuples of 3 queues. The first queue is for input/communication from the main thread to this sub process, second queue is for communication from this process back to the main thread. Third queue is for streaming communication (largely of raw data) to the process that controls writing to disk.
+        board_queues: A tuple (the max number of Mantarray board connections should be predefined, so not a mutable list) of tuples of 3 queues. The first queue is for input/communication from the main thread to this sub process, second queue is for communication from this process back to the main thread. Third queue is for streaming communication (largely of raw data) to the process that controls writing to disk.
         fatal_error_reporter: A queue that reports back any unhandled errors that have caused the process to stop.
         suppress_setup_communication_to_main: if set to true (often during unit tests), messages during the _setup_before_loop will not be put into the queue to communicate back to the main process
     """
@@ -194,7 +198,15 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._hardware_test_mode = hardware_test_mode
         # stimulation values
         self._stim_protocols: Dict[int, Dict[str, Any]] = dict()  # top level key is module ID
-        self._module_stim_statuses: List[int] = [False] * self._num_wells
+        self._module_stim_statuses: List[bool] = [  # list idx corresponds to module ID
+            False
+        ] * self._num_wells
+        self._curr_pulse_start_time_secs: List[Optional[float]] = [  # list idx corresponds to module ID
+            None
+        ] * self._num_wells
+        self._curr_pulse_indices: List[Optional[int]] = [  # list idx corresponds to module ID
+            None
+        ] * self._num_wells
 
     def _setup_before_loop(self) -> None:
         super()._setup_before_loop()
@@ -372,13 +384,14 @@ class McCommunicationProcess(InstrumentCommProcess):
         After reboot command is sent, no more commands should be sent until reboot completes.
         During instrument reboot, should only check for incoming data make sure no commands are awaiting a response.
 
-        1. Before doing anything, simulator errors must be checked for. If they go unchecked before performing comm with the simulator, and error may be raised in this process that masks the simulator's error which is actually the root of the problem.
+        1. Before doing anything, simulator errors must be checked for. If they go unchecked before performing comm with the simulator, an error may be raised in this process that masks the simulator's error which is actually the root of the problem.
         2. Process next communication from main. This process's next highest priority is to be responsive to the main process and should check for messages from main first. These messages will let this process know when to send commands to the instrument.
         3. Send handshake to instrument when necessary. Third highest priority is to let the instrument know that this process and the rest of the software are alive and responsive.
-        4. Process packets coming from the instrument. This is the highest priority task after sending data to it.
-        5. Make sure the beacon is not overdue, unless instrument is rebooting. If the beacon is overdue, it's reasonable to assume something caused the instrument to stop working. This task should happen after handling of sending/receiving data from the instrument and main process.
-        6. Make sure commands are not overdue. This task should happen after the instrument has been determined to be working properly.
-        7. If rebooting, make sure that the reboot has not taken longer than the max allowed reboot time.
+        4. If stimulation is running on any well, need to handle protocol scheduling
+        5. Process packets coming from the instrument. This is the highest priority task after sending data to it.
+        6. Make sure the beacon is not overdue, unless instrument is rebooting. If the beacon is overdue, it's reasonable to assume something caused the instrument to stop working. This task should happen after handling of sending/receiving data from the instrument and main process.
+        7. Make sure commands are not overdue. This task should happen after the instrument has been determined to be working properly.
+        8. If rebooting, make sure that the reboot has not taken longer than the max allowed reboot time.
         """
         if self._in_simulation_mode:
             if self._check_simulator_error():
@@ -387,6 +400,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         if not self._is_waiting_for_reboot:
             self._process_next_communication_from_main()
             self._handle_sending_handshake()
+        self._handle_stim_scheduling()
         if self._is_data_streaming:
             self._handle_data_stream()
         else:
@@ -478,15 +492,21 @@ class McCommunicationProcess(InstrumentCommProcess):
             elif comm_from_main["command"] == "set_stim_status":
                 if not self._stim_protocols:
                     raise StimStatusUpdateBeforeProtocolsSetError()
-                modules_to_update = sorted(list(self._stim_protocols.keys()))
+                # TODO figure out if sorting these solves the problem it's supposed to
+                modules_to_update: List[int] = sorted(list(self._stim_protocols.keys()))
                 if comm_from_main["status"]:
                     command_byte = SERIAL_COMM_START_STIMULATORS_COMMAND_BYTE
-                    self._module_stim_statuses = [
-                        module_id in modules_to_update for module_id in range(1, self._num_wells + 1)
-                    ]
+                    pulse_start_time = perf_counter()
+                    for module_id in modules_to_update:
+                        idx = module_id - 1
+                        self._module_stim_statuses[idx] = True
+                        self._curr_pulse_start_time_secs[idx] = pulse_start_time
+                        self._curr_pulse_indices[idx] = 0
                 else:
                     command_byte = SERIAL_COMM_STOP_STIMULATORS_COMMAND_BYTE
                     self._module_stim_statuses = [False] * self._num_wells
+                    self._curr_pulse_start_time_secs = [None] * self._num_wells
+                    self._curr_pulse_indices = [None] * self._num_wells
                 bytes_to_send = bytes([command_byte])
                 bytes_to_send += bytes(modules_to_update)
             # else:
@@ -716,6 +736,11 @@ class McCommunicationProcess(InstrumentCommProcess):
                     f"Module ID: {module_id}, Packet Type ID: {packet_type}, Packet Body: {str(packet_body)}"
                 )
             prev_command = self._commands_awaiting_response.popleft()
+
+            # Tanner (8/17/21): if a command does not have a communication type, that means it was sent by this process without instruction from main AND this command does not need to be logged by main
+            if "communication_type" not in prev_command:
+                return
+
             if prev_command["command"] == "handshake":
                 status_code = int.from_bytes(response_data, byteorder="little")
                 self._log_status_code(status_code, "Handshake Response")
@@ -750,8 +775,6 @@ class McCommunicationProcess(InstrumentCommProcess):
                     prev_command["hardware_test_message"] = "Data stream already stopped"  # pragma: no cover
                 self._is_stopping_data_stream = False
                 self._is_data_streaming = False
-            elif prev_command["command"] == "set_protocol":
-                pass  # TODO remove the full protocol
             elif prev_command["command"] == "set_stim_status":
                 stim_status_list = convert_stim_status_bitmask_to_list(response_data[:4])
                 if stim_status_list != self._module_stim_statuses:
@@ -850,6 +873,69 @@ class McCommunicationProcess(InstrumentCommProcess):
         if magic_word_test_bytes != SERIAL_COMM_MAGIC_WORD_BYTES:
             raise SerialCommPacketRegistrationReadEmptyError()
         self._is_registered_with_serial_comm[board_idx] = True
+
+    def _handle_stim_scheduling(self) -> None:
+        modules_to_update = []
+        for i, module_stim_status in enumerate(self._module_stim_statuses):
+            if not module_stim_status:
+                continue
+            module_id = i + 1
+            # make mypy happy
+            curr_pulse_start_time = self._curr_pulse_start_time_secs[i]
+            curr_pulse_idx = self._curr_pulse_indices[i]
+            if curr_pulse_start_time is None:
+                raise NotImplementedError(f"Module {module_id} must have a pulse start time if stimulating")
+            if curr_pulse_idx is None:
+                raise NotImplementedError(f"Module {module_id} must have a pulse index if stimulating")
+
+            elapsed_pulse_dur = _get_secs_since_pulse_started(curr_pulse_start_time)
+            total_pulse_dur = self._stim_protocols[module_id]["pulses"][curr_pulse_idx][
+                "total_active_duration"
+            ]
+            if elapsed_pulse_dur >= total_pulse_dur:
+                modules_to_update.append(module_id)
+                num_pulses = len(self._stim_protocols[module_id]["pulses"])
+                self._curr_pulse_indices[i] = (curr_pulse_idx + 1) % num_pulses
+
+        if not modules_to_update:
+            return
+
+        board_idx = 0
+        # stop stimulation for modules needing update
+        self._handle_sending_command(
+            board_idx,
+            bytes([SERIAL_COMM_STOP_STIMULATORS_COMMAND_BYTE]) + bytes(modules_to_update),
+            {"command": "stop_stim_for_pulse_update"},
+        )
+        # set new protocol modules needing update
+        for module_id in modules_to_update:
+            stim_type_int = int(self._stim_protocols[module_id]["stimulation_type"] == "V")
+            bytes_to_send = bytes(
+                [SERIAL_COMM_SET_BIPHASIC_PULSE_COMMAND_BYTE, module_id, stim_type_int]
+            ) + convert_pulse_dict_to_bytes(
+                self._stim_protocols[module_id]["pulses"][self._curr_pulse_indices[module_id - 1]]
+            )
+
+            module_comm_dict = {
+                "command": "update_biphasic_pulse",
+                "module_id": module_id,
+            }
+            self._handle_sending_command(board_idx, bytes_to_send, module_comm_dict)
+        # restart stimulation for updated modules
+        wells_updated = [SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id] for module_id in modules_to_update]
+        self._handle_sending_command(
+            board_idx,
+            bytes([SERIAL_COMM_START_STIMULATORS_COMMAND_BYTE]) + bytes(modules_to_update),
+            {
+                "communication_type": "stimulation",
+                "command": "restart_stim_for_pulse_update",
+                "wells_updated": wells_updated,
+            },
+        )
+        new_pulse_start_time = perf_counter()
+        for module_id in modules_to_update:
+            idx = module_id - 1
+            self._curr_pulse_start_time_secs[idx] = new_pulse_start_time
 
     def _handle_data_stream(self) -> None:
         # TODO Tanner (8/4/21): add general performance + data parsing metric creation and logging, ideally before stim testing
