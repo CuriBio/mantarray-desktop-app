@@ -686,7 +686,7 @@ def test_McCommunicationProcess__handles_switching_between_pulses_according_prot
 
 
 @pytest.mark.slow
-def test_McCommunicationProcess__handles_end_of_protocol_correctly__with_an_infinite_protocol_also_present(
+def test_McCommunicationProcess__handles_end_of_protocol_correctly_and_does_not_end_infinite_protocol(
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
     mocker,
@@ -778,4 +778,90 @@ def test_McCommunicationProcess__handles_end_of_protocol_correctly__with_an_infi
         "communication_type": "stimulation",
         "command": "concluding_stim_protocol",
         "wells_concluded": wells_to_update,
+        "all_protocols_complete": False,
+    }
+
+
+@pytest.mark.slow
+def test_McCommunicationProcess__sends_message_to_main_after_ending_final_protocol(
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+    mocker,
+):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    from_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][0]
+    to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+
+    # mock so pulses are not updated
+    mocker.patch.object(mc_comm, "_get_secs_since_pulse_started", autospec=True, return_value=0)
+    # mock here with 0 so protocols are not ended yet
+    mocked_get_stim_secs = mocker.patch.object(
+        mc_comm, "_get_secs_since_stim_started", autospec=True, return_value=0
+    )
+
+    test_wells = [7, 11]
+    test_num_wells = len(test_wells)
+
+    # set up different duration for first pulse in each protocol
+    test_pulse_dict = copy.deepcopy(GENERIC_PULSE_INFO_1)
+    test_pulse_dict["total_active_duration"] = STIM_MAX_PULSE_DURATION_MICROSECONDS
+
+    # set protocols and first pulse
+    set_protocol_command = {
+        "communication_type": "stimulation",
+        "command": "set_protocol",
+        "protocols": [
+            {
+                "stimulation_type": "V",
+                "well_number": GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx),
+                "total_protocol_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS * 10,
+                "pulses": [test_pulse_dict],
+            }
+            for well_idx in test_wells
+        ],
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocol_command, from_main_queue)
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator, num_iterations=test_num_wells)
+    invoke_process_run_and_check_errors(mc_process, num_iterations=test_num_wells)
+    # start stimulation
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {
+            "communication_type": "stimulation",
+            "command": "set_stim_status",
+            "status": True,
+        },
+        from_main_queue,
+    )
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
+    invoke_process_run_and_check_errors(mc_process)
+
+    # remove messages to main to make testing log message easier
+    drain_queue(to_main_queue)
+
+    # update return value to simulate the duration of protocols being reached
+    mocked_get_stim_secs.return_value = STIM_MAX_PULSE_DURATION_MICROSECONDS * 10
+    # run mc_process to stop stimulation
+    invoke_process_run_and_check_errors(mc_process)
+    # update return value so no more protocols are concluded
+    mocked_get_stim_secs.return_value = 0
+    # process command + command response
+    invoke_process_run_and_check_errors(simulator)
+    invoke_process_run_and_check_errors(mc_process)
+
+    # check that stim statuses are correct
+    assert simulator.get_stimulation_statuses() == [False] * 24
+    # check that correct log message was send to main after protocols ended
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+    log_msg_to_main = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert log_msg_to_main == {
+        "communication_type": "stimulation",
+        "command": "concluding_stim_protocol",
+        "wells_concluded": test_wells,
+        "all_protocols_complete": True,
     }

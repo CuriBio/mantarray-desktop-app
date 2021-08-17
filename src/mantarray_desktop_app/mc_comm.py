@@ -924,6 +924,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 "wells_concluded": sorted(
                     [SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id] for module_id in modules_to_stop]
                 ),
+                "all_protocols_complete": not any(self._module_stim_statuses),
             }
             self._handle_sending_command(
                 board_idx,

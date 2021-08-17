@@ -1140,3 +1140,26 @@ def test_MantarrayProcessesMonitor__updates_magnetometer_config_after_receiving_
     assert comm_to_da == expected_comm_to_da
     # make sure update was not sent back to mc_comm
     confirm_queue_is_eventually_empty(main_to_ic)
+
+
+def test_MantarrayProcessesMonitor__updates_stimulation_running_status_after_mc_comm_sends_message_indicating_all_protocols_have_concluded(
+    test_process_manager,
+    test_monitor,
+):
+    monitor_thread, shared_values_dict, _, _ = test_monitor
+    shared_values_dict["stimulation_running"] = True
+
+    instrument_comm_to_main = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
+    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {
+            "communication_type": "stimulation",
+            "command": "concluding_stim_protocol",
+            "all_protocols_complete": True,
+        },
+        instrument_comm_to_main,
+    )
+
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert shared_values_dict["stimulation_running"] is False
