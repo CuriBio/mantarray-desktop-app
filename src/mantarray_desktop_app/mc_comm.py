@@ -155,6 +155,10 @@ def _get_secs_since_pulse_started(pulse_start_time: float) -> float:
     return perf_counter() - pulse_start_time
 
 
+def _get_secs_since_stim_started(stim_start_time: float) -> float:
+    return perf_counter() - stim_start_time
+
+
 # pylint: disable=too-many-instance-attributes
 class McCommunicationProcess(InstrumentCommProcess):
     """Process that controls communication with the Mantarray Beta 2 Board(s).
@@ -197,16 +201,12 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._data_packet_cache = bytes(0)
         self._hardware_test_mode = hardware_test_mode
         # stimulation values
+        self._stim_start_time_secs: Optional[float] = None
         self._stim_protocols: Dict[int, Dict[str, Any]] = dict()  # top level key is module ID
-        self._module_stim_statuses: List[bool] = [  # list idx corresponds to module ID
-            False
-        ] * self._num_wells
-        self._curr_pulse_start_time_secs: List[Optional[float]] = [  # list idx corresponds to module ID
-            None
-        ] * self._num_wells
-        self._curr_pulse_indices: List[Optional[int]] = [  # list idx corresponds to module ID
-            None
-        ] * self._num_wells
+        # list idx corresponds to module ID for the following attributes
+        self._module_stim_statuses: List[bool] = [False] * self._num_wells
+        self._curr_pulse_start_time_secs: List[Optional[float]] = [None] * self._num_wells
+        self._curr_pulse_indices: List[Optional[int]] = [None] * self._num_wells
 
     def _setup_before_loop(self) -> None:
         super()._setup_before_loop()
@@ -496,14 +496,15 @@ class McCommunicationProcess(InstrumentCommProcess):
                 modules_to_update: List[int] = sorted(list(self._stim_protocols.keys()))
                 if comm_from_main["status"]:
                     command_byte = SERIAL_COMM_START_STIMULATORS_COMMAND_BYTE
-                    pulse_start_time = perf_counter()
+                    self._stim_start_time_secs = perf_counter()
                     for module_id in modules_to_update:
                         idx = module_id - 1
                         self._module_stim_statuses[idx] = True
-                        self._curr_pulse_start_time_secs[idx] = pulse_start_time
+                        self._curr_pulse_start_time_secs[idx] = self._stim_start_time_secs
                         self._curr_pulse_indices[idx] = 0
                 else:
                     command_byte = SERIAL_COMM_STOP_STIMULATORS_COMMAND_BYTE
+                    self._stim_start_time_secs = None
                     self._module_stim_statuses = [False] * self._num_wells
                     self._curr_pulse_start_time_secs = [None] * self._num_wells
                     self._curr_pulse_indices = [None] * self._num_wells
@@ -737,7 +738,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 )
             prev_command = self._commands_awaiting_response.popleft()
 
-            # Tanner (8/17/21): if a command does not have a communication type, that means it was sent by this process without instruction from main AND this command does not need to be logged by main
+            # Tanner (8/17/21): if a command does not have a communication type, that means it was sent by this process without instruction from main AND the command response does not need to be logged by main
             if "communication_type" not in prev_command:
                 return
 
@@ -875,14 +876,31 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._is_registered_with_serial_comm[board_idx] = True
 
     def _handle_stim_scheduling(self) -> None:
-        modules_to_update = []
+        # return if stimulation is not running
+        if self._stim_start_time_secs is None:
+            return
+        elapsed_stim_dur = _get_secs_since_stim_started(self._stim_start_time_secs)
+
+        modules_to_update = set()
+        modules_to_stop = set()
         for i, module_stim_status in enumerate(self._module_stim_statuses):
             if not module_stim_status:
                 continue
             module_id = i + 1
-            # make mypy happy
+
+            if (
+                self._stim_protocols[module_id]["total_protocol_duration"] != -1
+                and elapsed_stim_dur >= self._stim_protocols[module_id]["total_protocol_duration"]
+            ):
+                modules_to_stop.add(module_id)
+                self._module_stim_statuses[i] = False
+                self._curr_pulse_indices[i] = None
+                self._curr_pulse_start_time_secs[i] = None
+                continue
+
             curr_pulse_start_time = self._curr_pulse_start_time_secs[i]
             curr_pulse_idx = self._curr_pulse_indices[i]
+            # make mypy happy
             if curr_pulse_start_time is None:
                 raise NotImplementedError(f"Module {module_id} must have a pulse start time if stimulating")
             if curr_pulse_idx is None:
@@ -893,21 +911,34 @@ class McCommunicationProcess(InstrumentCommProcess):
                 "total_active_duration"
             ]
             if elapsed_pulse_dur >= total_pulse_dur:
-                modules_to_update.append(module_id)
+                modules_to_update.add(module_id)
                 num_pulses = len(self._stim_protocols[module_id]["pulses"])
                 self._curr_pulse_indices[i] = (curr_pulse_idx + 1) % num_pulses
 
+        board_idx = 0
+        # stop stimulation for modules whose protocols have completed
+        if modules_to_stop:
+            stop_dict = {
+                "communication_type": "stimulation",
+                "command": "concluding_stim_protocol",
+                "wells_concluded": sorted(
+                    [SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id] for module_id in modules_to_stop]
+                ),
+            }
+            self._handle_sending_command(
+                board_idx,
+                bytes([SERIAL_COMM_STOP_STIMULATORS_COMMAND_BYTE]) + bytes(modules_to_stop),
+                stop_dict,
+            )
         if not modules_to_update:
             return
-
-        board_idx = 0
-        # stop stimulation for modules needing update
+        # stop stimulation for modules needing pulse update
         self._handle_sending_command(
             board_idx,
             bytes([SERIAL_COMM_STOP_STIMULATORS_COMMAND_BYTE]) + bytes(modules_to_update),
             {"command": "stop_stim_for_pulse_update"},
         )
-        # set new protocol modules needing update
+        # set new pulse for modules needing update
         for module_id in modules_to_update:
             stim_type_int = int(self._stim_protocols[module_id]["stimulation_type"] == "V")
             bytes_to_send = bytes(
