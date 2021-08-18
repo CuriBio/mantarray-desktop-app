@@ -55,6 +55,13 @@ __fixtures__ = [
             },
             "raises error with invalid to_instrument command",
         ),
+        (
+            {
+                "communication_type": "stimulation",
+                "command": "bad_command",
+            },
+            "raises error with invalid stimulation command",
+        ),
     ],
 )
 def test_McCommunicationProcess__raises_error_when_receiving_invalid_command_from_main(

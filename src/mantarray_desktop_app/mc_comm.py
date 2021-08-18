@@ -516,10 +516,10 @@ class McCommunicationProcess(InstrumentCommProcess):
                     self._curr_pulse_indices = [None] * self._num_wells
                 bytes_to_send = bytes([command_byte])
                 bytes_to_send += bytes(modules_to_update)
-            # else:
-            #     raise UnrecognizedCommandFromMainToMcCommError(
-            #         f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
-            #     )
+            else:
+                raise UnrecognizedCommandFromMainToMcCommError(
+                    f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
+                )
         elif communication_type == "metadata_comm":
             bytes_to_send = bytes([SERIAL_COMM_GET_METADATA_COMMAND_BYTE])
         else:
