@@ -86,7 +86,6 @@ from .exceptions import UnrecognizedSimulatorTestCommandError
 from .serial_comm_utils import convert_bytes_to_config_dict
 from .serial_comm_utils import convert_bytes_to_pulse_dict
 from .serial_comm_utils import convert_pulse_dict_to_bytes
-from .serial_comm_utils import convert_stim_status_list_to_bitmask
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_status_code_bytes
 from .serial_comm_utils import create_data_packet
@@ -488,7 +487,6 @@ class MantarrayMcSimulator(InfiniteProcess):
                 start_idx = SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 1
                 module_ids_to_enable = comm_from_pc[start_idx:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
                 self._update_stim_statuses(module_ids_to_enable, True)
-                response_body += convert_stim_status_list_to_bitmask(self._is_stimulating)
                 for module_id in range(1, self._num_wells + 1):
                     if not self._is_stimulating[module_id - 1]:
                         continue
@@ -499,7 +497,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                 start_idx = SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 1
                 module_ids_to_disable = comm_from_pc[start_idx:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
                 self._update_stim_statuses(module_ids_to_disable, False)
-                response_body += convert_stim_status_list_to_bitmask(self._is_stimulating)
+                response_body += bytes([i + 1 for i, status in enumerate(self._is_stimulating) if status])
             else:
                 # TODO Tanner (3/4/21): Determine what to do if command_byte, module_id, or packet_type are incorrect. It may make more sense to respond with a message rather than raising an error
                 raise NotImplementedError(command_byte)

@@ -44,6 +44,9 @@ def set_connection_and_register_simulator(
     invoke_process_run_and_check_errors(mc_process, num_iterations=num_iterations)
     # remove status code log message(s)
     drain_queue(output_queue)
+    # some tests intentionally want to avoid tracking beacons, so remove beacon tracking data
+    if isinstance(simulator, MantarrayMcSimulatorNoBeacons):
+        mc_process._time_of_last_beacon_secs = None  # pylint: disable=protected-access
 
 
 def sleep_side_effect(*args):

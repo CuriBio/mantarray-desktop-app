@@ -109,7 +109,6 @@ from .mc_simulator import MantarrayMcSimulator
 from .serial_comm_utils import convert_bytes_to_config_dict
 from .serial_comm_utils import convert_bytes_to_pulse_dict
 from .serial_comm_utils import convert_pulse_dict_to_bytes
-from .serial_comm_utils import convert_stim_status_bitmask_to_list
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
 from .serial_comm_utils import create_data_packet
@@ -784,16 +783,23 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._is_stopping_data_stream = False
                 self._is_data_streaming = False
             elif prev_command["command"] == "set_stim_status":
-                stim_status_list = convert_stim_status_bitmask_to_list(response_data[:4])
+                if prev_command["status"]:
+                    num_bytes_per_module = (  # uint8 module ID, uint8 stimulation type, 4x uint32 duration & int16 amplitude
+                        1 + 1 + 4 * (4 + 2)
+                    )
+                    enabled_module_ids = response_data[::num_bytes_per_module]
+                else:
+                    enabled_module_ids = response_data
+                stim_status_list = [
+                    module_id in enabled_module_ids for module_id in range(1, self._num_wells + 1)
+                ]
                 if stim_status_list != self._module_stim_statuses:
                     raise IncorrectStimStatusesFromInstrumentError(
                         f"Expected Module Statuses: {self._module_stim_statuses}, Actual: {stim_status_list}"
                     )
-                if prev_command.get("status", True):
-                    num_bytes_per_module = 2 + 6 * 4  # module ID and stim type  # time/amplitude pairs
-                    info_bytes = response_data[4:]
-                    for module_info_idx in range(0, len(info_bytes), num_bytes_per_module):
-                        module_bytes = info_bytes[module_info_idx : module_info_idx + num_bytes_per_module]
+                if prev_command["status"]:
+                    for module_info_idx in range(0, len(response_data), num_bytes_per_module):
+                        module_bytes = response_data[module_info_idx : module_info_idx + num_bytes_per_module]
                         module_id = module_bytes[0]
                         module_protocol = self._stim_protocols[module_id]
                         # validate stimulation type

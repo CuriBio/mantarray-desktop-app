@@ -218,6 +218,7 @@ def convert_bytes_to_pulse_dict(pulse_bytes: bytes) -> Dict[str, int]:
     }
 
 
+# Tanner (8/17/21): The following two functions are currently unused, but leaving them for now in case they are used in the future
 def convert_stim_status_bitmask_to_list(bitmask: bytes) -> List[bool]:
     bitmask_as_int = int.from_bytes(bitmask, byteorder="little")
     stim_status_list = [bool(bitmask_as_int & (1 << module_status_bit)) for module_status_bit in range(24)]

@@ -4,7 +4,6 @@ from random import choice
 from random import randint
 
 from mantarray_desktop_app import convert_pulse_dict_to_bytes
-from mantarray_desktop_app import convert_stim_status_list_to_bitmask
 from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import convert_to_status_code_bytes
 from mantarray_desktop_app import convert_to_timestamp_bytes
@@ -966,9 +965,7 @@ def test_MantarrayMcSimulator__processes_start_stimulators_command(mantarray_mc_
     simulator.write(test_start_stimulators_command)
     invoke_process_run_and_check_errors(simulator)
     # assert response is correct
-    additional_response_bytes = convert_to_timestamp_bytes(
-        expected_pc_timestamp
-    ) + convert_stim_status_list_to_bitmask(expected_stim_status_list)
+    additional_response_bytes = convert_to_timestamp_bytes(expected_pc_timestamp)
     for i, module_stim_status in enumerate(expected_stim_status_list):
         if not module_stim_status:
             continue
@@ -1016,9 +1013,9 @@ def test_MantarrayMcSimulator__processes_stop_stimulators_command(mantarray_mc_s
     simulator.write(test_stop_stimulators_command)
     invoke_process_run_and_check_errors(simulator)
     # assert response is correct
-    additional_response_bytes = convert_to_timestamp_bytes(
-        expected_pc_timestamp
-    ) + convert_stim_status_list_to_bitmask(expected_stim_status_list)
+    additional_response_bytes = convert_to_timestamp_bytes(expected_pc_timestamp) + bytes(
+        [i + 1 for i, status in enumerate(expected_stim_status_list) if status]
+    )
 
     command_response_size = get_full_packet_size_from_packet_body_size(len(additional_response_bytes))
     command_response = simulator.read(size=command_response_size)

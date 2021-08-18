@@ -3,7 +3,6 @@ import copy
 
 from mantarray_desktop_app import BadStimStatusUpdateError
 from mantarray_desktop_app import convert_pulse_dict_to_bytes
-from mantarray_desktop_app import convert_stim_status_list_to_bitmask
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import IncorrectPulseFromInstrumentError
 from mantarray_desktop_app import IncorrectStimStatusesFromInstrumentError
@@ -387,10 +386,11 @@ def test_McCommunicationProcess__raises_error_if_instrument_responds_with_differ
         invoke_process_run_and_check_errors(mc_process)
 
     # add a data packet to simulator with invalid bitmask to create bad response
-    bad_stim_statuses = [
-        module_id == 20 for module_id in range(1, 25)
-    ]  # arbitrary status list, just needs to be incorrect
-    data_to_send = bytes(8) + convert_stim_status_list_to_bitmask(bad_stim_statuses)
+    bad_running_module_id = 20  # can be any module ID that isn't shouldn't running
+    data_to_send = bytes(8) + bytes([bad_running_module_id])
+    if test_status:
+        # add dummy pulse info for module is setting stim status to True
+        data_to_send += bytes(4 * (2 + 4))
     bad_response = create_data_packet(
         0,  # dummy timestamp
         SERIAL_COMM_MAIN_MODULE_ID,
@@ -416,6 +416,7 @@ def test_McCommunicationProcess__raises_error_if_instrument_responds_with_differ
         invoke_process_run_and_check_errors(mc_process)
     # make sure correct message is included in error
     expected_statuses = [test_status if i == test_module_id else False for i in range(1, 25)]
+    bad_stim_statuses = [module_id == bad_running_module_id for module_id in range(1, 25)]
     expected_msg = f"Expected Module Statuses: {expected_statuses}, Actual: {bad_stim_statuses}"
     assert expected_msg in str(exc_info.value)
 
@@ -529,13 +530,9 @@ def test_McCommunicationProcess__raises_error_if_instrument_responds_to_start_st
     invoke_process_run_and_check_errors(simulator, num_iterations=2)
     invoke_process_run_and_check_errors(mc_process, num_iterations=2)
 
-    # add a data packet to simulator with invalid pulse
-    stim_statuses = [
-        SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id] in (0, 1) for module_id in range(1, 25)
-    ]  # arbitrary status list, just needs to be incorrect
+    # add a data packet to simulator with invalid stim type
     data_to_send = (
         bytes(8)  # dummy timestamp bytes
-        + convert_stim_status_list_to_bitmask(stim_statuses)
         + bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[0], 1])  # module ID, correct stim type
         + convert_pulse_dict_to_bytes(test_pulse)
         + bytes([test_module_id, 0])  # module ID, incorrect stim type
@@ -610,12 +607,8 @@ def test_McCommunicationProcess__raises_error_if_instrument_responds_to_start_st
 
     bad_pulse = copy.deepcopy(GENERIC_PULSE_INFO_2)
     # add a data packet to simulator with invalid pulse
-    stim_statuses = [
-        SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id] in (0, 1) for module_id in range(1, 25)
-    ]  # arbitrary status list, just needs to be incorrect
     data_to_send = (
         bytes(8)  # dummy timestamp bytes
-        + convert_stim_status_list_to_bitmask(stim_statuses)
         + bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[0], 0])  # module ID, stim type
         + convert_pulse_dict_to_bytes(test_pulse)
         + bytes([test_module_id, 0])  # module ID, stim type
