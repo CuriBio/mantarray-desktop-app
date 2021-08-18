@@ -353,10 +353,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._values_to_share_to_server["system_status"] = CALIBRATED_STATE
                 self._data_dump_buffer_size = 0
         elif communication_type == "stimulation":
-            if command == "concluding_stim_protocol":
-                self._values_to_share_to_server["stimulation_running"] = not communication[
-                    "all_protocols_complete"
-                ]
+            # Tanner (8/18/21): Currently the only command that is returned here is 'concluding_stim_protocol'
+            self._values_to_share_to_server["stimulation_running"] = not communication[
+                "all_protocols_complete"
+            ]
         elif communication_type == "board_connection_status_change":
             board_idx = communication["board_index"]
             self._values_to_share_to_server["in_simulation_mode"] = not communication["is_connected"]

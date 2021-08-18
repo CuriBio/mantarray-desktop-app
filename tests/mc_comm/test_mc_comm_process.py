@@ -418,6 +418,8 @@ def test_McCommunicationProcess__logs_status_codes_from_handshake_responses(
     output_queue = four_board_mc_comm_process["board_queues"][0][1]
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+
+    # handshake will be sent from a mc_process iteration inside this function
     set_connection_and_register_simulator(four_board_mc_comm_process, mantarray_mc_simulator_no_beacon)
 
     expected_status_code = 1234

@@ -1201,7 +1201,6 @@ def test_set_protocol__populates_queue_to_process_monitor_with_new_protocol(
                 ],
             }
         ]
-        * 24
     }
     response = test_client.post("/set_protocol", json=json.dumps(test_protocol_dict))
     assert response.status_code == 200

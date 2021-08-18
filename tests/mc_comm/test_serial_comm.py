@@ -494,10 +494,19 @@ def test_McCommunicationProcess__raises_error_if_status_beacon_not_received_in_a
     patch_print,
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
+
+    # send beacon from simulator so mc_comm starts beacon tracking
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "send_single_beacon"}, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator)
+    invoke_process_run_and_check_errors(mc_process)
 
     # patch so next iteration of mc_process will hit beacon timeout
     mocker.patch.object(

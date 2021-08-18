@@ -744,13 +744,13 @@ class McCommunicationProcess(InstrumentCommProcess):
                 )
             prev_command = self._commands_awaiting_response.popleft()
 
-            # Tanner (8/17/21): if a command does not have a communication type, that means it was sent by this process without instruction from main AND the command response does not need to be logged by main
-            if "communication_type" not in prev_command:
-                return
-
             if prev_command["command"] == "handshake":
                 status_code = int.from_bytes(response_data, byteorder="little")
                 self._log_status_code(status_code, "Handshake Response")
+                return
+
+            # Tanner (8/17/21): if a command does not have a communication type, that means it was sent by this process without instruction from main AND the command response does not need to be logged by main
+            if "communication_type" not in prev_command:
                 return
             if prev_command["command"] == "get_metadata":
                 prev_command["board_index"] = board_idx
