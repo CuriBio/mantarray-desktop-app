@@ -7,8 +7,8 @@ from mantarray_desktop_app import convert_bitmask_to_config_dict
 from mantarray_desktop_app import create_active_channel_per_sensor_list
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import create_magnetometer_config_dict
+from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
 from mantarray_desktop_app import handle_data_packets
-from mantarray_desktop_app import INITIAL_MAGNETOMETER_CONFIG
 from mantarray_desktop_app import InstrumentDataStreamingAlreadyStartedError
 from mantarray_desktop_app import InstrumentDataStreamingAlreadyStoppedError
 from mantarray_desktop_app import MagnetometerConfigUpdateWhileDataStreamingError
@@ -1209,7 +1209,7 @@ def test_McCommunicationProcess__does_not_attempt_to_parse_when_stopping_data_st
     set_magnetometer_config_and_start_streaming(
         four_board_mc_comm_process_no_handshake,
         simulator,
-        INITIAL_MAGNETOMETER_CONFIG,
+        DEFAULT_MAGNETOMETER_CONFIG,
         test_sampling_period_us,
     )
 

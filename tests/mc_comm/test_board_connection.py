@@ -4,8 +4,8 @@ import copy
 from freezegun import freeze_time
 from mantarray_desktop_app import convert_to_timestamp_bytes
 from mantarray_desktop_app import create_data_packet
-from mantarray_desktop_app import INITIAL_MAGNETOMETER_CONFIG
-from mantarray_desktop_app import INITIAL_SAMPLING_PERIOD
+from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
+from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import InstrumentRebootTimeoutError
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import MAX_MC_REBOOT_DURATION_SECONDS
@@ -636,6 +636,6 @@ def test_McCommunicationProcess__sets_default_magnetometer_config_after_instrume
     comm_to_main = to_main_items[-1]
     assert comm_to_main["communication_type"] == "default_magnetometer_config"
     assert comm_to_main["magnetometer_config_dict"] == {
-        "sampling_period": INITIAL_SAMPLING_PERIOD,
-        "magnetometer_config": INITIAL_MAGNETOMETER_CONFIG,
+        "sampling_period": DEFAULT_SAMPLING_PERIOD,
+        "magnetometer_config": DEFAULT_MAGNETOMETER_CONFIG,
     }

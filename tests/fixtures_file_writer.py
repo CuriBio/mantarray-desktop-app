@@ -20,12 +20,13 @@ from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import FileWriterProcess
-from mantarray_desktop_app import INITIAL_MAGNETOMETER_CONFIG
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import RunningFIFOSimulator
+from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
+from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
@@ -66,8 +67,11 @@ for well_idx in range(24):
         "construct": well_idx * 2,
         "ref": well_idx * 2 + 1,
     }
-GENERIC_WELL_MAGNETOMETER_CONFIGURATION = copy.deepcopy(INITIAL_MAGNETOMETER_CONFIG[1])
-GENERIC_WELL_MAGNETOMETER_CONFIGURATION[SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]] = True
+GENERIC_WELL_MAGNETOMETER_CONFIGURATION = {
+    channel_id: channel_id
+    in (SERIAL_COMM_DEFAULT_DATA_CHANNEL, SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"])
+    for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS)
+}
 GENERIC_NUM_CHANNELS_ENABLED = sum(GENERIC_WELL_MAGNETOMETER_CONFIGURATION.values())
 GENERIC_NUM_SENSORS_ENABLED = 2
 GENERIC_BOARD_MAGNETOMETER_CONFIGURATION: Dict[int, Dict[int, bool]] = dict()

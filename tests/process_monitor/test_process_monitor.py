@@ -16,9 +16,9 @@ from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import create_magnetometer_config_dict
+from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
+from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import IncorrectMagnetometerConfigFromInstrumentError
-from mantarray_desktop_app import INITIAL_MAGNETOMETER_CONFIG
-from mantarray_desktop_app import INITIAL_SAMPLING_PERIOD
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import MantarrayMcSimulator
@@ -1107,8 +1107,8 @@ def test_MantarrayProcessesMonitor__updates_magnetometer_config_after_receiving_
     monitor_thread, shared_values_dict, _, _ = test_monitor
 
     expected_magnetometer_config_dict = {
-        "magnetometer_config": copy.deepcopy(INITIAL_MAGNETOMETER_CONFIG),
-        "sampling_period": INITIAL_SAMPLING_PERIOD,
+        "magnetometer_config": copy.deepcopy(DEFAULT_MAGNETOMETER_CONFIG),
+        "sampling_period": DEFAULT_SAMPLING_PERIOD,
     }
 
     instrument_comm_to_main = (

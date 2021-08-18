@@ -24,8 +24,8 @@ import serial
 import serial.tools.list_ports as list_ports
 from stdlib_utils import put_log_message_into_queue
 
-from .constants import INITIAL_MAGNETOMETER_CONFIG
-from .constants import INITIAL_SAMPLING_PERIOD
+from .constants import DEFAULT_MAGNETOMETER_CONFIG
+from .constants import DEFAULT_SAMPLING_PERIOD
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BAUD_RATE
@@ -597,10 +597,10 @@ class McCommunicationProcess(InstrumentCommProcess):
             elif status_code == SERIAL_COMM_IDLE_READY_CODE:
                 # Tanner (8/5/21): not explicitly unit tested, but magnetometer config should be sent before automatic metadata collection
                 if self._auto_set_magnetometer_config:
-                    initial_config_copy = copy.deepcopy(INITIAL_MAGNETOMETER_CONFIG)
-                    self._set_magnetometer_config(initial_config_copy, INITIAL_SAMPLING_PERIOD)
+                    initial_config_copy = copy.deepcopy(DEFAULT_MAGNETOMETER_CONFIG)
+                    self._set_magnetometer_config(initial_config_copy, DEFAULT_SAMPLING_PERIOD)
                     bytes_to_send = bytes([SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE])
-                    bytes_to_send += INITIAL_SAMPLING_PERIOD.to_bytes(2, byteorder="little")
+                    bytes_to_send += DEFAULT_SAMPLING_PERIOD.to_bytes(2, byteorder="little")
                     bytes_to_send += create_magnetometer_config_bytes(initial_config_copy)
                     self._send_data_packet(
                         board_idx,
@@ -614,7 +614,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                             "command": "change_magnetometer_config",
                             "magnetometer_config_dict": {
                                 "magnetometer_config": initial_config_copy,
-                                "sampling_period": INITIAL_SAMPLING_PERIOD,
+                                "sampling_period": DEFAULT_SAMPLING_PERIOD,
                             },
                             "timepoint": perf_counter(),
                         }
