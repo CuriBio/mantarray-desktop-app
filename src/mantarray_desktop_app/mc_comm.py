@@ -76,6 +76,7 @@ from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from .constants import STM_VID
+from .exceptions import BadStimStatusUpdateError
 from .exceptions import IncorrectPulseFromInstrumentError
 from .exceptions import IncorrectStimStatusesFromInstrumentError
 from .exceptions import IncorrectStimTypeFromInstrumentError
@@ -492,9 +493,15 @@ class McCommunicationProcess(InstrumentCommProcess):
             elif comm_from_main["command"] == "set_stim_status":
                 if not self._stim_protocols:
                     raise StimStatusUpdateBeforeProtocolsSetError()
-                # TODO figure out if sorting these solves the problem it's supposed to
+
+                new_status = comm_from_main["status"]
+                if new_status is any(self._module_stim_statuses):
+                    stim_status_description = "already running" if new_status else "not running"
+                    raise BadStimStatusUpdateError(
+                        f"Stimulation Status update to {new_status} while stimulation is {stim_status_description}"
+                    )
                 modules_to_update: List[int] = sorted(list(self._stim_protocols.keys()))
-                if comm_from_main["status"]:
+                if new_status:
                     command_byte = SERIAL_COMM_START_STIMULATORS_COMMAND_BYTE
                     self._stim_start_time_secs = perf_counter()
                     for module_id in modules_to_update:

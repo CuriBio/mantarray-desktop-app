@@ -159,6 +159,7 @@ from .constants import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
 from .data_analyzer import DataAnalyzerProcess
 from .exceptions import AttemptToAddCyclesWhileSPIRunningError
 from .exceptions import AttemptToInitializeFIFOReadsError
+from .exceptions import BadStimStatusUpdateError
 from .exceptions import BarcodeNotClearedError
 from .exceptions import BarcodeScannerNotRespondingError
 from .exceptions import FirmwareFileNameDoesNotMatchWireOutVersionError
@@ -589,4 +590,5 @@ __all__ = [
     "IncorrectStimStatusesFromInstrumentError",
     "IncorrectStimTypeFromInstrumentError",
     "IncorrectPulseFromInstrumentError",
+    "BadStimStatusUpdateError",
 ]

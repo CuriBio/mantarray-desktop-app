@@ -214,6 +214,10 @@ class StimStatusUpdateBeforeProtocolsSetError(Exception):
     pass
 
 
+class BadStimStatusUpdateError(Exception):
+    pass
+
+
 class IncorrectStimStatusesFromInstrumentError(Exception):
     pass
 

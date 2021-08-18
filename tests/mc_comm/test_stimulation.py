@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import copy
 
+from mantarray_desktop_app import BadStimStatusUpdateError
 from mantarray_desktop_app import convert_pulse_dict_to_bytes
 from mantarray_desktop_app import convert_stim_status_list_to_bitmask
 from mantarray_desktop_app import create_data_packet
@@ -336,7 +337,6 @@ def test_McCommunicationProcess__raises_error_if_set_stim_status_command_receive
 def test_McCommunicationProcess__raises_error_if_instrument_responds_with_different_stim_statuses_than_expected(
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
-    mocker,
     test_status,
     test_decsription,
     patch_print,
@@ -418,6 +418,76 @@ def test_McCommunicationProcess__raises_error_if_instrument_responds_with_differ
     expected_statuses = [test_status if i == test_module_id else False for i in range(1, 25)]
     expected_msg = f"Expected Module Statuses: {expected_statuses}, Actual: {bad_stim_statuses}"
     assert expected_msg in str(exc_info.value)
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize(
+    "test_status,test_decsription",
+    [
+        (True, "Stimulation Status update to True while stimulation is already running"),
+        (False, "Stimulation Status update to False while stimulation is not running"),
+    ],
+)
+def test_McCommunicationProcess__raises_error_if_main_sends_sets_stim_status_command_with_current_status(
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+    test_status,
+    test_decsription,
+    patch_print,
+):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    from_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][0]
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+
+    # set protocol on a single well
+    test_stim_config = random_module_stim_config()
+    test_stim_config["pulse"]["total_active_duration"] = STIM_MAX_PULSE_DURATION_MICROSECONDS
+    set_protocol_command = {
+        "communication_type": "stimulation",
+        "command": "set_protocol",
+        "protocols": [
+            {
+                "stimulation_type": test_stim_config["stimulation_type"],
+                "well_number": GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(0),
+                "total_protocol_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS,
+                "pulses": [test_stim_config["pulse"]],
+            }
+        ],
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocol_command, from_main_queue)
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
+    invoke_process_run_and_check_errors(mc_process)
+
+    # if testing command with status set to True, need to start stimulation first
+    if test_status:
+        put_object_into_queue_and_raise_error_if_eventually_still_empty(
+            {
+                "communication_type": "stimulation",
+                "command": "set_stim_status",
+                "status": True,
+            },
+            from_main_queue,
+        )
+        invoke_process_run_and_check_errors(mc_process)
+        invoke_process_run_and_check_errors(simulator)
+        invoke_process_run_and_check_errors(mc_process)
+
+    # send command with same status
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {
+            "communication_type": "stimulation",
+            "command": "set_stim_status",
+            "status": test_status,
+        },
+        from_main_queue,
+    )
+    # make sure error is raised
+    with pytest.raises(BadStimStatusUpdateError, match=test_decsription):
+        invoke_process_run_and_check_errors(mc_process)
 
 
 @pytest.mark.slow
