@@ -35,6 +35,8 @@ from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import DATA_ANALYZER_BETA_1_BUFFER_SIZE
 from mantarray_desktop_app import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from mantarray_desktop_app import DATA_FRAME_PERIOD
+from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
+from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import DEFAULT_SERVER_PORT_NUMBER
 from mantarray_desktop_app import DEFAULT_USER_CONFIG
 from mantarray_desktop_app import FIFO_READ_PRODUCER_DATA_OFFSET
@@ -45,8 +47,6 @@ from mantarray_desktop_app import FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
 from mantarray_desktop_app import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
 from mantarray_desktop_app import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import FIRMWARE_VERSION_WIRE_OUT_ADDRESS
-from mantarray_desktop_app import INITIAL_MAGNETOMETER_CONFIG
-from mantarray_desktop_app import INITIAL_SAMPLING_PERIOD
 from mantarray_desktop_app import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
@@ -485,18 +485,18 @@ def test_serial_comm():
     )
 
     assert SERIAL_COMM_DEFAULT_DATA_CHANNEL == SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]
-    assert INITIAL_SAMPLING_PERIOD == 10000
+    assert DEFAULT_SAMPLING_PERIOD == 6000
     for module_id in range(1, 25):
-        assert INITIAL_MAGNETOMETER_CONFIG[module_id] == {
+        assert DEFAULT_MAGNETOMETER_CONFIG[module_id] == {
             SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: True,
-            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Y"]: False,
-            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Z"]: False,
-            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["X"]: False,
-            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["Y"]: False,
-            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["Z"]: False,
-            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["X"]: False,
-            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Y"]: False,
-            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: False,
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Y"]: True,
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Z"]: True,
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["X"]: True,
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["Y"]: True,
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["B"]["Z"]: True,
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["X"]: True,
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Y"]: True,
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: True,
         }
 
     assert STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS == int(100e3)
