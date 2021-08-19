@@ -247,19 +247,14 @@ def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_li
         assert response.status_code == 200
         assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
 
-        test_process_manager.soft_stop_processes()
+        # Tanner (8/18/21): Processes must be joined to avoid h5 errors with reading files, so hard-stopping before joining
+        test_process_manager.hard_stop_and_join_processes()
 
-        fw_process = test_process_manager.get_file_writer_process()
-        # Tanner (12/29/20): Closing all files to avoid issues when reading them
-        fw_process.close_all_files()
         actual_set_of_files = set(
             os.listdir(os.path.join(expected_recordings_dir, f"{expected_barcode}__{expected_timestamp}"))
         )
         # Tanner (12/29/20): Only assert that files for all 24 wells are present
         assert len(actual_set_of_files) == 24
-
-        # Tanner (12/29/20): Good to do this at the end of tests to make sure they don't cause problems with other integration tests
-        test_process_manager.hard_stop_and_join_processes()
 
 
 @pytest.mark.slow
@@ -416,11 +411,8 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         assert response.status_code == 200
         assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
 
-        # Tanner (12/30/20): stop processes in order to make assertions on recorded data
-        test_process_manager.soft_stop_processes()
-
-        fw_process = test_process_manager.get_file_writer_process()
-        fw_process.close_all_files()
+        # Tanner (6/15/20): Processes must be joined to avoid h5 errors with reading files, so hard-stopping before joining
+        test_process_manager.hard_stop_and_join_processes()
 
         actual_set_of_files = set(
             os.listdir(
@@ -431,9 +423,6 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
             )
         )
         assert len(actual_set_of_files) == 24
-
-        # Tanner (6/15/20): Processes must be joined to avoid h5 errors with reading files, so hard-stopping before joining
-        test_process_manager.hard_stop_and_join_processes()
 
         # test first recording for all data and metadata
         for row_idx in range(4):
@@ -885,11 +874,9 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
 
         # Tanner (6/19/21): disconnect here to avoid problems with attempting to disconnect after the server stops
         sio.disconnect()
-        # Tanner (12/30/20): Stop processes in order to make assertions on recorded data
-        test_process_manager.soft_stop_processes()
 
-        fw_process = test_process_manager.get_file_writer_process()
-        fw_process.close_all_files()
+        # Tanner (6/15/20): Processes must be joined to avoid h5 errors with reading files, so hard-stopping before joining
+        test_process_manager.hard_stop_and_join_processes()
 
         expected_timestamp_1 = "2021_05_24_212304"
         actual_set_of_files = set(
@@ -901,9 +888,6 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
             )
         )
         assert len(actual_set_of_files) == 24
-
-        # Tanner (6/15/20): Processes must be joined to avoid h5 errors with reading files, so hard-stopping before joining
-        test_process_manager.hard_stop_and_join_processes()
 
         # test first recording for all data and metadata
         num_recorded_data_points_1 = (

@@ -500,7 +500,30 @@ class FileWriterProcess(InfiniteProcess):
         self.get_stop_recording_timestamps()[0] = stop_recording_timepoint
         for this_well_idx in self._open_files[0].keys():
             this_file = self._open_files[0][this_well_idx]
-            if not self._beta_2_mode:
+            if self._beta_2_mode:
+                # find num points needed to remove
+                time_index_dataset = get_time_index_dataset_from_file(this_file)
+                try:
+                    num_indices_to_remove = next(
+                        i
+                        for i, time in enumerate(reversed(time_index_dataset))
+                        if time <= stop_recording_timepoint
+                    )
+                except StopIteration as e:
+                    raise InvalidStopRecordingTimepointError(
+                        f"The timepoint {stop_recording_timepoint} is earlier than all recorded timepoints"
+                    ) from e
+                # trim off data after stop recording timepoint
+                datasets = [
+                    time_index_dataset,
+                    get_time_offset_dataset_from_file(this_file),
+                    get_tissue_dataset_from_file(this_file),
+                ]
+                for dataset in datasets:
+                    dataset_shape = list(dataset.shape)
+                    dataset_shape[-1] -= num_indices_to_remove
+                    dataset.resize(dataset_shape)
+            else:
                 latest_timepoint = self.get_file_latest_timepoint(this_well_idx)
                 datasets = [
                     get_tissue_dataset_from_file(this_file),
@@ -515,30 +538,6 @@ class FileWriterProcess(InfiniteProcess):
                     index_to_slice_to = last_index_of_valid_data + 1
                     new_data = dataset[:index_to_slice_to]
                     dataset.resize(new_data.shape)
-                return
-
-            # find num points needed to remove
-            time_index_dataset = get_time_index_dataset_from_file(this_file)
-            try:
-                num_indices_to_remove = next(
-                    i
-                    for i, time in enumerate(reversed(time_index_dataset))
-                    if time <= stop_recording_timepoint
-                )
-            except StopIteration as e:
-                raise InvalidStopRecordingTimepointError(
-                    f"The timepoint {stop_recording_timepoint} is earlier than all recorded timepoints"
-                ) from e
-            # trim off data after stop recording timepoint
-            datasets = [
-                time_index_dataset,
-                get_time_offset_dataset_from_file(this_file),
-                get_tissue_dataset_from_file(this_file),
-            ]
-            for dataset in datasets:
-                dataset_shape = list(dataset.shape)
-                dataset_shape[-1] -= num_indices_to_remove
-                dataset.resize(dataset_shape)
             # TODO Tanner (5/19/21): consider finalizing any files here that are ready
 
     def _process_next_command_from_main(self) -> None:

@@ -969,10 +969,10 @@ def test_FileWriterProcess__deletes_recorded_beta_1_well_data_after_stop_time(
     comm_from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    expected_well_idx = 0
+    expected_well_indices = [0, 1, 23]
     start_recording_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
     start_recording_command["timepoint_to_begin_recording_at"] = 0
-    start_recording_command["active_well_indices"] = [expected_well_idx]
+    start_recording_command["active_well_indices"] = expected_well_indices
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         start_recording_command,
         comm_from_main_queue,
@@ -983,34 +983,35 @@ def test_FileWriterProcess__deletes_recorded_beta_1_well_data_after_stop_time(
 
     expected_stop_timepoint = 100
     expected_remaining_packets_recorded = 3
-    expected_dataset = []
-    for i in range(expected_remaining_packets_recorded):
-        expected_dataset.append(i)
-        data_packet = {
-            "is_reference_sensor": False,
-            "well_index": expected_well_idx,
-            "data": np.array([[i], [i]], dtype=np.int32),
-        }
-        instrument_board_queues[0][0].put_nowait(data_packet)
     dummy_packets = 2
-    for i in range(dummy_packets):
-        data_packet = {
-            "is_reference_sensor": False,
-            "well_index": expected_well_idx,
-            "data": np.array(
-                [[expected_stop_timepoint + ((i + 1) * ROUND_ROBIN_PERIOD)], [0]],
-                dtype=np.int32,
-            ),
-        }
-        instrument_board_queues[0][0].put_nowait(data_packet)
-    confirm_queue_is_eventually_of_size(
-        instrument_board_queues[0][0],
-        expected_remaining_packets_recorded + dummy_packets,
-    )
-    invoke_process_run_and_check_errors(
-        file_writer_process,
-        num_iterations=(expected_remaining_packets_recorded + dummy_packets),
-    )
+    expected_dataset = list(range(expected_remaining_packets_recorded))
+    for well_idx in expected_well_indices:
+        for i in range(expected_remaining_packets_recorded):
+            data_packet = {
+                "is_reference_sensor": False,
+                "well_index": well_idx,
+                "data": np.array([[i], [i]], dtype=np.int32),
+            }
+            instrument_board_queues[0][0].put_nowait(data_packet)
+        for i in range(dummy_packets):
+            data_packet = {
+                "is_reference_sensor": False,
+                "well_index": well_idx,
+                "data": np.array(
+                    [[expected_stop_timepoint + ((i + 1) * ROUND_ROBIN_PERIOD)], [0]],
+                    dtype=np.int32,
+                ),
+            }
+            instrument_board_queues[0][0].put_nowait(data_packet)
+        confirm_queue_is_eventually_of_size(
+            instrument_board_queues[0][0],
+            expected_remaining_packets_recorded + dummy_packets,
+        )
+        invoke_process_run_and_check_errors(
+            file_writer_process,
+            num_iterations=(expected_remaining_packets_recorded + dummy_packets)
+            * 2,  # Tanner (8/19/12): queues items are processed more reliably if running the process more iterations than needed
+        )
 
     stop_recording_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
     stop_recording_command["timepoint_to_stop_recording_at"] = expected_stop_timepoint
@@ -1028,18 +1029,19 @@ def test_FileWriterProcess__deletes_recorded_beta_1_well_data_after_stop_time(
     ]
     timestamp_str = "2020_02_09_190322"
 
-    this_file = h5py.File(
-        os.path.join(
-            file_dir,
-            f"{expected_barcode}__{timestamp_str}",
-            f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(expected_well_idx)}.h5",
-        ),
-        "r",
-    )
-    tissue_dataset = get_tissue_dataset_from_file(this_file)
-    assert tissue_dataset.shape == (expected_remaining_packets_recorded,)
-    assert tissue_dataset.dtype == "int32"
-    np.testing.assert_equal(tissue_dataset, np.array(expected_dataset))
+    for well_idx in expected_well_indices:
+        this_file = h5py.File(
+            os.path.join(
+                file_dir,
+                f"{expected_barcode}__{timestamp_str}",
+                f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
+            ),
+            "r",
+        )
+        tissue_dataset = get_tissue_dataset_from_file(this_file)
+        assert tissue_dataset.shape == (expected_remaining_packets_recorded,), well_idx
+        assert tissue_dataset.dtype == "int32", well_idx
+        np.testing.assert_equal(tissue_dataset, np.array(expected_dataset), err_msg=f"{well_idx}")
 
 
 def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
