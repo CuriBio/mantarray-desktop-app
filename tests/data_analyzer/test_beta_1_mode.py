@@ -33,13 +33,12 @@ from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_sti
 from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process
+from ..fixtures_data_analyzer import fixture_runnable_four_board_analyzer_process
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 
 
-__fixtures__ = [
-    fixture_four_board_analyzer_process,
-]
+__fixtures__ = [fixture_four_board_analyzer_process, fixture_runnable_four_board_analyzer_process]
 
 
 def fill_da_input_data_queue(input_queue, num_seconds):
@@ -75,8 +74,11 @@ def fill_da_input_data_queue(input_queue, num_seconds):
 # TODO Tanner (7/15/21): Should eventually add the following 3 tests for Beta 2 mode
 
 
+# TODO ***
 @pytest.mark.slow
-def test_DataAnalyzerProcess_beta_1_performance__fill_data_analysis_buffer(four_board_analyzer_process):
+def test_DataAnalyzerProcess_beta_1_performance__fill_data_analysis_buffer(
+    runnable_four_board_analyzer_process,
+):
     # 8 seconds of data (625 Hz) coming in from File Writer to going back to Main
     #
     # mantarray-waveform-analysis v0.3:     4.148136512
@@ -88,7 +90,7 @@ def test_DataAnalyzerProcess_beta_1_performance__fill_data_analysis_buffer(four_
     #
     # added twitch metric analysis:         3.013469479
 
-    p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = four_board_analyzer_process
+    p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
         comm_from_main_queue,
@@ -109,16 +111,17 @@ def test_DataAnalyzerProcess_beta_1_performance__fill_data_analysis_buffer(four_
     assert dur_seconds < 10
 
 
+# TODO ***
 @pytest.mark.slow
 def test_DataAnalyzerProcess_beta_1_performance__first_second_of_data_with_analysis(
-    four_board_analyzer_process,
+    runnable_four_board_analyzer_process,
 ):
     # Fill data analysis buffer with 7 seconds of data to start metric analysis,
     # Then record duration of sending 1 additional second of data
     #
     # start:                                 0.547285524
 
-    p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = four_board_analyzer_process
+    p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
         comm_from_main_queue,
@@ -143,14 +146,17 @@ def test_DataAnalyzerProcess_beta_1_performance__first_second_of_data_with_analy
     assert dur_seconds < 2
 
 
+# TODO ***
 @pytest.mark.slow
-def test_DataAnalyzerProcess_beta_1_performance__single_data_packet_per_well(four_board_analyzer_process):
+def test_DataAnalyzerProcess_beta_1_performance__single_data_packet_per_well(
+    runnable_four_board_analyzer_process,
+):
     # 1 second of data (625 Hz) coming in from File Writer to going back to Main
     #
     # start:                                 0.530731389
     # added twitch metric analysis:          0.578328276
 
-    p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = four_board_analyzer_process
+    p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
         comm_from_main_queue,

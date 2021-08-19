@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-
-
 from multiprocessing import Queue
 import os
 from shutil import copy
