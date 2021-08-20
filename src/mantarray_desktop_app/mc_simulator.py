@@ -168,7 +168,9 @@ class MantarrayMcSimulator(InfiniteProcess):
         fatal_error_reporter: Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
         testing_queue: Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
         logging_level: int = logging.INFO,
-        read_timeout_seconds: Union[int, float] = 0,
+        read_timeout_seconds: Union[
+            int, float
+        ] = 0,  # TODO make sure that there is a unit test confirming the McComm creates this object with a read timeout of 0
         num_wells: int = 24,
     ) -> None:
         # InfiniteProcess values

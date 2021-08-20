@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from multiprocessing import Queue
+from multiprocessing import Queue as MPQueue
 import os
 from shutil import copy
 import tempfile
@@ -11,7 +11,6 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
-from typing import Tuple
 
 from mantarray_desktop_app import clear_server_singletons
 from mantarray_desktop_app import clear_the_server_manager
@@ -39,24 +38,15 @@ QUEUE_CHECK_TIMEOUT_SECONDS = 1.3  # for is_queue_eventually_of_size, is_queue_e
 GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS = 20
 
 
-def generate_board_and_error_queues(num_boards: int = 4):
-    error_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Tuple[Exception, str]
-    ] = Queue()
+def generate_board_and_error_queues(num_boards: int = 4, queue_type=MPQueue):
+    error_queue = queue_type()
 
-    board_queues: Tuple[  # pylint-disable: duplicate-code
-        Tuple[
-            Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
-            Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
-            Queue[Any],  # pylint: disable=unsubscriptable-object
-        ],  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-        ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-    ] = tuple(
+    board_queues = tuple(
         (
             (
-                Queue(),
-                Queue(),
-                Queue(),
+                queue_type(),
+                queue_type(),
+                queue_type(),
             )
             for _ in range(num_boards)
         )
