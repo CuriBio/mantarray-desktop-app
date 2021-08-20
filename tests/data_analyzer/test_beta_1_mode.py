@@ -74,7 +74,6 @@ def fill_da_input_data_queue(input_queue, num_seconds):
 # TODO Tanner (7/15/21): Should eventually add the following 3 tests for Beta 2 mode
 
 
-# TODO ***
 @pytest.mark.slow
 def test_DataAnalyzerProcess_beta_1_performance__fill_data_analysis_buffer(
     runnable_four_board_analyzer_process,
@@ -111,7 +110,6 @@ def test_DataAnalyzerProcess_beta_1_performance__fill_data_analysis_buffer(
     assert dur_seconds < 10
 
 
-# TODO ***
 @pytest.mark.slow
 def test_DataAnalyzerProcess_beta_1_performance__first_second_of_data_with_analysis(
     runnable_four_board_analyzer_process,
@@ -146,7 +144,6 @@ def test_DataAnalyzerProcess_beta_1_performance__first_second_of_data_with_analy
     assert dur_seconds < 2
 
 
-# TODO ***
 @pytest.mark.slow
 def test_DataAnalyzerProcess_beta_1_performance__single_data_packet_per_well(
     runnable_four_board_analyzer_process,
