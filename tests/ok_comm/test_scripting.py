@@ -186,6 +186,9 @@ def test_real_start_up_script__contains_gain_value_description_tag():
 def test_gain_value_is_parsed_and_saved_when_running_start_up_script(
     test_monitor, test_process_manager, mocker
 ):
+    # patch to speed up test
+    mocker.patch.object(ok_comm, "sleep", autospec=True)
+
     test_script = "test_start_up"
     simulator = RunningFIFOSimulator()
     simulator.initialize_board()
@@ -236,6 +239,9 @@ def test_real_calibration_script__contains_offset_value_description_tag():
 def test_offset_values_are_parsed_and_saved_when_running_start_calibration_script(
     test_monitor, test_process_manager, mocker
 ):
+    # patch to speed up test
+    mocker.patch.object(ok_comm, "sleep", autospec=True)
+
     test_script = "test_start_calibration"
 
     # pair construct and ref offset so that ref offset = construct offset + 1 for any given well index

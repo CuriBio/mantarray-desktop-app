@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 import copy
-from multiprocessing import Queue
 import struct
 
 from mantarray_desktop_app import execute_debug_console_command
 from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import UnrecognizedDebugConsoleCommandError
 import pytest
+from stdlib_utils import invoke_process_run_and_check_errors
+from stdlib_utils import TestingQueue
 from xem_wrapper import DATA_FRAME_SIZE_WORDS
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 from xem_wrapper import FrontPanelSimulator
@@ -14,11 +15,13 @@ from xem_wrapper import PIPE_OUT_FIFO
 
 from ..fixtures import fixture_patched_firmware_folder
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from ..fixtures_ok_comm import fixture_four_board_comm_process
 from ..fixtures_ok_comm import fixture_running_process_with_simulated_board
-from ..helpers import is_queue_eventually_not_empty
+from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 __fixtures__ = [
     fixture_running_process_with_simulated_board,
+    fixture_four_board_comm_process,
     fixture_patched_firmware_folder,
 ]
 
@@ -67,9 +70,11 @@ def test_execute_debug_console_command__initializes_board(patched_firmware_folde
     assert dummy_panel.is_board_initialized() is True
 
 
+@pytest.mark.slow
 def test_OkCommunicationProcess_run__processes_init_board_debug_console_command(
     running_process_with_simulated_board, patched_firmware_folder
 ):
+    # Tanner (8/20/21): leave running_process_with_simulated_board in this test so there is at least one test where a command from main is processed in a running instance of OkComm
     test_bit_file_name = patched_firmware_folder
     simulator = FrontPanelSimulator({})
     ok_process, board_queues, error_queue = running_process_with_simulated_board(simulator).values()
@@ -91,24 +96,26 @@ def test_OkCommunicationProcess_run__processes_init_board_debug_console_command(
 
 
 def test_OkCommunicationProcess_run__processes_init_board_debug_console_command_when_reinitializing(
-    running_process_with_simulated_board, patched_firmware_folder
+    four_board_comm_process, patched_firmware_folder
 ):
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
+    input_queue = board_queues[0][0]
+    response_queue = board_queues[0][1]
+
     test_bit_file_name = patched_firmware_folder
     simulator = FrontPanelSimulator({})
     simulator.initialize_board()
-    ok_process, board_queues, error_queue = running_process_with_simulated_board(simulator).values()
-    input_queue = board_queues[0][0]
-    response_queue = board_queues[0][1]
+    ok_process.set_board_connection(0, simulator)
+
     init_command = {
         "communication_type": "debug_console",
         "command": "initialize_board",
         "bit_file_name": test_bit_file_name,
         "allow_board_reinitialization": True,
     }
-    input_queue.put_nowait(copy.deepcopy(init_command))
-    ok_process.soft_stop()
-    ok_process.join()
-    assert error_queue.empty() is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(copy.deepcopy(init_command), input_queue)
+    invoke_process_run_and_check_errors(ok_process)
 
     init_response = response_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert init_response["command"] == "initialize_board"
@@ -125,24 +132,28 @@ def test_OkCommunicationProcess_run__processes_read_wire_out_debug_console_comma
     test_address,
     test_response,
     test_description,
-    running_process_with_simulated_board,
+    four_board_comm_process,
 ):
-    wire_queue = Queue()
-    wire_queue.put_nowait(test_response)
-    simulator = FrontPanelSimulator({"wire_outs": {test_address: wire_queue}})
-    simulator.initialize_board()
-    ok_process, board_queues, error_queue = running_process_with_simulated_board(simulator).values()
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     input_queue = board_queues[0][0]
     response_queue = board_queues[0][1]
+
+    wire_queue = TestingQueue()
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_response, wire_queue)
+    simulator = FrontPanelSimulator({"wire_outs": {test_address: wire_queue}})
+    simulator.initialize_board()
+    ok_process.set_board_connection(0, simulator)
+
     expected_returned_communication = {
         "communication_type": "debug_console",
         "command": "read_wire_out",
         "ep_addr": test_address,
     }
-    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
-    ok_process.soft_stop()
-    ok_process.join()
-    assert error_queue.empty() is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(expected_returned_communication), input_queue
+    )
+    invoke_process_run_and_check_errors(ok_process)
 
     expected_returned_communication["response"] = test_response
     expected_returned_communication["hex_converted_response"] = hex(test_response)
@@ -163,28 +174,31 @@ def test_OkCommunicationProcess_run__processes_read_from_fifo_debug_console_comm
     test_num_words_to_log,
     test_num_cycles_to_read,
     test_description,
-    running_process_with_simulated_board,
+    four_board_comm_process,
 ):
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
+    input_queue = board_queues[0][0]
+    response_queue = board_queues[0][1]
+
     test_bytearray = produce_data(test_num_cycles_to_read, 0)
-    fifo = Queue()
-    fifo.put_nowait(test_bytearray)
-    assert is_queue_eventually_not_empty(fifo) is True
+    fifo = TestingQueue()
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_bytearray, fifo)
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
     simulator = FrontPanelSimulator(queues)
     simulator.initialize_board()
+    ok_process.set_board_connection(0, simulator)
     simulator.start_acquisition()
-    ok_process, board_queues, error_queue = running_process_with_simulated_board(simulator).values()
-    input_queue = board_queues[0][0]
-    response_queue = board_queues[0][1]
+
     expected_returned_communication = {
         "communication_type": "debug_console",
         "command": "read_from_fifo",
         "num_words_to_log": test_num_words_to_log,
     }
-    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
-    ok_process.soft_stop()
-    ok_process.join()
-    assert error_queue.empty() is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(expected_returned_communication), input_queue
+    )
+    invoke_process_run_and_check_errors(ok_process)
 
     total_num_words = len(test_bytearray) // 4
     test_words = struct.unpack(f"<{total_num_words}L", test_bytearray)
@@ -198,23 +212,27 @@ def test_OkCommunicationProcess_run__processes_read_from_fifo_debug_console_comm
 
 
 def test_OkCommunicationProcess_run__processes_get_device_id_debug_console_command(
-    running_process_with_simulated_board,
+    four_board_comm_process,
 ):
-    simulator = FrontPanelSimulator({})
-    simulator.initialize_board()
-    expected_id = "Mantarray XEM"
-    simulator.set_device_id(expected_id)
-    ok_process, board_queues, error_queue = running_process_with_simulated_board(simulator).values()
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     input_queue = board_queues[0][0]
     response_queue = board_queues[0][1]
+
+    simulator = FrontPanelSimulator({})
+    simulator.initialize_board()
+    ok_process.set_board_connection(0, simulator)
+    expected_id = "Mantarray XEM"
+    simulator.set_device_id(expected_id)
+
     expected_returned_communication = {
         "communication_type": "debug_console",
         "command": "get_device_id",
     }
-    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
-    ok_process.soft_stop()
-    ok_process.join()
-    assert error_queue.empty() is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(expected_returned_communication), input_queue
+    )
+    invoke_process_run_and_check_errors(ok_process)
 
     expected_returned_communication["response"] = expected_id
     actual = response_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -222,21 +240,25 @@ def test_OkCommunicationProcess_run__processes_get_device_id_debug_console_comma
 
 
 def test_OkCommunicationProcess_run__processes_get_serial_number_debug_console_command(
-    running_process_with_simulated_board,
+    four_board_comm_process,
 ):
-    simulator = FrontPanelSimulator({})
-    simulator.initialize_board()
-    ok_process, board_queues, error_queue = running_process_with_simulated_board(simulator).values()
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     input_queue = board_queues[0][0]
     response_queue = board_queues[0][1]
+
+    simulator = FrontPanelSimulator({})
+    simulator.initialize_board()
+    ok_process.set_board_connection(0, simulator)
+
     expected_returned_communication = {
         "communication_type": "debug_console",
         "command": "get_serial_number",
     }
-    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
-    ok_process.soft_stop()
-    ok_process.join()
-    assert error_queue.empty() is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(expected_returned_communication), input_queue
+    )
+    invoke_process_run_and_check_errors(ok_process)
 
     expected_returned_communication["response"] = "1917000Q70"
     actual = response_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -244,22 +266,26 @@ def test_OkCommunicationProcess_run__processes_get_serial_number_debug_console_c
 
 
 def test_OkCommunicationProcess_run__processes_is_spi_running_debug_console_command_when_false(
-    running_process_with_simulated_board,
+    four_board_comm_process,
 ):
-    simulator = FrontPanelSimulator({})
-    simulator.initialize_board()
-    assert simulator.is_spi_running() is False
-    ok_process, board_queues, error_queue = running_process_with_simulated_board(simulator).values()
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     input_queue = board_queues[0][0]
     response_queue = board_queues[0][1]
+
+    simulator = FrontPanelSimulator({})
+    simulator.initialize_board()
+    ok_process.set_board_connection(0, simulator)
+    assert simulator.is_spi_running() is False
+
     expected_returned_communication = {
         "communication_type": "debug_console",
         "command": "is_spi_running",
     }
-    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
-    ok_process.soft_stop()
-    ok_process.join()
-    assert error_queue.empty() is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(expected_returned_communication), input_queue
+    )
+    invoke_process_run_and_check_errors(ok_process)
 
     expected_returned_communication["response"] = False
     actual = response_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -267,27 +293,34 @@ def test_OkCommunicationProcess_run__processes_is_spi_running_debug_console_comm
 
 
 def test_OkCommunicationProcess_run__processes_start_acquisition_debug_console_command(
-    running_process_with_simulated_board,
+    four_board_comm_process,
 ):
-    simulator = FrontPanelSimulator({})
-    simulator.initialize_board()
-    assert simulator.is_spi_running() is False
-    ok_process, board_queues, error_queue = running_process_with_simulated_board(simulator).values()
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     input_queue = board_queues[0][0]
     response_queue = board_queues[0][1]
+
+    simulator = FrontPanelSimulator({})
+    simulator.initialize_board()
+    ok_process.set_board_connection(0, simulator)
+    assert simulator.is_spi_running() is False
+
     expected_returned_communication = {
         "communication_type": "debug_console",
         "command": "start_acquisition",
     }
-    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(expected_returned_communication), input_queue
+    )
+    invoke_process_run_and_check_errors(ok_process)
     expected_spi_communication = {
         "communication_type": "debug_console",
         "command": "is_spi_running",
     }
-    input_queue.put_nowait(copy.deepcopy(expected_spi_communication))
-    ok_process.soft_stop()
-    ok_process.join()
-    assert error_queue.empty() is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(expected_spi_communication), input_queue
+    )
+    invoke_process_run_and_check_errors(ok_process)
 
     actual_returned_communication = response_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert (
@@ -301,27 +334,34 @@ def test_OkCommunicationProcess_run__processes_start_acquisition_debug_console_c
 
 
 def test_OkCommunicationProcess_run__processes_stop_acquisition_debug_console_command(
-    running_process_with_simulated_board,
+    four_board_comm_process,
 ):
-    simulator = FrontPanelSimulator({})
-    simulator.initialize_board()
-    simulator.start_acquisition()
-    ok_process, board_queues, error_queue = running_process_with_simulated_board(simulator).values()
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     input_queue = board_queues[0][0]
     response_queue = board_queues[0][1]
+
+    simulator = FrontPanelSimulator({})
+    simulator.initialize_board()
+    ok_process.set_board_connection(0, simulator)
+    simulator.start_acquisition()
+
     expected_returned_communication = {
         "communication_type": "debug_console",
         "command": "stop_acquisition",
     }
-    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(expected_returned_communication), input_queue
+    )
+    invoke_process_run_and_check_errors(ok_process)
     expected_spi_communication = {
         "communication_type": "debug_console",
         "command": "is_spi_running",
     }
-    input_queue.put_nowait(copy.deepcopy(expected_spi_communication))
-    ok_process.soft_stop()
-    ok_process.join()
-    assert error_queue.empty() is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(expected_spi_communication), input_queue
+    )
+    invoke_process_run_and_check_errors(ok_process)
 
     actual = response_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual["communication_type"] == expected_returned_communication["communication_type"]
@@ -332,27 +372,34 @@ def test_OkCommunicationProcess_run__processes_stop_acquisition_debug_console_co
 
 
 def test_OkCommunicationProcess_run__processes_set_device_id_debug_console_command(
-    running_process_with_simulated_board,
+    four_board_comm_process,
 ):
-    expected_id = "Mantarray XEM"
-    simulator = FrontPanelSimulator({})
-    ok_process, board_queues, error_queue = running_process_with_simulated_board(simulator).values()
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     input_queue = board_queues[0][0]
     response_queue = board_queues[0][1]
+
+    expected_id = "Mantarray XEM"
+    simulator = FrontPanelSimulator({})
+    ok_process.set_board_connection(0, simulator)
+
     expected_returned_communication = {
         "communication_type": "debug_console",
         "command": "set_device_id",
         "new_id": expected_id,
     }
-    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(expected_returned_communication), input_queue
+    )
+    invoke_process_run_and_check_errors(ok_process)
     expected_get_communication = {
         "communication_type": "debug_console",
         "command": "get_device_id",
     }
-    input_queue.put_nowait(copy.deepcopy(expected_get_communication))
-    ok_process.soft_stop()
-    ok_process.join()
-    assert error_queue.empty() is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(expected_get_communication), input_queue
+    )
+    invoke_process_run_and_check_errors(ok_process)
 
     actual = response_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual["command"] == expected_returned_communication["command"]
@@ -364,13 +411,17 @@ def test_OkCommunicationProcess_run__processes_set_device_id_debug_console_comma
 
 
 def test_OkCommunicationProcess_run__processes_set_wire_in_debug_console_command(
-    running_process_with_simulated_board,
+    four_board_comm_process,
 ):
-    simulator = FrontPanelSimulator({})
-    simulator.initialize_board()
-    ok_process, board_queues, error_queue = running_process_with_simulated_board(simulator).values()
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     input_queue = board_queues[0][0]
     response_queue = board_queues[0][1]
+
+    simulator = FrontPanelSimulator({})
+    simulator.initialize_board()
+    ok_process.set_board_connection(0, simulator)
+
     expected_returned_communication = {
         "communication_type": "debug_console",
         "command": "set_wire_in",
@@ -378,10 +429,10 @@ def test_OkCommunicationProcess_run__processes_set_wire_in_debug_console_command
         "value": 0x00000001,
         "mask": 0x00000001,
     }
-    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
-    ok_process.soft_stop()
-    ok_process.join()
-    assert error_queue.empty() is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(expected_returned_communication), input_queue
+    )
+    invoke_process_run_and_check_errors(ok_process)
 
     actual = response_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual["command"] == expected_returned_communication["command"]
@@ -391,23 +442,27 @@ def test_OkCommunicationProcess_run__processes_set_wire_in_debug_console_command
 
 
 def test_OkCommunicationProcess_run__processes_activate_trigger_in_debug_console_command(
-    running_process_with_simulated_board,
+    four_board_comm_process,
 ):
-    simulator = FrontPanelSimulator({})
-    simulator.initialize_board()
-    ok_process, board_queues, error_queue = running_process_with_simulated_board(simulator).values()
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     input_queue = board_queues[0][0]
     response_queue = board_queues[0][1]
+
+    simulator = FrontPanelSimulator({})
+    simulator.initialize_board()
+    ok_process.set_board_connection(0, simulator)
+
     expected_returned_communication = {
         "communication_type": "debug_console",
         "command": "activate_trigger_in",
         "ep_addr": 32,
         "bit": 0x01,
     }
-    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
-    ok_process.soft_stop()
-    ok_process.join()
-    assert error_queue.empty() is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(expected_returned_communication), input_queue
+    )
+    invoke_process_run_and_check_errors(ok_process)
 
     actual = response_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual["command"] == expected_returned_communication["command"]
@@ -416,27 +471,30 @@ def test_OkCommunicationProcess_run__processes_activate_trigger_in_debug_console
 
 
 def test_OkCommunicationProcess_run__processes_get_num_words_fifo_debug_console_command_with_one_data_frame(
-    running_process_with_simulated_board,
+    four_board_comm_process,
 ):
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     expected_num_words = DATA_FRAME_SIZE_WORDS * DATA_FRAMES_PER_ROUND_ROBIN
+    input_queue = board_queues[0][0]
+    response_queue = board_queues[0][1]
+
     test_bytearray = bytearray(expected_num_words * 4)
-    fifo = Queue()
-    fifo.put_nowait(test_bytearray)
-    assert is_queue_eventually_not_empty(fifo) is True
+    fifo = TestingQueue()
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_bytearray, fifo)
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
     simulator = FrontPanelSimulator(queues)
     simulator.initialize_board()
-    ok_process, board_queues, error_queue = running_process_with_simulated_board(simulator).values()
-    input_queue = board_queues[0][0]
-    response_queue = board_queues[0][1]
+    ok_process.set_board_connection(0, simulator)
+
     expected_returned_communication = {
         "communication_type": "debug_console",
         "command": "get_num_words_fifo",
     }
-    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
-    ok_process.soft_stop()
-    ok_process.join()
-    assert error_queue.empty() is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(expected_returned_communication), input_queue
+    )
+    invoke_process_run_and_check_errors(ok_process)
 
     expected_returned_communication["response"] = expected_num_words
     expected_returned_communication["hex_converted_response"] = hex(expected_num_words)
@@ -445,20 +503,24 @@ def test_OkCommunicationProcess_run__processes_get_num_words_fifo_debug_console_
 
 
 def test_OkCommunicationProcess_run__processes_get_status_debug_console_command_with_default_values(
-    running_process_with_simulated_board,
+    four_board_comm_process,
 ):
-    simulator = FrontPanelSimulator({})
-    ok_process, board_queues, error_queue = running_process_with_simulated_board(simulator).values()
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     input_queue = board_queues[0][0]
     response_queue = board_queues[0][1]
+
+    simulator = FrontPanelSimulator({})
+    ok_process.set_board_connection(0, simulator)
+
     expected_returned_communication = {
         "communication_type": "debug_console",
         "command": "get_status",
     }
-    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
-    ok_process.soft_stop()
-    ok_process.join()
-    assert error_queue.empty() is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(expected_returned_communication), input_queue
+    )
+    invoke_process_run_and_check_errors(ok_process)
 
     expected_response = {}
     expected_response["is_spi_running"] = False
@@ -470,23 +532,26 @@ def test_OkCommunicationProcess_run__processes_get_status_debug_console_command_
 
 
 def test_OkCommunicationProcess_run__processes_comm_delay_debug_console_command(
-    running_process_with_simulated_board,
+    four_board_comm_process,
 ):
-    expected_num_millis = 20
-
-    simulator = FrontPanelSimulator({})
-    ok_process, board_queues, error_queue = running_process_with_simulated_board(simulator).values()
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
     input_queue = board_queues[0][0]
     response_queue = board_queues[0][1]
+
+    simulator = FrontPanelSimulator({})
+    ok_process.set_board_connection(0, simulator)
+
+    expected_num_millis = 20
     expected_returned_communication = {
         "communication_type": "debug_console",
         "command": "comm_delay",
         "num_milliseconds": expected_num_millis,
     }
-    input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
-    ok_process.soft_stop()
-    ok_process.join()
-    assert error_queue.empty() is True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(expected_returned_communication), input_queue
+    )
+    invoke_process_run_and_check_errors(ok_process)
 
     actual = response_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual["command"] == expected_returned_communication["command"]

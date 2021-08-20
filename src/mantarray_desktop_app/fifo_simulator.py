@@ -31,7 +31,7 @@ class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
     """Simulate a running Mantarray machine with OK board.
 
     Args:
-        simulated_response_queues: dictionary where the ultimate leaves should be multiprocessing_utils.SimpleMultiprocessingQueue objects.
+        simulated_response_queues: dictionary where the ultimate leaves should be queue.Queue objects.
                                     These values are popped off the end of the queue and returned as if coming from the XEM.
                                     The 'wire_outs' key should contain a sub-dict with keys of integer values representing the EP addresses.
     """
@@ -59,7 +59,7 @@ class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
             self._fifo_read_producer.hard_stop(timeout=timeout)
         if "wire_outs" in self._simulated_response_queues:
             wire_outs = self._simulated_response_queues["wire_outs"]
-            for _, wire_out_queue in wire_outs.items():
+            for wire_out_queue in wire_outs.values():
                 drain_queue(wire_out_queue)
 
     def initialize_board(
