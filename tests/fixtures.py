@@ -23,6 +23,7 @@ from mantarray_desktop_app import MantarrayProcessesManager
 from mantarray_desktop_app import MantarrayQueueContainer
 from mantarray_desktop_app import OkCommunicationProcess
 from mantarray_desktop_app import process_manager
+from mantarray_desktop_app import queue_container
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 import pytest
 import requests
@@ -31,6 +32,7 @@ from stdlib_utils import confirm_port_in_use
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import is_port_in_use
 from stdlib_utils import resource_path
+from stdlib_utils import TestingQueue
 
 
 PATH_TO_CURRENT_FILE = get_current_file_abs_directory()
@@ -114,35 +116,38 @@ def fixture_fully_running_app_from_main_entrypoint(mocker):
     clear_server_singletons()
 
 
-@pytest.fixture(scope="function", name="test_process_manager")
-def fixture_test_process_manager(mocker):
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        manager = MantarrayProcessesManager(file_directory=tmp_dir)
-        manager.create_processes()
-        yield manager
+@pytest.fixture(scope="function", name="test_process_manager_creator")
+def fixture_test_process_manager_creator(mocker):
 
-        fw = manager.get_file_writer_process()
-        if not fw.is_alive():
-            # Eli (2/10/20): it is important in windows based systems to make sure to close the files before deleting them. be careful about this when running tests in a Linux development environment
-            fw.close_all_files()
+    object_access_dict = {}
 
-    # clean up the server singleton
-    clear_the_server_manager()
+    def _foo(beta_2_mode=False, create_processes=True, use_testing_queues=False):
+        if use_testing_queues:
+            mocker.patch.object(queue_container, "Queue", autospec=True, side_effect=lambda: TestingQueue())
 
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            manager = MantarrayProcessesManager(
+                file_directory=tmp_dir, values_to_share_to_server={"beta_2_mode": beta_2_mode}
+            )
+            if use_testing_queues:
+                mocker.patch.object(
+                    manager,
+                    "start_processes",
+                    autospec=True,
+                    side_effect=NotImplementedError(
+                        "Cannot start processes when using a process_manager fixture setup with TestingQueues"
+                    ),
+                )
+            if create_processes:
+                manager.create_processes()
+                object_access_dict["fw_process"] = manager.get_file_writer_process()
+            return manager
 
-@pytest.fixture(scope="function", name="test_process_manager_beta_2_mode")
-def fixture_test_process_manager_beta_2_mode(mocker):
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        manager = MantarrayProcessesManager(
-            file_directory=tmp_dir, values_to_share_to_server={"beta_2_mode": True}
-        )
-        manager.create_processes()
-        yield manager
+    yield _foo
 
-        fw = manager.get_file_writer_process()
-        if not fw.is_alive():
-            # Eli (2/10/20): it is important in windows based systems to make sure to close the files before deleting them. be careful about this when running tests in a Linux development environment
-            fw.close_all_files()
+    if object_access_dict["fw_process"] is not None and not object_access_dict["fw_process"].is_alive():
+        # Eli (2/10/20): it is important in windows based systems to make sure to close the files before deleting them. be careful about this when running tests in a Linux development environment
+        object_access_dict["fw_process"].close_all_files()
 
     # clean up the server singleton
     clear_the_server_manager()
@@ -174,19 +179,6 @@ def fixture_patch_subprocess_is_stopped_to_false(mocker):
     mocker.patch.object(OkCommunicationProcess, "is_stopped", autospec=True, return_value=False)
     mocker.patch.object(FileWriterProcess, "is_stopped", autospec=True, return_value=False)
     mocker.patch.object(DataAnalyzerProcess, "is_stopped", autospec=True, return_value=False)
-
-
-@pytest.fixture(scope="function", name="test_process_manager_without_created_processes")
-def fixture_test_process_manager_without_created_processes(mocker):
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        manager = MantarrayProcessesManager(file_directory=tmp_dir)
-
-        yield manager
-
-        fw = manager.get_file_writer_process()
-        if not fw.is_alive():
-            # Eli (2/10/20): it is important in windows based systems to make sure to close the files before deleting them. be careful about this when running tests in a Linux development environment
-            fw.close_all_files()
 
 
 @pytest.fixture(scope="function", name="patched_test_xem_scripts_folder")

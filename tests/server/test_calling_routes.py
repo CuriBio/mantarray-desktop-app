@@ -24,21 +24,16 @@ from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
 import pytest
 
 from ..fixtures import fixture_generic_queue_container
-from ..fixtures import fixture_test_process_manager
-from ..fixtures_process_monitor import fixture_test_monitor
 from ..fixtures_server import fixture_client_and_server_manager_and_shared_values
-from ..fixtures_server import fixture_generic_beta_1_start_recording_info_in_shared_dict
 from ..fixtures_server import fixture_server_manager
 from ..fixtures_server import fixture_test_client
+from ..fixtures_server import put_generic_beta_1_start_recording_info_in_dict
 
 __fixtures__ = [
     fixture_client_and_server_manager_and_shared_values,
     fixture_server_manager,
     fixture_test_client,
-    fixture_generic_queue_container,
-    fixture_generic_beta_1_start_recording_info_in_shared_dict,
-    fixture_test_monitor,
-    fixture_test_process_manager,
+    fixture_generic_queue_container,  # TODO see if this can be removed
 ]
 
 
@@ -326,9 +321,11 @@ def test_route_error_message_is_logged(mocker, test_client):
 
 
 def test_start_recording__returns_no_error_message_with_multiple_hardware_test_recordings(
-    test_client,
-    generic_beta_1_start_recording_info_in_shared_dict,
+    client_and_server_manager_and_shared_values,
 ):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
+
     response = test_client.get("/start_recording?barcode=MA200440001&is_hardware_test_recording=True")
     assert response.status_code == 200
     response = test_client.get("/start_recording?barcode=MA200440001&is_hardware_test_recording=True")
@@ -336,18 +333,24 @@ def test_start_recording__returns_no_error_message_with_multiple_hardware_test_r
 
 
 def test_start_recording__returns_error_code_and_message_if_user_account_id_not_set(
-    test_client, test_monitor, generic_beta_1_start_recording_info_in_shared_dict
+    client_and_server_manager_and_shared_values,
 ):
-    generic_beta_1_start_recording_info_in_shared_dict["config_settings"]["User Account ID"] = ""
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
+    shared_values_dict["config_settings"]["User Account ID"] = ""
+
     response = test_client.get("/start_recording?barcode=MA200440001")
     assert response.status_code == 406
     assert response.status.endswith("User Account ID has not yet been set") is True
 
 
 def test_start_recording__returns_error_code_and_message_if_customer_account_id_not_set(
-    test_client, test_monitor, generic_beta_1_start_recording_info_in_shared_dict
+    client_and_server_manager_and_shared_values,
 ):
-    generic_beta_1_start_recording_info_in_shared_dict["config_settings"]["Customer Account ID"] = ""
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
+    shared_values_dict["config_settings"]["Customer Account ID"] = ""
+
     response = test_client.get("/start_recording?barcode=MA200440001")
     assert response.status_code == 406
     assert response.status.endswith("Customer Account ID has not yet been set") is True
@@ -502,12 +505,11 @@ def test_start_recording__returns_error_code_and_message_if_barcode_is_invalid(
     ],
 )
 def test_start_recording__allows_years_other_than_20_in_barcode(
-    test_client,
-    test_barcode,
-    test_description,
-    generic_beta_1_start_recording_info_in_shared_dict,
-    test_process_manager,
+    test_barcode, test_description, client_and_server_manager_and_shared_values
 ):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
+
     response = test_client.get(f"/start_recording?barcode={test_barcode}")
     assert response.status_code == 200
 
@@ -534,11 +536,10 @@ def test_start_recording__allows_years_other_than_20_in_barcode(
     ],
 )
 def test_start_recording__allows_correct_barcode_headers(
-    test_barcode,
-    test_description,
-    test_client,
-    generic_beta_1_start_recording_info_in_shared_dict,
+    test_barcode, test_description, client_and_server_manager_and_shared_values
 ):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
     response = test_client.get(f"/start_recording?barcode={test_barcode}")
     assert response.status_code == 200
 
@@ -557,11 +558,10 @@ def test_start_recording__allows_correct_barcode_headers(
     ],
 )
 def test_start_recording__allows_correct_kit_ids_in_ML_barcodes(
-    test_barcode,
-    test_description,
-    test_client,
-    generic_beta_1_start_recording_info_in_shared_dict,
+    test_barcode, test_description, test_client, client_and_server_manager_and_shared_values
 ):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
     response = test_client.get(f"/start_recording?barcode={test_barcode}")
     assert response.status_code == 200
 
