@@ -33,7 +33,7 @@ __fixtures__ = [
     fixture_client_and_server_manager_and_shared_values,
     fixture_server_manager,
     fixture_test_client,
-    fixture_generic_queue_container,  # TODO see if this can be removed
+    fixture_generic_queue_container,
 ]
 
 

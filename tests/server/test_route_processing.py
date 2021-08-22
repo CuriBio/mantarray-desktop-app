@@ -1000,7 +1000,7 @@ def test_single_update_settings_command_with_recording_dir__gets_processed_by_Fi
     test_process_manager_creator, test_client, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+    monitor_thread, *_ = test_monitor(test_process_manager)
 
     fw_process = test_process_manager.get_file_writer_process()
     to_fw_queue = test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()

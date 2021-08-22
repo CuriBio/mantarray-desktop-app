@@ -42,14 +42,12 @@ from stdlib_utils import confirm_port_in_use
 from ..fixtures import fixture_fully_running_app_from_main_entrypoint
 from ..fixtures import fixture_patched_firmware_folder
 from ..fixtures import fixture_patched_xem_scripts_folder
-from ..fixtures import fixture_test_process_manager
 from ..fixtures import GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
 from ..fixtures_server import fixture_test_client
 
 
 __fixtures__ = [
     fixture_test_client,
-    fixture_test_process_manager,
     fixture_fully_running_app_from_main_entrypoint,
     fixture_patched_xem_scripts_folder,
     fixture_patched_firmware_folder,

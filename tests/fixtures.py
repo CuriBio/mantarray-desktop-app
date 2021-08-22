@@ -118,12 +118,15 @@ def fixture_fully_running_app_from_main_entrypoint(mocker):
 
 @pytest.fixture(scope="function", name="test_process_manager_creator")
 def fixture_test_process_manager_creator(mocker):
-
     object_access_dict = {}
 
     def _foo(beta_2_mode=False, create_processes=True, use_testing_queues=False):
         if use_testing_queues:
-            mocker.patch.object(queue_container, "Queue", autospec=True, side_effect=lambda: TestingQueue())
+
+            def get_testing_queue():
+                return TestingQueue()
+
+            mocker.patch.object(queue_container, "Queue", autospec=True, side_effect=get_testing_queue)
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             manager = MantarrayProcessesManager(
