@@ -145,9 +145,10 @@ def fixture_test_process_manager_creator(mocker):
 
     yield _foo
 
-    if object_access_dict["fw_process"] is not None and not object_access_dict["fw_process"].is_alive():
+    fw_process = object_access_dict.get("fw_process", None)
+    if fw_process is not None and not fw_process.is_alive():
         # Eli (2/10/20): it is important in windows based systems to make sure to close the files before deleting them. be careful about this when running tests in a Linux development environment
-        object_access_dict["fw_process"].close_all_files()
+        fw_process.close_all_files()
 
     # clean up the server singleton
     clear_the_server_manager()

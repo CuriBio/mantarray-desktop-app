@@ -38,16 +38,15 @@ from mantarray_desktop_app.server import queue_command_to_instrument_comm
 import numpy as np
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
+from stdlib_utils import TestingQueue
 from xem_wrapper import FrontPanelSimulator
 
 from ..fixtures import fixture_patch_print
-from ..fixtures import fixture_test_process_manager
-from ..fixtures import fixture_test_process_manager_beta_2_mode
+from ..fixtures import fixture_test_process_manager_creator
 from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_ok_comm import fixture_patch_connection_to_board
 from ..fixtures_process_monitor import fixture_test_monitor
-from ..fixtures_process_monitor import fixture_test_monitor_beta_2_mode
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import is_queue_eventually_empty
@@ -55,27 +54,29 @@ from ..helpers import is_queue_eventually_not_empty
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 __fixtures__ = [
-    fixture_test_process_manager,
-    fixture_test_process_manager_beta_2_mode,
+    fixture_test_process_manager_creator,
     fixture_test_monitor,
-    fixture_test_monitor_beta_2_mode,
     fixture_patch_connection_to_board,
     fixture_patch_print,
 ]
 
 
-def test_MantarrayProcessesMonitor__init__calls_super(mocker, test_process_manager):
+def test_MantarrayProcessesMonitor__init__calls_super(mocker, test_process_manager_creator):
+    test_process_manager = test_process_manager_creator()
+
     error_queue = queue.Queue()
     mocked_super_init = mocker.spy(threading.Thread, "__init__")
     MantarrayProcessesMonitor({}, test_process_manager, error_queue, threading.Lock())
     assert mocked_super_init.call_count == 1
 
 
+@pytest.mark.slow
 @pytest.mark.timeout(12)
 def test_MantarrayProcessesMonitor__soft_stop_calls_manager_soft_stop_and_join(
-    test_monitor, test_process_manager, mocker
+    test_monitor, test_process_manager_creator, mocker
 ):
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator()
+    monitor_thread, *_ = test_monitor(test_process_manager)
 
     # mock to avoid issues with test hanging
     mocker.patch.object(ServerManager, "shutdown_server", autospec=True)
@@ -94,9 +95,10 @@ def test_MantarrayProcessesMonitor__soft_stop_calls_manager_soft_stop_and_join(
 
 
 def test_MantarrayProcessesMonitor__logs_messages_from_instrument_comm(
-    mocker, test_process_manager, test_monitor
+    mocker, test_process_manager_creator, test_monitor
 ):
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
 
     mocked_logger = mocker.patch.object(process_monitor.logger, "info", autospec=True)
 
@@ -116,9 +118,10 @@ def test_MantarrayProcessesMonitor__logs_messages_from_instrument_comm(
 
 
 def test_MantarrayProcessesMonitor__logs_messages_from_file_writer(
-    mocker, test_process_manager, test_monitor
+    mocker, test_process_manager_creator, test_monitor
 ):
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
 
     mocked_logger = mocker.patch.object(process_monitor.logger, "info", autospec=True)
 
@@ -138,9 +141,10 @@ def test_MantarrayProcessesMonitor__logs_messages_from_file_writer(
 
 
 def test_MantarrayProcessesMonitor__logs_messages_from_data_analyzer(
-    mocker, test_process_manager, test_monitor
+    mocker, test_process_manager_creator, test_monitor
 ):
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
 
     mocked_logger = mocker.patch.object(process_monitor.logger, "info", autospec=True)
 
@@ -160,9 +164,10 @@ def test_MantarrayProcessesMonitor__logs_messages_from_data_analyzer(
 
 
 def test_MantarrayProcessesMonitor__pulls_outgoing_data_from_data_analyzer_and_makes_it_available_to_server(
-    mocker, test_process_manager, test_monitor
+    mocker, test_process_manager_creator, test_monitor
 ):
-    monitor_thread, shared_values_dict, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     shared_values_dict["system_status"] = LIVE_VIEW_ACTIVE_STATE
 
     da_data_out_queue = test_process_manager.queue_container().get_data_analyzer_board_queues()[0][1]
@@ -183,13 +188,13 @@ def test_MantarrayProcessesMonitor__pulls_outgoing_data_from_data_analyzer_and_m
 
 
 def test_MantarrayProcessesMonitor__logs_errors_from_instrument_comm_process(
-    mocker, test_process_manager, test_monitor
+    mocker, test_process_manager_creator, test_monitor
 ):
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
 
     mocked_logger = mocker.patch.object(process_monitor.logger, "error", autospec=True)
-
-    test_process_manager.start_processes()
+    mocker.patch.object(test_process_manager, "hard_stop_and_join_processes", autospec=True)
 
     instrument_comm_error_queue = (
         test_process_manager.queue_container().get_instrument_communication_error_queue()
@@ -204,12 +209,14 @@ def test_MantarrayProcessesMonitor__logs_errors_from_instrument_comm_process(
     mocked_logger.assert_any_call(expected_message)
 
 
-def test_MantarrayProcessesMonitor__logs_errors_from_file_writer(mocker, test_process_manager, test_monitor):
-    monitor_thread, _, _, _ = test_monitor
+def test_MantarrayProcessesMonitor__logs_errors_from_file_writer(
+    mocker, test_process_manager_creator, test_monitor
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
 
     mocked_logger = mocker.patch.object(process_monitor.logger, "error", autospec=True)
-
-    test_process_manager.start_processes()
+    mocker.patch.object(test_process_manager, "hard_stop_and_join_processes", autospec=True)
 
     file_writer_error_queue = test_process_manager.queue_container().get_file_writer_error_queue()
     expected_error = ValueError("something wrong when writing file")
@@ -223,13 +230,13 @@ def test_MantarrayProcessesMonitor__logs_errors_from_file_writer(mocker, test_pr
 
 
 def test_MantarrayProcessesMonitor__logs_errors_from_data_analyzer(
-    mocker, test_process_manager, test_monitor
+    mocker, test_process_manager_creator, test_monitor
 ):
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
 
     mocked_logger = mocker.patch.object(process_monitor.logger, "error", autospec=True)
-
-    test_process_manager.start_processes()
+    mocker.patch.object(test_process_manager, "hard_stop_and_join_processes", autospec=True)
 
     data_analyzer_error_queue = test_process_manager.queue_container().get_data_analyzer_error_queue()
     expected_error = ValueError("something wrong when analyzing data")
@@ -244,14 +251,15 @@ def test_MantarrayProcessesMonitor__logs_errors_from_data_analyzer(
 
 
 def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queue_items_when_error_is_raised_in_ok_comm_subprocess(
-    mocker, test_process_manager, test_monitor
+    mocker, test_process_manager_creator, test_monitor
 ):
     expected_ok_comm_item = "ok_comm_queue_item"
     expected_file_writer_item = "file_writer_queue_item"
     expected_da_item = "data_analyzer_queue_item"
     expected_server_item = "server_manager_queue_item"
 
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
 
     mocked_logger = mocker.patch.object(process_monitor.logger, "error", autospec=True)
 
@@ -300,9 +308,10 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
 
 @freeze_time(datetime.datetime(year=2020, month=2, day=27, hour=12, minute=14, second=22, microsecond=336597))
 def test_MantarrayProcessesMonitor__updates_timestamp_in_shared_values_dict_after_receiving_communication_from_start_acquisition(
-    test_monitor, test_process_manager
+    test_monitor, test_process_manager_creator
 ):
-    monitor_thread, shared_values_dict, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     queue_command_to_instrument_comm(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
     comm_to_instrument_comm = (
         test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
@@ -323,9 +332,10 @@ def test_MantarrayProcessesMonitor__updates_timestamp_in_shared_values_dict_afte
 
 
 def test_MantarrayProcessesMonitor__correctly_sets_system_status_to_live_view_active_only_when_initial_required_number_of_data_dumps_become_available_from_data_analyzer(
-    test_monitor, test_process_manager
+    test_monitor, test_process_manager_creator
 ):
-    monitor_thread, shared_values_dict, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     data_analyzer_process = test_process_manager.get_data_analyzer_process()
     da_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_data_analyzer_to_main()
@@ -356,9 +366,10 @@ def test_MantarrayProcessesMonitor__correctly_sets_system_status_to_live_view_ac
 
 
 def test_MantarrayProcessesMonitor__sets_system_status_to_server_ready_after_subprocesses_finish_start_up(
-    test_monitor, test_process_manager, mocker
+    test_monitor, test_process_manager_creator, mocker
 ):
-    monitor_thread, shared_values_dict, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
     okc_process = test_process_manager.get_instrument_process()
     fw_process = test_process_manager.get_file_writer_process()
@@ -382,9 +393,10 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_server_ready_after_sub
 
 
 def test_MantarrayProcessesMonitor__does_not_check_start_up_status_after_subprocesses_finish_start_up(
-    test_monitor, test_process_manager, mocker
+    test_monitor, test_process_manager_creator, mocker
 ):
-    monitor_thread, shared_values_dict, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
     expected_system_status = CALIBRATION_NEEDED_STATE
     shared_values_dict["system_status"] = expected_system_status
@@ -405,9 +417,10 @@ def test_MantarrayProcessesMonitor__does_not_check_start_up_status_after_subproc
 
 
 def test_MantarrayProcessesMonitor__sets_in_simulation_mode_to_false_when_connected_to_real_board(
-    patch_connection_to_board, test_monitor, test_process_manager
+    patch_connection_to_board, test_monitor, test_process_manager_creator
 ):
-    monitor_thread, shared_values_dict, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
     ok_comm_process = test_process_manager.get_instrument_process()
     container = test_process_manager.queue_container()
@@ -422,9 +435,10 @@ def test_MantarrayProcessesMonitor__sets_in_simulation_mode_to_false_when_connec
 
 
 def test_MantarrayProcessesMonitor__sets_in_simulation_mode_to_true_when_connected_to_simulator(
-    test_monitor, test_process_manager
+    test_monitor, test_process_manager_creator
 ):
-    monitor_thread, shared_values_dict, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
     ok_comm_process = test_process_manager.get_instrument_process()
     instrument_comm_to_main_queue = (
@@ -440,12 +454,13 @@ def test_MantarrayProcessesMonitor__sets_in_simulation_mode_to_true_when_connect
 
 
 def test_MantarrayProcessesMonitor__sets_system_status_to_needs_calibration_after_start_up_script_completes(
-    test_monitor, test_process_manager, mocker
+    test_monitor, test_process_manager_creator, mocker
 ):
     mocked_path_str = os.path.join("tests", "test_xem_scripts", "xem_test_start_up.txt")
     mocker.patch.object(ok_comm, "resource_path", autospec=True, return_value=mocked_path_str)
 
-    monitor_thread, shared_values_dict, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
     ok_comm_process = test_process_manager.get_instrument_process()
     simulator = FrontPanelSimulator({})
@@ -470,12 +485,13 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_needs_calibration_afte
 
 
 def test_MantarrayProcessesMonitor__sets_system_status_to_calibrated_after_calibration_script_completes(
-    test_monitor, test_process_manager, mocker
+    test_monitor, test_process_manager_creator, mocker
 ):
     mocked_path_str = os.path.join("tests", "test_xem_scripts", "xem_test_start_calibration.txt")
     mocker.patch.object(ok_comm, "resource_path", autospec=True, return_value=mocked_path_str)
 
-    monitor_thread, shared_values_dict, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     ok_comm_process = test_process_manager.get_instrument_process()
     simulator = RunningFIFOSimulator()
     simulator.initialize_board()
@@ -502,9 +518,10 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_calibrated_after_calib
 
 
 def test_MantarrayProcessesMonitor__sets_system_status_to_calibrated_after_managed_acquisition_stops__and_resets_data_dump_buffer_size(
-    test_monitor, test_process_manager, mocker
+    test_monitor, test_process_manager_creator, mocker
 ):
-    monitor_thread, shared_values_dict, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     monitor_thread._data_dump_buffer_size = OUTGOING_DATA_BUFFER_SIZE  # pylint:disable=protected-access
 
     ok_comm_process = test_process_manager.get_instrument_process()
@@ -531,9 +548,10 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_calibrated_after_manag
 
 
 def test_MantarrayProcessesMonitor__stores_device_information_after_connection__in_beta_1_mode(
-    test_monitor, test_process_manager
+    test_monitor, test_process_manager_creator
 ):
-    monitor_thread, shared_values_dict, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
     ok_comm_process = test_process_manager.get_instrument_process()
     instrument_comm_to_main_queue = (
@@ -553,13 +571,14 @@ def test_MantarrayProcessesMonitor__stores_device_information_after_connection__
 
 
 def test_MantarrayProcessesMonitor__sets_in_simulation_mode_after_connection__in_beta_2_mode(
-    test_monitor_beta_2_mode, test_process_manager_beta_2_mode
+    test_monitor, test_process_manager_creator
 ):
-    monitor_thread, shared_values_dict, _, _ = test_monitor_beta_2_mode
+    test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
-    mc_comm_process = test_process_manager_beta_2_mode.get_instrument_process()
-    instrument_comm_to_main_queue = test_process_manager_beta_2_mode.queue_container().get_communication_queue_from_instrument_comm_to_main(
-        0
+    mc_comm_process = test_process_manager.get_instrument_process()
+    instrument_comm_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
     )
 
     mc_comm_process.create_connections_to_all_available_boards()
@@ -570,15 +589,16 @@ def test_MantarrayProcessesMonitor__sets_in_simulation_mode_after_connection__in
 
 
 def test_MantarrayProcessesMonitor__stores_device_information_from_metadata_comm__and_updates_system_status(
-    test_monitor_beta_2_mode, test_process_manager_beta_2_mode
+    test_monitor, test_process_manager_creator
 ):
-    monitor_thread, shared_values_dict, _, _ = test_monitor_beta_2_mode
+    test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     shared_values_dict["system_status"] = INSTRUMENT_INITIALIZING_STATE
 
     board_idx = 0
 
-    instrument_comm_to_main_queue = test_process_manager_beta_2_mode.queue_container().get_communication_queue_from_instrument_comm_to_main(
-        board_idx
+    instrument_comm_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(board_idx)
     )
 
     metadata_comm_dict = {
@@ -612,15 +632,16 @@ def test_MantarrayProcessesMonitor__stores_device_information_from_metadata_comm
 
 
 def test_MantarrayProcessesMonitor__calls_boot_up_only_once_after_subprocesses_start_if_boot_up_after_processes_start_is_True(
-    test_process_manager, mocker
+    test_process_manager_creator, mocker
 ):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
     mocked_boot_up = mocker.patch.object(test_process_manager, "boot_up_instrument")
 
     shared_values_dict = {
         "system_status": SERVER_READY_STATE,
         "beta_2_mode": False,
     }
-    error_queue = error_queue = queue.Queue()
+    error_queue = TestingQueue()
     the_lock = threading.Lock()
     monitor = MantarrayProcessesMonitor(
         shared_values_dict,
@@ -637,15 +658,16 @@ def test_MantarrayProcessesMonitor__calls_boot_up_only_once_after_subprocesses_s
 
 
 def test_MantarrayProcessesMonitor__doesnt_call_boot_up_after_subprocesses_start_if_boot_up_after_processes_start_is_False(
-    test_process_manager, mocker
+    test_process_manager_creator, mocker
 ):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
     mocked_boot_up = mocker.patch.object(test_process_manager, "boot_up_instrument")
 
     shared_values_dict = {
         "system_status": SERVER_READY_STATE,
         "beta_2_mode": False,
     }
-    error_queue = error_queue = queue.Queue()
+    error_queue = TestingQueue()
     the_lock = threading.Lock()
     monitor = MantarrayProcessesMonitor(
         shared_values_dict,
@@ -660,9 +682,10 @@ def test_MantarrayProcessesMonitor__doesnt_call_boot_up_after_subprocesses_start
 
 
 def test_MantarrayProcessesMonitor__stores_firmware_versions_during_instrument_boot_up(
-    test_monitor, test_process_manager, mocker
+    test_monitor, test_process_manager_creator, mocker
 ):
-    monitor_thread, shared_values_dict, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
     # Tanner (12/28/20): RunningFIFOSimulator ignores the name of bit file given, so we can mock this out so it will pass in Cloud9
     mocker.patch.object(process_manager, "get_latest_firmware", autospec=True, return_value=None)
@@ -688,9 +711,10 @@ def test_MantarrayProcessesMonitor__stores_firmware_versions_during_instrument_b
 
 
 def test_MantarrayProcessesMonitor__scrubs_username_from_bit_file_name_in_get_status_log_message(
-    test_monitor, test_process_manager, mocker
+    test_monitor, test_process_manager_creator, mocker
 ):
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
     spied_info = mocker.spy(process_monitor.logger, "info")
 
     from_instrument_comm_queue = (
@@ -717,9 +741,10 @@ def test_MantarrayProcessesMonitor__scrubs_username_from_bit_file_name_in_get_st
 
 
 def test_MantarrayProcessesMonitor__scrubs_username_from_bit_file_name_in_boot_up_instrument_log_message(
-    test_monitor, test_process_manager, mocker
+    test_monitor, test_process_manager_creator, mocker
 ):
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
     spied_info = mocker.spy(process_monitor.logger, "info")
 
     from_instrument_comm_queue = (
@@ -747,9 +772,10 @@ def test_MantarrayProcessesMonitor__scrubs_username_from_bit_file_name_in_boot_u
 
 
 def test_MantarrayProcessesMonitor__scrubs_username_from_finalized_recording_files_in_log_message(
-    test_monitor, test_process_manager, mocker
+    test_monitor, test_process_manager_creator, mocker
 ):
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
     spied_info = mocker.spy(process_monitor.logger, "info")
 
     from_file_writer_queue = (
@@ -773,9 +799,10 @@ def test_MantarrayProcessesMonitor__scrubs_username_from_finalized_recording_fil
 
 
 def test_MantarrayProcessesMonitor__sends_two_barcode_poll_commands_to_OKComm_at_correct_time_intervals(
-    test_monitor, test_process_manager, mocker
+    test_monitor, test_process_manager_creator, mocker
 ):
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
     to_instrument_comm_queue = (
         test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     )
@@ -840,9 +867,10 @@ def test_MantarrayProcessesMonitor__stores_barcode_sent_from_instrument_comm__an
     expected_status,
     test_description,
     test_monitor,
-    test_process_manager,
+    test_process_manager_creator,
 ):
-    monitor_thread, shared_values_dict, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     expected_board_idx = 0
     from_instrument_comm_queue = (
         test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
@@ -884,9 +912,10 @@ def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_instrument_
     expected_status,
     test_description,
     test_monitor,
-    test_process_manager,
+    test_process_manager_creator,
 ):
-    monitor_thread, shared_values_dict, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
     expected_board_idx = 0
     shared_values_dict["barcodes"] = {
@@ -937,9 +966,10 @@ def test_MantarrayProcessesMonitor__does_not_update_any_values_if_new_barcode_ma
     test_update,
     test_description,
     test_monitor,
-    test_process_manager,
+    test_process_manager_creator,
 ):
-    monitor_thread, shared_values_dict, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
     expected_board_idx = 0
     expected_dict = {
@@ -972,9 +1002,10 @@ def test_MantarrayProcessesMonitor__does_not_update_any_values_if_new_barcode_ma
 
 
 def test_MantarrayProcessesMonitor__trims_barcode_string_before_storing_in_shared_values_dict(
-    test_monitor, test_process_manager
+    test_monitor, test_process_manager_creator
 ):
-    monitor_thread, shared_values_dict, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
     expected_board_idx = 0
     from_instrument_comm_queue = (
@@ -996,9 +1027,10 @@ def test_MantarrayProcessesMonitor__trims_barcode_string_before_storing_in_share
 
 
 def test_MantarrayProcessesMonitor__redacts_mantarray_nickname_from_logged_mantarray_naming_ok_comm_messages(
-    mocker, test_process_manager, test_monitor
+    mocker, test_process_manager_creator, test_monitor
 ):
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
 
     mocked_logger = mocker.patch.object(process_monitor.logger, "info", autospec=True)
 
@@ -1022,9 +1054,10 @@ def test_MantarrayProcessesMonitor__redacts_mantarray_nickname_from_logged_manta
 
 
 def test_MantarrayProcessesMonitor__redacts_mantarray_nickname_from_logged_board_connection_status_change_ok_comm_messages(
-    mocker, test_process_manager, test_monitor
+    mocker, test_process_manager_creator, test_monitor
 ):
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
 
     mocked_logger = mocker.patch.object(process_monitor.logger, "info", autospec=True)
 
@@ -1051,9 +1084,10 @@ def test_MantarrayProcessesMonitor__redacts_mantarray_nickname_from_logged_board
 
 
 def test_MantarrayProcessesMonitor__raises_error_if_config_dict_in_start_data_stream_command_response_from_instrument_does_not_match_expected_value(
-    test_process_manager, test_monitor, patch_print
+    test_process_manager_creator, test_monitor, patch_print
 ):
-    monitor_thread, shared_values_dict, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     queues = test_process_manager.queue_container()
     ic_to_main_queue = queues.get_communication_queue_from_instrument_comm_to_main(0)
 
@@ -1080,10 +1114,11 @@ def test_MantarrayProcessesMonitor__raises_error_if_config_dict_in_start_data_st
 
 
 def test_MantarrayProcessesMonitor__drains_data_analyzer_data_out_queue_after_receiving_stop_managed_acquisition_command_receipt(
-    test_process_manager,
+    test_process_manager_creator,
     test_monitor,
 ):
-    monitor_thread, shared_values_dict, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     shared_values_dict["system_status"] = CALIBRATED_STATE
 
     da_data_out_queue = test_process_manager.queue_container().get_data_analyzer_board_queues()[0][1]
@@ -1101,10 +1136,11 @@ def test_MantarrayProcessesMonitor__drains_data_analyzer_data_out_queue_after_re
 
 
 def test_MantarrayProcessesMonitor__updates_magnetometer_config_after_receiving_default_config_message_from_mc_comm(
-    test_process_manager,
+    test_process_manager_creator,
     test_monitor,
 ):
-    monitor_thread, shared_values_dict, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
     expected_magnetometer_config_dict = {
         "magnetometer_config": copy.deepcopy(DEFAULT_MAGNETOMETER_CONFIG),

@@ -24,7 +24,7 @@ from stdlib_utils import invoke_process_run_and_check_errors
 
 from ..fixtures import fixture_patch_print
 from ..fixtures import fixture_patch_subprocess_joins
-from ..fixtures import fixture_test_process_manager
+from ..fixtures import fixture_test_process_manager_creator
 from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_ok_comm import fixture_patch_connection_to_board
@@ -34,7 +34,7 @@ from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 __fixtures__ = [
-    fixture_test_process_manager,
+    fixture_test_process_manager_creator,
     fixture_test_monitor,
     fixture_patch_connection_to_board,
     fixture_patch_subprocess_joins,
@@ -43,9 +43,10 @@ __fixtures__ = [
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_nickname_setting_by_setting_shared_values_dictionary_and_passing_command_to_instrument_comm(
-    test_process_manager, test_monitor
+    test_process_manager_creator, test_monitor
 ):
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -71,9 +72,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_nickname_update_by_updating_shared_values_dictionary(
-    test_process_manager, test_monitor
+    test_process_manager_creator, test_monitor
 ):
-    monitor_thread, shared_values_dict, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -93,9 +95,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_serial_number_setting_by_setting_shared_values_dictionary_and_passing_command_to_instrument_comm(
-    test_process_manager, test_monitor
+    test_process_manager_creator, test_monitor
 ):
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -123,9 +126,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_serial_number_update_by_updating_shared_values_dictionary(
-    test_process_manager, test_monitor
+    test_process_manager_creator, test_monitor
 ):
-    monitor_thread, svd, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, svd, *_ = test_monitor(test_process_manager)
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -147,10 +151,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raises_error_if_unrecognized_mantarray_naming_command(
-    test_process_manager, test_monitor, mocker, patch_print
+    test_process_manager_creator, test_monitor, mocker, patch_print
 ):
-
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -166,9 +170,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raise
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_start_calibration_by_updating_shared_values_dictionary_to_calibrating_state__and_passing_command_to_instrument_comm__when_in_beta_1_mode(
-    test_process_manager, test_monitor
+    test_process_manager_creator, test_monitor
 ):
-    monitor_thread, svd, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, svd, *_ = test_monitor(test_process_manager)
     svd["beta_2_mode"] = False
 
     server_to_main_queue = (
@@ -193,9 +198,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_start_calibration_by_updating_shared_values_dictionary_directly_to_calibrated__when_in_beta_2_mode(
-    test_process_manager, test_monitor
+    test_process_manager_creator, test_monitor
 ):
-    monitor_thread, svd, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, svd, *_ = test_monitor(test_process_manager)
     svd["beta_2_mode"] = True
 
     server_to_main_queue = (
@@ -218,9 +224,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_boot_up_by_calling_process_manager_bootup(
-    test_process_manager, test_monitor, mocker
+    test_process_manager_creator, test_monitor, mocker
 ):
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
 
     mocker.patch.object(process_manager, "get_latest_firmware", autospec=True, return_value=None)
 
@@ -238,15 +245,13 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
     spied_boot_up_instrument.assert_called_once()
 
-    # clean up the instrument subprocess to avoid broken pipe errors
-    test_process_manager.get_instrument_process().hard_stop()
-
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raises_error_if_unrecognized_to_instrument_command(
-    test_process_manager, test_monitor, mocker, patch_print
+    test_process_manager_creator, test_monitor, mocker, patch_print
 ):
 
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -262,9 +267,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raise
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_start_managed_acquisition__updates_system_status__puts_command_into_instrument_comm_and_data_analyzer_queues(
-    test_process_manager, test_monitor
+    test_process_manager_creator, test_monitor
 ):
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -291,14 +297,12 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     actual_comm = main_to_da.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_comm == START_MANAGED_ACQUISITION_COMMUNICATION
 
-    # clean up the instrument subprocess to avoid broken pipe errors
-    test_process_manager.get_instrument_process().hard_stop()
-
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_stop_managed_acquisition__puts_command_into_subprocess_queues_in_correct_order(
-    test_process_manager, test_monitor, mocker
+    test_process_manager_creator, test_monitor, mocker
 ):
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -335,14 +339,12 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     mocked_to_fw_put_nowait.assert_called_once_with(STOP_MANAGED_ACQUISITION_COMMUNICATION)
     mocked_to_ic_put_nowait.assert_called_once_with(STOP_MANAGED_ACQUISITION_COMMUNICATION)
 
-    # clean up subprocesses prevent BrokenPipeErrors
-    test_process_manager.hard_stop_processes()
-
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_update_shared_values_by_updating_shared_values_dictionary__and_overriding_existing_value(
-    test_process_manager, test_monitor
+    test_process_manager_creator, test_monitor
 ):
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -367,9 +369,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_update_shared_values__by_populating_file_writer_queue_when_recording_directory_updated(
-    test_process_manager, test_monitor
+    test_process_manager_creator, test_monitor
 ):
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -396,9 +399,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_stop_recording__by_passing_command_to_file_writer__and_setting_status_to_live_view_active(
-    test_process_manager, test_monitor
+    test_process_manager_creator, test_monitor
 ):
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -426,9 +430,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     datetime.datetime(year=2020, month=11, day=16, hour=15, minute=14, second=44, microsecond=890122)
 )
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_start_recording__in_hardware_test_mode__by_passing_command_to_file_writer__and_setting_status_to_recording__and_updating_adc_offsets(
-    test_process_manager, test_monitor
+    test_process_manager_creator, test_monitor
 ):
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -468,10 +473,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raises_error_if_unrecognized_recording_command(
-    test_process_manager, test_monitor, mocker, patch_print
+    test_process_manager_creator, test_monitor, mocker, patch_print
 ):
-
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -494,9 +499,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raise
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_shutdown_hard_stop_by_hard_stop_and_join_all_processes(
-    test_process_manager, test_monitor, mocker
+    test_process_manager_creator, test_monitor, mocker
 ):
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
 
     mocked_hard_stop_and_join = mocker.patch.object(
         test_process_manager, "hard_stop_and_join_processes", autospec=True
@@ -519,9 +525,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 @pytest.mark.timeout(15)
 @pytest.mark.slow
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_shutdown_hard_stop_by_hard_stopping_and_joining_all_processes_and_shutting_down_server(
-    test_process_manager, test_monitor, mocker
+    test_process_manager_creator, test_monitor, mocker
 ):
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator()
+    monitor_thread, *_ = test_monitor(test_process_manager)
 
     test_process_manager.start_processes()
 
@@ -563,9 +570,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_shutdown_hard_stop__by_logging_items_in_queues_from_subprocesses(
-    test_process_manager, test_monitor, patch_subprocess_joins, mocker
+    test_process_manager_creator, test_monitor, patch_subprocess_joins, mocker
 ):
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
 
     okc_process = test_process_manager.get_instrument_process()
     fw_process = test_process_manager.get_file_writer_process()
@@ -613,9 +621,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
 
 def test_MantarrayProcessesMonitor__logs_messages_from_server__and_redacts_mantarray_nickname(
-    mocker, test_process_manager, test_monitor
+    mocker, test_process_manager_creator, test_monitor
 ):
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
 
     mocked_logger = mocker.patch.object(process_monitor.logger, "info", autospec=True)
 
@@ -637,9 +646,10 @@ def test_MantarrayProcessesMonitor__logs_messages_from_server__and_redacts_manta
 
 
 def test_MantarrayProcessesMonitor__passes_magnetometer_config_dict_from_server_to_mc_comm_and__data_analyzer(
-    test_process_manager, test_monitor
+    test_process_manager_creator, test_monitor
 ):
-    monitor_thread, _, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
@@ -674,8 +684,11 @@ def test_MantarrayProcessesMonitor__passes_magnetometer_config_dict_from_server_
     assert main_to_da_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_comm
 
 
-def test_MantarrayProcessesMonitor__processes_set_stim_status_command(test_process_manager, test_monitor):
-    monitor_thread, shared_values_dict, _, _ = test_monitor
+def test_MantarrayProcessesMonitor__processes_set_stim_status_command(
+    test_process_manager_creator, test_monitor
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
@@ -699,8 +712,11 @@ def test_MantarrayProcessesMonitor__processes_set_stim_status_command(test_proce
     assert actual == test_command
 
 
-def test_MantarrayProcessesMonitor__processes_set_protocol_command(test_process_manager, test_monitor):
-    monitor_thread, shared_values_dict, _, _ = test_monitor
+def test_MantarrayProcessesMonitor__processes_set_protocol_command(
+    test_process_manager_creator, test_monitor
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
