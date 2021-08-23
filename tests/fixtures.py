@@ -87,7 +87,11 @@ def fixture_fully_running_app_from_main_entrypoint(mocker):
         )
         main_thread.start()
         # if just testing main script, just wait for it to complete. Otherwise, wait until server is up and running
-        if "--main-script-test" in command_line_args:
+        if "--debug-test-post-build" in command_line_args:
+            raise NotImplementedError(
+                "fully_running_app_from_main_entrypoint currently does not except '--debug-test-post-build' in cmd line args"
+            )
+        if "--startup-test-options" in command_line_args:
             mocked_socketio_run = mocker.patch.object(main.socketio, "run", autospec=True)
             dict_to_yield["mocked_socketio_run"] = mocked_socketio_run
             while main_thread.is_alive():
