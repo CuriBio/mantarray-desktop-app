@@ -115,6 +115,41 @@ def test_system_status__returns_correct_serial_number_and_nickname_in_dict_with_
 
 
 @pytest.mark.parametrize(
+    "expected_software_version,actual_software_version,test_description",
+    [
+        ("1.1.1", "1.1.1", "returns correct response when expected == actual"),
+        ("1.1.2", "1.1.1", "returns correct response when expected != actual"),
+        (None, "1.1.1", "returns correct response when expected is not given"),
+    ],
+)
+def test_system_status_handles_expected_software_version_correctly(
+    expected_software_version,
+    actual_software_version,
+    test_description,
+    client_and_server_manager_and_shared_values,
+    mocker,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+    if expected_software_version is not None:
+        shared_values_dict["expected_software_version"] = expected_software_version
+
+    mocker.patch.object(
+        server, "get_current_software_version", autospec=True, return_value=actual_software_version
+    )
+    expected_status_code = (
+        200
+        if expected_software_version is None or expected_software_version == actual_software_version
+        else 520
+    )
+
+    response = test_client.get("/system_status")
+    assert response.status_code == expected_status_code
+    if expected_status_code == 520:
+        assert response.status.endswith("Versions of Electron and Flask EXEs do not match") is True
+
+
+@pytest.mark.parametrize(
     ",".join(("test_nickname", "test_description")),
     [
         ("123456789012345678901234", "returns error with no unicode characters"),

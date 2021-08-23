@@ -681,6 +681,32 @@ def test_MantarrayProcessesMonitor__doesnt_call_boot_up_after_subprocesses_start
     assert mocked_boot_up.call_count == 0
 
 
+def test_MantarrayProcessesMonitor__calls_boot_up_instrument_with_load_firmware_file_False_if_given_in_init__when_boot_up_after_processes_start_is_True(
+    test_process_manager_creator, mocker
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    mocked_boot_up = mocker.patch.object(test_process_manager, "boot_up_instrument")
+
+    shared_values_dict = {
+        "system_status": SERVER_READY_STATE,
+        "beta_2_mode": False,
+    }
+    error_queue = TestingQueue()
+    the_lock = threading.Lock()
+    monitor = MantarrayProcessesMonitor(
+        shared_values_dict,
+        test_process_manager,
+        error_queue,
+        the_lock,
+        boot_up_after_processes_start=True,
+        load_firmware_file=False,
+    )
+
+    invoke_process_run_and_check_errors(monitor)
+    assert mocked_boot_up.call_count == 1
+    assert mocked_boot_up.call_args[1]["load_firmware_file"] is False
+
+
 def test_MantarrayProcessesMonitor__stores_firmware_versions_during_instrument_boot_up(
     test_monitor, test_process_manager_creator, mocker
 ):

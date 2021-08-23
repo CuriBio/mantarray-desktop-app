@@ -45,6 +45,7 @@ from typing import Tuple
 from typing import Union
 from uuid import UUID
 
+from eventlet.queue import LightQueue
 from flask import Flask
 from flask import request
 from flask import Response
@@ -249,10 +250,9 @@ def system_status() -> Response:
     Can be invoked by: curl http://localhost:4567/system_status
     """
     shared_values_dict = _get_values_from_process_monitor()
-    if (
-        "expected_software_version" in shared_values_dict
-        and shared_values_dict["expected_software_version"] != get_current_software_version()
-    ):
+    current_software_version = get_current_software_version()
+    expected_software_version = shared_values_dict.get("expected_software_version", current_software_version)
+    if expected_software_version != current_software_version:
         return Response(status="520 Versions of Electron and Flask EXEs do not match")
 
     board_idx = 0
@@ -1223,7 +1223,7 @@ class ServerManager:
     def get_queue_to_main(self) -> Queue[Dict[str, Any]]:  # pylint: disable=unsubscriptable-object
         return self._to_main_queue
 
-    def get_data_queue_to_server(self) -> Queue[Dict[str, Any]]:  # pylint: disable=unsubscriptable-object
+    def get_data_queue_to_server(self) -> LightQueue:  # pylint: disable=unsubscriptable-object
         return self._queue_container.get_data_queue_to_server()
 
     def queue_container(self) -> MantarrayQueueContainer:

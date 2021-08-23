@@ -343,7 +343,6 @@ def test_main__correctly_indicates_to_process_monitor_if_subprocesses_should_aut
     assert spied_init.call_args[1]["boot_up_after_processes_start"] is not send_command_line_arg
 
 
-# TODO add a related test to tests/process_monitor/test_process_monitor
 @pytest.mark.parametrize(
     "send_command_line_arg,test_description",
     [
@@ -466,7 +465,6 @@ def test_main__generates_log_file_uuid_if_none_passed_in_cmd_line_args(
     assert shared_values_dict["log_file_uuid"] == expected_log_file_uuid
 
 
-# TODO add tests in tests/server/test_calling_routes for the next two tests
 def test_main__puts_server_into_error_mode_if_expected_software_version_is_incorrect(mocker):
     access_dict = {}
     main.main(

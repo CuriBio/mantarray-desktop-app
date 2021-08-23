@@ -297,11 +297,18 @@ def test_MantarrayProcessesManager__passes_logging_level_to_subprocesses():
     clear_the_server_manager()
 
 
-def test_MantarrayProcessesManager__boot_up_instrument__populates_ok_comm_queue__and_sets_system_status(
-    generic_manager, patched_firmware_folder
+@pytest.mark.parametrize(
+    "load_firmware_file,test_description",
+    [
+        (True, "sends correct command dict to ok_comm when loading firmware file"),
+        (False, "sends correct command dict to ok_comm when not loading firmware file"),
+    ],
+)
+def test_MantarrayProcessesManager__boot_up_instrument__populates_ok_comm_queue_correctly__and_sets_system_status(
+    load_firmware_file, test_description, generic_manager, patched_firmware_folder
 ):
     generic_manager.create_processes()
-    generic_manager.boot_up_instrument()
+    generic_manager.boot_up_instrument(load_firmware_file=load_firmware_file)
     main_to_instrument_comm_queue = (
         generic_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     )
@@ -312,7 +319,7 @@ def test_MantarrayProcessesManager__boot_up_instrument__populates_ok_comm_queue_
     assert actual_communication_1 == {
         "communication_type": "boot_up_instrument",
         "command": "initialize_board",
-        "bit_file_name": patched_firmware_folder,
+        "bit_file_name": patched_firmware_folder if load_firmware_file else None,
         "suppress_error": False,
         "allow_board_reinitialization": False,
     }
