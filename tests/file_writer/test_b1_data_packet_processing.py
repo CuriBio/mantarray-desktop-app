@@ -18,6 +18,7 @@ from stdlib_utils import invoke_process_run_and_check_errors
 
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_file_writer import fixture_four_board_file_writer_process
+from ..fixtures_file_writer import fixture_runnable_four_board_file_writer_process
 from ..fixtures_file_writer import fixture_running_four_board_file_writer_process
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_REFERENCE_SENSOR_DATA_PACKET
@@ -32,17 +33,18 @@ from ..parsed_channel_data_packets import SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL
 
 __fixtures__ = [
     fixture_four_board_file_writer_process,
+    fixture_runnable_four_board_file_writer_process,
     fixture_running_four_board_file_writer_process,
 ]
 
 
 @pytest.mark.timeout(15)
 def test_FileWriterProcess__passes_data_packet_through_to_output_queue(
-    four_board_file_writer_process,
+    runnable_four_board_file_writer_process,
 ):
-    fw_process = four_board_file_writer_process["fw_process"]
-    board_queues = four_board_file_writer_process["board_queues"]
-    error_queue = four_board_file_writer_process["error_queue"]
+    fw_process = runnable_four_board_file_writer_process["fw_process"]
+    board_queues = runnable_four_board_file_writer_process["board_queues"]
+    error_queue = runnable_four_board_file_writer_process["error_queue"]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0,
         board_queues[0][0],

@@ -13,6 +13,7 @@ import queue
 from statistics import stdev
 import struct
 import time
+from time import sleep
 from typing import Any
 from typing import Dict
 from typing import List
@@ -180,7 +181,7 @@ def _comm_delay(
     """Pause communications to XEM for given number of milliseconds."""
     num_milliseconds = communication["num_milliseconds"]
     sleep_val = num_milliseconds / 1000
-    time.sleep(sleep_val)
+    sleep(sleep_val)
     return f"Delayed for {num_milliseconds} milliseconds"
 
 

@@ -27,7 +27,6 @@ from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process_no_handshake
 from ..fixtures_mc_comm import set_connection_and_register_simulator
-from ..fixtures_mc_comm import sleep_side_effect
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..helpers import assert_queue_is_eventually_not_empty
@@ -57,6 +56,7 @@ def test_McCommunicationProcess_setup_before_loop__calls_super(
     four_board_mc_comm_process,
     mocker,
 ):
+    # TODO Tanner (8/20/21): Could look into ways to speed up McComm tests that use perform_setup_before_loop which starts running the simulator process
     spied_setup = mocker.spy(InfiniteProcess, "_setup_before_loop")
 
     mc_process = four_board_mc_comm_process["mc_process"]
@@ -235,7 +235,7 @@ def test_McCommunicationProcess_teardown_after_loop__flushes_and_logs_remaining_
     )
 
     mocked_write = mocker.patch.object(simulator, "write", autospec=True)
-    mocked_sleep = mocker.patch.object(mc_comm, "sleep", autospec=True, side_effect=sleep_side_effect)
+    mocked_sleep = mocker.patch.object(mc_comm, "sleep", autospec=True)
 
     # add one data packet with bad magic word to raise error and additional bytes to flush from simulator
     test_read_bytes = [
@@ -293,7 +293,7 @@ def test_McCommunicationProcess_teardown_after_loop__does_not_request_eeprom_dum
     )
 
     mocked_write = mocker.patch.object(simulator, "write", autospec=True)
-    mocked_sleep = mocker.patch.object(mc_comm, "sleep", autospec=True, side_effect=sleep_side_effect)
+    mocked_sleep = mocker.patch.object(mc_comm, "sleep", autospec=True)
 
     # put simulator in error state before sending beacon
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -350,7 +350,7 @@ def test_McCommunicationProcess_teardown_after_loop__does_not_request_eeprom_dum
     )
 
     mocked_write = mocker.patch.object(simulator, "write", autospec=True)
-    mocked_sleep = mocker.patch.object(mc_comm, "sleep", autospec=True, side_effect=sleep_side_effect)
+    mocked_sleep = mocker.patch.object(mc_comm, "sleep", autospec=True)
 
     # run one iteration then teardown
     invoke_process_run_and_check_errors(
@@ -452,9 +452,7 @@ def test_McCommunicationProcess__checks_for_simulator_errors_in_simulator_error_
     )
     # run simulator to raise error
     simulator.run(num_iterations=1)
-    confirm_queue_is_eventually_of_size(
-        simulator_eq, 1, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-    )
+    confirm_queue_is_eventually_of_size(simulator_eq, 1)
     # run mc_process to pull out error and populate its own error queue
     assert mc_process.is_stopped() is False
     with pytest.raises(ValueError, match=error_msg):

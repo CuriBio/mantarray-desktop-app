@@ -11,6 +11,7 @@ from . import mc_simulator
 from . import ok_comm
 from . import process_manager
 from . import process_monitor
+from . import queue_container
 from . import server
 from . import utils
 from .constants import ADC_CH_TO_24_WELL_INDEX
@@ -565,4 +566,5 @@ __all__ = [
     "STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS",
     "STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS",
     "STIM_MAX_PULSE_DURATION_MICROSECONDS",
+    "queue_container",
 ]

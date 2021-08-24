@@ -155,7 +155,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             bit_file_name = get_latest_firmware()
         to_instrument_comm_queue = self.queue_container().get_communication_to_instrument_comm_queue(0)
 
-        self.get_values_to_share_to_server()["system_status"] = INSTRUMENT_INITIALIZING_STATE
+        self._values_to_share_to_server["system_status"] = INSTRUMENT_INITIALIZING_STATE
         boot_up_dict = {
             "communication_type": "boot_up_instrument",
             "command": "initialize_board",

@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
-
+from multiprocessing import Queue as MPQueue
 
 from mantarray_desktop_app import ok_comm
 from mantarray_desktop_app import OkCommunicationProcess
 from mantarray_desktop_app import RunningFIFOSimulator
 import pytest
+from stdlib_utils import TestingQueue
 from xem_wrapper import FrontPanelSimulator
 from xem_wrapper import okCFrontPanel
 
@@ -26,7 +27,7 @@ def fixture_patch_connection_to_board(mocker):
 
 @pytest.fixture(scope="function", name="four_board_comm_process")
 def fixture_four_board_comm_process():
-    board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
+    board_queues, error_queue = generate_board_and_error_queues(num_boards=4, queue_type=TestingQueue)
     ok_process = OkCommunicationProcess(board_queues, error_queue)
     ok_items_dict = {
         "ok_process": ok_process,
@@ -38,7 +39,7 @@ def fixture_four_board_comm_process():
 
 @pytest.fixture(scope="function", name="running_process_with_simulated_board")
 def fixture_running_process_with_simulated_board():
-    board_queues, error_queue = generate_board_and_error_queues()
+    board_queues, error_queue = generate_board_and_error_queues(num_boards=4, queue_type=MPQueue)
 
     ok_process = OkCommunicationProcess(board_queues, error_queue, suppress_setup_communication_to_main=True)
 

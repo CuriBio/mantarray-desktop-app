@@ -17,6 +17,7 @@ from ..fixtures import fixture_patch_print
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process_no_handshake
+from ..fixtures_mc_comm import fixture_runnable_four_board_mc_comm_process
 from ..fixtures_mc_comm import set_connection_and_register_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
@@ -27,6 +28,7 @@ from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_
 
 __fixtures__ = [
     fixture_four_board_mc_comm_process,
+    fixture_runnable_four_board_mc_comm_process,
     fixture_patch_print,
     fixture_mantarray_mc_simulator,
     fixture_mantarray_mc_simulator_no_beacon,
@@ -142,11 +144,11 @@ def test_McCommunicationProcess__processes_get_metadata_command(
 @pytest.mark.slow
 @pytest.mark.timeout(20)
 def test_McCommunicationProcess__processes_commands_from_main_when_process_is_fully_running(
-    four_board_mc_comm_process,
+    runnable_four_board_mc_comm_process,
 ):
     # Tanner (6/11/21): if this test times out, it means the get_metadata command response was never sent to main
-    mc_process = four_board_mc_comm_process["mc_process"]
-    board_queues = four_board_mc_comm_process["board_queues"]
+    mc_process = runnable_four_board_mc_comm_process["mc_process"]
+    board_queues = runnable_four_board_mc_comm_process["board_queues"]
     input_queue = board_queues[0][0]
     output_queue = board_queues[0][1]
 

@@ -23,13 +23,11 @@ from .fixtures import fixture_patch_print
 from .fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from .fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from .fixtures_process_monitor import fixture_test_monitor
-from .fixtures_process_monitor import fixture_test_monitor_beta_2_mode
 
 __fixtures__ = [
     fixture_patch_print,
     fixture_generic_queue_container,
     fixture_test_monitor,
-    fixture_test_monitor_beta_2_mode,
 ]
 
 
@@ -71,11 +69,8 @@ def fixture_client_and_server_manager_and_shared_values(server_manager, test_cli
     yield test_client, server_manager, shared_values_dict
 
 
-@pytest.fixture(scope="function", name="generic_beta_1_start_recording_info_in_shared_dict")
-def fixture_generic_beta_1_start_recording_info_in_shared_dict(
-    test_monitor,
-):
-    _, shared_values_dict, _, _ = test_monitor
+def put_generic_beta_1_start_recording_info_in_dict(shared_values_dict):
+    shared_values_dict["beta_2_mode"] = False
 
     board_idx = 0
     timestamp = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
@@ -113,14 +108,9 @@ def fixture_generic_beta_1_start_recording_info_in_shared_dict(
             ][PLATE_BARCODE_UUID]
         }
     }
-    yield shared_values_dict
 
 
-@pytest.fixture(scope="function", name="generic_beta_2_start_recording_info_in_shared_dict")
-def fixture_generic_beta_2_start_recording_info_in_shared_dict(
-    test_monitor_beta_2_mode,
-):
-    _, shared_values_dict, _, _ = test_monitor_beta_2_mode
+def put_generic_beta_2_start_recording_info_in_dict(shared_values_dict):
     shared_values_dict["beta_2_mode"] = True
 
     board_idx = 0
@@ -159,7 +149,6 @@ def fixture_generic_beta_2_start_recording_info_in_shared_dict(
         ][TISSUE_SAMPLING_PERIOD_UUID],
     }
     shared_values_dict["instrument_metadata"] = {board_idx: MantarrayMcSimulator.default_metadata_values}
-    yield shared_values_dict
 
 
 @pytest.fixture(scope="function", name="test_socketio_client")

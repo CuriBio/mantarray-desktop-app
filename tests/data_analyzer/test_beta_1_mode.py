@@ -33,13 +33,12 @@ from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_sti
 from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process
+from ..fixtures_data_analyzer import fixture_runnable_four_board_analyzer_process
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 
 
-__fixtures__ = [
-    fixture_four_board_analyzer_process,
-]
+__fixtures__ = [fixture_four_board_analyzer_process, fixture_runnable_four_board_analyzer_process]
 
 
 def fill_da_input_data_queue(input_queue, num_seconds):
@@ -76,7 +75,9 @@ def fill_da_input_data_queue(input_queue, num_seconds):
 
 
 @pytest.mark.slow
-def test_DataAnalyzerProcess_beta_1_performance__fill_data_analysis_buffer(four_board_analyzer_process):
+def test_DataAnalyzerProcess_beta_1_performance__fill_data_analysis_buffer(
+    runnable_four_board_analyzer_process,
+):
     # 8 seconds of data (625 Hz) coming in from File Writer to going back to Main
     #
     # mantarray-waveform-analysis v0.3:     4.148136512
@@ -88,7 +89,7 @@ def test_DataAnalyzerProcess_beta_1_performance__fill_data_analysis_buffer(four_
     #
     # added twitch metric analysis:         3.013469479
 
-    p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = four_board_analyzer_process
+    p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
         comm_from_main_queue,
@@ -111,14 +112,14 @@ def test_DataAnalyzerProcess_beta_1_performance__fill_data_analysis_buffer(four_
 
 @pytest.mark.slow
 def test_DataAnalyzerProcess_beta_1_performance__first_second_of_data_with_analysis(
-    four_board_analyzer_process,
+    runnable_four_board_analyzer_process,
 ):
     # Fill data analysis buffer with 7 seconds of data to start metric analysis,
     # Then record duration of sending 1 additional second of data
     #
     # start:                                 0.547285524
 
-    p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = four_board_analyzer_process
+    p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
         comm_from_main_queue,
@@ -144,13 +145,15 @@ def test_DataAnalyzerProcess_beta_1_performance__first_second_of_data_with_analy
 
 
 @pytest.mark.slow
-def test_DataAnalyzerProcess_beta_1_performance__single_data_packet_per_well(four_board_analyzer_process):
+def test_DataAnalyzerProcess_beta_1_performance__single_data_packet_per_well(
+    runnable_four_board_analyzer_process,
+):
     # 1 second of data (625 Hz) coming in from File Writer to going back to Main
     #
     # start:                                 0.530731389
     # added twitch metric analysis:          0.578328276
 
-    p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = four_board_analyzer_process
+    p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
         comm_from_main_queue,
@@ -501,7 +504,7 @@ def test_DataAnalyzerProcess__dump_data_into_queue__sends_message_to_main_indica
     assert actual == expected_message
 
 
-def test_DataAnalyzerProcess__create_outgoing_data__compresses_force_data(
+def test_DataAnalyzerProcess__create_outgoing_data__normalizes_and_flips_raw_data_then_compresses_force_data(
     four_board_analyzer_process,
 ):
     p, _, _, _, _ = four_board_analyzer_process
@@ -511,7 +514,7 @@ def test_DataAnalyzerProcess__create_outgoing_data__compresses_force_data(
     timepoints = np.array(
         [(ROUND_ROBIN_PERIOD * (i + 1) // TIMESTEP_CONVERSION_FACTOR) for i in range(timepoint_end)]
     )
-    sawtooth_data = signal.sawtooth(timepoints / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5)
+    sawtooth_data = signal.sawtooth(timepoints / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5) * -1
     test_data = np.array(
         (
             timepoints,
@@ -529,12 +532,17 @@ def test_DataAnalyzerProcess__create_outgoing_data__compresses_force_data(
     outgoing_data = p._create_outgoing_beta_1_data()  # pylint:disable=protected-access
     actual = outgoing_data["waveform_data"]["basic_data"]["waveform_data_points"]
 
+    normalized_data = np.array(
+        [test_data[0], (test_data[1] - max(test_data[1])) * -1],
+        dtype=np.int32,
+    )
+
     pt = PipelineTemplate(
         noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
         tissue_sampling_period=ROUND_ROBIN_PERIOD,
     )
     pipeline = pt.create_pipeline()
-    pipeline.load_raw_gmr_data(test_data, np.zeros(test_data.shape))
+    pipeline.load_raw_gmr_data(normalized_data, np.zeros(normalized_data.shape))
     expected_compressed_data = pipeline.get_compressed_force()
     np.testing.assert_equal(actual[0]["x_data_points"], expected_compressed_data[0, :])
     np.testing.assert_equal(

@@ -3,13 +3,12 @@
 import copy
 import datetime
 import hashlib
-from multiprocessing import Queue
+from multiprocessing import Queue as MPQueue
 import os
 import socket
 import tempfile
 from typing import Any
 from typing import Dict
-from typing import Tuple
 import uuid
 
 import h5py
@@ -57,6 +56,7 @@ from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
 import pytest
+from stdlib_utils import TestingQueue
 
 WELL_DEF_24 = LabwareDefinition(row_count=4, column_count=6)
 
@@ -200,29 +200,11 @@ def open_the_generic_h5_file_as_WellFile(
     return actual_file
 
 
-def generate_fw_from_main_to_main_board_and_error_queues(num_boards: int = 4):
-    error_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Tuple[Exception, str]
-    ] = Queue()
-
-    from_main: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Dict[str, Any]
-    ] = Queue()
-    to_main: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Dict[str, Any]
-    ] = Queue()
-
-    board_queues: Tuple[  # pylint-disable: duplicate-code
-        Tuple[
-            Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-                Any
-            ],
-            Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-                Any
-            ],
-        ],  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-        ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-    ] = tuple(((Queue(), Queue()) for _ in range(4)))
+def generate_fw_from_main_to_main_board_and_error_queues(num_boards: int = 4, queue_type=TestingQueue):
+    error_queue = queue_type()
+    from_main = queue_type()
+    to_main = queue_type()
+    board_queues = tuple(((queue_type(), queue_type()) for _ in range(4)))
     return from_main, to_main, board_queues, error_queue
 
 
@@ -251,11 +233,36 @@ def fixture_four_board_file_writer_process():
             fw_process.close_all_files()
 
 
+@pytest.fixture(scope="function", name="runnable_four_board_file_writer_process")
+def fixture_runnable_four_board_file_writer_process():
+    (
+        from_main,
+        to_main,
+        board_queues,
+        error_queue,
+    ) = generate_fw_from_main_to_main_board_and_error_queues(queue_type=MPQueue)
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        fw_process = FileWriterProcess(board_queues, from_main, to_main, error_queue, file_directory=tmp_dir)
+        fw_items_dict = {
+            "fw_process": fw_process,
+            "board_queues": board_queues,
+            "from_main_queue": from_main,
+            "to_main_queue": to_main,
+            "error_queue": error_queue,
+            "file_dir": tmp_dir,
+        }
+        yield fw_items_dict
+
+        if not fw_process.is_alive():
+            # Eli (2/10/20): it is important in windows based systems to make sure to close the files before deleting them. be careful about this when running tests in a Linux development environment
+            fw_process.close_all_files()
+
+
 @pytest.fixture(scope="function", name="running_four_board_file_writer_process")
-def fixture_running_four_board_file_writer_process(four_board_file_writer_process):
-    fw_process = four_board_file_writer_process["fw_process"]
+def fixture_running_four_board_file_writer_process(runnable_four_board_file_writer_process):
+    fw_process = runnable_four_board_file_writer_process["fw_process"]
     fw_process.start()
-    yield four_board_file_writer_process
+    yield runnable_four_board_file_writer_process
 
     fw_process.stop()
     fw_process.join()

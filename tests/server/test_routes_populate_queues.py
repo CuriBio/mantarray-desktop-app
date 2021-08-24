@@ -41,19 +41,17 @@ from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import pytest
 
 from ..fixtures import fixture_generic_queue_container
-from ..fixtures import fixture_test_process_manager
-from ..fixtures import fixture_test_process_manager_beta_2_mode
+from ..fixtures import fixture_test_process_manager_creator
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from ..fixtures_process_monitor import fixture_test_monitor
-from ..fixtures_process_monitor import fixture_test_monitor_beta_2_mode
 from ..fixtures_server import fixture_client_and_server_manager_and_shared_values
-from ..fixtures_server import fixture_generic_beta_1_start_recording_info_in_shared_dict
-from ..fixtures_server import fixture_generic_beta_2_start_recording_info_in_shared_dict
 from ..fixtures_server import fixture_server_manager
 from ..fixtures_server import fixture_test_client
+from ..fixtures_server import put_generic_beta_1_start_recording_info_in_dict
+from ..fixtures_server import put_generic_beta_2_start_recording_info_in_dict
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import is_queue_eventually_not_empty
 from ..helpers import is_queue_eventually_of_size
@@ -63,12 +61,8 @@ __fixtures__ = [
     fixture_server_manager,
     fixture_generic_queue_container,
     fixture_test_client,
-    fixture_generic_beta_2_start_recording_info_in_shared_dict,
-    fixture_generic_beta_1_start_recording_info_in_shared_dict,
-    fixture_test_process_manager,
-    fixture_test_process_manager_beta_2_mode,
+    fixture_test_process_manager_creator,
     fixture_test_monitor,
-    fixture_test_monitor_beta_2_mode,
 ]
 
 
@@ -719,8 +713,11 @@ def test_stop_recording_command__is_received_by_main__with_default__utcnow_recor
 
 
 def test_start_recording_command__populates_queue__with_correct_adc_offset_values_if_is_hardware_test_recording_is_true(
-    test_process_manager, test_client, generic_beta_1_start_recording_info_in_shared_dict
+    test_process_manager_creator, test_client
 ):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    put_generic_beta_1_start_recording_info_in_dict(test_process_manager.get_values_to_share_to_server())
+
     expected_adc_offsets = dict()
     for well_idx in range(24):
         expected_adc_offsets[well_idx] = {"construct": 0, "ref": 0}
@@ -740,8 +737,11 @@ def test_start_recording_command__populates_queue__with_correct_adc_offset_value
 
 
 def test_start_recording_command__populates_queue__with_given_time_index_parameter(
-    test_process_manager, test_client, generic_beta_1_start_recording_info_in_shared_dict
+    test_process_manager_creator, test_client
 ):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    put_generic_beta_1_start_recording_info_in_dict(test_process_manager.get_values_to_share_to_server())
+
     expected_time_index = 1000
     barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
@@ -763,8 +763,11 @@ def test_start_recording_command__populates_queue__with_given_time_index_paramet
 
 
 def test_start_recording_command__populates_queue__with_correctly_parsed_set_of_well_indices(
-    test_process_manager, test_client, generic_beta_1_start_recording_info_in_shared_dict
+    test_process_manager_creator, test_client
 ):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    put_generic_beta_1_start_recording_info_in_dict(test_process_manager.get_values_to_share_to_server())
+
     expected_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
@@ -781,17 +784,19 @@ def test_start_recording_command__populates_queue__with_correctly_parsed_set_of_
 
 
 def test_start_recording_command__beta_2_mode__populates_queue__with_correct_well_indices_based_on_magnetometer_configuration(
-    test_process_manager_beta_2_mode, test_client, generic_beta_2_start_recording_info_in_shared_dict
+    test_process_manager_creator, test_client
 ):
+    test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
+    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+    put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
+
     test_num_total_wells = 24
     test_magnetometer_config = create_magnetometer_config_dict(test_num_total_wells)
     # enable first channel of arbitrary 3 wells
     expected_well_indices = [1, 10, 17]
     for well_idx in expected_well_indices:
         test_magnetometer_config[SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]][0] = True
-    generic_beta_2_start_recording_info_in_shared_dict["magnetometer_config_dict"][
-        "magnetometer_config"
-    ] = test_magnetometer_config
+    shared_values_dict["magnetometer_config_dict"]["magnetometer_config"] = test_magnetometer_config
 
     expected_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
@@ -801,9 +806,7 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_correct_wel
     )
     assert response.status_code == 200
 
-    comm_queue = (
-        test_process_manager_beta_2_mode.queue_container().get_communication_queue_from_server_to_main()
-    )
+    comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
@@ -839,17 +842,18 @@ def test_start_recording_command__correctly_sets_barcode_from_scanner_value(
     user_entered_barcode,
     expected_result,
     test_description,
-    generic_beta_1_start_recording_info_in_shared_dict,
-    test_process_manager,
+    test_process_manager_creator,
     test_client,
 ):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+    put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
+
     board_idx = 0
     if scanned_barcode is None:
-        del generic_beta_1_start_recording_info_in_shared_dict["barcodes"]
+        del shared_values_dict["barcodes"]
     else:
-        generic_beta_1_start_recording_info_in_shared_dict["barcodes"][board_idx][
-            "plate_barcode"
-        ] = scanned_barcode
+        shared_values_dict["barcodes"][board_idx]["plate_barcode"] = scanned_barcode
 
     response = test_client.get(
         f"/start_recording?barcode={user_entered_barcode}&is_hardware_test_recording=False"
@@ -870,8 +874,12 @@ def test_start_recording_command__correctly_sets_barcode_from_scanner_value(
     )
 )
 def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__24_wells__utcnow_recording_start_time__and_metadata(
-    test_process_manager, test_client, generic_beta_1_start_recording_info_in_shared_dict
+    test_process_manager_creator, test_client
 ):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+    put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
+
     expected_acquisition_timestamp = datetime.datetime(  # pylint: disable=duplicate-code
         year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332598
     )
@@ -880,9 +888,7 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
         seconds=(expected_recording_timepoint / CENTIMILLISECONDS_PER_SECOND)
     )
 
-    generic_beta_1_start_recording_info_in_shared_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [
-        expected_acquisition_timestamp
-    ]
+    shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [expected_acquisition_timestamp]
 
     expected_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
@@ -907,11 +913,11 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][CUSTOMER_ACCOUNT_ID_UUID]
-        == generic_beta_1_start_recording_info_in_shared_dict["config_settings"]["Customer Account ID"]
+        == shared_values_dict["config_settings"]["Customer Account ID"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][USER_ACCOUNT_ID_UUID]
-        == generic_beta_1_start_recording_info_in_shared_dict["config_settings"]["User Account ID"]
+        == shared_values_dict["config_settings"]["User Account ID"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][START_RECORDING_TIME_INDEX_UUID]
@@ -927,23 +933,23 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][MAIN_FIRMWARE_VERSION_UUID]
-        == generic_beta_1_start_recording_info_in_shared_dict["main_firmware_version"][0]
+        == shared_values_dict["main_firmware_version"][0]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][SLEEP_FIRMWARE_VERSION_UUID]
-        == generic_beta_1_start_recording_info_in_shared_dict["sleep_firmware_version"][0]
+        == shared_values_dict["sleep_firmware_version"][0]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][XEM_SERIAL_NUMBER_UUID]
-        == generic_beta_1_start_recording_info_in_shared_dict["xem_serial_number"][0]
+        == shared_values_dict["xem_serial_number"][0]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][MANTARRAY_SERIAL_NUMBER_UUID]
-        == generic_beta_1_start_recording_info_in_shared_dict["mantarray_serial_number"][0]
+        == shared_values_dict["mantarray_serial_number"][0]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][MANTARRAY_NICKNAME_UUID]
-        == generic_beta_1_start_recording_info_in_shared_dict["mantarray_nickname"][0]
+        == shared_values_dict["mantarray_nickname"][0]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][REFERENCE_VOLTAGE_UUID]
@@ -951,11 +957,11 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][ADC_GAIN_SETTING_UUID]
-        == generic_beta_1_start_recording_info_in_shared_dict["adc_gain"]
+        == shared_values_dict["adc_gain"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"]["adc_offsets"]
-        == generic_beta_1_start_recording_info_in_shared_dict["adc_offsets"]
+        == shared_values_dict["adc_offsets"]
     )
     assert communication["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_UUID] == expected_barcode
     assert communication["metadata_to_copy_onto_main_file_attributes"][HARDWARE_TEST_RECORDING_UUID] is False
@@ -990,8 +996,12 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
     )
 )
 def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__24_wells__utcnow_recording_start_time__and_metadata(
-    test_process_manager_beta_2_mode, test_client, generic_beta_2_start_recording_info_in_shared_dict
+    test_process_manager_creator, test_client
 ):
+    test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
+    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+    put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
+
     expected_acquisition_timestamp = datetime.datetime(  # pylint: disable=duplicate-code
         year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332598
     )
@@ -1000,9 +1010,7 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
         seconds=(expected_recording_timepoint / MICRO_TO_BASE_CONVERSION)
     )
 
-    generic_beta_2_start_recording_info_in_shared_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [
-        expected_acquisition_timestamp
-    ]
+    shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [expected_acquisition_timestamp]
 
     expected_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
@@ -1012,9 +1020,7 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     )
     assert response.status_code == 200
 
-    comm_queue = (
-        test_process_manager_beta_2_mode.queue_container().get_communication_queue_from_server_to_main()
-    )
+    comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
@@ -1029,11 +1035,11 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][CUSTOMER_ACCOUNT_ID_UUID]
-        == generic_beta_2_start_recording_info_in_shared_dict["config_settings"]["Customer Account ID"]
+        == shared_values_dict["config_settings"]["Customer Account ID"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][USER_ACCOUNT_ID_UUID]
-        == generic_beta_2_start_recording_info_in_shared_dict["config_settings"]["User Account ID"]
+        == shared_values_dict["config_settings"]["User Account ID"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][START_RECORDING_TIME_INDEX_UUID]
@@ -1049,19 +1055,19 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][MAIN_FIRMWARE_VERSION_UUID]
-        == generic_beta_2_start_recording_info_in_shared_dict["main_firmware_version"][0]
+        == shared_values_dict["main_firmware_version"][0]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][MANTARRAY_SERIAL_NUMBER_UUID]
-        == generic_beta_2_start_recording_info_in_shared_dict["mantarray_serial_number"][0]
+        == shared_values_dict["mantarray_serial_number"][0]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][MANTARRAY_NICKNAME_UUID]
-        == generic_beta_2_start_recording_info_in_shared_dict["mantarray_nickname"][0]
+        == shared_values_dict["mantarray_nickname"][0]
     )
     assert communication["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_UUID] == expected_barcode
     assert communication["metadata_to_copy_onto_main_file_attributes"][HARDWARE_TEST_RECORDING_UUID] is False
-    magnetometer_config_dict = generic_beta_2_start_recording_info_in_shared_dict["magnetometer_config_dict"]
+    magnetometer_config_dict = shared_values_dict["magnetometer_config_dict"]
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][TISSUE_SAMPLING_PERIOD_UUID]
         == magnetometer_config_dict["sampling_period"]
@@ -1071,7 +1077,7 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
         == magnetometer_config_dict["magnetometer_config"]
     )
     # metadata values from instrument
-    instrument_metadata = generic_beta_2_start_recording_info_in_shared_dict["instrument_metadata"][0]
+    instrument_metadata = shared_values_dict["instrument_metadata"][0]
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][BOOTUP_COUNTER_UUID]
         == instrument_metadata[BOOTUP_COUNTER_UUID]
