@@ -7,6 +7,7 @@ import datetime
 import json
 import logging
 from multiprocessing import Queue
+from multiprocessing import queues as mpqueues
 import os
 import queue
 from statistics import stdev
@@ -250,6 +251,20 @@ class FileWriterProcess(InfiniteProcess):
         self._num_recorded_points: List[int] = list()
         self._recording_durations: List[float] = list()
         self._beta_2_mode = beta_2_mode
+
+    def start(self) -> None:
+        for board_queue_tuple in self._board_queues:
+            for fw_queue in board_queue_tuple:
+                if not isinstance(fw_queue, mpqueues.Queue):
+                    raise NotImplementedError(
+                        "All queues must be standard multiprocessing queues to start this process"
+                    )
+        for fw_queue in (self._from_main_queue, self._to_main_queue):
+            if not isinstance(fw_queue, mpqueues.Queue):
+                raise NotImplementedError(
+                    "All queues must be standard multiprocessing queues to start this process"
+                )
+        super().start()
 
     def get_recording_finalization_statuses(
         self,

@@ -450,7 +450,11 @@
         "stdlib-utils": {
             "editable": true,
             "git": "https://github.com/CuriBio/stdlib-utils.git",
-            "ref": "84d8eb8932897aae63eb2d0293bbebf1e39b1f2f"
+            "hashes": [
+                "sha256:5563777c213f8a4df67194130bc8c883564c92819c3ed7573703ac5901863538",
+                "sha256:7599f84d8449ac3ccdb24fa7886d845c3e506312f15ec751ca97f036b6348b42"
+            ],
+            "ref": "738aa04b14c38c0cc340cd0f329ef75eedb6f2a3"
         },
         "streamz": {
             "hashes": [

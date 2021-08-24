@@ -6,6 +6,7 @@ import datetime
 import json
 import logging
 from multiprocessing import Queue
+from multiprocessing import queues as mpqueues
 import queue
 from statistics import stdev
 from time import perf_counter
@@ -117,6 +118,20 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._calibration_settings: Union[None, Dict[Any, Any]] = None
         # Beta 2 items
         self._beta_2_buffer_size: Optional[int] = None
+
+    def start(self) -> None:
+        for board_queue_tuple in self._board_queues:
+            for da_queue in board_queue_tuple:
+                if not isinstance(da_queue, mpqueues.Queue):
+                    raise NotImplementedError(
+                        "All queues must be standard multiprocessing queues to start this process"
+                    )
+        for da_queue in (self._comm_from_main_queue, self._comm_to_main_queue):
+            if not isinstance(da_queue, mpqueues.Queue):
+                raise NotImplementedError(
+                    "All queues must be standard multiprocessing queues to start this process"
+                )
+        super().start()
 
     def get_pipeline_template(self) -> PipelineTemplate:
         return self._pipeline_template

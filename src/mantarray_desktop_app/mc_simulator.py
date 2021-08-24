@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import logging
 from multiprocessing import Queue
+from multiprocessing import queues as mpqueues
 import os
 import queue
 import random
@@ -204,6 +205,14 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._sampling_period_us: int
         self._boot_up_time_secs: Optional[float] = None
         self._handle_boot_up_config()
+
+    def start(self) -> None:
+        for simulator_queue in (self._output_queue, self._input_queue, self._testing_queue):
+            if not isinstance(simulator_queue, mpqueues.Queue):
+                raise NotImplementedError(
+                    "All queues must be standard multiprocessing queues to start this process"
+                )
+        super().start()
 
     @property
     def _is_streaming_data(self) -> bool:

@@ -5,6 +5,7 @@ from __future__ import annotations
 import abc
 import logging
 from multiprocessing import Queue
+from multiprocessing import queues as mpqueues
 from typing import Any
 from typing import Dict
 from typing import List
@@ -67,6 +68,15 @@ class InstrumentCommProcess(InfiniteProcess, metaclass=abc.ABCMeta):
             self._board_queues
         )
         self._suppress_setup_communication_to_main = suppress_setup_communication_to_main
+
+    def start(self) -> None:
+        for board_queue_tuple in self._board_queues:
+            for ic_queue in board_queue_tuple:
+                if not isinstance(ic_queue, mpqueues.Queue):
+                    raise NotImplementedError(
+                        "All queues must be standard multiprocessing queues to start this process"
+                    )
+        super().start()
 
     def hard_stop(self, timeout: Optional[float] = None) -> Dict[str, Any]:
         return_value: Dict[str, Any] = super().hard_stop(timeout=timeout)
