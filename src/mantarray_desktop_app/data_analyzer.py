@@ -241,12 +241,10 @@ class DataAnalyzerProcess(InfiniteProcess):
                     # TODO Tanner (8/4/21): for some reason sampling periods > 16000 µs cause errors when creating filters. Need to update waveform analysis package before they will be usable
                     tissue_sampling_period=sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND,
                 )
-
                 self.init_streams()
             else:
                 raise UnrecognizedCommandToInstrumentError(communication["command"])
             self._comm_to_main_queue.put_nowait(communication)
-
         else:
             raise UnrecognizedCommTypeFromMainToDataAnalyzerError(communication_type)
 

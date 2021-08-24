@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "4a6f05c1517abed0554093c17571f3a9bf143b1e0919fa8c4f843870243387cd"
+            "sha256": "ba020eeab0525bf56f2e797d7f3fee646ae3a8f0e6783dc2d55677853835990c"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -448,13 +448,12 @@
             "version": "==1.16.0"
         },
         "stdlib-utils": {
-            "editable": true,
-            "git": "https://github.com/CuriBio/stdlib-utils.git",
             "hashes": [
-                "sha256:5563777c213f8a4df67194130bc8c883564c92819c3ed7573703ac5901863538",
-                "sha256:7599f84d8449ac3ccdb24fa7886d845c3e506312f15ec751ca97f036b6348b42"
+                "sha256:a34d37bb9a6f43e0935136851e1784ee7019f9b4cc5d1823e552f4bcc7ebfeb0",
+                "sha256:ecfb6d97723015d72f5708e0e9e7e3348b19d01fbb0f83dffe9564bf139e423e"
             ],
-            "ref": "738aa04b14c38c0cc340cd0f329ef75eedb6f2a3"
+            "index": "pypi",
+            "version": "==0.4.5"
         },
         "streamz": {
             "hashes": [
@@ -530,7 +529,7 @@
                 "sha256:56f6dc65d86c2e5b8f04f22acedd33af2c233edc1082fe4d24fd3996bd19d0fe",
                 "sha256:f9395cad9a30cb9864fa0c0d18a84daead1eb8807774f4e09f588f89b7dc77d8"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3' and python_version < '4.0'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3' and python_version < '4'",
             "version": "==1.5.0"
         },
         "werkzeug": {
@@ -706,7 +705,7 @@
                 "sha256:f0b278ce10936db1a37e6954e15a3730bea96a0997c26d7fee88e6c396c2086d",
                 "sha256:f11642dddbb0253cc8853254301b51390ba0081750a8ac03f20ea8103f0c56b6"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4.0'",
             "version": "==5.5"
         },
         "cython": {
@@ -834,7 +833,7 @@
                 "sha256:9c2ea1e62d871267b78307fe511c0838ba0da28698c5732d54e2790bf3ba9899",
                 "sha256:e17d6e2b81095c9db0a03a8025a957f334d6ea30b26f9ec70805411e5c7c81f2"
             ],
-            "markers": "python_version < '4' and python_full_version >= '3.6.1'",
+            "markers": "python_version < '4.0' and python_full_version >= '3.6.1'",
             "version": "==5.9.3"
         },
         "jinja2": {
@@ -880,6 +879,14 @@
             ],
             "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4, 3.5'",
             "version": "==1.6.0"
+        },
+        "macholib": {
+            "hashes": [
+                "sha256:196b62c592e46f0859508a73a11eca6b082a5c8db330ba90cb56f2409e48e2d5",
+                "sha256:a86f0fa3ff8899d8cd7d4ed357d6da87448bb34199697f31275b9fc12478d6a8"
+            ],
+            "markers": "sys_platform == 'darwin'",
+            "version": "==1.15"
         },
         "markupsafe": {
             "hashes": [
@@ -1265,7 +1272,7 @@
                 "sha256:39fb8672126159acb139a7718dd10806104dec1e2f0f6c88aab05d17df10c8d4",
                 "sha256:f57b4c16c62fa2760b7e3d97c35b255512fb6b59a259730f36ba32ce9f8e342f"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4.0'",
             "version": "==1.26.6"
         },
         "virtualenv": {
