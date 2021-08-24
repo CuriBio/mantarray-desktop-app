@@ -9,7 +9,6 @@ import pytest
 
 @pytest.fixture(scope="function", name="test_monitor")
 def fixture_test_monitor():
-
     def _foo(process_manager):
         the_dict = process_manager.get_values_to_share_to_server()
         the_dict["system_status"] = SERVER_INITIALIZING_STATE

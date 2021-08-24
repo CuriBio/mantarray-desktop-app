@@ -115,6 +115,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             tissue_sampling_period=CONSTRUCT_SENSOR_SAMPLING_PERIOD,
         )
         # Beta 1 items
+        self._well_offsets: List[Optional[int]] = [None] * 24
         self._calibration_settings: Union[None, Dict[Any, Any]] = None
         # Beta 2 items
         self._beta_2_buffer_size: Optional[int] = None
@@ -219,6 +220,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                 if not self._beta_2_mode:
                     self._end_of_data_stream_reached[0] = False
                 drain_queue(self._board_queues[0][1])
+                self._well_offsets = [None] * 24
             elif communication["command"] == "stop_managed_acquisition":
                 self._end_of_data_stream_reached[0] = True
                 for well_index in range(24):
@@ -371,9 +373,10 @@ class DataAnalyzerProcess(InfiniteProcess):
         earliest_timepoint: Optional[int] = None
         latest_timepoint: Optional[int] = None
         for well_index in range(24):
+            self._normalize_beta_1_data_for_well(well_index)
             pipeline = self._pipeline_template.create_pipeline()
             pipeline.load_raw_magnetic_data(
-                np.array(self._data_buffer[well_index]["construct_data"], dtype=np.int32),
+                self._data_buffer[well_index]["construct_data"],
                 np.array(self._data_buffer[well_index]["ref_data"], dtype=np.int32),
             )
             compressed_data = pipeline.get_compressed_force()
@@ -400,6 +403,13 @@ class DataAnalyzerProcess(InfiniteProcess):
         outgoing_data["earliest_timepoint"] = earliest_timepoint
         outgoing_data["latest_timepoint"] = latest_timepoint
         return outgoing_data
+
+    def _normalize_beta_1_data_for_well(self, well_idx: int) -> None:
+        tissue_data = np.array(self._data_buffer[well_idx]["construct_data"], dtype=np.int32)
+        if self._well_offsets[well_idx] is None:
+            self._well_offsets[well_idx] = max(tissue_data[1])
+        tissue_data[1] = (tissue_data[1] - self._well_offsets[well_idx]) * -1
+        self._data_buffer[well_idx]["construct_data"] = tissue_data
 
     def _handle_performance_logging(self) -> None:
         # TODO Tanner (8/4/21): create performance metrics for heatmap value creation

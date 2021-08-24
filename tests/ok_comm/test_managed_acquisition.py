@@ -190,9 +190,13 @@ def test_OkCommunicationProcess_commands_for_each_run_iteration__sends_fifo_read
     invoke_process_run_and_check_errors(p)
 
     expected_well_idx = 0
-    test_value_1 = FIFO_READ_PRODUCER_DATA_OFFSET + FIFO_READ_PRODUCER_WELL_AMPLITUDE * (
-        expected_well_idx + 1
-    ) * signal.sawtooth(0 / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5)
+    test_value_1 = (
+        FIFO_READ_PRODUCER_DATA_OFFSET
+        + FIFO_READ_PRODUCER_WELL_AMPLITUDE
+        * (expected_well_idx + 1)
+        * signal.sawtooth(0 / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5)
+        * -1
+    )
     expected_first_dict_sent = {
         "is_reference_sensor": False,
         "well_index": expected_well_idx,
@@ -298,11 +302,15 @@ def test_OkCommunicationProcess_managed_acquisition__handles_ignoring_first_data
     assert ok_process._is_first_managed_read[0] is False  # pylint: disable=protected-access
 
     expected_well_idx = 0
-    test_value_1 = FIFO_READ_PRODUCER_DATA_OFFSET + FIFO_READ_PRODUCER_WELL_AMPLITUDE * (
-        expected_well_idx + 1
-    ) * signal.sawtooth(
-        (ROUND_ROBIN_PERIOD // TIMESTEP_CONVERSION_FACTOR) / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD,
-        width=0.5,
+    test_value_1 = (
+        FIFO_READ_PRODUCER_DATA_OFFSET
+        + FIFO_READ_PRODUCER_WELL_AMPLITUDE
+        * (expected_well_idx + 1)
+        * signal.sawtooth(
+            (ROUND_ROBIN_PERIOD // TIMESTEP_CONVERSION_FACTOR) / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD,
+            width=0.5,
+        )
+        * -1
     )
     expected_first_dict_sent = {
         "is_reference_sensor": False,

@@ -504,7 +504,7 @@ def test_DataAnalyzerProcess__dump_data_into_queue__sends_message_to_main_indica
     assert actual == expected_message
 
 
-def test_DataAnalyzerProcess__create_outgoing_data__compresses_force_data(
+def test_DataAnalyzerProcess__create_outgoing_data__normalizes_and_flips_raw_data_then_compresses_force_data(
     four_board_analyzer_process,
 ):
     p, _, _, _, _ = four_board_analyzer_process
@@ -514,7 +514,7 @@ def test_DataAnalyzerProcess__create_outgoing_data__compresses_force_data(
     timepoints = np.array(
         [(ROUND_ROBIN_PERIOD * (i + 1) // TIMESTEP_CONVERSION_FACTOR) for i in range(timepoint_end)]
     )
-    sawtooth_data = signal.sawtooth(timepoints / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5)
+    sawtooth_data = signal.sawtooth(timepoints / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5) * -1
     test_data = np.array(
         (
             timepoints,
@@ -532,12 +532,17 @@ def test_DataAnalyzerProcess__create_outgoing_data__compresses_force_data(
     outgoing_data = p._create_outgoing_beta_1_data()  # pylint:disable=protected-access
     actual = outgoing_data["waveform_data"]["basic_data"]["waveform_data_points"]
 
+    normalized_data = np.array(
+        [test_data[0], (test_data[1] - max(test_data[1])) * -1],
+        dtype=np.int32,
+    )
+
     pt = PipelineTemplate(
         noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
         tissue_sampling_period=ROUND_ROBIN_PERIOD,
     )
     pipeline = pt.create_pipeline()
-    pipeline.load_raw_gmr_data(test_data, np.zeros(test_data.shape))
+    pipeline.load_raw_gmr_data(normalized_data, np.zeros(normalized_data.shape))
     expected_compressed_data = pipeline.get_compressed_force()
     np.testing.assert_equal(actual[0]["x_data_points"], expected_compressed_data[0, :])
     np.testing.assert_equal(
