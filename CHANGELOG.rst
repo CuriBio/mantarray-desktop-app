@@ -7,7 +7,7 @@ Changelog for Mantarray Desktop App
 
 - Added ``/set_protocol`` and ``/set_stim_status`` routes.
 - Fixed issue with only well A1's data being trimmed to the desired recording window. This issue caused
-  all files for other wells to contain more data than recorded, but never less.
+  all files for other wells to contain more data than recorded, but no desired data was ever lost.
 
 
 0.5.0 (2021-08-02)
