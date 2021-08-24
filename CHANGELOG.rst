@@ -2,12 +2,15 @@ Changelog for Mantarray Desktop App
 ===================================
 
 
-0.5.1 (unreleased)
+0.5.1 (2021-08-24)
 ------------------
 
 - Added ``/set_protocol`` and ``/set_stim_status`` routes.
+- Added autoscale feature to heatmap.
+- Fixed issue with +/- buttons of y-zoom widget not updating zoom window correctly.
 - Fixed issue with only well A1's data being trimmed to the desired recording window. This issue caused
   all files for other wells to contain more data than recorded, but no desired data was ever lost.
+- Updated minor styling features of heatmap.
 
 
 0.5.0 (2021-08-02)
