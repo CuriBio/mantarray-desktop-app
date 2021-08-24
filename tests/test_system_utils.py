@@ -22,7 +22,7 @@ def fixture_patch_api_endpoint(mocker):
     dummy_api_endpoint = "blahblah"
     mocker.patch.object(
         system_utils, "get_api_endpoint", autospec=True, return_value=dummy_api_endpoint
-    )  # Eli (11/18/20) mocking so that the ServerThread doesn't need to be started
+    )  # Eli (11/18/20) mocking so that the ServerManager doesn't need to be started
     yield dummy_api_endpoint
 
 
@@ -36,7 +36,7 @@ def test_system_state_eventually_equals__returns_True_after_system_state_equals_
         {"ui_status_code": str(SYSTEM_STATUS_UUIDS[expected_state])},
     ]
 
-    # mocker.patch.object(system_utils,'get_api_endpoint',autospec=True,return_value=dummy_api_endpoint) # Eli (11/18/20) mocking so that the ServerThread doesn't need to be started
+    # mocker.patch.object(system_utils,'get_api_endpoint',autospec=True,return_value=dummy_api_endpoint) # Eli (11/18/20) mocking so that the ServerManager doesn't need to be started
     dummy_response = Response()
     mocker.patch.object(dummy_response, "json", side_effect=mocked_status_values)
     mocker.patch.object(system_utils, "sleep", autospec=True)  # mock this to run the test faster

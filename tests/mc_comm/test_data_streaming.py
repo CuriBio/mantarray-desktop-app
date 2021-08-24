@@ -7,6 +7,7 @@ from mantarray_desktop_app import convert_bitmask_to_config_dict
 from mantarray_desktop_app import create_active_channel_per_sensor_list
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import create_magnetometer_config_dict
+from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
 from mantarray_desktop_app import handle_data_packets
 from mantarray_desktop_app import InstrumentDataStreamingAlreadyStartedError
 from mantarray_desktop_app import InstrumentDataStreamingAlreadyStoppedError
@@ -203,7 +204,7 @@ def test_handle_data_packets__handles_two_full_data_packets_correctly__and_assig
     np.testing.assert_array_equal(actual_time_offsets, expected_time_offsets)
     np.testing.assert_array_equal(actual_data, expected_data_points)
     assert num_data_packets_read == test_num_data_packets
-    assert other_packet_info is None
+    assert other_packet_info == []
     assert unread_bytes == bytes(0)
 
 
@@ -261,7 +262,7 @@ def test_handle_data_packets__handles_two_full_data_packets_correctly__when_acti
     np.testing.assert_array_equal(actual_time_offsets, expected_time_offsets)
     np.testing.assert_array_equal(actual_data, expected_data_points)
     assert num_data_packets_read == test_num_data_packets
-    assert other_packet_info is None
+    assert other_packet_info == []
     assert unread_bytes == bytes(0)
 
 
@@ -279,7 +280,7 @@ def test_handle_data_packets__handles_single_packet_with_incorrect_packet_type_c
     assert actual_time_offsets.shape[1] == 0
     assert actual_data.shape[1] == 0
     assert num_data_packets_read == 0
-    assert other_packet_info == TEST_OTHER_PACKET_INFO
+    assert other_packet_info == [TEST_OTHER_PACKET_INFO]
     assert unread_bytes == bytes(0)
 
 
@@ -306,24 +307,28 @@ def test_handle_data_packets__handles_single_packet_with_incorrect_module_id_cor
     assert actual_time_offsets.shape[1] == 0
     assert actual_data.shape[1] == 0
     assert num_data_packets_read == 0
-    assert other_packet_info == (
-        expected_timestamp,
-        255,
-        SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE,
-        bytes(test_body_length),
-    )
+    assert other_packet_info == [
+        (
+            expected_timestamp,
+            255,
+            SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE,
+            bytes(test_body_length),
+        )
+    ]
     assert unread_bytes == bytes(0)
 
 
 def test_handle_data_packets__handles_interrupting_packet_followed_by_data_packet__when_all_channels_enabled():
-    data_packet_body, _, _ = create_data_stream_body(random_time_index())
-    expected_unread_bytes = create_data_packet(
+    expected_time_index = random_time_index()
+    data_packet_body, expected_time_offsets, expected_data_points = create_data_stream_body(
+        expected_time_index
+    )
+    test_bytes = TEST_OTHER_PACKET + create_data_packet(
         random_timestamp(),
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE,
         data_packet_body,
     )
-    test_bytes = TEST_OTHER_PACKET + expected_unread_bytes
 
     (
         actual_time_indices,
@@ -334,12 +339,12 @@ def test_handle_data_packets__handles_interrupting_packet_followed_by_data_packe
         unread_bytes,
     ) = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST)
 
-    assert actual_time_indices.shape[0] == 1
-    assert actual_time_offsets.shape[1] == 1
-    assert actual_data.shape[1] == 1
-    assert num_data_packets_read == 0
-    assert other_packet_info == TEST_OTHER_PACKET_INFO
-    assert unread_bytes == expected_unread_bytes
+    np.testing.assert_array_equal(actual_time_indices, expected_time_index)
+    np.testing.assert_array_equal(actual_time_offsets.flatten(), expected_time_offsets)
+    np.testing.assert_array_equal(actual_data.flatten(), expected_data_points)
+    assert num_data_packets_read == 1
+    assert other_packet_info == [TEST_OTHER_PACKET_INFO]
+    assert unread_bytes == bytes(0)
 
 
 def test_handle_data_packets__handles_single_data_packet_followed_by_interrupting_packet__when_all_channels_enabled():
@@ -367,7 +372,7 @@ def test_handle_data_packets__handles_single_data_packet_followed_by_interruptin
     assert actual_data.shape[1] == 1
     assert actual_time_indices[0] == expected_time_index
     assert num_data_packets_read == 1
-    assert other_packet_info == TEST_OTHER_PACKET_INFO
+    assert other_packet_info == [TEST_OTHER_PACKET_INFO]
     assert unread_bytes == bytes(0)
 
 
@@ -397,7 +402,7 @@ def test_handle_data_packets__handles_single_data_packet_followed_by_incomplete_
     assert actual_data.shape[1] == 1
     assert actual_time_indices[0] == expected_time_index
     assert num_data_packets_read == 1
-    assert other_packet_info is None
+    assert other_packet_info == []
     assert unread_bytes == test_incomplete_packet
 
 
@@ -405,12 +410,14 @@ def test_handle_data_packets__handles_interrupting_packet_in_between_two_data_pa
     test_num_data_packets = 2
 
     expected_time_indices = []
+    expected_time_offsets = []
+    expected_data_points = []
     test_data_packets = []
     for _ in range(test_num_data_packets):
         time_index = random_time_index()
         expected_time_indices.append(time_index)
 
-        data_packet_body, _, _ = create_data_stream_body(time_index)
+        data_packet_body, test_offsets, test_data = create_data_stream_body(time_index)
         test_data_packet = create_data_packet(
             random_timestamp(),
             SERIAL_COMM_MAIN_MODULE_ID,
@@ -418,6 +425,8 @@ def test_handle_data_packets__handles_interrupting_packet_in_between_two_data_pa
             data_packet_body,
         )
         test_data_packets.append(test_data_packet)
+        expected_time_offsets.extend(test_offsets)
+        expected_data_points.extend(test_data)
     test_bytes = test_data_packets[0] + TEST_OTHER_PACKET + test_data_packets[1]
 
     (
@@ -429,13 +438,66 @@ def test_handle_data_packets__handles_interrupting_packet_in_between_two_data_pa
         unread_bytes,
     ) = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST)
 
-    assert actual_time_indices.shape[0] == 2
-    assert actual_time_offsets.shape[1] == 2
-    assert actual_data.shape[1] == 2
-    assert actual_time_indices[0] == expected_time_indices[0]
-    assert num_data_packets_read == 1
-    assert other_packet_info == TEST_OTHER_PACKET_INFO
-    assert unread_bytes == test_data_packets[1]
+    expected_time_offsets = np.array(expected_time_offsets).reshape(
+        (len(expected_time_offsets) // test_num_data_packets, test_num_data_packets), order="F"
+    )
+    expected_data_points = np.array(expected_data_points).reshape(
+        (len(expected_data_points) // test_num_data_packets, test_num_data_packets), order="F"
+    )
+
+    np.testing.assert_array_equal(actual_time_indices, expected_time_indices)
+    np.testing.assert_array_equal(actual_time_offsets, expected_time_offsets)
+    np.testing.assert_array_equal(actual_data, expected_data_points)
+    assert num_data_packets_read == 2
+    assert other_packet_info == [TEST_OTHER_PACKET_INFO]
+    assert unread_bytes == bytes(0)
+
+
+def test_handle_data_packets__handles_two_interrupting_packets_in_between_two_data_packets__when_all_channels_enabled():
+    test_num_data_packets = 2
+
+    expected_time_indices = []
+    expected_time_offsets = []
+    expected_data_points = []
+    test_data_packets = []
+    for _ in range(test_num_data_packets):
+        time_index = random_time_index()
+        expected_time_indices.append(time_index)
+
+        data_packet_body, test_offsets, test_data = create_data_stream_body(time_index)
+        test_data_packet = create_data_packet(
+            random_timestamp(),
+            SERIAL_COMM_MAIN_MODULE_ID,
+            SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE,
+            data_packet_body,
+        )
+        test_data_packets.append(test_data_packet)
+        expected_time_offsets.extend(test_offsets)
+        expected_data_points.extend(test_data)
+    test_bytes = test_data_packets[0] + TEST_OTHER_PACKET + TEST_OTHER_PACKET + test_data_packets[1]
+
+    (
+        actual_time_indices,
+        actual_time_offsets,
+        actual_data,
+        num_data_packets_read,
+        other_packet_info,
+        unread_bytes,
+    ) = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST)
+
+    expected_time_offsets = np.array(expected_time_offsets).reshape(
+        (len(expected_time_offsets) // test_num_data_packets, test_num_data_packets), order="F"
+    )
+    expected_data_points = np.array(expected_data_points).reshape(
+        (len(expected_data_points) // test_num_data_packets, test_num_data_packets), order="F"
+    )
+
+    np.testing.assert_array_equal(actual_time_indices, expected_time_indices)
+    np.testing.assert_array_equal(actual_time_offsets, expected_time_offsets)
+    np.testing.assert_array_equal(actual_data, expected_data_points)
+    assert num_data_packets_read == 2
+    assert other_packet_info == [TEST_OTHER_PACKET_INFO, TEST_OTHER_PACKET_INFO]
+    assert unread_bytes == bytes(0)
 
 
 def test_handle_data_packets__raises_error_when_packet_from_instrument_has_incorrect_magic_word(
@@ -512,7 +574,7 @@ def test_handle_data_packets__performance_test():
     np.testing.assert_array_equal(actual_time_offsets, expected_time_offsets)
     np.testing.assert_array_equal(actual_data, expected_data_points)
     assert num_data_packets_read == test_num_data_packets
-    assert other_packet_info is None
+    assert other_packet_info == []
     assert unread_bytes == bytes(0)
 
 
@@ -811,6 +873,48 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
             )
 
 
+def test_McCommunicationProcess__correctly_indicates_which_packet_is_the_first_of_the_stream(
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+    mocker,
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    to_fw_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][2]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    test_num_packets = 100
+    test_sampling_period_us = int(1e6 // test_num_packets)
+    # mocking to ensure only one data packet is sent
+    mocker.patch.object(
+        mc_simulator,
+        "_get_us_since_last_data_packet",
+        autospec=True,
+        side_effect=[
+            0,
+            test_sampling_period_us * test_num_packets,
+            test_sampling_period_us * test_num_packets,
+        ],
+    )
+
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+
+    set_magnetometer_config_and_start_streaming(
+        four_board_mc_comm_process_no_handshake,
+        simulator,
+        FULL_CONFIG_ALL_CHANNELS_ENABLED,
+        test_sampling_period_us,
+    )
+
+    for read_num in range(2):
+        invoke_process_run_and_check_errors(simulator)
+        invoke_process_run_and_check_errors(mc_process)
+        confirm_queue_is_eventually_of_size(to_fw_queue, 1)
+        actual_fw_item = to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+        assert actual_fw_item["is_first_packet_of_stream"] is not bool(read_num)
+
+
 def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_data_to_file_writer_correctly__when_one_second_of_data_with_random_magnetometer_config_is_present(
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
@@ -891,7 +995,7 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
             )
 
 
-def test_McCommunicationProcess__handles_one_second_read_with_interrupting_packet_correctly__and_indicates_the_first_packet_is_the_very_first_packet_of_the_stream(
+def test_McCommunicationProcess__handles_one_second_read_with_two_interrupting_packets_correctly(
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
     mocker,
@@ -946,54 +1050,50 @@ def test_McCommunicationProcess__handles_one_second_read_with_interrupting_packe
     # not actually using the value here in any assertions, just need the key present
     expected_fw_item["is_first_packet_of_stream"] = None
 
-    # insert status beacon after 1/3 of data
+    # insert one status beacon at beginning of data and on after 1/3 of data
     invoke_process_run_and_check_errors(simulator)
     read_bytes = simulator.read_all()
-    read_bytes = read_bytes[: len(read_bytes) // 3] + TEST_OTHER_PACKET + read_bytes[len(read_bytes) // 3 :]
+    read_bytes = (
+        TEST_OTHER_PACKET
+        + read_bytes[: len(read_bytes) // 3]
+        + TEST_OTHER_PACKET
+        + read_bytes[len(read_bytes) // 3 :]
+    )
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"command": "add_read_bytes", "read_bytes": read_bytes}, testing_queue
     )
     invoke_process_run_and_check_errors(simulator)
 
-    # populate mc_comm output queues
+    # parse all data and make sure outgoing queues are populated
     invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(to_main_queue, 2)
     confirm_queue_is_eventually_of_size(to_fw_queue, 1)
-    invoke_process_run_and_check_errors(mc_process)
-    confirm_queue_is_eventually_of_size(to_fw_queue, 2)
-    confirm_queue_is_eventually_of_size(to_main_queue, 1)
-    # test message to main from interrupting packet
-    actual_beacon_log_msg = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    expected_status_code = int.from_bytes(TEST_OTHER_PACKET_INFO[3], byteorder="little")
-    assert str(expected_status_code) in actual_beacon_log_msg["message"]
+    # test message to main from interrupting packets
+    for beacon_num in range(2):
+        actual_beacon_log_msg = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+        expected_status_code = int.from_bytes(TEST_OTHER_PACKET_INFO[3], byteorder="little")
+        assert str(expected_status_code) in actual_beacon_log_msg["message"], beacon_num
     # test data packets going to file_writer
-    for item_idx in range(2):
-        actual_fw_item = to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-        assert actual_fw_item.keys() == expected_fw_item.keys()
-        assert actual_fw_item["is_first_packet_of_stream"] is (item_idx == 0)
+    actual_fw_item = to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert actual_fw_item.keys() == expected_fw_item.keys()
 
-        start_idx = 0 if item_idx == 0 else test_num_packets // 3
-        stop_idx = test_num_packets // 3 if item_idx == 0 else test_num_packets
+    np.testing.assert_array_equal(actual_fw_item["time_indices"], expected_fw_item["time_indices"])
+
+    for key, expected_item in expected_fw_item.items():
+        if key in ("is_first_packet_of_stream", "time_indices"):
+            continue
+        actual_time_offsets = actual_fw_item[key]["time_offsets"]
+        actual_data = actual_fw_item[key][expected_sensor_axis_id]
         np.testing.assert_array_equal(
-            actual_fw_item["time_indices"],
-            expected_fw_item["time_indices"][start_idx:stop_idx],
-            err_msg=f"Failure at item idx {item_idx}",
+            actual_time_offsets,
+            expected_item["time_offsets"],
+            err_msg=f"Failure at '{key}' key",
         )
-
-        for key, expected_item in expected_fw_item.items():
-            if key in ("is_first_packet_of_stream", "time_indices"):
-                continue
-            actual_time_offsets = actual_fw_item[key]["time_offsets"]
-            actual_data = actual_fw_item[key][expected_sensor_axis_id]
-            np.testing.assert_array_equal(
-                actual_time_offsets,
-                expected_item["time_offsets"][:, start_idx:stop_idx],
-                err_msg=f"Failure at item idx {item_idx} at '{key}' key",
-            )
-            np.testing.assert_array_equal(
-                actual_data,
-                expected_item[expected_sensor_axis_id][start_idx:stop_idx],
-                err_msg=f"Failure at item idx {item_idx} at '{key}' key",
-            )
+        np.testing.assert_array_equal(
+            actual_data,
+            expected_item[expected_sensor_axis_id],
+            err_msg=f"Failure at at '{key}' key",
+        )
 
 
 def test_McCommunicationProcess__handles_less_than_one_second_read_when_stopping_data_stream(
@@ -1084,3 +1184,41 @@ def test_McCommunicationProcess__handles_less_than_one_second_read_when_stopping
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
     assert to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_response
     confirm_queue_is_eventually_empty(to_fw_queue)
+
+
+def test_McCommunicationProcess__does_not_attempt_to_parse_when_stopping_data_stream_if_no_bytes_are_present(
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+    mocker,
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    from_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][0]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    test_sampling_period_us = 10000
+    mocker.patch.object(
+        mc_simulator,
+        "_get_us_since_last_data_packet",
+        autospec=True,
+        side_effect=[0, test_sampling_period_us],
+    )
+
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+    set_magnetometer_config_and_start_streaming(
+        four_board_mc_comm_process_no_handshake,
+        simulator,
+        DEFAULT_MAGNETOMETER_CONFIG,
+        test_sampling_period_us,
+    )
+
+    # tell mc_comm to stop data stream before 1 second of data is present
+    expected_response = {
+        "communication_type": "to_instrument",
+        "command": "stop_managed_acquisition",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(expected_response), from_main_queue
+    )
+    invoke_process_run_and_check_errors(mc_process)

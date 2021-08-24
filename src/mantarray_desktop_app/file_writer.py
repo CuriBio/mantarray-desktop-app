@@ -7,6 +7,7 @@ import datetime
 import json
 import logging
 from multiprocessing import Queue
+from multiprocessing import queues as mpqueues
 import os
 import queue
 from statistics import stdev
@@ -21,7 +22,6 @@ from typing import Union
 from uuid import UUID
 
 import h5py
-from labware_domain_models import LabwareDefinition
 from mantarray_file_manager import ADC_REF_OFFSET_UUID
 from mantarray_file_manager import ADC_TISSUE_OFFSET_UUID
 from mantarray_file_manager import IS_FILE_ORIGINAL_UNTRIMMED_UUID
@@ -56,6 +56,7 @@ from .constants import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
 from .constants import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from .constants import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
 from .constants import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
+from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
@@ -65,8 +66,6 @@ from .exceptions import InvalidDataTypeFromOkCommError
 from .exceptions import InvalidStopRecordingTimepointError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
 from .utils import create_sensor_axis_dict
-
-GENERIC_24_WELL_DEFINITION = LabwareDefinition(row_count=4, column_count=6)
 
 # TODO Tanner (5/28/21): import these from mantarray_file_manager when new version is published
 TIME_INDICES = "time_indices"
@@ -252,6 +251,20 @@ class FileWriterProcess(InfiniteProcess):
         self._num_recorded_points: List[int] = list()
         self._recording_durations: List[float] = list()
         self._beta_2_mode = beta_2_mode
+
+    def start(self) -> None:
+        for board_queue_tuple in self._board_queues:
+            for fw_queue in board_queue_tuple:
+                if not isinstance(fw_queue, mpqueues.Queue):
+                    raise NotImplementedError(
+                        "All queues must be standard multiprocessing queues to start this process"
+                    )
+        for fw_queue in (self._from_main_queue, self._to_main_queue):
+            if not isinstance(fw_queue, mpqueues.Queue):
+                raise NotImplementedError(
+                    "All queues must be standard multiprocessing queues to start this process"
+                )
+        super().start()
 
     def get_recording_finalization_statuses(
         self,
@@ -502,7 +515,30 @@ class FileWriterProcess(InfiniteProcess):
         self.get_stop_recording_timestamps()[0] = stop_recording_timepoint
         for this_well_idx in self._open_files[0].keys():
             this_file = self._open_files[0][this_well_idx]
-            if not self._beta_2_mode:
+            if self._beta_2_mode:
+                # find num points needed to remove
+                time_index_dataset = get_time_index_dataset_from_file(this_file)
+                try:
+                    num_indices_to_remove = next(
+                        i
+                        for i, time in enumerate(reversed(time_index_dataset))
+                        if time <= stop_recording_timepoint
+                    )
+                except StopIteration as e:
+                    raise InvalidStopRecordingTimepointError(
+                        f"The timepoint {stop_recording_timepoint} is earlier than all recorded timepoints"
+                    ) from e
+                # trim off data after stop recording timepoint
+                datasets = [
+                    time_index_dataset,
+                    get_time_offset_dataset_from_file(this_file),
+                    get_tissue_dataset_from_file(this_file),
+                ]
+                for dataset in datasets:
+                    dataset_shape = list(dataset.shape)
+                    dataset_shape[-1] -= num_indices_to_remove
+                    dataset.resize(dataset_shape)
+            else:
                 latest_timepoint = self.get_file_latest_timepoint(this_well_idx)
                 datasets = [
                     get_tissue_dataset_from_file(this_file),
@@ -517,30 +553,6 @@ class FileWriterProcess(InfiniteProcess):
                     index_to_slice_to = last_index_of_valid_data + 1
                     new_data = dataset[:index_to_slice_to]
                     dataset.resize(new_data.shape)
-                return
-
-            # find num points needed to remove
-            time_index_dataset = get_time_index_dataset_from_file(this_file)
-            try:
-                num_indices_to_remove = next(
-                    i
-                    for i, time in enumerate(reversed(time_index_dataset))
-                    if time <= stop_recording_timepoint
-                )
-            except StopIteration as e:
-                raise InvalidStopRecordingTimepointError(
-                    f"The timepoint {stop_recording_timepoint} is earlier than all recorded timepoints"
-                ) from e
-            # trim off data after stop recording timepoint
-            datasets = [
-                time_index_dataset,
-                get_time_offset_dataset_from_file(this_file),
-                get_tissue_dataset_from_file(this_file),
-            ]
-            for dataset in datasets:
-                dataset_shape = list(dataset.shape)
-                dataset_shape[-1] -= num_indices_to_remove
-                dataset.resize(dataset_shape)
             # TODO Tanner (5/19/21): consider finalizing any files here that are ready
 
     def _process_next_command_from_main(self) -> None:

@@ -4,7 +4,7 @@
 # cython: linetrace=False
 """Parsing data from Mantarray Hardware."""
 from libcpp.map cimport map
-from typing import Optional
+from typing import List
 from typing import Tuple
 
 from .constants import ADC_CH_TO_24_WELL_INDEX
@@ -145,7 +145,7 @@ cdef packed struct Packet:
 
 def handle_data_packets(
     unsigned char [:] read_bytes, list active_channels_list
-) -> Tuple[NDArray, NDArray, NDArray, int, Optional[Tuple[int, int, int, bytearray]], Optional[bytearray]]:
+) -> Tuple[NDArray, NDArray, NDArray, int, List[Tuple[int, int, int, bytearray]], bytearray]:
     """Read the given number of data packets from the instrument.
 
     If data stream is interrupted by a packet that is not part of the data stream,
@@ -156,7 +156,7 @@ def handle_data_packets(
         active_channels_list: a list containing the number of channels on each active sensor, in order.
 
     Returns:
-        A tuple of the array of parsed time indices, the array of time offsets, the array of parsed data, the number of data packets read, optional tuple containing info about the interrupting packet if one occured (timestamp, module ID, packet type, and packet body bytes), the remaining unread bytes
+        A tuple of the array of parsed time indices, the array of time offsets, the array of parsed data, the number of data packets read, list of tuples containing info about interrupting packets if any occured (timestamp, module ID, packet type, and packet body bytes), the remaining unread bytes
     """
     read_bytes = read_bytes.copy()  # make sure data is C contiguous
     cdef int num_bytes = len(read_bytes)
@@ -182,7 +182,7 @@ def handle_data_packets(
     time_offsets = np.empty((num_time_offsets, num_data_packets_possible), dtype=np.uint16, order="C")
     data = np.empty((num_data_channels, num_data_packets_possible), dtype=np.int16, order="C")
     cdef int data_packet_idx = 0  # also represents numbers of data packets read. Will not increment after reading a "non-data" packet
-    other_packet_info = None
+    other_packet_info = list()
 
     # get memory views of numpy arrays for faster operations
     cdef uint64_t [::1] time_indices_view = time_indices
@@ -222,21 +222,20 @@ def handle_data_packets(
                 f"Checksum Received: {original_crc}, Checksum Calculated: {crc}, Full Data Packet: {str(full_data_packet)}"
             )
 
-        # if this packet was not a data packet then need to set optional return values, break out of loop, and return
+        # if this packet was not a data packet then need to store its info and handle it after all data packets are parsed
         if (
             p.module_id != SERIAL_COMM_MAIN_MODULE_ID_C_INT
             or p.packet_type != SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE_C_INT
         ):
-            # breaking out of loop here, so ok to incur reasonable amount of python overhead here
+            # exceptional case, so ok to incur reasonable amount of python overhead here
             other_bytes = bytearray(
                 read_bytes[
                     bytes_idx + SERIAL_COMM_ADDITIONAL_BYTES_INDEX_C_INT : bytes_idx + p.packet_len + 6
                 ]
             )
-            other_packet_info = (p.timestamp, p.module_id, p.packet_type, other_bytes)
-            # increment bytes_idx here as it will be used when returning the unread bytes
+            other_packet_info.append((p.timestamp, p.module_id, p.packet_type, other_bytes))
             bytes_idx += p.packet_len + 10
-            break
+            continue
 
         # add to time index array
         time_indices_view[data_packet_idx] = (<uint64_t *> &p.time_index)[0] & TIME_INDEX_MASK

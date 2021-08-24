@@ -38,6 +38,7 @@ from stdlib_utils import confirm_parallelism_is_stopped
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import invoke_process_run_and_check_errors
+from stdlib_utils import TestingQueue
 from xem_wrapper import build_header_magic_number_bytes
 from xem_wrapper import DATA_FRAME_SIZE_WORDS
 from xem_wrapper import FrontPanel
@@ -303,7 +304,7 @@ def test_build_file_writer_objects_performance():
 def test_build_file_writer_objects__raises_error_if_format_name_not_recognized(patch_check_header, mocker):
     # Tanner (5/21/20) When the error is raised, the queue is closed before it finishes writing to Pipe, so mock to avoid error in test
     mocker.patch.object(ok_comm, "put_log_message_into_queue", autospec=True)
-    q = Queue()
+    q = TestingQueue()
     with pytest.raises(UnrecognizedDataFrameFormatNameError, match="fakeformat"):
         build_file_writer_objects(
             bytearray([0, 0, 0, 0, 0, 0, 0, 0]),
@@ -333,7 +334,7 @@ def test_build_file_writer_objects__raises_error__when_first_data_frame_period_o
 ):
     # Tanner (7/10/20) When the error is raised, the queue is closed before it finishes writing to Pipe, so mock to avoid error in test
     mocker.patch.object(ok_comm, "put_log_message_into_queue", autospec=True)
-    q = Queue()
+    q = TestingQueue()
     first_data_frame_size = DATA_FRAME_SIZE_WORDS * 4  # number of bytes in a word
     test_bytearray = produce_data(1, 0)[:first_data_frame_size]
     test_bytearray.extend(produce_data(1, test_data_frame_period))
@@ -364,7 +365,7 @@ def test_build_file_writer_objects__logs_warning__when_first_data_frame_period_o
     test_data_frame_period, test_description, mocker
 ):
     mocked_put = mocker.patch.object(ok_comm, "put_log_message_into_queue", autospec=True)
-    expected_queue = Queue()
+    expected_queue = TestingQueue()
     first_data_frame_size = DATA_FRAME_SIZE_WORDS * 4  # number of bytes in a word
     test_bytearray = produce_data(1, 0)[:first_data_frame_size]
     test_bytearray.extend(produce_data(1, test_data_frame_period))
@@ -438,7 +439,7 @@ def test_build_file_writer_objects__returns_correct_values__with_six_channel_for
                     expected[key]["data"] = np.concatenate((expected[key]["data"], data), axis=1)
                 else:
                     expected[key]["data"] = data
-    actual_queue = Queue()
+    actual_queue = TestingQueue()
     actual = build_file_writer_objects(
         test_bytearray,
         "six_channels_32_bit__single_sample_index",
@@ -584,7 +585,7 @@ def test_build_file_writer_objects__correctly_parses_a_real_data_cycle_from_jaso
                 expected_dict[key]["data"] = data
 
     logging_queue = (
-        Queue()
+        TestingQueue()
     )  # Eli (3/16/20): if there isn't a reference to the queue that still exists, it gives a 'broken pipe' error
     mocker.patch.object(
         ok_comm, "put_log_message_into_queue", autospec=True
@@ -669,9 +670,7 @@ def test_OkCommunicationProcess_soft_stop_not_allowed_if_communication_from_main
     # The first communication will be processed, but if there is a second one in the queue then the soft stop should be disabled
     board_queues[0][0].put_nowait(dummy_communication)
     board_queues[0][0].put_nowait(dummy_communication)
-    confirm_queue_is_eventually_of_size(
-        board_queues[0][0], 2, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-    )
+    confirm_queue_is_eventually_of_size(board_queues[0][0], 2)
     simulator = FrontPanelSimulator({})
     ok_process.set_board_connection(0, simulator)
     ok_process.soft_stop()
@@ -718,14 +717,14 @@ def test_OkCommunicationProcess_run_sends_initial_communication_to_main_during_s
 def test_OkCommunicationProcess__sets_up_board_connection_when_run(
     patch_connection_to_board,
 ):
-    error_queue = Queue()
+    error_queue = TestingQueue()
 
     board_queues = tuple(
         [
             (
-                Queue(),
-                Queue(),
-                Queue(),
+                TestingQueue(),
+                TestingQueue(),
+                TestingQueue(),
             )
         ]
         * 4
@@ -741,14 +740,14 @@ def test_OkCommunicationProcess__sets_up_board_connection_when_run(
 def test_OkCommunicationProcess__puts_message_into_queue_for_successful_board_connection_when_run(
     patch_connection_to_board,
 ):
-    error_queue = Queue()
+    error_queue = TestingQueue()
 
     board_queues = tuple(
         [
             (
-                Queue(),
-                Queue(),
-                Queue(),
+                TestingQueue(),
+                TestingQueue(),
+                TestingQueue(),
             )
         ]
         * 4
@@ -772,14 +771,14 @@ def test_OkCommunicationProcess__puts_message_into_queue_for_successful_board_co
 
 
 def test_OkCommunicationProcess__puts_message_into_queue_for_unsuccessful_board_connection_when_run():
-    error_queue = Queue()
+    error_queue = TestingQueue()
 
     board_queues = tuple(
         [
             (
-                Queue(),
-                Queue(),
-                Queue(),
+                TestingQueue(),
+                TestingQueue(),
+                TestingQueue(),
             )
         ]
         * 4
@@ -1173,9 +1172,7 @@ def test_OkCommunicationProcess_teardown_after_loop__logs_message_indicating_acq
         }
     )
     input_queue.put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
-    confirm_queue_is_eventually_of_size(
-        input_queue, 2, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-    )
+    confirm_queue_is_eventually_of_size(input_queue, 2)
     invoke_process_run_and_check_errors(ok_process, num_iterations=2, perform_teardown_after_loop=True)
 
     confirm_queue_is_eventually_of_size(comm_to_main_queue, 4)

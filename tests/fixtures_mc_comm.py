@@ -11,7 +11,7 @@ import serial
 from serial.tools.list_ports_common import ListPortInfo
 from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
-from stdlib_utils import QUEUE_CHECK_TIMEOUT_SECONDS
+from stdlib_utils import TestingQueue
 
 from .fixtures import generate_board_and_error_queues
 from .fixtures_mc_simulator import MantarrayMcSimulatorNoBeacons
@@ -47,13 +47,22 @@ def set_connection_and_register_simulator(
     drain_queue(output_queue)
 
 
-def sleep_side_effect(*args):
-    """Side effect for mocking sleep when called in between queue checks."""
-    time.sleep(QUEUE_CHECK_TIMEOUT_SECONDS)
-
-
 @pytest.fixture(scope="function", name="four_board_mc_comm_process")
 def fixture_four_board_mc_comm_process():
+    # Tests using this fixture should be responsible for cleaning up the queues
+    board_queues, error_queue = generate_board_and_error_queues(num_boards=4, queue_type=TestingQueue)
+    mc_process = McCommunicationProcess(board_queues, error_queue)
+
+    items_dict = {
+        "mc_process": mc_process,
+        "board_queues": board_queues,
+        "error_queue": error_queue,
+    }
+    yield items_dict
+
+
+@pytest.fixture(scope="function", name="runnable_four_board_mc_comm_process")
+def fixture_runnable_four_board_mc_comm_process():
     # Tests using this fixture should be responsible for cleaning up the queues
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
     mc_process = McCommunicationProcess(board_queues, error_queue)
@@ -70,11 +79,14 @@ class McCommunicationProcessNoHandshakes(McCommunicationProcess):
     def _send_handshake(self, board_idx: int) -> None:
         self._time_of_last_handshake_secs = time.perf_counter()
 
+    def start(self) -> None:
+        raise NotImplementedError("This class is only for unit tests not requiring a running process")
+
 
 @pytest.fixture(scope="function", name="four_board_mc_comm_process_no_handshake")
 def fixture_four_board_mc_comm_process_no_handshake():
     # Tests using this fixture should be responsible for cleaning up the queues
-    board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
+    board_queues, error_queue = generate_board_and_error_queues(num_boards=4, queue_type=TestingQueue)
     mc_process = McCommunicationProcessNoHandshakes(board_queues, error_queue)
 
     items_dict = {

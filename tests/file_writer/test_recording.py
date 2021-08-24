@@ -77,6 +77,7 @@ from stdlib_utils import validate_file_head_crc32
 from ..fixtures import fixture_patch_print
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_file_writer import fixture_four_board_file_writer_process
+from ..fixtures_file_writer import fixture_runnable_four_board_file_writer_process
 from ..fixtures_file_writer import fixture_running_four_board_file_writer_process
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
@@ -99,6 +100,7 @@ from ..parsed_channel_data_packets import SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_
 __fixtures__ = [
     fixture_four_board_file_writer_process,
     fixture_running_four_board_file_writer_process,
+    fixture_runnable_four_board_file_writer_process,
     fixture_patch_print,
 ]
 
@@ -662,8 +664,7 @@ def test_FileWriterProcess__adds_incoming_data_to_internal_buffer(
     confirm_queue_is_eventually_of_size(
         board_queues[0][0],
         expected_num_items,
-        sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
-    )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
+    )
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=expected_num_items)
     actual_num_items = len(file_writer_process._data_packet_buffers[0])  # pylint: disable=protected-access
@@ -687,11 +688,7 @@ def test_FileWriterProcess__does_not_add_incoming_beta_2_data_to_internal_buffer
         start = packet_num * packet_len
         test_packet["time_indices"] = np.arange(start, start + packet_len, dtype=np.uint64)
         board_queues[0][0].put_nowait(test_packet)
-    confirm_queue_is_eventually_of_size(
-        board_queues[0][0],
-        test_num_items,
-        sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
-    )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
+    confirm_queue_is_eventually_of_size(board_queues[0][0], test_num_items)
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=test_num_items - 1)
     assert len(test_data_buffer) == test_num_items - 1
 
@@ -722,8 +719,7 @@ def test_FileWriterProcess__clears_leftover_beta_2_data_from_previous_data_strea
     confirm_queue_is_eventually_of_size(
         board_queues[0][0],
         expected_num_items,
-        sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
-    )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
+    )
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=expected_num_items)
     actual_num_items = len(file_writer_process._data_packet_buffers[0])  # pylint: disable=protected-access
     assert actual_num_items == expected_num_items
@@ -735,8 +731,7 @@ def test_FileWriterProcess__clears_leftover_beta_2_data_from_previous_data_strea
     confirm_queue_is_eventually_of_size(
         board_queues[0][0],
         1,
-        sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
-    )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
+    )
     invoke_process_run_and_check_errors(file_writer_process)
     actual_num_items = len(file_writer_process._data_packet_buffers[0])  # pylint: disable=protected-access
     assert actual_num_items == 1
@@ -764,9 +759,7 @@ def test_FileWriterProcess__removes_beta_1_packets_from_data_buffer_that_are_old
 
     board_queues[0][0].put_nowait(old_packet)
     board_queues[0][0].put_nowait(new_packet)
-    confirm_queue_is_eventually_of_size(
-        board_queues[0][0], 2, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
+    confirm_queue_is_eventually_of_size(board_queues[0][0], 2)
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=2)
     data_packet_buffer = file_writer_process._data_packet_buffers[0]  # pylint: disable=protected-access
@@ -790,9 +783,7 @@ def test_FileWriterProcess__removes_beta_2_packets_from_data_buffer_that_are_old
 
     board_queues[0][0].put_nowait(old_packet)
     board_queues[0][0].put_nowait(new_packet)
-    confirm_queue_is_eventually_of_size(
-        board_queues[0][0], 2, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
+    confirm_queue_is_eventually_of_size(board_queues[0][0], 2)
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=2)
     data_packet_buffer = file_writer_process._data_packet_buffers[0]  # pylint: disable=protected-access
@@ -969,48 +960,48 @@ def test_FileWriterProcess__deletes_recorded_beta_1_well_data_after_stop_time(
     comm_from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    expected_well_idx = 0
+    expected_well_indices = [0, 1, 23]
     start_recording_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
     start_recording_command["timepoint_to_begin_recording_at"] = 0
-    start_recording_command["active_well_indices"] = [expected_well_idx]
+    start_recording_command["active_well_indices"] = expected_well_indices
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         start_recording_command,
         comm_from_main_queue,
-        sleep_after_put_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
     )
 
     invoke_process_run_and_check_errors(file_writer_process)
 
     expected_stop_timepoint = 100
     expected_remaining_packets_recorded = 3
-    expected_dataset = []
-    for i in range(expected_remaining_packets_recorded):
-        expected_dataset.append(i)
-        data_packet = {
-            "is_reference_sensor": False,
-            "well_index": expected_well_idx,
-            "data": np.array([[i], [i]], dtype=np.int32),
-        }
-        instrument_board_queues[0][0].put_nowait(data_packet)
     dummy_packets = 2
-    for i in range(dummy_packets):
-        data_packet = {
-            "is_reference_sensor": False,
-            "well_index": expected_well_idx,
-            "data": np.array(
-                [[expected_stop_timepoint + ((i + 1) * ROUND_ROBIN_PERIOD)], [0]],
-                dtype=np.int32,
-            ),
-        }
-        instrument_board_queues[0][0].put_nowait(data_packet)
-    confirm_queue_is_eventually_of_size(
-        instrument_board_queues[0][0],
-        expected_remaining_packets_recorded + dummy_packets,
-    )
-    invoke_process_run_and_check_errors(
-        file_writer_process,
-        num_iterations=(expected_remaining_packets_recorded + dummy_packets),
-    )
+    expected_dataset = list(range(expected_remaining_packets_recorded))
+    for well_idx in expected_well_indices:
+        for i in range(expected_remaining_packets_recorded):
+            data_packet = {
+                "is_reference_sensor": False,
+                "well_index": well_idx,
+                "data": np.array([[i], [i]], dtype=np.int32),
+            }
+            instrument_board_queues[0][0].put_nowait(data_packet)
+        for i in range(dummy_packets):
+            data_packet = {
+                "is_reference_sensor": False,
+                "well_index": well_idx,
+                "data": np.array(
+                    [[expected_stop_timepoint + ((i + 1) * ROUND_ROBIN_PERIOD)], [0]],
+                    dtype=np.int32,
+                ),
+            }
+            instrument_board_queues[0][0].put_nowait(data_packet)
+        confirm_queue_is_eventually_of_size(
+            instrument_board_queues[0][0],
+            expected_remaining_packets_recorded + dummy_packets,
+        )
+        invoke_process_run_and_check_errors(
+            file_writer_process,
+            num_iterations=(expected_remaining_packets_recorded + dummy_packets)
+            * 2,  # Tanner (8/19/12): queues items are processed more reliably if running the process more iterations than needed
+        )
 
     stop_recording_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
     stop_recording_command["timepoint_to_stop_recording_at"] = expected_stop_timepoint
@@ -1019,7 +1010,6 @@ def test_FileWriterProcess__deletes_recorded_beta_1_well_data_after_stop_time(
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         stop_recording_command,
         comm_from_main_queue,
-        sleep_after_put_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
@@ -1028,18 +1018,19 @@ def test_FileWriterProcess__deletes_recorded_beta_1_well_data_after_stop_time(
     ]
     timestamp_str = "2020_02_09_190322"
 
-    this_file = h5py.File(
-        os.path.join(
-            file_dir,
-            f"{expected_barcode}__{timestamp_str}",
-            f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(expected_well_idx)}.h5",
-        ),
-        "r",
-    )
-    tissue_dataset = get_tissue_dataset_from_file(this_file)
-    assert tissue_dataset.shape == (expected_remaining_packets_recorded,)
-    assert tissue_dataset.dtype == "int32"
-    np.testing.assert_equal(tissue_dataset, np.array(expected_dataset))
+    for well_idx in expected_well_indices:
+        this_file = h5py.File(
+            os.path.join(
+                file_dir,
+                f"{expected_barcode}__{timestamp_str}",
+                f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
+            ),
+            "r",
+        )
+        tissue_dataset = get_tissue_dataset_from_file(this_file)
+        assert tissue_dataset.shape == (expected_remaining_packets_recorded,), well_idx
+        assert tissue_dataset.dtype == "int32", well_idx
+        np.testing.assert_equal(tissue_dataset, np.array(expected_dataset), err_msg=f"{well_idx}")
 
 
 def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
@@ -1056,7 +1047,6 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         start_recording_command,
         comm_from_main_queue,
-        sleep_after_put_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
@@ -1104,7 +1094,6 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
     confirm_queue_is_eventually_of_size(
         instrument_board_queues[0][0],
         expected_remaining_packets_recorded + num_dummy_packets,
-        sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
     )
     invoke_process_run_and_check_errors(
         file_writer_process,
@@ -1120,7 +1109,6 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         stop_recording_command,
         comm_from_main_queue,
-        sleep_after_put_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,  # Eli (2/1/21): Even though the queue size has been confirmed, this extra sleep appears necessary to ensure that the subprocess can pull from the queue consistently using `get_nowait`. Not sure why this is required.
     )
     invoke_process_run_and_check_errors(file_writer_process)
 

@@ -43,7 +43,7 @@ from .exceptions import UnrecognizedCommandToInstrumentError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
 from .exceptions import UnrecognizedRecordingCommandError
 from .process_manager import MantarrayProcessesManager
-from .server import ServerThread
+from .server import ServerManager
 from .utils import _trim_barcode
 from .utils import attempt_to_get_recording_directory_from_new_dict
 from .utils import redact_sensitive_info_from_path
@@ -142,11 +142,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
             self._put_communication_into_instrument_comm_queue(communication)
         elif communication_type == "shutdown":
             command = communication["command"]
-            if command == "soft_stop":
-                self._process_manager.soft_stop_processes_except_server()
-            else:
-                self._process_manager.are_processes_stopped()
+            if command == "hard_stop":
                 self._hard_stop_and_join_processes_and_log_leftovers()
+            else:
+                raise NotImplementedError("Unrecognized shutdown command")
         elif communication_type == "update_shared_values_dictionary":
             new_values = communication["content"]
             new_recording_directory: Optional[str] = attempt_to_get_recording_directory_from_new_dict(
@@ -166,22 +165,17 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 process_manager.set_file_directory(new_recording_directory)
             update_shared_dict(shared_values_dict, new_values)
         elif communication_type == "set_magnetometer_config":
-            self._values_to_share_to_server["magnetometer_config_dict"] = communication[
-                "magnetometer_config_dict"
-            ]
-
-            main_to_da_queue = (
-                self._process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
-            )
-
-            comm_to_subprocesses = {
-                "communication_type": "to_instrument",
-                "command": "change_magnetometer_config",
-            }
-            comm_to_subprocesses.update(communication["magnetometer_config_dict"])
-
-            self._put_communication_into_instrument_comm_queue(comm_to_subprocesses)
-            main_to_da_queue.put_nowait(comm_to_subprocesses)
+            self._update_magnetometer_config_dict(communication["magnetometer_config_dict"])
+        elif communication_type == "stimulation":
+            command = communication["command"]
+            if command == "set_stim_status":
+                self._values_to_share_to_server["stimulation_running"] = communication["status"]
+            elif command == "set_protocol":
+                self._values_to_share_to_server["stimulation_protocols"] = communication["protocols"]
+            else:
+                # Tanner (8/9/21): could make this a custom error if needed
+                raise NotImplementedError(f"Unrecognized stimulation command: '{command}'")
+            self._put_communication_into_instrument_comm_queue(communication)
         elif communication_type == "xem_scripts":
             # Tanner (12/28/20): start_calibration is the only xem_scripts command that will come from server (called directly from /start_calibration). This comm type will be removed/replaced in beta 2 so not adding handling for unrecognized command.
             if shared_values_dict["beta_2_mode"]:
@@ -228,14 +222,34 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 main_to_fw_queue = (
                     self._process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
                 )
-                main_to_ic_queue.put_nowait(communication)
-                main_to_fw_queue.put_nowait(communication)
+                # need to send stop command to the process the furthest downstream the data path first then move upstream
                 main_to_da_queue.put_nowait(communication)
+                main_to_fw_queue.put_nowait(communication)
+                main_to_ic_queue.put_nowait(communication)
             else:
                 raise UnrecognizedCommandToInstrumentError(command)
         elif communication_type == "barcode_read_receipt":
             board_idx = communication["board_idx"]
             self._values_to_share_to_server["barcodes"][board_idx]["frontend_needs_barcode_update"] = False
+
+    def _update_magnetometer_config_dict(
+        self, magnetometer_config_dict: Dict[str, Any], update_instrument_comm: bool = True
+    ) -> None:
+        self._values_to_share_to_server["magnetometer_config_dict"] = magnetometer_config_dict
+
+        main_to_da_queue = (
+            self._process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
+        )
+
+        comm_to_subprocesses = {
+            "communication_type": "to_instrument",
+            "command": "change_magnetometer_config",
+        }
+        comm_to_subprocesses.update(magnetometer_config_dict)
+
+        if update_instrument_comm:
+            self._put_communication_into_instrument_comm_queue(comm_to_subprocesses)
+        main_to_da_queue.put_nowait(comm_to_subprocesses)
 
     def _put_communication_into_instrument_comm_queue(self, communication: Dict[str, Any]) -> None:
         main_to_instrument_comm_queue = (
@@ -410,12 +424,16 @@ class MantarrayProcessesMonitor(InfiniteThread):
             self._values_to_share_to_server["mantarray_nickname"] = {
                 board_idx: communication["metadata"][MANTARRAY_NICKNAME_UUID]
             }
+        elif communication_type == "default_magnetometer_config":
+            self._update_magnetometer_config_dict(
+                communication["magnetometer_config_dict"], update_instrument_comm=False
+            )
 
     def _commands_for_each_run_iteration(self) -> None:
         """Execute additional commands inside the run loop."""
         process_manager = self._process_manager
 
-        # any potential errors should be handled first
+        # any potential errors should be checked for first
         for iter_error_queue, iter_process in (
             (
                 process_manager.queue_container().get_instrument_communication_error_queue(),
@@ -428,10 +446,6 @@ class MantarrayProcessesMonitor(InfiniteThread):
             (
                 process_manager.queue_container().get_data_analyzer_error_queue(),
                 process_manager.get_data_analyzer_process(),
-            ),
-            (
-                process_manager.queue_container().get_server_error_queue(),
-                process_manager.get_server_thread(),
             ),
         ):
             try:
@@ -510,7 +524,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
     def _handle_error_in_subprocess(
         self,
-        process: Union[InfiniteProcess, ServerThread],
+        process: Union[InfiniteProcess, ServerManager],
         error_communication: Tuple[Exception, str],
     ) -> None:
         this_err, this_stack_trace = error_communication

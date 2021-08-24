@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
+import copy
 import logging
 from multiprocessing import Queue
+import random
 from statistics import stdev
 import time
 
 from mantarray_desktop_app import create_magnetometer_config_dict
+from mantarray_desktop_app import data_analyzer
 from mantarray_desktop_app import DataAnalyzerProcess
+from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
@@ -15,6 +19,7 @@ from mantarray_waveform_analysis import Pipeline
 from mantarray_waveform_analysis import pipelines
 import numpy as np
 import pytest
+from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -24,14 +29,19 @@ from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATI
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process_beta_2_mode
+from ..fixtures_data_analyzer import set_magnetometer_config
+from ..fixtures_file_writer import GENERIC_BOARD_MAGNETOMETER_CONFIGURATION
+from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
+from ..parsed_channel_data_packets import SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS
 
 
 __fixtures__ = [
     fixture_four_board_analyzer_process,
     fixture_four_board_analyzer_process_beta_2_mode,
     fixture_patch_print,
+    fixture_mantarray_mc_simulator,
 ]
 
 
@@ -145,7 +155,7 @@ def test_DataAnalyzerProcess__raises_error_if_communication_type_is_invalid(
         invoke_process_run_and_check_errors(p)
 
 
-def test_DataAnalyzerProcess__logs_performance_metrics_after_dumping_beta_1_data(
+def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_1_data(
     four_board_analyzer_process, mocker
 ):
     da_process, _, _, to_main_queue, _ = four_board_analyzer_process
@@ -194,14 +204,10 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_dumping_beta_1_data
     perf_counter_ns_vals.append(expected_stop_timepoint)
     perf_counter_ns_vals.append(0)
     mocker.patch.object(time, "perf_counter_ns", autospec=True, side_effect=perf_counter_ns_vals)
-    perf_counter_vals = []
-    waveform_analysis_durations = list(range(24))
-    perf_counter_vals.append(0)
-    for i in range(24):
-        perf_counter_vals.append(0)
-        perf_counter_vals.append(waveform_analysis_durations[i])
-    perf_counter_vals.append(expected_data_creation_durs[-1])
-    mocker.patch.object(time, "perf_counter", autospec=True, side_effect=perf_counter_vals)
+
+    perf_counter_vals = [0, expected_data_creation_durs[-1]]
+    mocker.patch.object(data_analyzer, "perf_counter", autospec=True, side_effect=perf_counter_vals)
+
     is_data_present_vals = [False for i in range(expected_num_iterations - 1)]
     is_data_present_vals.append(True)
     mocker.patch.object(
@@ -211,19 +217,13 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_dumping_beta_1_data
     invoke_process_run_and_check_errors(da_process, num_iterations=expected_num_iterations)
     confirm_queue_is_eventually_of_size(
         to_main_queue, 2
-    )  # Tanner (1/4/21): log message is put into queue after waveform data dump
+    )  # Tanner (1/4/21): log message is also put into queue after waveform data dump
 
     actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     actual = actual["message"]
     assert actual["communication_type"] == "performance_metrics"
-    assert actual["analysis_durations"] == {
-        "max": max(waveform_analysis_durations),
-        "min": min(waveform_analysis_durations),
-        "stdev": round(stdev(waveform_analysis_durations), 6),
-        "mean": round(sum(waveform_analysis_durations) / len(waveform_analysis_durations), 6),
-    }
-    assert actual["data_creating_duration"] == expected_data_creation_durs[-1]
-    assert actual["data_creating_duration_metrics"] == {
+    assert actual["data_creation_duration"] == expected_data_creation_durs[-1]
+    assert actual["data_creation_duration_metrics"] == {
         "max": max(expected_data_creation_durs),
         "min": min(expected_data_creation_durs),
         "stdev": round(stdev(expected_data_creation_durs), 6),
@@ -240,6 +240,90 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_dumping_beta_1_data
         "stdev": round(stdev(expected_percent_use_vals), 6),
         "mean": round(sum(expected_percent_use_vals) / len(expected_percent_use_vals), 6),
     }
+
+
+@pytest.mark.slow
+def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_2_data(
+    four_board_analyzer_process_beta_2_mode, mantarray_mc_simulator, mocker
+):
+    da_process = four_board_analyzer_process_beta_2_mode["da_process"]
+    to_main_queue = four_board_analyzer_process_beta_2_mode["to_main_queue"]
+    from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
+    board_queues = four_board_analyzer_process_beta_2_mode["board_queues"]
+
+    # perform setup so performance logging values are initialized
+    invoke_process_run_and_check_errors(da_process, perform_setup_before_loop=True)
+
+    da_process._minimum_iteration_duration_seconds /= (  # pylint: disable=protected-access
+        10  # set this to a lower value to speed up the test
+    )
+    # mock actual pipeline functions to speed up test
+    mocker.patch.object(Pipeline, "load_raw_magnetic_data", autospec=True)
+    mocker.patch.object(Pipeline, "get_force", autospec=True, return_value=np.zeros((2, 2)))
+    mocker.patch.object(Pipeline, "get_force_data_metrics", autospec=True, return_value=({1: {}}, {}))
+
+    # set magnetometer configuration
+    expected_sampling_period_us = 10000
+    num_data_points_per_second = MICRO_TO_BASE_CONVERSION // expected_sampling_period_us
+    set_magnetometer_config(
+        four_board_analyzer_process_beta_2_mode,
+        {
+            "magnetometer_config": GENERIC_BOARD_MAGNETOMETER_CONFIGURATION,
+            "sampling_period": expected_sampling_period_us,
+        },
+    )
+    # start managed acquisition
+    start_command = get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
+    invoke_process_run_and_check_errors(da_process)
+    # remove command receipt
+    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+
+    # create expected durations for metric creation
+    expected_num_data_packets = MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
+    expected_data_creation_durs = [random.uniform(30, 70) for _ in range(expected_num_data_packets)]
+    mocker.patch.object(
+        data_analyzer,
+        "_get_secs_since_data_creation_start",
+        autospec=True,
+        side_effect=expected_data_creation_durs,
+    )
+
+    # create test data packets
+    for packet_num in range(expected_num_data_packets):
+        test_packet = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
+        test_packet["time_indices"] = (
+            np.arange(
+                num_data_points_per_second * packet_num,
+                num_data_points_per_second * (packet_num + 1),
+                dtype=np.int64,
+            )
+            * expected_sampling_period_us
+        )
+        put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet, board_queues[0][0])
+        invoke_process_run_and_check_errors(da_process)
+    confirm_queue_is_eventually_of_size(
+        to_main_queue, expected_num_data_packets * 2
+    )  # Tanner (1/4/21): a log message is also put into queue after each waveform data dump
+
+    actual = drain_queue(to_main_queue)[-2]["message"]
+    assert actual["communication_type"] == "performance_metrics"
+    assert actual["data_creation_duration"] == expected_data_creation_durs[-1]
+    assert actual["data_creation_duration_metrics"] == {
+        "max": max(expected_data_creation_durs),
+        "min": min(expected_data_creation_durs),
+        "stdev": round(stdev(expected_data_creation_durs), 6),
+        "mean": round(sum(expected_data_creation_durs) / len(expected_data_creation_durs), 6),
+    }
+    # values created in parent class
+    assert "start_timepoint_of_measurements" not in actual
+    assert "idle_iteration_time_ns" not in actual
+    assert "longest_iterations" in actual
+    assert "percent_use" in actual
+    assert "percent_use_metrics" in actual
+
+    # prevent BrokenPipeErrors
+    drain_queue(board_queues[0][1])
 
 
 def test_DataAnalyzerProcess__does_not_include_performance_metrics_in_first_logging_cycle__with_beta_1_data(
@@ -265,7 +349,7 @@ def test_DataAnalyzerProcess__does_not_include_performance_metrics_in_first_logg
     actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     actual = actual["message"]
     assert "percent_use_metrics" not in actual
-    assert "data_creating_duration_metrics" not in actual
+    assert "data_creation_duration_metrics" not in actual
 
 
 def test_DataAnalyzerProcess__processes_change_magnetometer_config_command(

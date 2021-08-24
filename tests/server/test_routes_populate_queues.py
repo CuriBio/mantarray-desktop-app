@@ -11,6 +11,7 @@ from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import server
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_desktop_app import STIM_MAX_PULSE_DURATION_MICROSECONDS
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
@@ -40,46 +41,40 @@ from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import pytest
 
 from ..fixtures import fixture_generic_queue_container
-from ..fixtures import fixture_test_process_manager
-from ..fixtures import fixture_test_process_manager_beta_2_mode
+from ..fixtures import fixture_test_process_manager_creator
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from ..fixtures_process_monitor import fixture_test_monitor
-from ..fixtures_process_monitor import fixture_test_monitor_beta_2_mode
-from ..fixtures_server import fixture_client_and_server_thread_and_shared_values
-from ..fixtures_server import fixture_generic_beta_1_start_recording_info_in_shared_dict
-from ..fixtures_server import fixture_generic_beta_2_start_recording_info_in_shared_dict
-from ..fixtures_server import fixture_server_thread
+from ..fixtures_server import fixture_client_and_server_manager_and_shared_values
+from ..fixtures_server import fixture_server_manager
 from ..fixtures_server import fixture_test_client
+from ..fixtures_server import put_generic_beta_1_start_recording_info_in_dict
+from ..fixtures_server import put_generic_beta_2_start_recording_info_in_dict
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import is_queue_eventually_not_empty
 from ..helpers import is_queue_eventually_of_size
 
 __fixtures__ = [
-    fixture_client_and_server_thread_and_shared_values,
-    fixture_server_thread,
+    fixture_client_and_server_manager_and_shared_values,
+    fixture_server_manager,
     fixture_generic_queue_container,
     fixture_test_client,
-    fixture_generic_beta_2_start_recording_info_in_shared_dict,
-    fixture_generic_beta_1_start_recording_info_in_shared_dict,
-    fixture_test_process_manager,
-    fixture_test_process_manager_beta_2_mode,
+    fixture_test_process_manager_creator,
     fixture_test_monitor,
-    fixture_test_monitor_beta_2_mode,
 ]
 
 
 def test_send_single_set_mantarray_nickname_command__populates_queue(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
     (
         test_client,
         test_server_info,
         shared_values_dict,
-    ) = client_and_server_thread_and_shared_values
-    test_server, _, _ = test_server_info
+    ) = client_and_server_manager_and_shared_values
+    test_server, _ = test_server_info
     shared_values_dict["mantarray_nickname"] = dict()
     expected_nickname = "Surnom Français"
 
@@ -98,10 +93,10 @@ def test_send_single_set_mantarray_nickname_command__populates_queue(
 
 
 def test_send_single_initialize_board_command_with_bit_file__populates_queue(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
-    test_server, _, _ = test_server_info
+    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
+    test_server, _ = test_server_info
     board_idx = 0
     expected_bit_file_name = "main.bit"
     response = test_client.get(
@@ -126,10 +121,10 @@ def test_send_single_initialize_board_command_with_bit_file__populates_queue(
 
 
 def test_send_single_initialize_board_command_without_bit_file__populates_queue(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
-    test_server, _, _ = test_server_info
+    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
+    test_server, _ = test_server_info
     board_idx = 0
     response = test_client.get("/insert_xem_command_into_queue/initialize_board")
     assert response.status_code == 200
@@ -151,10 +146,10 @@ def test_send_single_initialize_board_command_without_bit_file__populates_queue(
 
 
 def test_send_single_get_status_command__populates_queue(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
-    test_server, _, _ = test_server_info
+    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
+    test_server, _ = test_server_info
     response = test_client.get("/insert_xem_command_into_queue/get_status")
     assert response.status_code == 200
 
@@ -170,10 +165,10 @@ def test_send_single_get_status_command__populates_queue(
 
 
 def test_send_single_activate_trigger_in_command__populates_queue(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
-    test_server, _, _ = test_server_info
+    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
+    test_server, _ = test_server_info
     expected_ep_addr = 10
     expected_bit = 0x00000001
     response = test_client.get(
@@ -197,10 +192,10 @@ def test_send_single_activate_trigger_in_command__populates_queue(
 
 
 def test_send_single_activate_trigger_in_command__using_hex_notation__populates_queue(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
-    test_server, _, _ = test_server_info
+    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
+    test_server, _ = test_server_info
     expected_ep_addr = "0x02"
     expected_bit = "0x00000001"
     response = test_client.get(
@@ -224,10 +219,10 @@ def test_send_single_activate_trigger_in_command__using_hex_notation__populates_
 
 
 def test_send_single_comm_delay_command__populates_queue(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
-    test_server, _, _ = test_server_info
+    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
+    test_server, _ = test_server_info
 
     expected_num_millis = 35
     response = test_client.get(
@@ -249,10 +244,10 @@ def test_send_single_comm_delay_command__populates_queue(
 
 
 def test_send_single_get_num_words_fifo_command__populates_queue(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
-    test_server, _, _ = test_server_info
+    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
+    test_server, _ = test_server_info
     response = test_client.get("/insert_xem_command_into_queue/get_num_words_fifo")
     assert response.status_code == 200
 
@@ -268,10 +263,10 @@ def test_send_single_get_num_words_fifo_command__populates_queue(
 
 
 def test_send_single_set_device_id_command__populates_queue(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
-    test_server, _, _ = test_server_info
+    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
+    test_server, _ = test_server_info
 
     test_id = "Mantarray XEM"
     response = test_client.get(f"/insert_xem_command_into_queue/set_device_id?new_id={test_id}")
@@ -291,10 +286,10 @@ def test_send_single_set_device_id_command__populates_queue(
 
 
 def test_send_single_stop_acquisition_command__populates_queue(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
-    test_server, _, _ = test_server_info
+    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
+    test_server, _ = test_server_info
 
     response = test_client.get("/insert_xem_command_into_queue/stop_acquisition")
     assert response.status_code == 200
@@ -311,10 +306,10 @@ def test_send_single_stop_acquisition_command__populates_queue(
 
 
 def test_send_single_start_acquisition_command__populates_queue(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
-    test_server, _, _ = test_server_info
+    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
+    test_server, _ = test_server_info
 
     response = test_client.get("/insert_xem_command_into_queue/start_acquisition")
     assert response.status_code == 200
@@ -331,10 +326,10 @@ def test_send_single_start_acquisition_command__populates_queue(
 
 
 def test_send_single_get_serial_number_command__populates_queue(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
-    test_server, _, _ = test_server_info
+    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
+    test_server, _ = test_server_info
 
     response = test_client.get("/insert_xem_command_into_queue/get_serial_number")
     assert response.status_code == 200
@@ -351,10 +346,10 @@ def test_send_single_get_serial_number_command__populates_queue(
 
 
 def test_send_single_get_device_id_command__populates_queue(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
-    test_server, _, _ = test_server_info
+    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
+    test_server, _ = test_server_info
 
     response = test_client.get("/insert_xem_command_into_queue/get_device_id")
     assert response.status_code == 200
@@ -371,10 +366,10 @@ def test_send_single_get_device_id_command__populates_queue(
 
 
 def test_send_single_is_spi_running_command__populates_queue(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
-    test_server, _, _ = test_server_info
+    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
+    test_server, _ = test_server_info
 
     response = test_client.get("/insert_xem_command_into_queue/is_spi_running")
     assert response.status_code == 200
@@ -391,10 +386,10 @@ def test_send_single_is_spi_running_command__populates_queue(
 
 
 def test_send_single_read_from_fifo_command__populates_queue(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
-    test_server, _, _ = test_server_info
+    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
+    test_server, _ = test_server_info
 
     response = test_client.get("/insert_xem_command_into_queue/read_from_fifo?num_words_to_log=72")
     assert response.status_code == 200
@@ -410,10 +405,10 @@ def test_send_single_read_from_fifo_command__populates_queue(
 
 
 def test_send_single_read_from_fifo_command_with_hex_notation__populates_queue(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
-    test_server, _, _ = test_server_info
+    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
+    test_server, _ = test_server_info
 
     response = test_client.get("/insert_xem_command_into_queue/read_from_fifo?num_words_to_log=0x48")
     assert response.status_code == 200
@@ -430,10 +425,10 @@ def test_send_single_read_from_fifo_command_with_hex_notation__populates_queue(
 
 
 def test_send_single_set_wire_in_command__populates_queue(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
-    test_server, _, _ = test_server_info
+    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
+    test_server, _ = test_server_info
 
     expected_ep_addr = 8
     expected_value = 0x00000010
@@ -460,10 +455,10 @@ def test_send_single_set_wire_in_command__populates_queue(
 
 
 def test_send_single_set_wire_in_command__using_hex_notation__populates_queue(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
-    test_server, _, _ = test_server_info
+    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
+    test_server, _ = test_server_info
 
     expected_ep_addr = "0x05"
     value = "0x000000a0"
@@ -491,10 +486,10 @@ def test_send_single_set_wire_in_command__using_hex_notation__populates_queue(
 
 
 def test_send_single_xem_scripts_command__populates_queue(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
-    test_server, _, _ = test_server_info
+    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
+    test_server, _ = test_server_info
 
     expected_script_type = "start_up"
     response = test_client.get(f"/xem_scripts?script_type={expected_script_type}")
@@ -510,10 +505,10 @@ def test_send_single_xem_scripts_command__populates_queue(
 
 
 def test_send_single_read_wire_out_command__populates_queue__and_logs_response(
-    client_and_server_thread_and_shared_values, mocker
+    client_and_server_manager_and_shared_values, mocker
 ):
-    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
-    test_server, _, _ = test_server_info
+    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
+    test_server, _ = test_server_info
 
     board_idx = 0
     expected_ep_addr = 6
@@ -538,10 +533,10 @@ def test_send_single_read_wire_out_command__populates_queue__and_logs_response(
 
 
 def test_send_single_read_wire_out_command_with_hex_notation__populates_queue(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
-    test_server, _, _ = test_server_info
+    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
+    test_server, _ = test_server_info
 
     board_idx = 0
     expected_ep_addr = "0x6"
@@ -562,10 +557,10 @@ def test_send_single_read_wire_out_command_with_hex_notation__populates_queue(
 
 
 def test_send_single_read_wire_out_command_with_description__populates_queue(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
-    test_server, _, _ = test_server_info
+    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
+    test_server, _ = test_server_info
 
     board_idx = 0
     expected_ep_addr = 6
@@ -591,10 +586,10 @@ def test_send_single_read_wire_out_command_with_description__populates_queue(
 
 
 def test_send_single_stop_managed_acquisition_command__populates_queues(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
-    test_server, _, _ = test_server_info
+    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
+    test_server, _ = test_server_info
 
     response = test_client.get("/stop_managed_acquisition")
     assert response.status_code == 200
@@ -609,10 +604,10 @@ def test_send_single_stop_managed_acquisition_command__populates_queues(
 
 
 def test_send_single_set_mantarray_serial_number_command__populates_queue(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
-    test_server, _, _ = test_server_info
+    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
+    test_server, _ = test_server_info
 
     expected_serial_number = "M02001901"
 
@@ -633,10 +628,10 @@ def test_send_single_set_mantarray_serial_number_command__populates_queue(
 
 
 def test_send_single_boot_up_command__populates_queue(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
-    test_server, _, _ = test_server_info
+    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
+    test_server, _ = test_server_info
 
     response = test_client.get("/boot_up")
     assert response.status_code == 200
@@ -653,14 +648,14 @@ def test_send_single_boot_up_command__populates_queue(
 
 
 def test_send_single_start_managed_acquisition_command__populates_queues(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
     (
         test_client,
         test_server_info,
         shared_values_dict,
-    ) = client_and_server_thread_and_shared_values
-    test_server, _, _ = test_server_info
+    ) = client_and_server_manager_and_shared_values
+    test_server, _ = test_server_info
 
     board_idx = 0
     shared_values_dict["mantarray_serial_number"] = {board_idx: "M02001801"}
@@ -685,14 +680,14 @@ def test_send_single_start_managed_acquisition_command__populates_queues(
     )
 )
 def test_stop_recording_command__is_received_by_main__with_default__utcnow_recording_stop_time(
-    client_and_server_thread_and_shared_values,
+    client_and_server_manager_and_shared_values,
 ):
     (
         test_client,
         test_server_info,
         shared_values_dict,
-    ) = client_and_server_thread_and_shared_values
-    test_server, _, _ = test_server_info
+    ) = client_and_server_manager_and_shared_values
+    test_server, _ = test_server_info
 
     expected_acquisition_timestamp = datetime.datetime(
         year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332597
@@ -718,8 +713,11 @@ def test_stop_recording_command__is_received_by_main__with_default__utcnow_recor
 
 
 def test_start_recording_command__populates_queue__with_correct_adc_offset_values_if_is_hardware_test_recording_is_true(
-    test_process_manager, test_client, generic_beta_1_start_recording_info_in_shared_dict
+    test_process_manager_creator, test_client
 ):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    put_generic_beta_1_start_recording_info_in_dict(test_process_manager.get_values_to_share_to_server())
+
     expected_adc_offsets = dict()
     for well_idx in range(24):
         expected_adc_offsets[well_idx] = {"construct": 0, "ref": 0}
@@ -739,8 +737,11 @@ def test_start_recording_command__populates_queue__with_correct_adc_offset_value
 
 
 def test_start_recording_command__populates_queue__with_given_time_index_parameter(
-    test_process_manager, test_client, generic_beta_1_start_recording_info_in_shared_dict
+    test_process_manager_creator, test_client
 ):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    put_generic_beta_1_start_recording_info_in_dict(test_process_manager.get_values_to_share_to_server())
+
     expected_time_index = 1000
     barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
@@ -762,8 +763,11 @@ def test_start_recording_command__populates_queue__with_given_time_index_paramet
 
 
 def test_start_recording_command__populates_queue__with_correctly_parsed_set_of_well_indices(
-    test_process_manager, test_client, generic_beta_1_start_recording_info_in_shared_dict
+    test_process_manager_creator, test_client
 ):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    put_generic_beta_1_start_recording_info_in_dict(test_process_manager.get_values_to_share_to_server())
+
     expected_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
@@ -780,17 +784,19 @@ def test_start_recording_command__populates_queue__with_correctly_parsed_set_of_
 
 
 def test_start_recording_command__beta_2_mode__populates_queue__with_correct_well_indices_based_on_magnetometer_configuration(
-    test_process_manager_beta_2_mode, test_client, generic_beta_2_start_recording_info_in_shared_dict
+    test_process_manager_creator, test_client
 ):
+    test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
+    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+    put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
+
     test_num_total_wells = 24
     test_magnetometer_config = create_magnetometer_config_dict(test_num_total_wells)
     # enable first channel of arbitrary 3 wells
     expected_well_indices = [1, 10, 17]
     for well_idx in expected_well_indices:
         test_magnetometer_config[SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]][0] = True
-    generic_beta_2_start_recording_info_in_shared_dict["magnetometer_config_dict"][
-        "magnetometer_config"
-    ] = test_magnetometer_config
+    shared_values_dict["magnetometer_config_dict"]["magnetometer_config"] = test_magnetometer_config
 
     expected_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
@@ -800,9 +806,7 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_correct_wel
     )
     assert response.status_code == 200
 
-    comm_queue = (
-        test_process_manager_beta_2_mode.queue_container().get_communication_queue_from_server_to_main()
-    )
+    comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
@@ -838,17 +842,18 @@ def test_start_recording_command__correctly_sets_barcode_from_scanner_value(
     user_entered_barcode,
     expected_result,
     test_description,
-    generic_beta_1_start_recording_info_in_shared_dict,
-    test_process_manager,
+    test_process_manager_creator,
     test_client,
 ):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+    put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
+
     board_idx = 0
     if scanned_barcode is None:
-        del generic_beta_1_start_recording_info_in_shared_dict["barcodes"]
+        del shared_values_dict["barcodes"]
     else:
-        generic_beta_1_start_recording_info_in_shared_dict["barcodes"][board_idx][
-            "plate_barcode"
-        ] = scanned_barcode
+        shared_values_dict["barcodes"][board_idx]["plate_barcode"] = scanned_barcode
 
     response = test_client.get(
         f"/start_recording?barcode={user_entered_barcode}&is_hardware_test_recording=False"
@@ -869,8 +874,12 @@ def test_start_recording_command__correctly_sets_barcode_from_scanner_value(
     )
 )
 def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__24_wells__utcnow_recording_start_time__and_metadata(
-    test_process_manager, test_client, generic_beta_1_start_recording_info_in_shared_dict
+    test_process_manager_creator, test_client
 ):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+    put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
+
     expected_acquisition_timestamp = datetime.datetime(  # pylint: disable=duplicate-code
         year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332598
     )
@@ -879,9 +888,7 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
         seconds=(expected_recording_timepoint / CENTIMILLISECONDS_PER_SECOND)
     )
 
-    generic_beta_1_start_recording_info_in_shared_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [
-        expected_acquisition_timestamp
-    ]
+    shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [expected_acquisition_timestamp]
 
     expected_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
@@ -906,11 +913,11 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][CUSTOMER_ACCOUNT_ID_UUID]
-        == generic_beta_1_start_recording_info_in_shared_dict["config_settings"]["Customer Account ID"]
+        == shared_values_dict["config_settings"]["Customer Account ID"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][USER_ACCOUNT_ID_UUID]
-        == generic_beta_1_start_recording_info_in_shared_dict["config_settings"]["User Account ID"]
+        == shared_values_dict["config_settings"]["User Account ID"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][START_RECORDING_TIME_INDEX_UUID]
@@ -926,23 +933,23 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][MAIN_FIRMWARE_VERSION_UUID]
-        == generic_beta_1_start_recording_info_in_shared_dict["main_firmware_version"][0]
+        == shared_values_dict["main_firmware_version"][0]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][SLEEP_FIRMWARE_VERSION_UUID]
-        == generic_beta_1_start_recording_info_in_shared_dict["sleep_firmware_version"][0]
+        == shared_values_dict["sleep_firmware_version"][0]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][XEM_SERIAL_NUMBER_UUID]
-        == generic_beta_1_start_recording_info_in_shared_dict["xem_serial_number"][0]
+        == shared_values_dict["xem_serial_number"][0]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][MANTARRAY_SERIAL_NUMBER_UUID]
-        == generic_beta_1_start_recording_info_in_shared_dict["mantarray_serial_number"][0]
+        == shared_values_dict["mantarray_serial_number"][0]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][MANTARRAY_NICKNAME_UUID]
-        == generic_beta_1_start_recording_info_in_shared_dict["mantarray_nickname"][0]
+        == shared_values_dict["mantarray_nickname"][0]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][REFERENCE_VOLTAGE_UUID]
@@ -950,11 +957,11 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][ADC_GAIN_SETTING_UUID]
-        == generic_beta_1_start_recording_info_in_shared_dict["adc_gain"]
+        == shared_values_dict["adc_gain"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"]["adc_offsets"]
-        == generic_beta_1_start_recording_info_in_shared_dict["adc_offsets"]
+        == shared_values_dict["adc_offsets"]
     )
     assert communication["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_UUID] == expected_barcode
     assert communication["metadata_to_copy_onto_main_file_attributes"][HARDWARE_TEST_RECORDING_UUID] is False
@@ -989,8 +996,12 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
     )
 )
 def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__24_wells__utcnow_recording_start_time__and_metadata(
-    test_process_manager_beta_2_mode, test_client, generic_beta_2_start_recording_info_in_shared_dict
+    test_process_manager_creator, test_client
 ):
+    test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
+    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+    put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
+
     expected_acquisition_timestamp = datetime.datetime(  # pylint: disable=duplicate-code
         year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332598
     )
@@ -999,9 +1010,7 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
         seconds=(expected_recording_timepoint / MICRO_TO_BASE_CONVERSION)
     )
 
-    generic_beta_2_start_recording_info_in_shared_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [
-        expected_acquisition_timestamp
-    ]
+    shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [expected_acquisition_timestamp]
 
     expected_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
@@ -1011,9 +1020,7 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     )
     assert response.status_code == 200
 
-    comm_queue = (
-        test_process_manager_beta_2_mode.queue_container().get_communication_queue_from_server_to_main()
-    )
+    comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
@@ -1028,11 +1035,11 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][CUSTOMER_ACCOUNT_ID_UUID]
-        == generic_beta_2_start_recording_info_in_shared_dict["config_settings"]["Customer Account ID"]
+        == shared_values_dict["config_settings"]["Customer Account ID"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][USER_ACCOUNT_ID_UUID]
-        == generic_beta_2_start_recording_info_in_shared_dict["config_settings"]["User Account ID"]
+        == shared_values_dict["config_settings"]["User Account ID"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][START_RECORDING_TIME_INDEX_UUID]
@@ -1048,19 +1055,19 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][MAIN_FIRMWARE_VERSION_UUID]
-        == generic_beta_2_start_recording_info_in_shared_dict["main_firmware_version"][0]
+        == shared_values_dict["main_firmware_version"][0]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][MANTARRAY_SERIAL_NUMBER_UUID]
-        == generic_beta_2_start_recording_info_in_shared_dict["mantarray_serial_number"][0]
+        == shared_values_dict["mantarray_serial_number"][0]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][MANTARRAY_NICKNAME_UUID]
-        == generic_beta_2_start_recording_info_in_shared_dict["mantarray_nickname"][0]
+        == shared_values_dict["mantarray_nickname"][0]
     )
     assert communication["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_UUID] == expected_barcode
     assert communication["metadata_to_copy_onto_main_file_attributes"][HARDWARE_TEST_RECORDING_UUID] is False
-    magnetometer_config_dict = generic_beta_2_start_recording_info_in_shared_dict["magnetometer_config_dict"]
+    magnetometer_config_dict = shared_values_dict["magnetometer_config_dict"]
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][TISSUE_SAMPLING_PERIOD_UUID]
         == magnetometer_config_dict["sampling_period"]
@@ -1070,7 +1077,7 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
         == magnetometer_config_dict["magnetometer_config"]
     )
     # metadata values from instrument
-    instrument_metadata = generic_beta_2_start_recording_info_in_shared_dict["instrument_metadata"][0]
+    instrument_metadata = shared_values_dict["instrument_metadata"][0]
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][BOOTUP_COUNTER_UUID]
         == instrument_metadata[BOOTUP_COUNTER_UUID]
@@ -1116,22 +1123,98 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     assert response_json["command"] == "start_recording"
 
 
-def test_shutdown__populates_queue_with_request_to_soft_stop_then_request_to_hard_stop(
-    client_and_server_thread_and_shared_values, mocker
+def test_shutdown__sends_hard_stop_command_to_process_monitor(
+    client_and_server_manager_and_shared_values, mocker
 ):
-    test_client, test_server_info, _ = client_and_server_thread_and_shared_values
-    test_server, _, _ = test_server_info
+    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
+    test_server, _ = test_server_info
 
     response = test_client.get("/shutdown")
     assert response.status_code == 200
 
     server_to_main_queue = test_server.get_queue_to_main()
-    assert is_queue_eventually_of_size(server_to_main_queue, 2) is True
-    communication = server_to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert communication["communication_type"] == "shutdown"
-    assert communication["command"] == "soft_stop"
+    assert is_queue_eventually_of_size(server_to_main_queue, 1) is True
     communication = server_to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "shutdown"
     assert communication["command"] == "hard_stop"
     response_json = response.get_json()
     assert response_json == communication
+
+
+@pytest.mark.parametrize(
+    "test_status,test_description",
+    [
+        ("true", "populates correctly with true"),
+        ("True", "populates correctly with True"),
+        ("false", "populates correctly with false"),
+        ("False", "populates correctly with False"),
+    ],
+)
+def test_set_stim_status__populates_queue_to_process_monitor_with_new_stim_status(
+    test_status,
+    test_description,
+    client_and_server_manager_and_shared_values,
+):
+    (
+        test_client,
+        (server_manager, _),
+        shared_values_dict,
+    ) = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_protocols"] = [None] * 24
+
+    expected_status_bool = test_status in ("true", "True")
+    shared_values_dict["stimulation_running"] = not expected_status_bool
+
+    response = test_client.post(f"/set_stim_status?running={test_status}")
+    assert response.status_code == 200
+
+    comm_queue = server_manager.get_queue_to_main()
+    confirm_queue_is_eventually_of_size(comm_queue, 1)
+    communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["communication_type"] == "stimulation"
+    assert communication["command"] == "set_stim_status"
+    assert communication["status"] is expected_status_bool
+
+
+def test_set_protocol__populates_queue_to_process_monitor_with_new_protocol(
+    client_and_server_manager_and_shared_values,
+):
+    (
+        test_client,
+        (server_manager, _),
+        shared_values_dict,
+    ) = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = False
+
+    test_protocol_dict = {
+        "protocols": [
+            {
+                "stimulation_type": "C",
+                "well_number": "B1",
+                "total_protocol_duration": -1,
+                "pulses": [
+                    {
+                        "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
+                        "phase_one_charge": 0,
+                        "interpulse_interval": 0,
+                        "phase_two_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
+                        "phase_two_charge": 0,
+                        "repeat_delay_interval": 0,
+                        "total_active_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS * 20,
+                    }
+                ],
+            }
+        ]
+        * 24
+    }
+    response = test_client.post("/set_protocol", json=json.dumps(test_protocol_dict))
+    assert response.status_code == 200
+
+    comm_queue = server_manager.get_queue_to_main()
+    confirm_queue_is_eventually_of_size(comm_queue, 1)
+    communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["communication_type"] == "stimulation"
+    assert communication["command"] == "set_protocol"
+    assert communication["protocols"] == test_protocol_dict["protocols"]

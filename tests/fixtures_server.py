@@ -1,16 +1,13 @@
 # -*- coding: utf-8 -*-
-from queue import Empty
-
-from mantarray_desktop_app import clear_the_server_thread
+from mantarray_desktop_app import clear_the_server_manager
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
-from mantarray_desktop_app import DEFAULT_SERVER_PORT_NUMBER
 from mantarray_desktop_app import flask_app
 from mantarray_desktop_app import get_api_endpoint
 from mantarray_desktop_app import get_server_port_number
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import RunningFIFOSimulator
-from mantarray_desktop_app import ServerThread
+from mantarray_desktop_app import ServerManager
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
 from mantarray_file_manager import MAGNETOMETER_CONFIGURATION_UUID
@@ -19,49 +16,34 @@ from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 import pytest
 import socketio as python_socketio
-from stdlib_utils import confirm_port_available
 from stdlib_utils import confirm_port_in_use
 
 from .fixtures import fixture_generic_queue_container
 from .fixtures import fixture_patch_print
-from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from .fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from .fixtures_process_monitor import fixture_test_monitor
-from .fixtures_process_monitor import fixture_test_monitor_beta_2_mode
 
 __fixtures__ = [
     fixture_patch_print,
     fixture_generic_queue_container,
     fixture_test_monitor,
-    fixture_test_monitor_beta_2_mode,
 ]
 
 
-def _clean_up_server_thread(st, to_main_queue, error_queue) -> None:
-    for iter_queue in (error_queue, to_main_queue):
-        while True:
-            try:
-                iter_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-            except Empty:
-                break
-    # clean up singletons
-    clear_the_server_thread()
-
-
-@pytest.fixture(scope="function", name="server_thread")
-def fixture_server_thread(generic_queue_container):
-    error_queue = generic_queue_container.get_server_error_queue()
+@pytest.fixture(scope="function", name="server_manager")
+def fixture_server_manager(generic_queue_container):
+    # Tanner (8/10/21): it is the responsibility of tests using this fixture to drain the queues used
     to_main_queue = generic_queue_container.get_communication_queue_from_server_to_main()
 
-    st = ServerThread(to_main_queue, error_queue, generic_queue_container)
-    shared_values_dict = st._values_from_process_monitor  # pylint:disable=protected-access
+    sm = ServerManager(to_main_queue, generic_queue_container)
+    shared_values_dict = sm._values_from_process_monitor  # pylint:disable=protected-access
     # Tanner (4/23/21): Many routes require this value to be in the shared values dictionary. It is normally set during app start up, so manually setting here
     shared_values_dict["beta_2_mode"] = False
 
-    yield st, to_main_queue, error_queue
-    # drain queues to avoid broken pipe errors
-    _clean_up_server_thread(st, to_main_queue, error_queue)
+    yield sm, to_main_queue
+
+    clear_the_server_manager()
 
 
 @pytest.fixture(scope="function", name="test_client")
@@ -80,32 +62,15 @@ def fixture_test_client():
     ctx.pop()
 
 
-@pytest.fixture(scope="function", name="client_and_server_thread_and_shared_values")
-def fixture_client_and_server_thread_and_shared_values(server_thread, test_client):
-
-    st, _, _ = server_thread
-    shared_values_dict = st._values_from_process_monitor  # pylint:disable=protected-access
-    yield test_client, server_thread, shared_values_dict
-
-
-@pytest.fixture(scope="function", name="running_server_thread")
-def fixture_running_server_thread(server_thread):
-    st, _, _ = server_thread
-    confirm_port_available(
-        DEFAULT_SERVER_PORT_NUMBER
-    )  # confirm port is not already active prior to starting test
-    st.start()
-    yield server_thread
-
-    # clean up
-    st.hard_stop()
+@pytest.fixture(scope="function", name="client_and_server_manager_and_shared_values")
+def fixture_client_and_server_manager_and_shared_values(server_manager, test_client):
+    sm, _ = server_manager
+    shared_values_dict = sm._values_from_process_monitor  # pylint:disable=protected-access
+    yield test_client, server_manager, shared_values_dict
 
 
-@pytest.fixture(scope="function", name="generic_beta_1_start_recording_info_in_shared_dict")
-def fixture_generic_beta_1_start_recording_info_in_shared_dict(
-    test_monitor,
-):
-    _, shared_values_dict, _, _ = test_monitor
+def put_generic_beta_1_start_recording_info_in_dict(shared_values_dict):
+    shared_values_dict["beta_2_mode"] = False
 
     board_idx = 0
     timestamp = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
@@ -143,14 +108,9 @@ def fixture_generic_beta_1_start_recording_info_in_shared_dict(
             ][PLATE_BARCODE_UUID]
         }
     }
-    yield shared_values_dict
 
 
-@pytest.fixture(scope="function", name="generic_beta_2_start_recording_info_in_shared_dict")
-def fixture_generic_beta_2_start_recording_info_in_shared_dict(
-    test_monitor_beta_2_mode,
-):
-    _, shared_values_dict, _, _ = test_monitor_beta_2_mode
+def put_generic_beta_2_start_recording_info_in_dict(shared_values_dict):
     shared_values_dict["beta_2_mode"] = True
 
     board_idx = 0
@@ -189,7 +149,6 @@ def fixture_generic_beta_2_start_recording_info_in_shared_dict(
         ][TISSUE_SAMPLING_PERIOD_UUID],
     }
     shared_values_dict["instrument_metadata"] = {board_idx: MantarrayMcSimulator.default_metadata_values}
-    yield shared_values_dict
 
 
 @pytest.fixture(scope="function", name="test_socketio_client")

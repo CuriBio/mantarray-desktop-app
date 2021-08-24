@@ -38,11 +38,11 @@ from .exceptions import MultiprocessingNotSetToSpawnError
 from .log_formatter import SensitiveFormatter
 from .process_manager import MantarrayProcessesManager
 from .process_monitor import MantarrayProcessesMonitor
-from .server import clear_the_server_thread
+from .server import clear_the_server_manager
 from .server import flask_app
 from .server import get_server_address_components
-from .server import get_the_server_thread
-from .server import ServerThreadNotInitializedError
+from .server import get_the_server_manager
+from .server import ServerManagerNotInitializedError
 from .server import socketio
 from .utils import convert_request_args_to_config_dict
 from .utils import redact_sensitive_info_from_path
@@ -56,17 +56,17 @@ _server_port_number = DEFAULT_SERVER_PORT_NUMBER  # pylint:disable=invalid-name 
 
 
 def clear_server_singletons() -> None:
-    clear_the_server_thread()
+    clear_the_server_manager()
     global _server_port_number  # pylint:disable=global-statement,invalid-name # Eli (12/8/20) this is deliberately setting a module-level singleton
     _server_port_number = DEFAULT_SERVER_PORT_NUMBER
 
 
 def get_server_port_number() -> int:
     try:
-        server_thread = get_the_server_thread()
-    except (NameError, ServerThreadNotInitializedError):
+        server_manager = get_the_server_manager()
+    except (NameError, ServerManagerNotInitializedError):
         return _server_port_number
-    return server_thread.get_port_number()
+    return server_manager.get_port_number()
 
 
 def _create_process_manager(shared_values_dict: Dict[str, Any]) -> MantarrayProcessesManager:
@@ -160,9 +160,11 @@ def main(
         help="indicates the software will be connecting to a beta 2 mantarray instrument",
     )
     parser.add_argument(
-        "--main-script-test",
-        action="store_true",
-        help="indicates the server thread should not be started",
+        "--startup-test-options",
+        type=str,
+        nargs="+",
+        choices=["no_flask", "no_subprocesses"],
+        help="indicate how much of the main script should not be started",
     )
     parsed_args = parser.parse_args(command_line_args)
 
@@ -173,6 +175,12 @@ def main(
         ):
             if invalid_beta_2_option:
                 raise InvalidBeta2FlagOptionError(error_message)
+
+    startup_options = []
+    if parsed_args.startup_test_options:
+        startup_options = parsed_args.startup_test_options
+    start_subprocesses = "no_subprocesses" not in startup_options
+    start_flask = "no_flask" not in startup_options
 
     if parsed_args.log_level_debug:
         log_level = logging.DEBUG
@@ -233,6 +241,9 @@ def main(
     shared_values_dict["computer_name_hash"] = computer_name_hash
 
     shared_values_dict["beta_2_mode"] = parsed_args.beta_2_mode
+    if shared_values_dict["beta_2_mode"]:
+        shared_values_dict["stimulation_running"] = False
+        shared_values_dict["stimulation_protocols"] = None
 
     msg = f"Log File UUID: {log_file_uuid}"
     logger.info(msg)
@@ -257,7 +268,7 @@ def main(
     if settings_dict:
         update_shared_dict(shared_values_dict, convert_request_args_to_config_dict(settings_dict))
     _log_system_info()
-    logger.info("Spawning subprocesses and starting server thread")
+    logger.info("Spawning subprocesses")
 
     process_manager = _create_process_manager(shared_values_dict)
     process_manager.set_logging_level(log_level)
@@ -265,7 +276,7 @@ def main(
     object_access_for_testing["values_to_share_to_server"] = shared_values_dict
 
     process_manager.create_processes()
-    if not parsed_args.main_script_test:
+    if start_subprocesses:
         process_manager.start_processes()
 
     boot_up_after_processes_start = not parsed_args.skip_mantarray_boot_up and not parsed_args.beta_2_mode
@@ -275,7 +286,7 @@ def main(
     process_monitor_error_queue: Queue[str] = queue.Queue()  # pylint: disable=unsubscriptable-object
 
     process_monitor_thread = MantarrayProcessesMonitor(
-        shared_values_dict,
+        shared_values_dict,  # TODO Tanner (8/23/21): should eventually refactor so that process_monitor gets this from process_manager
         process_manager,
         process_monitor_error_queue,
         the_lock,
@@ -291,31 +302,34 @@ def main(
 
     data_queue_to_server = process_manager.queue_container().get_data_queue_to_server()
 
-    def data_sender() -> None:  # pragma: no cover  # Tanner (6/21/21): code coverage can't follow into start_background_task where this function is run
-        while True:
-            try:
-                item = data_queue_to_server.get(timeout=0.0001)
-            except Empty:
-                continue
-            socketio.emit(item["data_type"], item["data_json"])
+    if start_flask:
 
-    object_access_for_testing["data_sender"] = data_sender
+        def data_sender() -> None:  # pragma: no cover  # Tanner (6/21/21): code coverage can't follow into start_background_task where this function is run
+            while True:
+                try:
+                    item = data_queue_to_server.get(timeout=0.0001)
+                except Empty:
+                    continue
+                socketio.emit(item["data_type"], item["data_json"])
 
-    socketio.start_background_task(data_sender)
-    socketio.run(
-        flask_app,
-        host=host,
-        port=_server_port_number,
-        log=logger,
-        log_output=True,
-        log_format='%(client_ip)s - - "%(request_line)s" %(status_code)s %(body_length)s - %(wall_seconds).6f',
-    )
+        object_access_for_testing["data_sender"] = data_sender
+
+        socketio.start_background_task(data_sender)
+        socketio.run(
+            flask_app,
+            host=host,
+            port=_server_port_number,
+            log=logger,
+            log_output=True,
+            log_format='%(client_ip)s - - "%(request_line)s" %(status_code)s %(body_length)s - %(wall_seconds).6f',
+        )
 
     logger.info("Server shut down, about to stop processes")
     process_monitor_thread.soft_stop()
     process_monitor_thread.join()
     logger.info("Process monitor shut down")
     logger.info("Program exiting")
-    process_manager.set_logging_level(
-        logging.INFO
-    )  # Eli (3/12/20) - this is really hacky...better solution is to allow setting the process manager back to its normal state
+    # Tanner (8/23/21): unsure what this line was trying to achieve, so commenting it out for now until if/when problems arise
+    # process_manager.set_logging_level(
+    #     logging.INFO
+    # )  # Eli (3/12/20) - this is really hacky...better solution is to allow setting the process manager back to its normal state

@@ -11,6 +11,7 @@ from . import mc_simulator
 from . import ok_comm
 from . import process_manager
 from . import process_monitor
+from . import queue_container
 from . import server
 from . import utils
 from .constants import ADC_CH_TO_24_WELL_INDEX
@@ -46,6 +47,8 @@ from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import DATA_ANALYZER_BETA_1_BUFFER_SIZE
 from .constants import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from .constants import DATA_FRAME_PERIOD
+from .constants import DEFAULT_MAGNETOMETER_CONFIG
+from .constants import DEFAULT_SAMPLING_PERIOD
 from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import DEFAULT_USER_CONFIG
 from .constants import FIFO_READ_PRODUCER_DATA_OFFSET
@@ -84,6 +87,7 @@ from .constants import SERIAL_COMM_BOOT_UP_CODE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+from .constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from .constants import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
 from .constants import SERIAL_COMM_FATAL_ERROR_CODE
 from .constants import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
@@ -138,6 +142,9 @@ from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
 from .constants import START_BARCODE_SCAN_TRIG_BIT
 from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
+from .constants import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
+from .constants import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
+from .constants import STIM_MAX_PULSE_DURATION_MICROSECONDS
 from .constants import STM_VID
 from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SUBPROCESS_POLL_DELAY_SECONDS
@@ -190,8 +197,8 @@ from .exceptions import SerialCommPacketRegistrationTimoutError
 from .exceptions import SerialCommStatusBeaconTimeoutError
 from .exceptions import SerialCommTooManyMissedHandshakesError
 from .exceptions import SerialCommUntrackedCommandResponseError
-from .exceptions import ServerThreadNotInitializedError
-from .exceptions import ServerThreadSingletonAlreadySetError
+from .exceptions import ServerManagerNotInitializedError
+from .exceptions import ServerManagerSingletonAlreadySetError
 from .exceptions import SystemStartUpError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
 from .exceptions import UnrecognizedCommandFromMainToMcCommError
@@ -250,11 +257,11 @@ from .serial_comm_utils import create_sensor_axis_bitmask
 from .serial_comm_utils import get_serial_comm_timestamp
 from .serial_comm_utils import parse_metadata_bytes
 from .serial_comm_utils import validate_checksum
-from .server import clear_the_server_thread
+from .server import clear_the_server_manager
 from .server import flask_app
 from .server import get_api_endpoint
-from .server import get_the_server_thread
-from .server import ServerThread
+from .server import get_the_server_manager
+from .server import ServerManager
 from .server import socketio
 from .system_utils import system_state_eventually_equals
 from .system_utils import wait_for_subprocesses_to_start
@@ -399,10 +406,10 @@ __all__ = [
     "WELL_24_INDEX_TO_ADC_AND_CH_INDEX",
     "FirmwareFileNameDoesNotMatchWireOutVersionError",
     "SECONDS_TO_WAIT_WHEN_POLLING_QUEUES",
-    "ServerThread",
+    "ServerManager",
     "server",
-    "get_the_server_thread",
-    "clear_the_server_thread",
+    "get_the_server_manager",
+    "clear_the_server_manager",
     "clear_server_singletons",
     "MantarrayQueueContainer",
     "BARCODE_SCANNER_TRIGGER_IN_ADDRESS",
@@ -426,8 +433,8 @@ __all__ = [
     "UnrecognizedRecordingCommandError",
     "UnrecognizedCommandToInstrumentError",
     "get_current_software_version",
-    "ServerThreadNotInitializedError",
-    "ServerThreadSingletonAlreadySetError",
+    "ServerManagerNotInitializedError",
+    "ServerManagerSingletonAlreadySetError",
     "mc_simulator",
     "MantarrayMcSimulator",
     "create_data_packet",
@@ -553,4 +560,11 @@ __all__ = [
     "MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS",
     "get_active_wells_from_config",
     "MICRO_TO_BASE_CONVERSION",
+    "SERIAL_COMM_DEFAULT_DATA_CHANNEL",
+    "DEFAULT_SAMPLING_PERIOD",
+    "DEFAULT_MAGNETOMETER_CONFIG",
+    "STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS",
+    "STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS",
+    "STIM_MAX_PULSE_DURATION_MICROSECONDS",
+    "queue_container",
 ]

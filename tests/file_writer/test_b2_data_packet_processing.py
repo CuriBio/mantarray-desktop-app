@@ -16,6 +16,7 @@ from stdlib_utils import invoke_process_run_and_check_errors
 
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_file_writer import fixture_four_board_file_writer_process
+from ..fixtures_file_writer import fixture_runnable_four_board_file_writer_process
 from ..fixtures_file_writer import fixture_running_four_board_file_writer_process
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_NUM_CHANNELS_ENABLED
@@ -31,6 +32,7 @@ from ..parsed_channel_data_packets import SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_
 __fixtures__ = [
     fixture_four_board_file_writer_process,
     fixture_running_four_board_file_writer_process,
+    fixture_runnable_four_board_file_writer_process,
 ]
 
 
@@ -73,13 +75,13 @@ def create_simple_well_dict(start_timepoint, num_data_points):
 
 @pytest.mark.timeout(15)
 def test_FileWriterProcess__passes_data_packet_through_to_output_queue(
-    four_board_file_writer_process,
+    runnable_four_board_file_writer_process,
 ):
-    fw_process = four_board_file_writer_process["fw_process"]
+    fw_process = runnable_four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
-    incoming_data_queue = four_board_file_writer_process["board_queues"][0][0]
-    outgoing_data_queue = four_board_file_writer_process["board_queues"][0][1]
-    error_queue = four_board_file_writer_process["error_queue"]
+    incoming_data_queue = runnable_four_board_file_writer_process["board_queues"][0][0]
+    outgoing_data_queue = runnable_four_board_file_writer_process["board_queues"][0][1]
+    error_queue = runnable_four_board_file_writer_process["error_queue"]
 
     test_data_packet = SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS
     put_object_into_queue_and_raise_error_if_eventually_still_empty(

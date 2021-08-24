@@ -2,6 +2,18 @@ Changelog for Mantarray Desktop App
 ===================================
 
 
+0.5.1 (2021-08-24)
+------------------
+
+- Added ``/set_protocol`` and ``/set_stim_status`` routes.
+- Added autoscale feature to heatmap.
+- Fixed +/- buttons of y-zoom widget not updating zoom window correctly.
+- Fixed issue with only well A1's data being trimmed to the desired recording window. This issue caused
+  all files for other wells to contain more data than recorded, but no desired data was ever lost.
+- Fixed Beta 1 data being inverted in waveform display.
+- Updated minor styling features of heatmap.
+
+
 0.5.0 (2021-08-02)
 ------------------
 
@@ -10,10 +22,10 @@ Changelog for Mantarray Desktop App
 - Added support for "ML" barcode format.
 - Fixed issue with min values >= 10 not being allowed with Y-axis absolute zoom.
 - Fixed issue with waveforms eventually lagging behind and falling off screen in Beta 1 simulation mode.
-- Updated Live View to display waveform displacement in units of µN.
+- Fixed minor styling features.
+- Updated Live View to display waveform force traces in units of µN.
 - Updated data stream buffering in order remove most of the 14 second lag between data capture on instrument
-  and display in app. This fix also speeds up the time it takes to start Live View.
-- Updated minor styling features.
+  and display in app. This fix also reduces the time it takes to start Live View.
 
 
 0.4.6 (2021-07-08)

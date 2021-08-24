@@ -2,7 +2,6 @@
 import copy
 import datetime
 import logging
-from multiprocessing import Queue
 from statistics import stdev
 import struct
 import time
@@ -30,6 +29,7 @@ from scipy import signal
 from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import parallelism_framework
+from stdlib_utils import TestingQueue
 from xem_wrapper import build_header_magic_number_bytes
 from xem_wrapper import DATA_FRAME_SIZE_WORDS
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
@@ -69,9 +69,7 @@ def test_OkCommunicationProcess_run__processes_start_managed_acquisition_command
         str, Any
     ] = get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
     input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
-    confirm_queue_is_eventually_of_size(
-        input_queue, 1, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-    )
+    confirm_queue_is_eventually_of_size(input_queue, 1)
     invoke_process_run_and_check_errors(ok_process)
 
     expected_returned_communication["timestamp"] = datetime.datetime.utcnow()
@@ -100,9 +98,7 @@ def test_OkCommunicationProcess_run__processes_stop_managed_acquisition_command(
     ok_comm_to_main = board_queues[0][1]
     expected_returned_communication = STOP_MANAGED_ACQUISITION_COMMUNICATION
     input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
-    confirm_queue_is_eventually_of_size(
-        input_queue, 1, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-    )
+    confirm_queue_is_eventually_of_size(input_queue, 1)
     invoke_process_run_and_check_errors(ok_process)
 
     actual = ok_comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -130,9 +126,7 @@ def test_OkCommunicationProcess_run__raises_error_if_command_to_instrument_is_in
         "command": "fake_command",
     }
     input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
-    confirm_queue_is_eventually_of_size(
-        input_queue, 1, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-    )
+    confirm_queue_is_eventually_of_size(input_queue, 1)
     with pytest.raises(UnrecognizedCommandToInstrumentError, match="fake_command"):
         invoke_process_run_and_check_errors(ok_process)
 
@@ -180,7 +174,7 @@ def test_OkCommunicationProcess_commands_for_each_run_iteration__sends_fifo_read
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
     p = OkCommunicationProcess(board_queues, error_queue)
     test_bytearray = produce_data(1, 0)
-    fifo = Queue()
+    fifo = TestingQueue()
     fifo.put_nowait(test_bytearray)
     assert is_queue_eventually_of_size(fifo, 1) is True
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
@@ -196,9 +190,13 @@ def test_OkCommunicationProcess_commands_for_each_run_iteration__sends_fifo_read
     invoke_process_run_and_check_errors(p)
 
     expected_well_idx = 0
-    test_value_1 = FIFO_READ_PRODUCER_DATA_OFFSET + FIFO_READ_PRODUCER_WELL_AMPLITUDE * (
-        expected_well_idx + 1
-    ) * signal.sawtooth(0 / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5)
+    test_value_1 = (
+        FIFO_READ_PRODUCER_DATA_OFFSET
+        + FIFO_READ_PRODUCER_WELL_AMPLITUDE
+        * (expected_well_idx + 1)
+        * signal.sawtooth(0 / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5)
+        * -1
+    )
     expected_first_dict_sent = {
         "is_reference_sensor": False,
         "well_index": expected_well_idx,
@@ -215,7 +213,7 @@ def test_OkCommunicationProcess_commands_for_each_run_iteration__does_not_send_f
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
     test_bytearray = bytearray(DATA_FRAME_SIZE_WORDS * 4 * DATA_FRAMES_PER_ROUND_ROBIN)
     test_bytearray[:8] = build_header_magic_number_bytes(HEADER_MAGIC_NUMBER)
-    fifo = Queue()
+    fifo = TestingQueue()
     fifo.put_nowait(test_bytearray)
     assert is_queue_eventually_of_size(fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
@@ -246,7 +244,7 @@ def test_OkCommunicationProcess_managed_acquisition__reads_at_least_one_prepopul
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
     board_queues[0][0].put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
-    fifo = Queue()
+    fifo = TestingQueue()
     fifo.put_nowait(produce_data(2, 0))
     assert is_queue_eventually_of_size(fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
@@ -285,7 +283,7 @@ def test_OkCommunicationProcess_managed_acquisition__handles_ignoring_first_data
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
     board_queues[0][0].put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
-    fifo = Queue()
+    fifo = TestingQueue()
     fifo.put_nowait(produce_data(2, 0))
     assert is_queue_eventually_of_size(fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
@@ -304,11 +302,15 @@ def test_OkCommunicationProcess_managed_acquisition__handles_ignoring_first_data
     assert ok_process._is_first_managed_read[0] is False  # pylint: disable=protected-access
 
     expected_well_idx = 0
-    test_value_1 = FIFO_READ_PRODUCER_DATA_OFFSET + FIFO_READ_PRODUCER_WELL_AMPLITUDE * (
-        expected_well_idx + 1
-    ) * signal.sawtooth(
-        (ROUND_ROBIN_PERIOD // TIMESTEP_CONVERSION_FACTOR) / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD,
-        width=0.5,
+    test_value_1 = (
+        FIFO_READ_PRODUCER_DATA_OFFSET
+        + FIFO_READ_PRODUCER_WELL_AMPLITUDE
+        * (expected_well_idx + 1)
+        * signal.sawtooth(
+            (ROUND_ROBIN_PERIOD // TIMESTEP_CONVERSION_FACTOR) / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD,
+            width=0.5,
+        )
+        * -1
     )
     expected_first_dict_sent = {
         "is_reference_sensor": False,
@@ -369,7 +371,7 @@ def test_OkCommunicationProcess_managed_acquisition__logs_fifo_parsing_errors_an
         is_queue_eventually_of_size(board_queues[0][0], 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS)
         is True
     )
-    fifo = Queue()
+    fifo = TestingQueue()
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
 
     simulator = FrontPanelSimulator(queues)
@@ -428,7 +430,7 @@ def test_OkCommunicationProcess_managed_acquisition__does_not_log_when_non_parsi
     ok_process._data_frame_format = "fake_format"  # pylint:disable=protected-access
 
     board_queues[0][0].put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
-    fifo = Queue()
+    fifo = TestingQueue()
     fifo.put_nowait(produce_data(1, 0))
     assert is_queue_eventually_of_size(fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
@@ -470,7 +472,7 @@ def test_OkCommunicationProcess__raises_and_logs_error_if_first_managed_read_doe
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
     board_queues[0][0].put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
-    fifo = Queue()
+    fifo = TestingQueue()
     fifo.put_nowait(test_bytearray)
     assert is_queue_eventually_of_size(fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
@@ -520,7 +522,7 @@ def test_OkCommunicationProcess_managed_acquisition__logs_fifo_parsing_errors_an
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
     board_queues[0][0].put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
-    fifo = Queue()
+    fifo = TestingQueue()
     fifo.put_nowait(test_read)
     assert is_queue_eventually_of_size(fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
@@ -581,7 +583,7 @@ def test_OkCommunicationProcess_managed_acquisition__does_not_log_when_non_parsi
         is_queue_eventually_of_size(board_queues[0][0], 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS)
         is True
     )
-    fifo = Queue()
+    fifo = TestingQueue()
     fifo.put_nowait(produce_data(1, 0))
     assert is_queue_eventually_of_size(fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
@@ -665,22 +667,16 @@ def test_OkCommunicationProcess_managed_acquisition__logs_performance_metrics_af
     ok_process._percent_use_values = expected_percent_use_values[:-1]  # pylint: disable=protected-access
 
     test_fifo_reads = [produce_data(i + 2, 0) for i in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)]
-    fifo = Queue()
+    fifo = TestingQueue()
     for read in test_fifo_reads:
         fifo.put_nowait(read)
-    confirm_queue_is_eventually_of_size(
-        fifo,
-        INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES,
-        sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
-    )
+    confirm_queue_is_eventually_of_size(fifo, INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
     simulator = FrontPanelSimulator(queues)
     simulator.initialize_board()
     ok_process.set_board_connection(0, simulator)
     board_queues[0][0].put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
-    confirm_queue_is_eventually_of_size(
-        board_queues[0][0], 1, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-    )
+    confirm_queue_is_eventually_of_size(board_queues[0][0], 1)
 
     invoke_process_run_and_check_errors(
         ok_process, num_iterations=INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
@@ -751,22 +747,16 @@ def test_OkCommunicationProcess_managed_acquisition__does_not_log_percent_use_me
     ok_process._timepoint_of_last_fifo_read[0] = 10  # pylint: disable=protected-access
     ok_process._minimum_iteration_duration_seconds = 0  # pylint: disable=protected-access
 
-    fifo = Queue()
+    fifo = TestingQueue()
     for _ in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES):
         fifo.put_nowait(produce_data(2, 0))
-    confirm_queue_is_eventually_of_size(
-        fifo,
-        INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES,
-        sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
-    )
+    confirm_queue_is_eventually_of_size(fifo, INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
     simulator = FrontPanelSimulator(queues)
     simulator.initialize_board()
     ok_process.set_board_connection(0, simulator)
     board_queues[0][0].put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
-    confirm_queue_is_eventually_of_size(
-        board_queues[0][0], 1, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-    )
+    confirm_queue_is_eventually_of_size(board_queues[0][0], 1)
 
     invoke_process_run_and_check_errors(
         ok_process,

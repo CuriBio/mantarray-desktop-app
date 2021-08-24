@@ -15,6 +15,7 @@ from typing import Tuple
 import uuid
 
 from immutabledict import immutabledict
+from labware_domain_models import LabwareDefinition
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
@@ -30,6 +31,8 @@ CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION = "1.0.0"
 DEFAULT_SERVER_PORT_NUMBER = 4567
 
 MAX_POSSIBLE_CONNECTED_BOARDS = 4
+
+GENERIC_24_WELL_DEFINITION = LabwareDefinition(row_count=4, column_count=6)
 
 FIRMWARE_VERSION_WIRE_OUT_ADDRESS = 0x21
 BARCODE_SCANNER_TRIGGER_IN_ADDRESS = 0x41
@@ -208,7 +211,7 @@ STOP_MANAGED_ACQUISITION_COMMUNICATION = immutabledict(
 #   "instrument_initializing" state could correspond to boot up status code
 #   "configuration_needed" state means that magnetometer config and sampling period need to be set
 #   should change "calibrated" state to something better like idle/ready to stream
-#   "buffering" state may be removed
+#   "buffering" state should be kept
 SERVER_INITIALIZING_STATE = "server_initializing"
 SERVER_READY_STATE = "server_ready"
 INSTRUMENT_INITIALIZING_STATE = "instrument_initializing"
@@ -328,7 +331,19 @@ SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE = {
 SERIAL_COMM_NUM_CHANNELS_PER_SENSOR = 3
 SERIAL_COMM_NUM_SENSORS_PER_WELL = 3
 SERIAL_COMM_NUM_DATA_CHANNELS = SERIAL_COMM_NUM_SENSORS_PER_WELL * SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
+SERIAL_COMM_DEFAULT_DATA_CHANNEL = SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]
+# default config values as of 8/18/21
+DEFAULT_SAMPLING_PERIOD = 6000
+DEFAULT_MAGNETOMETER_CONFIG = {
+    module_id: {channel_id: True for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS)}
+    for module_id in range(1, 25)
+}
+# Stimulation
+STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS = int(100e3)
+STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS = int(1.2e3)
+STIM_MAX_PULSE_DURATION_MICROSECONDS = int(50e3)
 
+# Metadata
 SERIAL_COMM_METADATA_BYTES_LENGTH = 32
 
 # Mappings

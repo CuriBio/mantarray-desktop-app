@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-
-
-from multiprocessing import Queue
+from multiprocessing import Queue as MPQueue
 import os
 from shutil import copy
 import tempfile
@@ -13,10 +11,9 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
-from typing import Tuple
 
 from mantarray_desktop_app import clear_server_singletons
-from mantarray_desktop_app import clear_the_server_thread
+from mantarray_desktop_app import clear_the_server_manager
 from mantarray_desktop_app import DataAnalyzerProcess
 from mantarray_desktop_app import FileWriterProcess
 from mantarray_desktop_app import get_api_endpoint
@@ -26,7 +23,7 @@ from mantarray_desktop_app import MantarrayProcessesManager
 from mantarray_desktop_app import MantarrayQueueContainer
 from mantarray_desktop_app import OkCommunicationProcess
 from mantarray_desktop_app import process_manager
-from mantarray_desktop_app import ServerThread
+from mantarray_desktop_app import queue_container
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 import pytest
 import requests
@@ -35,31 +32,23 @@ from stdlib_utils import confirm_port_in_use
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import is_port_in_use
 from stdlib_utils import resource_path
+from stdlib_utils import TestingQueue
 
 
 PATH_TO_CURRENT_FILE = get_current_file_abs_directory()
-QUEUE_CHECK_TIMEOUT_SECONDS = 1.3  # for is_queue_eventually_of_size, is_queue_eventually_not_empty, is_queue_eventually_empty, put_object_into_queue_and_raise_error_if_eventually_still_empty, etc. # Eli (10/28/20) issue encountered where even 0.5 seconds was insufficient, so raising to 1 second # Eli (12/10/20) issue encountered where 1.1 second was not enough, so now 1.2 seconds # Eli (12/15/20): issue in test_ServerThread_start__puts_error_into_queue_if_flask_run_raises_error in Windows Github where 1.2 was not enough, so now 1.3
+QUEUE_CHECK_TIMEOUT_SECONDS = 1.3  # for is_queue_eventually_of_size, is_queue_eventually_not_empty, is_queue_eventually_empty, put_object_into_queue_and_raise_error_if_eventually_still_empty, etc. # Eli (10/28/20) issue encountered where even 0.5 seconds was insufficient, so raising to 1 second # Eli (12/10/20) issue encountered where 1.1 second was not enough, so now 1.2 seconds # Eli (12/15/20): issue in test_ServerManager_start__puts_error_into_queue_if_flask_run_raises_error in Windows Github where 1.2 was not enough, so now 1.3
 GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS = 20
 
 
-def generate_board_and_error_queues(num_boards: int = 4):
-    error_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Tuple[Exception, str]
-    ] = Queue()
+def generate_board_and_error_queues(num_boards: int = 4, queue_type=MPQueue):
+    error_queue = queue_type()
 
-    board_queues: Tuple[  # pylint-disable: duplicate-code
-        Tuple[
-            Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
-            Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
-            Queue[Any],  # pylint: disable=unsubscriptable-object
-        ],  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-        ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-    ] = tuple(
+    board_queues = tuple(
         (
             (
-                Queue(),
-                Queue(),
-                Queue(),
+                queue_type(),
+                queue_type(),
+                queue_type(),
             )
             for _ in range(num_boards)
         )
@@ -98,7 +87,11 @@ def fixture_fully_running_app_from_main_entrypoint(mocker):
         )
         main_thread.start()
         # if just testing main script, just wait for it to complete. Otherwise, wait until server is up and running
-        if "--main-script-test" in command_line_args:
+        if "--debug-test-post-build" in command_line_args:
+            raise NotImplementedError(
+                "fully_running_app_from_main_entrypoint currently does not except '--debug-test-post-build' in cmd line args"
+            )
+        if "--startup-test-options" in command_line_args:
             mocked_socketio_run = mocker.patch.object(main.socketio, "run", autospec=True)
             dict_to_yield["mocked_socketio_run"] = mocked_socketio_run
             while main_thread.is_alive():
@@ -127,38 +120,45 @@ def fixture_fully_running_app_from_main_entrypoint(mocker):
     clear_server_singletons()
 
 
-@pytest.fixture(scope="function", name="test_process_manager")
-def fixture_test_process_manager(mocker):
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        manager = MantarrayProcessesManager(file_directory=tmp_dir)
-        manager.create_processes()
-        yield manager
+@pytest.fixture(scope="function", name="test_process_manager_creator")
+def fixture_test_process_manager_creator(mocker):
+    object_access_dict = {}
 
-        fw = manager.get_file_writer_process()
-        if not fw.is_alive():
-            # Eli (2/10/20): it is important in windows based systems to make sure to close the files before deleting them. be careful about this when running tests in a Linux development environment
-            fw.close_all_files()
+    def _foo(beta_2_mode=False, create_processes=True, use_testing_queues=False):
+        if use_testing_queues:
+
+            def get_testing_queue():
+                return TestingQueue()
+
+            mocker.patch.object(queue_container, "Queue", autospec=True, side_effect=get_testing_queue)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            manager = MantarrayProcessesManager(
+                file_directory=tmp_dir, values_to_share_to_server={"beta_2_mode": beta_2_mode}
+            )
+            if use_testing_queues:
+                mocker.patch.object(
+                    manager,
+                    "start_processes",
+                    autospec=True,
+                    side_effect=NotImplementedError(
+                        "Cannot start processes when using a process_manager fixture setup with TestingQueues"
+                    ),
+                )
+            if create_processes:
+                manager.create_processes()
+                object_access_dict["fw_process"] = manager.get_file_writer_process()
+            return manager
+
+    yield _foo
+
+    fw_process = object_access_dict.get("fw_process", None)
+    if fw_process is not None and not fw_process.is_alive():
+        # Eli (2/10/20): it is important in windows based systems to make sure to close the files before deleting them. be careful about this when running tests in a Linux development environment
+        fw_process.close_all_files()
 
     # clean up the server singleton
-    clear_the_server_thread()
-
-
-@pytest.fixture(scope="function", name="test_process_manager_beta_2_mode")
-def fixture_test_process_manager_beta_2_mode(mocker):
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        manager = MantarrayProcessesManager(
-            file_directory=tmp_dir, values_to_share_to_server={"beta_2_mode": True}
-        )
-        manager.create_processes()
-        yield manager
-
-        fw = manager.get_file_writer_process()
-        if not fw.is_alive():
-            # Eli (2/10/20): it is important in windows based systems to make sure to close the files before deleting them. be careful about this when running tests in a Linux development environment
-            fw.close_all_files()
-
-    # clean up the server singleton
-    clear_the_server_thread()
+    clear_the_server_manager()
 
 
 def start_processes_and_wait_for_start_ups_to_complete(
@@ -180,7 +180,6 @@ def fixture_patch_subprocess_joins(mocker):
     mocker.patch.object(OkCommunicationProcess, "join", autospec=True)
     mocker.patch.object(FileWriterProcess, "join", autospec=True)
     mocker.patch.object(DataAnalyzerProcess, "join", autospec=True)
-    mocker.patch.object(ServerThread, "join", autospec=True)
 
 
 @pytest.fixture(scope="function", name="patch_subprocess_is_stopped_to_false")
@@ -188,20 +187,6 @@ def fixture_patch_subprocess_is_stopped_to_false(mocker):
     mocker.patch.object(OkCommunicationProcess, "is_stopped", autospec=True, return_value=False)
     mocker.patch.object(FileWriterProcess, "is_stopped", autospec=True, return_value=False)
     mocker.patch.object(DataAnalyzerProcess, "is_stopped", autospec=True, return_value=False)
-    mocker.patch.object(ServerThread, "is_stopped", autospec=True, return_value=False)
-
-
-@pytest.fixture(scope="function", name="test_process_manager_without_created_processes")
-def fixture_test_process_manager_without_created_processes(mocker):
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        manager = MantarrayProcessesManager(file_directory=tmp_dir)
-
-        yield manager
-
-        fw = manager.get_file_writer_process()
-        if not fw.is_alive():
-            # Eli (2/10/20): it is important in windows based systems to make sure to close the files before deleting them. be careful about this when running tests in a Linux development environment
-            fw.close_all_files()
 
 
 @pytest.fixture(scope="function", name="patched_test_xem_scripts_folder")

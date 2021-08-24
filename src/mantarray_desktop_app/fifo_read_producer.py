@@ -13,7 +13,7 @@ To calculate the value for a given construct or reference sensor at a given poin
                 sample_indices.append(sample_index)
                 sawtooth_indices.append(sample_index / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD)
     * Get sawtooth_vals:
-        sawtooth_vals = signal.sawtooth(sawtooth_indices, width=0.5)
+        sawtooth_vals = signal.sawtooth(sawtooth_indices, width=0.5) * -1
     * Find data value for Construct Sensor:
         value = FIFO_READ_PRODUCER_DATA_OFFSET + FIFO_READ_PRODUCER_WELL_AMPLITUDE * (well_index + 1) * sawtooth_vals[idx]
     * Find data value for Reference Sensor:
@@ -77,7 +77,7 @@ def produce_data(num_cycles: int, starting_sample_index: int) -> bytearray:
             sample_indices.append(sample_index)
             sawtooth_indices.append(sample_index / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD)
     # generate sawtooth values
-    sawtooth_vals = signal.sawtooth(sawtooth_indices, width=0.5)
+    sawtooth_vals = signal.sawtooth(sawtooth_indices, width=0.5) * -1
     # generate bytearray data
     data = bytearray(0)
     for cycle in range(num_cycles):

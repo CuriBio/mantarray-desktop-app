@@ -39,9 +39,7 @@ class MantarrayQueueContainer:
         self._data_analyzer_error_queue: Queue[Tuple[Exception, str]] = Queue()  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
 
         self._from_server_to_main_queue: queue.Queue[Dict[str, Any]] = queue.Queue()  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        self._data_to_server_queue: queue.Queue[Dict[str, Any]] = queue.Queue()  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        self._data_to_server_queue = LightQueue()
-        self._server_error_queue: queue.Queue[Tuple[Exception, str]] = queue.Queue()  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
+        self._data_to_server_queue: LightQueue = LightQueue()
         # fmt: on
 
     def get_communication_queue_from_main_to_file_writer(
@@ -124,11 +122,7 @@ class MantarrayQueueContainer:
     ]:
         return self._from_server_to_main_queue
 
-    def get_data_queue_to_server(
-        self,
-    ) -> queue.Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Dict[str, Any]
-    ]:
+    def get_data_queue_to_server(self) -> LightQueue:
         return self._data_to_server_queue
 
     def get_communication_queue_from_file_writer_to_main(
@@ -144,13 +138,6 @@ class MantarrayQueueContainer:
         Tuple[Exception, str]
     ]:
         return self._file_writer_error_queue
-
-    def get_server_error_queue(
-        self,
-    ) -> queue.Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Tuple[Exception, str]
-    ]:
-        return self._server_error_queue
 
     def get_instrument_communication_error_queue(
         self,

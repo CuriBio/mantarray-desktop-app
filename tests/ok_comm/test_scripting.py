@@ -19,14 +19,14 @@ from stdlib_utils import resource_path
 from xem_wrapper import convert_wire_value
 from xem_wrapper import OkHardwareUnsupportedFeatureError
 
-from ..fixtures import fixture_test_process_manager
+from ..fixtures import fixture_test_process_manager_creator
 from ..fixtures_ok_comm import fixture_four_board_comm_process
 from ..fixtures_process_monitor import fixture_test_monitor
 from ..helpers import is_queue_eventually_not_empty
 
 __fixtures__ = [
     fixture_test_monitor,
-    fixture_test_process_manager,
+    fixture_test_process_manager_creator,
     fixture_four_board_comm_process,
 ]
 
@@ -184,8 +184,11 @@ def test_real_start_up_script__contains_gain_value_description_tag():
 
 
 def test_gain_value_is_parsed_and_saved_when_running_start_up_script(
-    test_monitor, test_process_manager, mocker
+    test_monitor, test_process_manager_creator, mocker
 ):
+    # patch to speed up test
+    mocker.patch.object(ok_comm, "sleep", autospec=True)
+
     test_script = "test_start_up"
     simulator = RunningFIFOSimulator()
     simulator.initialize_board()
@@ -193,7 +196,8 @@ def test_gain_value_is_parsed_and_saved_when_running_start_up_script(
     mocked_path_str = os.path.join("tests", "test_xem_scripts", f"xem_{test_script}.txt")
     mocker.patch.object(ok_comm, "resource_path", autospec=True, return_value=mocked_path_str)
 
-    monitor_thread, shared_values_dict, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
     ok_comm_process = test_process_manager.get_instrument_process()
     from_ok_comm_queue = (
@@ -234,8 +238,11 @@ def test_real_calibration_script__contains_offset_value_description_tag():
 
 
 def test_offset_values_are_parsed_and_saved_when_running_start_calibration_script(
-    test_monitor, test_process_manager, mocker
+    test_monitor, test_process_manager_creator, mocker
 ):
+    # patch to speed up test
+    mocker.patch.object(ok_comm, "sleep", autospec=True)
+
     test_script = "test_start_calibration"
 
     # pair construct and ref offset so that ref offset = construct offset + 1 for any given well index
@@ -257,7 +264,8 @@ def test_offset_values_are_parsed_and_saved_when_running_start_calibration_scrip
     mocked_path_str = os.path.join("tests", "test_xem_scripts", f"xem_{test_script}.txt")
     mocker.patch.object(ok_comm, "resource_path", autospec=True, return_value=mocked_path_str)
 
-    monitor_thread, shared_values_dict, _, _ = test_monitor
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
     ok_comm_process = test_process_manager.get_instrument_process()
     from_ok_comm_queue = (
