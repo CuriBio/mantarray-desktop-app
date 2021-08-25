@@ -1129,7 +1129,7 @@ def test_MantarrayProcessesMonitor__raises_error_if_config_dict_in_start_data_st
     expected_config_dict[1][SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]] ^= True
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {
-            "communication_type": "to_instrument",
+            "communication_type": "acquisition_manager",
             "command": "start_managed_acquisition",
             "magnetometer_config": expected_config_dict,
             "timestamp": None,
@@ -1196,7 +1196,7 @@ def test_MantarrayProcessesMonitor__updates_magnetometer_config_after_receiving_
     confirm_queue_is_eventually_of_size(main_to_da, 1)
     comm_to_da = main_to_da.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     expected_comm_to_da = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "change_magnetometer_config",
     }
     expected_comm_to_da.update(expected_magnetometer_config_dict)

@@ -12,6 +12,7 @@ from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import server
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STIM_MAX_PULSE_DURATION_MICROSECONDS
+from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
@@ -597,10 +598,9 @@ def test_send_single_stop_managed_acquisition_command__populates_queues(
     server_to_main_queue = test_server.get_queue_to_main()
     assert is_queue_eventually_of_size(server_to_main_queue, 1) is True
     comm_to_main = server_to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert comm_to_main["communication_type"] == "to_instrument"
-    assert comm_to_main["command"] == "stop_managed_acquisition"
+    assert comm_to_main == STOP_MANAGED_ACQUISITION_COMMUNICATION
     response_json = response.get_json()
-    assert response_json["command"] == "stop_managed_acquisition"
+    assert response_json == STOP_MANAGED_ACQUISITION_COMMUNICATION
 
 
 def test_send_single_set_mantarray_serial_number_command__populates_queue(

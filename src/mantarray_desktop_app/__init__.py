@@ -200,11 +200,11 @@ from .exceptions import SerialCommUntrackedCommandResponseError
 from .exceptions import ServerManagerNotInitializedError
 from .exceptions import ServerManagerSingletonAlreadySetError
 from .exceptions import SystemStartUpError
+from .exceptions import UnrecognizedCommandFromMainToDataAnalyzerError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
 from .exceptions import UnrecognizedCommandFromMainToMcCommError
-from .exceptions import UnrecognizedCommandToInstrumentError
-from .exceptions import UnrecognizedCommTypeFromMainToDataAnalyzerError
-from .exceptions import UnrecognizedCommTypeFromMainToInstrumentError
+from .exceptions import UnrecognizedCommandFromMainToOkCommError
+from .exceptions import UnrecognizedCommandFromServerToMainError
 from .exceptions import UnrecognizedDataFrameFormatNameError
 from .exceptions import UnrecognizedDebugConsoleCommandError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
@@ -332,7 +332,7 @@ __all__ = [
     "FileWriterProcess",
     "InvalidDataTypeFromOkCommError",
     "build_file_writer_objects",
-    "UnrecognizedCommTypeFromMainToInstrumentError",
+    "UnrecognizedCommandFromMainToOkCommError",
     "fifo_simulator",
     "RunningFIFOSimulator",
     "AttemptToInitializeFIFOReadsError",
@@ -377,7 +377,7 @@ __all__ = [
     "RECORDING_STATE",
     "SERVER_READY_STATE",
     "INSTRUMENT_INITIALIZING_STATE",
-    "UnrecognizedCommTypeFromMainToDataAnalyzerError",
+    "UnrecognizedCommandFromMainToDataAnalyzerError",
     "FIFO_READ_PRODUCER_DATA_OFFSET",
     "FIFO_READ_PRODUCER_WELL_AMPLITUDE",
     "FIFO_READ_PRODUCER_REF_AMPLITUDE",
@@ -432,7 +432,6 @@ __all__ = [
     "NO_PLATE_DETECTED_UUID",
     "BARCODE_UNREADABLE_UUID",
     "UnrecognizedRecordingCommandError",
-    "UnrecognizedCommandToInstrumentError",
     "get_current_software_version",
     "ServerManagerNotInitializedError",
     "ServerManagerSingletonAlreadySetError",
@@ -569,4 +568,5 @@ __all__ = [
     "STIM_MAX_PULSE_DURATION_MICROSECONDS",
     "queue_container",
     "get_redacted_string",
+    "UnrecognizedCommandFromServerToMainError",
 ]

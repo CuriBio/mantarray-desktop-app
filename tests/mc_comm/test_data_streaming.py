@@ -138,7 +138,7 @@ def set_magnetometer_config_and_start_streaming(
     from_main_queue = mc_fixture["board_queues"][0][0]
     to_main_queue = mc_fixture["board_queues"][0][1]
     config_command = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "change_magnetometer_config",
         "magnetometer_config": magnetometer_config,
         "sampling_period": sampling_period,
@@ -152,7 +152,7 @@ def set_magnetometer_config_and_start_streaming(
     to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
     start_command = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "start_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
@@ -599,7 +599,7 @@ def test_McCommunicationProcess__processes_start_managed_acquisition_command__wh
     spied_get_utc_now = mocker.spy(mc_comm, "_get_formatted_utc_now")
 
     expected_response = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "start_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -637,7 +637,7 @@ def test_McCommunicationProcess__raises_error_when_change_magnetometer_config_co
 
     # start data streaming
     start_command = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "start_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
@@ -646,7 +646,7 @@ def test_McCommunicationProcess__raises_error_when_change_magnetometer_config_co
     invoke_process_run_and_check_errors(mc_process)
     # attempt to change magnetometer configuration and assert error is raised
     change_config_command = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "change_magnetometer_config",
         "sampling_period": 65000,  # arbitrary value
         "magnetometer_config": dict(),
@@ -678,7 +678,7 @@ def test_McCommunicationProcess__processes_start_managed_acquisition_command__an
     )
 
     expected_response = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "start_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -714,7 +714,7 @@ def test_McCommunicationProcess__processes_stop_data_streaming_command__when_dat
     )
 
     expected_response = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "stop_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -745,7 +745,7 @@ def test_McCommunicationProcess__processes_stop_data_streaming_command__and_rais
     )
 
     expected_response = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "stop_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -1153,7 +1153,7 @@ def test_McCommunicationProcess__handles_less_than_one_second_read_when_stopping
 
     # tell mc_comm to stop data stream before 1 second of data is present
     expected_response = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "stop_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -1215,7 +1215,7 @@ def test_McCommunicationProcess__does_not_attempt_to_parse_when_stopping_data_st
 
     # tell mc_comm to stop data stream before 1 second of data is present
     expected_response = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "stop_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(

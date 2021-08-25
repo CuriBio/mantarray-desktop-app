@@ -56,8 +56,7 @@ from .exceptions import InvalidDataFramePeriodError
 from .exceptions import InvalidScriptCommandError
 from .exceptions import MismatchedScriptTypeError
 from .exceptions import ScriptDoesNotContainEndCommandError
-from .exceptions import UnrecognizedCommandToInstrumentError
-from .exceptions import UnrecognizedCommTypeFromMainToInstrumentError
+from .exceptions import UnrecognizedCommandFromMainToOkCommError
 from .exceptions import UnrecognizedDataFrameFormatNameError
 from .exceptions import UnrecognizedDebugConsoleCommandError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
@@ -579,8 +578,8 @@ class OkCommunicationProcess(InstrumentCommProcess):
             self._handle_debug_console_comm(this_communication)
         elif communication_type == "boot_up_instrument":
             self._boot_up_instrument(this_communication)
-        elif communication_type == "to_instrument":
-            self._handle_to_instrument_comm(this_communication)
+        elif communication_type == "acquisition_manager":
+            self._handle_acquisition_manager_comm(this_communication)
         elif communication_type == "xem_scripts":
             self._handle_xem_scripts_comm(this_communication)
         elif communication_type == "mantarray_naming":
@@ -598,7 +597,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
                 self._barcode_scan_start_time[0] = time.perf_counter()
                 board.clear_barcode_scanner()
         else:
-            raise UnrecognizedCommTypeFromMainToInstrumentError(communication_type)
+            raise UnrecognizedCommandFromMainToOkCommError(communication_type)
         if not input_queue.empty():
             self._process_can_be_soft_stopped = False
 
@@ -712,7 +711,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
         response_queue = self._board_queues[0][1]
         response_queue.put_nowait(this_communication)
 
-    def _handle_to_instrument_comm(self, this_communication: Dict[str, Any]) -> None:
+    def _handle_acquisition_manager_comm(self, this_communication: Dict[str, Any]) -> None:
         response_queue = self._board_queues[0][1]
         board = self.get_board_connections_list()[0]
         if board is None:
@@ -726,7 +725,9 @@ class OkCommunicationProcess(InstrumentCommProcess):
             self._is_managed_acquisition_running[0] = False
             board.stop_acquisition()
         else:
-            raise UnrecognizedCommandToInstrumentError(this_communication["command"])
+            raise UnrecognizedCommandFromMainToOkCommError(
+                f"Invalid command: {this_communication['command']} for communication_type: acquisition_manager"
+            )
         response_queue.put_nowait(this_communication)
 
     def _handle_xem_scripts_comm(self, this_communication: Dict[str, Any]) -> None:

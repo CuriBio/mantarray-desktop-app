@@ -300,11 +300,11 @@ def test_CURRENT_SOFTWARE_VERSION():
 
 def test_managed_acquisition_commands():
     assert START_MANAGED_ACQUISITION_COMMUNICATION == {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "start_managed_acquisition",
     }
     assert STOP_MANAGED_ACQUISITION_COMMUNICATION == {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "stop_managed_acquisition",
     }
 

@@ -418,7 +418,12 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._is_waiting_for_reboot = True
             elif comm_from_main["command"] == "dump_eeprom":
                 bytes_to_send = bytes([SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE])
-            elif comm_from_main["command"] == "start_managed_acquisition":
+            else:
+                raise UnrecognizedCommandFromMainToMcCommError(
+                    f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
+                )
+        elif communication_type == "acquisition_manager":
+            if comm_from_main["command"] == "start_managed_acquisition":
                 bytes_to_send = bytes([SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE])
             elif comm_from_main["command"] == "stop_managed_acquisition":
                 self._is_stopping_data_stream = True

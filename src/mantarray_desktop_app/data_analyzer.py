@@ -38,8 +38,7 @@ from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from .constants import REF_INDEX_TO_24_WELL_INDEX
 from .constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
-from .exceptions import UnrecognizedCommandToInstrumentError
-from .exceptions import UnrecognizedCommTypeFromMainToDataAnalyzerError
+from .exceptions import UnrecognizedCommandFromMainToDataAnalyzerError
 from .utils import get_active_wells_from_config
 
 
@@ -215,7 +214,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         communication_type = communication["communication_type"]
         if communication_type == "calibration":
             self._calibration_settings = communication["calibration_settings"]
-        elif communication_type == "to_instrument":
+        elif communication_type == "acquisition_manager":
             if communication["command"] == "start_managed_acquisition":
                 if not self._beta_2_mode:
                     self._end_of_data_stream_reached[0] = False
@@ -245,10 +244,12 @@ class DataAnalyzerProcess(InfiniteProcess):
                 )
                 self.init_streams()
             else:
-                raise UnrecognizedCommandToInstrumentError(communication["command"])
+                raise UnrecognizedCommandFromMainToDataAnalyzerError(
+                    f"Invalid command: {communication['command']} for communication_type: {communication_type}"
+                )
             self._comm_to_main_queue.put_nowait(communication)
         else:
-            raise UnrecognizedCommTypeFromMainToDataAnalyzerError(communication_type)
+            raise UnrecognizedCommandFromMainToDataAnalyzerError(communication_type)
 
     def _handle_incoming_data(self) -> None:
         input_queue = self._board_queues[0][0]

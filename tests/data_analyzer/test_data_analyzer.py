@@ -13,8 +13,7 @@ from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
-from mantarray_desktop_app import UnrecognizedCommandToInstrumentError
-from mantarray_desktop_app import UnrecognizedCommTypeFromMainToDataAnalyzerError
+from mantarray_desktop_app import UnrecognizedCommandFromMainToDataAnalyzerError
 from mantarray_waveform_analysis import Pipeline
 from mantarray_waveform_analysis import pipelines
 import numpy as np
@@ -109,19 +108,19 @@ def test_DataAnalyzerProcess__drain_all_queues__drains_all_queues_except_error_q
     assert actual["from_data_analyzer_to_main"] == [expected_to_main]
 
 
-def test_DataAnalyzerProcess__raises_error_with_unrecognized_command_to_instrument(
+def test_DataAnalyzerProcess__raises_error_with_unrecognized_acquisition_manager_command(
     four_board_analyzer_process, mocker, patch_print
 ):
     p, _, comm_from_main_queue, _, _ = four_board_analyzer_process
 
     expected_command = "fake_command"
     start_command = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": expected_command,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, comm_from_main_queue)
 
-    with pytest.raises(UnrecognizedCommandToInstrumentError, match=expected_command):
+    with pytest.raises(UnrecognizedCommandFromMainToDataAnalyzerError, match=expected_command):
         invoke_process_run_and_check_errors(p)
 
 
@@ -151,7 +150,7 @@ def test_DataAnalyzerProcess__raises_error_if_communication_type_is_invalid(
         comm_from_main_queue,
     )
 
-    with pytest.raises(UnrecognizedCommTypeFromMainToDataAnalyzerError, match="fake_type"):
+    with pytest.raises(UnrecognizedCommandFromMainToDataAnalyzerError, match="fake_type"):
         invoke_process_run_and_check_errors(p)
 
 
@@ -367,7 +366,7 @@ def test_DataAnalyzerProcess__processes_change_magnetometer_config_command(
 
     expected_sampling_period = 15000
     set_sampling_period_command = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "change_magnetometer_config",
         "magnetometer_config": test_config_dict,
         "sampling_period": expected_sampling_period,
