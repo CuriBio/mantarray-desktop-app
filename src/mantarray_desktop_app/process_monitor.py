@@ -46,6 +46,7 @@ from .process_manager import MantarrayProcessesManager
 from .server import ServerManager
 from .utils import _trim_barcode
 from .utils import attempt_to_get_recording_directory_from_new_dict
+from .utils import get_redacted_string
 from .utils import redact_sensitive_info_from_path
 from .utils import update_shared_dict
 
@@ -117,7 +118,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         if "mantarray_nickname" in communication:
             # Tanner (1/20/21): items in communication dict are used after this log message is generated, so need to create a copy of the dict when redacting info
             comm_copy = copy.deepcopy(communication)
-            comm_copy["mantarray_nickname"] = "*" * len(comm_copy["mantarray_nickname"])
+            comm_copy["mantarray_nickname"] = get_redacted_string(len(comm_copy["mantarray_nickname"]))
             msg = f"Communication from the Server: {comm_copy}"
         else:
             msg = f"Communication from the Server: {communication}"
@@ -204,7 +205,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 raise UnrecognizedRecordingCommandError(command)
             main_to_fw_queue.put_nowait(communication)
         elif communication_type == "to_instrument":
-            # TODO Tanner (6/1/21): refactor "to_instrument" communication type to something more appropriate. Could have boot up use it until it's phased out and make one for acquisiton
+            # TODO Tanner (6/1/21): refactor "to_instrument" communication type to something more appropriate. Could have boot up use it until it's phased out and make one for acquisition
             main_to_ic_queue = (
                 self._process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
             )
@@ -321,7 +322,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         if "mantarray_nickname" in communication:
             # Tanner (1/20/21): items in communication dict are used after this log message is generated, so need to create a copy of the dict when redacting info
             comm_copy = copy.deepcopy(communication)
-            comm_copy["mantarray_nickname"] = "*" * len(comm_copy["mantarray_nickname"])
+            comm_copy["mantarray_nickname"] = get_redacted_string(len(comm_copy["mantarray_nickname"]))
             msg = f"Communication from the Instrument Controller: {comm_copy}"
         else:
             msg = f"Communication from the Instrument Controller: {communication}".replace(

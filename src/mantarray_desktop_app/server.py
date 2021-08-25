@@ -120,6 +120,7 @@ from .queue_container import MantarrayQueueContainer
 from .utils import check_barcode_for_errors
 from .utils import convert_request_args_to_config_dict
 from .utils import get_current_software_version
+from .utils import get_redacted_string
 from .utils import validate_magnetometer_config_keys
 from .utils import validate_settings
 
@@ -1165,17 +1166,18 @@ def after_request(response: Response) -> Response:
         if "system_status" in rule.rule:
             mantarray_nicknames = response_json.get("mantarray_nickname", {})
             for board in mantarray_nicknames:
-                mantarray_nicknames[board] = "*" * len(mantarray_nicknames[board])
+                mantarray_nicknames[board] = get_redacted_string(len(mantarray_nicknames[board]))
         if "set_mantarray_nickname" in rule.rule:
-            response_json["mantarray_nickname"] = "*" * len(response_json["mantarray_nickname"])
+            response_json["mantarray_nickname"] = get_redacted_string(
+                len(response_json["mantarray_nickname"])
+            )
         if "start_recording" in rule.rule:
             mantarray_nickname = response_json["metadata_to_copy_onto_main_file_attributes"][
                 str(MANTARRAY_NICKNAME_UUID)
             ]
-            # TODO Tanner (8/10/21): make a function for redacting sensitive information and replace all instances of this manual insertion of asterisks
             response_json["metadata_to_copy_onto_main_file_attributes"][
                 str(MANTARRAY_NICKNAME_UUID)
-            ] = "*" * len(mantarray_nickname)
+            ] = get_redacted_string(len(mantarray_nickname))
 
     msg = "Response to HTTP Request in next log entry: "
     if response.status_code == 200:

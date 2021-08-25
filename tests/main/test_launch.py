@@ -18,6 +18,7 @@ from freezegun import freeze_time
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import get_api_endpoint
+from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import get_server_port_number
 from mantarray_desktop_app import ImproperlyFormattedCustomerAccountUUIDError
 from mantarray_desktop_app import ImproperlyFormattedUserAccountUUIDError
@@ -368,7 +369,7 @@ def test_main__stores_and_logs_directory_for_log_files_from_command_line_argumen
     spied_info_logger = mocker.spy(main.logger, "info")
 
     expected_log_dir = r"C:\Users\Curi Bio\AppData\Local\Programs\MantarrayController"
-    expected_scrubbed_log_dir = expected_log_dir.replace("Curi Bio", "*" * len("Curi Bio"))
+    expected_scrubbed_log_dir = expected_log_dir.replace("Curi Bio", get_redacted_string(len("Curi Bio")))
     command_line_args = [
         f"--log-file-dir={expected_log_dir}",
         "--startup-test-options",
@@ -391,7 +392,7 @@ def test_main__stores_and_logs_directory_for_log_files_from_command_line_argumen
     spied_info_logger = mocker.spy(main.logger, "info")
 
     expected_log_dir = r"C:\Programs\MantarrayController"
-    expected_scrubbed_log_dir = "*" * len(expected_log_dir)
+    expected_scrubbed_log_dir = get_redacted_string(len(expected_log_dir))
     command_line_args = [
         f"--log-file-dir={expected_log_dir}",
         "--startup-test-options",

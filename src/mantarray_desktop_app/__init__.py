@@ -271,6 +271,7 @@ from .utils import create_magnetometer_config_dict
 from .utils import create_sensor_axis_dict
 from .utils import get_active_wells_from_config
 from .utils import get_current_software_version
+from .utils import get_redacted_string
 from .utils import redact_sensitive_info_from_path
 from .utils import sort_nested_dict
 from .utils import validate_magnetometer_config_keys
@@ -567,4 +568,5 @@ __all__ = [
     "STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS",
     "STIM_MAX_PULSE_DURATION_MICROSECONDS",
     "queue_container",
+    "get_redacted_string",
 ]

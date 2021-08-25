@@ -18,6 +18,7 @@ from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
 from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
+from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import IncorrectMagnetometerConfigFromInstrumentError
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
@@ -1075,7 +1076,7 @@ def test_MantarrayProcessesMonitor__redacts_mantarray_nickname_from_logged_manta
     confirm_queue_is_eventually_empty(instrument_comm_to_main)
 
     expected_comm = copy.deepcopy(test_comm)
-    expected_comm["mantarray_nickname"] = "*" * len(test_nickname)
+    expected_comm["mantarray_nickname"] = get_redacted_string(len(test_nickname))
     mocked_logger.assert_called_once_with(f"Communication from the Instrument Controller: {expected_comm}")
 
 
@@ -1105,7 +1106,7 @@ def test_MantarrayProcessesMonitor__redacts_mantarray_nickname_from_logged_board
     confirm_queue_is_eventually_empty(instrument_comm_to_main)
 
     expected_comm = copy.deepcopy(test_comm)
-    expected_comm["mantarray_nickname"] = "*" * len(test_nickname)
+    expected_comm["mantarray_nickname"] = get_redacted_string(len(test_nickname))
     mocked_logger.assert_called_once_with(f"Communication from the Instrument Controller: {expected_comm}")
 
 

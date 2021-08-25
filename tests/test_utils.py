@@ -7,6 +7,7 @@ from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import get_active_wells_from_config
 from mantarray_desktop_app import get_current_software_version
+from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import redact_sensitive_info_from_path
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import sort_nested_dict
@@ -31,6 +32,10 @@ def test_get_current_software_version__Given_code_is_mocked_as_being_bundled__Wh
 
     actual = get_current_software_version()
     assert actual == CURRENT_SOFTWARE_VERSION
+
+
+def test_get_redacted_string__returns_correct_string():
+    assert get_redacted_string(10) == "*" * 10
 
 
 @pytest.mark.parametrize(
@@ -105,7 +110,7 @@ def test_redact_sensitive_info_from_path__scrubs_everything_if_does_not_match_pa
     test_path, test_description
 ):
     actual = redact_sensitive_info_from_path(test_path)
-    assert actual == "*" * len(test_path)
+    assert actual == get_redacted_string(len(test_path))
 
 
 def test_get_active_wells_from_config__returns_correct_values():

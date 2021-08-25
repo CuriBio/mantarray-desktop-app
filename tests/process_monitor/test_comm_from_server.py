@@ -9,6 +9,7 @@ from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import create_magnetometer_config_dict
+from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import process_monitor
@@ -641,7 +642,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_server__and_redacts_manta
     confirm_queue_is_eventually_empty(to_main_queue)
 
     expected_comm = copy.deepcopy(test_comm)
-    expected_comm["mantarray_nickname"] = "*" * len(test_nickname)
+    expected_comm["mantarray_nickname"] = get_redacted_string(len(test_nickname))
     mocked_logger.assert_called_once_with(f"Communication from the Server: {expected_comm}")
 
 

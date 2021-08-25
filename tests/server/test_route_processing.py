@@ -14,6 +14,7 @@ from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
+from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import ok_comm
@@ -1403,8 +1404,8 @@ def test_after_request__redacts_mantarray_nicknames_from_system_status_log_messa
     response_json = response.get_json()
     assert response_json["mantarray_nickname"] == expected_nickname_dict
 
-    expected_redaction_1 = "*" * len(expected_nickname_1)
-    expected_redaction_2 = "*" * len(expected_nickname_2)
+    expected_redaction_1 = get_redacted_string(len(expected_nickname_1))
+    expected_redaction_2 = get_redacted_string(len(expected_nickname_2))
     expected_logged_dict = {"0": expected_redaction_1, "1": expected_redaction_2}
     logged_json = convert_after_request_log_msg_to_json(spied_server_logger.call_args_list[0][0][0])
     assert logged_json["mantarray_nickname"] == expected_logged_dict
@@ -1423,7 +1424,7 @@ def test_after_request__redacts_mantarray_nickname_from_set_mantarray_nickname_l
     response_json = response.get_json()
     assert response_json["mantarray_nickname"] == expected_nickname
 
-    expected_redaction = "*" * len(expected_nickname)
+    expected_redaction = get_redacted_string(len(expected_nickname))
     logged_json = convert_after_request_log_msg_to_json(spied_server_logger.call_args_list[0][0][0])
     assert logged_json["mantarray_nickname"] == expected_redaction
 
@@ -1446,7 +1447,7 @@ def test_after_request__redacts_mantarray_nicknames_from_start_recording_log_mes
         == expected_nickname
     )
 
-    expected_redaction = "*" * len(expected_nickname)
+    expected_redaction = get_redacted_string(len(expected_nickname))
     logged_json = convert_after_request_log_msg_to_json(spied_server_logger.call_args_list[0][0][0])
     assert (
         logged_json["metadata_to_copy_onto_main_file_attributes"][str(MANTARRAY_NICKNAME_UUID)]
