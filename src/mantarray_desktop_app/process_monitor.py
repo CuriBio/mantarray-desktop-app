@@ -204,7 +204,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 raise UnrecognizedRecordingCommandError(command)
             main_to_fw_queue.put_nowait(communication)
         elif communication_type == "to_instrument":
-            # TODO Tanner (6/1/21): refactor "to_instrument" communication type to something more appropriate
+            # TODO Tanner (6/1/21): refactor "to_instrument" communication type to something more appropriate. Could have boot up use it until it's phased out and make one for acquisiton
             main_to_ic_queue = (
                 self._process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
             )
@@ -275,7 +275,6 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         communication_type = communication["communication_type"]
         if communication_type == "data_available":
-            # TODO Tanner (6/17/21): Try having this update come from the server thread
             if self._values_to_share_to_server["system_status"] == BUFFERING_STATE:
                 self._data_dump_buffer_size += 1
                 if self._data_dump_buffer_size == 2:

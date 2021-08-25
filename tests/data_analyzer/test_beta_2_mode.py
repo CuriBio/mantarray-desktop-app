@@ -82,7 +82,6 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
             np.array([test_data_packet["time_indices"], default_channel_data], np.int64),
             np.zeros((2, len(default_channel_data))),
         )
-        # TODO figure out if not compressing data performs well
         compressed_data = pipeline.get_force()
         waveform_data_points[well_idx] = {
             "x_data_points": compressed_data[0].tolist(),
