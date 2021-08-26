@@ -90,12 +90,13 @@ def test_McCommunicationProcess_create_connections_to_all_available_boards__popu
         return_value=1,
     )
     board_idx = 0
+    actual_connections = mc_process.get_board_connections_list()
 
+    assert actual_connections == [None] * 4
     mc_process.create_connections_to_all_available_boards()
     confirm_queue_is_eventually_of_size(board_queues[0][1], 1)
     assert mocked_comports.call_count == 1
     assert mocked_serial.call_count == 1
-    actual_connections = mc_process.get_board_connections_list()
     assert actual_connections[1:] == [None] * 3
     actual_serial_obj = actual_connections[board_idx]
     assert isinstance(actual_serial_obj, Serial)
@@ -131,7 +132,9 @@ def test_McCommunicationProcess_create_connections_to_all_available_boards__popu
         return_value=1,
     )
     board_idx = 0
+    actual_connections = mc_process.get_board_connections_list()
 
+    assert actual_connections == [None] * 4
     mc_process.create_connections_to_all_available_boards()
     confirm_queue_is_eventually_of_size(board_queues[0][1], 1)
     assert mocked_comports.call_count == 1

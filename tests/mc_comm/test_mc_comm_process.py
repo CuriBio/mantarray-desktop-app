@@ -5,7 +5,6 @@ from multiprocessing import Queue
 
 from freezegun import freeze_time
 from mantarray_desktop_app import MantarrayInstrumentError
-from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import McCommunicationProcess
 from mantarray_desktop_app import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
@@ -56,32 +55,28 @@ def test_McCommunicationProcess_setup_before_loop__calls_super(
     four_board_mc_comm_process,
     mocker,
 ):
-    # TODO Tanner (8/20/21): Could look into ways to speed up McComm tests that use perform_setup_before_loop which starts running the simulator process
     spied_setup = mocker.spy(InfiniteProcess, "_setup_before_loop")
 
     mc_process = four_board_mc_comm_process["mc_process"]
+    # mock to speed up test
+    mocker.patch.object(mc_process, "create_connections_to_all_available_boards", autospec=True)
+
     invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
     spied_setup.assert_called_once()
 
-    # simulator is automatically started by mc_comm during setup_before_loop. Need to hard stop here since there is no access to the simulator's queues which must be drained before joining
-    populated_connections_list = mc_process.get_board_connections_list()
-    populated_connections_list[0].hard_stop()
-    populated_connections_list[0].join()
 
-
-@pytest.mark.slow
 @freeze_time("2021-03-16 13:05:55.654321")
-@pytest.mark.timeout(15)
 def test_McCommunicationProcess_setup_before_loop__connects_to_boards__and_sends_message_to_main(
-    four_board_mc_comm_process,
+    four_board_mc_comm_process, mocker
 ):
     mc_process = four_board_mc_comm_process["mc_process"]
     board_queues = four_board_mc_comm_process["board_queues"]
-    assert mc_process.get_board_connections_list() == [None] * 4
+    mocked_create_connections = mocker.patch.object(
+        mc_process, "create_connections_to_all_available_boards", autospec=True
+    )
+
     invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
-    populated_connections_list = mc_process.get_board_connections_list()
-    assert isinstance(populated_connections_list[0], MantarrayMcSimulator)
-    assert populated_connections_list[1:] == [None] * 3
+    mocked_create_connections.assert_called_once()
 
     assert_queue_is_eventually_not_empty(board_queues[0][1])
     process_initiated_msg = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -90,31 +85,25 @@ def test_McCommunicationProcess_setup_before_loop__connects_to_boards__and_sends
         process_initiated_msg["message"]
         == "Microcontroller Communication Process initiated at 2021-03-16 13:05:55.654321"
     )
-    # simulator is automatically started by mc_comm during setup_before_loop. Need to hard stop here since there is no access to the simulator's queues which must be drained before joining
-    populated_connections_list[0].hard_stop()
-    populated_connections_list[0].join()
 
 
-@pytest.mark.slow
-@pytest.mark.timeout(15)
-def test_McCommunicationProcess_setup_before_loop__does_not_send_message_to_main_when_setup_comm_is_suppressed():
+def test_McCommunicationProcess_setup_before_loop__does_not_send_message_to_main_when_setup_comm_is_suppressed(
+    mocker,
+):
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
     mc_process = McCommunicationProcess(board_queues, error_queue, suppress_setup_communication_to_main=True)
-    assert mc_process.get_board_connections_list() == [None] * 4
+    mocked_create_connections = mocker.patch.object(
+        mc_process, "create_connections_to_all_available_boards", autospec=True
+    )
+
     invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
-    populated_connections_list = mc_process.get_board_connections_list()
-    assert isinstance(populated_connections_list[0], MantarrayMcSimulator)
-    assert populated_connections_list[1:] == [None] * 3
+    mocked_create_connections.assert_called_once()
 
     # Other parts of the process after setup may or may not send messages to main, so drain queue and make sure none of the items (if present) have a setup message
     to_main_queue_items = drain_queue(board_queues[0][1])
     for item in to_main_queue_items:
         if "message" in item:
             assert "Microcontroller Communication Process initiated" not in item["message"]
-
-    # simulator is automatically started by mc_comm during setup_before_loop. Need to hard stop here since there is no access to the simulator's queues which must be drained before joining
-    populated_connections_list[0].hard_stop()
-    populated_connections_list[0].join()
 
 
 def test_McCommunicationProcess_hard_stop__clears_all_queues_and_returns_lists_of_values(
