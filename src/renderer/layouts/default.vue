@@ -9,7 +9,10 @@
         <PlateNavigator />
       </div>
       <div class="div__status-bar-container">
-        <StatusBar />
+        <StatusBar
+          :confirmation_request="confirmation_request"
+          @send_confirmation="send_confirmation"
+        />
       </div>
       <div class="div__player-controls-container">
         <DesktopPlayerControls />
@@ -56,6 +59,7 @@ import {
   SimulationMode,
   RecordingTime,
 } from "@curi-bio/mantarray-frontend-components";
+import { ipcRenderer } from "electron";
 
 // const pkginfo = require('pkginfo')(module, 'version');
 const dummy_electron_app = {
@@ -67,6 +71,7 @@ const electron_app =
   process.env.NODE_ENV === "test"
     ? dummy_electron_app
     : require("electron").remote.app;
+
 export default {
   components: {
     PlateNavigator,
@@ -81,11 +86,11 @@ export default {
       // package_version: module.exports.version,
       package_version: electron_app.getVersion(), // Eli (7/13/20): This only displays the application version when running from a built application---otherwise it displays the version of Electron that is installed
       current_year: "2021", // new Date().getFullYear(),
+      confirmation_request: false,
     };
   },
   created: function () {
     // init store values needed in pages here since this side bar is only created once
-
     this.$store.commit("data/set_heatmap_values", {
       "Twitch Force": { data: [...Array(24)].map((e) => Array(0)) },
       "Twitch Frequency": { data: [...Array(24)].map((e) => Array(0)) },
@@ -101,7 +106,17 @@ export default {
     ]);
     this.$store.dispatch("flask/start_status_pinging");
 
+    ipcRenderer.on("confirmation_request", () => {
+      this.confirmation_request = true;
+    });
+
     console.log("Initial view has been rendered"); // allow-log
+  },
+  methods: {
+    send_confirmation: function () {
+      ipcRenderer.send("confirmation_response", 0);
+      this.confirmation_request = false;
+    },
   },
 };
 </script>
