@@ -32,6 +32,8 @@ from mantarray_file_manager import ORIGINAL_FILE_VERSION_UUID
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import REF_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import REFERENCE_SENSOR_READINGS
+from mantarray_file_manager import TIME_INDICES
+from mantarray_file_manager import TIME_OFFSETS
 from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import TISSUE_SENSOR_READINGS
 from mantarray_file_manager import TOTAL_WELL_COUNT_UUID
@@ -66,10 +68,6 @@ from .exceptions import InvalidDataTypeFromOkCommError
 from .exceptions import InvalidStopRecordingTimepointError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
 from .utils import create_sensor_axis_dict
-
-# TODO Tanner (5/28/21): import these from mantarray_file_manager when new version is published
-TIME_INDICES = "time_indices"
-TIME_OFFSETS = "time_offsets"
 
 
 def _get_formatted_utc_now() -> str:

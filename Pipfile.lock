@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "ba020eeab0525bf56f2e797d7f3fee646ae3a8f0e6783dc2d55677853835990c"
+            "sha256": "fef5099cb7aab9df59dff481b21204348e0ccf12ed908dbe4804359e38c7e7d8"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -222,11 +222,11 @@
         },
         "mantarray-file-manager": {
             "hashes": [
-                "sha256:1af21ca8f2128f775f362aaf02b6e3c01bc49ee1cca2e94d058a70366f23023d",
-                "sha256:923905bd61a647208dcd632ebcf3a2242a8e739016e69380dc58b2bb67c904fa"
+                "sha256:421e5ca7ee44e9ef5428bd13aad1c9a472a7184c796e8ec186de7717a1fa9be7",
+                "sha256:b24985851381061bc15889749715cea7754280516df2d6ca03546358583cab2c"
             ],
             "index": "pypi",
-            "version": "==0.5.1"
+            "version": "==1.0.0"
         },
         "mantarray-waveform-analysis": {
             "hashes": [
@@ -636,11 +636,11 @@
         },
         "cfgv": {
             "hashes": [
-                "sha256:9e600479b3b99e8af981ecdfc80a0296104ee610cab48a5ae4ffd0b668650eb1",
-                "sha256:b449c9c6118fe8cca7fa5e00b9ec60ba08145d281d52164230a69211c5d597a1"
+                "sha256:c6a0883f3917a037485059700b9e75da2464e6c27051014ad85ba6aaa5884426",
+                "sha256:f5a830efb9ce7a445376bb66ec94c638a9787422f96264c98edc6bdeed8ab736"
             ],
             "markers": "python_full_version >= '3.6.1'",
-            "version": "==3.3.0"
+            "version": "==3.3.1"
         },
         "charset-normalizer": {
             "hashes": [
@@ -1028,10 +1028,10 @@
         },
         "pyinstaller-hooks-contrib": {
             "hashes": [
-                "sha256:57964f93eb69255c49159ffdf052aae893feed223b0f69773dfd010ca6c569d9",
-                "sha256:7f5d0689b30da3092149fc536a835a94045ac8c9f0e6dfb23ac171890f5ea8f2"
+                "sha256:169b09802a19f83593114821d6ba0416a05c7071ef0ca394f7bfb7e2c0c916c8",
+                "sha256:a52bc3834281266bbf77239cfc9521923336ca622f44f90924546ed6c6d3ad5e"
             ],
-            "version": "==2021.2"
+            "version": "==2021.3"
         },
         "pylint": {
             "hashes": [
