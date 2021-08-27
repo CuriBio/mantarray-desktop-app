@@ -168,6 +168,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._time_of_reboot_start: Optional[
             float
         ] = None  # Tanner (4/1/21): This value will be None until this process receives a response to a reboot command. It will be set back to None after receiving a status beacon upon reboot completion
+        self._hardware_test_mode = hardware_test_mode
         # data streaming values
         self._magnetometer_config: Dict[int, Dict[Any, Any]] = dict()
         self._active_sensors_list: List[int] = list()
@@ -177,7 +178,13 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._is_stopping_data_stream = False
         self._has_data_packet_been_sent = False
         self._data_packet_cache = bytes(0)
-        self._hardware_test_mode = hardware_test_mode
+        # performance tracking values
+        # self._performance_logging_cycles = INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
+        # self._reads_since_last_logging: List[int] = [0] * len(self._board_queues)
+        # self._data_read_durations: List[float] = list()
+        # self._data_read_lengths: List[int] = list()
+        # self._data_parsing_durations: List[float] = list()
+        # self._durations_between_parsing: List[float] = list()
 
     def _setup_before_loop(self) -> None:
         super()._setup_before_loop()

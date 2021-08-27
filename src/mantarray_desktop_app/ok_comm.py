@@ -431,20 +431,21 @@ class OkCommunicationProcess(InstrumentCommProcess):
         self._data_frame_format = "six_channels_32_bit__single_sample_index"
         self._time_of_last_fifo_read: List[Union[None, datetime.datetime]] = [None] * len(self._board_queues)
         self._timepoint_of_last_fifo_read: List[Union[None, float]] = [None] * len(self._board_queues)
-        self._reads_since_last_logging: List[int] = [0] * len(self._board_queues)
         self._is_managed_acquisition_running = [False] * len(self._board_queues)
         self._is_first_managed_read = [False] * len(self._board_queues)
-        self._fifo_read_durations: List[float] = list()
-        self._fifo_read_lengths: List[int] = list()
-        self._data_parsing_durations: List[float] = list()
-        self._durations_between_acquisition: List[float] = list()
+        self._is_barcode_cleared = [False, False]
         self._barcode_scan_start_time: List[Optional[float]] = [
             None,
             None,
         ]
-        self._is_barcode_cleared = [False, False]
+        # performance tracking values
         self._performance_logging_cycles = INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
-        self._fifo_read_period = 1
+        self._reads_since_last_logging: List[int] = [0] * len(self._board_queues)
+        self._fifo_read_durations: List[float] = list()
+        self._fifo_read_lengths: List[int] = list()
+        self._fifo_read_period_secs = 1
+        self._data_parsing_durations: List[float] = list()
+        self._durations_between_acquisition: List[float] = list()
 
     def create_connections_to_all_available_boards(self) -> None:
         """Create initial connections to boards.
@@ -559,7 +560,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
             raise NotImplementedError(
                 "_reads_since_last_logging should always be an int value while managed acquisition is running"
             )
-        return now - self._time_of_last_fifo_read[0] > datetime.timedelta(seconds=self._fifo_read_period)
+        return now - self._time_of_last_fifo_read[0] > datetime.timedelta(seconds=self._fifo_read_period_secs)
 
     def _process_next_communication_from_main(self) -> None:
         """Process the next communication sent from the main process.

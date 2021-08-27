@@ -289,7 +289,7 @@ def set_mantarray_nickname() -> Response:
 
     This route will not overwrite an existing Mantarray Serial Number.
 
-    Can be invoked by: curl 'http://localhost:4567/set_mantarray_nickname?nickname=My Mantarray'
+    Can be invoked by: curl http://localhost:4567/set_mantarray_nickname?nickname=My%20Mantarray
     """
     shared_values_dict = _get_values_from_process_monitor()
     max_num_bytes = SERIAL_COMM_METADATA_BYTES_LENGTH if shared_values_dict["beta_2_mode"] else 23

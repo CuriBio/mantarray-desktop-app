@@ -273,7 +273,6 @@ from .utils import get_active_wells_from_config
 from .utils import get_current_software_version
 from .utils import get_redacted_string
 from .utils import redact_sensitive_info_from_path
-from .utils import sort_nested_dict
 from .utils import validate_magnetometer_config_keys
 
 if 6 < 9:  # pragma: no cover # protect this from zimports deleting the pylint disable statement
@@ -551,7 +550,6 @@ __all__ = [
     "create_sensor_axis_dict",
     "SERIAL_COMM_MODULE_ID_TO_WELL_IDX",
     "SERIAL_COMM_WELL_IDX_TO_MODULE_ID",
-    "sort_nested_dict",
     "SerialCommNotEnoughAdditionalBytesReadError",
     "STM_VID",
     "socketio",

@@ -10,7 +10,6 @@ from mantarray_desktop_app import get_current_software_version
 from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import redact_sensitive_info_from_path
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
-from mantarray_desktop_app import sort_nested_dict
 from mantarray_desktop_app import utils
 import pytest
 from stdlib_utils import get_current_file_abs_directory
@@ -125,19 +124,3 @@ def test_get_active_wells_from_config__returns_correct_values():
         test_config_dict[module_id][0] = True
 
     assert get_active_wells_from_config(test_config_dict) == expected_wells
-
-
-def test_sort_nested_dict__returns_correct_dict():
-    test_dict = {
-        2: {"A": 7, "Z": 0, "V": None},
-        3: True,
-        1: bytes(2),
-    }
-    actual = sort_nested_dict(test_dict)
-
-    expected_outer_keys = [1, 2, 3]
-    for i, outer_key in enumerate(list(actual.keys())):
-        assert outer_key == expected_outer_keys[i]
-    expected_inner_keys = ["A", "V", "Z"]
-    for i, inner_key in enumerate(list(actual[2].keys())):
-        assert inner_key == expected_inner_keys[i]
