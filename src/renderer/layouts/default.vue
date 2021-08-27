@@ -17,6 +17,17 @@
       <div class="div__player-controls-container">
         <DesktopPlayerControls />
       </div>
+      <div class="div__stimulation-studio-controls-container">
+        <StimulationStudioControls />
+      </div>
+      <div class="div__additional_controls-controls-icon-container">
+        <NuxtLink to="/stimulationstudio">
+          <img
+            src="../assets/img/additional-controls-icon.png"
+            :style="'height:44px;'"
+          />
+        </NuxtLink>
+      </div>
       <span class="span__screen-view-options-text">Screen View Options</span>
       <div class="div__screen-view-container">
         <div class="div__waveform-screen-view">
@@ -58,6 +69,7 @@ import {
   StatusBar,
   SimulationMode,
   RecordingTime,
+  StimulationStudioControls,
 } from "@curi-bio/mantarray-frontend-components";
 import { ipcRenderer } from "electron";
 
@@ -80,6 +92,7 @@ export default {
     StatusBar,
     SimulationMode,
     RecordingTime,
+    StimulationStudioControls,
   },
   data: function () {
     return {
@@ -113,8 +126,8 @@ export default {
     console.log("Initial view has been rendered"); // allow-log
   },
   methods: {
-    send_confirmation: function () {
-      ipcRenderer.send("confirmation_response", 0);
+    send_confirmation: function (idx) {
+      ipcRenderer.send("confirmation_response", idx);
       this.confirmation_request = false;
     },
   },
@@ -176,6 +189,18 @@ body {
   top: 256px;
   left: 0px;
 }
+.div__additional_controls-controls-icon-container {
+  position: absolute;
+  top: 403px;
+  left: 17px;
+}
+
+.div__stimulation-studio-controls-container {
+  position: absolute;
+  top: 371px;
+  left: 0px;
+}
+
 .div__player-controls-container {
   position: absolute;
   top: 291px;
@@ -183,7 +208,7 @@ body {
 }
 .div__screen-view-container {
   position: absolute;
-  top: 400px;
+  top: 495px;
   width: 287px;
   display: grid;
   grid-template-columns: 50% 50%;
@@ -195,7 +220,7 @@ body {
   width: 207px;
   height: 23px;
   left: 11px;
-  top: 372px;
+  top: 461px;
   padding: 5px;
   user-select: none;
   font-size: 16px;

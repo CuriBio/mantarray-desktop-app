@@ -4,8 +4,8 @@ const isProduction = process.env.NODE_ENV === "production";
 
 export default class BrowserWinHandler {
   /**
-   * @param [options] {object} - browser window options
-   * @param [allowRecreate] {boolean}
+   * @param {object} [options]  - browser window options
+   * @param {boolean} [allowRecreate] - allows constructor to be recreated
    */
   constructor(options, allowRecreate = true) {
     this._eventEmitter = new EventEmitter();
@@ -64,7 +64,7 @@ export default class BrowserWinHandler {
         try {
           ipcMain.on("confirmation_response", (e, user_response) => {
             e.reply("confirmation_response", 200);
-            if (user_response === 0) {
+            if (user_response === 1) {
               close = true;
               this.browserWindow.close();
               console.log("user confirmed window closure");
