@@ -123,7 +123,8 @@ def test_DataAnalyzerProcess__does_not_process_data_packets_after_receiving_stop
         da_process, "_process_beta_2_data", autospec=True, return_value={}
     )
 
-    da_process.init_streams()
+    # da_process.init_streams()
+    invoke_process_run_and_check_errors(da_process, perform_setup_before_loop=True)
     # set config arbitrary sampling period
     test_sampling_period = 10000
     set_magnetometer_config(

@@ -284,6 +284,13 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_2_dat
         autospec=True,
         side_effect=expected_data_creation_durs,
     )
+    expected_data_analysis_durs = [random.uniform(20, 80) for _ in range(24)]
+    mocker.patch.object(
+        data_analyzer,
+        "_get_secs_since_data_analysis_start",
+        autospec=True,
+        side_effect=expected_data_analysis_durs,
+    )
 
     # create test data packets
     for packet_num in range(expected_num_data_packets):
@@ -302,7 +309,7 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_2_dat
         to_main_queue, expected_num_data_packets * 2
     )  # Tanner (1/4/21): a log message is also put into queue after each waveform data dump
 
-    actual = drain_queue(to_main_queue)[-2]["message"]
+    actual = drain_queue(to_main_queue)[-1]["message"]
     assert actual["communication_type"] == "performance_metrics"
     assert actual["data_creation_duration"] == expected_data_creation_durs[-1]
     assert actual["data_creation_duration_metrics"] == {
@@ -310,6 +317,12 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_2_dat
         "min": min(expected_data_creation_durs),
         "stdev": round(stdev(expected_data_creation_durs), 6),
         "mean": round(sum(expected_data_creation_durs) / len(expected_data_creation_durs), 6),
+    }
+    assert actual["data_analysis_duration_metrics"] == {
+        "max": max(expected_data_analysis_durs),
+        "min": min(expected_data_analysis_durs),
+        "stdev": round(stdev(expected_data_analysis_durs), 6),
+        "mean": round(sum(expected_data_analysis_durs) / len(expected_data_analysis_durs), 6),
     }
     # values created in parent class
     assert "start_timepoint_of_measurements" not in actual
@@ -325,6 +338,7 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_2_dat
 def test_DataAnalyzerProcess__does_not_include_performance_metrics_in_first_logging_cycle__with_beta_1_data(
     four_board_analyzer_process, mocker
 ):
+    # TODO Tanner (8/30/21): change this test to work with Beta 2 data once beta 1 is phased out
     mocker.patch.object(Pipeline, "get_compressed_voltage", autospec=True)
     mocker.patch.object(
         pipelines,
