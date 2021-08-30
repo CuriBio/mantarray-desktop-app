@@ -33,6 +33,15 @@ let store;
 let mocked_axios;
 const propsData = {};
 
+jest.mock(
+  "electron",
+  () => {
+    const mElectron = { ipcRenderer: { on: jest.fn(), send: jest.fn() } };
+    return mElectron;
+  },
+  { virtual: true }
+);
+
 describe("StartPage", () => {
   // TODO Tanner (7/29/21): should eventually add more thorough testing
   beforeAll(async () => {
