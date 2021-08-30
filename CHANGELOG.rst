@@ -2,6 +2,12 @@ Changelog for Mantarray Desktop App
 ===================================
 
 
+0.6.0 (unreleased)
+------------------
+
+- Added Stimulation Studio and Controls.
+
+
 0.5.1 (2021-08-24)
 ------------------
 
