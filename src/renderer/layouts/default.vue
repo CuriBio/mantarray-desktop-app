@@ -9,10 +9,24 @@
         <PlateNavigator />
       </div>
       <div class="div__status-bar-container">
-        <StatusBar />
+        <StatusBar
+          :confirmation_request="confirmation_request"
+          @send_confirmation="send_confirmation"
+        />
       </div>
       <div class="div__player-controls-container">
         <DesktopPlayerControls />
+      </div>
+      <div class="div__stimulation-studio-controls-container">
+        <StimulationStudioControls />
+      </div>
+      <div class="div__additional_controls-controls-icon-container">
+        <NuxtLink to="/stimulationstudio">
+          <img
+            src="../assets/img/additional-controls-icon.png"
+            :style="'height:44px;'"
+          />
+        </NuxtLink>
       </div>
       <span class="span__screen-view-options-text">Screen View Options</span>
       <div class="div__screen-view-container">
@@ -55,7 +69,9 @@ import {
   StatusBar,
   SimulationMode,
   RecordingTime,
+  StimulationStudioControls,
 } from "@curi-bio/mantarray-frontend-components";
+import { ipcRenderer } from "electron";
 
 // const pkginfo = require('pkginfo')(module, 'version');
 const dummy_electron_app = {
@@ -67,6 +83,7 @@ const electron_app =
   process.env.NODE_ENV === "test"
     ? dummy_electron_app
     : require("electron").remote.app;
+
 export default {
   components: {
     PlateNavigator,
@@ -75,17 +92,18 @@ export default {
     StatusBar,
     SimulationMode,
     RecordingTime,
+    StimulationStudioControls,
   },
   data: function () {
     return {
       // package_version: module.exports.version,
       package_version: electron_app.getVersion(), // Eli (7/13/20): This only displays the application version when running from a built application---otherwise it displays the version of Electron that is installed
       current_year: "2021", // new Date().getFullYear(),
+      confirmation_request: false,
     };
   },
   created: function () {
     // init store values needed in pages here since this side bar is only created once
-
     this.$store.commit("data/set_heatmap_values", {
       "Twitch Force": { data: [...Array(24)].map((e) => Array(0)) },
       "Twitch Frequency": { data: [...Array(24)].map((e) => Array(0)) },
@@ -101,7 +119,17 @@ export default {
     ]);
     this.$store.dispatch("flask/start_status_pinging");
 
+    ipcRenderer.on("confirmation_request", () => {
+      this.confirmation_request = true;
+    });
+
     console.log("Initial view has been rendered"); // allow-log
+  },
+  methods: {
+    send_confirmation: function (idx) {
+      ipcRenderer.send("confirmation_response", idx);
+      this.confirmation_request = false;
+    },
   },
 };
 </script>
@@ -161,6 +189,18 @@ body {
   top: 256px;
   left: 0px;
 }
+.div__additional_controls-controls-icon-container {
+  position: absolute;
+  top: 403px;
+  left: 17px;
+}
+
+.div__stimulation-studio-controls-container {
+  position: absolute;
+  top: 371px;
+  left: 0px;
+}
+
 .div__player-controls-container {
   position: absolute;
   top: 291px;
@@ -168,7 +208,7 @@ body {
 }
 .div__screen-view-container {
   position: absolute;
-  top: 400px;
+  top: 495px;
   width: 287px;
   display: grid;
   grid-template-columns: 50% 50%;
@@ -180,7 +220,7 @@ body {
   width: 207px;
   height: 23px;
   left: 11px;
-  top: 372px;
+  top: 461px;
   padding: 5px;
   user-select: none;
   font-size: 16px;
