@@ -30,7 +30,6 @@ from ..fixtures_data_analyzer import fixture_four_board_analyzer_process
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process_beta_2_mode
 from ..fixtures_data_analyzer import set_magnetometer_config
 from ..fixtures_file_writer import GENERIC_BOARD_MAGNETOMETER_CONFIGURATION
-from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..parsed_channel_data_packets import SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS
@@ -40,7 +39,6 @@ __fixtures__ = [
     fixture_four_board_analyzer_process,
     fixture_four_board_analyzer_process_beta_2_mode,
     fixture_patch_print,
-    fixture_mantarray_mc_simulator,
 ]
 
 
@@ -241,9 +239,8 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_1_dat
     }
 
 
-@pytest.mark.slow
 def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_2_data(
-    four_board_analyzer_process_beta_2_mode, mantarray_mc_simulator, mocker
+    four_board_analyzer_process_beta_2_mode, mocker
 ):
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
     to_main_queue = four_board_analyzer_process_beta_2_mode["to_main_queue"]

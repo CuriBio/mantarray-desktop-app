@@ -962,15 +962,4 @@ class OkCommunicationProcess(InstrumentCommProcess):
                 "stdev": round(stdev(okc_measurements), 6),
                 "mean": round(sum(okc_measurements) / len(okc_measurements), 6),
             }
-
-        tracker = self.reset_performance_tracker()
-        performance_metrics["percent_use"] = tracker["percent_use"]
-        performance_metrics["longest_iterations"] = sorted(tracker["longest_iterations"])
-        if len(self._percent_use_values) > 1:
-            performance_metrics["percent_use_metrics"] = self.get_percent_use_metrics()
-        put_log_message_into_queue(
-            logging.INFO,
-            performance_metrics,
-            self._board_queues[0][1],
-            self.get_logging_level(),
-        )
+        self._send_performance_metrics(performance_metrics)
