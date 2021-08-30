@@ -57,7 +57,7 @@ export default class BrowserWinHandler {
 
     let close = false;
     this.browserWindow.on("close", async (e) => {
-      if (close === false) {
+      if (!close) {
         e.preventDefault();
         this.browserWindow.webContents.send("confirmation_request");
 
