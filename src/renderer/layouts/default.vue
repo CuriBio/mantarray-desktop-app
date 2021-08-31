@@ -123,7 +123,7 @@ export default {
       package_version: electron_app.getVersion(), // Eli (7/13/20): This only displays the application version when running from a built application---otherwise it displays the version of Electron that is installed
       current_year: "2021", // new Date().getFullYear(),
       confirmation_request: false,
-      beta_2_mode: undefined,
+      beta_2_mode: process.env.SPECTRON || undefined,
     };
   },
   created: function () {
