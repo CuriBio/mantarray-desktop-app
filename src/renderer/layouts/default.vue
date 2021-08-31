@@ -35,8 +35,24 @@
           </NuxtLink>
         </div>
       </div>
-      <span class="span__screen-view-options-text">Screen View Options</span>
-      <div class="div__screen-view-container">
+      <span
+        class="span__screen-view-options-text"
+        :class="[
+          beta_2_mode
+            ? 'span__screen-view-options-text--beta-2-mode'
+            : 'span__screen-view-options-text--beta-1-mode',
+        ]"
+      >
+        Screen View Options
+      </span>
+      <div
+        class="div__screen-view-container"
+        :class="[
+          beta_2_mode
+            ? 'div__screen-view-container--beta-2-mode'
+            : 'div__screen-view-container--beta-1-mode',
+        ]"
+      >
         <div class="div__waveform-screen-view">
           <!-- Default view is waveform screen -->
           <NuxtLink to="/">
@@ -204,6 +220,11 @@ body {
   top: 256px;
   left: 0px;
 }
+.div__player-controls-container {
+  position: absolute;
+  top: 291px;
+  left: 0px;
+}
 
 .div__additional_controls-controls-icon-container {
   position: absolute;
@@ -222,18 +243,18 @@ body {
   left: 17px;
 }
 
-.div__player-controls-container {
-  position: absolute;
-  top: 291px;
-  left: 0px;
-}
 .div__screen-view-container {
   position: absolute;
-  top: 495px;
   width: 287px;
   display: grid;
   grid-template-columns: 50% 50%;
   justify-items: center;
+}
+.div__screen-view-container--beta-2-mode {
+  top: 495px;
+}
+.div__screen-view-container--beta-1-mode {
+  top: 410px;
 }
 .span__screen-view-options-text {
   line-height: 100%;
@@ -241,19 +262,26 @@ body {
   width: 207px;
   height: 23px;
   left: 11px;
-  top: 461px;
   padding: 5px;
   user-select: none;
   font-size: 16px;
   color: #ffffff;
   text-align: left;
 }
+.span__screen-view-options-text--beta-2-mode {
+  top: 461px;
+}
+.span__screen-view-options-text--beta-1-mode {
+  top: 376px;
+}
+
 .div__waveform-screen-view- {
   grid-column: 1 / 2;
 }
 .div__heatmap-screen-view- {
   grid-column: 2;
 }
+
 .div__simulation-mode-container {
   position: absolute;
   top: 875px;

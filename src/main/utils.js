@@ -94,6 +94,8 @@ const generate_flask_command_line_args = function (electron_store) {
     args.push("--initial-base64-settings=" + settings_to_supply_encoded);
   }
 
+  if (electron_store.get("beta_2_mode")) args.push("--beta-2-mode");
+
   return args;
 };
 
