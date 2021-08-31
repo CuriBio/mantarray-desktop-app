@@ -13,8 +13,7 @@ from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
-from mantarray_desktop_app import UnrecognizedCommandToInstrumentError
-from mantarray_desktop_app import UnrecognizedCommTypeFromMainToDataAnalyzerError
+from mantarray_desktop_app import UnrecognizedCommandFromMainToDataAnalyzerError
 from mantarray_waveform_analysis import Pipeline
 from mantarray_waveform_analysis import pipelines
 import numpy as np
@@ -31,7 +30,6 @@ from ..fixtures_data_analyzer import fixture_four_board_analyzer_process
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process_beta_2_mode
 from ..fixtures_data_analyzer import set_magnetometer_config
 from ..fixtures_file_writer import GENERIC_BOARD_MAGNETOMETER_CONFIGURATION
-from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..parsed_channel_data_packets import SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS
@@ -41,7 +39,6 @@ __fixtures__ = [
     fixture_four_board_analyzer_process,
     fixture_four_board_analyzer_process_beta_2_mode,
     fixture_patch_print,
-    fixture_mantarray_mc_simulator,
 ]
 
 
@@ -109,19 +106,19 @@ def test_DataAnalyzerProcess__drain_all_queues__drains_all_queues_except_error_q
     assert actual["from_data_analyzer_to_main"] == [expected_to_main]
 
 
-def test_DataAnalyzerProcess__raises_error_with_unrecognized_command_to_instrument(
+def test_DataAnalyzerProcess__raises_error_with_unrecognized_acquisition_manager_command(
     four_board_analyzer_process, mocker, patch_print
 ):
     p, _, comm_from_main_queue, _, _ = four_board_analyzer_process
 
     expected_command = "fake_command"
     start_command = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": expected_command,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, comm_from_main_queue)
 
-    with pytest.raises(UnrecognizedCommandToInstrumentError, match=expected_command):
+    with pytest.raises(UnrecognizedCommandFromMainToDataAnalyzerError, match=expected_command):
         invoke_process_run_and_check_errors(p)
 
 
@@ -151,7 +148,7 @@ def test_DataAnalyzerProcess__raises_error_if_communication_type_is_invalid(
         comm_from_main_queue,
     )
 
-    with pytest.raises(UnrecognizedCommTypeFromMainToDataAnalyzerError, match="fake_type"):
+    with pytest.raises(UnrecognizedCommandFromMainToDataAnalyzerError, match="fake_type"):
         invoke_process_run_and_check_errors(p)
 
 
@@ -242,9 +239,8 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_1_dat
     }
 
 
-@pytest.mark.slow
 def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_2_data(
-    four_board_analyzer_process_beta_2_mode, mantarray_mc_simulator, mocker
+    four_board_analyzer_process_beta_2_mode, mocker
 ):
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
     to_main_queue = four_board_analyzer_process_beta_2_mode["to_main_queue"]
@@ -288,6 +284,13 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_2_dat
         autospec=True,
         side_effect=expected_data_creation_durs,
     )
+    expected_data_analysis_durs = [random.uniform(20, 80) for _ in range(24)]
+    mocker.patch.object(
+        data_analyzer,
+        "_get_secs_since_data_analysis_start",
+        autospec=True,
+        side_effect=expected_data_analysis_durs,
+    )
 
     # create test data packets
     for packet_num in range(expected_num_data_packets):
@@ -306,7 +309,7 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_2_dat
         to_main_queue, expected_num_data_packets * 2
     )  # Tanner (1/4/21): a log message is also put into queue after each waveform data dump
 
-    actual = drain_queue(to_main_queue)[-2]["message"]
+    actual = drain_queue(to_main_queue)[-1]["message"]
     assert actual["communication_type"] == "performance_metrics"
     assert actual["data_creation_duration"] == expected_data_creation_durs[-1]
     assert actual["data_creation_duration_metrics"] == {
@@ -314,6 +317,12 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_2_dat
         "min": min(expected_data_creation_durs),
         "stdev": round(stdev(expected_data_creation_durs), 6),
         "mean": round(sum(expected_data_creation_durs) / len(expected_data_creation_durs), 6),
+    }
+    assert actual["data_analysis_duration_metrics"] == {
+        "max": max(expected_data_analysis_durs),
+        "min": min(expected_data_analysis_durs),
+        "stdev": round(stdev(expected_data_analysis_durs), 6),
+        "mean": round(sum(expected_data_analysis_durs) / len(expected_data_analysis_durs), 6),
     }
     # values created in parent class
     assert "start_timepoint_of_measurements" not in actual
@@ -329,6 +338,7 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_2_dat
 def test_DataAnalyzerProcess__does_not_include_performance_metrics_in_first_logging_cycle__with_beta_1_data(
     four_board_analyzer_process, mocker
 ):
+    # TODO Tanner (8/30/21): change this test to work with Beta 2 data once beta 1 is phased out
     mocker.patch.object(Pipeline, "get_compressed_voltage", autospec=True)
     mocker.patch.object(
         pipelines,
@@ -367,7 +377,7 @@ def test_DataAnalyzerProcess__processes_change_magnetometer_config_command(
 
     expected_sampling_period = 15000
     set_sampling_period_command = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "change_magnetometer_config",
         "magnetometer_config": test_config_dict,
         "sampling_period": expected_sampling_period,

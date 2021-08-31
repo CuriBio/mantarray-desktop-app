@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import copy
 from random import randint
+from statistics import stdev
 import time
 
 from mantarray_desktop_app import convert_bitmask_to_config_dict
@@ -8,7 +9,9 @@ from mantarray_desktop_app import create_active_channel_per_sensor_list
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
+from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import handle_data_packets
+from mantarray_desktop_app import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import InstrumentDataStreamingAlreadyStartedError
 from mantarray_desktop_app import InstrumentDataStreamingAlreadyStoppedError
 from mantarray_desktop_app import MagnetometerConfigUpdateWhileDataStreamingError
@@ -33,6 +36,7 @@ from mantarray_desktop_app import SerialCommIncorrectChecksumFromInstrumentError
 from mantarray_desktop_app import SerialCommIncorrectMagicWordFromMantarrayError
 import numpy as np
 import pytest
+from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
 
 from ..fixtures import fixture_patch_print
@@ -138,7 +142,7 @@ def set_magnetometer_config_and_start_streaming(
     from_main_queue = mc_fixture["board_queues"][0][0]
     to_main_queue = mc_fixture["board_queues"][0][1]
     config_command = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "change_magnetometer_config",
         "magnetometer_config": magnetometer_config,
         "sampling_period": sampling_period,
@@ -152,7 +156,7 @@ def set_magnetometer_config_and_start_streaming(
     to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
     start_command = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "start_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
@@ -599,7 +603,7 @@ def test_McCommunicationProcess__processes_start_managed_acquisition_command__wh
     spied_get_utc_now = mocker.spy(mc_comm, "_get_formatted_utc_now")
 
     expected_response = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "start_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -637,7 +641,7 @@ def test_McCommunicationProcess__raises_error_when_change_magnetometer_config_co
 
     # start data streaming
     start_command = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "start_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
@@ -646,7 +650,7 @@ def test_McCommunicationProcess__raises_error_when_change_magnetometer_config_co
     invoke_process_run_and_check_errors(mc_process)
     # attempt to change magnetometer configuration and assert error is raised
     change_config_command = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "change_magnetometer_config",
         "sampling_period": 65000,  # arbitrary value
         "magnetometer_config": dict(),
@@ -678,7 +682,7 @@ def test_McCommunicationProcess__processes_start_managed_acquisition_command__an
     )
 
     expected_response = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "start_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -714,7 +718,7 @@ def test_McCommunicationProcess__processes_stop_data_streaming_command__when_dat
     )
 
     expected_response = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "stop_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -745,7 +749,7 @@ def test_McCommunicationProcess__processes_stop_data_streaming_command__and_rais
     )
 
     expected_response = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "stop_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -1153,7 +1157,7 @@ def test_McCommunicationProcess__handles_less_than_one_second_read_when_stopping
 
     # tell mc_comm to stop data stream before 1 second of data is present
     expected_response = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "stop_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -1215,10 +1219,157 @@ def test_McCommunicationProcess__does_not_attempt_to_parse_when_stopping_data_st
 
     # tell mc_comm to stop data stream before 1 second of data is present
     expected_response = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "stop_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(expected_response), from_main_queue
     )
     invoke_process_run_and_check_errors(mc_process)
+
+
+def test_McCommunicationProcess__logs_performance_metrics_after_parsing_data(
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    # mock since connection to simulator will be made by this test
+    mocker.patch.object(mc_process, "create_connections_to_all_available_boards", autospec=True)
+    # perform setup so performance logging values are initialized
+    invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
+
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+    set_magnetometer_config_and_start_streaming(
+        four_board_mc_comm_process_no_handshake,
+        simulator,
+        DEFAULT_MAGNETOMETER_CONFIG,
+        DEFAULT_SAMPLING_PERIOD,
+    )
+
+    mc_process.reset_performance_tracker()  # call this method so there are percent use metrics to report
+    mc_process._minimum_iteration_duration_seconds /= (  # pylint: disable=protected-access
+        10  # set this to a lower value to speed up the test
+    )
+    # mock to speed up test
+    mocker.patch.object(mc_process, "_dump_data_packets", autospec=True)
+
+    # create expected values for metric creation
+    expected_secs_between_parsing = list(range(15, 15 + INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES - 1))
+    mocker.patch.object(
+        mc_comm, "_get_secs_since_last_data_parse", autospec=True, side_effect=expected_secs_between_parsing
+    )
+    expected_read_durs = list(range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES))
+    mocker.patch.object(mc_comm, "_get_dur_of_data_read_secs", autospec=True, side_effect=expected_read_durs)
+    # Tanner (8/30/21): using arbitrary large number here. If data packet size changes this test may fail
+    expected_read_lengths = list(range(1000000, 1000000 + INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES))
+    mocker.patch.object(
+        simulator,
+        "read_all",
+        autospec=True,
+        side_effect=[bytes(read_len) for read_len in expected_read_lengths],
+    )
+    expected_parse_durs = list(range(0, INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES * 2, 2))
+    mocker.patch.object(
+        mc_comm, "_get_dur_of_data_parse_secs", autospec=True, side_effect=expected_parse_durs
+    )
+    expected_num_packets_read = list(range(20, 20 + INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES))
+    mocker.patch.object(
+        mc_comm,
+        "handle_data_packets",
+        autospec=True,
+        side_effect=[[[], [], [], num_packets, [], bytes(0)] for num_packets in expected_num_packets_read],
+    )
+
+    # run mc_process to create metrics
+    invoke_process_run_and_check_errors(
+        mc_process, num_iterations=INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
+    )
+
+    actual = drain_queue(to_main_queue)[-1]["message"]
+    assert actual["communication_type"] == "performance_metrics"
+    for name, mc_measurements in (
+        (
+            "data_read_num_bytes",
+            expected_read_lengths,
+        ),
+        (
+            "data_read_duration",
+            expected_read_durs,
+        ),
+        (
+            "data_parsing_duration",
+            expected_parse_durs,
+        ),
+        (
+            "data_parsing_num_packets_produced",
+            expected_num_packets_read,
+        ),
+        (
+            "duration_between_parsing",
+            expected_secs_between_parsing,
+        ),
+    ):
+        assert actual[name] == {
+            "max": max(mc_measurements),
+            "min": min(mc_measurements),
+            "stdev": round(stdev(mc_measurements), 6),
+            "mean": round(sum(mc_measurements) / len(mc_measurements), 6),
+        }, name
+    # values created in parent class
+    assert "idle_iteration_time_ns" not in actual
+    assert "start_timepoint_of_measurements" not in actual
+    assert "percent_use" in actual
+    assert "percent_use_metrics" in actual
+    assert "longest_iterations" in actual
+
+
+def test_McCommunicationProcess__does_not_include_performance_metrics_in_first_logging_cycle(
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    # mock since connection to simulator will be made by this test
+    mocker.patch.object(mc_process, "create_connections_to_all_available_boards", autospec=True)
+    # perform setup so performance logging values are initialized
+    invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
+
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+    set_magnetometer_config_and_start_streaming(
+        four_board_mc_comm_process_no_handshake,
+        simulator,
+        DEFAULT_MAGNETOMETER_CONFIG,
+        DEFAULT_SAMPLING_PERIOD,
+    )
+
+    # mock these to speed up test
+    mc_process._minimum_iteration_duration_seconds = 0  # pylint: disable=protected-access
+    # Tanner (8/30/21): using arbitrary large number here. If data packet size changes this test may fail
+    test_read_lengths = list(range(1000000, 1000000 + INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES))
+    mocker.patch.object(
+        simulator, "read_all", autospec=True, side_effect=[bytes(read_len) for read_len in test_read_lengths]
+    )
+    mocker.patch.object(
+        mc_comm,
+        "handle_data_packets",
+        autospec=True,
+        side_effect=[
+            [[], [], [], 0, [], bytes(0)] for _ in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)
+        ],
+    )
+
+    # run mc_process to create metrics
+    invoke_process_run_and_check_errors(
+        mc_process, num_iterations=INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
+    )
+
+    actual = drain_queue(to_main_queue)[-1]["message"]
+    assert "percent_use_metrics" not in actual
+    assert "data_creation_duration_metrics" not in actual

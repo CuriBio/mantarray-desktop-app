@@ -9,6 +9,7 @@ from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import create_magnetometer_config_dict
+from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import process_monitor
@@ -16,7 +17,7 @@ from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
-from mantarray_desktop_app import UnrecognizedCommandToInstrumentError
+from mantarray_desktop_app import UnrecognizedCommandFromServerToMainError
 from mantarray_desktop_app import UnrecognizedMantarrayNamingCommandError
 from mantarray_desktop_app import UnrecognizedRecordingCommandError
 import pytest
@@ -246,8 +247,15 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     spied_boot_up_instrument.assert_called_once()
 
 
-def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raises_error_if_unrecognized_to_instrument_command(
-    test_process_manager_creator, test_monitor, mocker, patch_print
+@pytest.mark.parametrize(
+    "test_comm_type,test_description",
+    [
+        ("to_instrument", "raises error with bad to_instrument command"),
+        ("acquisition_manager", "raises error with bad acquisition_manager command"),
+    ],
+)
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raises_error_if_unrecognized_command(
+    test_comm_type, test_description, test_process_manager_creator, test_monitor, mocker, patch_print
 ):
 
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
@@ -258,11 +266,11 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raise
     )
     expected_command = "bad_command"
     expected_comm = {
-        "communication_type": "to_instrument",
+        "communication_type": test_comm_type,
         "command": expected_command,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_comm, server_to_main_queue)
-    with pytest.raises(UnrecognizedCommandToInstrumentError, match=expected_command):
+    with pytest.raises(UnrecognizedCommandFromServerToMainError, match=expected_command):
         invoke_process_run_and_check_errors(monitor_thread)
 
 
@@ -641,7 +649,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_server__and_redacts_manta
     confirm_queue_is_eventually_empty(to_main_queue)
 
     expected_comm = copy.deepcopy(test_comm)
-    expected_comm["mantarray_nickname"] = "*" * len(test_nickname)
+    expected_comm["mantarray_nickname"] = get_redacted_string(len(test_nickname))
     mocked_logger.assert_called_once_with(f"Communication from the Server: {expected_comm}")
 
 
@@ -676,7 +684,7 @@ def test_MantarrayProcessesMonitor__passes_magnetometer_config_dict_from_server_
     confirm_queue_is_eventually_of_size(main_to_da_queue, 1)
 
     expected_comm = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "change_magnetometer_config",
     }
     expected_comm.update(expected_config_dict)

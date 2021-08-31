@@ -200,11 +200,11 @@ from .exceptions import SerialCommUntrackedCommandResponseError
 from .exceptions import ServerManagerNotInitializedError
 from .exceptions import ServerManagerSingletonAlreadySetError
 from .exceptions import SystemStartUpError
+from .exceptions import UnrecognizedCommandFromMainToDataAnalyzerError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
 from .exceptions import UnrecognizedCommandFromMainToMcCommError
-from .exceptions import UnrecognizedCommandToInstrumentError
-from .exceptions import UnrecognizedCommTypeFromMainToDataAnalyzerError
-from .exceptions import UnrecognizedCommTypeFromMainToInstrumentError
+from .exceptions import UnrecognizedCommandFromMainToOkCommError
+from .exceptions import UnrecognizedCommandFromServerToMainError
 from .exceptions import UnrecognizedDataFrameFormatNameError
 from .exceptions import UnrecognizedDebugConsoleCommandError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
@@ -271,8 +271,8 @@ from .utils import create_magnetometer_config_dict
 from .utils import create_sensor_axis_dict
 from .utils import get_active_wells_from_config
 from .utils import get_current_software_version
+from .utils import get_redacted_string
 from .utils import redact_sensitive_info_from_path
-from .utils import sort_nested_dict
 from .utils import validate_magnetometer_config_keys
 
 if 6 < 9:  # pragma: no cover # protect this from zimports deleting the pylint disable statement
@@ -331,7 +331,7 @@ __all__ = [
     "FileWriterProcess",
     "InvalidDataTypeFromOkCommError",
     "build_file_writer_objects",
-    "UnrecognizedCommTypeFromMainToInstrumentError",
+    "UnrecognizedCommandFromMainToOkCommError",
     "fifo_simulator",
     "RunningFIFOSimulator",
     "AttemptToInitializeFIFOReadsError",
@@ -376,7 +376,7 @@ __all__ = [
     "RECORDING_STATE",
     "SERVER_READY_STATE",
     "INSTRUMENT_INITIALIZING_STATE",
-    "UnrecognizedCommTypeFromMainToDataAnalyzerError",
+    "UnrecognizedCommandFromMainToDataAnalyzerError",
     "FIFO_READ_PRODUCER_DATA_OFFSET",
     "FIFO_READ_PRODUCER_WELL_AMPLITUDE",
     "FIFO_READ_PRODUCER_REF_AMPLITUDE",
@@ -431,7 +431,6 @@ __all__ = [
     "NO_PLATE_DETECTED_UUID",
     "BARCODE_UNREADABLE_UUID",
     "UnrecognizedRecordingCommandError",
-    "UnrecognizedCommandToInstrumentError",
     "get_current_software_version",
     "ServerManagerNotInitializedError",
     "ServerManagerSingletonAlreadySetError",
@@ -551,7 +550,6 @@ __all__ = [
     "create_sensor_axis_dict",
     "SERIAL_COMM_MODULE_ID_TO_WELL_IDX",
     "SERIAL_COMM_WELL_IDX_TO_MODULE_ID",
-    "sort_nested_dict",
     "SerialCommNotEnoughAdditionalBytesReadError",
     "STM_VID",
     "socketio",
@@ -567,4 +565,6 @@ __all__ = [
     "STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS",
     "STIM_MAX_PULSE_DURATION_MICROSECONDS",
     "queue_container",
+    "get_redacted_string",
+    "UnrecognizedCommandFromServerToMainError",
 ]

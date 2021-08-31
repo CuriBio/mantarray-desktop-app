@@ -39,13 +39,14 @@ from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
 from .exceptions import IncorrectMagnetometerConfigFromInstrumentError
-from .exceptions import UnrecognizedCommandToInstrumentError
+from .exceptions import UnrecognizedCommandFromServerToMainError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
 from .exceptions import UnrecognizedRecordingCommandError
 from .process_manager import MantarrayProcessesManager
 from .server import ServerManager
 from .utils import _trim_barcode
 from .utils import attempt_to_get_recording_directory_from_new_dict
+from .utils import get_redacted_string
 from .utils import redact_sensitive_info_from_path
 from .utils import update_shared_dict
 
@@ -117,7 +118,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         if "mantarray_nickname" in communication:
             # Tanner (1/20/21): items in communication dict are used after this log message is generated, so need to create a copy of the dict when redacting info
             comm_copy = copy.deepcopy(communication)
-            comm_copy["mantarray_nickname"] = "*" * len(comm_copy["mantarray_nickname"])
+            comm_copy["mantarray_nickname"] = get_redacted_string(len(comm_copy["mantarray_nickname"]))
             msg = f"Communication from the Server: {comm_copy}"
         else:
             msg = f"Communication from the Server: {communication}"
@@ -204,7 +205,15 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 raise UnrecognizedRecordingCommandError(command)
             main_to_fw_queue.put_nowait(communication)
         elif communication_type == "to_instrument":
-            # TODO Tanner (6/1/21): refactor "to_instrument" communication type to something more appropriate
+            # Tanner (8/25/21): 'to_instrument' communication type should be reserved for commands that are only sent to the instrument communication process
+            command = communication["command"]
+            if command == "boot_up":
+                self._process_manager.boot_up_instrument()
+            else:
+                raise UnrecognizedCommandFromServerToMainError(
+                    f"Invalid command: {command} for communication_type: {communication_type}"
+                )
+        elif communication_type == "acquisition_manager":
             main_to_ic_queue = (
                 self._process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
             )
@@ -212,9 +221,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
             )
             command = communication["command"]
-            if command == "boot_up":
-                self._process_manager.boot_up_instrument()
-            elif command == "start_managed_acquisition":
+            if command == "start_managed_acquisition":
                 shared_values_dict["system_status"] = BUFFERING_STATE
                 main_to_ic_queue.put_nowait(communication)
                 main_to_da_queue.put_nowait(communication)
@@ -227,7 +234,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 main_to_fw_queue.put_nowait(communication)
                 main_to_ic_queue.put_nowait(communication)
             else:
-                raise UnrecognizedCommandToInstrumentError(command)
+                raise UnrecognizedCommandFromServerToMainError(
+                    f"Invalid command: {command} for communication_type: {communication_type}"
+                )
         elif communication_type == "barcode_read_receipt":
             board_idx = communication["board_idx"]
             self._values_to_share_to_server["barcodes"][board_idx]["frontend_needs_barcode_update"] = False
@@ -242,7 +251,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         )
 
         comm_to_subprocesses = {
-            "communication_type": "to_instrument",
+            "communication_type": "acquisition_manager",
             "command": "change_magnetometer_config",
         }
         comm_to_subprocesses.update(magnetometer_config_dict)
@@ -275,12 +284,11 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         communication_type = communication["communication_type"]
         if communication_type == "data_available":
-            # TODO Tanner (6/17/21): Try having this update come from the server thread
             if self._values_to_share_to_server["system_status"] == BUFFERING_STATE:
                 self._data_dump_buffer_size += 1
                 if self._data_dump_buffer_size == 2:
                     self._values_to_share_to_server["system_status"] = LIVE_VIEW_ACTIVE_STATE
-        elif communication_type == "to_instrument":
+        elif communication_type == "acquisition_manager":
             if communication["command"] == "stop_managed_acquisition":
                 # fmt: off
                 # remove any leftover outgoing items
@@ -322,7 +330,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         if "mantarray_nickname" in communication:
             # Tanner (1/20/21): items in communication dict are used after this log message is generated, so need to create a copy of the dict when redacting info
             comm_copy = copy.deepcopy(communication)
-            comm_copy["mantarray_nickname"] = "*" * len(comm_copy["mantarray_nickname"])
+            comm_copy["mantarray_nickname"] = get_redacted_string(len(comm_copy["mantarray_nickname"]))
             msg = f"Communication from the Instrument Controller: {comm_copy}"
         else:
             msg = f"Communication from the Instrument Controller: {communication}".replace(
@@ -337,7 +345,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         if "command" in communication:
             command = communication["command"]
 
-        if communication_type in ("acquisition_manager", "to_instrument"):
+        if communication_type in "acquisition_manager":
             if command == "start_managed_acquisition":
                 # TODO Tanner (5/22/21): Should add a way to check the sampling period as well
                 if (
@@ -349,7 +357,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._values_to_share_to_server["utc_timestamps_of_beginning_of_data_acquisition"] = [
                     communication["timestamp"]
                 ]
-            if command == "stop_managed_acquisition":
+            elif command == "stop_managed_acquisition":
                 self._values_to_share_to_server["system_status"] = CALIBRATED_STATE
                 self._data_dump_buffer_size = 0
         elif communication_type == "board_connection_status_change":

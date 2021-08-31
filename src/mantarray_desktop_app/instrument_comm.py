@@ -16,6 +16,7 @@ from typing import Union
 import serial
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
+from stdlib_utils import put_log_message_into_queue
 from xem_wrapper import FrontPanelBase
 from xem_wrapper import okCFrontPanel
 
@@ -106,6 +107,19 @@ class InstrumentCommProcess(InfiniteProcess, metaclass=abc.ABCMeta):
         self,
     ) -> List[Union[None, okCFrontPanel, MantarrayMcSimulator]]:
         return self._board_connections
+
+    def _send_performance_metrics(self, performance_metrics: Dict[str, Any]) -> None:
+        tracker = self.reset_performance_tracker()
+        performance_metrics["percent_use"] = tracker["percent_use"]
+        performance_metrics["longest_iterations"] = sorted(tracker["longest_iterations"])
+        if len(self._percent_use_values) > 1:
+            performance_metrics["percent_use_metrics"] = self.get_percent_use_metrics()
+        put_log_message_into_queue(
+            logging.INFO,
+            performance_metrics,
+            self._board_queues[0][1],
+            self.get_logging_level(),
+        )
 
     def _drain_all_queues(self) -> Dict[str, Any]:
         queue_items = dict()

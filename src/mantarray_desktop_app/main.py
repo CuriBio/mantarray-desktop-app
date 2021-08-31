@@ -185,19 +185,15 @@ def main(
     if parsed_args.log_level_debug:
         log_level = logging.DEBUG
     path_to_log_folder = parsed_args.log_file_dir
+    logging_formatter = SensitiveFormatter(
+        "[%(asctime)s UTC] %(name)s-{%(filename)s:%(lineno)d} %(levelname)s - %(message)s"
+    )
     configure_logging(
         path_to_log_folder=path_to_log_folder,
         log_file_prefix="mantarray_log",
         log_level=log_level,
+        logging_formatter=logging_formatter,
     )
-
-    # TODO Tanner (6/17/21): make this part of configure_logging
-    for handler in logging.root.handlers:
-        handler.setFormatter(
-            SensitiveFormatter(
-                "[%(asctime)s UTC] %(name)s-{%(filename)s:%(lineno)d} %(levelname)s - %(message)s"
-            )
-        )
 
     scrubbed_path_to_log_folder = redact_sensitive_info_from_path(path_to_log_folder)
 
@@ -330,6 +326,4 @@ def main(
     logger.info("Process monitor shut down")
     logger.info("Program exiting")
     # Tanner (8/23/21): unsure what this line was trying to achieve, so commenting it out for now until if/when problems arise
-    # process_manager.set_logging_level(
-    #     logging.INFO
-    # )  # Eli (3/12/20) - this is really hacky...better solution is to allow setting the process manager back to its normal state
+    # process_manager.set_logging_level(logging.INFO)  # Eli (3/12/20) - this is really hacky...better solution is to allow setting the process manager back to its normal state

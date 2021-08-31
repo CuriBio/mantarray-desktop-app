@@ -8,6 +8,7 @@ import datetime
 import logging
 from multiprocessing import Queue
 import queue
+from statistics import stdev
 from time import perf_counter
 from time import sleep
 from typing import Any
@@ -20,12 +21,14 @@ from typing import Union
 from zlib import crc32
 
 from mantarray_file_manager import DATETIME_STR_FORMAT
+from nptyping import NDArray
 import serial
 import serial.tools.list_ports as list_ports
 from stdlib_utils import put_log_message_into_queue
 
 from .constants import DEFAULT_MAGNETOMETER_CONFIG
 from .constants import DEFAULT_SAMPLING_PERIOD
+from .constants import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BAUD_RATE
@@ -137,6 +140,18 @@ def _get_secs_since_reboot_start(reboot_start_time: float) -> float:
     return perf_counter() - reboot_start_time
 
 
+def _get_secs_since_last_data_parse(last_parse_time: float) -> float:
+    return perf_counter() - last_parse_time
+
+
+def _get_dur_of_data_read_secs(start: float) -> float:
+    return perf_counter() - start
+
+
+def _get_dur_of_data_parse_secs(start: float) -> float:
+    return perf_counter() - start
+
+
 # pylint: disable=too-many-instance-attributes
 class McCommunicationProcess(InstrumentCommProcess):
     """Process that controls communication with the Mantarray Beta 2 Board(s).
@@ -168,6 +183,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._time_of_reboot_start: Optional[
             float
         ] = None  # Tanner (4/1/21): This value will be None until this process receives a response to a reboot command. It will be set back to None after receiving a status beacon upon reboot completion
+        self._hardware_test_mode = hardware_test_mode
         # data streaming values
         self._magnetometer_config: Dict[int, Dict[Any, Any]] = dict()
         self._active_sensors_list: List[int] = list()
@@ -177,7 +193,15 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._is_stopping_data_stream = False
         self._has_data_packet_been_sent = False
         self._data_packet_cache = bytes(0)
-        self._hardware_test_mode = hardware_test_mode
+        # performance tracking values
+        self._performance_logging_cycles = INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
+        self._parses_since_last_logging: List[int] = [0] * len(self._board_queues)
+        self._durations_between_parsing: List[float] = list()
+        self._timepoint_of_prev_data_parse_secs: Optional[float] = None
+        self._data_read_durations: List[float] = list()
+        self._data_read_lengths: List[int] = list()
+        self._data_parsing_durations: List[float] = list()
+        self._data_parsing_num_packets_produced: List[int] = list()
 
     def _setup_before_loop(self) -> None:
         super()._setup_before_loop()
@@ -418,7 +442,12 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._is_waiting_for_reboot = True
             elif comm_from_main["command"] == "dump_eeprom":
                 bytes_to_send = bytes([SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE])
-            elif comm_from_main["command"] == "start_managed_acquisition":
+            else:
+                raise UnrecognizedCommandFromMainToMcCommError(
+                    f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
+                )
+        elif communication_type == "acquisition_manager":
+            if comm_from_main["command"] == "start_managed_acquisition":
                 bytes_to_send = bytes([SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE])
             elif comm_from_main["command"] == "stop_managed_acquisition":
                 self._is_stopping_data_stream = True
@@ -755,7 +784,6 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._is_registered_with_serial_comm[board_idx] = True
 
     def _handle_data_stream(self) -> None:
-        # TODO Tanner (8/4/21): add general performance + data parsing metric creation and logging, ideally before stim testing
         board_idx = 0
         board = self._board_connections[board_idx]
         if board is None:
@@ -763,8 +791,12 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         num_bytes_per_second = self._packet_len * int(1e6 // self._sampling_period_us)
 
-        self._data_packet_cache += board.read_all()
+        data_read_start = perf_counter()
+        data_read_bytes = board.read_all()
+        self._data_read_durations.append(_get_dur_of_data_read_secs(data_read_start))
+        self._data_read_lengths.append(len(data_read_bytes))
 
+        self._data_packet_cache += data_read_bytes
         # If stopping data stream, make sure at least 1 byte is available.
         # Otherwise, wait for at least 1 second of data
         return_cond = (
@@ -775,6 +807,16 @@ class McCommunicationProcess(InstrumentCommProcess):
         if return_cond:
             return
 
+        # update performance tracking values
+        self._parses_since_last_logging[board_idx] += 1
+        if self._timepoint_of_prev_data_parse_secs is None:
+            self._timepoint_of_prev_data_parse_secs = perf_counter()
+        else:
+            self._durations_between_parsing.append(
+                _get_secs_since_last_data_parse(self._timepoint_of_prev_data_parse_secs)
+            )
+
+        data_parsing_start = perf_counter()
         (
             time_indices,
             time_offsets,
@@ -783,39 +825,52 @@ class McCommunicationProcess(InstrumentCommProcess):
             other_packet_info_list,
             unread_bytes,
         ) = handle_data_packets(bytearray(self._data_packet_cache), self._active_sensors_list)
-        self._data_packet_cache = unread_bytes
+        self._data_parsing_durations.append(_get_dur_of_data_parse_secs(data_parsing_start))
+        self._data_parsing_num_packets_produced.append(num_data_packets_read)
 
+        self._data_packet_cache = unread_bytes
         # create dict and send to file writer if any packets were read  # Tanner (5/25/21): it is possible 0 data packets are read when stopping data stream
-        if num_data_packets_read > 0:
-            fw_item: Dict[Any, Any] = {
-                "time_indices": time_indices[:num_data_packets_read],
-                "is_first_packet_of_stream": not self._has_data_packet_been_sent,
-            }
-            data_idx = 0
-            time_offset_idx = 0
-            for module_id, config_dict in self._magnetometer_config.items():
-                num_sensors_active = config_dict["num_sensors_active"]
-                if num_sensors_active == 0:
-                    continue
-                time_offset_slice = slice(time_offset_idx, time_offset_idx + num_sensors_active)
-                well_dict = {"time_offsets": time_offsets[time_offset_slice, :num_data_packets_read]}
-                time_offset_idx += num_sensors_active
-                for config_key, config_value in config_dict.items():
-                    if not config_value or config_key == "num_sensors_active":
-                        continue
-                    well_dict[config_key] = data[data_idx][:num_data_packets_read]
-                    data_idx += 1
-                well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
-                fw_item[well_idx] = well_dict
-            to_fw_queue = self._board_queues[0][2]
-            to_fw_queue.put_nowait(fw_item)
-            self._has_data_packet_been_sent = True
+        self._dump_data_packets(num_data_packets_read, time_indices, time_offsets, data)
 
         # process any interrupting packets
         for other_packet_info in other_packet_info_list:
             self._process_comm_from_instrument(
                 *other_packet_info[1:],
             )
+
+        # handle performance logging if ready
+        if self._parses_since_last_logging[board_idx] >= self._performance_logging_cycles:
+            self._handle_performance_logging()
+            self._parses_since_last_logging[board_idx] = 0
+
+    def _dump_data_packets(
+        self, num_data_packets_read: int, time_indices: NDArray, time_offsets: NDArray, data: NDArray
+    ) -> None:
+        if num_data_packets_read == 0:
+            return
+        fw_item: Dict[Any, Any] = {
+            "time_indices": time_indices[:num_data_packets_read],
+            "is_first_packet_of_stream": not self._has_data_packet_been_sent,
+        }
+        data_idx = 0
+        time_offset_idx = 0
+        for module_id, config_dict in self._magnetometer_config.items():
+            num_sensors_active = config_dict["num_sensors_active"]
+            if num_sensors_active == 0:
+                continue
+            time_offset_slice = slice(time_offset_idx, time_offset_idx + num_sensors_active)
+            well_dict = {"time_offsets": time_offsets[time_offset_slice, :num_data_packets_read]}
+            time_offset_idx += num_sensors_active
+            for config_key, config_value in config_dict.items():
+                if not config_value or config_key == "num_sensors_active":
+                    continue
+                well_dict[config_key] = data[data_idx][:num_data_packets_read]
+                data_idx += 1
+            well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
+            fw_item[well_idx] = well_dict
+        to_fw_queue = self._board_queues[0][2]
+        to_fw_queue.put_nowait(fw_item)
+        self._has_data_packet_been_sent = True
 
     def _handle_beacon_tracking(self) -> None:
         if self._time_of_last_beacon_secs is None:
@@ -864,3 +919,40 @@ class McCommunicationProcess(InstrumentCommProcess):
             )
             self._report_fatal_error(simulator_error_tuple[0])
         return simulator_has_error
+
+    def _handle_performance_logging(self) -> None:
+        performance_metrics: Dict[str, Any] = {
+            "communication_type": "performance_metrics",
+        }
+        mc_measurements: List[
+            Union[int, float]
+        ]  # Tanner (5/28/20): This type annotation and the 'ignore' on the following line are necessary for mypy to not incorrectly type this variable
+        for name, mc_measurements in (  # type: ignore
+            (
+                "data_read_num_bytes",
+                self._data_read_lengths,
+            ),
+            (
+                "data_read_duration",
+                self._data_read_durations,
+            ),
+            (
+                "data_parsing_duration",
+                self._data_parsing_durations,
+            ),
+            (
+                "data_parsing_num_packets_produced",
+                self._data_parsing_num_packets_produced,
+            ),
+            (
+                "duration_between_parsing",
+                self._durations_between_parsing,
+            ),
+        ):
+            performance_metrics[name] = {
+                "max": max(mc_measurements),
+                "min": min(mc_measurements),
+                "stdev": round(stdev(mc_measurements), 6),
+                "mean": round(sum(mc_measurements) / len(mc_measurements), 6),
+            }
+        self._send_performance_metrics(performance_metrics)

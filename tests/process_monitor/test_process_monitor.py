@@ -18,6 +18,7 @@ from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
 from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
+from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import IncorrectMagnetometerConfigFromInstrumentError
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
@@ -1075,7 +1076,7 @@ def test_MantarrayProcessesMonitor__redacts_mantarray_nickname_from_logged_manta
     confirm_queue_is_eventually_empty(instrument_comm_to_main)
 
     expected_comm = copy.deepcopy(test_comm)
-    expected_comm["mantarray_nickname"] = "*" * len(test_nickname)
+    expected_comm["mantarray_nickname"] = get_redacted_string(len(test_nickname))
     mocked_logger.assert_called_once_with(f"Communication from the Instrument Controller: {expected_comm}")
 
 
@@ -1105,7 +1106,7 @@ def test_MantarrayProcessesMonitor__redacts_mantarray_nickname_from_logged_board
     confirm_queue_is_eventually_empty(instrument_comm_to_main)
 
     expected_comm = copy.deepcopy(test_comm)
-    expected_comm["mantarray_nickname"] = "*" * len(test_nickname)
+    expected_comm["mantarray_nickname"] = get_redacted_string(len(test_nickname))
     mocked_logger.assert_called_once_with(f"Communication from the Instrument Controller: {expected_comm}")
 
 
@@ -1128,7 +1129,7 @@ def test_MantarrayProcessesMonitor__raises_error_if_config_dict_in_start_data_st
     expected_config_dict[1][SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]] ^= True
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {
-            "communication_type": "to_instrument",
+            "communication_type": "acquisition_manager",
             "command": "start_managed_acquisition",
             "magnetometer_config": expected_config_dict,
             "timestamp": None,
@@ -1195,7 +1196,7 @@ def test_MantarrayProcessesMonitor__updates_magnetometer_config_after_receiving_
     confirm_queue_is_eventually_of_size(main_to_da, 1)
     comm_to_da = main_to_da.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     expected_comm_to_da = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "change_magnetometer_config",
     }
     expected_comm_to_da.update(expected_magnetometer_config_dict)

@@ -18,6 +18,7 @@ from freezegun import freeze_time
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import get_api_endpoint
+from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import get_server_port_number
 from mantarray_desktop_app import ImproperlyFormattedCustomerAccountUUIDError
 from mantarray_desktop_app import ImproperlyFormattedUserAccountUUIDError
@@ -28,6 +29,7 @@ from mantarray_desktop_app import MantarrayProcessesMonitor
 from mantarray_desktop_app import MultiprocessingNotSetToSpawnError
 from mantarray_desktop_app import process_monitor
 from mantarray_desktop_app import redact_sensitive_info_from_path
+from mantarray_desktop_app import SensitiveFormatter
 from mantarray_desktop_app import wait_for_subprocesses_to_start
 from mantarray_desktop_app.server import get_server_address_components
 import pytest
@@ -156,11 +158,21 @@ def test_main_argparse_debug_test_post_build(mocker):
 
 @pytest.mark.timeout(2)
 def test_main_configures_logging(mocker):
+    spied_sf_init = mocker.spy(SensitiveFormatter, "__init__")
     mocked_configure_logging = mocker.patch.object(main, "configure_logging", autospec=True)
     main.main(["--debug-test-post-build"])
     mocked_configure_logging.assert_called_once_with(
-        path_to_log_folder=None, log_file_prefix="mantarray_log", log_level=logging.INFO
+        path_to_log_folder=None,
+        log_file_prefix="mantarray_log",
+        log_level=logging.INFO,
+        logging_formatter=ANY,
     )
+
+    spied_sf_init.assert_called_once_with(
+        ANY, "[%(asctime)s UTC] %(name)s-{%(filename)s:%(lineno)d} %(levelname)s - %(message)s"
+    )
+    formatter = mocked_configure_logging.call_args[1]["logging_formatter"]
+    assert isinstance(formatter, SensitiveFormatter)
 
 
 def test_main__logs_system_info__and_software_version_at_very_start(
@@ -244,7 +256,7 @@ def test_main_configures_process_manager_logging_level_and_standard_logging_leve
     mocked_configure_logging = app_info["mocked_configure_logging"]
 
     mocked_configure_logging.assert_called_once_with(
-        path_to_log_folder=None, log_file_prefix=ANY, log_level=logging.DEBUG
+        path_to_log_folder=None, log_file_prefix=ANY, log_level=logging.DEBUG, logging_formatter=ANY
     )
     process_manager = app_info["object_access_inside_main"]["process_manager"]
     assert process_manager.get_logging_level() == logging.DEBUG
@@ -259,7 +271,7 @@ def test_main_configures_process_manager_logging_level_and_standard_logging_leve
     mocked_configure_logging = app_info["mocked_configure_logging"]
 
     mocked_configure_logging.assert_called_once_with(
-        path_to_log_folder=None, log_file_prefix=ANY, log_level=logging.INFO
+        path_to_log_folder=None, log_file_prefix=ANY, log_level=logging.INFO, logging_formatter=ANY
     )
     process_manager = app_info["object_access_inside_main"]["process_manager"]
     assert process_manager.get_logging_level() == logging.INFO
@@ -368,7 +380,7 @@ def test_main__stores_and_logs_directory_for_log_files_from_command_line_argumen
     spied_info_logger = mocker.spy(main.logger, "info")
 
     expected_log_dir = r"C:\Users\Curi Bio\AppData\Local\Programs\MantarrayController"
-    expected_scrubbed_log_dir = expected_log_dir.replace("Curi Bio", "*" * len("Curi Bio"))
+    expected_scrubbed_log_dir = expected_log_dir.replace("Curi Bio", get_redacted_string(len("Curi Bio")))
     command_line_args = [
         f"--log-file-dir={expected_log_dir}",
         "--startup-test-options",
@@ -381,6 +393,7 @@ def test_main__stores_and_logs_directory_for_log_files_from_command_line_argumen
         path_to_log_folder=expected_log_dir,
         log_file_prefix="mantarray_log",
         log_level=logging.INFO,
+        logging_formatter=ANY,
     )
     spied_info_logger.assert_any_call(f"Using directory for log files: {expected_scrubbed_log_dir}")
 
@@ -391,7 +404,7 @@ def test_main__stores_and_logs_directory_for_log_files_from_command_line_argumen
     spied_info_logger = mocker.spy(main.logger, "info")
 
     expected_log_dir = r"C:\Programs\MantarrayController"
-    expected_scrubbed_log_dir = "*" * len(expected_log_dir)
+    expected_scrubbed_log_dir = get_redacted_string(len(expected_log_dir))
     command_line_args = [
         f"--log-file-dir={expected_log_dir}",
         "--startup-test-options",
@@ -404,6 +417,7 @@ def test_main__stores_and_logs_directory_for_log_files_from_command_line_argumen
         path_to_log_folder=expected_log_dir,
         log_file_prefix="mantarray_log",
         log_level=logging.INFO,
+        logging_formatter=ANY,
     )
     spied_info_logger.assert_any_call(f"Using directory for log files: {expected_scrubbed_log_dir}")
 

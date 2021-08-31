@@ -3,6 +3,7 @@ import logging
 
 from mantarray_desktop_app import clear_the_server_manager
 from mantarray_desktop_app import DEFAULT_SERVER_PORT_NUMBER
+from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import get_server_port_number
 from mantarray_desktop_app import main
 from mantarray_desktop_app import SensitiveFormatter
@@ -49,7 +50,7 @@ def test_SensitiveFormatter__redacts_from_request_log_entries_correctly():
     )
     actual = test_formatter.format(logging.makeLogRecord({"msg": test_sensitive_log_entry}))
 
-    redacted_nickname = "*" * len(test_nickname)
+    redacted_nickname = get_redacted_string(len(test_nickname))
     expected_message_with_redaction = (
         f"<any text here>set_mantarray_nickname?nickname={redacted_nickname} HTTP<any text here>"
     )
