@@ -40,6 +40,7 @@ const create_store = function ({
       customer_account_ids: [],
       active_customer_account_index: 0,
       active_user_account_index: 0,
+      beta_2_mode: false,
     },
   });
   return store;

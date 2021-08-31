@@ -17,16 +17,23 @@
       <div class="div__player-controls-container">
         <DesktopPlayerControls />
       </div>
-      <div class="div__stimulation-studio-controls-container">
+      <div
+        class="div__additional_controls-controls-icon-container"
+        :class="[
+          beta_2_mode
+            ? 'div__additional_controls-controls-icon-container--beta-2-mode'
+            : 'div__additional_controls-controls-icon-container--beta-1-mode',
+        ]"
+      >
         <StimulationStudioControls />
-      </div>
-      <div class="div__additional_controls-controls-icon-container">
-        <NuxtLink to="/stimulationstudio">
-          <img
-            src="../assets/img/additional-controls-icon.png"
-            :style="'height:44px;'"
-          />
-        </NuxtLink>
+        <div class="div__stimulation-studio-controls-container">
+          <NuxtLink to="/stimulationstudio">
+            <img
+              src="../assets/img/additional-controls-icon.png"
+              :style="'height:44px;'"
+            />
+          </NuxtLink>
+        </div>
       </div>
       <span class="span__screen-view-options-text">Screen View Options</span>
       <div class="div__screen-view-container">
@@ -100,6 +107,7 @@ export default {
       package_version: electron_app.getVersion(), // Eli (7/13/20): This only displays the application version when running from a built application---otherwise it displays the version of Electron that is installed
       current_year: "2021", // new Date().getFullYear(),
       confirmation_request: false,
+      beta_2_mode: undefined,
     };
   },
   created: function () {
@@ -122,6 +130,13 @@ export default {
     ipcRenderer.on("confirmation_request", () => {
       this.confirmation_request = true;
     });
+
+    ipcRenderer.on("beta_2_mode_response", (e, beta_2_mode) => {
+      this.beta_2_mode = beta_2_mode;
+    });
+    if (this.beta_2_mode === undefined) {
+      ipcRenderer.send("beta_2_mode_request");
+    }
 
     console.log("Initial view has been rendered"); // allow-log
   },
@@ -189,16 +204,22 @@ body {
   top: 256px;
   left: 0px;
 }
-.div__additional_controls-controls-icon-container {
-  position: absolute;
-  top: 403px;
-  left: 17px;
-}
 
-.div__stimulation-studio-controls-container {
+.div__additional_controls-controls-icon-container {
   position: absolute;
   top: 371px;
   left: 0px;
+}
+.div__additional_controls-controls-icon-container--beta-1-mode {
+  visibility: hidden;
+}
+.div__additional_controls-controls-icon-container--beta-2-mode {
+  visibility: visible;
+}
+.div__stimulation-studio-controls-container {
+  position: absolute;
+  top: 33px;
+  left: 17px;
 }
 
 .div__player-controls-container {

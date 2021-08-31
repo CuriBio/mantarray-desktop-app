@@ -198,5 +198,4 @@ app.on("will-quit", function () {
   );
 });
 
-// win_handler = require("./mainWindow");
 require("./mainWindow");

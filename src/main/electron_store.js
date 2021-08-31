@@ -33,5 +33,3 @@ export default class ElectronStore extends Conf {
     open(this.path);
   }
 }
-
-// module.exports = ElectronStore;

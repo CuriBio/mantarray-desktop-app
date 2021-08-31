@@ -1,6 +1,10 @@
 import { EventEmitter } from "events";
 import { BrowserWindow, app, screen, ipcMain } from "electron";
+import main_utils from "./utils.js"; // Eli (1/15/21): helping to be able to spy on functions within utils. https://stackoverflow.com/questions/49457451/jest-spyon-a-function-not-class-or-object-type
 const isProduction = process.env.NODE_ENV === "production";
+
+const create_store = main_utils.create_store;
+let store = create_store();
 
 export default class BrowserWinHandler {
   /**
@@ -83,6 +87,10 @@ export default class BrowserWinHandler {
     console.log("actual window position: " + win_position); // allow-log
 
     this._eventEmitter.emit("created");
+
+    ipcMain.once("beta_2_mode_request", (event) => {
+      event.reply("beta_2_mode_response", store.get("beta_2_mode"));
+    });
   }
 
   _recreate() {
