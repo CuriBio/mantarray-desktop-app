@@ -38,6 +38,7 @@ import logging
 import os
 from queue import Queue
 import threading
+from time import sleep
 from typing import Any
 from typing import Dict
 from typing import Optional
@@ -107,6 +108,7 @@ from .constants import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
 from .constants import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
 from .constants import STIM_MAX_PULSE_DURATION_MICROSECONDS
 from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
+from .constants import SUBPROCESS_POLL_DELAY_SECONDS
 from .constants import SYSTEM_STATUS_UUIDS
 from .constants import VALID_CONFIG_SETTINGS
 from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
@@ -129,24 +131,26 @@ logger = logging.getLogger(__name__)
 os.environ[
     "FLASK_ENV"
 ] = "DEVELOPMENT"  # this removes warnings about running the Werkzeug server (which is not meant for high volume requests, but should be fine for intra-PC communication from a single client)
-flask_app = Flask(  # pylint: disable=invalid-name # yes, this is intentionally a singleton, not a constant
-    __name__
+flask_app = (
+    Flask(  # pylint: disable=invalid-name # yes, this is intentionally a global variable, not a constant
+        __name__
+    )
 )
 CORS(flask_app)
 socketio = SocketIO(flask_app)
 
-_the_server_manager: Optional[  # pylint: disable=invalid-name # Eli (11/3/20) yes, this is intentionally a singleton, not a constant. This is the current best guess at how to allow Flask routes to access some info they need
+_the_server_manager: Optional[  # pylint: disable=invalid-name # Eli (11/3/20) yes, this is intentionally a global variable, not a constant. This is the current best guess at how to allow Flask routes to access some info they need
     "ServerManager"
 ] = None
 
 
 def clear_the_server_manager() -> None:
-    global _the_server_manager  # pylint:disable=global-statement,invalid-name # Eli (12/8/20) this is deliberately setting a module-level singleton
+    global _the_server_manager  # pylint:disable=global-statement,invalid-name # Eli (12/8/20) this is deliberately setting a global
     _the_server_manager = None
 
 
 def get_the_server_manager() -> "ServerManager":
-    """Return the singleton instance."""
+    """Return the global instance."""
     if _the_server_manager is None:
         raise ServerManagerNotInitializedError(
             "This function should not be called when the ServerManager is None and hasn't been initialized yet."
@@ -1134,13 +1138,19 @@ def stop_server() -> str:
 
 @flask_app.route("/shutdown", methods=["GET"])
 def shutdown() -> Response:
-    # curl http://localhost:4567/shutdown
+    """Shutdown subprocesses then stop the server.
 
-    response = queue_command_to_main({"communication_type": "shutdown", "command": "hard_stop"})
-    # TODO Tanner (8/2/21): should wait for subprocesses to stop and join before returning response from this route
-    # while
-
+    curl http://localhost:4567/shutdown
+    """
+    queue_command_to_main({"communication_type": "shutdown", "command": "hard_stop"})
+    wait_for_subprocesses_to_stop()
+    response = queue_command_to_main({"communication_type": "shutdown", "command": "shutdown_server"})
     return response
+
+
+def wait_for_subprocesses_to_stop() -> None:
+    while _get_values_from_process_monitor().get("subprocesses_running", False):
+        sleep(SUBPROCESS_POLL_DELAY_SECONDS)
 
 
 @flask_app.before_request
@@ -1203,7 +1213,7 @@ class ServerManager:
         logging_level: int = logging.INFO,
         lock: Optional[threading.Lock] = None,
     ) -> None:
-        global _the_server_manager  # pylint:disable=global-statement,invalid-name # Eli (1/21/21): deliberately using a module-level singleton
+        global _the_server_manager  # pylint:disable=global-statement,invalid-name # Eli (1/21/21): deliberately using a module-level global
         if _the_server_manager is not None:
             # TODO Tanner (8/10/21): look into ways to avoid using this as a singleton
             raise ServerManagerSingletonAlreadySetError()

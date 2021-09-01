@@ -532,7 +532,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
 @pytest.mark.timeout(15)
 @pytest.mark.slow
-def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_shutdown_hard_stop_by_hard_stopping_and_joining_all_processes_and_shutting_down_server(
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_shutdown_hard_stop_by_hard_stopping_and_joining_all_processes(
     test_process_manager_creator, test_monitor, mocker
 ):
     test_process_manager = test_process_manager_creator()
@@ -543,9 +543,6 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     okc_process = test_process_manager.get_instrument_process()
     fw_process = test_process_manager.get_file_writer_process()
     da_process = test_process_manager.get_data_analyzer_process()
-    server_manager = test_process_manager.get_server_manager()
-
-    spied_shutdown_server = mocker.spy(server_manager, "shutdown_server")
 
     spied_okc_join = mocker.spy(okc_process, "join")
     spied_fw_join = mocker.spy(fw_process, "join")
@@ -574,32 +571,27 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     spied_okc_join.assert_called_once()
     spied_fw_join.assert_called_once()
     spied_da_join.assert_called_once()
-    spied_shutdown_server.assert_called_once()
 
 
-def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_shutdown_hard_stop__by_logging_items_in_queues_from_subprocesses(
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_shutdown_hard_stop_by_logging_items_in_queues_from_subprocesses(
     test_process_manager_creator, test_monitor, patch_subprocess_joins, mocker
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
 
     okc_process = test_process_manager.get_instrument_process()
     fw_process = test_process_manager.get_file_writer_process()
     da_process = test_process_manager.get_data_analyzer_process()
-    server_manager = test_process_manager.get_server_manager()
     expected_okc_item = "item 1"
     expected_fw_item = "item 2"
     expected_da_item = "item 3"
-    expected_server_item = "item 4"
 
     mocker.patch.object(okc_process, "hard_stop", autospec=True, return_value=expected_okc_item)
     mocker.patch.object(fw_process, "hard_stop", autospec=True, return_value=expected_fw_item)
     mocker.patch.object(da_process, "hard_stop", autospec=True, return_value=expected_da_item)
-    mocker.patch.object(server_manager, "drain_all_queues", autospec=True, return_value=expected_server_item)
-
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
 
     communication = {
         "communication_type": "shutdown",
@@ -617,15 +609,43 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     mocked_monitor_logger_error = mocker.patch.object(process_monitor.logger, "error", autospec=True)
 
     invoke_process_run_and_check_errors(monitor_thread)
-    # confirm log message is present and remove
-    confirm_queue_is_eventually_of_size(server_to_main_queue, 1)
-    server_to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
     actual_log_message = mocked_monitor_logger_error.call_args[0][0]
     assert expected_okc_item in actual_log_message
     assert expected_fw_item in actual_log_message
     assert expected_da_item in actual_log_message
-    assert expected_server_item in actual_log_message
+
+
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_shutdown_server_by_stopping_server(
+    test_process_manager_creator, test_monitor, patch_subprocess_joins, mocker
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+
+    server_manager = test_process_manager.get_server_manager()
+    expected_server_item = "server item"
+
+    spied_shutdown_server = mocker.spy(server_manager, "shutdown_server")
+    mocker.patch.object(server_manager, "drain_all_queues", autospec=True, return_value=expected_server_item)
+
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+
+    communication = {
+        "communication_type": "shutdown",
+        "command": "shutdown_server",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
+
+    invoke_process_run_and_check_errors(monitor_thread)
+    spied_shutdown_server.assert_called_once()
+    # confirm log message is present and remove
+    confirm_queue_is_eventually_of_size(server_to_main_queue, 1)
+    server_to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
 
 def test_MantarrayProcessesMonitor__logs_messages_from_server__and_redacts_mantarray_nickname(

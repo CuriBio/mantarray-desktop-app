@@ -537,3 +537,41 @@ def test_MantarrayProcessesManager__creates_mc_comm_instead_of_ok_comm_when_beta
 
     # clean up the ServerManager singleton
     clear_the_server_manager()
+
+
+def test_MantarrayProcessesManager_shutdown_server__shutsdown_server_and_returns_remaining_items_in_queue_to_server(
+    generic_manager, mocker
+):
+    generic_manager.create_processes()
+    server_manager = generic_manager.get_server_manager()
+    mocked_shutdown = mocker.patch.object(server_manager, "shutdown_server", autospec=True)
+    mocked_drain = mocker.patch.object(
+        server_manager, "drain_all_queues", autospec=True, return_value=["item"]
+    )
+
+    server_items = generic_manager.shutdown_server()
+    assert server_items == {"server_items": ["item"]}
+    mocked_shutdown.assert_called_once()
+    mocked_drain.assert_called_once()
+
+
+def test_MantarrayProcessesManager_get_subprocesses_running_status__returns_correct_values(
+    generic_manager, mocker
+):
+    spied_are_processes_stopped = mocker.spy(generic_manager, "are_processes_stopped")
+
+    assert generic_manager.get_subprocesses_running_status() is False
+    spied_are_processes_stopped.assert_not_called()
+
+    generic_manager.create_processes()
+    assert generic_manager.get_subprocesses_running_status() is False
+    spied_are_processes_stopped.assert_not_called()
+
+    # mock so subprocesses don't actually start
+    mocker.patch.object(generic_manager.get_instrument_process(), "start", autospec=True)
+    mocker.patch.object(generic_manager.get_file_writer_process(), "start", autospec=True)
+    mocker.patch.object(generic_manager.get_data_analyzer_process(), "start", autospec=True)
+
+    generic_manager.start_processes()
+    assert generic_manager.get_subprocesses_running_status() is not spied_are_processes_stopped.spy_return
+    spied_are_processes_stopped.assert_called_once_with(timeout_seconds=0, sleep_between_checks=False)
