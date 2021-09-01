@@ -17,19 +17,42 @@
       <div class="div__player-controls-container">
         <DesktopPlayerControls />
       </div>
-      <div class="div__stimulation-studio-controls-container">
+      <div
+        class="div__additional_controls-controls-icon-container"
+        :class="[
+          beta_2_mode
+            ? 'div__additional_controls-controls-icon-container--beta-2-mode'
+            : 'div__additional_controls-controls-icon-container--beta-1-mode',
+        ]"
+      >
         <StimulationStudioControls />
+        <div class="div__stimulation-studio-controls-container">
+          <NuxtLink to="/stimulationstudio">
+            <img
+              src="../assets/img/additional-controls-icon.png"
+              :style="'height:44px;'"
+            />
+          </NuxtLink>
+        </div>
       </div>
-      <div class="div__additional_controls-controls-icon-container">
-        <NuxtLink to="/stimulationstudio">
-          <img
-            src="../assets/img/additional-controls-icon.png"
-            :style="'height:44px;'"
-          />
-        </NuxtLink>
-      </div>
-      <span class="span__screen-view-options-text">Screen View Options</span>
-      <div class="div__screen-view-container">
+      <span
+        class="span__screen-view-options-text"
+        :class="[
+          beta_2_mode
+            ? 'span__screen-view-options-text--beta-2-mode'
+            : 'span__screen-view-options-text--beta-1-mode',
+        ]"
+      >
+        Screen View Options
+      </span>
+      <div
+        class="div__screen-view-container"
+        :class="[
+          beta_2_mode
+            ? 'div__screen-view-container--beta-2-mode'
+            : 'div__screen-view-container--beta-1-mode',
+        ]"
+      >
         <div class="div__waveform-screen-view">
           <!-- Default view is waveform screen -->
           <NuxtLink to="/">
@@ -100,6 +123,7 @@ export default {
       package_version: electron_app.getVersion(), // Eli (7/13/20): This only displays the application version when running from a built application---otherwise it displays the version of Electron that is installed
       current_year: "2021", // new Date().getFullYear(),
       confirmation_request: false,
+      beta_2_mode: process.env.SPECTRON || undefined,
     };
   },
   created: function () {
@@ -122,6 +146,13 @@ export default {
     ipcRenderer.on("confirmation_request", () => {
       this.confirmation_request = true;
     });
+
+    ipcRenderer.on("beta_2_mode_response", (e, beta_2_mode) => {
+      this.beta_2_mode = beta_2_mode;
+    });
+    if (this.beta_2_mode === undefined) {
+      ipcRenderer.send("beta_2_mode_request");
+    }
 
     console.log("Initial view has been rendered"); // allow-log
   },
@@ -189,30 +220,41 @@ body {
   top: 256px;
   left: 0px;
 }
-.div__additional_controls-controls-icon-container {
-  position: absolute;
-  top: 403px;
-  left: 17px;
-}
-
-.div__stimulation-studio-controls-container {
-  position: absolute;
-  top: 371px;
-  left: 0px;
-}
-
 .div__player-controls-container {
   position: absolute;
   top: 291px;
   left: 0px;
 }
+
+.div__additional_controls-controls-icon-container {
+  position: absolute;
+  top: 371px;
+  left: 0px;
+}
+.div__additional_controls-controls-icon-container--beta-1-mode {
+  visibility: hidden;
+}
+.div__additional_controls-controls-icon-container--beta-2-mode {
+  visibility: visible;
+}
+.div__stimulation-studio-controls-container {
+  position: absolute;
+  top: 33px;
+  left: 17px;
+}
+
 .div__screen-view-container {
   position: absolute;
-  top: 495px;
   width: 287px;
   display: grid;
   grid-template-columns: 50% 50%;
   justify-items: center;
+}
+.div__screen-view-container--beta-2-mode {
+  top: 495px;
+}
+.div__screen-view-container--beta-1-mode {
+  top: 410px;
 }
 .span__screen-view-options-text {
   line-height: 100%;
@@ -220,19 +262,26 @@ body {
   width: 207px;
   height: 23px;
   left: 11px;
-  top: 461px;
   padding: 5px;
   user-select: none;
   font-size: 16px;
   color: #ffffff;
   text-align: left;
 }
+.span__screen-view-options-text--beta-2-mode {
+  top: 461px;
+}
+.span__screen-view-options-text--beta-1-mode {
+  top: 376px;
+}
+
 .div__waveform-screen-view- {
   grid-column: 1 / 2;
 }
 .div__heatmap-screen-view- {
   grid-column: 2;
 }
+
 .div__simulation-mode-container {
   position: absolute;
   top: 875px;

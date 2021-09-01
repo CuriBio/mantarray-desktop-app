@@ -40,6 +40,7 @@ const create_store = function ({
       customer_account_ids: [],
       active_customer_account_index: 0,
       active_user_account_index: 0,
+      beta_2_mode: false,
     },
   });
   return store;
@@ -92,6 +93,8 @@ const generate_flask_command_line_args = function (electron_store) {
   if (settings_to_supply_json_str !== "{}") {
     args.push("--initial-base64-settings=" + settings_to_supply_encoded);
   }
+
+  if (electron_store.get("beta_2_mode")) args.push("--beta-2-mode");
 
   return args;
 };
