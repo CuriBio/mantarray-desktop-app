@@ -106,7 +106,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             logger.info(msg)
 
     def _check_and_handle_server_to_main_queue(self) -> None:
-        # pylint: disable=too-many-branches  # Tanner (4/23/21): temporarily need to add more than the allowed number of branches in order to support Beta 1 mode during transition to Beta 2 mode
+        # pylint: disable=too-many-branches, too-many-statements  # Tanner (4/23/21): temporarily need to add more than the allowed number of branches in order to support Beta 1 mode during transition to Beta 2 mode
         process_manager = self._process_manager
         to_main_queue = process_manager.queue_container().get_communication_queue_from_server_to_main()
         try:
@@ -144,7 +144,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
         elif communication_type == "shutdown":
             command = communication["command"]
             if command == "hard_stop":
-                self._hard_stop_and_join_processes_and_log_leftovers()
+                self._hard_stop_and_join_processes_and_log_leftovers(shutdown_server=False)
+            elif command == "shutdown_server":
+                self._process_manager.shutdown_server()
             else:
                 raise NotImplementedError("Unrecognized shutdown command")
         elif communication_type == "update_shared_values_dictionary":
@@ -492,6 +494,11 @@ class MantarrayProcessesMonitor(InfiniteThread):
         ):
             self._check_and_handle_data_analyzer_data_out_queue()
 
+        # update status of subprocesses
+        self._values_to_share_to_server[
+            "subprocesses_running"
+        ] = self._process_manager.get_subprocesses_running_status()
+
         # handle barcode polling. This should be removed once the physical instrument is able to detect plate placement/removal on its own. The Beta 2 instrument will be able to do this on its own from the start, so no need to send barcode comm in Beta 2 mode.
         if self._last_barcode_clear_time is None:
             self._last_barcode_clear_time = _get_barcode_clear_time()
@@ -542,10 +549,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
             logger.error(msg)
         self._hard_stop_and_join_processes_and_log_leftovers()
 
-    def _hard_stop_and_join_processes_and_log_leftovers(self) -> None:
-        process_items = self._process_manager.hard_stop_and_join_processes()
+    def _hard_stop_and_join_processes_and_log_leftovers(self, shutdown_server: bool = True) -> None:
+        process_items = self._process_manager.hard_stop_and_join_processes(shutdown_server=shutdown_server)
         msg = f"Remaining items in process queues: {process_items}"
-        # Tanner (5/21/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
+        # Tanner (5/21/20): is not sure how to test that a lock is being acquired...so be careful about refactoring this
         with self._lock:
             logger.error(msg)
 

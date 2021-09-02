@@ -187,15 +187,25 @@ app.on("ready", () => {
 });
 
 // This is another place to handle events after all windows are closed
-app.on("will-quit", function () {
+app.on("will-quit", function (e) {
   // This is a good place to add tests ensuring the app is still
   // responsive and all windows are closed.
   console.log("will-quit event being handled"); // allow-log
   // mainWindow = null;
 
-  axios.get(
-    `http://localhost:${flask_port}/shutdown?called_through_app_will_quit=true`
-  );
+  // Tanner (9/1/21): Need to prevent (default) app termination, wait for /shutdown response which confirms
+  // that the backend is completely shutdown, then call app.exit() which terminates app immediately
+  e.preventDefault();
+  axios
+    .get(
+      `http://localhost:${flask_port}/shutdown?called_through_app_will_quit=true`
+    )
+    .then((response) => {
+      console.log(
+        `Shutdown response: ${response.status} ${response.statusText}`
+      ); // allow-log
+      app.exit();
+    });
 });
 
 require("./mainWindow");
