@@ -5,7 +5,9 @@ Changelog for Mantarray Desktop App
 0.6.0 (unreleased)
 ------------------
 
-- Added Stimulation Studio and Controls.
+- Added Stimulation Studio and Controls when app is launched in Beta 2 mode.
+- Added warning when user attempts to close app while Live View is running.
+- Fixed issue with some mantarray-flask subprocesses not being terminated when compiled app closes.
 
 
 0.5.1 (2021-08-24)
@@ -18,7 +20,6 @@ Changelog for Mantarray Desktop App
   all files for other wells to contain more data than recorded, but no desired data was ever lost.
 - Fixed Beta 1 data being inverted in waveform display.
 - Updated minor styling features of heatmap.
-
 
 
 0.5.0 (2021-08-02)
