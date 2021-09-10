@@ -10,6 +10,7 @@ import json
 import logging
 import multiprocessing
 import os
+from os import getpid
 import platform
 import queue
 from queue import Queue
@@ -273,7 +274,10 @@ def main(
 
     process_manager.create_processes()
     if start_subprocesses:
-        process_manager.start_processes()
+        logger.info(f"Main Process PID: {getpid()}")
+        subprocess_id_dict = process_manager.start_processes()
+        for subprocess_name, pid in subprocess_id_dict.items():
+            logger.info(f"{subprocess_name} PID: {pid}")
 
     boot_up_after_processes_start = not parsed_args.skip_mantarray_boot_up and not parsed_args.beta_2_mode
     load_firmware_file = not parsed_args.no_load_firmware and not parsed_args.beta_2_mode

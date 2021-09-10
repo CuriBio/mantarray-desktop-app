@@ -286,6 +286,9 @@ def test_main_can_launch_server_and_processes__and_initial_boot_up_of_ok_comm_pr
     fully_running_app_from_main_entrypoint,
     patched_firmware_folder,
 ):
+    expected_main_pid = 1010
+    mocker.patch.object(main, "getpid", autospec=True, return_value=expected_main_pid)
+
     mocked_process_monitor_info_logger = mocker.patch.object(
         process_monitor.logger,
         "info",
@@ -293,8 +296,9 @@ def test_main_can_launch_server_and_processes__and_initial_boot_up_of_ok_comm_pr
     )
     mocked_main_info_logger = mocker.patch.object(main.logger, "info", autospec=True)
 
-    fully_running_app_from_main_entrypoint()
+    app_info = fully_running_app_from_main_entrypoint()
     wait_for_subprocesses_to_start()
+    test_process_manager = app_info["object_access_inside_main"]["process_manager"]
 
     expected_initiated_str = "OpalKelly Communication Process initiated at"
     assert any(
@@ -310,6 +314,17 @@ def test_main_can_launch_server_and_processes__and_initial_boot_up_of_ok_comm_pr
     )
 
     mocked_main_info_logger.assert_any_call(f"Build timestamp/version: {COMPILED_EXE_BUILD_TIMESTAMP}")
+
+    mocked_main_info_logger.assert_any_call(f"Main Process PID: {expected_main_pid}")
+    mocked_main_info_logger.assert_any_call(
+        f"Instrument Comm PID: {test_process_manager.get_instrument_process().pid}"
+    )
+    mocked_main_info_logger.assert_any_call(
+        f"File Writer PID: {test_process_manager.get_file_writer_process().pid}"
+    )
+    mocked_main_info_logger.assert_any_call(
+        f"Data Analyzer PID: {test_process_manager.get_data_analyzer_process().pid}"
+    )
 
     shutdown_response = requests.get(f"{get_api_endpoint()}shutdown")
     assert shutdown_response.status_code == 200
