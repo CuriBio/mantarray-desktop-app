@@ -575,3 +575,23 @@ def test_MantarrayProcessesManager_get_subprocesses_running_status__returns_corr
     generic_manager.start_processes()
     assert generic_manager.get_subprocesses_running_status() is not spied_are_processes_stopped.spy_return
     spied_are_processes_stopped.assert_called_once_with(timeout_seconds=0, sleep_between_checks=False)
+
+
+def test_MantarrayProcessesManager_start_processes__returns_pids_for_each_subprocess(generic_manager, mocker):
+    generic_manager.create_processes()
+
+    ic_process = generic_manager.get_instrument_process()
+    fw_process = generic_manager.get_file_writer_process()
+    da_process = generic_manager.get_data_analyzer_process()
+
+    # mock so subprocesses don't actually start
+    mocker.patch.object(ic_process, "start", autospec=True)
+    mocker.patch.object(fw_process, "start", autospec=True)
+    mocker.patch.object(da_process, "start", autospec=True)
+
+    pid_dict = generic_manager.start_processes()
+    assert pid_dict == {
+        "Instrument Comm": ic_process.pid,
+        "File Writer": fw_process.pid,
+        "Data Analyzer": da_process.pid,
+    }

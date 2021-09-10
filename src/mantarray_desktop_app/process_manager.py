@@ -133,12 +133,17 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             self._data_analyzer_process,
         )
 
-    def start_processes(self) -> None:
+    def start_processes(self) -> Dict[str, int]:
         if self._all_processes is None:
             raise NotImplementedError("Processes must be created first.")
         for iter_process in self._all_processes:
             iter_process.start()
         self._subprocesses_started = True
+        return {
+            "Instrument Comm": self._instrument_communication_process.pid,
+            "File Writer": self._file_writer_process.pid,
+            "Data Analyzer": self._data_analyzer_process.pid,
+        }
 
     def spawn_processes(self) -> None:
         """Create and start processes, no extra args."""
