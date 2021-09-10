@@ -13,6 +13,7 @@ Changelog for Mantarray Desktop App
 
 - Added warning when user attempts to close app while Live View is running.
 - Fixed issue with some mantarray-flask subprocesses not being terminated when compiled app closes.
+- Fixed issue with logging over 1024^2 bytes causing the app to crash.
 
 
 0.5.1 (2021-08-24)

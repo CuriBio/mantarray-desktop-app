@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "02c75aba2f476a382545c714bcadbd3c08f9c61a8fc5925f3c88d113a2fea17f"
+            "sha256": "2743bec3931da53fc11e9a329e929bb06a34177fed713eea66840f14b33a2496"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -26,11 +26,11 @@
         },
         "bidict": {
             "hashes": [
-                "sha256:4fa46f7ff96dc244abfc437383d987404ae861df797e2fd5b190e233c302be09",
-                "sha256:929d056e8d0d9b17ceda20ba5b24ac388e2a4d39802b87f9f4d3f45ecba070bf"
+                "sha256:2cce0d01eb3db9b3fa85db501c00aaa3389ee4cab7ef82178604552dfa943a1b",
+                "sha256:d50bd81fae75e34198ffc94979a0eb0939ff9adb3ef32bcc93a913d8b3e3ed1d"
             ],
             "markers": "python_version >= '3.6'",
-            "version": "==0.21.2"
+            "version": "==0.21.3"
         },
         "click": {
             "hashes": [
@@ -448,12 +448,9 @@
             "version": "==1.16.0"
         },
         "stdlib-utils": {
-            "hashes": [
-                "sha256:6e2d70eee0cd38163d6b0704e5218b75b04c9343628f1038d4b11c03b930b53c",
-                "sha256:dda7ae541cee60c7dd2781e1171cec71bd6b6f3f81bdb32b4db090d107e7af0a"
-            ],
-            "index": "pypi",
-            "version": "==0.4.6"
+            "editable": true,
+            "git": "https://github.com/CuriBio/stdlib-utils.git",
+            "ref": "04a53de4f85f4f3c64177422f68a3baf27cbd727"
         },
         "streamz": {
             "hashes": [
@@ -529,7 +526,7 @@
                 "sha256:56f6dc65d86c2e5b8f04f22acedd33af2c233edc1082fe4d24fd3996bd19d0fe",
                 "sha256:f9395cad9a30cb9864fa0c0d18a84daead1eb8807774f4e09f588f89b7dc77d8"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3' and python_version < '4.0'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3' and python_version < '4'",
             "version": "==1.5.0"
         },
         "werkzeug": {
@@ -799,11 +796,11 @@
         },
         "identify": {
             "hashes": [
-                "sha256:7199679b5be13a6b40e6e19ea473e789b11b4e3b60986499b1f589ffb03c217c",
-                "sha256:7bc6e829392bd017236531963d2d937d66fc27cadc643ac0aba2ce9f26157c79"
+                "sha256:113a76a6ba614d2a3dd408b3504446bcfac0370da5995aa6a17fd7c6dffde02d",
+                "sha256:32f465f3c48083f345ad29a9df8419a4ce0674bf4a8c3245191d65c83634bdbf"
             ],
             "markers": "python_full_version >= '3.6.1'",
-            "version": "==2.2.13"
+            "version": "==2.2.14"
         },
         "idna": {
             "hashes": [
