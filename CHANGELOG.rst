@@ -6,6 +6,11 @@ Changelog for Mantarray Desktop App
 ------------------
 
 - Added Stimulation Studio and Controls when app is launched in Beta 2 mode.
+
+
+0.5.2 (unreleased)
+------------------
+
 - Added warning when user attempts to close app while Live View is running.
 - Fixed issue with some mantarray-flask subprocesses not being terminated when compiled app closes.
 

@@ -18,6 +18,7 @@ from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
 from stdlib_utils import drain_queue
+from stdlib_utils import get_formatted_stack_trace
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import InfiniteThread
 
@@ -84,6 +85,17 @@ class MantarrayProcessesMonitor(InfiniteThread):
         self._load_firmware_file = load_firmware_file
         self._data_dump_buffer_size = 0
         self._last_barcode_clear_time: Optional[float] = None
+
+    def _report_fatal_error(self, the_err: Exception) -> None:
+        super()._report_fatal_error(the_err)
+        stack_trace = get_formatted_stack_trace(the_err)
+        msg = f"Error raised by Process Monitor\n{stack_trace}\n{the_err}"
+        # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
+        with self._lock:
+            logger.error(msg)
+        if self._process_manager.are_subprocess_start_ups_complete():
+            self._hard_stop_and_join_processes_and_log_leftovers(shutdown_server=False)
+        self._process_manager.shutdown_server()
 
     def _check_and_handle_file_writer_to_main_queue(self) -> None:
         process_manager = self._process_manager
