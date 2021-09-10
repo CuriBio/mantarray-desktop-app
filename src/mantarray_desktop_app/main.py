@@ -274,10 +274,12 @@ def main(
 
     process_manager.create_processes()
     if start_subprocesses:
-        logger.info(f"Main Process PID: {getpid()}")
+        msg = f"Main Process PID: {getpid()}"
+        logger.info(msg)
         subprocess_id_dict = process_manager.start_processes()
         for subprocess_name, pid in subprocess_id_dict.items():
-            logger.info(f"{subprocess_name} PID: {pid}")
+            msg = f"{subprocess_name} PID: {pid}"
+            logger.info(msg)
 
     boot_up_after_processes_start = not parsed_args.skip_mantarray_boot_up and not parsed_args.beta_2_mode
     load_firmware_file = not parsed_args.no_load_firmware and not parsed_args.beta_2_mode
