@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "2743bec3931da53fc11e9a329e929bb06a34177fed713eea66840f14b33a2496"
+            "sha256": "f6fb07f729f7c271e8c6180685e6859ca30ed17ecc9c759f592e54a139ddd4b8"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -448,9 +448,12 @@
             "version": "==1.16.0"
         },
         "stdlib-utils": {
-            "editable": true,
-            "git": "https://github.com/CuriBio/stdlib-utils.git",
-            "ref": "04a53de4f85f4f3c64177422f68a3baf27cbd727"
+            "hashes": [
+                "sha256:17a497535a9f819b70582410acf82e76eb9739ad4540354f5b7921df623540bd",
+                "sha256:974144808152c49ad3b1e85108d64c4e488caa2af553b90437d6569fa91c5bd3"
+            ],
+            "index": "pypi",
+            "version": "==0.4.7"
         },
         "streamz": {
             "hashes": [
@@ -563,10 +566,10 @@
         },
         "altgraph": {
             "hashes": [
-                "sha256:1f05a47122542f97028caf78775a095fbe6a2699b5089de8477eb583167d69aa",
-                "sha256:c623e5f3408ca61d4016f23a681b9adb100802ca3e3da5e718915a9e4052cebe"
+                "sha256:743628f2ac6a7c26f5d9223c91ed8ecbba535f506f4b6f558885a8a56a105857",
+                "sha256:ebf2269361b47d97b3b88e696439f6e4cbc607c17c51feb1754f90fb79839158"
             ],
-            "version": "==0.17"
+            "version": "==0.17.2"
         },
         "astroid": {
             "hashes": [
