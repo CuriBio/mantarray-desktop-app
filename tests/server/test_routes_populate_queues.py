@@ -12,6 +12,7 @@ from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import server
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STIM_MAX_PULSE_DURATION_MICROSECONDS
+from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
@@ -597,10 +598,9 @@ def test_send_single_stop_managed_acquisition_command__populates_queues(
     server_to_main_queue = test_server.get_queue_to_main()
     assert is_queue_eventually_of_size(server_to_main_queue, 1) is True
     comm_to_main = server_to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert comm_to_main["communication_type"] == "to_instrument"
-    assert comm_to_main["command"] == "stop_managed_acquisition"
+    assert comm_to_main == STOP_MANAGED_ACQUISITION_COMMUNICATION
     response_json = response.get_json()
-    assert response_json["command"] == "stop_managed_acquisition"
+    assert response_json == STOP_MANAGED_ACQUISITION_COMMUNICATION
 
 
 def test_send_single_set_mantarray_serial_number_command__populates_queue(
@@ -1123,22 +1123,34 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     assert response_json["command"] == "start_recording"
 
 
-def test_shutdown__sends_hard_stop_command_to_process_monitor(
+def test_shutdown__sends_hard_stop_command__waits_for_subprocesses_to_stop__then_shutdown_server_command_to_process_monitor(
     client_and_server_manager_and_shared_values, mocker
 ):
+    mocked_queue_command = mocker.spy(server, "queue_command_to_main")
+
+    def se():
+        mocked_queue_command.assert_called_once()
+
+    mocked_wait = mocker.patch.object(server, "wait_for_subprocesses_to_stop", autospec=True, side_effect=se)
+
     test_client, test_server_info, _ = client_and_server_manager_and_shared_values
     test_server, _ = test_server_info
+    server_to_main_queue = test_server.get_queue_to_main()
 
     response = test_client.get("/shutdown")
     assert response.status_code == 200
-
-    server_to_main_queue = test_server.get_queue_to_main()
-    assert is_queue_eventually_of_size(server_to_main_queue, 1) is True
-    communication = server_to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert communication["communication_type"] == "shutdown"
-    assert communication["command"] == "hard_stop"
     response_json = response.get_json()
-    assert response_json == communication
+
+    mocked_wait.assert_called_once()
+
+    assert is_queue_eventually_of_size(server_to_main_queue, 2) is True
+    hard_stop_command = server_to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert hard_stop_command["communication_type"] == "shutdown"
+    assert hard_stop_command["command"] == "hard_stop"
+    shutdown_server_command = server_to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert shutdown_server_command["communication_type"] == "shutdown"
+    assert shutdown_server_command["command"] == "shutdown_server"
+    assert response_json == shutdown_server_command
 
 
 @pytest.mark.parametrize(

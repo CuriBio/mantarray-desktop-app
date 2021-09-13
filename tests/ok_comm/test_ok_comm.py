@@ -28,7 +28,7 @@ from mantarray_desktop_app import REF_INDEX_TO_24_WELL_INDEX
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
-from mantarray_desktop_app import UnrecognizedCommTypeFromMainToInstrumentError
+from mantarray_desktop_app import UnrecognizedCommandFromMainToOkCommError
 from mantarray_desktop_app import UnrecognizedDataFrameFormatNameError
 from mantarray_desktop_app import UnrecognizedMantarrayNamingCommandError
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
@@ -695,7 +695,7 @@ def test_OkCommunicationProcess_run__raises_error_if_communication_type_is_inval
     }
     input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
     assert is_queue_eventually_not_empty(input_queue) is True
-    with pytest.raises(UnrecognizedCommTypeFromMainToInstrumentError, match="fake_comm_type"):
+    with pytest.raises(UnrecognizedCommandFromMainToOkCommError, match="fake_comm_type"):
         invoke_process_run_and_check_errors(ok_process)
 
 

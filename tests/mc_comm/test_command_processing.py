@@ -57,6 +57,13 @@ __fixtures__ = [
             },
             "raises error with invalid to_instrument command",
         ),
+        (
+            {
+                "communication_type": "acquisition_manager",
+                "command": "bad_command",
+            },
+            "raises error with invalid acquisition_manager command",
+        ),
     ],
 )
 def test_McCommunicationProcess__raises_error_when_receiving_invalid_command_from_main(
@@ -324,7 +331,7 @@ def test_McCommunicationProcess__processes_change_magnetometer_config_command(
     expected_sampling_period = 14000
     # send command to mc_process
     expected_response = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "change_magnetometer_config",
         "magnetometer_config": expected_magnetometer_config,
         "sampling_period": expected_sampling_period,

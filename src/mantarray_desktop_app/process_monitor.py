@@ -18,6 +18,7 @@ from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
 from stdlib_utils import drain_queue
+from stdlib_utils import get_formatted_stack_trace
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import InfiniteThread
 
@@ -39,13 +40,14 @@ from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
 from .exceptions import IncorrectMagnetometerConfigFromInstrumentError
-from .exceptions import UnrecognizedCommandToInstrumentError
+from .exceptions import UnrecognizedCommandFromServerToMainError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
 from .exceptions import UnrecognizedRecordingCommandError
 from .process_manager import MantarrayProcessesManager
 from .server import ServerManager
 from .utils import _trim_barcode
 from .utils import attempt_to_get_recording_directory_from_new_dict
+from .utils import get_redacted_string
 from .utils import redact_sensitive_info_from_path
 from .utils import update_shared_dict
 
@@ -84,6 +86,17 @@ class MantarrayProcessesMonitor(InfiniteThread):
         self._data_dump_buffer_size = 0
         self._last_barcode_clear_time: Optional[float] = None
 
+    def _report_fatal_error(self, the_err: Exception) -> None:
+        super()._report_fatal_error(the_err)
+        stack_trace = get_formatted_stack_trace(the_err)
+        msg = f"Error raised by Process Monitor\n{stack_trace}\n{the_err}"
+        # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
+        with self._lock:
+            logger.error(msg)
+        if self._process_manager.are_subprocess_start_ups_complete():
+            self._hard_stop_and_join_processes_and_log_leftovers(shutdown_server=False)
+        self._process_manager.shutdown_server()
+
     def _check_and_handle_file_writer_to_main_queue(self) -> None:
         process_manager = self._process_manager
         file_writer_to_main = (
@@ -105,7 +118,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             logger.info(msg)
 
     def _check_and_handle_server_to_main_queue(self) -> None:
-        # pylint: disable=too-many-branches  # Tanner (4/23/21): temporarily need to add more than the allowed number of branches in order to support Beta 1 mode during transition to Beta 2 mode
+        # pylint: disable=too-many-branches, too-many-statements  # Tanner (4/23/21): temporarily need to add more than the allowed number of branches in order to support Beta 1 mode during transition to Beta 2 mode
         process_manager = self._process_manager
         to_main_queue = process_manager.queue_container().get_communication_queue_from_server_to_main()
         try:
@@ -117,7 +130,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         if "mantarray_nickname" in communication:
             # Tanner (1/20/21): items in communication dict are used after this log message is generated, so need to create a copy of the dict when redacting info
             comm_copy = copy.deepcopy(communication)
-            comm_copy["mantarray_nickname"] = "*" * len(comm_copy["mantarray_nickname"])
+            comm_copy["mantarray_nickname"] = get_redacted_string(len(comm_copy["mantarray_nickname"]))
             msg = f"Communication from the Server: {comm_copy}"
         else:
             msg = f"Communication from the Server: {communication}"
@@ -143,7 +156,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
         elif communication_type == "shutdown":
             command = communication["command"]
             if command == "hard_stop":
-                self._hard_stop_and_join_processes_and_log_leftovers()
+                self._hard_stop_and_join_processes_and_log_leftovers(shutdown_server=False)
+            elif command == "shutdown_server":
+                self._process_manager.shutdown_server()
             else:
                 raise NotImplementedError("Unrecognized shutdown command")
         elif communication_type == "update_shared_values_dictionary":
@@ -204,7 +219,15 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 raise UnrecognizedRecordingCommandError(command)
             main_to_fw_queue.put_nowait(communication)
         elif communication_type == "to_instrument":
-            # TODO Tanner (6/1/21): refactor "to_instrument" communication type to something more appropriate
+            # Tanner (8/25/21): 'to_instrument' communication type should be reserved for commands that are only sent to the instrument communication process
+            command = communication["command"]
+            if command == "boot_up":
+                self._process_manager.boot_up_instrument()
+            else:
+                raise UnrecognizedCommandFromServerToMainError(
+                    f"Invalid command: {command} for communication_type: {communication_type}"
+                )
+        elif communication_type == "acquisition_manager":
             main_to_ic_queue = (
                 self._process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
             )
@@ -212,9 +235,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
             )
             command = communication["command"]
-            if command == "boot_up":
-                self._process_manager.boot_up_instrument()
-            elif command == "start_managed_acquisition":
+            if command == "start_managed_acquisition":
                 shared_values_dict["system_status"] = BUFFERING_STATE
                 main_to_ic_queue.put_nowait(communication)
                 main_to_da_queue.put_nowait(communication)
@@ -227,7 +248,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 main_to_fw_queue.put_nowait(communication)
                 main_to_ic_queue.put_nowait(communication)
             else:
-                raise UnrecognizedCommandToInstrumentError(command)
+                raise UnrecognizedCommandFromServerToMainError(
+                    f"Invalid command: {command} for communication_type: {communication_type}"
+                )
         elif communication_type == "barcode_read_receipt":
             board_idx = communication["board_idx"]
             self._values_to_share_to_server["barcodes"][board_idx]["frontend_needs_barcode_update"] = False
@@ -242,7 +265,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         )
 
         comm_to_subprocesses = {
-            "communication_type": "to_instrument",
+            "communication_type": "acquisition_manager",
             "command": "change_magnetometer_config",
         }
         comm_to_subprocesses.update(magnetometer_config_dict)
@@ -275,12 +298,11 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         communication_type = communication["communication_type"]
         if communication_type == "data_available":
-            # TODO Tanner (6/17/21): Try having this update come from the server thread
             if self._values_to_share_to_server["system_status"] == BUFFERING_STATE:
                 self._data_dump_buffer_size += 1
                 if self._data_dump_buffer_size == 2:
                     self._values_to_share_to_server["system_status"] = LIVE_VIEW_ACTIVE_STATE
-        elif communication_type == "to_instrument":
+        elif communication_type == "acquisition_manager":
             if communication["command"] == "stop_managed_acquisition":
                 # fmt: off
                 # remove any leftover outgoing items
@@ -322,7 +344,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         if "mantarray_nickname" in communication:
             # Tanner (1/20/21): items in communication dict are used after this log message is generated, so need to create a copy of the dict when redacting info
             comm_copy = copy.deepcopy(communication)
-            comm_copy["mantarray_nickname"] = "*" * len(comm_copy["mantarray_nickname"])
+            comm_copy["mantarray_nickname"] = get_redacted_string(len(comm_copy["mantarray_nickname"]))
             msg = f"Communication from the Instrument Controller: {comm_copy}"
         else:
             msg = f"Communication from the Instrument Controller: {communication}".replace(
@@ -337,7 +359,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         if "command" in communication:
             command = communication["command"]
 
-        if communication_type in ("acquisition_manager", "to_instrument"):
+        if communication_type in "acquisition_manager":
             if command == "start_managed_acquisition":
                 # TODO Tanner (5/22/21): Should add a way to check the sampling period as well
                 if (
@@ -349,7 +371,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._values_to_share_to_server["utc_timestamps_of_beginning_of_data_acquisition"] = [
                     communication["timestamp"]
                 ]
-            if command == "stop_managed_acquisition":
+            elif command == "stop_managed_acquisition":
                 self._values_to_share_to_server["system_status"] = CALIBRATED_STATE
                 self._data_dump_buffer_size = 0
         elif communication_type == "board_connection_status_change":
@@ -484,6 +506,11 @@ class MantarrayProcessesMonitor(InfiniteThread):
         ):
             self._check_and_handle_data_analyzer_data_out_queue()
 
+        # update status of subprocesses
+        self._values_to_share_to_server[
+            "subprocesses_running"
+        ] = self._process_manager.get_subprocesses_running_status()
+
         # handle barcode polling. This should be removed once the physical instrument is able to detect plate placement/removal on its own. The Beta 2 instrument will be able to do this on its own from the start, so no need to send barcode comm in Beta 2 mode.
         if self._last_barcode_clear_time is None:
             self._last_barcode_clear_time = _get_barcode_clear_time()
@@ -534,10 +561,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
             logger.error(msg)
         self._hard_stop_and_join_processes_and_log_leftovers()
 
-    def _hard_stop_and_join_processes_and_log_leftovers(self) -> None:
-        process_items = self._process_manager.hard_stop_and_join_processes()
+    def _hard_stop_and_join_processes_and_log_leftovers(self, shutdown_server: bool = True) -> None:
+        process_items = self._process_manager.hard_stop_and_join_processes(shutdown_server=shutdown_server)
         msg = f"Remaining items in process queues: {process_items}"
-        # Tanner (5/21/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
+        # Tanner (5/21/20): is not sure how to test that a lock is being acquired...so be careful about refactoring this
         with self._lock:
             logger.error(msg)
 

@@ -82,7 +82,6 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
             np.array([test_data_packet["time_indices"], default_channel_data], np.int64),
             np.zeros((2, len(default_channel_data))),
         )
-        # TODO figure out if not compressing data performs well
         compressed_data = pipeline.get_force()
         waveform_data_points[well_idx] = {
             "x_data_points": compressed_data[0].tolist(),
@@ -124,7 +123,8 @@ def test_DataAnalyzerProcess__does_not_process_data_packets_after_receiving_stop
         da_process, "_process_beta_2_data", autospec=True, return_value={}
     )
 
-    da_process.init_streams()
+    # da_process.init_streams()
+    invoke_process_run_and_check_errors(da_process, perform_setup_before_loop=True)
     # set config arbitrary sampling period
     test_sampling_period = 10000
     set_magnetometer_config(

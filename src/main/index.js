@@ -130,7 +130,7 @@ const start_python_subprocess = () => {
     require("child_process").execFile(script, command_line_args);
   } else {
     const PythonShell = require("python-shell").PythonShell; // Eli (4/15/20) experienced odd error where the compiled exe was not able to load package python-shell...but since it's only actually required in development, just moving it to here
-    command_line_args.push("--no-load-firmware"); // TODO (Eli 2/24/21): use the `yargs` package to accept this as a command line argument to the Electron app so that it can be passed appropriately and with more control than everytime the python source code is run (which is based on the assumption that anytime source code is tested it's running locally in a dev environment and the bit file isn't available)
+    if (!store.get("beta_2_mode")) command_line_args.push("--no-load-firmware");
     console.log("sending command line args: " + command_line_args); // allow-log
     const options = {
       mode: "text",
@@ -187,16 +187,25 @@ app.on("ready", () => {
 });
 
 // This is another place to handle events after all windows are closed
-app.on("will-quit", function () {
+app.on("will-quit", function (e) {
   // This is a good place to add tests ensuring the app is still
   // responsive and all windows are closed.
   console.log("will-quit event being handled"); // allow-log
   // mainWindow = null;
 
-  axios.get(
-    `http://localhost:${flask_port}/shutdown?called_through_app_will_quit=true`
-  );
+  // Tanner (9/1/21): Need to prevent (default) app termination, wait for /shutdown response which confirms
+  // that the backend is completely shutdown, then call app.exit() which terminates app immediately
+  e.preventDefault();
+  axios
+    .get(
+      `http://localhost:${flask_port}/shutdown?called_through_app_will_quit=true`
+    )
+    .then((response) => {
+      console.log(
+        `Shutdown response: ${response.status} ${response.statusText}`
+      ); // allow-log
+      app.exit();
+    });
 });
 
-// win_handler = require("./mainWindow");
 require("./mainWindow");

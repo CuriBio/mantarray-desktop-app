@@ -1,11 +1,15 @@
 import { EventEmitter } from "events";
-import { BrowserWindow, app, screen } from "electron";
+import { BrowserWindow, app, screen, ipcMain } from "electron";
+import main_utils from "./utils.js"; // Eli (1/15/21): helping to be able to spy on functions within utils. https://stackoverflow.com/questions/49457451/jest-spyon-a-function-not-class-or-object-type
 const isProduction = process.env.NODE_ENV === "production";
+
+const create_store = main_utils.create_store;
+let store = create_store();
 
 export default class BrowserWinHandler {
   /**
-   * @param [options] {object} - browser window options
-   * @param [allowRecreate] {boolean}
+   * @param {object} [options]  - browser window options
+   * @param {boolean} [allowRecreate] - allows constructor to be recreated
    */
   constructor(options, allowRecreate = true) {
     this._eventEmitter = new EventEmitter();
@@ -54,6 +58,28 @@ export default class BrowserWinHandler {
       // Dereference the window object
       this.browserWindow = null;
     });
+
+    let close = false;
+    this.browserWindow.on("close", async (e) => {
+      if (!close) {
+        e.preventDefault();
+        this.browserWindow.webContents.send("confirmation_request");
+
+        try {
+          ipcMain.on("confirmation_response", (e, user_response) => {
+            e.reply("confirmation_response", 200);
+            if (user_response === 1) {
+              close = true;
+              this.browserWindow.close();
+              console.log("user confirmed window closure");
+            } else console.log("user cancelled window closure");
+          });
+        } catch (e) {
+          console.log("error in BrowserWinHandler trying to close");
+        }
+      }
+    });
+
     this.browserWindow.setContentSize(this.options.width, this.options.height); // Eli (6/20/20): for some odd reason, in Windows the EXE is booting up at slightly smaller dimensions than defined, so seeing if this extra command helps at all
     // Eli (6/21/20): the position seems to be defaulting to 1,87 instead of the 0,0 supplied in the args, unless this extra method is called
     this.browserWindow.setPosition(this.options.x, this.options.y);
@@ -61,6 +87,10 @@ export default class BrowserWinHandler {
     console.log("actual window position: " + win_position); // allow-log
 
     this._eventEmitter.emit("created");
+
+    ipcMain.once("beta_2_mode_request", (event) => {
+      event.reply("beta_2_mode_response", store.get("beta_2_mode"));
+    });
   }
 
   _recreate() {
@@ -94,3 +124,23 @@ export default class BrowserWinHandler {
     });
   }
 }
+
+// const response = await axios.get('http://localhost:4567/system_status');
+// if (response.data.ui_status_code !== '009301eb') {
+//   const options = {
+//     type: 'warning',
+//     buttons: ['Yes', 'Cancel'],
+//     defaultId: 0,
+//     message: 'Operations are still in progress.',
+//     detail: 'Are you sure you want to quit?',
+//     cancelId: 1,
+//     noLink: true,
+//     normalizeAccessKeys: true,
+//   };
+//   const user_response = dialog.showMessageBoxSync(options);
+//   if (user_response === 0) {
+//     close = true;
+//     this.browserWindow.close();
+//     console.log('user cancelled window close');
+//   }
+// }

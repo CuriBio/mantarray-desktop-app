@@ -21,7 +21,7 @@ from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
-from mantarray_desktop_app import UnrecognizedCommandToInstrumentError
+from mantarray_desktop_app import UnrecognizedCommandFromMainToOkCommError
 from mantarray_desktop_app import UnrecognizedDataFrameFormatNameError
 import numpy as np
 import pytest
@@ -109,7 +109,7 @@ def test_OkCommunicationProcess_run__processes_stop_managed_acquisition_command(
     assert board_connections[0].is_spi_running() is False
 
 
-def test_OkCommunicationProcess_run__raises_error_if_command_to_instrument_is_invalid(
+def test_OkCommunicationProcess_run__raises_error_if_acquisition_manager_command_is_invalid(
     four_board_comm_process, mocker
 ):
     mocker.patch("builtins.print", autospec=True)  # don't print all the error messages to console
@@ -122,12 +122,12 @@ def test_OkCommunicationProcess_run__raises_error_if_command_to_instrument_is_in
 
     input_queue = board_queues[0][0]
     expected_returned_communication = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "fake_command",
     }
     input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
     confirm_queue_is_eventually_of_size(input_queue, 1)
-    with pytest.raises(UnrecognizedCommandToInstrumentError, match="fake_command"):
+    with pytest.raises(UnrecognizedCommandFromMainToOkCommError, match="fake_command"):
         invoke_process_run_and_check_errors(ok_process)
 
 

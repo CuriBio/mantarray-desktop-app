@@ -2,13 +2,27 @@ Changelog for Mantarray Desktop App
 ===================================
 
 
+0.6.0 (unreleased)
+------------------
+
+- Added Stimulation Studio and Controls when app is launched in Beta 2 mode.
+
+
+0.5.2 (2021-09-13)
+------------------
+
+- Added warning when user attempts to close app while Live View is running.
+- Fixed issue with some mantarray-flask subprocesses not being terminated when app closes.
+- Fixed issue with logging over 1025 KB causing app to crash.
+
+
 0.5.1 (2021-08-24)
 ------------------
 
 - Added ``/set_protocol`` and ``/set_stim_status`` routes.
 - Added autoscale feature to heatmap.
-- Fixed +/- buttons of y-zoom widget not updating zoom window correctly.
-- Fixed issue with only well A1's data being trimmed to the desired recording window. This issue caused
+- Fixed +/- buttons of y-axis zoom not updating the window correctly.
+- Fixed issue with only well A1's data being trimmed to the desired recording window. This issue caused all files for other wells to contain more data than desired, but no data was ever lost.
   all files for other wells to contain more data than recorded, but no desired data was ever lost.
 - Fixed Beta 1 data being inverted in waveform display.
 - Updated minor styling features of heatmap.

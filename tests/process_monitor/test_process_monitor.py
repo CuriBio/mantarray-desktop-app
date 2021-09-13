@@ -18,6 +18,7 @@ from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
 from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
+from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import IncorrectMagnetometerConfigFromInstrumentError
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
@@ -92,6 +93,94 @@ def test_MantarrayProcessesMonitor__soft_stop_calls_manager_soft_stop_and_join(
     monitor_thread.soft_stop()
     monitor_thread.join()
     assert spied_stop.call_count == 1
+
+
+class MantarrayProcessesMonitorThatRaisesError(MantarrayProcessesMonitor):
+    def _commands_for_each_run_iteration(self):
+        raise NotImplementedError("Process Monitor Exception")
+
+
+def test_MantarrayProcessesMonitor__populates_error_queue_when_error_raised(
+    test_process_manager_creator, patch_print
+):
+    test_process_manager = test_process_manager_creator()
+
+    error_queue = TestingQueue()
+    test_pm = MantarrayProcessesMonitorThatRaisesError(
+        {}, test_process_manager, error_queue, threading.Lock()
+    )
+
+    with pytest.raises(NotImplementedError, match="Process Monitor Exception"):
+        invoke_process_run_and_check_errors(test_pm)
+
+
+def test_MantarrayProcessesMonitor__logs_errors_raised_in_own_thread_correctly(
+    test_process_manager_creator, mocker, patch_print
+):
+    expected_stack_trace = "expected stack trace"
+
+    mocked_logger = mocker.patch.object(process_monitor.logger, "error", autospec=True)
+    mocker.patch.object(
+        process_monitor, "get_formatted_stack_trace", autospec=True, return_value=expected_stack_trace
+    )
+
+    test_process_manager = test_process_manager_creator()
+    error_queue = TestingQueue()
+    test_pm = MantarrayProcessesMonitorThatRaisesError(
+        {}, test_process_manager, error_queue, threading.Lock()
+    )
+    test_pm.run(num_iterations=1)
+
+    expected_error = error_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    expected_msg = f"Error raised by Process Monitor\n{expected_stack_trace}\n{expected_error}"
+
+    mocked_logger.assert_called_once_with(expected_msg)
+
+
+def test_MantarrayProcessesMonitor__when_error_raised_in_own_thread__hard_stops_and_joins_subprocesses_if_running_and_shutsdown_server(
+    test_process_manager_creator, mocker, patch_print
+):
+    test_process_manager = test_process_manager_creator()
+
+    mocker.patch.object(
+        test_process_manager, "are_subprocess_start_ups_complete", autospec=True, return_value=True
+    )
+    mocked_hard_stop_processes = mocker.patch.object(
+        test_process_manager, "hard_stop_and_join_processes", autospec=True
+    )
+    mocked_shutdown_server = mocker.patch.object(test_process_manager, "shutdown_server", autospec=True)
+
+    error_queue = TestingQueue()
+    test_pm = MantarrayProcessesMonitorThatRaisesError(
+        {}, test_process_manager, error_queue, threading.Lock()
+    )
+    test_pm.run(num_iterations=1)
+
+    mocked_hard_stop_processes.assert_called_once_with(shutdown_server=False)
+    mocked_shutdown_server.assert_called_once()
+
+
+def test_MantarrayProcessesMonitor__when_error_raised_in_own_thread__shutsdown_server_but_not_subprocesses(
+    test_process_manager_creator, mocker, patch_print
+):
+    test_process_manager = test_process_manager_creator()
+
+    mocker.patch.object(
+        test_process_manager, "are_subprocess_start_ups_complete", autospec=True, return_value=False
+    )
+    mocked_hard_stop_processes = mocker.patch.object(
+        test_process_manager, "hard_stop_and_join_processes", autospec=True
+    )
+    mocked_shutdown_server = mocker.patch.object(test_process_manager, "shutdown_server", autospec=True)
+
+    error_queue = TestingQueue()
+    test_pm = MantarrayProcessesMonitorThatRaisesError(
+        {}, test_process_manager, error_queue, threading.Lock()
+    )
+    test_pm.run(num_iterations=1)
+
+    mocked_hard_stop_processes.assert_not_called()
+    mocked_shutdown_server.assert_called_once()
 
 
 def test_MantarrayProcessesMonitor__logs_messages_from_instrument_comm(
@@ -1075,7 +1164,7 @@ def test_MantarrayProcessesMonitor__redacts_mantarray_nickname_from_logged_manta
     confirm_queue_is_eventually_empty(instrument_comm_to_main)
 
     expected_comm = copy.deepcopy(test_comm)
-    expected_comm["mantarray_nickname"] = "*" * len(test_nickname)
+    expected_comm["mantarray_nickname"] = get_redacted_string(len(test_nickname))
     mocked_logger.assert_called_once_with(f"Communication from the Instrument Controller: {expected_comm}")
 
 
@@ -1105,7 +1194,7 @@ def test_MantarrayProcessesMonitor__redacts_mantarray_nickname_from_logged_board
     confirm_queue_is_eventually_empty(instrument_comm_to_main)
 
     expected_comm = copy.deepcopy(test_comm)
-    expected_comm["mantarray_nickname"] = "*" * len(test_nickname)
+    expected_comm["mantarray_nickname"] = get_redacted_string(len(test_nickname))
     mocked_logger.assert_called_once_with(f"Communication from the Instrument Controller: {expected_comm}")
 
 
@@ -1128,7 +1217,7 @@ def test_MantarrayProcessesMonitor__raises_error_if_config_dict_in_start_data_st
     expected_config_dict[1][SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]] ^= True
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {
-            "communication_type": "to_instrument",
+            "communication_type": "acquisition_manager",
             "command": "start_managed_acquisition",
             "magnetometer_config": expected_config_dict,
             "timestamp": None,
@@ -1195,7 +1284,7 @@ def test_MantarrayProcessesMonitor__updates_magnetometer_config_after_receiving_
     confirm_queue_is_eventually_of_size(main_to_da, 1)
     comm_to_da = main_to_da.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     expected_comm_to_da = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "change_magnetometer_config",
     }
     expected_comm_to_da.update(expected_magnetometer_config_dict)

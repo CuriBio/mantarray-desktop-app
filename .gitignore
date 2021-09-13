@@ -44,6 +44,7 @@ prof/
 # IDE
 .idea/
 .~c9*
+.vscode/
 
 # Python
 *.py[cod]

@@ -16,7 +16,7 @@ def set_magnetometer_config(da_fixture, magnetometer_config_dict):
     to_main_queue = da_fixture["to_main_queue"]
 
     set_magnetometer_config_command = {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "change_magnetometer_config",
     }
     set_magnetometer_config_command.update(magnetometer_config_dict)

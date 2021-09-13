@@ -30,6 +30,7 @@ from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
+from mantarray_file_manager import Beta1WellFile
 from mantarray_file_manager import BOOTUP_COUNTER_UUID
 from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
@@ -190,7 +191,8 @@ def open_the_generic_h5_file_as_WellFile(
         PLATE_BARCODE_UUID
     ]
 
-    actual_file = WellFile(
+    well_file_class = Beta1WellFile if beta_version == 1 else WellFile
+    actual_file = well_file_class(
         os.path.join(
             file_dir,
             f"{barcode}__{timestamp_str}",

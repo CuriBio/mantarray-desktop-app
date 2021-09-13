@@ -38,12 +38,15 @@ from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from .constants import REF_INDEX_TO_24_WELL_INDEX
 from .constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
-from .exceptions import UnrecognizedCommandToInstrumentError
-from .exceptions import UnrecognizedCommTypeFromMainToDataAnalyzerError
+from .exceptions import UnrecognizedCommandFromMainToDataAnalyzerError
 from .utils import get_active_wells_from_config
 
 
 def _get_secs_since_data_creation_start(start: float) -> float:
+    return perf_counter() - start
+
+
+def _get_secs_since_data_analysis_start(start: float) -> float:
     return perf_counter() - start
 
 
@@ -101,15 +104,18 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._board_queues = the_board_queues
         self._comm_from_main_queue = comm_from_main_queue
         self._comm_to_main_queue = comm_to_main_queue
+        # performance tracking values
+        self._outgoing_data_creation_durations: List[float] = list()
+        self._data_analysis_durations: List[float] = list()
+        # data streaming values
         self._end_of_data_stream_reached: List[Optional[bool]] = [False] * len(self._board_queues)
         self._data_buffer: Dict[int, Dict[str, Any]] = dict()
-        self._data_analysis_streams: Dict[int, Tuple[Stream, Stream]] = dict()
-        self._data_analysis_stream_zipper: Optional[Stream] = None
-        self._outgoing_data_creation_durations: List[float] = list()
-        # data analysis items
-        self._active_wells: List[int] = list(range(24))
         for well_idx in range(24):
             self._data_buffer[well_idx] = {"construct_data": None, "ref_data": None}
+        # data analysis items
+        self._data_analysis_streams: Dict[int, Tuple[Stream, Stream]] = dict()
+        self._data_analysis_stream_zipper: Optional[Stream] = None
+        self._active_wells: List[int] = list(range(24))
         self._pipeline_template = PipelineTemplate(
             noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
             tissue_sampling_period=CONSTRUCT_SENSOR_SAMPLING_PERIOD,
@@ -159,15 +165,21 @@ class DataAnalyzerProcess(InfiniteProcess):
         return data_buf, data_buf
 
     def get_pipeline_analysis(self, data_buf: List[List[int]]) -> Dict[Any, Any]:
+        """Run analysis on a single well's data."""
         data_buf_arr = np.array(data_buf, dtype=np.int64)
         pipeline = self._pipeline_template.create_pipeline()
         # Tanner (7/14/21): reference data is currently unused by waveform analysis package, so sending zero array instead
         pipeline.load_raw_magnetic_data(data_buf_arr, np.zeros(data_buf_arr.shape))
+        analysis_start = perf_counter()
         try:
-            return pipeline.get_force_data_metrics(metrics_to_create=[AMPLITUDE_UUID, TWITCH_FREQUENCY_UUID])[0]  # type: ignore
+            analysis_dict = pipeline.get_force_data_metrics(
+                metrics_to_create=[AMPLITUDE_UUID, TWITCH_FREQUENCY_UUID]
+            )[0]
         except PeakDetectionError:
             # Tanner (7/14/21): this dict will be filtered out by downstream elements of analysis stream
-            return {-1: None}
+            analysis_dict = {-1: None}
+        self._data_analysis_durations.append(_get_secs_since_data_analysis_start(analysis_start))
+        return analysis_dict  # type: ignore
 
     def init_streams(self) -> None:
         """Set up data analysis streams for active wells."""
@@ -196,8 +208,6 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._process_next_command_from_main()
         self._handle_incoming_data()
 
-        # TODO Tanner (7/13/21): eventually need to add heatmap value creation metric reporting for both beta versions
-
         if self._beta_2_mode:
             return
 
@@ -215,7 +225,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         communication_type = communication["communication_type"]
         if communication_type == "calibration":
             self._calibration_settings = communication["calibration_settings"]
-        elif communication_type == "to_instrument":
+        elif communication_type == "acquisition_manager":
             if communication["command"] == "start_managed_acquisition":
                 if not self._beta_2_mode:
                     self._end_of_data_stream_reached[0] = False
@@ -245,10 +255,12 @@ class DataAnalyzerProcess(InfiniteProcess):
                 )
                 self.init_streams()
             else:
-                raise UnrecognizedCommandToInstrumentError(communication["command"])
+                raise UnrecognizedCommandFromMainToDataAnalyzerError(
+                    f"Invalid command: {communication['command']} for communication_type: {communication_type}"
+                )
             self._comm_to_main_queue.put_nowait(communication)
         else:
-            raise UnrecognizedCommTypeFromMainToDataAnalyzerError(communication_type)
+            raise UnrecognizedCommandFromMainToDataAnalyzerError(communication_type)
 
     def _handle_incoming_data(self) -> None:
         input_queue = self._board_queues[0][0]
@@ -281,6 +293,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                 well_dict[SERIAL_COMM_DEFAULT_DATA_CHANNEL],
             ]
             self._data_analysis_streams[key][0].emit(first_channel_data)
+        self._handle_performance_logging()
 
     def _load_memory_into_buffer(self, data_dict: Dict[Any, Any]) -> None:
         if data_dict["is_reference_sensor"]:
@@ -354,7 +367,6 @@ class DataAnalyzerProcess(InfiniteProcess):
 
         outgoing_data_creation_dur_secs = _get_secs_since_data_creation_start(start)
         self._outgoing_data_creation_durations.append(outgoing_data_creation_dur_secs)
-        self._handle_performance_logging()
 
         # create formatted dict
         outgoing_data: Dict[str, Any] = {
@@ -412,16 +424,15 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._data_buffer[well_idx]["construct_data"] = tissue_data
 
     def _handle_performance_logging(self) -> None:
-        # TODO Tanner (8/4/21): create performance metrics for heatmap value creation
         performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}
         tracker = self.reset_performance_tracker()
         performance_metrics["longest_iterations"] = sorted(tracker["longest_iterations"])
         performance_metrics["percent_use"] = tracker["percent_use"]
         performance_metrics["data_creation_duration"] = self._outgoing_data_creation_durations[-1]
 
-        name_measurement_list = list()  # [("analysis_durations", analysis_durations)]
         if len(self._percent_use_values) > 1:
             performance_metrics["percent_use_metrics"] = self.get_percent_use_metrics()
+        name_measurement_list = list()
         if len(self._outgoing_data_creation_durations) > 1:
             name_measurement_list.append(
                 (
@@ -429,9 +440,17 @@ class DataAnalyzerProcess(InfiniteProcess):
                     self._outgoing_data_creation_durations,
                 )
             )
+        if len(self._data_analysis_durations) > 1:
+            name_measurement_list.append(
+                (
+                    "data_analysis_duration_metrics",
+                    self._data_analysis_durations,
+                )
+            )
+
         da_measurements: List[
             Union[int, float]
-        ]  # Tanner (5/28/20): This type annotation and the 'ignore' on the following line are necessary for mypy to not incorrectly type this variable
+        ]  # Tanner (5/28/20): This type annotation is necessary for mypy to not incorrectly type this variable
         for name, da_measurements in name_measurement_list:
             performance_metrics[name] = {
                 "max": max(da_measurements),

@@ -11,6 +11,7 @@ from mantarray_desktop_app import server
 from mantarray_desktop_app import ServerManager
 from mantarray_desktop_app import ServerManagerNotInitializedError
 from mantarray_desktop_app import ServerManagerSingletonAlreadySetError
+from mantarray_desktop_app import SUBPROCESS_POLL_DELAY_SECONDS
 import pytest
 from stdlib_utils import confirm_port_available
 
@@ -196,3 +197,24 @@ def test_queue_command_to_instrument_comm_puts_in_a_mutable_version_of_the_dict(
     actual = to_instrument_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == test_dict
     assert isinstance(actual, immutabledict) is False
+
+
+def test_wait_for_subprocesses_to_stop__sleeps_until_subprocesses_running_value_is_updated_to_False(mocker):
+    mocked_get_values = mocker.patch.object(
+        server,
+        "_get_values_from_process_monitor",
+        autospec=True,
+        side_effect=[
+            {"subprocesses_running": True},
+            {"subprocesses_running": True},
+            {"subprocesses_running": False},
+            {"subprocesses_running": False},
+        ],
+    )
+    mocked_sleep = mocker.patch.object(server, "sleep", autospec=True)
+
+    server.wait_for_subprocesses_to_stop()
+
+    assert mocked_get_values.call_count == 3
+    mocked_sleep.assert_called_with(SUBPROCESS_POLL_DELAY_SECONDS)
+    assert mocked_sleep.call_count == 2

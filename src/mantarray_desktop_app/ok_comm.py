@@ -56,8 +56,7 @@ from .exceptions import InvalidDataFramePeriodError
 from .exceptions import InvalidScriptCommandError
 from .exceptions import MismatchedScriptTypeError
 from .exceptions import ScriptDoesNotContainEndCommandError
-from .exceptions import UnrecognizedCommandToInstrumentError
-from .exceptions import UnrecognizedCommTypeFromMainToInstrumentError
+from .exceptions import UnrecognizedCommandFromMainToOkCommError
 from .exceptions import UnrecognizedDataFrameFormatNameError
 from .exceptions import UnrecognizedDebugConsoleCommandError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
@@ -432,20 +431,21 @@ class OkCommunicationProcess(InstrumentCommProcess):
         self._data_frame_format = "six_channels_32_bit__single_sample_index"
         self._time_of_last_fifo_read: List[Union[None, datetime.datetime]] = [None] * len(self._board_queues)
         self._timepoint_of_last_fifo_read: List[Union[None, float]] = [None] * len(self._board_queues)
-        self._reads_since_last_logging: List[int] = [0] * len(self._board_queues)
         self._is_managed_acquisition_running = [False] * len(self._board_queues)
         self._is_first_managed_read = [False] * len(self._board_queues)
-        self._fifo_read_durations: List[float] = list()
-        self._fifo_read_lengths: List[int] = list()
-        self._data_parsing_durations: List[float] = list()
-        self._durations_between_acquisition: List[float] = list()
+        self._is_barcode_cleared = [False, False]
         self._barcode_scan_start_time: List[Optional[float]] = [
             None,
             None,
         ]
-        self._is_barcode_cleared = [False, False]
+        # performance tracking values
         self._performance_logging_cycles = INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
-        self._fifo_read_period = 1
+        self._reads_since_last_logging: List[int] = [0] * len(self._board_queues)
+        self._fifo_read_durations: List[float] = list()
+        self._fifo_read_lengths: List[int] = list()
+        self._fifo_read_period_secs = 1
+        self._data_parsing_durations: List[float] = list()
+        self._durations_between_acquisition: List[float] = list()
 
     def create_connections_to_all_available_boards(self) -> None:
         """Create initial connections to boards.
@@ -560,7 +560,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
             raise NotImplementedError(
                 "_reads_since_last_logging should always be an int value while managed acquisition is running"
             )
-        return now - self._time_of_last_fifo_read[0] > datetime.timedelta(seconds=self._fifo_read_period)
+        return now - self._time_of_last_fifo_read[0] > datetime.timedelta(seconds=self._fifo_read_period_secs)
 
     def _process_next_communication_from_main(self) -> None:
         """Process the next communication sent from the main process.
@@ -579,8 +579,8 @@ class OkCommunicationProcess(InstrumentCommProcess):
             self._handle_debug_console_comm(this_communication)
         elif communication_type == "boot_up_instrument":
             self._boot_up_instrument(this_communication)
-        elif communication_type == "to_instrument":
-            self._handle_to_instrument_comm(this_communication)
+        elif communication_type == "acquisition_manager":
+            self._handle_acquisition_manager_comm(this_communication)
         elif communication_type == "xem_scripts":
             self._handle_xem_scripts_comm(this_communication)
         elif communication_type == "mantarray_naming":
@@ -598,7 +598,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
                 self._barcode_scan_start_time[0] = time.perf_counter()
                 board.clear_barcode_scanner()
         else:
-            raise UnrecognizedCommTypeFromMainToInstrumentError(communication_type)
+            raise UnrecognizedCommandFromMainToOkCommError(communication_type)
         if not input_queue.empty():
             self._process_can_be_soft_stopped = False
 
@@ -712,7 +712,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
         response_queue = self._board_queues[0][1]
         response_queue.put_nowait(this_communication)
 
-    def _handle_to_instrument_comm(self, this_communication: Dict[str, Any]) -> None:
+    def _handle_acquisition_manager_comm(self, this_communication: Dict[str, Any]) -> None:
         response_queue = self._board_queues[0][1]
         board = self.get_board_connections_list()[0]
         if board is None:
@@ -726,7 +726,9 @@ class OkCommunicationProcess(InstrumentCommProcess):
             self._is_managed_acquisition_running[0] = False
             board.stop_acquisition()
         else:
-            raise UnrecognizedCommandToInstrumentError(this_communication["command"])
+            raise UnrecognizedCommandFromMainToOkCommError(
+                f"Invalid command: {this_communication['command']} for communication_type: acquisition_manager"
+            )
         response_queue.put_nowait(this_communication)
 
     def _handle_xem_scripts_comm(self, this_communication: Dict[str, Any]) -> None:
@@ -960,15 +962,4 @@ class OkCommunicationProcess(InstrumentCommProcess):
                 "stdev": round(stdev(okc_measurements), 6),
                 "mean": round(sum(okc_measurements) / len(okc_measurements), 6),
             }
-
-        tracker = self.reset_performance_tracker()
-        performance_metrics["percent_use"] = tracker["percent_use"]
-        performance_metrics["longest_iterations"] = sorted(tracker["longest_iterations"])
-        if len(self._percent_use_values) > 1:
-            performance_metrics["percent_use_metrics"] = self.get_percent_use_metrics()
-        put_log_message_into_queue(
-            logging.INFO,
-            performance_metrics,
-            self._board_queues[0][1],
-            self.get_logging_level(),
-        )
+        self._send_performance_metrics(performance_metrics)

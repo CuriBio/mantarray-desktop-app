@@ -12,6 +12,7 @@ import {
   create_web_socket_plugin,
   gradient_store_module,
   heatmap_store_module,
+  stimulation_store_module,
 } from "@curi-bio/mantarray-frontend-components";
 
 const ws_plugin = create_web_socket_plugin(socket);
@@ -28,6 +29,7 @@ const createStore = () => {
       settings: settings_store_module,
       heatmap: heatmap_store_module,
       gradient: gradient_store_module,
+      stimulation: stimulation_store_module,
     },
     plugins: [ws_plugin],
   });

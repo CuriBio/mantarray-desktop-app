@@ -14,11 +14,11 @@ class UnrecognizedDebugConsoleCommandError(Exception):
     pass
 
 
-class UnrecognizedCommTypeFromMainToInstrumentError(Exception):
+class UnrecognizedCommandFromServerToMainError(Exception):
     pass
 
 
-class UnrecognizedCommandToInstrumentError(Exception):
+class UnrecognizedCommandFromMainToOkCommError(Exception):
     pass
 
 
@@ -30,7 +30,7 @@ class UnrecognizedCommandFromMainToMcCommError(Exception):
     pass
 
 
-class UnrecognizedCommTypeFromMainToDataAnalyzerError(Exception):
+class UnrecognizedCommandFromMainToDataAnalyzerError(Exception):
     pass
 
 
