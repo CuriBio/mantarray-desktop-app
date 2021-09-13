@@ -95,6 +95,94 @@ def test_MantarrayProcessesMonitor__soft_stop_calls_manager_soft_stop_and_join(
     assert spied_stop.call_count == 1
 
 
+class MantarrayProcessesMonitorThatRaisesError(MantarrayProcessesMonitor):
+    def _commands_for_each_run_iteration(self):
+        raise NotImplementedError("Process Monitor Exception")
+
+
+def test_MantarrayProcessesMonitor__populates_error_queue_when_error_raised(
+    test_process_manager_creator, patch_print
+):
+    test_process_manager = test_process_manager_creator()
+
+    error_queue = TestingQueue()
+    test_pm = MantarrayProcessesMonitorThatRaisesError(
+        {}, test_process_manager, error_queue, threading.Lock()
+    )
+
+    with pytest.raises(NotImplementedError, match="Process Monitor Exception"):
+        invoke_process_run_and_check_errors(test_pm)
+
+
+def test_MantarrayProcessesMonitor__logs_errors_raised_in_own_thread_correctly(
+    test_process_manager_creator, mocker, patch_print
+):
+    expected_stack_trace = "expected stack trace"
+
+    mocked_logger = mocker.patch.object(process_monitor.logger, "error", autospec=True)
+    mocker.patch.object(
+        process_monitor, "get_formatted_stack_trace", autospec=True, return_value=expected_stack_trace
+    )
+
+    test_process_manager = test_process_manager_creator()
+    error_queue = TestingQueue()
+    test_pm = MantarrayProcessesMonitorThatRaisesError(
+        {}, test_process_manager, error_queue, threading.Lock()
+    )
+    test_pm.run(num_iterations=1)
+
+    expected_error = error_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    expected_msg = f"Error raised by Process Monitor\n{expected_stack_trace}\n{expected_error}"
+
+    mocked_logger.assert_called_once_with(expected_msg)
+
+
+def test_MantarrayProcessesMonitor__when_error_raised_in_own_thread__hard_stops_and_joins_subprocesses_if_running_and_shutsdown_server(
+    test_process_manager_creator, mocker, patch_print
+):
+    test_process_manager = test_process_manager_creator()
+
+    mocker.patch.object(
+        test_process_manager, "are_subprocess_start_ups_complete", autospec=True, return_value=True
+    )
+    mocked_hard_stop_processes = mocker.patch.object(
+        test_process_manager, "hard_stop_and_join_processes", autospec=True
+    )
+    mocked_shutdown_server = mocker.patch.object(test_process_manager, "shutdown_server", autospec=True)
+
+    error_queue = TestingQueue()
+    test_pm = MantarrayProcessesMonitorThatRaisesError(
+        {}, test_process_manager, error_queue, threading.Lock()
+    )
+    test_pm.run(num_iterations=1)
+
+    mocked_hard_stop_processes.assert_called_once_with(shutdown_server=False)
+    mocked_shutdown_server.assert_called_once()
+
+
+def test_MantarrayProcessesMonitor__when_error_raised_in_own_thread__shutsdown_server_but_not_subprocesses(
+    test_process_manager_creator, mocker, patch_print
+):
+    test_process_manager = test_process_manager_creator()
+
+    mocker.patch.object(
+        test_process_manager, "are_subprocess_start_ups_complete", autospec=True, return_value=False
+    )
+    mocked_hard_stop_processes = mocker.patch.object(
+        test_process_manager, "hard_stop_and_join_processes", autospec=True
+    )
+    mocked_shutdown_server = mocker.patch.object(test_process_manager, "shutdown_server", autospec=True)
+
+    error_queue = TestingQueue()
+    test_pm = MantarrayProcessesMonitorThatRaisesError(
+        {}, test_process_manager, error_queue, threading.Lock()
+    )
+    test_pm.run(num_iterations=1)
+
+    mocked_hard_stop_processes.assert_not_called()
+    mocked_shutdown_server.assert_called_once()
+
+
 def test_MantarrayProcessesMonitor__logs_messages_from_instrument_comm(
     mocker, test_process_manager_creator, test_monitor
 ):

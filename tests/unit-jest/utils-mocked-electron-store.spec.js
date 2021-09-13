@@ -6,7 +6,11 @@ import ElectronStore from "@/main/electron_store";
 
 import main_utils from "@/main/utils.js"; // Eli (1/15/21): helping to be able to spy on functions within utils. https://stackoverflow.com/questions/49457451/jest-spyon-a-function-not-class-or-object-type
 
-const mock_electron_store = "bob";
+const mock_electron_store = {
+  set: function () {
+    return;
+  },
+};
 
 jest.mock("@/main/electron_store", () => {
   return jest.fn().mockImplementation(function () {
