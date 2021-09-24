@@ -665,8 +665,9 @@ def test_MantarrayMcSimulator__processes_start_data_streaming_command(
 
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
     # set arbitrary sampling period
+    expected_sampling_period = 11000
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "set_sampling_period", "sampling_period": 10000}, testing_queue
+        {"command": "set_sampling_period", "sampling_period": expected_sampling_period}, testing_queue
     )
 
     # need to send command once before data is being streamed and once after to test the response in both cases
@@ -687,6 +688,7 @@ def test_MantarrayMcSimulator__processes_start_data_streaming_command(
         # assert response is correct
         additional_bytes = convert_to_timestamp_bytes(expected_pc_timestamp) + bytes([response_byte_value])
         if response_byte_value == SERIAL_COMM_STREAM_MODE_CHANGED_BYTE:
+            additional_bytes += expected_sampling_period.to_bytes(2, byteorder="little")
             additional_bytes += create_magnetometer_config_bytes(simulator.get_magnetometer_config())
         command_response_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
         command_response = simulator.read(size=command_response_size)
@@ -726,7 +728,7 @@ def test_MantarrayMcSimulator__processes_stop_data_streaming_command(
     command_response = simulator.read(
         size=get_full_packet_size_from_packet_body_size(
             SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
-            + 1
+            + 3  # 1 for response byte, 2 for sampling period bytes
             + len(create_magnetometer_config_bytes(simulator.get_magnetometer_config()))
         )
     )

@@ -452,6 +452,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                 response_byte = int(self._is_streaming_data)
                 response_body += bytes([response_byte])
                 if not self._is_streaming_data:
+                    response_body += self._sampling_period_us.to_bytes(2, byteorder="little")
                     response_body += create_magnetometer_config_bytes(self._magnetometer_config)
                 self._is_streaming_data = True
             elif command_byte == SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE:

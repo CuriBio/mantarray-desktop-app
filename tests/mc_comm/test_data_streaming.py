@@ -595,9 +595,10 @@ def test_McCommunicationProcess__processes_start_managed_acquisition_command__wh
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     # set arbitrary sampling period
+    expected_sampling_period = 60000
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "set_sampling_period", "sampling_period": 60000}, testing_queue
+        {"command": "set_sampling_period", "sampling_period": expected_sampling_period}, testing_queue
     )
 
     spied_get_utc_now = mocker.spy(mc_comm, "_get_formatted_utc_now")
@@ -617,6 +618,7 @@ def test_McCommunicationProcess__processes_start_managed_acquisition_command__wh
     invoke_process_run_and_check_errors(mc_process)
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
     command_response = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    expected_response["sampling_period"] = expected_sampling_period
     expected_response["magnetometer_config"] = simulator.get_magnetometer_config()
     expected_response["timestamp"] = spied_get_utc_now.spy_return
     assert command_response == expected_response

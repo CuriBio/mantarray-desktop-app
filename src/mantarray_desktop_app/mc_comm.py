@@ -706,7 +706,8 @@ class McCommunicationProcess(InstrumentCommProcess):
                     if not self._hardware_test_mode:
                         raise InstrumentDataStreamingAlreadyStartedError()
                     prev_command["hardware_test_message"] = "Data stream already started"  # pragma: no cover
-                prev_command["magnetometer_config"] = convert_bytes_to_config_dict(response_data[1:])
+                prev_command["sampling_period"] = int.from_bytes(response_data[1:3], byteorder="little")
+                prev_command["magnetometer_config"] = convert_bytes_to_config_dict(response_data[3:])
                 prev_command["timestamp"] = _get_formatted_utc_now()
                 # Tanner (6/11/21): This helps prevent against status beacon timeouts with beacons that come just after the data stream begins but before 1 second of data is available
                 self._time_of_last_beacon_secs = perf_counter()
