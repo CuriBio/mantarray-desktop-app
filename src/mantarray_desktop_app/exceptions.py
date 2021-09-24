@@ -214,6 +214,10 @@ class IncorrectMagnetometerConfigFromInstrumentError(Exception):
     pass
 
 
+class IncorrectSamplingPeriodFromInstrumentError(Exception):
+    pass
+
+
 class InstrumentDataStreamingAlreadyStartedError(Exception):
     pass
 
