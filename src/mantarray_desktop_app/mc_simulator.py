@@ -35,6 +35,7 @@ from stdlib_utils import resource_path
 
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import MICRO_TO_BASE_CONVERSION
+from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MICROSECONDS_PER_MILLISECOND
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BOOT_UP_CODE
@@ -159,6 +160,7 @@ class MantarrayMcSimulator(InfiniteProcess):
     ] = immutabledict(
         create_magnetometer_config_dict(24)
     )
+    global_timer_offset_secs = 2.5
 
     def __init__(
         self,
@@ -221,7 +223,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         if value:
             self._timepoint_of_last_data_packet_us = _perf_counter_us()
             self._simulated_data_index = 0
-            self._time_index_us = 0
+            self._time_index_us = self._get_timestamp()
             if self._sampling_period_us == 0:
                 # TODO Tanner (5/13/21): Need to determine what to do if sampling period is not set when data begins streaming
                 raise NotImplementedError("sampling period must be set before streaming data")
@@ -329,13 +331,19 @@ class MantarrayMcSimulator(InfiniteProcess):
     def get_num_wells(self) -> int:
         return self._num_wells
 
+    def _get_absolute_timer(self) -> int:
+        absolute_time: int = self.get_cms_since_init() * MICROSECONDS_PER_CENTIMILLISECOND
+        return absolute_time
+
+    def _get_global_timer(self) -> int:
+        return self._get_absolute_timer() + int(self.global_timer_offset_secs * MICRO_TO_BASE_CONVERSION)
+
     def _get_timestamp(self) -> int:
-        timestamp: int = (
-            self.get_cms_since_init()
+        return (
+            self._get_absolute_timer()
             if self._baseline_time_usec is None
             else (self._baseline_time_usec + self._get_us_since_time_sync())
         )
-        return timestamp
 
     def _send_data_packet(
         self,
@@ -452,6 +460,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                 response_byte = int(self._is_streaming_data)
                 response_body += bytes([response_byte])
                 if not self._is_streaming_data:
+                    response_body += self._get_global_timer().to_bytes(8, byteorder="little")
                     response_body += self._sampling_period_us.to_bytes(2, byteorder="little")
                     response_body += create_magnetometer_config_bytes(self._magnetometer_config)
                 self._is_streaming_data = True

@@ -81,6 +81,7 @@ def test_MantarrayMcSimulator__class_attributes():
         MAIN_FIRMWARE_VERSION_UUID: MantarrayMcSimulator.default_firmware_version,
     }
     assert MantarrayMcSimulator.default_24_well_magnetometer_config == create_magnetometer_config_dict(24)
+    assert MantarrayMcSimulator.global_timer_offset_secs == 2.5
 
 
 def test_MantarrayMcSimulator__super_is_called_during_init__with_default_logging_value(
