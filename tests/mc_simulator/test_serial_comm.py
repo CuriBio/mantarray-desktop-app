@@ -824,6 +824,10 @@ def test_MantarrayMcSimulator__processes_change_magnetometer_config_command__whe
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
+    mocker.patch.object(  # patch so no data packets will be sent
+        mc_simulator, "_get_us_since_last_data_packet", autospec=True, return_value=0
+    )
+
     # enable data streaming
     test_sampling_period = 3000
     put_object_into_queue_and_raise_error_if_eventually_still_empty(

@@ -474,7 +474,7 @@ def test_MantarrayMcSimulator__processes_testing_commands_during_reboot(
         autospec=True,
         return_value=AVERAGE_MC_REBOOT_DURATION_SECONDS - 1,
     )
-    spied_get_cms_since_init = mocker.spy(simulator, "get_cms_since_init")
+    spied_get_absolute_timer = mocker.spy(simulator, "_get_absolute_timer")
 
     # send reboot command
     test_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
@@ -497,7 +497,7 @@ def test_MantarrayMcSimulator__processes_testing_commands_during_reboot(
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
         additional_bytes=convert_to_timestamp_bytes(test_timestamp),
-        timestamp=spied_get_cms_since_init.spy_return,
+        timestamp=spied_get_absolute_timer.spy_return,
     )
 
     # add read bytes as test command
@@ -520,7 +520,7 @@ def test_MantarrayMcSimulator__resets_status_code_after_rebooting(mantarray_mc_s
         autospec=True,
         return_value=reboot_dur,
     )
-    spied_get_cms_since_init = mocker.spy(simulator, "get_cms_since_init")
+    spied_get_absolute_timer = mocker.spy(simulator, "_get_absolute_timer")
 
     # set status code to known value
     test_status_code = 1738
@@ -550,7 +550,7 @@ def test_MantarrayMcSimulator__resets_status_code_after_rebooting(mantarray_mc_s
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
         additional_bytes=convert_to_timestamp_bytes(test_timestamp),
-        timestamp=spied_get_cms_since_init.spy_return,
+        timestamp=spied_get_absolute_timer.spy_return,
     )
     # send handshake to test status code reset
     simulator.write(TEST_HANDSHAKE)

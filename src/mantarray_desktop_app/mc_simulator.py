@@ -223,7 +223,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         if value:
             self._timepoint_of_last_data_packet_us = _perf_counter_us()
             self._simulated_data_index = 0
-            self._time_index_us = self._get_timestamp()
+            self._time_index_us = self._get_global_timer()
             if self._sampling_period_us == 0:
                 # TODO Tanner (5/13/21): Need to determine what to do if sampling period is not set when data begins streaming
                 raise NotImplementedError("sampling period must be set before streaming data")
@@ -457,13 +457,14 @@ class MantarrayMcSimulator(InfiniteProcess):
             elif command_byte == SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE:
                 response_body += self._update_magnetometer_config(comm_from_pc)
             elif command_byte == SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE:
+                is_data_already_streaming = self._is_streaming_data
                 response_byte = int(self._is_streaming_data)
                 response_body += bytes([response_byte])
-                if not self._is_streaming_data:
-                    response_body += self._get_global_timer().to_bytes(8, byteorder="little")
+                self._is_streaming_data = True
+                if not is_data_already_streaming:
+                    response_body += self._time_index_us.to_bytes(8, byteorder="little")
                     response_body += self._sampling_period_us.to_bytes(2, byteorder="little")
                     response_body += create_magnetometer_config_bytes(self._magnetometer_config)
-                self._is_streaming_data = True
             elif command_byte == SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE:
                 response_byte = int(not self._is_streaming_data)
                 response_body += bytes([response_byte])
