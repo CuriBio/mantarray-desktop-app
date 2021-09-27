@@ -185,6 +185,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         ] = None  # Tanner (4/1/21): This value will be None until this process receives a response to a reboot command. It will be set back to None after receiving a status beacon upon reboot completion
         self._hardware_test_mode = hardware_test_mode
         # data streaming values
+        self._base_global_time_of_data_stream = 0
         self._magnetometer_config: Dict[int, Dict[Any, Any]] = dict()
         self._active_sensors_list: List[int] = list()
         self._packet_len = 0
@@ -706,8 +707,9 @@ class McCommunicationProcess(InstrumentCommProcess):
                     if not self._hardware_test_mode:
                         raise InstrumentDataStreamingAlreadyStartedError()
                     prev_command["hardware_test_message"] = "Data stream already started"  # pragma: no cover
-                prev_command["sampling_period"] = int.from_bytes(response_data[1:3], byteorder="little")
-                prev_command["magnetometer_config"] = convert_bytes_to_config_dict(response_data[3:])
+                self._base_global_time_of_data_stream = int.from_bytes(response_data[1:9], byteorder="little")
+                prev_command["sampling_period"] = int.from_bytes(response_data[9:11], byteorder="little")
+                prev_command["magnetometer_config"] = convert_bytes_to_config_dict(response_data[11:])
                 prev_command["timestamp"] = _get_formatted_utc_now()
                 # Tanner (6/11/21): This helps prevent against status beacon timeouts with beacons that come just after the data stream begins but before 1 second of data is available
                 self._time_of_last_beacon_secs = perf_counter()
@@ -825,7 +827,11 @@ class McCommunicationProcess(InstrumentCommProcess):
             num_data_packets_read,
             other_packet_info_list,
             unread_bytes,
-        ) = handle_data_packets(bytearray(self._data_packet_cache), self._active_sensors_list)
+        ) = handle_data_packets(
+            bytearray(self._data_packet_cache),
+            self._active_sensors_list,
+            self._base_global_time_of_data_stream,
+        )
         self._data_parsing_durations.append(_get_dur_of_data_parse_secs(data_parsing_start))
         self._data_parsing_num_packets_produced.append(num_data_packets_read)
 
