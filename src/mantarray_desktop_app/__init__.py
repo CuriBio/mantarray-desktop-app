@@ -248,7 +248,9 @@ from .process_monitor import MantarrayProcessesMonitor
 from .queue_container import MantarrayQueueContainer
 from .serial_comm_utils import convert_bitmask_to_config_dict
 from .serial_comm_utils import convert_bytes_to_config_dict
+from .serial_comm_utils import convert_bytes_to_subprotocol_dict
 from .serial_comm_utils import convert_metadata_bytes_to_str
+from .serial_comm_utils import convert_subprotocol_dict_to_bytes
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_status_code_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
@@ -569,4 +571,6 @@ __all__ = [
     "get_redacted_string",
     "UnrecognizedCommandFromServerToMainError",
     "IncorrectSamplingPeriodFromInstrumentError",
+    "convert_bytes_to_subprotocol_dict",
+    "convert_subprotocol_dict_to_bytes",
 ]

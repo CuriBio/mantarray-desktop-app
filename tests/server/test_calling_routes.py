@@ -1117,11 +1117,11 @@ def test_set_protocol__returns_error_code_with_invalid_total_protocol_duration(
                 "pulses": [
                     {
                         "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS,
-                        "phase_one_charge": 0,
-                        "interpulse_interval": 0,
-                        "phase_two_duration": 0,
-                        "phase_two_charge": 0,
-                        "repeat_delay_interval": 0,
+                        "phase_one_charge": 1,
+                        "interpulse_interval": 2,
+                        "phase_two_duration": 3,
+                        "phase_two_charge": 4,
+                        "repeat_delay_interval": 5,
                         "total_active_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS,
                     }
                 ]

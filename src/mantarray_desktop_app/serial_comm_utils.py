@@ -193,3 +193,35 @@ def convert_bytes_to_config_dict(
         bitmask = int.from_bytes(bitmask_bytes, byteorder="little")
         config_dict[module_id] = convert_bitmask_to_config_dict(bitmask)
     return config_dict
+
+
+def convert_subprotocol_dict_to_bytes(subprotocol_dict: Dict[str, int]) -> bytes:
+    is_null_subprotocol = not any(
+        val
+        for key, val in subprotocol_dict.items()
+        if key not in ("phase_one_duration", "total_active_duration")
+    )
+    return (
+        subprotocol_dict["phase_one_duration"].to_bytes(4, byteorder="little")
+        + subprotocol_dict["phase_one_charge"].to_bytes(2, byteorder="little", signed=True)
+        + subprotocol_dict["interpulse_interval"].to_bytes(4, byteorder="little")
+        + bytes(2)  # interpulse_interval amplitude (always 0)
+        + subprotocol_dict["phase_two_duration"].to_bytes(4, byteorder="little")
+        + subprotocol_dict["phase_two_charge"].to_bytes(2, byteorder="little", signed=True)
+        + subprotocol_dict["repeat_delay_interval"].to_bytes(4, byteorder="little")
+        + bytes(2)  # repeat_delay_interval amplitude (always 0)
+        + subprotocol_dict["total_active_duration"].to_bytes(4, byteorder="little")
+        + bytes([is_null_subprotocol])
+    )
+
+
+def convert_bytes_to_subprotocol_dict(subprotocol_bytes: bytes) -> Dict[str, int]:
+    return {
+        "phase_one_duration": int.from_bytes(subprotocol_bytes[:4], byteorder="little"),
+        "phase_one_charge": int.from_bytes(subprotocol_bytes[4:6], byteorder="little", signed=True),
+        "interpulse_interval": int.from_bytes(subprotocol_bytes[6:10], byteorder="little"),
+        "phase_two_duration": int.from_bytes(subprotocol_bytes[12:16], byteorder="little"),
+        "phase_two_charge": int.from_bytes(subprotocol_bytes[16:18], byteorder="little", signed=True),
+        "repeat_delay_interval": int.from_bytes(subprotocol_bytes[18:22], byteorder="little"),
+        "total_active_duration": int.from_bytes(subprotocol_bytes[24:28], byteorder="little"),
+    }

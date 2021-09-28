@@ -5,7 +5,9 @@ from zlib import crc32
 from freezegun import freeze_time
 from mantarray_desktop_app import convert_bitmask_to_config_dict
 from mantarray_desktop_app import convert_bytes_to_config_dict
+from mantarray_desktop_app import convert_bytes_to_subprotocol_dict
 from mantarray_desktop_app import convert_metadata_bytes_to_str
+from mantarray_desktop_app import convert_subprotocol_dict_to_bytes
 from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import create_magnetometer_config_bytes
@@ -31,6 +33,7 @@ from .helpers import random_bool
 
 
 __fixtures__ = [fixture_patch_print, fixture_mantarray_mc_simulator_no_beacon]
+
 
 API_EXAMPLE_MODULE_DICT = {
     SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: True,
@@ -250,3 +253,125 @@ def test_convert_bytes_to_config_dict__returns_correct_values_for_every_module_i
     test_bytes = create_magnetometer_config_bytes(expected_config_dict)
     actual = convert_bytes_to_config_dict(test_bytes)
     assert actual == expected_config_dict
+
+
+def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__when_subprotocol_is_not_a_delay():
+    test_pulse_dict = {
+        "phase_one_duration": 0x111,
+        "phase_one_charge": 0x333,
+        "interpulse_interval": 0x555,
+        "phase_two_duration": 0x777,
+        "phase_two_charge": -1,
+        "repeat_delay_interval": 0x999,
+        "total_active_duration": 0x1234,
+    }
+    # fmt: off
+    expected_bytes = bytes(
+        [
+            0x11, 1, 0, 0,  # phase_one_duration
+            0x33, 3,  # phase_one_charge
+            0x55, 5, 0, 0,  # interpulse_interval
+            0, 0,  # interpulse_interval amplitude (always 0)
+            0x77, 7, 0, 0,  # phase_two_duration
+            0xFF, 0xFF,  # phase_two_charge
+            0x99, 9, 0, 0,  # repeat_delay_interval
+            0, 0,  # repeat_delay_interval amplitude (always 0)
+            0x34, 0x12, 0, 0,  # total_active_duration
+            0,  # is_null_subprotocol
+        ]
+    )
+    # fmt: on
+    actual = convert_subprotocol_dict_to_bytes(test_pulse_dict)
+    assert actual == expected_bytes
+
+
+def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__when_subprotocol_is_a_delay():
+    test_pulse_dict = {
+        "phase_one_duration": 0x111,
+        "phase_one_charge": 0,
+        "interpulse_interval": 0,
+        "phase_two_duration": 0,
+        "phase_two_charge": 0,
+        "repeat_delay_interval": 0,
+        "total_active_duration": 0x111,
+    }
+    # fmt: off
+    expected_bytes = bytes(
+        [
+            0x11, 1, 0, 0,  # phase_one_duration
+            0, 0,  # phase_one_charge
+            0, 0, 0, 0,  # interpulse_interval
+            0, 0,  # interpulse_interval amplitude (always 0)
+            0, 0, 0, 0,  # phase_two_duration
+            0, 0,  # phase_two_charge
+            0, 0, 0, 0,  # repeat_delay_interval
+            0, 0,  # repeat_delay_interval amplitude (always 0)
+            0x11, 1, 0, 0,  # total_active_duration
+            1,  # is_null_subprotocol
+        ]
+    )
+    # fmt: on
+    actual = convert_subprotocol_dict_to_bytes(test_pulse_dict)
+    assert actual == expected_bytes
+
+
+def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__when_subprotocol_is_not_a_delay():
+    # fmt: off
+    test_bytes = bytes(
+        [
+            0x99, 9, 0, 0,  # phase_one_duration
+            0x77, 7,  # phase_one_charge
+            0x55, 5, 0, 0,  # interpulse_interval
+            0, 0,  # interpulse_interval amplitude (always 0)
+            0x33, 3, 0, 0,  # phase_two_duration
+            0xFF, 0xFF,  # phase_two_charge
+            0x11, 1, 0, 0,  # repeat_delay_interval
+            0, 0,  # repeat_delay_interval amplitude (always 0)
+            0x21, 0x43, 0, 0,  # total_active_duration
+            0,  # is_null_subprotocol
+        ]
+    )
+    # fmt: on
+    expected_pulse_dict = {
+        "phase_one_duration": 0x999,
+        "phase_one_charge": 0x777,
+        "interpulse_interval": 0x555,
+        "phase_two_duration": 0x333,
+        "phase_two_charge": -1,
+        "repeat_delay_interval": 0x111,
+        "total_active_duration": 0x4321,
+    }
+
+    actual = convert_bytes_to_subprotocol_dict(test_bytes)
+    assert actual == expected_pulse_dict
+
+
+def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__when_subprotocol_is_a_delay():
+    # fmt: off
+    test_bytes = bytes(
+        [
+            0x88, 8, 0, 0,  # phase_one_duration
+            0, 0,  # phase_one_charge
+            0, 0, 0, 0,  # interpulse_interval
+            0, 0,  # interpulse_interval amplitude (always 0)
+            0, 0, 0, 0,  # phase_two_duration
+            0, 0,  # phase_two_charge
+            0, 0, 0, 0,  # repeat_delay_interval
+            0, 0,  # repeat_delay_interval amplitude (always 0)
+            0x88, 8, 0, 0,  # total_active_duration
+            1,  # is_null_subprotocol
+        ]
+    )
+    # fmt: on
+    expected_pulse_dict = {
+        "phase_one_duration": 0x888,
+        "phase_one_charge": 0,
+        "interpulse_interval": 0,
+        "phase_two_duration": 0,
+        "phase_two_charge": 0,
+        "repeat_delay_interval": 0,
+        "total_active_duration": 0x888,
+    }
+
+    actual = convert_bytes_to_subprotocol_dict(test_bytes)
+    assert actual == expected_pulse_dict
