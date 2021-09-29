@@ -459,7 +459,7 @@ def _is_instrument_initialized() -> bool:
 @flask_app.route("/set_protocol", methods=["POST"])
 def set_protocol() -> Response:
     # pylint: disable=too-many-return-statements  # Tanner (8/9/21): lots of error codes that can be returned here
-    """Set the stimulation protocol in hardware memory.
+    """Set the stimulation protocols in hardware memory.
 
     Not available for Beta 1 instruments.
 
@@ -529,6 +529,7 @@ def set_protocol() -> Response:
                 return Response(status="400 Total active duration less than the duration of the subprotocol")
             # add total time for running this subprotocol to total time of protocol
             total_protocol_dur_microsecs += subprotocol["total_active_duration"]
+    # TODO remember to update this
 
     queue_command_to_main(
         {

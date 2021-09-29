@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime
 from typing import Any
 from typing import Dict
+from typing import Optional
 from typing import Union
 from uuid import UUID
 from zlib import crc32
@@ -229,15 +230,28 @@ def convert_bytes_to_subprotocol_dict(subprotocol_bytes: bytes) -> Dict[str, int
     }
 
 
-def convert_protocol_dict_to_bytes(protocol_dict: Dict[Any, Any]) -> bytes:
-    """Convert a protocol dictionary to bytes."""
-    expected_module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[
-        GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(protocol_dict["well_number"])
-    ]
-    protocol_bytes = bytes([expected_module_id])
-    for subprotocol_dict in protocol_dict["subprotocols"]:
-        protocol_bytes += convert_subprotocol_dict_to_bytes(subprotocol_dict)
-    protocol_bytes += bytes([protocol_dict["stimulation_type"] == "V"])  # control_method
-    protocol_bytes += bytes([protocol_dict["run_until_stopped"]])  # schedule_mode
-    protocol_bytes += bytes([0])  # data_type
-    return protocol_bytes
+def _convert_protocol_id_str_to_int(protocol_id: Optional[str]) -> int:
+    return 0 if protocol_id is None else ord(protocol_id) - ord("A") + 1
+
+
+def convert_stim_dict_to_bytes(stim_dict: Dict[Any, Any]) -> bytes:
+    """Convert a stimulation info dictionary to bytes."""
+    # add bytes for protocol definitions
+    stim_bytes = bytes([len(stim_dict["protocols"])])  # number of unique protocols
+    for protocol_dict in stim_dict["protocols"]:
+        stim_bytes += bytes([_convert_protocol_id_str_to_int(protocol_dict["protocol_id"])])  # protocol ID
+        stim_bytes += bytes([len(protocol_dict["subprotocols"])])  # num subprotocols
+        for subprotocol_dict in protocol_dict["subprotocols"]:
+            stim_bytes += convert_subprotocol_dict_to_bytes(subprotocol_dict)
+        stim_bytes += bytes([protocol_dict["stimulation_type"] == "V"])  # control_method
+        stim_bytes += bytes([protocol_dict["run_until_stopped"]])  # schedule_mode
+        stim_bytes += bytes([0])  # data_type, always 0 as of 9/29/21
+    # add bytes for module ID / protocol ID pairs
+    protocol_ids = [-1] * 24
+    for well_name, protocol_id in stim_dict["well_name_to_protocol_id"].items():
+        module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[
+            GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name)
+        ]
+        protocol_ids[module_id - 1] = _convert_protocol_id_str_to_int(protocol_id)
+    stim_bytes += bytes(protocol_ids)
+    return stim_bytes

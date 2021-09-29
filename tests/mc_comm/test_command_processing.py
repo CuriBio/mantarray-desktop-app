@@ -352,3 +352,45 @@ def test_McCommunicationProcess__processes_change_magnetometer_config_command(
     confirm_queue_is_eventually_of_size(output_queue, 1)
     message_to_main = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert message_to_main == expected_response
+
+
+def test_McCommunicationProcess__processes_set_protocol_command(
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    board_queues = four_board_mc_comm_process_no_handshake["board_queues"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    input_queue = board_queues[0][0]
+    output_queue = board_queues[0][1]
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+
+    # confirm preconditions
+    assert simulator.get_stim_protocols([None] * 24)
+
+    test_num_wells = 24
+    expected_protocols = [{"subprotocols": [None]} for _ in range(test_num_wells)]
+    # send command to mc_process
+    expected_response = {
+        "communication_type": "stimulation",
+        "command": "set_protocol",
+        "protocols": expected_protocols,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(expected_response), input_queue
+    )
+    # run mc_process to send command
+    invoke_process_run_and_check_errors(mc_process)
+    # run simulator to process command and send response
+    invoke_process_run_and_check_errors(simulator)
+    # assert that protocols were updated
+    assert simulator.get_stim_protocols() == expected_protocols
+    # run mc_process to process command response and send message back to main
+    invoke_process_run_and_check_errors(mc_process)
+    # confirm correct message sent to main
+    confirm_queue_is_eventually_of_size(output_queue, 1)
+    message_to_main = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert message_to_main == expected_response

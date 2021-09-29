@@ -466,6 +466,14 @@ class McCommunicationProcess(InstrumentCommProcess):
                 raise UnrecognizedCommandFromMainToMcCommError(
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
                 )
+        elif communication_type == "stimulation":
+            if comm_from_main["command"] == "set_protocol":
+                pass
+                # TODO raise error if set_protocol command received while stimulating
+            else:  # TODO unit test this
+                raise UnrecognizedCommandFromMainToMcCommError(
+                    f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
+                )
         elif communication_type == "metadata_comm":
             bytes_to_send = bytes([SERIAL_COMM_GET_METADATA_COMMAND_BYTE])
         else:
