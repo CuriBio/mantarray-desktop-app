@@ -261,7 +261,7 @@ def test_convert_bytes_to_config_dict__returns_correct_values_for_every_module_i
 
 
 def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__when_subprotocol_is_not_a_delay():
-    test_pulse_dict = {
+    test_subprotocol_dict = {
         "phase_one_duration": 0x111,
         "phase_one_charge": 0x333,
         "interpulse_interval": 0x555,
@@ -286,12 +286,12 @@ def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__when_subprot
         ]
     )
     # fmt: on
-    actual = convert_subprotocol_dict_to_bytes(test_pulse_dict)
+    actual = convert_subprotocol_dict_to_bytes(test_subprotocol_dict)
     assert actual == expected_bytes
 
 
 def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__when_subprotocol_is_a_delay():
-    test_pulse_dict = {
+    test_subprotocol_dict = {
         "phase_one_duration": 0x111,
         "phase_one_charge": 0,
         "interpulse_interval": 0,
@@ -316,7 +316,7 @@ def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__when_subprot
         ]
     )
     # fmt: on
-    actual = convert_subprotocol_dict_to_bytes(test_pulse_dict)
+    actual = convert_subprotocol_dict_to_bytes(test_subprotocol_dict)
     assert actual == expected_bytes
 
 
@@ -337,7 +337,7 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__when_subproto
         ]
     )
     # fmt: on
-    expected_pulse_dict = {
+    expected_subprotocol_dict = {
         "phase_one_duration": 0x999,
         "phase_one_charge": 0x777,
         "interpulse_interval": 0x555,
@@ -348,7 +348,7 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__when_subproto
     }
 
     actual = convert_bytes_to_subprotocol_dict(test_bytes)
-    assert actual == expected_pulse_dict
+    assert actual == expected_subprotocol_dict
 
 
 def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__when_subprotocol_is_a_delay():
@@ -368,7 +368,7 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__when_subproto
         ]
     )
     # fmt: on
-    expected_pulse_dict = {
+    expected_subprotocol_dict = {
         "phase_one_duration": 0x888,
         "phase_one_charge": 0,
         "interpulse_interval": 0,
@@ -379,14 +379,14 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__when_subproto
     }
 
     actual = convert_bytes_to_subprotocol_dict(test_bytes)
-    assert actual == expected_pulse_dict
+    assert actual == expected_subprotocol_dict
 
 
 def test_convert_protocol_dict_to_bytes__return_expected_bytes():
     test_protocol_dict = {
         "stimulation_type": choice(["C", "V"]),
         "well_number": "B1",
-        "total_protocol_duration": 10000,
+        "run_until_stopped": choice([True, False]),
         "subprotocols": [
             {
                 "phase_one_duration": randint(1, 50),
@@ -416,7 +416,7 @@ def test_convert_protocol_dict_to_bytes__return_expected_bytes():
     for subprotocol_dict in test_protocol_dict["subprotocols"]:
         expected_bytes += convert_subprotocol_dict_to_bytes(subprotocol_dict)
     expected_bytes += bytes([test_protocol_dict["stimulation_type"] == "V"])
-    expected_bytes += bytes(1)  # schedule_mode
+    expected_bytes += bytes([test_protocol_dict["run_until_stopped"]])
     expected_bytes += bytes(1)  # data_type
 
     actual = convert_protocol_dict_to_bytes(test_protocol_dict)

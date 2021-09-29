@@ -1205,8 +1205,8 @@ def test_set_protocol__populates_queue_to_process_monitor_with_new_protocol(
             {
                 "stimulation_type": "C",
                 "well_number": "B1",
-                "total_protocol_duration": -1,
-                "pulses": [
+                "run_until_stopped": True,
+                "subprotocols": [
                     {
                         "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
                         "phase_one_charge": 0,

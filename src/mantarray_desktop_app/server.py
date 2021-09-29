@@ -491,44 +491,44 @@ def set_protocol() -> Response:
             )
         except PositionInvalidForLabwareDefinitionError:
             return Response(status=f"400 Invalid well: {protocol['well_number']}")
-        # validate pulse dictionaries
+        # validate subprotocol dictionaries
         total_protocol_dur_microsecs = 0
-        for pulse in protocol["pulses"]:
-            # pulse components
-            if pulse["phase_one_duration"] <= 0:
-                return Response(status=f"400 Invalid phase one duration: {pulse['phase_one_duration']}")
-            if pulse["interpulse_interval"] < 0:
-                return Response(status=f"400 Invalid interpulse interval: {pulse['interpulse_interval']}")
-            if pulse["phase_two_duration"] < 0:
-                return Response(status=f"400 Invalid phase two duration: {pulse['phase_two_duration']}")
-            if abs(int(pulse["phase_one_charge"])) > max_abs_charge:
+        for subprotocol in protocol["subprotocols"]:
+            # subprotocol components
+            if subprotocol["phase_one_duration"] <= 0:
+                return Response(status=f"400 Invalid phase one duration: {subprotocol['phase_one_duration']}")
+            if subprotocol["interpulse_interval"] < 0:
                 return Response(
-                    status=f"400 Invalid phase one charge: {pulse['phase_one_charge']} {charge_unit}"
+                    status=f"400 Invalid interpulse interval: {subprotocol['interpulse_interval']}"
                 )
-            if abs(int(pulse["phase_two_charge"])) > max_abs_charge:
+            if subprotocol["phase_two_duration"] < 0:
+                return Response(status=f"400 Invalid phase two duration: {subprotocol['phase_two_duration']}")
+            if abs(int(subprotocol["phase_one_charge"])) > max_abs_charge:
                 return Response(
-                    status=f"400 Invalid phase two charge: {pulse['phase_two_charge']} {charge_unit}"
+                    status=f"400 Invalid phase one charge: {subprotocol['phase_one_charge']} {charge_unit}"
                 )
-            # delay before repeating pulse
-            if pulse["repeat_delay_interval"] < 0:
-                return Response(status=f"400 Invalid repeat delay interval: {pulse['repeat_delay_interval']}")
-            # make sure pulse duration (not including delay after) is not too large
+            if abs(int(subprotocol["phase_two_charge"])) > max_abs_charge:
+                return Response(
+                    status=f"400 Invalid phase two charge: {subprotocol['phase_two_charge']} {charge_unit}"
+                )
+            # delay before repeating subprotocol
+            if subprotocol["repeat_delay_interval"] < 0:
+                return Response(
+                    status=f"400 Invalid repeat delay interval: {subprotocol['repeat_delay_interval']}"
+                )
+            # make sure subprotocol duration (not including delay after) is not too large
             single_pulse_dur_microsecs = (
-                pulse["phase_one_duration"] + pulse["phase_two_duration"] + pulse["interpulse_interval"]
+                subprotocol["phase_one_duration"]
+                + subprotocol["phase_two_duration"]
+                + subprotocol["interpulse_interval"]
             )
             if single_pulse_dur_microsecs > STIM_MAX_PULSE_DURATION_MICROSECONDS:
                 return Response(status="400 Pulse duration too long")
-            # make sure pulse is set to run for at least the duration of a single complete pulse
-            if pulse["total_active_duration"] < single_pulse_dur_microsecs:
-                return Response(status="400 Total active duration less than the duration of the pulse")
-            # add total time for running this pulse to total time of protocol
-            total_protocol_dur_microsecs += pulse["total_active_duration"]
-        # make sure the total duration of the protocol is at least the sum of each pulse's total duration
-        if (
-            protocol["total_protocol_duration"] < total_protocol_dur_microsecs
-            and protocol["total_protocol_duration"] != -1
-        ):
-            return Response(status="400 Total protocol duration less than duration of all pulses")
+            # make sure subprotocol is set to run for at least one full pulse
+            if subprotocol["total_active_duration"] < single_pulse_dur_microsecs:
+                return Response(status="400 Total active duration less than the duration of the subprotocol")
+            # add total time for running this subprotocol to total time of protocol
+            total_protocol_dur_microsecs += subprotocol["total_active_duration"]
 
     queue_command_to_main(
         {

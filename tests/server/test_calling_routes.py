@@ -984,7 +984,7 @@ def test_set_protocol__returns_error_code_with_invalid_well_number(
 
 
 @pytest.mark.parametrize(
-    "test_pulse_item,test_value,test_stim_type,test_description",
+    "test_subprotocol_item,test_value,test_stim_type,test_description",
     [
         (
             "phase_one_charge",
@@ -1043,14 +1043,14 @@ def test_set_protocol__returns_error_code_with_invalid_well_number(
             "total_active_duration",
             STIM_MAX_PULSE_DURATION_MICROSECONDS - 1,
             "C",
-            "Total active duration less than the duration of the pulse",
+            "Total active duration less than the duration of the subprotocol",
         ),
     ],
 )
-def test_set_protocol__returns_error_code_with_single_invalid_pulse_value(
+def test_set_protocol__returns_error_code_with_single_invalid_subprotocol_value(
     client_and_server_manager_and_shared_values,
     mocker,
-    test_pulse_item,
+    test_subprotocol_item,
     test_value,
     test_stim_type,
     test_description,
@@ -1070,8 +1070,8 @@ def test_set_protocol__returns_error_code_with_single_invalid_pulse_value(
             {
                 "stimulation_type": test_stim_type,
                 "well_number": "A1",
-                "total_protocol_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS,
-                "pulses": [
+                "run_until_stopped": False,
+                "subprotocols": [
                     {
                         "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
                         "phase_one_charge": test_base_charge,
@@ -1087,51 +1087,10 @@ def test_set_protocol__returns_error_code_with_single_invalid_pulse_value(
         * 24
     }
     # add bad value
-    test_protocol_dict["protocols"][0]["pulses"][0][test_pulse_item] = test_value
+    test_protocol_dict["protocols"][0]["subprotocols"][0][test_subprotocol_item] = test_value
 
     response = test_client.post("/set_protocol", json=json.dumps(test_protocol_dict))
     assert f"400 {test_description}" in response.status
-
-
-@pytest.mark.parametrize(
-    "test_protocol_dur,test_description",
-    [
-        (-2, "returns error code with -2"),
-        (0, "returns error code with 0"),
-        (STIM_MAX_PULSE_DURATION_MICROSECONDS * 2 - 1, "returns error code when 1 µs too short"),
-    ],
-)
-def test_set_protocol__returns_error_code_with_invalid_total_protocol_duration(
-    client_and_server_manager_and_shared_values, test_protocol_dur, test_description
-):
-    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
-    shared_values_dict["beta_2_mode"] = True
-    shared_values_dict["stimulation_running"] = False
-
-    test_protocol_dict = {
-        "protocols": [
-            {
-                "stimulation_type": "V",
-                "well_number": "A1",
-                "total_protocol_duration": test_protocol_dur,
-                "pulses": [
-                    {
-                        "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS,
-                        "phase_one_charge": 1,
-                        "interpulse_interval": 2,
-                        "phase_two_duration": 3,
-                        "phase_two_charge": 4,
-                        "repeat_delay_interval": 5,
-                        "total_active_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS,
-                    }
-                ]
-                * 2,
-            }
-        ]
-        * 24
-    }
-    response = test_client.post("/set_protocol", json=json.dumps(test_protocol_dict))
-    assert "400 Total protocol duration less than duration of all pulses" in response.status
 
 
 def test_set_protocol__returns_error_code_when_pulse_duration_is_too_long(
@@ -1146,8 +1105,8 @@ def test_set_protocol__returns_error_code_when_pulse_duration_is_too_long(
             {
                 "stimulation_type": "V",
                 "well_number": "A1",
-                "total_protocol_duration": -1,
-                "pulses": [
+                "run_until_stopped": True,
+                "subprotocols": [
                     {
                         "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
                         "phase_one_charge": 0,

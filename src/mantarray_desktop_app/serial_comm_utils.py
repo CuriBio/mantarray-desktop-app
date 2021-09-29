@@ -237,7 +237,7 @@ def convert_protocol_dict_to_bytes(protocol_dict: Dict[Any, Any]) -> bytes:
     protocol_bytes = bytes([expected_module_id])
     for subprotocol_dict in protocol_dict["subprotocols"]:
         protocol_bytes += convert_subprotocol_dict_to_bytes(subprotocol_dict)
-    protocol_bytes += bytes([protocol_dict["stimulation_type"] == "V"])
-    protocol_bytes += bytes(1)  # schedule_mode
-    protocol_bytes += bytes(1)  # data_type
+    protocol_bytes += bytes([protocol_dict["stimulation_type"] == "V"])  # control_method
+    protocol_bytes += bytes([protocol_dict["run_until_stopped"]])  # schedule_mode
+    protocol_bytes += bytes([0])  # data_type
     return protocol_bytes
