@@ -18,6 +18,7 @@ from mantarray_file_manager import PCB_SERIAL_NUMBER_UUID
 from mantarray_file_manager import TAMPER_FLAG_UUID
 from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
 
+from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
@@ -26,6 +27,7 @@ from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIMESTAMP_EPOCH
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from .constants import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from .exceptions import SerialCommMetadataValueTooLargeError
 
 
@@ -225,3 +227,17 @@ def convert_bytes_to_subprotocol_dict(subprotocol_bytes: bytes) -> Dict[str, int
         "repeat_delay_interval": int.from_bytes(subprotocol_bytes[18:22], byteorder="little"),
         "total_active_duration": int.from_bytes(subprotocol_bytes[24:28], byteorder="little"),
     }
+
+
+def convert_protocol_dict_to_bytes(protocol_dict: Dict[Any, Any]) -> bytes:
+    """Convert a protocol dictionary to bytes."""
+    expected_module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[
+        GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(protocol_dict["well_number"])
+    ]
+    protocol_bytes = bytes([expected_module_id])
+    for subprotocol_dict in protocol_dict["subprotocols"]:
+        protocol_bytes += convert_subprotocol_dict_to_bytes(subprotocol_dict)
+    protocol_bytes += bytes([protocol_dict["stimulation_type"] == "V"])
+    protocol_bytes += bytes(1)  # schedule_mode
+    protocol_bytes += bytes(1)  # data_type
+    return protocol_bytes

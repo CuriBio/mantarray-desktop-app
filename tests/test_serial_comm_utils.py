@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 import datetime
+from random import choice
+from random import randint
 from zlib import crc32
 
 from freezegun import freeze_time
@@ -7,6 +9,7 @@ from mantarray_desktop_app import convert_bitmask_to_config_dict
 from mantarray_desktop_app import convert_bytes_to_config_dict
 from mantarray_desktop_app import convert_bytes_to_subprotocol_dict
 from mantarray_desktop_app import convert_metadata_bytes_to_str
+from mantarray_desktop_app import convert_protocol_dict_to_bytes
 from mantarray_desktop_app import convert_subprotocol_dict_to_bytes
 from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import create_data_packet
@@ -23,8 +26,10 @@ from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_EPOCH
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import SerialCommMetadataValueTooLargeError
 from mantarray_desktop_app import validate_checksum
+from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 import pytest
 
 from .fixtures import fixture_patch_print
@@ -375,3 +380,44 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__when_subproto
 
     actual = convert_bytes_to_subprotocol_dict(test_bytes)
     assert actual == expected_pulse_dict
+
+
+def test_convert_protocol_dict_to_bytes__return_expected_bytes():
+    test_protocol_dict = {
+        "stimulation_type": choice(["C", "V"]),
+        "well_number": "B1",
+        "total_protocol_duration": 10000,
+        "subprotocols": [
+            {
+                "phase_one_duration": randint(1, 50),
+                "phase_one_charge": randint(1, 100),
+                "interpulse_interval": randint(1, 50),
+                "phase_two_duration": randint(1, 100),
+                "phase_two_charge": randint(1, 100),
+                "repeat_delay_interval": randint(0, 50),
+                "total_active_duration": randint(150, 300),
+            },
+            {
+                "phase_one_duration": 250,
+                "phase_one_charge": 0,
+                "interpulse_interval": 0,
+                "phase_two_duration": 0,
+                "phase_two_charge": 0,
+                "repeat_delay_interval": 0,
+                "total_active_duration": 250,
+            },
+        ],
+    }
+
+    expected_module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[
+        GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(test_protocol_dict["well_number"])
+    ]
+    expected_bytes = bytes([expected_module_id])
+    for subprotocol_dict in test_protocol_dict["subprotocols"]:
+        expected_bytes += convert_subprotocol_dict_to_bytes(subprotocol_dict)
+    expected_bytes += bytes([test_protocol_dict["stimulation_type"] == "V"])
+    expected_bytes += bytes(1)  # schedule_mode
+    expected_bytes += bytes(1)  # data_type
+
+    actual = convert_protocol_dict_to_bytes(test_protocol_dict)
+    assert actual == expected_bytes
