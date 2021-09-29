@@ -40,6 +40,7 @@ from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
 from .exceptions import IncorrectMagnetometerConfigFromInstrumentError
+from .exceptions import IncorrectSamplingPeriodFromInstrumentError
 from .exceptions import UnrecognizedCommandFromServerToMainError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
 from .exceptions import UnrecognizedRecordingCommandError
@@ -361,13 +362,19 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         if communication_type in "acquisition_manager":
             if command == "start_managed_acquisition":
-                # TODO Tanner (5/22/21): Should add a way to check the sampling period as well
-                if (
-                    self._values_to_share_to_server["beta_2_mode"]
-                    and self._values_to_share_to_server["magnetometer_config_dict"]["magnetometer_config"]
-                    != communication["magnetometer_config"]
-                ):
-                    raise IncorrectMagnetometerConfigFromInstrumentError()
+                if self._values_to_share_to_server["beta_2_mode"]:
+                    if (
+                        self._values_to_share_to_server["magnetometer_config_dict"]["sampling_period"]
+                        != communication["sampling_period"]
+                    ):
+                        raise IncorrectSamplingPeriodFromInstrumentError(communication["sampling_period"])
+                    if (
+                        self._values_to_share_to_server["magnetometer_config_dict"]["magnetometer_config"]
+                        != communication["magnetometer_config"]
+                    ):
+                        raise IncorrectMagnetometerConfigFromInstrumentError(
+                            communication["magnetometer_config"]
+                        )
                 self._values_to_share_to_server["utc_timestamps_of_beginning_of_data_acquisition"] = [
                     communication["timestamp"]
                 ]

@@ -10,6 +10,7 @@ from mantarray_desktop_app import create_magnetometer_config_bytes
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
+from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import SERIAL_COMM_BOOT_UP_CODE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
@@ -133,7 +134,7 @@ def test_MantarrayMcSimulator__makes_status_beacon_available_to_read_every_5_sec
     # 5 seconds since previous beacon
     invoke_process_run_and_check_errors(simulator)
     expected_beacon_1 = create_data_packet(
-        expected_durs[1],
+        expected_durs[1] * MICROSECONDS_PER_CENTIMILLISECOND,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
         DEFAULT_SIMULATOR_STATUS_CODE,
@@ -144,7 +145,7 @@ def test_MantarrayMcSimulator__makes_status_beacon_available_to_read_every_5_sec
     # 6 seconds since previous beacon
     invoke_process_run_and_check_errors(simulator)
     expected_beacon_2 = create_data_packet(
-        expected_durs[2],
+        expected_durs[2] * MICROSECONDS_PER_CENTIMILLISECOND,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
         DEFAULT_SIMULATOR_STATUS_CODE,
@@ -662,11 +663,13 @@ def test_MantarrayMcSimulator__processes_start_data_streaming_command(
     mocker.patch.object(  # patch so no data packets will be sent
         mc_simulator, "_get_us_since_last_data_packet", autospec=True, return_value=0
     )
+    spied_global_timer = mocker.spy(simulator, "_get_global_timer")
 
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
     # set arbitrary sampling period
+    expected_sampling_period = 11000
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "set_sampling_period", "sampling_period": 10000}, testing_queue
+        {"command": "set_sampling_period", "sampling_period": expected_sampling_period}, testing_queue
     )
 
     # need to send command once before data is being streamed and once after to test the response in both cases
@@ -687,6 +690,8 @@ def test_MantarrayMcSimulator__processes_start_data_streaming_command(
         # assert response is correct
         additional_bytes = convert_to_timestamp_bytes(expected_pc_timestamp) + bytes([response_byte_value])
         if response_byte_value == SERIAL_COMM_STREAM_MODE_CHANGED_BYTE:
+            additional_bytes += spied_global_timer.spy_return.to_bytes(8, byteorder="little")
+            additional_bytes += expected_sampling_period.to_bytes(2, byteorder="little")
             additional_bytes += create_magnetometer_config_bytes(simulator.get_magnetometer_config())
         command_response_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
         command_response = simulator.read(size=command_response_size)
@@ -726,7 +731,7 @@ def test_MantarrayMcSimulator__processes_stop_data_streaming_command(
     command_response = simulator.read(
         size=get_full_packet_size_from_packet_body_size(
             SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
-            + 1
+            + 11  # 1 for response byte, 2 for sampling period bytes, 8 for global timer bytes
             + len(create_magnetometer_config_bytes(simulator.get_magnetometer_config()))
         )
     )
@@ -818,6 +823,10 @@ def test_MantarrayMcSimulator__processes_change_magnetometer_config_command__whe
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+
+    mocker.patch.object(  # patch so no data packets will be sent
+        mc_simulator, "_get_us_since_last_data_packet", autospec=True, return_value=0
+    )
 
     # enable data streaming
     test_sampling_period = 3000

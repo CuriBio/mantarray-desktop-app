@@ -20,6 +20,7 @@ from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
 from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import IncorrectMagnetometerConfigFromInstrumentError
+from mantarray_desktop_app import IncorrectSamplingPeriodFromInstrumentError
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import MantarrayMcSimulator
@@ -1208,8 +1209,10 @@ def test_MantarrayProcessesMonitor__raises_error_if_config_dict_in_start_data_st
 
     test_num_wells = 24
     expected_config_dict = create_magnetometer_config_dict(test_num_wells)
+    expected_sampling_period = 15000
     shared_values_dict["magnetometer_config_dict"] = {
-        "magnetometer_config": copy.deepcopy(expected_config_dict)
+        "magnetometer_config": copy.deepcopy(expected_config_dict),
+        "sampling_period": expected_sampling_period,
     }
     shared_values_dict["beta_2_mode"] = True
 
@@ -1220,11 +1223,44 @@ def test_MantarrayProcessesMonitor__raises_error_if_config_dict_in_start_data_st
             "communication_type": "acquisition_manager",
             "command": "start_managed_acquisition",
             "magnetometer_config": expected_config_dict,
+            "sampling_period": expected_sampling_period,
             "timestamp": None,
         },
         ic_to_main_queue,
     )
-    with pytest.raises(IncorrectMagnetometerConfigFromInstrumentError):
+    with pytest.raises(IncorrectMagnetometerConfigFromInstrumentError, match=str(expected_config_dict)):
+        invoke_process_run_and_check_errors(monitor_thread)
+
+
+def test_MantarrayProcessesMonitor__raises_error_if_sampling_period_in_start_data_stream_command_response_from_instrument_does_not_match_expected_value(
+    test_process_manager_creator, test_monitor, patch_print
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+    queues = test_process_manager.queue_container()
+    ic_to_main_queue = queues.get_communication_queue_from_instrument_comm_to_main(0)
+
+    test_num_wells = 24
+    expected_config_dict = create_magnetometer_config_dict(test_num_wells)
+    expected_sampling_period = 16000
+    shared_values_dict["magnetometer_config_dict"] = {
+        "magnetometer_config": copy.deepcopy(expected_config_dict),
+        "sampling_period": expected_sampling_period,
+    }
+    shared_values_dict["beta_2_mode"] = True
+
+    bad_sampling_period = expected_sampling_period - 1
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {
+            "communication_type": "acquisition_manager",
+            "command": "start_managed_acquisition",
+            "magnetometer_config": expected_config_dict,
+            "sampling_period": bad_sampling_period,
+            "timestamp": None,
+        },
+        ic_to_main_queue,
+    )
+    with pytest.raises(IncorrectSamplingPeriodFromInstrumentError, match=str(bad_sampling_period)):
         invoke_process_run_and_check_errors(monitor_thread)
 
 

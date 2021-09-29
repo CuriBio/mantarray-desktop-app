@@ -170,13 +170,17 @@ def set_magnetometer_config_and_start_streaming(
 
 def test_handle_data_packets__handles_two_full_data_packets_correctly__and_assigns_correct_data_type_to_parsed_values__when_all_channels_enabled():
     test_num_data_packets = 2
-    expected_time_indices = [5000, 10000]
+    expected_time_indices = [0xFFFFFFFFFFFFFF00, 0xFFFFFFFFFFFFFF01]
+
+    base_global_time = randint(0, 100)
 
     test_data_packet_bytes = bytes(0)
     expected_data_points = []
     expected_time_offsets = []
     for packet_num in range(test_num_data_packets):
-        data_packet_body, test_offsets, test_data = create_data_stream_body(expected_time_indices[packet_num])
+        data_packet_body, test_offsets, test_data = create_data_stream_body(
+            expected_time_indices[packet_num] + base_global_time
+        )
         test_data_packet_bytes += create_data_packet(
             random_timestamp(),
             SERIAL_COMM_MAIN_MODULE_ID,
@@ -199,7 +203,9 @@ def test_handle_data_packets__handles_two_full_data_packets_correctly__and_assig
         num_data_packets_read,
         other_packet_info,
         unread_bytes,
-    ) = handle_data_packets(bytearray(test_data_packet_bytes), FULL_DATA_PACKET_CHANNEL_LIST)
+    ) = handle_data_packets(
+        bytearray(test_data_packet_bytes), FULL_DATA_PACKET_CHANNEL_LIST, base_global_time
+    )
 
     assert actual_time_indices.dtype == np.uint64
     assert actual_time_offsets.dtype == np.uint16
@@ -260,7 +266,7 @@ def test_handle_data_packets__handles_two_full_data_packets_correctly__when_acti
         num_data_packets_read,
         other_packet_info,
         unread_bytes,
-    ) = handle_data_packets(bytearray(test_data_packet_bytes), active_channels_list)
+    ) = handle_data_packets(bytearray(test_data_packet_bytes), active_channels_list, 0)
 
     np.testing.assert_array_equal(actual_time_indices, expected_time_indices)
     np.testing.assert_array_equal(actual_time_offsets, expected_time_offsets)
@@ -278,7 +284,7 @@ def test_handle_data_packets__handles_single_packet_with_incorrect_packet_type_c
         num_data_packets_read,
         other_packet_info,
         unread_bytes,
-    ) = handle_data_packets(bytearray(TEST_OTHER_PACKET), FULL_DATA_PACKET_CHANNEL_LIST)
+    ) = handle_data_packets(bytearray(TEST_OTHER_PACKET), FULL_DATA_PACKET_CHANNEL_LIST, 0)
 
     assert actual_time_indices.shape[0] == 0
     assert actual_time_offsets.shape[1] == 0
@@ -305,7 +311,7 @@ def test_handle_data_packets__handles_single_packet_with_incorrect_module_id_cor
         num_data_packets_read,
         other_packet_info,
         unread_bytes,
-    ) = handle_data_packets(bytearray(test_data_packet), FULL_DATA_PACKET_CHANNEL_LIST)
+    ) = handle_data_packets(bytearray(test_data_packet), FULL_DATA_PACKET_CHANNEL_LIST, 0)
 
     assert actual_time_indices.shape[0] == 0
     assert actual_time_offsets.shape[1] == 0
@@ -341,7 +347,7 @@ def test_handle_data_packets__handles_interrupting_packet_followed_by_data_packe
         num_data_packets_read,
         other_packet_info,
         unread_bytes,
-    ) = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST)
+    ) = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0)
 
     np.testing.assert_array_equal(actual_time_indices, expected_time_index)
     np.testing.assert_array_equal(actual_time_offsets.flatten(), expected_time_offsets)
@@ -369,7 +375,7 @@ def test_handle_data_packets__handles_single_data_packet_followed_by_interruptin
         num_data_packets_read,
         other_packet_info,
         unread_bytes,
-    ) = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST)
+    ) = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0)
 
     assert actual_time_indices.shape[0] == 1
     assert actual_time_offsets.shape[1] == 1
@@ -399,7 +405,7 @@ def test_handle_data_packets__handles_single_data_packet_followed_by_incomplete_
         num_data_packets_read,
         other_packet_info,
         unread_bytes,
-    ) = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST)
+    ) = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0)
 
     assert actual_time_indices.shape[0] == 1
     assert actual_time_offsets.shape[1] == 1
@@ -440,7 +446,7 @@ def test_handle_data_packets__handles_interrupting_packet_in_between_two_data_pa
         num_data_packets_read,
         other_packet_info,
         unread_bytes,
-    ) = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST)
+    ) = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0)
 
     expected_time_offsets = np.array(expected_time_offsets).reshape(
         (len(expected_time_offsets) // test_num_data_packets, test_num_data_packets), order="F"
@@ -487,7 +493,7 @@ def test_handle_data_packets__handles_two_interrupting_packets_in_between_two_da
         num_data_packets_read,
         other_packet_info,
         unread_bytes,
-    ) = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST)
+    ) = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0)
 
     expected_time_offsets = np.array(expected_time_offsets).reshape(
         (len(expected_time_offsets) // test_num_data_packets, test_num_data_packets), order="F"
@@ -510,7 +516,7 @@ def test_handle_data_packets__raises_error_when_packet_from_instrument_has_incor
     bad_magic_word_bytes = b"NOT CURI"
     bad_packet = bad_magic_word_bytes + TEST_OTHER_PACKET[len(SERIAL_COMM_MAGIC_WORD_BYTES) :]
     with pytest.raises(SerialCommIncorrectMagicWordFromMantarrayError, match=str(bad_magic_word_bytes)):
-        handle_data_packets(bytearray(bad_packet), FULL_DATA_PACKET_CHANNEL_LIST)
+        handle_data_packets(bytearray(bad_packet), FULL_DATA_PACKET_CHANNEL_LIST, 0)
 
 
 def test_handle_data_packets__raises_error_when_packet_from_instrument_has_incorrect_crc32_checksum(
@@ -520,7 +526,7 @@ def test_handle_data_packets__raises_error_when_packet_from_instrument_has_incor
     bad_checksum_bytes = bad_checksum.to_bytes(SERIAL_COMM_CHECKSUM_LENGTH_BYTES, byteorder="little")
     bad_packet = TEST_OTHER_PACKET[:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES] + bad_checksum_bytes
     with pytest.raises(SerialCommIncorrectChecksumFromInstrumentError) as exc_info:
-        handle_data_packets(bytearray(bad_packet), FULL_DATA_PACKET_CHANNEL_LIST)
+        handle_data_packets(bytearray(bad_packet), FULL_DATA_PACKET_CHANNEL_LIST, 0)
 
     expected_checksum = int.from_bytes(bad_packet[-SERIAL_COMM_CHECKSUM_LENGTH_BYTES:], byteorder="little")
     assert str(bad_checksum) in exc_info.value.args[0]
@@ -566,7 +572,7 @@ def test_handle_data_packets__performance_test():
         num_data_packets_read,
         other_packet_info,
         unread_bytes,
-    ) = handle_data_packets(bytearray(test_data_packet_bytes), FULL_DATA_PACKET_CHANNEL_LIST)
+    ) = handle_data_packets(bytearray(test_data_packet_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0)
     dur = time.perf_counter_ns() - start
     # print(f"Dur (ns): {dur}, (seconds): {dur / 1e9}")  # pylint:disable=wrong-spelling-in-comment # Tanner (5/11/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
 
@@ -595,9 +601,10 @@ def test_McCommunicationProcess__processes_start_managed_acquisition_command__wh
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     # set arbitrary sampling period
+    expected_sampling_period = 60000
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "set_sampling_period", "sampling_period": 60000}, testing_queue
+        {"command": "set_sampling_period", "sampling_period": expected_sampling_period}, testing_queue
     )
 
     spied_get_utc_now = mocker.spy(mc_comm, "_get_formatted_utc_now")
@@ -617,6 +624,7 @@ def test_McCommunicationProcess__processes_start_managed_acquisition_command__wh
     invoke_process_run_and_check_errors(mc_process)
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
     command_response = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    expected_response["sampling_period"] = expected_sampling_period
     expected_response["magnetometer_config"] = simulator.get_magnetometer_config()
     expected_response["timestamp"] = spied_get_utc_now.spy_return
     assert command_response == expected_response

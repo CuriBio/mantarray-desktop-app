@@ -105,7 +105,7 @@ cdef extern from "../zlib/zlib.h":
 
 # Tanner (5/26/21): Can't import these constants from python and use them in array declarations, so have to redefine here
 DEF MAGIC_WORD_LEN = 8
-DEF TIME_INDEX_LEN = 5
+DEF TIME_INDEX_LEN = 8
 DEF NUM_CHANNELS_PER_SENSOR = 3
 
 # these values exist only for importing the constants defined above into the python test suite
@@ -125,8 +125,6 @@ cdef int SERIAL_COMM_MAIN_MODULE_ID_C_INT = SERIAL_COMM_MAIN_MODULE_ID
 cdef int SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE_C_INT = SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 cdef int SERIAL_COMM_ADDITIONAL_BYTES_INDEX_C_INT = SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 
-cdef uint64_t TIME_INDEX_MASK = 0xFFFFFFFFFF  # 5 lowest bytes of value
-
 
 cdef packed struct SensorData:
     uint16_t time_offset
@@ -144,7 +142,7 @@ cdef packed struct Packet:
 
 
 def handle_data_packets(
-    unsigned char [:] read_bytes, list active_channels_list
+    unsigned char [:] read_bytes, list active_channels_list, uint64_t base_global_time
 ) -> Tuple[NDArray, NDArray, NDArray, int, List[Tuple[int, int, int, bytearray]], bytearray]:
     """Read the given number of data packets from the instrument.
 
@@ -238,7 +236,7 @@ def handle_data_packets(
             continue
 
         # add to time index array
-        time_indices_view[data_packet_idx] = (<uint64_t *> &p.time_index)[0] & TIME_INDEX_MASK
+        time_indices_view[data_packet_idx] = (<uint64_t *> &p.time_index)[0] - base_global_time
         # add next data points to data array
         sensor_data_ptr = &p.data
         channel_arr_idx = 0
