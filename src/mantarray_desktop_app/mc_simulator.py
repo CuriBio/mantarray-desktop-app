@@ -516,11 +516,12 @@ class MantarrayMcSimulator(InfiniteProcess):
             response_body += bytes([self._is_stimulating()])
         elif packet_type == SERIAL_COMM_START_STIM_PACKET_TYPE:
             command_failed = "well_name_to_protocol_id" not in self._stim_info or self._is_stimulating()
+            response_body += bytes([command_failed])
             if not command_failed:
+                response_body += self._get_global_timer().to_bytes(8, byteorder="little")
                 for well_name, protocol_id in self._stim_info["well_name_to_protocol_id"].items():
                     module_id = convert_well_name_to_module_id(well_name)
                     self._stim_running_statuses[module_id] = protocol_id is not None
-            response_body += bytes([command_failed])
         elif packet_type == SERIAL_COMM_STOP_STIM_PACKET_TYPE:
             pass  # TODO
         else:
@@ -666,7 +667,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                 self._get_timestamp(),
                 SERIAL_COMM_MAIN_MODULE_ID,
                 SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE,
-                self._create_packet_body(),
+                self._create_data_packet_body(),
             )
             # increment values
             self._time_index_us += self._sampling_period_us
@@ -675,7 +676,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         # update timepoint
         self._timepoint_of_last_data_packet_us += num_packets_to_send * self._sampling_period_us
 
-    def _create_packet_body(self) -> bytes:
+    def _create_data_packet_body(self) -> bytes:
         # add time index to data packet body
         data_packet_body = self._time_index_us.to_bytes(
             SERIAL_COMM_TIME_INDEX_LENGTH_BYTES, byteorder="little"

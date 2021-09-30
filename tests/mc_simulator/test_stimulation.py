@@ -121,10 +121,12 @@ def test_MantarrayMcSimulator__processes_start_stimulation_command__before_proto
 
 # TODO consider setting one protocol to run longer than all others and try sending this command when only that one is left running and assert that the stim statuses didn't change
 def test_MantarrayMcSimulator__processes_start_stimulation_command__after_protocols_have_been_set(
-    mantarray_mc_simulator_no_beacon,
+    mantarray_mc_simulator_no_beacon, mocker
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+
+    spied_global_timer = mocker.spy(simulator, "_get_global_timer")
 
     # set single arbitrary protocol applied to wells randomly
     stim_info = simulator.get_stim_info()
@@ -162,13 +164,16 @@ def test_MantarrayMcSimulator__processes_start_stimulation_command__after_protoc
         # assert that stimulation was started on wells that were assigned a protocol
         assert simulator.get_stim_running_statuses() == expected_stim_running_statuses
         # assert command response is correct
-        expected_size = get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1)
+        additional_bytes = convert_to_timestamp_bytes(expected_pc_timestamp) + bytes([response_byte_value])
+        if not response_byte_value:
+            additional_bytes += spied_global_timer.spy_return.to_bytes(8, byteorder="little")
+        expected_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
         stim_command_response = simulator.read(size=expected_size)
         assert_serial_packet_is_expected(
             stim_command_response,
             SERIAL_COMM_MAIN_MODULE_ID,
             SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-            additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp) + bytes([response_byte_value]),
+            additional_bytes=additional_bytes,
         )
 
 
