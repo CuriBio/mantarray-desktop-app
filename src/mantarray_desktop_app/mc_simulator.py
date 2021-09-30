@@ -65,12 +65,15 @@ from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
+from .constants import SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE
+from .constants import SERIAL_COMM_START_STIM_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
+from .constants import SERIAL_COMM_STOP_STIM_PACKET_TYPE
 from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
@@ -82,6 +85,7 @@ from .exceptions import UnrecognizedSerialCommModuleIdError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .exceptions import UnrecognizedSimulatorTestCommandError
 from .serial_comm_utils import convert_bytes_to_config_dict
+from .serial_comm_utils import convert_stim_bytes_to_dict
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_status_code_bytes
 from .serial_comm_utils import create_data_packet
@@ -198,12 +202,13 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._setup_data_interpolator()
         # simulator values (set in _handle_boot_up_config)
         self._reboot_time_secs: Optional[float]
+        self._boot_up_time_secs: Optional[float] = None
+        self._baseline_time_us: Optional[int]
+        self._timepoint_of_time_sync_us: Optional[int]
         self._status_code: int
         self._magnetometer_config: Dict[int, Dict[int, bool]]
-        self._baseline_time_usec: Optional[int]
-        self._timepoint_of_time_sync_us: Optional[int]
         self._sampling_period_us: int
-        self._boot_up_time_secs: Optional[float] = None
+        self._stim_info: Dict[str, Any]
         self._handle_boot_up_config()
 
     def start(self) -> None:
@@ -270,9 +275,10 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._reboot_time_secs = None
         self._status_code = SERIAL_COMM_BOOT_UP_CODE
         self._reset_magnetometer_config()
-        self._baseline_time_usec = None
+        self._baseline_time_us = None
         self._timepoint_of_time_sync_us = None
         self._sampling_period_us = 0
+        self._stim_info = {}
         if reboot:
             drain_queue(self._input_queue)
             # only boot up time automatically after a reboot
@@ -309,7 +315,7 @@ class MantarrayMcSimulator(InfiniteProcess):
     def get_eeprom_bytes(self) -> bytes:
         eeprom_dict = {
             "Status Code": self._status_code,
-            "Time Sync Value received from PC (microseconds)": self._baseline_time_usec,
+            "Time Sync Value received from PC (microseconds)": self._baseline_time_us,
             "Is Streaming Data": self._is_streaming_data,
             "Sampling Period (microseconds)": self._sampling_period_us,
         }
@@ -328,6 +334,9 @@ class MantarrayMcSimulator(InfiniteProcess):
         data_indices = np.arange(0, MICRO_TO_BASE_CONVERSION, sampling_period_us)
         return self._interpolator(data_indices).astype(np.int16)
 
+    def get_stim_info(self) -> Dict[str, Any]:
+        return self._stim_info
+
     def get_num_wells(self) -> int:
         return self._num_wells
 
@@ -341,8 +350,8 @@ class MantarrayMcSimulator(InfiniteProcess):
     def _get_timestamp(self) -> int:
         return (
             self._get_absolute_timer()
-            if self._baseline_time_usec is None
-            else (self._baseline_time_usec + self._get_us_since_time_sync())
+            if self._baseline_time_us is None
+            else (self._baseline_time_us + self._get_us_since_time_sync())
         )
 
     def _send_data_packet(
@@ -477,7 +486,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             elif command_byte == SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE:
                 response_body += self.get_eeprom_bytes()
             elif command_byte == SERIAL_COMM_SET_TIME_COMMAND_BYTE:
-                self._baseline_time_usec = int.from_bytes(response_body, byteorder="little")
+                self._baseline_time_us = int.from_bytes(response_body, byteorder="little")
                 self._timepoint_of_time_sync_us = _perf_counter_us()
                 status_code_update = SERIAL_COMM_IDLE_READY_CODE
                 self._ready_to_send_barcode = True
@@ -491,6 +500,14 @@ class MantarrayMcSimulator(InfiniteProcess):
         elif packet_type == SERIAL_COMM_HANDSHAKE_PACKET_TYPE:
             self._time_of_last_handshake_secs = perf_counter()
             response_body += convert_to_status_code_bytes(self._status_code)
+        elif packet_type == SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE:
+            self._stim_info = convert_stim_bytes_to_dict(
+                comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
+            )
+        elif packet_type == SERIAL_COMM_START_STIM_PACKET_TYPE:
+            pass  # TODO
+        elif packet_type == SERIAL_COMM_STOP_STIM_PACKET_TYPE:
+            pass  # TODO
         else:
             module_id = comm_from_pc[SERIAL_COMM_MODULE_ID_INDEX]
             raise UnrecognizedSerialCommPacketTypeError(
@@ -591,7 +608,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                     raise NotImplementedError(
                         "baseline_time cannot be set through testing queue in boot up or time sync state"
                     )
-                self._baseline_time_usec = baseline_time
+                self._baseline_time_us = baseline_time
                 self._timepoint_of_time_sync_us = _perf_counter_us()
             # Tanner (4/12/21): simulator has no other way of reaching this state since it has no physical components that can break, so this is the only way to reach this state and the status beacon should be sent automatically
             if status_code == SERIAL_COMM_FATAL_ERROR_CODE:

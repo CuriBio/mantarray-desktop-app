@@ -23,6 +23,7 @@ from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
+from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
@@ -234,7 +235,7 @@ def _convert_protocol_id_str_to_int(protocol_id: Optional[str]) -> int:
     return 0 if protocol_id is None else ord(protocol_id) - ord("A") + 1
 
 
-def convert_stim_dict_to_bytes(stim_dict: Dict[Any, Any]) -> bytes:
+def convert_stim_dict_to_bytes(stim_dict: Dict[str, Any]) -> bytes:
     """Convert a stimulation info dictionary to bytes."""
     # add bytes for protocol definitions
     stim_bytes = bytes([len(stim_dict["protocols"])])  # number of unique protocols
@@ -243,9 +244,9 @@ def convert_stim_dict_to_bytes(stim_dict: Dict[Any, Any]) -> bytes:
         stim_bytes += bytes([len(protocol_dict["subprotocols"])])  # num subprotocols
         for subprotocol_dict in protocol_dict["subprotocols"]:
             stim_bytes += convert_subprotocol_dict_to_bytes(subprotocol_dict)
-        stim_bytes += bytes([protocol_dict["stimulation_type"] == "V"])  # control_method
-        stim_bytes += bytes([protocol_dict["run_until_stopped"]])  # schedule_mode
-        stim_bytes += bytes([0])  # data_type, always 0 as of 9/29/21
+        stim_bytes += bytes([protocol_dict["stimulation_type"] == "V"])  # control method
+        stim_bytes += bytes([protocol_dict["run_until_stopped"]])  # schedule mode
+        stim_bytes += bytes([0])  # data type, always 0 as of 9/29/21
     # add bytes for module ID / protocol ID pairs
     protocol_ids = [-1] * 24
     for well_name, protocol_id in stim_dict["well_name_to_protocol_id"].items():
@@ -255,3 +256,55 @@ def convert_stim_dict_to_bytes(stim_dict: Dict[Any, Any]) -> bytes:
         protocol_ids[module_id - 1] = _convert_protocol_id_str_to_int(protocol_id)
     stim_bytes += bytes(protocol_ids)
     return stim_bytes
+
+
+def _convert_protocol_id_int_to_str(protocol_id: int) -> Optional[str]:
+    return None if protocol_id == 0 else chr(ord("A") + protocol_id - 1)
+
+
+def convert_stim_bytes_to_dict(stim_bytes: bytes) -> Dict[str, Any]:
+    """Convert a stimulation info bytes to dictionary."""
+    stim_info_dict = {
+        "protocols": [],
+        "well_name_to_protocol_id": {
+            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): None for well_idx in range(24)
+        },
+    }
+
+    # convert protocol definition bytes
+    num_protocols = stim_bytes[0]
+    curr_byte_idx = 1
+    for _ in range(num_protocols):
+        protocol_id_int = stim_bytes[curr_byte_idx]
+        num_subprotocols = stim_bytes[curr_byte_idx + 1]
+        curr_byte_idx += 2
+
+        subprotocol_list = []
+        for _ in range(num_subprotocols):
+            subprotocol_list.append(
+                convert_bytes_to_subprotocol_dict(stim_bytes[curr_byte_idx : curr_byte_idx + 28])
+            )
+            curr_byte_idx += 29  # is_null_subprotocol byte is unused here
+
+        stimulation_type = "V" if stim_bytes[curr_byte_idx] else "C"
+        run_until_stopped = bool(stim_bytes[curr_byte_idx + 1])
+
+        stim_info_dict["protocols"].append(  # type: ignore
+            {
+                "protocol_id": _convert_protocol_id_int_to_str(protocol_id_int),
+                "stimulation_type": stimulation_type,
+                "run_until_stopped": run_until_stopped,
+                "subprotocols": subprotocol_list,
+            }
+        )
+        curr_byte_idx += 3
+
+    # convert module ID / protocol ID pair bytes
+    for module_id in range(1, 25):
+        protocol_id = _convert_protocol_id_int_to_str(stim_bytes[curr_byte_idx])
+        well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(
+            SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
+        )
+        stim_info_dict["well_name_to_protocol_id"][well_name] = protocol_id  # type: ignore
+        curr_byte_idx += 1
+    return stim_info_dict

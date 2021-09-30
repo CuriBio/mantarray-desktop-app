@@ -448,14 +448,14 @@ def test_convert_stim_dict_to_bytes__return_expected_bytes():
     expected_bytes += convert_subprotocol_dict_to_bytes(stim_info_dict["protocols"][0]["subprotocols"][1])
     expected_bytes += bytes([0])  # control method
     expected_bytes += bytes([1])  # schedule mode
-    expected_bytes += bytes(1)  # data_type
+    expected_bytes += bytes(1)  # data type
     # bytes for protocol D
     expected_bytes += bytes([4])  # protocol ID
     expected_bytes += bytes([1])  # num subprotocols in protocol A
     expected_bytes += convert_subprotocol_dict_to_bytes(stim_info_dict["protocols"][1]["subprotocols"][0])
     expected_bytes += bytes([1])  # control method
     expected_bytes += bytes([0])  # schedule mode
-    expected_bytes += bytes(1)  # data_type
+    expected_bytes += bytes(1)  # data type
     # module/protocol pairs
     expected_bytes += bytes(expected_module_protocol_pairs)
 
