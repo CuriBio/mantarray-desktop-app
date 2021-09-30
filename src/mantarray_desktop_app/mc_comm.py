@@ -70,6 +70,7 @@ from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from .constants import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
+from .constants import SERIAL_COMM_STOP_STIM_PACKET_TYPE
 from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
@@ -477,8 +478,8 @@ class McCommunicationProcess(InstrumentCommProcess):
                 # TODO raise error if set_protocols command received while stimulating
             elif comm_from_main["command"] == "start_stimulation":
                 packet_type = SERIAL_COMM_START_STIM_PACKET_TYPE
-            # elif comm_from_main["command"] == "stop_stimulation":
-            #     pass
+            elif comm_from_main["command"] == "stop_stimulation":
+                packet_type = SERIAL_COMM_STOP_STIM_PACKET_TYPE
             else:
                 raise UnrecognizedCommandFromMainToMcCommError(
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
@@ -628,6 +629,8 @@ class McCommunicationProcess(InstrumentCommProcess):
                 pass  # TODO check response here
             elif prev_command["command"] == "start_stimulation":
                 # TODO self._base_global_time_of_data_stream = __
+                pass  # TODO check response
+            elif prev_command["command"] == "stop_stimulation":
                 pass  # TODO check response
 
             del prev_command[
