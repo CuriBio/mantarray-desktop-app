@@ -523,7 +523,12 @@ class MantarrayMcSimulator(InfiniteProcess):
                     module_id = convert_well_name_to_module_id(well_name)
                     self._stim_running_statuses[module_id] = protocol_id is not None
         elif packet_type == SERIAL_COMM_STOP_STIM_PACKET_TYPE:
-            pass  # TODO
+            command_failed = not self._is_stimulating()
+            response_body += bytes([command_failed])
+            if not command_failed:
+                self._stim_running_statuses = {
+                    module_id: False for module_id in self._stim_running_statuses.keys()
+                }
         else:
             module_id = comm_from_pc[SERIAL_COMM_MODULE_ID_INDEX]
             raise UnrecognizedSerialCommPacketTypeError(

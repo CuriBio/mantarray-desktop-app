@@ -13,6 +13,7 @@ from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_START_STIM_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_STOP_STIM_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from stdlib_utils import invoke_process_run_and_check_errors
@@ -140,6 +141,8 @@ def test_MantarrayMcSimulator__processes_start_stimulation_command__after_protoc
     ]
     stim_info["well_name_to_protocol_id"] = {
         GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): choice(["A", None])
+        if well_idx
+        else "A"
         for well_idx in range(24)
     }
     expected_stim_running_statuses = {
@@ -177,4 +180,55 @@ def test_MantarrayMcSimulator__processes_start_stimulation_command__after_protoc
         )
 
 
-# SERIAL_COMM_STOP_STIM_PACKET_TYPE
+def test_MantarrayMcSimulator__processes_stop_stimulation_command(mantarray_mc_simulator_no_beacon, mocker):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+
+    # set single arbitrary protocol applied to wells randomly
+    stim_info = simulator.get_stim_info()
+    stim_info["protocols"] = [
+        {
+            "protocol_id": "B",
+            "stimulation_type": "V",
+            "run_until_stopped": True,
+            "subprotocols": [get_random_pulse_subprotocol()],
+        }
+    ]
+    stim_info["well_name_to_protocol_id"] = {
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): choice(["B", None])
+        if well_idx
+        else "B"
+        for well_idx in range(24)
+    }
+    initial_stim_running_statuses = {
+        convert_well_name_to_module_id(well_name): bool(protocol_id)
+        for well_name, protocol_id in stim_info["well_name_to_protocol_id"].items()
+    }
+    simulator.get_stim_running_statuses().update(initial_stim_running_statuses)
+
+    for response_byte_value in (
+        SERIAL_COMM_COMMAND_SUCCESS_BYTE,
+        SERIAL_COMM_COMMAND_FAILURE_BYTE,
+    ):
+        # send start stim command
+        expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+        stop_stimulation_command = create_data_packet(
+            expected_pc_timestamp,
+            SERIAL_COMM_MAIN_MODULE_ID,
+            SERIAL_COMM_STOP_STIM_PACKET_TYPE,
+        )
+        simulator.write(stop_stimulation_command)
+
+        invoke_process_run_and_check_errors(simulator)
+        # assert that stimulation was started on wells that were assigned a protocol
+        assert simulator.get_stim_running_statuses() == {module_id: False for module_id in range(1, 25)}
+        # assert command response is correct
+        additional_bytes = convert_to_timestamp_bytes(expected_pc_timestamp) + bytes([response_byte_value])
+        expected_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
+        stim_command_response = simulator.read(size=expected_size)
+        assert_serial_packet_is_expected(
+            stim_command_response,
+            SERIAL_COMM_MAIN_MODULE_ID,
+            SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+            additional_bytes=additional_bytes,
+        )
