@@ -1189,7 +1189,7 @@ def test_set_stim_status__populates_queue_to_process_monitor_with_new_stim_statu
     assert communication["status"] is expected_status_bool
 
 
-def test_set_protocol__populates_queue_to_process_monitor_with_new_protocol(
+def test_set_protocols__populates_queue_to_process_monitor_with_new_protocol(
     client_and_server_manager_and_shared_values,
 ):
     (
@@ -1221,12 +1221,12 @@ def test_set_protocol__populates_queue_to_process_monitor_with_new_protocol(
         ]
         * 24
     }
-    response = test_client.post("/set_protocol", json=json.dumps(test_protocol_dict))
+    response = test_client.post("/set_protocols", json=json.dumps(test_protocol_dict))
     assert response.status_code == 200
 
     comm_queue = server_manager.get_queue_to_main()
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "stimulation"
-    assert communication["command"] == "set_protocol"
+    assert communication["command"] == "set_protocols"
     assert communication["protocols"] == test_protocol_dict["protocols"]

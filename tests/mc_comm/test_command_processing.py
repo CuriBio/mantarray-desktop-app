@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import copy
 import queue
+from random import choice
 import time
 
 from mantarray_desktop_app import convert_to_metadata_bytes
@@ -8,6 +9,7 @@ from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import UnrecognizedCommandFromMainToMcCommError
+from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 import pytest
@@ -21,6 +23,8 @@ from ..fixtures_mc_comm import fixture_runnable_four_board_mc_comm_process
 from ..fixtures_mc_comm import set_connection_and_register_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
+from ..fixtures_mc_simulator import get_null_subprotocol
+from ..fixtures_mc_simulator import get_random_pulse_subprotocol
 from ..fixtures_mc_simulator import set_simulator_idle_ready
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import handle_putting_multiple_objects_into_empty_queue
@@ -354,7 +358,7 @@ def test_McCommunicationProcess__processes_change_magnetometer_config_command(
     assert message_to_main == expected_response
 
 
-def test_McCommunicationProcess__processes_set_protocol_command(
+def test_McCommunicationProcess__processes_set_protocols_command(
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
 ):
@@ -369,15 +373,32 @@ def test_McCommunicationProcess__processes_set_protocol_command(
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     # confirm preconditions
-    assert simulator.get_stim_protocols([None] * 24)
+    assert simulator.get_stim_info() == {}
 
+    expected_protocol_ids = (None, "A", "B", "C")
     test_num_wells = 24
-    expected_protocols = [{"subprotocols": [None]} for _ in range(test_num_wells)]
+    expected_stim_info = {
+        "protocols": [
+            {
+                "protocol_id": protocol_id,
+                "stimulation_type": choice(["V", "C"]),
+                "run_until_stopped": choice([False, True]),
+                "subprotocols": [
+                    choice([get_random_pulse_subprotocol(), get_null_subprotocol(500)]) for _ in range(2)
+                ],
+            }
+            for protocol_id in expected_protocol_ids[1:]
+        ],
+        "well_name_to_protocol_id": {
+            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): choice(expected_protocol_ids)
+            for well_idx in range(test_num_wells)
+        },
+    }
     # send command to mc_process
     expected_response = {
         "communication_type": "stimulation",
-        "command": "set_protocol",
-        "protocols": expected_protocols,
+        "command": "set_protocols",
+        "stim_info": expected_stim_info,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(expected_response), input_queue
@@ -387,7 +408,7 @@ def test_McCommunicationProcess__processes_set_protocol_command(
     # run simulator to process command and send response
     invoke_process_run_and_check_errors(simulator)
     # assert that protocols were updated
-    assert simulator.get_stim_protocols() == expected_protocols
+    assert simulator.get_stim_info() == expected_stim_info
     # run mc_process to process command response and send message back to main
     invoke_process_run_and_check_errors(mc_process)
     # confirm correct message sent to main

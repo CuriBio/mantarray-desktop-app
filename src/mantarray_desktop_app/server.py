@@ -10,7 +10,7 @@ Custom HTTP Error Codes:
 * 400 - Call to /insert_xem_command_into_queue/set_mantarray_serial_number with invalid serial_number parameter
 * 400 - Call to /set_magnetometer_config with invalid configuration dict
 * 400 - Call to /set_magnetometer_config with invalid or missing sampling period
-* 400 - Call to /set_protocol with an invalid protocol
+* 400 - Call to /set_protocols with an invalid protocol
 * 400 - Call to /set_stim_status with missing 'running' status
 * 403 - Call to /start_recording with is_hardware_test_recording=False after calling route with is_hardware_test_recording=True (default value)
 * 403 - Call to any /insert_xem_command_into_queue/* route when in Beta 2 mode
@@ -18,8 +18,8 @@ Custom HTTP Error Codes:
 * 403 - Call to /set_magnetometer_config when in Beta 1 mode
 * 403 - Call to /set_magnetometer_config while data is streaming in Beta 2 mode
 * 403 - Call to /set_magnetometer_config before instrument finishes initializing in Beta 2 mode
-* 403 - Call to /set_protocol when in Beta 1 mode
-* 403 - Call to /set_protocol while stimulation is running
+* 403 - Call to /set_protocols when in Beta 1 mode
+* 403 - Call to /set_protocols while stimulation is running
 * 403 - Call to /set_stim_status when in Beta 1 mode
 * 404 - Route not implemented
 * 406 - Call to /set_stim_status when before protocol is set
@@ -456,14 +456,14 @@ def _is_instrument_initialized() -> bool:
     )
 
 
-@flask_app.route("/set_protocol", methods=["POST"])
-def set_protocol() -> Response:
+@flask_app.route("/set_protocols", methods=["POST"])
+def set_protocols() -> Response:
     # pylint: disable=too-many-return-statements  # Tanner (8/9/21): lots of error codes that can be returned here
     """Set the stimulation protocols in hardware memory.
 
     Not available for Beta 1 instruments.
 
-    Can be invoked by: curl -d '<stimulation protocol as json>' -H 'Content-Type: application/json' -X POST http://localhost:4567/set_protocol
+    Can be invoked by: curl -d '<stimulation protocol as json>' -H 'Content-Type: application/json' -X POST http://localhost:4567/set_protocols
     """
     shared_values_dict = _get_values_from_process_monitor()
     if not shared_values_dict["beta_2_mode"]:
@@ -534,7 +534,7 @@ def set_protocol() -> Response:
     queue_command_to_main(
         {
             "communication_type": "stimulation",
-            "command": "set_protocol",
+            "command": "set_protocols",
             "protocols": protocol_list,
         }
     )

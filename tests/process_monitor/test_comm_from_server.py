@@ -740,7 +740,7 @@ def test_MantarrayProcessesMonitor__processes_set_stim_status_command(
     assert actual == test_command
 
 
-def test_MantarrayProcessesMonitor__processes_set_protocol_command(
+def test_MantarrayProcessesMonitor__processes_set_protocols_command(
     test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
@@ -754,7 +754,7 @@ def test_MantarrayProcessesMonitor__processes_set_protocol_command(
 
     test_command = {
         "communication_type": "stimulation",
-        "command": "set_protocol",
+        "command": "set_protocols",
         "protocols": [None] * 24,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, server_to_main_queue)

@@ -907,37 +907,37 @@ def test_set_stim_status__returns_code_and_message_if_new_status_is_the_same_as_
     assert response.status.endswith("Status not updated") is True
 
 
-def test_set_protocol__returns_error_code_if_called_in_beta_1_mode(
+def test_set_protocols__returns_error_code_if_called_in_beta_1_mode(
     client_and_server_manager_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = False
 
-    response = test_client.post("/set_protocol")
+    response = test_client.post("/set_protocols")
     assert response.status_code == 403
     assert response.status.endswith("Route cannot be called in beta 1 mode") is True
 
 
-def test_set_protocol__returns_error_code_if_called_while_stimulation_is_running(
+def test_set_protocols__returns_error_code_if_called_while_stimulation_is_running(
     client_and_server_manager_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["stimulation_running"] = True
 
-    response = test_client.post("/set_protocol")
+    response = test_client.post("/set_protocols")
     assert response.status_code == 403
     assert response.status.endswith("Cannot change protocol while stimulation is running") is True
 
 
-def test_set_protocol__returns_error_code_if_protocol_list_does_not_contain_enough_items(
+def test_set_protocols__returns_error_code_if_protocol_list_does_not_contain_enough_items(
     client_and_server_manager_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["stimulation_running"] = False
 
-    response = test_client.post("/set_protocol", json=json.dumps({"protocols": [None] * 23}))
+    response = test_client.post("/set_protocols", json=json.dumps({"protocols": [None] * 23}))
     assert response.status_code == 400
     assert response.status.endswith("Not enough protocols for all 24 wells") is True
 
@@ -950,7 +950,7 @@ def test_set_protocol__returns_error_code_if_protocol_list_does_not_contain_enou
         ("A", "return error code with invalid string"),
     ],
 )
-def test_set_protocol__returns_error_code_with_invalid_stimulation_type(
+def test_set_protocols__returns_error_code_with_invalid_stimulation_type(
     client_and_server_manager_and_shared_values, test_stimulation_type, test_description
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
@@ -958,7 +958,7 @@ def test_set_protocol__returns_error_code_with_invalid_stimulation_type(
     shared_values_dict["stimulation_running"] = False
 
     test_protocol_dict = {"protocols": [{"stimulation_type": test_stimulation_type}] * 24}
-    response = test_client.post("/set_protocol", json=json.dumps(test_protocol_dict))
+    response = test_client.post("/set_protocols", json=json.dumps(test_protocol_dict))
     assert response.status_code == 400
     assert response.status.endswith(f"Invalid stimulation type: {test_stimulation_type}") is True
 
@@ -970,7 +970,7 @@ def test_set_protocol__returns_error_code_with_invalid_stimulation_type(
         ("A99", "return error code with well A99"),
     ],
 )
-def test_set_protocol__returns_error_code_with_invalid_well_number(
+def test_set_protocols__returns_error_code_with_invalid_well_number(
     client_and_server_manager_and_shared_values, test_well_number, test_description
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
@@ -978,7 +978,7 @@ def test_set_protocol__returns_error_code_with_invalid_well_number(
     shared_values_dict["stimulation_running"] = False
 
     test_protocol_dict = {"protocols": [{"stimulation_type": "C", "well_number": test_well_number}] * 24}
-    response = test_client.post("/set_protocol", json=json.dumps(test_protocol_dict))
+    response = test_client.post("/set_protocols", json=json.dumps(test_protocol_dict))
     assert response.status_code == 400
     assert response.status.endswith(f"Invalid well: {test_well_number}") is True
 
@@ -1047,7 +1047,7 @@ def test_set_protocol__returns_error_code_with_invalid_well_number(
         ),
     ],
 )
-def test_set_protocol__returns_error_code_with_single_invalid_subprotocol_value(
+def test_set_protocols__returns_error_code_with_single_invalid_subprotocol_value(
     client_and_server_manager_and_shared_values,
     mocker,
     test_subprotocol_item,
@@ -1089,11 +1089,11 @@ def test_set_protocol__returns_error_code_with_single_invalid_subprotocol_value(
     # add bad value
     test_protocol_dict["protocols"][0]["subprotocols"][0][test_subprotocol_item] = test_value
 
-    response = test_client.post("/set_protocol", json=json.dumps(test_protocol_dict))
+    response = test_client.post("/set_protocols", json=json.dumps(test_protocol_dict))
     assert f"400 {test_description}" in response.status
 
 
-def test_set_protocol__returns_error_code_when_pulse_duration_is_too_long(
+def test_set_protocols__returns_error_code_when_pulse_duration_is_too_long(
     client_and_server_manager_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
@@ -1121,5 +1121,5 @@ def test_set_protocol__returns_error_code_when_pulse_duration_is_too_long(
         ]
         * 24
     }
-    response = test_client.post("/set_protocol", json=json.dumps(test_protocol_dict))
+    response = test_client.post("/set_protocols", json=json.dumps(test_protocol_dict))
     assert "400 Pulse duration too long" in response.status

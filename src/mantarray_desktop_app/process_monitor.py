@@ -186,7 +186,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             command = communication["command"]
             if command == "set_stim_status":
                 self._values_to_share_to_server["stimulation_running"] = communication["status"]
-            elif command == "set_protocol":
+            elif command == "set_protocols":
                 self._values_to_share_to_server["stimulation_protocols"] = communication["protocols"]
             else:
                 # Tanner (8/9/21): could make this a custom error if needed

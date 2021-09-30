@@ -59,6 +59,7 @@ from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
+from .constants import SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_SOFT_ERROR_CODE
@@ -98,6 +99,7 @@ from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .instrument_comm import InstrumentCommProcess
 from .mc_simulator import MantarrayMcSimulator
 from .serial_comm_utils import convert_bytes_to_config_dict
+from .serial_comm_utils import convert_stim_dict_to_bytes
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
 from .serial_comm_utils import create_data_packet
@@ -425,6 +427,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             return
         board_idx = 0
         bytes_to_send: bytes
+        packet_type = SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 
         communication_type = comm_from_main["communication_type"]
         if communication_type == "mantarray_naming":
@@ -467,9 +470,10 @@ class McCommunicationProcess(InstrumentCommProcess):
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
                 )
         elif communication_type == "stimulation":
-            if comm_from_main["command"] == "set_protocol":
-                pass
-                # TODO raise error if set_protocol command received while stimulating
+            if comm_from_main["command"] == "set_protocols":
+                packet_type = SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
+                bytes_to_send = convert_stim_dict_to_bytes(comm_from_main["stim_info"])
+                # TODO raise error if set_protocols command received while stimulating
             else:  # TODO unit test this
                 raise UnrecognizedCommandFromMainToMcCommError(
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
@@ -484,7 +488,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._send_data_packet(
             board_idx,
             SERIAL_COMM_MAIN_MODULE_ID,
-            SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+            packet_type,
             bytes_to_send,
         )
         comm_from_main["timepoint"] = perf_counter()
@@ -728,6 +732,8 @@ class McCommunicationProcess(InstrumentCommProcess):
                     prev_command["hardware_test_message"] = "Data stream already stopped"  # pragma: no cover
                 self._is_stopping_data_stream = False
                 self._is_data_streaming = False
+            elif prev_command["command"] == "set_protocols":
+                pass  # TODO check response here
 
             del prev_command[
                 "timepoint"

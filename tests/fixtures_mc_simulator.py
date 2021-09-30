@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from multiprocessing import Queue as MPQueue
+from random import randint
 import time
 
 from mantarray_desktop_app import convert_to_status_code_bytes
@@ -39,6 +40,31 @@ def set_simulator_idle_ready(simulator_fixture):
         testing_queue,
     )
     invoke_process_run_and_check_errors(simulator)
+
+
+def get_null_subprotocol(duration):
+    return {
+        "phase_one_duration": duration,
+        "phase_one_charge": 0,
+        "interpulse_interval": 0,
+        "phase_two_duration": 0,
+        # pylint: disable=duplicate-code
+        "phase_two_charge": 0,
+        "repeat_delay_interval": 0,
+        "total_active_duration": duration,
+    }
+
+
+def get_random_pulse_subprotocol():
+    return {
+        "phase_one_duration": randint(1, 500),
+        "phase_one_charge": randint(1, 1000),
+        "interpulse_interval": randint(0, 500),
+        "phase_two_duration": randint(1, 1000),
+        "phase_two_charge": randint(1, 1000),
+        "repeat_delay_interval": randint(0, 500),
+        "total_active_duration": randint(1500, 3000),
+    }
 
 
 @pytest.fixture(scope="function", name="mantarray_mc_simulator")

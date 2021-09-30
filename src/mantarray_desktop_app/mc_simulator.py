@@ -237,6 +237,10 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._timepoint_of_last_data_packet_us = None
 
     @property
+    def _is_stimulating(self) -> bool:
+        return False
+
+    @property
     def in_waiting(self) -> int:
         """Only use to determine if a read can be done.
 
@@ -467,16 +471,16 @@ class MantarrayMcSimulator(InfiniteProcess):
                 response_body += self._update_magnetometer_config(comm_from_pc)
             elif command_byte == SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE:
                 is_data_already_streaming = self._is_streaming_data
-                response_byte = int(self._is_streaming_data)
-                response_body += bytes([response_byte])
+                response_byte_val = int(self._is_streaming_data)
+                response_body += bytes([response_byte_val])
                 self._is_streaming_data = True
                 if not is_data_already_streaming:
                     response_body += self._time_index_us.to_bytes(8, byteorder="little")
                     response_body += self._sampling_period_us.to_bytes(2, byteorder="little")
                     response_body += create_magnetometer_config_bytes(self._magnetometer_config)
             elif command_byte == SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE:
-                response_byte = int(not self._is_streaming_data)
-                response_body += bytes([response_byte])
+                response_byte_val = int(not self._is_streaming_data)
+                response_body += bytes([response_byte_val])
                 self._is_streaming_data = False
             elif command_byte == SERIAL_COMM_GET_METADATA_COMMAND_BYTE:
                 metadata_bytes = bytes(0)
@@ -504,6 +508,8 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._stim_info = convert_stim_bytes_to_dict(
                 comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
             )
+            response_byte_val = int(self._is_stimulating)
+            response_body += bytes([response_byte_val])
         elif packet_type == SERIAL_COMM_START_STIM_PACKET_TYPE:
             pass  # TODO
         elif packet_type == SERIAL_COMM_STOP_STIM_PACKET_TYPE:
