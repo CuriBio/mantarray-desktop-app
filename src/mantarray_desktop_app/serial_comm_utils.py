@@ -58,7 +58,7 @@ def create_data_packet(
     timestamp: int,
     module_id: int,
     packet_type: int,
-    packet_data: bytes,
+    packet_data: bytes = bytes(0),
 ) -> bytes:
     """Create a data packet to send to the PC."""
     packet_body = convert_to_timestamp_bytes(timestamp)
@@ -231,6 +231,13 @@ def convert_bytes_to_subprotocol_dict(subprotocol_bytes: bytes) -> Dict[str, int
     }
 
 
+def convert_well_name_to_module_id(well_name: str) -> int:
+    module_id: int = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[
+        GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name)
+    ]
+    return module_id
+
+
 def _convert_protocol_id_str_to_int(protocol_id: Optional[str]) -> int:
     return 0 if protocol_id is None else ord(protocol_id) - ord("A") + 1
 
@@ -250,12 +257,17 @@ def convert_stim_dict_to_bytes(stim_dict: Dict[str, Any]) -> bytes:
     # add bytes for module ID / protocol ID pairs
     protocol_ids = [-1] * 24
     for well_name, protocol_id in stim_dict["well_name_to_protocol_id"].items():
-        module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[
-            GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name)
-        ]
+        module_id = convert_well_name_to_module_id(well_name)
         protocol_ids[module_id - 1] = _convert_protocol_id_str_to_int(protocol_id)
     stim_bytes += bytes(protocol_ids)
     return stim_bytes
+
+
+def convert_module_id_to_well_name(module_id: int) -> str:
+    well_name: str = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(
+        SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
+    )
+    return well_name
 
 
 def _convert_protocol_id_int_to_str(protocol_id: int) -> Optional[str]:
@@ -302,9 +314,7 @@ def convert_stim_bytes_to_dict(stim_bytes: bytes) -> Dict[str, Any]:
     # convert module ID / protocol ID pair bytes
     for module_id in range(1, 25):
         protocol_id = _convert_protocol_id_int_to_str(stim_bytes[curr_byte_idx])
-        well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(
-            SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
-        )
+        well_name = convert_module_id_to_well_name(module_id)
         stim_info_dict["well_name_to_protocol_id"][well_name] = protocol_id  # type: ignore
         curr_byte_idx += 1
     return stim_info_dict

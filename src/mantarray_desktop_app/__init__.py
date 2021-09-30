@@ -86,7 +86,9 @@ from .constants import SERIAL_COMM_BAUD_RATE
 from .constants import SERIAL_COMM_BOOT_UP_CODE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+from .constants import SERIAL_COMM_COMMAND_FAILURE_BYTE
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+from .constants import SERIAL_COMM_COMMAND_SUCCESS_BYTE
 from .constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from .constants import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
 from .constants import SERIAL_COMM_FATAL_ERROR_CODE
@@ -132,8 +134,6 @@ from .constants import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from .constants import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
 from .constants import SERIAL_COMM_STOP_STIM_PACKET_TYPE
-from .constants import SERIAL_COMM_STREAM_MODE_CHANGED_BYTE
-from .constants import SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE
 from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
@@ -253,11 +253,13 @@ from .serial_comm_utils import convert_bitmask_to_config_dict
 from .serial_comm_utils import convert_bytes_to_config_dict
 from .serial_comm_utils import convert_bytes_to_subprotocol_dict
 from .serial_comm_utils import convert_metadata_bytes_to_str
+from .serial_comm_utils import convert_module_id_to_well_name
 from .serial_comm_utils import convert_stim_dict_to_bytes
 from .serial_comm_utils import convert_subprotocol_dict_to_bytes
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_status_code_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
+from .serial_comm_utils import convert_well_name_to_module_id
 from .serial_comm_utils import create_data_packet
 from .serial_comm_utils import create_magnetometer_config_bytes
 from .serial_comm_utils import create_sensor_axis_bitmask
@@ -520,8 +522,8 @@ __all__ = [
     "InstrumentSoftError",
     "SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE",
     "SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE",
-    "SERIAL_COMM_STREAM_MODE_CHANGED_BYTE",
-    "SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE",
+    "SERIAL_COMM_COMMAND_SUCCESS_BYTE",
+    "SERIAL_COMM_COMMAND_FAILURE_BYTE",
     "InstrumentDataStreamingAlreadyStartedError",
     "InstrumentDataStreamingAlreadyStoppedError",
     "SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE",
@@ -581,4 +583,6 @@ __all__ = [
     "SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE",
     "SERIAL_COMM_START_STIM_PACKET_TYPE",
     "SERIAL_COMM_STOP_STIM_PACKET_TYPE",
+    "convert_module_id_to_well_name",
+    "convert_well_name_to_module_id",
 ]

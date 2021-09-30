@@ -73,7 +73,9 @@ from mantarray_desktop_app import SERIAL_COMM_BAUD_RATE
 from mantarray_desktop_app import SERIAL_COMM_BOOT_UP_CODE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_COMMAND_FAILURE_BYTE
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_COMMAND_SUCCESS_BYTE
 from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from mantarray_desktop_app import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_FATAL_ERROR_CODE
@@ -121,8 +123,6 @@ from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_STOP_STIM_PACKET_TYPE
-from mantarray_desktop_app import SERIAL_COMM_STREAM_MODE_CHANGED_BYTE
-from mantarray_desktop_app import SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE
 from mantarray_desktop_app import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_CY
 from mantarray_desktop_app import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
@@ -462,8 +462,8 @@ def test_serial_comm():
     assert SERIAL_COMM_SET_TIME_COMMAND_BYTE == 8
     assert SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE == 9
 
-    assert SERIAL_COMM_STREAM_MODE_CHANGED_BYTE == 0
-    assert SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE == 1
+    assert SERIAL_COMM_COMMAND_SUCCESS_BYTE == 0
+    assert SERIAL_COMM_COMMAND_FAILURE_BYTE == 1
 
     assert SERIAL_COMM_METADATA_BYTES_LENGTH == 32
 

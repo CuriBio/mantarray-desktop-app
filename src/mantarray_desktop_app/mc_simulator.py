@@ -88,6 +88,7 @@ from .serial_comm_utils import convert_bytes_to_config_dict
 from .serial_comm_utils import convert_stim_bytes_to_dict
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_status_code_bytes
+from .serial_comm_utils import convert_well_name_to_module_id
 from .serial_comm_utils import create_data_packet
 from .serial_comm_utils import create_magnetometer_config_bytes
 from .serial_comm_utils import validate_checksum
@@ -209,6 +210,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._magnetometer_config: Dict[int, Dict[int, bool]]
         self._sampling_period_us: int
         self._stim_info: Dict[str, Any]
+        self._stim_running_statuses: Dict[int, bool]
         self._handle_boot_up_config()
 
     def start(self) -> None:
@@ -236,9 +238,8 @@ class MantarrayMcSimulator(InfiniteProcess):
         else:
             self._timepoint_of_last_data_packet_us = None
 
-    @property
     def _is_stimulating(self) -> bool:
-        return False
+        return any(self._stim_running_statuses.values())
 
     @property
     def in_waiting(self) -> int:
@@ -283,6 +284,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._timepoint_of_time_sync_us = None
         self._sampling_period_us = 0
         self._stim_info = {}
+        self._stim_running_statuses = {module_id: False for module_id in range(1, self._num_wells + 1)}
         if reboot:
             drain_queue(self._input_queue)
             # only boot up time automatically after a reboot
@@ -339,7 +341,12 @@ class MantarrayMcSimulator(InfiniteProcess):
         return self._interpolator(data_indices).astype(np.int16)
 
     def get_stim_info(self) -> Dict[str, Any]:
+        """Mainly for use in unit tests."""
         return self._stim_info
+
+    def get_stim_running_statuses(self) -> Dict[int, bool]:
+        """Mainly for use in unit tests."""
+        return self._stim_running_statuses
 
     def get_num_wells(self) -> int:
         return self._num_wells
@@ -471,16 +478,14 @@ class MantarrayMcSimulator(InfiniteProcess):
                 response_body += self._update_magnetometer_config(comm_from_pc)
             elif command_byte == SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE:
                 is_data_already_streaming = self._is_streaming_data
-                response_byte_val = int(self._is_streaming_data)
-                response_body += bytes([response_byte_val])
+                response_body += bytes([is_data_already_streaming])
                 self._is_streaming_data = True
                 if not is_data_already_streaming:
                     response_body += self._time_index_us.to_bytes(8, byteorder="little")
                     response_body += self._sampling_period_us.to_bytes(2, byteorder="little")
                     response_body += create_magnetometer_config_bytes(self._magnetometer_config)
             elif command_byte == SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE:
-                response_byte_val = int(not self._is_streaming_data)
-                response_body += bytes([response_byte_val])
+                response_body += bytes([not self._is_streaming_data])
                 self._is_streaming_data = False
             elif command_byte == SERIAL_COMM_GET_METADATA_COMMAND_BYTE:
                 metadata_bytes = bytes(0)
@@ -508,10 +513,14 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._stim_info = convert_stim_bytes_to_dict(
                 comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
             )
-            response_byte_val = int(self._is_stimulating)
-            response_body += bytes([response_byte_val])
+            response_body += bytes([self._is_stimulating()])
         elif packet_type == SERIAL_COMM_START_STIM_PACKET_TYPE:
-            pass  # TODO
+            command_failed = "well_name_to_protocol_id" not in self._stim_info or self._is_stimulating()
+            if not command_failed:
+                for well_name, protocol_id in self._stim_info["well_name_to_protocol_id"].items():
+                    module_id = convert_well_name_to_module_id(well_name)
+                    self._stim_running_statuses[module_id] = protocol_id is not None
+            response_body += bytes([command_failed])
         elif packet_type == SERIAL_COMM_STOP_STIM_PACKET_TYPE:
             pass  # TODO
         else:
