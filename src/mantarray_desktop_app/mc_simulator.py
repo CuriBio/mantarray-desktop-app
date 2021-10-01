@@ -515,11 +515,11 @@ class MantarrayMcSimulator(InfiniteProcess):
             )
             response_body += bytes([self._is_stimulating()])
         elif packet_type == SERIAL_COMM_START_STIM_PACKET_TYPE:
-            command_failed = "well_name_to_protocol_id" not in self._stim_info or self._is_stimulating()
+            command_failed = "protocol_assignments" not in self._stim_info or self._is_stimulating()
             response_body += bytes([command_failed])
             if not command_failed:
                 response_body += self._get_global_timer().to_bytes(8, byteorder="little")
-                for well_name, protocol_id in self._stim_info["well_name_to_protocol_id"].items():
+                for well_name, protocol_id in self._stim_info["protocol_assignments"].items():
                     module_id = convert_well_name_to_module_id(well_name)
                     self._stim_running_statuses[module_id] = protocol_id is not None
         elif packet_type == SERIAL_COMM_STOP_STIM_PACKET_TYPE:

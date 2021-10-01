@@ -41,7 +41,7 @@ def create_random_stim_info():
             }
             for pid in protocol_ids[1:]
         ],
-        "well_name_to_protocol_id": {
+        "protocol_assignments": {
             GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): choice(protocol_ids)
             for well_idx in range(24)
         },
@@ -89,7 +89,7 @@ def test_McCommunicationProcess__processes_start_and_stop_stimulation_commands__
     expected_stim_running_statuses = (
         {
             convert_well_name_to_module_id(well_name): bool(protocol_id)
-            for well_name, protocol_id in expected_stim_info["well_name_to_protocol_id"].items()
+            for well_name, protocol_id in expected_stim_info["protocol_assignments"].items()
         },
         {module_id: False for module_id in range(1, 25)},
     )

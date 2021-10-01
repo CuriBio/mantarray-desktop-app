@@ -381,17 +381,17 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__when_subproto
 
 
 def test_convert_stim_dict_to_bytes__return_expected_bytes():
-    well_name_to_protocol_id_dict = {"A1": "A", "A2": "D"}
-    well_name_to_protocol_id_dict.update(
+    protocol_assignments_dict = {"A1": "A", "A2": "D"}
+    protocol_assignments_dict.update(
         {
             GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): None
             for well_idx in range(24)
             if GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
-            not in well_name_to_protocol_id_dict
+            not in protocol_assignments_dict
         }
     )
-    expected_module_protocol_pairs = [1, 4]
-    expected_module_protocol_pairs.extend([0] * 22)
+    expected_module_protocol_pairs = [0, 1]
+    expected_module_protocol_pairs.extend([255] * 22)
 
     stim_info_dict = {
         "protocols": [
@@ -405,7 +405,7 @@ def test_convert_stim_dict_to_bytes__return_expected_bytes():
                         "phase_one_charge": randint(1, 100),
                         "interpulse_interval": randint(1, 50),
                         "phase_two_duration": randint(1, 100),
-                        "phase_two_charge": randint(1, 100),
+                        "phase_two_charge": randint(1, 50),
                         "repeat_delay_interval": randint(0, 50),
                         "total_active_duration": randint(150, 300),
                     },
@@ -430,19 +430,18 @@ def test_convert_stim_dict_to_bytes__return_expected_bytes():
                         "phase_one_charge": randint(1, 100),
                         "interpulse_interval": randint(1, 50),
                         "phase_two_duration": randint(1, 100),
-                        "phase_two_charge": randint(1, 100),
+                        "phase_two_charge": randint(1, 50),
                         "repeat_delay_interval": randint(0, 50),
                         "total_active_duration": randint(150, 300),
                     },
                 ],
             },
         ],
-        "well_name_to_protocol_id": well_name_to_protocol_id_dict,
+        "protocol_assignments": protocol_assignments_dict,
     }
 
     expected_bytes = bytes([2])  # num unique protocols
     # bytes for protocol A
-    expected_bytes += bytes([1])  # protocol ID
     expected_bytes += bytes([2])  # num subprotocols in protocol A
     expected_bytes += convert_subprotocol_dict_to_bytes(stim_info_dict["protocols"][0]["subprotocols"][0])
     expected_bytes += convert_subprotocol_dict_to_bytes(stim_info_dict["protocols"][0]["subprotocols"][1])
@@ -450,7 +449,6 @@ def test_convert_stim_dict_to_bytes__return_expected_bytes():
     expected_bytes += bytes([1])  # schedule mode
     expected_bytes += bytes(1)  # data type
     # bytes for protocol D
-    expected_bytes += bytes([4])  # protocol ID
     expected_bytes += bytes([1])  # num subprotocols in protocol A
     expected_bytes += convert_subprotocol_dict_to_bytes(stim_info_dict["protocols"][1]["subprotocols"][0])
     expected_bytes += bytes([1])  # control method

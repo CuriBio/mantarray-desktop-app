@@ -396,7 +396,7 @@ def test_McCommunicationProcess__processes_set_protocols_command(
             }
             for protocol_id in expected_protocol_ids[1:]
         ],
-        "well_name_to_protocol_id": {
+        "protocol_assignments": {
             GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): choice(expected_protocol_ids)
             for well_idx in range(test_num_wells)
         },
@@ -415,7 +415,15 @@ def test_McCommunicationProcess__processes_set_protocols_command(
     # run simulator to process command and send response
     invoke_process_run_and_check_errors(simulator)
     # assert that protocols were updated
-    assert simulator.get_stim_info() == expected_stim_info
+    actual = simulator.get_stim_info()
+    for protocol_idx in range(len(expected_protocol_ids) - 1):
+        expected_protocol_copy = copy.deepcopy(expected_stim_info["protocols"][protocol_idx])
+        del expected_protocol_copy["protocol_id"]  # the actual protocol ID letter is not included
+        assert actual["protocols"][protocol_idx] == expected_protocol_copy, protocol_idx
+    assert actual["protocol_assignments"] == {  # indices of the protocol are used instead
+        well_name: (None if protocol_id is None else expected_protocol_ids.index(protocol_id) - 1)
+        for well_name, protocol_id in expected_stim_info["protocol_assignments"].items()
+    }
     # run mc_process to process command response and send message back to main
     invoke_process_run_and_check_errors(mc_process)
     # confirm correct message sent to main

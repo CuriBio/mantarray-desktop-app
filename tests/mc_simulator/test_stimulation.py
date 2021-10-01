@@ -55,7 +55,7 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
             }
             for protocol_id in test_protocol_ids[:-1]
         ],
-        "well_name_to_protocol_id": {
+        "protocol_assignments": {
             GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): choice(test_protocol_ids)
             for well_idx in range(24)
         },
@@ -74,8 +74,14 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
     # assert that stim info was stored
     actual = simulator.get_stim_info()
     for protocol_idx in range(len(test_protocol_ids) - 1):
+        del stim_info_dict["protocols"][protocol_idx][
+            "protocol_id"
+        ]  # the actual protocol ID letter is not included
         assert actual["protocols"][protocol_idx] == stim_info_dict["protocols"][protocol_idx], protocol_idx
-    assert actual["well_name_to_protocol_id"] == stim_info_dict["well_name_to_protocol_id"]
+    assert actual["protocol_assignments"] == {  # indices of the protocol are used instead
+        well_name: (None if protocol_id is None else test_protocol_ids.index(protocol_id))
+        for well_name, protocol_id in stim_info_dict["protocol_assignments"].items()
+    }
     # assert command response is correct
     stim_command_response = simulator.read(
         size=get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1)
@@ -139,7 +145,7 @@ def test_MantarrayMcSimulator__processes_start_stimulation_command__after_protoc
             "subprotocols": [get_random_pulse_subprotocol()],
         }
     ]
-    stim_info["well_name_to_protocol_id"] = {
+    stim_info["protocol_assignments"] = {
         GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): choice(["A", None])
         if well_idx
         else "A"
@@ -147,7 +153,7 @@ def test_MantarrayMcSimulator__processes_start_stimulation_command__after_protoc
     }
     expected_stim_running_statuses = {
         convert_well_name_to_module_id(well_name): bool(protocol_id)
-        for well_name, protocol_id in stim_info["well_name_to_protocol_id"].items()
+        for well_name, protocol_id in stim_info["protocol_assignments"].items()
     }
 
     for response_byte_value in (
@@ -194,7 +200,7 @@ def test_MantarrayMcSimulator__processes_stop_stimulation_command(mantarray_mc_s
             "subprotocols": [get_random_pulse_subprotocol()],
         }
     ]
-    stim_info["well_name_to_protocol_id"] = {
+    stim_info["protocol_assignments"] = {
         GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): choice(["B", None])
         if well_idx
         else "B"
@@ -202,7 +208,7 @@ def test_MantarrayMcSimulator__processes_stop_stimulation_command(mantarray_mc_s
     }
     initial_stim_running_statuses = {
         convert_well_name_to_module_id(well_name): bool(protocol_id)
-        for well_name, protocol_id in stim_info["well_name_to_protocol_id"].items()
+        for well_name, protocol_id in stim_info["protocol_assignments"].items()
     }
     simulator.get_stim_running_statuses().update(initial_stim_running_statuses)
 

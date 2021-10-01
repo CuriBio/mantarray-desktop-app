@@ -5,7 +5,6 @@ from __future__ import annotations
 import datetime
 from typing import Any
 from typing import Dict
-from typing import Optional
 from typing import Union
 from uuid import UUID
 from zlib import crc32
@@ -238,16 +237,16 @@ def convert_well_name_to_module_id(well_name: str) -> int:
     return module_id
 
 
-def _convert_protocol_id_str_to_int(protocol_id: Optional[str]) -> int:
-    return 0 if protocol_id is None else ord(protocol_id) - ord("A") + 1
-
-
 def convert_stim_dict_to_bytes(stim_dict: Dict[str, Any]) -> bytes:
-    """Convert a stimulation info dictionary to bytes."""
+    """Convert a stimulation info dictionary to bytes.
+
+    Assumes the stimulation dictionary given does not have any issues.
+    """
     # add bytes for protocol definitions
     stim_bytes = bytes([len(stim_dict["protocols"])])  # number of unique protocols
+    protocol_ids = list()
     for protocol_dict in stim_dict["protocols"]:
-        stim_bytes += bytes([_convert_protocol_id_str_to_int(protocol_dict["protocol_id"])])  # protocol ID
+        protocol_ids.append(protocol_dict["protocol_id"])
         stim_bytes += bytes([len(protocol_dict["subprotocols"])])  # num subprotocols
         for subprotocol_dict in protocol_dict["subprotocols"]:
             stim_bytes += convert_subprotocol_dict_to_bytes(subprotocol_dict)
@@ -255,11 +254,13 @@ def convert_stim_dict_to_bytes(stim_dict: Dict[str, Any]) -> bytes:
         stim_bytes += bytes([protocol_dict["run_until_stopped"]])  # schedule mode
         stim_bytes += bytes([0])  # data type, always 0 as of 9/29/21
     # add bytes for module ID / protocol ID pairs
-    protocol_ids = [-1] * 24
-    for well_name, protocol_id in stim_dict["well_name_to_protocol_id"].items():
+    protocol_assignment_list = [-1] * 24
+    for well_name, protocol_id in stim_dict["protocol_assignments"].items():
         module_id = convert_well_name_to_module_id(well_name)
-        protocol_ids[module_id - 1] = _convert_protocol_id_str_to_int(protocol_id)
-    stim_bytes += bytes(protocol_ids)
+        protocol_assignment_list[module_id - 1] = (
+            255 if protocol_id is None else protocol_ids.index(protocol_id)
+        )
+    stim_bytes += bytes(protocol_assignment_list)
     return stim_bytes
 
 
@@ -270,15 +271,11 @@ def convert_module_id_to_well_name(module_id: int) -> str:
     return well_name
 
 
-def _convert_protocol_id_int_to_str(protocol_id: int) -> Optional[str]:
-    return None if protocol_id == 0 else chr(ord("A") + protocol_id - 1)
-
-
 def convert_stim_bytes_to_dict(stim_bytes: bytes) -> Dict[str, Any]:
     """Convert a stimulation info bytes to dictionary."""
     stim_info_dict = {
         "protocols": [],
-        "well_name_to_protocol_id": {
+        "protocol_assignments": {
             GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): None for well_idx in range(24)
         },
     }
@@ -287,9 +284,8 @@ def convert_stim_bytes_to_dict(stim_bytes: bytes) -> Dict[str, Any]:
     num_protocols = stim_bytes[0]
     curr_byte_idx = 1
     for _ in range(num_protocols):
-        protocol_id_int = stim_bytes[curr_byte_idx]
-        num_subprotocols = stim_bytes[curr_byte_idx + 1]
-        curr_byte_idx += 2
+        num_subprotocols = stim_bytes[curr_byte_idx]
+        curr_byte_idx += 1
 
         subprotocol_list = []
         for _ in range(num_subprotocols):
@@ -303,7 +299,6 @@ def convert_stim_bytes_to_dict(stim_bytes: bytes) -> Dict[str, Any]:
 
         stim_info_dict["protocols"].append(  # type: ignore
             {
-                "protocol_id": _convert_protocol_id_int_to_str(protocol_id_int),
                 "stimulation_type": stimulation_type,
                 "run_until_stopped": run_until_stopped,
                 "subprotocols": subprotocol_list,
@@ -313,8 +308,8 @@ def convert_stim_bytes_to_dict(stim_bytes: bytes) -> Dict[str, Any]:
 
     # convert module ID / protocol ID pair bytes
     for module_id in range(1, 25):
-        protocol_id = _convert_protocol_id_int_to_str(stim_bytes[curr_byte_idx])
         well_name = convert_module_id_to_well_name(module_id)
-        stim_info_dict["well_name_to_protocol_id"][well_name] = protocol_id  # type: ignore
+        protocol_id_idx = None if stim_bytes[curr_byte_idx] == 255 else stim_bytes[curr_byte_idx]
+        stim_info_dict["protocol_assignments"][well_name] = protocol_id_idx  # type: ignore
         curr_byte_idx += 1
     return stim_info_dict
