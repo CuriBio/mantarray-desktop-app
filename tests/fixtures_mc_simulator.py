@@ -60,7 +60,7 @@ def get_random_pulse_subprotocol():
         "phase_one_duration": randint(1, 500),
         "phase_one_charge": randint(1, 1000),
         "interpulse_interval": randint(0, 500),
-        "phase_two_duration": randint(1, 1000),
+        "phase_two_duration": randint(1, 500),
         "phase_two_charge": randint(1, 1000),
         "repeat_delay_interval": randint(0, 500),
         "total_active_duration": randint(1500, 3000),

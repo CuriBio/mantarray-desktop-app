@@ -3,6 +3,8 @@
 
 Custom HTTP Error Codes:
 
+# TODO remember to update this
+
 * 304 - Call to /set_stim_status with the current stim status (no updates will be made to status)
 * 400 - Call to /start_recording with invalid or missing barcode parameter
 * 400 - Call to /set_mantarray_nickname with invalid nickname parameter
@@ -10,7 +12,7 @@ Custom HTTP Error Codes:
 * 400 - Call to /insert_xem_command_into_queue/set_mantarray_serial_number with invalid serial_number parameter
 * 400 - Call to /set_magnetometer_config with invalid configuration dict
 * 400 - Call to /set_magnetometer_config with invalid or missing sampling period
-* 400 - Call to /set_protocols with an invalid protocol
+* 400 - Call to /set_protocols with an invalid protocol or protocol assignments
 * 400 - Call to /set_stim_status with missing 'running' status
 * 403 - Call to /start_recording with is_hardware_test_recording=False after calling route with is_hardware_test_recording=True (default value)
 * 403 - Call to any /insert_xem_command_into_queue/* route when in Beta 2 mode
@@ -22,7 +24,7 @@ Custom HTTP Error Codes:
 * 403 - Call to /set_protocols while stimulation is running
 * 403 - Call to /set_stim_status when in Beta 1 mode
 * 404 - Route not implemented
-* 406 - Call to /set_stim_status when before protocol is set
+* 406 - Call to /set_stim_status before protocol is set
 * 406 - Call to /start_managed_acquisition before magnetometer configuration is set
 * 406 - Call to /start_managed_acquisition when Mantarray device does not have a serial number assigned to it
 * 406 - Call to /start_recording before customer_account_uuid and user_account_uuid are set
@@ -53,8 +55,6 @@ from flask import Response
 from flask_cors import CORS
 from flask_socketio import SocketIO
 from immutabledict import immutabledict
-from labware_domain_models import get_row_and_column_from_well_name
-from labware_domain_models import PositionInvalidForLabwareDefinitionError
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
@@ -471,12 +471,20 @@ def set_protocols() -> Response:
     if shared_values_dict["stimulation_running"]:
         return Response(status="403 Cannot change protocol while stimulation is running")
 
-    protocol_json = request.get_json()
-    protocol_list = json.loads(protocol_json)["protocols"]
-    if len(protocol_list) < 24:
-        return Response(status="400 Not enough protocols for all 24 wells")
+    stim_info_json = request.get_json()
+
+    protocol_list = json.loads(stim_info_json)["protocols"]
+    # make sure at least one protocol is given
+    if not protocol_list:
+        return Response(status="400 Protocol list empty")
     # validate protocols
+    protocol_ids = set()
     for protocol in protocol_list:
+        # make sure protocol ID is unique
+        if protocol["protocol_id"] in protocol_ids:
+            return Response(status=f"400 Multiple protocols given with ID: {protocol['protocol_id']}")
+        protocol_ids.add(protocol["protocol_id"])
+        # validate stim type
         if protocol["stimulation_type"] not in ("C", "V"):
             return Response(status=f"400 Invalid stimulation type: {protocol['stimulation_type']}")
         max_abs_charge = (
@@ -485,12 +493,6 @@ def set_protocols() -> Response:
             else STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
         )
         charge_unit = "mV" if protocol["stimulation_type"] == "V" else "µA"
-        try:
-            GENERIC_24_WELL_DEFINITION.validate_position(
-                *get_row_and_column_from_well_name(protocol["well_number"])
-            )
-        except PositionInvalidForLabwareDefinitionError:
-            return Response(status=f"400 Invalid well: {protocol['well_number']}")
         # validate subprotocol dictionaries
         total_protocol_dur_microsecs = 0
         for subprotocol in protocol["subprotocols"]:
@@ -529,7 +531,28 @@ def set_protocols() -> Response:
                 return Response(status="400 Total active duration less than the duration of the subprotocol")
             # add total time for running this subprotocol to total time of protocol
             total_protocol_dur_microsecs += subprotocol["total_active_duration"]
-    # TODO remember to update this
+    # make sure protocol assignments are not missing any wells and do not contain any invalid wells
+    protocol_assignments_dict = json.loads(stim_info_json)["protocol_assignments"]
+    expected_well_names = set(
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx) for well_idx in range(24)
+    )
+    actual_well_names = set(protocol_assignments_dict.keys())
+    for well_name in expected_well_names:
+        if well_name not in protocol_assignments_dict:
+            return Response(status=f"400 Protocol assignments missing well {well_name}")
+        actual_well_names.remove(well_name)
+    if len(actual_well_names) > 0:
+        return Response(status=f"400 Protocol assignments contain invalid well: {actual_well_names.pop()}")
+    # make sure all protocol IDs are valid and that no protocols are unassigned
+    assigned_ids = set(protocol_assignments_dict.values())
+    if None in assigned_ids:
+        assigned_ids.remove(None)  # remove since checking for wells with not assignment is unnecessary
+    for protocol_id in protocol_ids:
+        if protocol_id not in assigned_ids:
+            return Response(status=f"400 Protocol assignments missing protocol ID: {protocol_id}")
+        assigned_ids.remove(protocol_id)
+    if len(assigned_ids) > 0:
+        return Response(status=f"400 Protocol assignments contain invalid protocol ID: {assigned_ids.pop()}")
 
     queue_command_to_main(
         {
@@ -539,7 +562,7 @@ def set_protocols() -> Response:
         }
     )
 
-    return Response(protocol_json, mimetype="application/json")
+    return Response(stim_info_json, mimetype="application/json")
 
 
 @flask_app.route("/set_stim_status", methods=["POST"])
@@ -561,8 +584,8 @@ def set_stim_status() -> Response:
 
     if status is shared_values_dict["stimulation_running"]:
         return Response(status="304 Status not updated")
-    if status and shared_values_dict["stimulation_protocols"] is None:
-        return Response(status="406 Protocol has not been set")
+    if status and shared_values_dict["stimulation_info"] is None:
+        return Response(status="406 Protocols have not been set")
 
     response = queue_command_to_main(
         {

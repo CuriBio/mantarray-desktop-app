@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import json
+from random import randint
 
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
@@ -21,9 +22,11 @@ from mantarray_desktop_app import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
 from mantarray_desktop_app import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
 from mantarray_desktop_app import STIM_MAX_PULSE_DURATION_MICROSECONDS
 from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
+from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 import pytest
 
 from ..fixtures import fixture_generic_queue_container
+from ..fixtures_mc_simulator import get_random_pulse_subprotocol
 from ..fixtures_server import fixture_client_and_server_manager_and_shared_values
 from ..fixtures_server import fixture_server_manager
 from ..fixtures_server import fixture_test_client
@@ -877,17 +880,17 @@ def test_set_stim_status__returns_error_code_and_message_if_running_arg_is_not_g
     assert response.status.endswith("Request missing 'running' parameter") is True
 
 
-def test_set_stim_status__returns_error_code_and_message_if_set_to_true_before_a_protocol_is_set(
+def test_set_stim_status__returns_error_code_and_message_if_set_to_true_before_protocols_are_set(
     client_and_server_manager_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["stimulation_running"] = False
-    shared_values_dict["stimulation_protocols"] = None
+    shared_values_dict["stimulation_info"] = None
 
     response = test_client.post("/set_stim_status?running=True")
     assert response.status_code == 406
-    assert response.status.endswith("Protocol has not been set") is True
+    assert response.status.endswith("Protocols have not been set") is True
 
 
 def test_set_stim_status__returns_code_and_message_if_new_status_is_the_same_as_the_current_status(
@@ -930,16 +933,40 @@ def test_set_protocols__returns_error_code_if_called_while_stimulation_is_runnin
     assert response.status.endswith("Cannot change protocol while stimulation is running") is True
 
 
-def test_set_protocols__returns_error_code_if_protocol_list_does_not_contain_enough_items(
+def test_set_protocols__returns_error_code_if_protocol_list_is_empty(
     client_and_server_manager_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["stimulation_running"] = False
 
-    response = test_client.post("/set_protocols", json=json.dumps({"protocols": [None] * 23}))
+    response = test_client.post("/set_protocols", json=json.dumps({"protocols": []}))
     assert response.status_code == 400
-    assert response.status.endswith("Not enough protocols for all 24 wells") is True
+    assert response.status.endswith("Protocol list empty") is True
+
+
+def test_set_protocols__returns_error_code_if_two_protocols_are_given_with_the_same_id(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = False
+
+    expected_id = "Z"
+    test_stim_info_dict = {
+        "protocols": [
+            {
+                "protocol_id": expected_id,
+                "run_until_stopped": False,
+                "stimulation_type": "V",
+                "subprotocols": [get_random_pulse_subprotocol()],
+            }
+        ]
+        * 2,
+    }
+    response = test_client.post("/set_protocols", json=json.dumps(test_stim_info_dict))
+    assert response.status_code == 400
+    assert response.status.endswith(f"Multiple protocols given with ID: {expected_id}") is True
 
 
 @pytest.mark.parametrize(
@@ -957,30 +984,10 @@ def test_set_protocols__returns_error_code_with_invalid_stimulation_type(
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["stimulation_running"] = False
 
-    test_protocol_dict = {"protocols": [{"stimulation_type": test_stimulation_type}] * 24}
-    response = test_client.post("/set_protocols", json=json.dumps(test_protocol_dict))
+    test_stim_info_dict = {"protocols": [{"protocol_id": "A", "stimulation_type": test_stimulation_type}]}
+    response = test_client.post("/set_protocols", json=json.dumps(test_stim_info_dict))
     assert response.status_code == 400
     assert response.status.endswith(f"Invalid stimulation type: {test_stimulation_type}") is True
-
-
-@pytest.mark.parametrize(
-    "test_well_number,test_description",
-    [
-        ("Z1", "return error code with well Z1"),
-        ("A99", "return error code with well A99"),
-    ],
-)
-def test_set_protocols__returns_error_code_with_invalid_well_number(
-    client_and_server_manager_and_shared_values, test_well_number, test_description
-):
-    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
-    shared_values_dict["beta_2_mode"] = True
-    shared_values_dict["stimulation_running"] = False
-
-    test_protocol_dict = {"protocols": [{"stimulation_type": "C", "well_number": test_well_number}] * 24}
-    response = test_client.post("/set_protocols", json=json.dumps(test_protocol_dict))
-    assert response.status_code == 400
-    assert response.status.endswith(f"Invalid well: {test_well_number}") is True
 
 
 @pytest.mark.parametrize(
@@ -1065,11 +1072,11 @@ def test_set_protocols__returns_error_code_with_single_invalid_subprotocol_value
         STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS if test_stim_type == "V" else STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
     )
     # create an arbitrary protocol to which an invalid value can easily be added
-    test_protocol_dict = {
+    test_stim_info_dict = {
         "protocols": [
             {
                 "stimulation_type": test_stim_type,
-                "well_number": "A1",
+                "protocol_id": "A",
                 "run_until_stopped": False,
                 "subprotocols": [
                     {
@@ -1084,12 +1091,11 @@ def test_set_protocols__returns_error_code_with_single_invalid_subprotocol_value
                 ],
             }
         ]
-        * 24
     }
     # add bad value
-    test_protocol_dict["protocols"][0]["subprotocols"][0][test_subprotocol_item] = test_value
+    test_stim_info_dict["protocols"][0]["subprotocols"][0][test_subprotocol_item] = test_value
 
-    response = test_client.post("/set_protocols", json=json.dumps(test_protocol_dict))
+    response = test_client.post("/set_protocols", json=json.dumps(test_stim_info_dict))
     assert f"400 {test_description}" in response.status
 
 
@@ -1100,11 +1106,11 @@ def test_set_protocols__returns_error_code_when_pulse_duration_is_too_long(
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["stimulation_running"] = False
 
-    test_protocol_dict = {
+    test_stim_info_dict = {
         "protocols": [
             {
                 "stimulation_type": "V",
-                "well_number": "A1",
+                "protocol_id": "A",
                 "run_until_stopped": True,
                 "subprotocols": [
                     {
@@ -1119,7 +1125,132 @@ def test_set_protocols__returns_error_code_when_pulse_duration_is_too_long(
                 ],
             }
         ]
-        * 24
     }
-    response = test_client.post("/set_protocols", json=json.dumps(test_protocol_dict))
+    response = test_client.post("/set_protocols", json=json.dumps(test_stim_info_dict))
     assert "400 Pulse duration too long" in response.status
+
+
+def test_set_protocols__returns_error_code_if_a_single_well_is_missing_from_protocol_assignments(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = False
+
+    test_num_wells = 24
+    protocol_assignments = {
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "A"
+        for well_idx in range(test_num_wells)
+    }
+    missing_well = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(randint(0, 23))
+    del protocol_assignments[missing_well]
+
+    test_stim_info_dict = {
+        "protocols": [
+            {
+                "protocol_id": "A",
+                "stimulation_type": "C",
+                "run_until_stopped": True,
+                "subprotocols": [get_random_pulse_subprotocol()],
+            }
+        ],
+        "protocol_assignments": protocol_assignments,
+    }
+    response = test_client.post("/set_protocols", json=json.dumps(test_stim_info_dict))
+    assert f"400 Protocol assignments missing well {missing_well}" in response.status
+
+
+@pytest.mark.parametrize(
+    "test_well_name,test_description",
+    [
+        ("Z1", "return error code with invalid well: Z1"),
+        ("A99", "return error code with invalid well: A99"),
+    ],
+)
+def test_set_protocols__returns_error_code_with_invalid_well_name(
+    client_and_server_manager_and_shared_values, test_well_name, test_description
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = False
+
+    protocol_assignments = {
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "F" for well_idx in range(24)
+    }
+    protocol_assignments[test_well_name] = "F"
+    test_stim_info_dict = {
+        "protocols": [
+            {
+                "protocol_id": "F",
+                "run_until_stopped": False,
+                "stimulation_type": "V",
+                "subprotocols": [get_random_pulse_subprotocol()],
+            }
+        ],
+        "protocol_assignments": protocol_assignments,
+    }
+    response = test_client.post("/set_protocols", json=json.dumps(test_stim_info_dict))
+    assert response.status_code == 400
+    assert response.status.endswith(f"Protocol assignments contain invalid well: {test_well_name}") is True
+
+
+def test_set_protocols__returns_error_code_if_protocol_assignments_contains_a_single_invalid_protocol_id(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = False
+
+    protocol_assignments = {
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "K" for well_idx in range(24)
+    }
+    protocol_assignments["A1"] = None  # also make sure at least one well is not assigned a protocol
+    # assign invalid protocol ID
+    bad_id = "1"
+    protocol_assignments["B1"] = "1"
+
+    test_stim_info_dict = {
+        "protocols": [
+            {
+                "protocol_id": "K",
+                "run_until_stopped": False,
+                "stimulation_type": "V",
+                "subprotocols": [get_random_pulse_subprotocol()],
+            }
+        ],
+        "protocol_assignments": protocol_assignments,
+    }
+    response = test_client.post("/set_protocols", json=json.dumps(test_stim_info_dict))
+    assert response.status_code == 400
+    assert response.status.endswith(f"Protocol assignments contain invalid protocol ID: {bad_id}") is True
+
+
+def test_set_protocols__returns_error_code_if_one_of_the_given_protocols_is_not_assigned_to_any_wells(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = False
+
+    test_ids = ("L", "M")
+    protocol_assignments = {
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): test_ids[0]
+        for well_idx in range(24)
+    }
+    protocol_assignments["D1"] = None  # also make sure at least one well is not assigned a protocol
+
+    test_stim_info_dict = {
+        "protocols": [
+            {
+                "protocol_id": protocol_id,
+                "run_until_stopped": False,
+                "stimulation_type": "V",
+                "subprotocols": [get_random_pulse_subprotocol()],
+            }
+            for protocol_id in test_ids
+        ],
+        "protocol_assignments": protocol_assignments,
+    }
+    response = test_client.post("/set_protocols", json=json.dumps(test_stim_info_dict))
+    assert response.status_code == 400
+    assert response.status.endswith(f"Protocol assignments missing protocol ID: {test_ids[1]}") is True

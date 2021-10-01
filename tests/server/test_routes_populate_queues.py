@@ -13,6 +13,7 @@ from mantarray_desktop_app import server
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STIM_MAX_PULSE_DURATION_MICROSECONDS
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
@@ -1173,7 +1174,7 @@ def test_set_stim_status__populates_queue_to_process_monitor_with_new_stim_statu
         shared_values_dict,
     ) = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
-    shared_values_dict["stimulation_protocols"] = [None] * 24
+    shared_values_dict["stimulation_info"] = {"protocols": [None] * 4, "protocol_assignments": {}}
 
     expected_status_bool = test_status in ("true", "True")
     shared_values_dict["stimulation_running"] = not expected_status_bool
@@ -1204,7 +1205,7 @@ def test_set_protocols__populates_queue_to_process_monitor_with_new_protocol(
         "protocols": [
             {
                 "stimulation_type": "C",
-                "well_number": "B1",
+                "protocol_id": "X",
                 "run_until_stopped": True,
                 "subprotocols": [
                     {
@@ -1218,8 +1219,10 @@ def test_set_protocols__populates_queue_to_process_monitor_with_new_protocol(
                     }
                 ],
             }
-        ]
-        * 24
+        ],
+        "protocol_assignments": {
+            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "X" for well_idx in range(24)
+        },
     }
     response = test_client.post("/set_protocols", json=json.dumps(test_protocol_dict))
     assert response.status_code == 200

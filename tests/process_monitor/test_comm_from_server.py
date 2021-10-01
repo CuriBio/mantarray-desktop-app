@@ -755,12 +755,12 @@ def test_MantarrayProcessesMonitor__processes_set_protocols_command(
     test_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
-        "protocols": [None] * 24,
+        "stim_info": {"protocols": [None] * 3, "protocol_assignments": {"dummy": "values"}},
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, server_to_main_queue)
 
     invoke_process_run_and_check_errors(monitor_thread)
-    assert shared_values_dict["stimulation_protocols"] == test_command["protocols"]
+    assert shared_values_dict["stimulation_info"] == test_command["stim_info"]
 
     confirm_queue_is_eventually_of_size(main_to_ic_queue, 1)
     actual = main_to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)

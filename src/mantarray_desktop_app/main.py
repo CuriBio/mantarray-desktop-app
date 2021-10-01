@@ -240,7 +240,7 @@ def main(
     shared_values_dict["beta_2_mode"] = parsed_args.beta_2_mode
     if shared_values_dict["beta_2_mode"]:
         shared_values_dict["stimulation_running"] = False
-        shared_values_dict["stimulation_protocols"] = None
+        shared_values_dict["stimulation_info"] = None
 
     msg = f"Log File UUID: {log_file_uuid}"
     logger.info(msg)
