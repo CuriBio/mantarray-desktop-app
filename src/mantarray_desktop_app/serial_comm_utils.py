@@ -273,11 +273,9 @@ def convert_module_id_to_well_name(module_id: int) -> str:
 
 def convert_stim_bytes_to_dict(stim_bytes: bytes) -> Dict[str, Any]:
     """Convert a stimulation info bytes to dictionary."""
-    stim_info_dict = {
+    stim_info_dict: Dict[str, Any] = {
         "protocols": [],
-        "protocol_assignments": {
-            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): None for well_idx in range(24)
-        },
+        "protocol_assignments": {},
     }
 
     # convert protocol definition bytes
@@ -297,7 +295,7 @@ def convert_stim_bytes_to_dict(stim_bytes: bytes) -> Dict[str, Any]:
         stimulation_type = "V" if stim_bytes[curr_byte_idx] else "C"
         run_until_stopped = bool(stim_bytes[curr_byte_idx + 1])
 
-        stim_info_dict["protocols"].append(  # type: ignore
+        stim_info_dict["protocols"].append(
             {
                 "stimulation_type": stimulation_type,
                 "run_until_stopped": run_until_stopped,
@@ -307,9 +305,10 @@ def convert_stim_bytes_to_dict(stim_bytes: bytes) -> Dict[str, Any]:
         curr_byte_idx += 3
 
     # convert module ID / protocol ID pair bytes
-    for module_id in range(1, 25):
-        well_name = convert_module_id_to_well_name(module_id)
+    num_assignments = len(stim_bytes[curr_byte_idx:])
+    for module_id in range(1, num_assignments + 1):
+        well_name = convert_module_id_to_well_name(module_id) if module_id <= 24 else ""
         protocol_id_idx = None if stim_bytes[curr_byte_idx] == 255 else stim_bytes[curr_byte_idx]
-        stim_info_dict["protocol_assignments"][well_name] = protocol_id_idx  # type: ignore
+        stim_info_dict["protocol_assignments"][well_name] = protocol_id_idx
         curr_byte_idx += 1
     return stim_info_dict

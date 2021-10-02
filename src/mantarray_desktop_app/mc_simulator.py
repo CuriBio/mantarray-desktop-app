@@ -79,6 +79,7 @@ from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from .constants import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
 from .exceptions import SerialCommInvalidSamplingPeriodError
 from .exceptions import SerialCommTooManyMissedHandshakesError
 from .exceptions import UnrecognizedSerialCommModuleIdError
@@ -510,11 +511,24 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._time_of_last_handshake_secs = perf_counter()
             response_body += convert_to_status_code_bytes(self._status_code)
         elif packet_type == SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE:
-            self._stim_info = convert_stim_bytes_to_dict(
+            # command fails if > 24 unique protocols given, the length of the array of protocol IDs != 24, or if > 50 subprotocols are in a single protocol
+            stim_info_dict = convert_stim_bytes_to_dict(
                 comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
             )
-            response_body += bytes([self._is_stimulating()])
+            command_failed = (
+                self._is_stimulating()
+                or len(stim_info_dict["protocols"]) > self._num_wells
+                or len(stim_info_dict["protocol_assignments"]) != self._num_wells
+                or any(
+                    len(protocol_dict["subprotocols"]) > STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
+                    for protocol_dict in stim_info_dict["protocols"]
+                )
+            )
+            if not command_failed:
+                self._stim_info = stim_info_dict
+            response_body += bytes([command_failed])
         elif packet_type == SERIAL_COMM_START_STIM_PACKET_TYPE:
+            # command fails if protocols are not set or if stimulation is already running
             command_failed = "protocol_assignments" not in self._stim_info or self._is_stimulating()
             response_body += bytes([command_failed])
             if not command_failed:
@@ -523,6 +537,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                     module_id = convert_well_name_to_module_id(well_name)
                     self._stim_running_statuses[module_id] = protocol_id is not None
         elif packet_type == SERIAL_COMM_STOP_STIM_PACKET_TYPE:
+            # command fails only if stimulation is not currently running
             command_failed = not self._is_stimulating()
             response_body += bytes([command_failed])
             if not command_failed:

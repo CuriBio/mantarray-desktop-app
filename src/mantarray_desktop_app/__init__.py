@@ -147,6 +147,7 @@ from .constants import START_BARCODE_SCAN_TRIG_BIT
 from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
 from .constants import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
+from .constants import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
 from .constants import STIM_MAX_PULSE_DURATION_MICROSECONDS
 from .constants import STM_VID
 from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
@@ -585,4 +586,5 @@ __all__ = [
     "SERIAL_COMM_STOP_STIM_PACKET_TYPE",
     "convert_module_id_to_well_name",
     "convert_well_name_to_module_id",
+    "STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL",
 ]

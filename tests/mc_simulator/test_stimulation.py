@@ -15,7 +15,9 @@ from mantarray_desktop_app import SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_START_STIM_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STOP_STIM_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from mantarray_desktop_app import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
 from ..fixtures import fixture_patch_print
@@ -90,7 +92,162 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
         stim_command_response,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-        additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp) + bytes([0]),
+        additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp)
+        + bytes([SERIAL_COMM_COMMAND_SUCCESS_BYTE]),
+    )
+
+
+def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_too_many_protocols_are_given(
+    mantarray_mc_simulator_no_beacon,
+):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+
+    test_protocol_ids = [chr(ord("A") + i) for i in range(25)]
+    stim_info_dict = {
+        "protocols": [
+            {
+                "protocol_id": protocol_id,
+                "stimulation_type": choice(["C", "V"]),
+                "run_until_stopped": choice([True, False]),
+                "subprotocols": [get_random_pulse_subprotocol()],
+            }
+            for protocol_id in test_protocol_ids
+        ],
+        "protocol_assignments": {
+            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): choice(test_protocol_ids)
+            for well_idx in range(24)
+        },
+    }
+
+    expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+    set_protocols_command = create_data_packet(
+        expected_pc_timestamp,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE,
+        convert_stim_dict_to_bytes(stim_info_dict),
+    )
+    simulator.write(set_protocols_command)
+
+    invoke_process_run_and_check_errors(simulator)
+    # assert stim info was not updated
+    assert simulator.get_stim_info() == {}
+    # assert command response is correct
+    stim_command_response = simulator.read(
+        size=get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1)
+    )
+    assert_serial_packet_is_expected(
+        stim_command_response,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+        additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp)
+        + bytes([SERIAL_COMM_COMMAND_FAILURE_BYTE]),
+    )
+
+
+@pytest.mark.parametrize(
+    "test_num_module_assignments,test_description",
+    [
+        (23, "returns command failure response when 23 module assignments given"),
+        (25, "returns command failure response when 25 module assignments given"),
+    ],
+)
+def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_an_incorrect_amount_of_module_assignments_are_given(
+    mantarray_mc_simulator_no_beacon, test_num_module_assignments, test_description
+):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+
+    stim_info_dict = {
+        "protocols": [
+            {
+                "protocol_id": "V",
+                "stimulation_type": choice(["C", "V"]),
+                "run_until_stopped": choice([True, False]),
+                "subprotocols": [get_random_pulse_subprotocol()],
+            }
+        ],
+        "protocol_assignments": {
+            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "V" for well_idx in range(24)
+        },
+    }
+    stim_info_bytes = convert_stim_dict_to_bytes(stim_info_dict)
+    # add or remove an assignment
+    if test_num_module_assignments > 24:
+        stim_info_bytes += bytes([0])
+    else:
+        stim_info_bytes = stim_info_bytes[:-1]
+
+    expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+    set_protocols_command = create_data_packet(
+        expected_pc_timestamp,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE,
+        stim_info_bytes,
+    )
+    simulator.write(set_protocols_command)
+
+    invoke_process_run_and_check_errors(simulator)
+    # assert stim info was not updated
+    assert simulator.get_stim_info() == {}
+    # assert command response is correct
+    stim_command_response = simulator.read(
+        size=get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1)
+    )
+    assert_serial_packet_is_expected(
+        stim_command_response,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+        additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp)
+        + bytes([SERIAL_COMM_COMMAND_FAILURE_BYTE]),
+    )
+
+
+def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_too_many_subprotocols_given_in_a_single_protocol(
+    mantarray_mc_simulator_no_beacon,
+):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+
+    stim_info_dict = {
+        "protocols": [
+            {
+                "protocol_id": "O",
+                "stimulation_type": choice(["C", "V"]),
+                "run_until_stopped": choice([True, False]),
+                "subprotocols": [
+                    choice([get_random_pulse_subprotocol(), get_null_subprotocol(130)])
+                    for _ in range(STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL + 1)
+                ],
+            }
+        ],
+        "protocol_assignments": {
+            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "O" for well_idx in range(24)
+        },
+    }
+
+    expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+    set_protocols_command = create_data_packet(
+        expected_pc_timestamp,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE,
+        convert_stim_dict_to_bytes(stim_info_dict),
+    )
+    simulator.write(set_protocols_command)
+
+    invoke_process_run_and_check_errors(simulator)
+    # assert stim info was not updated
+    assert simulator.get_stim_info() == {}
+    # assert command response is correct
+    stim_command_response = simulator.read(
+        size=get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1)
+    )
+    assert_serial_packet_is_expected(
+        stim_command_response,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+        additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp)
+        + bytes([SERIAL_COMM_COMMAND_FAILURE_BYTE]),
     )
 
 
