@@ -4,7 +4,12 @@ from random import choice
 from random import randint
 
 from mantarray_desktop_app import convert_well_name_to_module_id
+from mantarray_desktop_app import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
+from mantarray_desktop_app import StimulationProtocolUpdateFailedError
+from mantarray_desktop_app import StimulationProtocolUpdateWhileStimulatingError
+from mantarray_desktop_app import StimulationStatusUpdateFailedError
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
 from ..fixtures import fixture_patch_print
@@ -115,3 +120,101 @@ def test_McCommunicationProcess__processes_start_and_stop_stimulation_commands__
         confirm_queue_is_eventually_of_size(output_queue, 1)
         message_to_main = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
         assert message_to_main == expected_response
+
+
+def test_McCommunicationProcess__raises_error_if_set_protocols_command_received_while_stimulation_is_running(
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    input_queue, output_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][:2]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+    set_stimulation_protocols(four_board_mc_comm_process_no_handshake, simulator, create_random_stim_info())
+
+    # start stimulation
+    start_stim_command = {"communication_type": "stimulation", "command": "start_stimulation"}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(start_stim_command, input_queue)
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
+    invoke_process_run_and_check_errors(mc_process)
+    # confirm correct message sent to main
+    confirm_queue_is_eventually_of_size(output_queue, 1)
+    output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    # send set protocols command and confirm error is raised
+    set_protocols_command = {
+        "communication_type": "stimulation",
+        "command": "set_protocols",
+        "stim_info": create_random_stim_info(),
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, input_queue)
+    with pytest.raises(StimulationProtocolUpdateWhileStimulatingError):
+        invoke_process_run_and_check_errors(mc_process)
+
+
+def test_McCommunicationProcess__raises_error_if_set_protocols_command_fails(
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+
+    # send set protocols command with too many subprotocols in a protocol and confirm error is raised
+    bad_stim_info = create_random_stim_info()
+    bad_stim_info["protocols"][0]["subprotocols"].extend(
+        [get_null_subprotocol(190)] * STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
+    )
+    with pytest.raises(StimulationProtocolUpdateFailedError):
+        set_stimulation_protocols(four_board_mc_comm_process_no_handshake, simulator, bad_stim_info)
+
+
+def test_McCommunicationProcess__raises_error_if_start_stim_command_fails(
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    input_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][0]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+
+    # start stim before protocols are set and confirm error is raised from command failure response
+    start_stim_command = {"communication_type": "stimulation", "command": "start_stimulation"}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(start_stim_command, input_queue)
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
+    with pytest.raises(StimulationStatusUpdateFailedError, match="start_stimulation"):
+        invoke_process_run_and_check_errors(mc_process)
+
+
+def test_McCommunicationProcess__raises_error_if_stop_stim_command_fails(
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    input_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][0]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+
+    # stop stim when it isn't running confirm error is raised from command failure response
+    stop_stim_command = {"communication_type": "stimulation", "command": "stop_stimulation"}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_stim_command, input_queue)
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
+    with pytest.raises(StimulationStatusUpdateFailedError, match="stop_stimulation"):
+        invoke_process_run_and_check_errors(mc_process)

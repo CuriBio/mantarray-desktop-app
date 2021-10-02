@@ -204,6 +204,9 @@ from .exceptions import SerialCommTooManyMissedHandshakesError
 from .exceptions import SerialCommUntrackedCommandResponseError
 from .exceptions import ServerManagerNotInitializedError
 from .exceptions import ServerManagerSingletonAlreadySetError
+from .exceptions import StimulationProtocolUpdateFailedError
+from .exceptions import StimulationProtocolUpdateWhileStimulatingError
+from .exceptions import StimulationStatusUpdateFailedError
 from .exceptions import SystemStartUpError
 from .exceptions import UnrecognizedCommandFromMainToDataAnalyzerError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
@@ -587,4 +590,7 @@ __all__ = [
     "convert_module_id_to_well_name",
     "convert_well_name_to_module_id",
     "STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL",
+    "StimulationProtocolUpdateWhileStimulatingError",
+    "StimulationProtocolUpdateFailedError",
+    "StimulationStatusUpdateFailedError",
 ]

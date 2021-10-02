@@ -3,8 +3,6 @@
 
 Custom HTTP Error Codes:
 
-# TODO remember to update this
-
 * 304 - Call to /set_stim_status with the current stim status (no updates will be made to status)
 * 400 - Call to /start_recording with invalid or missing barcode parameter
 * 400 - Call to /set_mantarray_nickname with invalid nickname parameter
@@ -584,7 +582,7 @@ def set_stim_status() -> Response:
 
     if status is shared_values_dict["stimulation_running"]:
         return Response(status="304 Status not updated")
-    if status and shared_values_dict["stimulation_info"] is None:
+    if shared_values_dict["stimulation_info"] is None:
         return Response(status="406 Protocols have not been set")
 
     response = queue_command_to_main(

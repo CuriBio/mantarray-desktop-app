@@ -95,6 +95,9 @@ from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
 from .exceptions import SerialCommPacketRegistrationTimoutError
 from .exceptions import SerialCommStatusBeaconTimeoutError
 from .exceptions import SerialCommUntrackedCommandResponseError
+from .exceptions import StimulationProtocolUpdateFailedError
+from .exceptions import StimulationProtocolUpdateWhileStimulatingError
+from .exceptions import StimulationStatusUpdateFailedError
 from .exceptions import UnrecognizedCommandFromMainToMcCommError
 from .exceptions import UnrecognizedSerialCommModuleIdError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
@@ -198,6 +201,8 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._is_stopping_data_stream = False
         self._has_data_packet_been_sent = False
         self._data_packet_cache = bytes(0)
+        # stimulation values
+        self._is_stimulating = False
         # performance tracking values
         self._performance_logging_cycles = INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
         self._parses_since_last_logging: List[int] = [0] * len(self._board_queues)
@@ -475,7 +480,8 @@ class McCommunicationProcess(InstrumentCommProcess):
             if comm_from_main["command"] == "set_protocols":
                 packet_type = SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
                 bytes_to_send = convert_stim_dict_to_bytes(comm_from_main["stim_info"])
-                # TODO raise error if set_protocols command received while stimulating
+                if self._is_stimulating:
+                    raise StimulationProtocolUpdateWhileStimulatingError()
             elif comm_from_main["command"] == "start_stimulation":
                 packet_type = SERIAL_COMM_START_STIM_PACKET_TYPE
             elif comm_from_main["command"] == "stop_stimulation":
@@ -619,19 +625,24 @@ class McCommunicationProcess(InstrumentCommProcess):
                 # Tanner (6/11/21): This helps prevent against status beacon timeouts with beacons that come just after the data stream begins but before 1 second of data is available
                 self._time_of_last_beacon_secs = perf_counter()
             elif prev_command["command"] == "stop_managed_acquisition":
-                if bool(int.from_bytes(response_data, byteorder="little")):
+                if response_data[0]:
                     if not self._hardware_test_mode:
                         raise InstrumentDataStreamingAlreadyStoppedError()
                     prev_command["hardware_test_message"] = "Data stream already stopped"  # pragma: no cover
                 self._is_stopping_data_stream = False
                 self._is_data_streaming = False
             elif prev_command["command"] == "set_protocols":
-                pass  # TODO check response here
+                if response_data[0]:
+                    raise StimulationProtocolUpdateFailedError()
             elif prev_command["command"] == "start_stimulation":
                 # TODO self._base_global_time_of_data_stream = __
-                pass  # TODO check response
+                if response_data[0]:
+                    raise StimulationStatusUpdateFailedError("start_stimulation")
+                self._is_stimulating = True
             elif prev_command["command"] == "stop_stimulation":
-                pass  # TODO check response
+                if response_data[0]:
+                    raise StimulationStatusUpdateFailedError("stop_stimulation")
+                self._is_stimulating = False
 
             del prev_command[
                 "timepoint"

@@ -226,6 +226,18 @@ class InstrumentDataStreamingAlreadyStoppedError(Exception):
     pass
 
 
+class StimulationProtocolUpdateWhileStimulatingError(Exception):
+    pass
+
+
+class StimulationProtocolUpdateFailedError(Exception):
+    pass
+
+
+class StimulationStatusUpdateFailedError(Exception):
+    pass
+
+
 class MantarrayInstrumentError(Exception):
     """Errors occurring on the Mantarray instrument itself."""
 
