@@ -319,8 +319,8 @@ class McCommunicationProcess(InstrumentCommProcess):
                 )
                 break
             else:
-                if self._hardware_test_mode:  # pragma: no cover
-                    raise NotImplementedError("Must connect to a real board in hardware test mode")
+                # if self._hardware_test_mode:  # pragma: no cover
+                #     raise NotImplementedError("Must connect to a real board in hardware test mode")
                 msg["message"] = "No board detected. Creating simulator."
                 serial_obj = MantarrayMcSimulator(
                     Queue(), Queue(), Queue(), Queue(), num_wells=self._num_wells
@@ -480,7 +480,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             if comm_from_main["command"] == "set_protocols":
                 packet_type = SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
                 bytes_to_send = convert_stim_dict_to_bytes(comm_from_main["stim_info"])
-                if self._is_stimulating:
+                if self._is_stimulating and not self._hardware_test_mode:
                     raise StimulationProtocolUpdateWhileStimulatingError()
             elif comm_from_main["command"] == "start_stimulation":
                 packet_type = SERIAL_COMM_START_STIM_PACKET_TYPE

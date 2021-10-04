@@ -44,41 +44,35 @@ RANDOM_STIM_INFO_1 = create_random_stim_info()  # type: ignore
 RANDOM_STIM_INFO_2 = create_random_stim_info()  # type: ignore
 
 COMMAND_RESPONSE_SEQUENCE = [
-    ("get_metadata", "get_metadata"),
     ("change_magnetometer_config_1", "magnetometer_config_1"),
+    ("get_metadata", "get_metadata"),
     ("start_managed_acquisition", "start_md_1"),
     ("start_managed_acquisition", "start_md_2"),
     ("stop_managed_acquisition", "stop_md_1"),
     ("stop_managed_acquisition", "stop_md_2"),
     ("change_magnetometer_config_2", "magnetometer_config_2"),
     ("start_stimulation", "start_stim_1"),
-    ("stop_stimulation", "stop_stim_1"),
+    ("stop_stimulation", "stop_stim_1_1"),
     ("set_protocols_1", "set_protocols_1_1"),
-    ("start_stimulation", "start_stim_2"),
-    ("start_stimulation", "start_stim_3"),
+    ("start_stimulation", "start_stim_2_1"),
+    ("start_stimulation", "start_stim_2_2"),
     ("set_protocols_1", "set_protocols_1_2"),
+    ("stop_stimulation", "stop_stim_1_2"),
     ("stop_stimulation", "stop_stim_2"),
-    ("stop_stimulation", "stop_stim_3"),
     ("set_protocols_2", "set_protocols_2"),
 ]
 
 COMMANDS_FROM_MAIN = {
-    "change_magnetometer_config_1": {
-        "communication_type": "to_instrument",
-        "command": "change_magnetometer_config",
-        "magnetometer_config": RANDOM_CONFIG_DICT,
-        "sampling_period": 11000,
-    },
     "start_managed_acquisition": {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "start_managed_acquisition",
     },
     "stop_managed_acquisition": {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "stop_managed_acquisition",
     },
     "change_magnetometer_config_2": {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "change_magnetometer_config",
         "magnetometer_config": DEFAULT_MAGNETOMETER_CONFIG,
         "sampling_period": DEFAULT_SAMPLING_PERIOD,
@@ -110,32 +104,34 @@ RESPONSES = {
         "metadata": MantarrayMcSimulator.default_metadata_values,  # TODO: remove this once get_metadata command is implemented
     },
     "magnetometer_config_1": {
-        "communication_type": "to_instrument",
+        "communication_type": "default_magnetometer_config",
         "command": "change_magnetometer_config",
-        "magnetometer_config": RANDOM_CONFIG_DICT,
-        "sampling_period": 11000,
+        "magnetometer_config_dict": {
+            "magnetometer_config": DEFAULT_MAGNETOMETER_CONFIG,
+            "sampling_period": DEFAULT_SAMPLING_PERIOD,
+        },
     },
     "start_md_1": {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "start_managed_acquisition",
-        "magnetometer_config": RANDOM_CONFIG_DICT,
+        "magnetometer_config": DEFAULT_MAGNETOMETER_CONFIG,
     },
     "start_md_2": {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "start_managed_acquisition",
         "hardware_test_message": "Data stream already started",
     },
     "stop_md_1": {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "stop_managed_acquisition",
     },
     "stop_md_2": {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "stop_managed_acquisition",
         "hardware_test_message": "Data stream already stopped",
     },
     "magnetometer_config_2": {
-        "communication_type": "to_instrument",
+        "communication_type": "acquisition_manager",
         "command": "change_magnetometer_config",
         "magnetometer_config": DEFAULT_MAGNETOMETER_CONFIG,
         "sampling_period": DEFAULT_SAMPLING_PERIOD,
@@ -160,27 +156,27 @@ RESPONSES = {
         "command": "start_stimulation",
         "hardware_test_message": "Command failed",
     },
-    "start_stim_2": {
+    "start_stim_2_1": {
         "communication_type": "stimulation",
         "command": "start_stimulation",
     },
-    "start_stim_3": {
+    "start_stim_2_2": {
         "communication_type": "stimulation",
         "command": "start_stimulation",
         "hardware_test_message": "Command failed",
     },
     "stop_stim_1_1": {
         "communication_type": "stimulation",
-        "command": "start_stimulation",
+        "command": "stop_stimulation",
         "hardware_test_message": "Command failed",
     },
     "stop_stim_1_2": {
         "communication_type": "stimulation",
-        "command": "start_stimulation",
+        "command": "stop_stimulation",
     },
     "stop_stim_2": {
         "communication_type": "stimulation",
-        "command": "start_stimulation",
+        "command": "stop_stimulation",
         "hardware_test_message": "Command failed",
     },
 }
@@ -199,56 +195,71 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
     mc_process.start()
 
     for command, response_key in COMMAND_RESPONSE_SEQUENCE:
-        if command != "get_metadata":
-            # get_metadata command is automatically sent by McComm
+        if command not in ("get_metadata", "change_magnetometer_config_1"):
+            # get_metadata command and initial magnetometer config are automatically sent by McComm
             command_dict = COMMANDS_FROM_MAIN[command]
             print(f"Sending command: {command}")  # allow-print
             input_queue.put_nowait(command_dict)
 
         expected_response = RESPONSES[response_key]
         response_found = False
-        while not response_found:
-            # check for error
-            try:
-                error = error_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-                assert False, get_formatted_stack_trace(error[0])
-            except queue.Empty:
-                pass
-            # check for message to main
-            try:
-                msg_to_main = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-            except queue.Empty:
-                continue
+        error = None
+        try:
+            while not response_found:
+                # check for error
+                try:
+                    error = error_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+                    assert False, get_formatted_stack_trace(error[0])
+                except queue.Empty:
+                    pass
+                # check for message to main
+                try:
+                    msg_to_main = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+                except queue.Empty:
+                    continue
 
-            # if message is found then handle it
-            comm_type = msg_to_main["communication_type"]
-            if comm_type == "log":
-                # if message is from a status beacon or handshake, just print it
-                print("### Log msg:", msg_to_main["message"])  # allow-print
-            elif comm_type == "board_connection_status_change":
-                # if message is some other form of expected message, just print it
-                print("###", msg_to_main)  # allow-print
-            elif comm_type == expected_response["communication_type"]:
-                # if message is the response, make sure it is as expected
-                print("$$$", msg_to_main)  # allow-print
-                for key, value in expected_response.items():
-                    assert (
-                        msg_to_main[key] == value
-                    ), f"\nActual: {msg_to_main}\nExpected: {expected_response}"
-                if response_key == "start_md_1":
-                    # sleep after data stream starts so data can be parsed and sent to file writer
-                    print("Sleeping so data can be produced and parsed...")  # allow-print
-                    time.sleep(2)
-                    print("End sleep...")  # allow-print
-                response_found = True
-            else:
-                # o/w stop test
-                assert False, msg_to_main
+                # if message is found then handle it
+                comm_type = msg_to_main["communication_type"]
+                if comm_type == "log":
+                    # if message is from a status beacon or handshake, just print it
+                    print("### Log msg:", msg_to_main["message"])  # allow-print
+                elif comm_type == "board_connection_status_change":
+                    # if message is some other form of expected message, just print it
+                    print("###", msg_to_main)  # allow-print
+                elif comm_type == expected_response["communication_type"]:
+                    # if message is the response, make sure it is as expected
+                    print("$$$", msg_to_main)  # allow-print
+                    for key, value in expected_response.items():
+                        assert (
+                            msg_to_main.get(key, None) == value
+                        ), f"\nActual: {msg_to_main}\nExpected: {expected_response}"
+                    if response_key == "start_md_1":
+                        # sleep after data stream starts so data can be parsed and sent to file writer
+                        print("Sleeping so data can be produced and parsed...")  # allow-print
+                        time.sleep(2)
+                        print("End sleep...")  # allow-print
+                    response_found = True
+                elif msg_to_main.get("command", None) == "set_time" or comm_type == "barcode_comm":
+                    # this branch not needed for real board
+                    print("@@@", msg_to_main)  # allow-print
+                    continue
+                else:
+                    # o/w stop test
+                    print("!!!", msg_to_main)  # allow-print
+                    print("!!!", expected_response)  # allow-print
+                    assert False, "unexpected msg send to main"
+        except AssertionError as e:
+            error = e
+            break
 
     # stop and join McComm
     mc_process.soft_stop()
     data_sent_to_fw = drain_queue(data_queue)
     mc_process.join()
+
+    if error:
+        raise error
+
     # do one last check of error_queue
     try:
         error = error_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -256,11 +267,16 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
     except queue.Empty:
         print("No errors after Instrument Communication Process stopped and joined")  # allow-print
 
+    if len(data_sent_to_fw) == 0:
+        assert False, "No data packets sent to File Writer"
+
     # test keys of dict going to file writer. tests on the actual data will be done in the full integration test
     test_num_wells = 24
     expected_fw_item = {"time_indices": None}
     for well_idx in range(test_num_wells):
-        module_config_values = list(RANDOM_CONFIG_DICT[SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]].values())
+        module_config_values = list(
+            DEFAULT_MAGNETOMETER_CONFIG[SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]].values()
+        )
         if not any(module_config_values):
             continue
 
