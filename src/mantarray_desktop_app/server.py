@@ -469,9 +469,9 @@ def set_protocols() -> Response:
     if shared_values_dict["stimulation_running"]:
         return Response(status="403 Cannot change protocol while stimulation is running")
 
-    stim_info_json = request.get_json()
+    stim_info = json.loads(request.get_json()["data"])
 
-    protocol_list = json.loads(stim_info_json)["protocols"]
+    protocol_list = stim_info["protocols"]
     # make sure at least one protocol is given
     if not protocol_list:
         return Response(status="400 Protocol list empty")
@@ -516,21 +516,24 @@ def set_protocols() -> Response:
                 return Response(
                     status=f"400 Invalid repeat delay interval: {subprotocol['repeat_delay_interval']}"
                 )
-            # make sure subprotocol duration (not including delay after) is not too large
-            single_pulse_dur_microsecs = (
-                subprotocol["phase_one_duration"]
-                + subprotocol["phase_two_duration"]
-                + subprotocol["interpulse_interval"]
-            )
-            if single_pulse_dur_microsecs > STIM_MAX_PULSE_DURATION_MICROSECONDS:
-                return Response(status="400 Pulse duration too long")
+            # make sure subprotocol duration (not including period after pulse) is not too large unless it is a delay
+            if (
+                subprotocol["interpulse_interval"] > 0 or subprotocol["phase_two_duration"] > 0
+            ):  # TODO unit test this
+                single_pulse_dur_microsecs = (
+                    subprotocol["phase_one_duration"]
+                    + subprotocol["phase_two_duration"]
+                    + subprotocol["interpulse_interval"]
+                )
+                if single_pulse_dur_microsecs > STIM_MAX_PULSE_DURATION_MICROSECONDS:
+                    return Response(status="400 Pulse duration too long")
             # make sure subprotocol is set to run for at least one full pulse
             if subprotocol["total_active_duration"] < single_pulse_dur_microsecs:
                 return Response(status="400 Total active duration less than the duration of the subprotocol")
             # add total time for running this subprotocol to total time of protocol
             total_protocol_dur_microsecs += subprotocol["total_active_duration"]
     # make sure protocol assignments are not missing any wells and do not contain any invalid wells
-    protocol_assignments_dict = json.loads(stim_info_json)["protocol_assignments"]
+    protocol_assignments_dict = stim_info["protocol_assignments"]
     expected_well_names = set(
         GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx) for well_idx in range(24)
     )
@@ -556,11 +559,15 @@ def set_protocols() -> Response:
         {
             "communication_type": "stimulation",
             "command": "set_protocols",
-            "protocols": protocol_list,
+            "stim_info": stim_info,
         }
     )
 
-    return Response(stim_info_json, mimetype="application/json")
+    # wait for process monitor to update stim info in shared values dictionary
+    while _get_values_from_process_monitor()["stimulation_info"] == stim_info:  # TODO unit test this
+        sleep(0.1)
+
+    return Response(json.dumps(stim_info), mimetype="application/json")
 
 
 @flask_app.route("/set_stim_status", methods=["POST"])
@@ -582,7 +589,7 @@ def set_stim_status() -> Response:
 
     if status is shared_values_dict["stimulation_running"]:
         return Response(status="304 Status not updated")
-    if shared_values_dict["stimulation_info"] is None:
+    if shared_values_dict["stimulation_info"] is None:  # TODO unit test this with both status values
         return Response(status="406 Protocols have not been set")
 
     response = queue_command_to_main(

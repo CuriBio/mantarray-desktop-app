@@ -43,7 +43,6 @@ const create_store = function ({
       beta_2_mode: false,
     },
   });
-  store.set("beta_2_mode", false); // Tanner (9/13/21): temporarily overriding this value since beta 2 mode is not ready yet but a patch release is needed
   return store;
 };
 

@@ -198,7 +198,8 @@ def convert_bytes_to_config_dict(
     return config_dict
 
 
-def convert_subprotocol_dict_to_bytes(subprotocol_dict: Dict[str, int]) -> bytes:
+def convert_subprotocol_dict_to_bytes(subprotocol_dict: Dict[str, int], is_voltage: bool = False) -> bytes:
+    conversion_factor = 1 if is_voltage else 10  # TODO unit test this
     is_null_subprotocol = not any(
         val
         for key, val in subprotocol_dict.items()
@@ -206,11 +207,15 @@ def convert_subprotocol_dict_to_bytes(subprotocol_dict: Dict[str, int]) -> bytes
     )
     return (
         subprotocol_dict["phase_one_duration"].to_bytes(4, byteorder="little")
-        + subprotocol_dict["phase_one_charge"].to_bytes(2, byteorder="little", signed=True)
+        + (subprotocol_dict["phase_one_charge"] // conversion_factor).to_bytes(
+            2, byteorder="little", signed=True
+        )
         + subprotocol_dict["interpulse_interval"].to_bytes(4, byteorder="little")
         + bytes(2)  # interpulse_interval amplitude (always 0)
         + subprotocol_dict["phase_two_duration"].to_bytes(4, byteorder="little")
-        + subprotocol_dict["phase_two_charge"].to_bytes(2, byteorder="little", signed=True)
+        + (subprotocol_dict["phase_two_charge"] // conversion_factor).to_bytes(
+            2, byteorder="little", signed=True
+        )
         + subprotocol_dict["repeat_delay_interval"].to_bytes(4, byteorder="little")
         + bytes(2)  # repeat_delay_interval amplitude (always 0)
         + subprotocol_dict["total_active_duration"].to_bytes(4, byteorder="little")
@@ -218,13 +223,16 @@ def convert_subprotocol_dict_to_bytes(subprotocol_dict: Dict[str, int]) -> bytes
     )
 
 
-def convert_bytes_to_subprotocol_dict(subprotocol_bytes: bytes) -> Dict[str, int]:
+def convert_bytes_to_subprotocol_dict(subprotocol_bytes: bytes, is_voltage: bool = False) -> Dict[str, int]:
+    conversion_factor = 1 if is_voltage else 10  # TODO unit test this
     return {
         "phase_one_duration": int.from_bytes(subprotocol_bytes[:4], byteorder="little"),
-        "phase_one_charge": int.from_bytes(subprotocol_bytes[4:6], byteorder="little", signed=True),
+        "phase_one_charge": int.from_bytes(subprotocol_bytes[4:6], byteorder="little", signed=True)
+        * conversion_factor,
         "interpulse_interval": int.from_bytes(subprotocol_bytes[6:10], byteorder="little"),
         "phase_two_duration": int.from_bytes(subprotocol_bytes[12:16], byteorder="little"),
-        "phase_two_charge": int.from_bytes(subprotocol_bytes[16:18], byteorder="little", signed=True),
+        "phase_two_charge": int.from_bytes(subprotocol_bytes[16:18], byteorder="little", signed=True)
+        * conversion_factor,
         "repeat_delay_interval": int.from_bytes(subprotocol_bytes[18:22], byteorder="little"),
         "total_active_duration": int.from_bytes(subprotocol_bytes[24:28], byteorder="little"),
     }
