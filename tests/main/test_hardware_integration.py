@@ -4,6 +4,8 @@ import time
 from typing import Dict
 
 from mantarray_desktop_app import create_magnetometer_config_dict
+from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
+from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
@@ -14,6 +16,7 @@ from stdlib_utils import get_formatted_stack_trace
 
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_hardware_integration import fixture_four_board_mc_comm_process_hardware_test_mode
+from ..fixtures_mc_simulator import create_random_stim_info
 from ..helpers import random_bool
 
 __fixtures__ = [
@@ -22,12 +25,10 @@ __fixtures__ = [
 
 
 def create_random_config() -> Dict[int, Dict[int, bool]]:
-    random_config_dict = create_magnetometer_config_dict(24)
+    random_config_dict: Dict[int, Dict[int, bool]] = create_magnetometer_config_dict(24)
     num_channels = 0
     for module_dict in random_config_dict.values():
         for cid in module_dict.keys():
-            if num_channels == 10:
-                break
             enabled = random_bool()
             num_channels += int(enabled)
             module_dict[cid] = enabled
@@ -39,14 +40,26 @@ def create_random_config() -> Dict[int, Dict[int, bool]]:
 
 RANDOM_CONFIG_DICT = create_random_config()
 
+RANDOM_STIM_INFO_1 = create_random_stim_info()  # type: ignore
+RANDOM_STIM_INFO_2 = create_random_stim_info()  # type: ignore
+
 COMMAND_RESPONSE_SEQUENCE = [
     ("get_metadata", "get_metadata"),
     ("change_magnetometer_config_1", "magnetometer_config_1"),
-    ("start_managed_acquisition", "start_1"),
-    ("start_managed_acquisition", "start_2"),
-    ("stop_managed_acquisition", "stop_1"),
-    ("stop_managed_acquisition", "stop_2"),
+    ("start_managed_acquisition", "start_md_1"),
+    ("start_managed_acquisition", "start_md_2"),
+    ("stop_managed_acquisition", "stop_md_1"),
+    ("stop_managed_acquisition", "stop_md_2"),
     ("change_magnetometer_config_2", "magnetometer_config_2"),
+    ("start_stimulation", "start_stim_1"),
+    ("stop_stimulation", "stop_stim_1"),
+    ("set_protocols_1", "set_protocols_1_1"),
+    ("start_stimulation", "start_stim_2"),
+    ("start_stimulation", "start_stim_3"),
+    ("set_protocols_1", "set_protocols_1_2"),
+    ("stop_stimulation", "stop_stim_2"),
+    ("stop_stimulation", "stop_stim_3"),
+    ("set_protocols_2", "set_protocols_2"),
 ]
 
 COMMANDS_FROM_MAIN = {
@@ -54,7 +67,7 @@ COMMANDS_FROM_MAIN = {
         "communication_type": "to_instrument",
         "command": "change_magnetometer_config",
         "magnetometer_config": RANDOM_CONFIG_DICT,
-        "sampling_period": 10000,
+        "sampling_period": 11000,
     },
     "start_managed_acquisition": {
         "communication_type": "to_instrument",
@@ -67,8 +80,26 @@ COMMANDS_FROM_MAIN = {
     "change_magnetometer_config_2": {
         "communication_type": "to_instrument",
         "command": "change_magnetometer_config",
-        "magnetometer_config": create_magnetometer_config_dict(24),
-        "sampling_period": 21000,
+        "magnetometer_config": DEFAULT_MAGNETOMETER_CONFIG,
+        "sampling_period": DEFAULT_SAMPLING_PERIOD,
+    },
+    "set_protocols_1": {
+        "communication_type": "stimulation",
+        "command": "set_protocols",
+        "stim_info": RANDOM_STIM_INFO_1,
+    },
+    "set_protocols_2": {
+        "communication_type": "stimulation",
+        "command": "set_protocols",
+        "stim_info": RANDOM_STIM_INFO_2,
+    },
+    "start_stimulation": {
+        "communication_type": "stimulation",
+        "command": "start_stimulation",
+    },
+    "stop_stimulation": {
+        "communication_type": "stimulation",
+        "command": "stop_stimulation",
     },
 }
 
@@ -82,23 +113,23 @@ RESPONSES = {
         "communication_type": "to_instrument",
         "command": "change_magnetometer_config",
         "magnetometer_config": RANDOM_CONFIG_DICT,
-        "sampling_period": 10000,
+        "sampling_period": 11000,
     },
-    "start_1": {
+    "start_md_1": {
         "communication_type": "to_instrument",
         "command": "start_managed_acquisition",
         "magnetometer_config": RANDOM_CONFIG_DICT,
     },
-    "start_2": {
+    "start_md_2": {
         "communication_type": "to_instrument",
         "command": "start_managed_acquisition",
         "hardware_test_message": "Data stream already started",
     },
-    "stop_1": {
+    "stop_md_1": {
         "communication_type": "to_instrument",
         "command": "stop_managed_acquisition",
     },
-    "stop_2": {
+    "stop_md_2": {
         "communication_type": "to_instrument",
         "command": "stop_managed_acquisition",
         "hardware_test_message": "Data stream already stopped",
@@ -106,8 +137,51 @@ RESPONSES = {
     "magnetometer_config_2": {
         "communication_type": "to_instrument",
         "command": "change_magnetometer_config",
-        "magnetometer_config": create_magnetometer_config_dict(24),
-        "sampling_period": 21000,
+        "magnetometer_config": DEFAULT_MAGNETOMETER_CONFIG,
+        "sampling_period": DEFAULT_SAMPLING_PERIOD,
+    },
+    "set_protocols_1_1": {
+        "communication_type": "stimulation",
+        "command": "set_protocols",
+        "stim_info": RANDOM_STIM_INFO_1,
+    },
+    "set_protocols_1_2": {
+        "communication_type": "stimulation",
+        "command": "set_protocols",
+        "hardware_test_message": "Command failed",
+    },
+    "set_protocols_2": {
+        "communication_type": "stimulation",
+        "command": "set_protocols",
+        "stim_info": RANDOM_STIM_INFO_2,
+    },
+    "start_stim_1": {
+        "communication_type": "stimulation",
+        "command": "start_stimulation",
+        "hardware_test_message": "Command failed",
+    },
+    "start_stim_2": {
+        "communication_type": "stimulation",
+        "command": "start_stimulation",
+    },
+    "start_stim_3": {
+        "communication_type": "stimulation",
+        "command": "start_stimulation",
+        "hardware_test_message": "Command failed",
+    },
+    "stop_stim_1_1": {
+        "communication_type": "stimulation",
+        "command": "start_stimulation",
+        "hardware_test_message": "Command failed",
+    },
+    "stop_stim_1_2": {
+        "communication_type": "stimulation",
+        "command": "start_stimulation",
+    },
+    "stop_stim_2": {
+        "communication_type": "stimulation",
+        "command": "start_stimulation",
+        "hardware_test_message": "Command failed",
     },
 }
 
@@ -161,7 +235,7 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
                     assert (
                         msg_to_main[key] == value
                     ), f"\nActual: {msg_to_main}\nExpected: {expected_response}"
-                if response_key == "start_1":
+                if response_key == "start_md_1":
                     # sleep after data stream starts so data can be parsed and sent to file writer
                     print("Sleeping so data can be produced and parsed...")  # allow-print
                     time.sleep(2)

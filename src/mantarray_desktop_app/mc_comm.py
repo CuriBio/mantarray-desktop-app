@@ -581,6 +581,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         packet_type: int,
         packet_body: bytes,
     ) -> None:
+        # pylint: disable=too-many-branches
         if packet_type == SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE:
             returned_packet = SERIAL_COMM_MAGIC_WORD_BYTES + packet_body
             raise SerialCommIncorrectChecksumFromPCError(returned_packet)
@@ -633,15 +634,21 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._is_data_streaming = False
             elif prev_command["command"] == "set_protocols":
                 if response_data[0]:
-                    raise StimulationProtocolUpdateFailedError()
+                    if not self._hardware_test_mode:
+                        raise StimulationProtocolUpdateFailedError()
+                    prev_command["hardware_test_message"] = "Command failed"  # pragma: no cover
             elif prev_command["command"] == "start_stimulation":
                 # TODO self._base_global_time_of_data_stream = __
                 if response_data[0]:
-                    raise StimulationStatusUpdateFailedError("start_stimulation")
+                    if not self._hardware_test_mode:
+                        raise StimulationStatusUpdateFailedError("start_stimulation")
+                    prev_command["hardware_test_message"] = "Command failed"  # pragma: no cover
                 self._is_stimulating = True
             elif prev_command["command"] == "stop_stimulation":
                 if response_data[0]:
-                    raise StimulationStatusUpdateFailedError("stop_stimulation")
+                    if not self._hardware_test_mode:
+                        raise StimulationStatusUpdateFailedError("stop_stimulation")
+                    prev_command["hardware_test_message"] = "Command failed"  # pragma: no cover
                 self._is_stimulating = False
 
             del prev_command[

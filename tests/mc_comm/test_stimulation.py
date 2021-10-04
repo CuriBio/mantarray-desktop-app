@@ -1,14 +1,11 @@
 # -*- coding: utf-8 -*-
 import copy
-from random import choice
-from random import randint
 
 from mantarray_desktop_app import convert_well_name_to_module_id
 from mantarray_desktop_app import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
 from mantarray_desktop_app import StimulationProtocolUpdateFailedError
 from mantarray_desktop_app import StimulationProtocolUpdateWhileStimulatingError
 from mantarray_desktop_app import StimulationStatusUpdateFailedError
-from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
@@ -16,9 +13,9 @@ from ..fixtures import fixture_patch_print
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process_no_handshake
 from ..fixtures_mc_comm import set_connection_and_register_simulator
+from ..fixtures_mc_simulator import create_random_stim_info
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import get_null_subprotocol
-from ..fixtures_mc_simulator import get_random_pulse_subprotocol
 from ..fixtures_mc_simulator import set_simulator_idle_ready
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -29,28 +26,6 @@ __fixtures__ = [
     fixture_four_board_mc_comm_process_no_handshake,
     fixture_mantarray_mc_simulator_no_beacon,
 ]
-
-
-def create_random_stim_info():
-    protocol_ids = (None, "A", "B", "C", "D")
-    return {
-        "protocols": [
-            {
-                "protocol_id": pid,
-                "stimulation_type": choice(["C", "V"]),
-                "run_until_stopped": choice([True, False]),
-                "subprotocols": [
-                    choice([get_random_pulse_subprotocol(), get_null_subprotocol(450)])
-                    for _ in range(randint(1, 2))
-                ],
-            }
-            for pid in protocol_ids[1:]
-        ],
-        "protocol_assignments": {
-            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): choice(protocol_ids)
-            for well_idx in range(24)
-        },
-    }
 
 
 def set_stimulation_protocols(
