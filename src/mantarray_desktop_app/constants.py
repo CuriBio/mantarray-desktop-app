@@ -10,6 +10,7 @@ The following constants are based off the geometry of Mantarray Board Rev 2
 * WELL_24_INDEX_TO_ADC_AND_CH_INDEX
 """
 import datetime
+from enum import IntEnum
 from typing import Dict
 from typing import Tuple
 import uuid
@@ -346,6 +347,15 @@ STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS = int(100e3)
 STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS = int(1.2e3)
 STIM_MAX_PULSE_DURATION_MICROSECONDS = int(50e3)
 STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL = 50
+
+
+class StimStatuses(IntEnum):
+    ACTIVE = 0
+    NULL = 1
+    RESTARTING = 2
+    FINISHED = 3
+    ERROR = 4
+
 
 # Metadata
 SERIAL_COMM_METADATA_BYTES_LENGTH = 32

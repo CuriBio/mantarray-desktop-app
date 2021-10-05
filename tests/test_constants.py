@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import datetime
+from enum import IntEnum
 import uuid
 
 from mantarray_desktop_app import ADC_CH_TO_24_WELL_INDEX
@@ -138,6 +139,7 @@ from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
 from mantarray_desktop_app import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
 from mantarray_desktop_app import STIM_MAX_PULSE_DURATION_MICROSECONDS
+from mantarray_desktop_app import StimStatuses
 from mantarray_desktop_app import STM_VID
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import SUBPROCESS_POLL_DELAY_SECONDS
@@ -500,6 +502,13 @@ def test_serial_comm():
     assert STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS == int(100e3)
     assert STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS == int(1.2e3)
     assert STIM_MAX_PULSE_DURATION_MICROSECONDS == int(50e3)
+
+    assert issubclass(StimStatuses, IntEnum) is True
+    assert StimStatuses.ACTIVE == 0
+    assert StimStatuses.NULL == 1
+    assert StimStatuses.RESTARTING == 2
+    assert StimStatuses.FINISHED == 3
+    assert StimStatuses.ERROR == 4
 
 
 def test_cython_constants():
