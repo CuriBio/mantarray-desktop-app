@@ -488,9 +488,9 @@ def test_MantarrayMcSimulator__sends_protocol_status_packet_when_a_new_subprotoc
     additional_bytes = (
         bytes([1])  # number of status updates in this packet
         + bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
+        + bytes([StimStatuses.ACTIVE])
         + (spied_global_timer.spy_return + test_duration_us).to_bytes(8, byteorder="little")
         + bytes([1])  # subprotocol idx
-        + bytes([StimStatuses.ACTIVE])
     )
     expected_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
     stim_status_packet = simulator.read(size=expected_size)
@@ -549,9 +549,9 @@ def test_MantarrayMcSimulator__sends_protocol_status_packets_when_multiple_wells
     assert simulator.in_waiting > 0
 
     status_bytes = (
-        (spied_global_timer.spy_return + test_duration_us).to_bytes(8, byteorder="little")
+        bytes([StimStatuses.ACTIVE])
+        + (spied_global_timer.spy_return + test_duration_us).to_bytes(8, byteorder="little")
         + bytes([1])  # subprotocol idx
-        + bytes([StimStatuses.ACTIVE])
     )
     additional_bytes = (
         bytes([2])  # number of status updates in this packet
@@ -619,16 +619,16 @@ def test_MantarrayMcSimulator__sends_multiple_protocol_status_packets_if_multipl
     assert simulator.in_waiting > 0
 
     status_bytes_1 = (
-        (spied_global_timer.spy_return + test_duration_us_1).to_bytes(8, byteorder="little")
+        bytes([StimStatuses.ACTIVE])
+        + (spied_global_timer.spy_return + test_duration_us_1).to_bytes(8, byteorder="little")
         + bytes([1])  # subprotocol idx
-        + bytes([StimStatuses.ACTIVE])
     )
     status_bytes_2 = (
-        (spied_global_timer.spy_return + test_duration_us_1 + test_duration_us_2).to_bytes(
+        bytes([StimStatuses.ACTIVE])
+        + (spied_global_timer.spy_return + test_duration_us_1 + test_duration_us_2).to_bytes(
             8, byteorder="little"
         )
         + bytes([2])  # subprotocol idx
-        + bytes([StimStatuses.ACTIVE])
     )
     additional_bytes = (
         bytes([2])  # number of status updates in this packet
@@ -711,14 +711,14 @@ def test_MantarrayMcSimulator__sends_multiple_protocol_status_packets_if_subprot
     assert simulator.in_waiting > 0
 
     status_bytes_1 = (
-        (spied_global_timer.spy_return + test_duration_us_1).to_bytes(8, byteorder="little")
+        bytes([StimStatuses.ACTIVE])
+        + (spied_global_timer.spy_return + test_duration_us_1).to_bytes(8, byteorder="little")
         + bytes([1])  # subprotocol idx
-        + bytes([StimStatuses.ACTIVE])
     )
     status_bytes_2 = (
-        (spied_global_timer.spy_return + test_duration_us_2).to_bytes(8, byteorder="little")
+        bytes([StimStatuses.ACTIVE])
+        + (spied_global_timer.spy_return + test_duration_us_2).to_bytes(8, byteorder="little")
         + bytes([1])  # subprotocol idx
-        + bytes([StimStatuses.ACTIVE])
     )
     additional_bytes = (
         bytes([2])  # number of status updates in this packet
@@ -786,9 +786,9 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_null_status_correctly(
     additional_bytes = (
         bytes([1])  # number of status updates in this packet
         + bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
+        + bytes([StimStatuses.NULL])
         + (spied_global_timer.spy_return + test_duration_us).to_bytes(8, byteorder="little")
         + bytes([1])  # subprotocol idx
-        + bytes([StimStatuses.NULL])
     )
     expected_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
     stim_status_packet = simulator.read(size=expected_size)
@@ -803,10 +803,121 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_null_status_correctly(
 def test_MantarrayMcSimulator__sends_protocol_status_with_restarting_status_correctly(
     mantarray_mc_simulator_no_beacon, mocker
 ):
-    pass  # TODO
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+
+    spied_global_timer = mocker.spy(simulator, "_get_global_timer")
+
+    test_duration_us = 59000
+    test_well_idx = randint(0, 23)
+
+    test_stim_info = create_converted_stim_info(
+        {
+            "protocols": [
+                {
+                    "protocol_id": "A",
+                    "stimulation_type": "C",
+                    "run_until_stopped": True,
+                    "subprotocols": [
+                        get_random_subprotocol(total_active_duration=test_duration_us),
+                    ],
+                }
+            ],
+            "protocol_assignments": {
+                GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "A"
+                if well_idx == test_well_idx
+                else None
+                for well_idx in range(24)
+            },
+        }
+    )
+    set_stim_info_and_start_stimulating(mantarray_mc_simulator_no_beacon, test_stim_info)
+
+    mocker.patch.object(
+        mc_simulator,
+        "_get_us_since_subprotocol_start",
+        autospec=True,
+        side_effect=[test_duration_us - 1, test_duration_us, 0],
+    )
+
+    invoke_process_run_and_check_errors(simulator)
+    assert simulator.in_waiting == 0
+    invoke_process_run_and_check_errors(simulator)
+    assert simulator.in_waiting > 0
+
+    additional_bytes = (
+        bytes([2])  # number of status updates in this packet
+        + bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
+        + bytes([StimStatuses.RESTARTING])
+        # TODO figure out the order of the packets
+        + bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
+        + bytes([StimStatuses.ACTIVE])
+        + (spied_global_timer.spy_return + test_duration_us).to_bytes(8, byteorder="little")
+        + bytes([0])  # subprotocol idx
+    )
+    expected_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
+    stim_status_packet = simulator.read(size=expected_size)
+    assert_serial_packet_is_expected(
+        stim_status_packet,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
+        additional_bytes=additional_bytes,
+    )
 
 
 def test_MantarrayMcSimulator__sends_protocol_status_with_finished_status_correctly(
     mantarray_mc_simulator_no_beacon, mocker
 ):
-    pass
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+
+    test_duration_us = 63000
+    test_well_idx = randint(0, 23)
+
+    test_stim_info = create_converted_stim_info(
+        {
+            "protocols": [
+                {
+                    "protocol_id": "A",
+                    "stimulation_type": "C",
+                    "run_until_stopped": False,
+                    "subprotocols": [
+                        get_random_subprotocol(total_active_duration=test_duration_us),
+                    ],
+                }
+            ],
+            "protocol_assignments": {
+                GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "A"
+                if well_idx == test_well_idx
+                else None
+                for well_idx in range(24)
+            },
+        }
+    )
+    set_stim_info_and_start_stimulating(mantarray_mc_simulator_no_beacon, test_stim_info)
+
+    mocker.patch.object(
+        mc_simulator,
+        "_get_us_since_subprotocol_start",
+        autospec=True,
+        side_effect=[test_duration_us - 1, test_duration_us, 0],
+    )
+
+    invoke_process_run_and_check_errors(simulator)
+    assert simulator.in_waiting == 0
+    invoke_process_run_and_check_errors(simulator)
+    assert simulator.in_waiting > 0
+
+    additional_bytes = (
+        bytes([1])  # number of status updates in this packet
+        + bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
+        + bytes([StimStatuses.FINISHED])
+    )
+    expected_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
+    stim_status_packet = simulator.read(size=expected_size)
+    assert_serial_packet_is_expected(
+        stim_status_packet,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
+        additional_bytes=additional_bytes,
+    )

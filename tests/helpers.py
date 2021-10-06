@@ -158,9 +158,8 @@ def assert_serial_packet_is_expected(
 ) -> None:
     assert full_packet[SERIAL_COMM_MODULE_ID_INDEX] == module_id
     assert full_packet[SERIAL_COMM_PACKET_TYPE_INDEX] == packet_type
-    assert (
-        full_packet[SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES] == additional_bytes
-    )
+    packet_body = full_packet[SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
+    assert (len(packet_body), packet_body) == (len(additional_bytes), additional_bytes)
     if timestamp is not None:
         actual_timestamp_bytes = full_packet[
             SERIAL_COMM_TIMESTAMP_BYTES_INDEX : SERIAL_COMM_TIMESTAMP_BYTES_INDEX

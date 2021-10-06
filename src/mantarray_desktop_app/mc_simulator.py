@@ -774,18 +774,33 @@ class MantarrayMcSimulator(InfiniteProcess):
             ]
             dur_since_subprotocol_start = _get_us_since_subprotocol_start(start_timepoint)
             while dur_since_subprotocol_start >= curr_subprotocol_duration:
+                # update time index for subprotocol
                 self._stim_time_indices[protocol_idx] += curr_subprotocol_duration
+                # move onto next subprotocol in protocol
                 self._stim_subprotocol_indices[protocol_idx] = (
                     self._stim_subprotocol_indices[protocol_idx] + 1
                 ) % len(subprotocols)
-                status_bytes = self._stim_time_indices[protocol_idx].to_bytes(8, byteorder="little")
-                status_bytes += bytes([self._stim_subprotocol_indices[protocol_idx]])
-                status_bytes += bytes([self._get_stim_status_value(protocol_idx)])
-                for well_name, protocol_assigment in self._stim_info["protocol_assignments"].items():
-                    if protocol_assigment == protocol_idx:
-                        num_status_updates += 1
-                        packet_bytes += bytes([convert_well_name_to_module_id(well_name)]) + status_bytes
 
+                status_bytes = (
+                    bytes([self._get_stim_status_value(protocol_idx)])
+                    + self._stim_time_indices[protocol_idx].to_bytes(8, byteorder="little")
+                    + bytes([self._stim_subprotocol_indices[protocol_idx]])
+                )
+                for well_name, protocol_assigment in self._stim_info["protocol_assignments"].items():
+                    if protocol_assigment != protocol_idx:
+                        continue
+                    module_id = convert_well_name_to_module_id(well_name)
+                    if self._stim_subprotocol_indices[protocol_idx] == 0:
+                        num_status_updates += 1
+                        protocol_finished = not protocol["run_until_stopped"]
+                        status = StimStatuses.FINISHED if protocol_finished else StimStatuses.RESTARTING
+                        packet_bytes += bytes([module_id, status])
+                        if protocol_finished:
+                            continue
+                    num_status_updates += 1
+                    packet_bytes += bytes([module_id]) + status_bytes
+
+                # update timepoints and durations for next iteration
                 self._timepoints_of_subprotocols_start[protocol_idx] += curr_subprotocol_duration
                 dur_since_subprotocol_start -= curr_subprotocol_duration
                 curr_subprotocol_duration = subprotocols[self._stim_subprotocol_indices[protocol_idx]][
