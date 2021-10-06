@@ -356,7 +356,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                 np.array([data_dict["time_indices"], default_channel_data], np.int64),
                 np.zeros((2, len(default_channel_data))),
             )
-            # TODO Tanner (8/5/21): figure out if not compressing data performs well in frontend or get force compressing to work
+            # TODO Tanner (8/5/21): not compressing data causes significant UI lag so need to get force compression working
             force_data = pipeline.get_force()
 
             # convert arrays to lists for json conversion later
