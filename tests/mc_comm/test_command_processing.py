@@ -24,7 +24,7 @@ from ..fixtures_mc_comm import set_connection_and_register_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import get_null_subprotocol
-from ..fixtures_mc_simulator import get_random_pulse_subprotocol
+from ..fixtures_mc_simulator import get_random_subprotocol
 from ..fixtures_mc_simulator import set_simulator_idle_ready
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import handle_putting_multiple_objects_into_empty_queue
@@ -391,7 +391,7 @@ def test_McCommunicationProcess__processes_set_protocols_command(
                 "stimulation_type": choice(["V", "C"]),
                 "run_until_stopped": choice([False, True]),
                 "subprotocols": [
-                    choice([get_random_pulse_subprotocol(), get_null_subprotocol(500)]) for _ in range(2)
+                    choice([get_random_subprotocol(), get_null_subprotocol(500)]) for _ in range(2)
                 ],
             }
             for protocol_id in expected_protocol_ids[1:]

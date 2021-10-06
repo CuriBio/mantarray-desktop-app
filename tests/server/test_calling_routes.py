@@ -26,7 +26,7 @@ from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 import pytest
 
 from ..fixtures import fixture_generic_queue_container
-from ..fixtures_mc_simulator import get_random_pulse_subprotocol
+from ..fixtures_mc_simulator import get_random_subprotocol
 from ..fixtures_server import fixture_client_and_server_manager_and_shared_values
 from ..fixtures_server import fixture_server_manager
 from ..fixtures_server import fixture_test_client
@@ -959,7 +959,7 @@ def test_set_protocols__returns_error_code_if_two_protocols_are_given_with_the_s
                 "protocol_id": expected_id,
                 "run_until_stopped": False,
                 "stimulation_type": "V",
-                "subprotocols": [get_random_pulse_subprotocol()],
+                "subprotocols": [get_random_subprotocol()],
             }
         ]
         * 2,
@@ -1151,7 +1151,7 @@ def test_set_protocols__returns_error_code_if_a_single_well_is_missing_from_prot
                 "protocol_id": "A",
                 "stimulation_type": "C",
                 "run_until_stopped": True,
-                "subprotocols": [get_random_pulse_subprotocol()],
+                "subprotocols": [get_random_subprotocol()],
             }
         ],
         "protocol_assignments": protocol_assignments,
@@ -1184,7 +1184,7 @@ def test_set_protocols__returns_error_code_with_invalid_well_name(
                 "protocol_id": "F",
                 "run_until_stopped": False,
                 "stimulation_type": "V",
-                "subprotocols": [get_random_pulse_subprotocol()],
+                "subprotocols": [get_random_subprotocol()],
             }
         ],
         "protocol_assignments": protocol_assignments,
@@ -1215,7 +1215,7 @@ def test_set_protocols__returns_error_code_if_protocol_assignments_contains_a_si
                 "protocol_id": "K",
                 "run_until_stopped": False,
                 "stimulation_type": "V",
-                "subprotocols": [get_random_pulse_subprotocol()],
+                "subprotocols": [get_random_subprotocol()],
             }
         ],
         "protocol_assignments": protocol_assignments,
@@ -1245,7 +1245,7 @@ def test_set_protocols__returns_error_code_if_one_of_the_given_protocols_is_not_
                 "protocol_id": protocol_id,
                 "run_until_stopped": False,
                 "stimulation_type": "V",
-                "subprotocols": [get_random_pulse_subprotocol()],
+                "subprotocols": [get_random_subprotocol()],
             }
             for protocol_id in test_ids
         ],

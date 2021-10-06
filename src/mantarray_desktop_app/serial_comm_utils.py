@@ -312,7 +312,7 @@ def convert_stim_bytes_to_dict(stim_bytes: bytes) -> Dict[str, Any]:
         )
         curr_byte_idx += 3
 
-    # convert module ID / protocol ID pair bytes
+    # convert module ID / protocol idx pair bytes
     num_assignments = len(stim_bytes[curr_byte_idx:])
     for module_id in range(1, num_assignments + 1):
         well_name = convert_module_id_to_well_name(module_id) if module_id <= 24 else ""

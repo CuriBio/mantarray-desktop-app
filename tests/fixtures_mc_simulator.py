@@ -57,15 +57,15 @@ def get_null_subprotocol(duration):
     }
 
 
-def get_random_pulse_subprotocol():
+def get_random_subprotocol(**kwargs):
     return {
-        "phase_one_duration": randint(1, 500),
-        "phase_one_charge": randint(1, 1000),
-        "interpulse_interval": randint(0, 500),
-        "phase_two_duration": randint(1, 500),
-        "phase_two_charge": randint(1, 1000),
-        "repeat_delay_interval": randint(0, 500),
-        "total_active_duration": randint(1500, 3000),
+        "phase_one_duration": kwargs.get("phase_one_duration", randint(1, 50000)),
+        "phase_one_charge": kwargs.get("phase_one_charge", randint(1, 100) * 10),
+        "interpulse_interval": kwargs.get("interpulse_interval", randint(0, 50000)),
+        "phase_two_duration": kwargs.get("phase_two_duration", randint(1, 50000)),
+        "phase_two_charge": kwargs.get("phase_two_charge", randint(1, 100) * 10),
+        "repeat_delay_interval": kwargs.get("repeat_delay_interval", randint(0, 50000)),
+        "total_active_duration": kwargs.get("total_active_duration", randint(200000, 300000)),
     }
 
 
@@ -78,7 +78,7 @@ def create_random_stim_info():
                 "stimulation_type": choice(["C", "V"]),
                 "run_until_stopped": choice([True, False]),
                 "subprotocols": [
-                    choice([get_random_pulse_subprotocol(), get_null_subprotocol(450)])
+                    choice([get_random_subprotocol(), get_null_subprotocol(450)])
                     for _ in range(randint(1, 2))
                 ],
             }

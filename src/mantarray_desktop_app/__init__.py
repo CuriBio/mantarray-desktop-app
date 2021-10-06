@@ -132,6 +132,7 @@ from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
+from .constants import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
 from .constants import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
 from .constants import SERIAL_COMM_STOP_STIM_PACKET_TYPE
 from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
@@ -595,4 +596,5 @@ __all__ = [
     "StimulationProtocolUpdateFailedError",
     "StimulationStatusUpdateFailedError",
     "StimStatuses",
+    "SERIAL_COMM_STIM_STATUS_PACKET_TYPE",
 ]

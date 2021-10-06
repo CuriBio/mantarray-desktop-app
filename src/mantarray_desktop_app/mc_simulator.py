@@ -13,6 +13,7 @@ from time import perf_counter
 from time import perf_counter_ns
 from typing import Any
 from typing import Dict
+from typing import List
 from typing import Optional
 from typing import Union
 from uuid import UUID
@@ -33,6 +34,7 @@ from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import resource_path
 
+from .constants import DEFAULT_SAMPLING_PERIOD
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
@@ -72,6 +74,7 @@ from .constants import SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE
 from .constants import SERIAL_COMM_START_STIM_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+from .constants import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
 from .constants import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
 from .constants import SERIAL_COMM_STOP_STIM_PACKET_TYPE
 from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
@@ -80,12 +83,14 @@ from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
+from .constants import StimStatuses
 from .exceptions import SerialCommInvalidSamplingPeriodError
 from .exceptions import SerialCommTooManyMissedHandshakesError
 from .exceptions import UnrecognizedSerialCommModuleIdError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .exceptions import UnrecognizedSimulatorTestCommandError
 from .serial_comm_utils import convert_bytes_to_config_dict
+from .serial_comm_utils import convert_module_id_to_well_name
 from .serial_comm_utils import convert_stim_bytes_to_dict
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_status_code_bytes
@@ -129,6 +134,10 @@ def _get_secs_since_last_comm_from_pc(last_time: float) -> float:
 
 def _get_us_since_last_data_packet(last_time_us: int) -> int:
     return _perf_counter_us() - last_time_us
+
+
+def _get_us_since_subprotocol_start(start_time_us: int) -> int:
+    return _perf_counter_us() - start_time_us
 
 
 # pylint: disable=too-many-instance-attributes
@@ -211,7 +220,9 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._magnetometer_config: Dict[int, Dict[int, bool]]
         self._sampling_period_us: int
         self._stim_info: Dict[str, Any]
-        self._stim_running_statuses: Dict[int, bool]
+        self._stim_running_statuses: Dict[str, bool]
+        self._timepoints_of_subprotocols_start: List[int]
+        self._stim_time_indices: List[int]
         self._handle_boot_up_config()
 
     def start(self) -> None:
@@ -239,8 +250,23 @@ class MantarrayMcSimulator(InfiniteProcess):
         else:
             self._timepoint_of_last_data_packet_us = None
 
+    @property
     def _is_stimulating(self) -> bool:
         return any(self._stim_running_statuses.values())
+
+    @_is_stimulating.setter
+    def _is_stimulating(self, value: bool) -> None:
+        if value:
+            start_timepoint = _perf_counter_us()
+            self._timepoints_of_subprotocols_start = [start_timepoint] * len(self._stim_info["protocols"])
+            start_time_index = self._get_global_timer()
+            self._stim_time_indices = [start_time_index] * len(self._stim_info["protocols"])
+            for well_name, protocol_id in self._stim_info["protocol_assignments"].items():
+                self._stim_running_statuses[well_name] = protocol_id is not None
+        else:
+            self._reset_stim_running_statuses()
+            self._timepoints_of_subprotocols_start = list()
+            self._stim_time_indices = list()
 
     @property
     def in_waiting(self) -> int:
@@ -285,7 +311,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._timepoint_of_time_sync_us = None
         self._sampling_period_us = 0
         self._stim_info = {}
-        self._stim_running_statuses = {module_id: False for module_id in range(1, self._num_wells + 1)}
+        self._is_stimulating = False
         if reboot:
             drain_queue(self._input_queue)
             # only boot up time automatically after a reboot
@@ -299,6 +325,11 @@ class MantarrayMcSimulator(InfiniteProcess):
 
     def _reset_magnetometer_config(self) -> None:
         self._magnetometer_config = dict(self.default_24_well_magnetometer_config)
+
+    def _reset_stim_running_statuses(self) -> None:
+        self._stim_running_statuses = {
+            convert_module_id_to_well_name(module_id): False for module_id in range(1, self._num_wells + 1)
+        }
 
     def _get_us_since_time_sync(self) -> int:
         return (
@@ -345,7 +376,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         """Mainly for use in unit tests."""
         return self._stim_info
 
-    def get_stim_running_statuses(self) -> Dict[int, bool]:
+    def get_stim_running_statuses(self) -> Dict[str, bool]:
         """Mainly for use in unit tests."""
         return self._stim_running_statuses
 
@@ -391,13 +422,14 @@ class MantarrayMcSimulator(InfiniteProcess):
         4. Handle communication from the PC.
         5. Send a status beacon if enough time has passed since the previous one was sent.
         6. If streaming is on, check to see how many data packets are ready to be sent and send them if necessary.
-        7. Check if the handshake from the PC is overdue. This should be done after checking for data sent from the PC since the next packet might be a handshake.
-        8. Check if the barcode is ready to send. This is currently the lowest priority.
+        7. If stimulating, send any stimulation data packets that need to be sent.
+        8. Check if the handshake from the PC is overdue. This should be done after checking for data sent from the PC since the next packet might be a handshake.
+        9. Check if the barcode is ready to send. This is currently the lowest priority.
         """
         self._handle_test_comm()
         if self._status_code == SERIAL_COMM_FATAL_ERROR_CODE:
             return
-        # if _reboot_time_secs is not None, this means the simulator is in a "reboot" phase
+        # if _reboot_time_secs is not None this means the simulator is in a "reboot" phase
         if self._reboot_time_secs is not None:
             secs_since_reboot = _get_secs_since_reboot_command(self._reboot_time_secs)
             # if secs_since_reboot is less than the reboot duration, simulator is still in the 'reboot' phase. Commands from PC will be ignored and status beacons will not be sent
@@ -417,6 +449,8 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._handle_status_beacon()
         if self._is_streaming_data:
             self._handle_sending_data_packets()
+        if self._is_stimulating:
+            self._handle_stimulation_packets()
         self._check_handshake()
         if self._ready_to_send_barcode:
             self._send_data_packet(
@@ -516,7 +550,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                 comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
             )
             command_failed = (
-                self._is_stimulating()
+                self._is_stimulating
                 or len(stim_info_dict["protocols"]) > self._num_wells
                 or len(stim_info_dict["protocol_assignments"]) != self._num_wells
                 or any(
@@ -529,21 +563,17 @@ class MantarrayMcSimulator(InfiniteProcess):
             response_body += bytes([command_failed])
         elif packet_type == SERIAL_COMM_START_STIM_PACKET_TYPE:
             # command fails if protocols are not set or if stimulation is already running
-            command_failed = "protocol_assignments" not in self._stim_info or self._is_stimulating()
+            command_failed = "protocol_assignments" not in self._stim_info or self._is_stimulating
             response_body += bytes([command_failed])
             if not command_failed:
-                response_body += self._get_global_timer().to_bytes(8, byteorder="little")
-                for well_name, protocol_id in self._stim_info["protocol_assignments"].items():
-                    module_id = convert_well_name_to_module_id(well_name)
-                    self._stim_running_statuses[module_id] = protocol_id is not None
+                self._is_stimulating = True
+                response_body += self._stim_time_indices[0].to_bytes(8, byteorder="little")
         elif packet_type == SERIAL_COMM_STOP_STIM_PACKET_TYPE:
             # command fails only if stimulation is not currently running
-            command_failed = not self._is_stimulating()
+            command_failed = not self._is_stimulating
             response_body += bytes([command_failed])
             if not command_failed:
-                self._stim_running_statuses = {
-                    module_id: False for module_id in self._stim_running_statuses.keys()
-                }
+                self._is_stimulating = False
         else:
             module_id = comm_from_pc[SERIAL_COMM_MODULE_ID_INDEX]
             raise UnrecognizedSerialCommPacketTypeError(
@@ -572,7 +602,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             raise SerialCommInvalidSamplingPeriodError(sampling_period)
         self._sampling_period_us = sampling_period
         # parse and store magnetometer configuration
-        magnetometer_config_bytes = comm_from_pc[  #
+        magnetometer_config_bytes = comm_from_pc[
             SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 3 : -SERIAL_COMM_CHECKSUM_LENGTH_BYTES
         ]
         config_dict_updates = convert_bytes_to_config_dict(magnetometer_config_bytes)
@@ -658,11 +688,15 @@ class MantarrayMcSimulator(InfiniteProcess):
                 value_bytes = convert_to_metadata_bytes(value)
                 self._metadata_dict[key.bytes] = value_bytes
         elif command == "set_data_streaming_status":
-            self._sampling_period_us = test_comm.get("sampling_period", 10000)
+            self._sampling_period_us = test_comm.get("sampling_period", DEFAULT_SAMPLING_PERIOD)
             self._is_streaming_data = test_comm["data_streaming_status"]
             self._simulated_data_index = test_comm.get("simulated_data_index", 0)
         elif command == "set_sampling_period":
             self._sampling_period_us = test_comm["sampling_period"]
+        elif command == "set_stim_info":
+            self._stim_info = test_comm["stim_info"]
+        elif command == "set_stim_status":
+            self._is_stimulating = test_comm["status"]
         else:
             raise UnrecognizedSimulatorTestCommandError(command)
 
@@ -721,6 +755,33 @@ class MantarrayMcSimulator(InfiniteProcess):
                     if self._magnetometer_config[module_id][channel_id]:
                         data_packet_body += data_value_bytes
         return data_packet_body
+
+    def _handle_stimulation_packets(self) -> None:
+        num_status_updates = 0
+        packet_bytes = bytes(0)
+        for protocol_idx, protocol in enumerate(self._stim_info["protocols"]):
+            start_timepoint = self._timepoints_of_subprotocols_start[protocol_idx]
+            if start_timepoint is None:
+                raise NotImplementedError("start_timepoint of subprotocol should never be None here")
+            curr_subprotocol_duration = protocol["subprotocols"][0]["total_active_duration"]
+            if _get_us_since_subprotocol_start(start_timepoint) < curr_subprotocol_duration:
+                continue
+
+            self._stim_time_indices[protocol_idx] += curr_subprotocol_duration
+            status_bytes = self._stim_time_indices[protocol_idx].to_bytes(8, byteorder="little")
+            status_bytes += bytes([1, StimStatuses.ACTIVE])
+            for well_name, protocol_assigment in self._stim_info["protocol_assignments"].items():
+                if protocol_assigment == protocol_idx:
+                    num_status_updates += 1
+                    packet_bytes += bytes([convert_well_name_to_module_id(well_name)]) + status_bytes
+
+        if num_status_updates > 0:
+            packet_bytes = bytes([num_status_updates]) + packet_bytes
+            self._send_data_packet(
+                SERIAL_COMM_MAIN_MODULE_ID,
+                SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
+                packet_bytes,
+            )
 
     def read(self, size: int = 1) -> bytes:
         """Read the given number of bytes from the simulator."""
