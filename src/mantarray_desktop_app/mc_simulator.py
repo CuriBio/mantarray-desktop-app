@@ -97,6 +97,7 @@ from .serial_comm_utils import convert_to_status_code_bytes
 from .serial_comm_utils import convert_well_name_to_module_id
 from .serial_comm_utils import create_data_packet
 from .serial_comm_utils import create_magnetometer_config_bytes
+from .serial_comm_utils import is_null_subprotocol
 from .serial_comm_utils import validate_checksum
 from .utils import create_magnetometer_config_dict
 from .utils import sort_nested_dict
@@ -223,6 +224,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._stim_running_statuses: Dict[str, bool]
         self._timepoints_of_subprotocols_start: List[int]
         self._stim_time_indices: List[int]
+        self._stim_subprotocol_indices: List[int]
         self._handle_boot_up_config()
 
     def start(self) -> None:
@@ -261,12 +263,14 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._timepoints_of_subprotocols_start = [start_timepoint] * len(self._stim_info["protocols"])
             start_time_index = self._get_global_timer()
             self._stim_time_indices = [start_time_index] * len(self._stim_info["protocols"])
+            self._stim_subprotocol_indices = [0] * len(self._stim_info["protocols"])
             for well_name, protocol_id in self._stim_info["protocol_assignments"].items():
                 self._stim_running_statuses[well_name] = protocol_id is not None
         else:
             self._reset_stim_running_statuses()
             self._timepoints_of_subprotocols_start = list()
             self._stim_time_indices = list()
+            self._stim_subprotocol_indices = list()
 
     @property
     def in_waiting(self) -> int:
@@ -763,18 +767,30 @@ class MantarrayMcSimulator(InfiniteProcess):
             start_timepoint = self._timepoints_of_subprotocols_start[protocol_idx]
             if start_timepoint is None:
                 raise NotImplementedError("start_timepoint of subprotocol should never be None here")
-            curr_subprotocol_duration = protocol["subprotocols"][0]["total_active_duration"]
-            if _get_us_since_subprotocol_start(start_timepoint) < curr_subprotocol_duration:
-                continue
+            subprotocols = protocol["subprotocols"]
 
-            self._stim_time_indices[protocol_idx] += curr_subprotocol_duration
-            status_bytes = self._stim_time_indices[protocol_idx].to_bytes(8, byteorder="little")
-            status_bytes += bytes([1, StimStatuses.ACTIVE])
-            for well_name, protocol_assigment in self._stim_info["protocol_assignments"].items():
-                if protocol_assigment == protocol_idx:
-                    num_status_updates += 1
-                    packet_bytes += bytes([convert_well_name_to_module_id(well_name)]) + status_bytes
+            curr_subprotocol_duration = subprotocols[self._stim_subprotocol_indices[protocol_idx]][
+                "total_active_duration"
+            ]
+            dur_since_subprotocol_start = _get_us_since_subprotocol_start(start_timepoint)
+            while dur_since_subprotocol_start >= curr_subprotocol_duration:
+                self._stim_time_indices[protocol_idx] += curr_subprotocol_duration
+                self._stim_subprotocol_indices[protocol_idx] = (
+                    self._stim_subprotocol_indices[protocol_idx] + 1
+                ) % len(subprotocols)
+                status_bytes = self._stim_time_indices[protocol_idx].to_bytes(8, byteorder="little")
+                status_bytes += bytes([self._stim_subprotocol_indices[protocol_idx]])
+                status_bytes += bytes([self._get_stim_status_value(protocol_idx)])
+                for well_name, protocol_assigment in self._stim_info["protocol_assignments"].items():
+                    if protocol_assigment == protocol_idx:
+                        num_status_updates += 1
+                        packet_bytes += bytes([convert_well_name_to_module_id(well_name)]) + status_bytes
 
+                self._timepoints_of_subprotocols_start[protocol_idx] += curr_subprotocol_duration
+                dur_since_subprotocol_start -= curr_subprotocol_duration
+                curr_subprotocol_duration = subprotocols[self._stim_subprotocol_indices[protocol_idx]][
+                    "total_active_duration"
+                ]
         if num_status_updates > 0:
             packet_bytes = bytes([num_status_updates]) + packet_bytes
             self._send_data_packet(
@@ -782,6 +798,11 @@ class MantarrayMcSimulator(InfiniteProcess):
                 SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
                 packet_bytes,
             )
+
+    def _get_stim_status_value(self, protocol_idx: int) -> int:
+        subprotocol_idx = self._stim_subprotocol_indices[protocol_idx]
+        subprotocol_dict = self._stim_info["protocols"][protocol_idx]["subprotocols"][subprotocol_idx]
+        return StimStatuses.NULL if is_null_subprotocol(subprotocol_dict) else StimStatuses.ACTIVE
 
     def read(self, size: int = 1) -> bytes:
         """Read the given number of bytes from the simulator."""

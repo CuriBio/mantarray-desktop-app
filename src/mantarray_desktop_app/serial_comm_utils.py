@@ -198,13 +198,16 @@ def convert_bytes_to_config_dict(
     return config_dict
 
 
-def convert_subprotocol_dict_to_bytes(subprotocol_dict: Dict[str, int], is_voltage: bool = False) -> bytes:
-    conversion_factor = 1 if is_voltage else 10  # TODO unit test this
-    is_null_subprotocol = not any(
+def is_null_subprotocol(subprotocol_dict: Dict[str, int]) -> bool:
+    return not any(
         val
         for key, val in subprotocol_dict.items()
         if key not in ("phase_one_duration", "total_active_duration")
     )
+
+
+def convert_subprotocol_dict_to_bytes(subprotocol_dict: Dict[str, int], is_voltage: bool = False) -> bytes:
+    conversion_factor = 1 if is_voltage else 10  # TODO unit test this
     return (
         subprotocol_dict["phase_one_duration"].to_bytes(4, byteorder="little")
         + (subprotocol_dict["phase_one_charge"] // conversion_factor).to_bytes(
@@ -219,7 +222,7 @@ def convert_subprotocol_dict_to_bytes(subprotocol_dict: Dict[str, int], is_volta
         + subprotocol_dict["repeat_delay_interval"].to_bytes(4, byteorder="little")
         + bytes(2)  # repeat_delay_interval amplitude (always 0)
         + subprotocol_dict["total_active_duration"].to_bytes(4, byteorder="little")
-        + bytes([is_null_subprotocol])
+        + bytes([is_null_subprotocol(subprotocol_dict)])
     )
 
 
