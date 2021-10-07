@@ -24,11 +24,13 @@ from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
+from ..fixtures_mc_simulator import create_converted_stim_info
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import get_null_subprotocol
 from ..fixtures_mc_simulator import get_random_subprotocol
 from ..fixtures_mc_simulator import set_simulator_idle_ready
+from ..fixtures_mc_simulator import set_stim_info_and_start_stimulating
 from ..helpers import assert_serial_packet_is_expected
 from ..helpers import get_full_packet_size_from_packet_body_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -38,37 +40,6 @@ __fixtures__ = [
     fixture_mantarray_mc_simulator,
     fixture_mantarray_mc_simulator_no_beacon,
 ]
-
-
-def set_stim_info_and_start_stimulating(simulator_fixture, stim_info):
-    simulator = simulator_fixture["simulator"]
-    testing_queue = simulator_fixture["testing_queue"]
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "set_stim_info", "stim_info": stim_info}, testing_queue
-    )
-    invoke_process_run_and_check_errors(simulator)
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "set_stim_status", "status": True}, testing_queue
-    )
-    invoke_process_run_and_check_errors(simulator)
-    # remove all bytes sent from initial subprotocol status update
-    simulator.read_all()
-
-
-def create_converted_stim_info(stim_info):
-    protocol_ids = set()
-    for protocol in stim_info["protocols"]:
-        if protocol["protocol_id"] not in protocol_ids:
-            protocol_ids.add(protocol["protocol_id"])
-        del protocol["protocol_id"]
-
-    protocol_ids = sorted(list(protocol_ids))
-    converted_protocol_assignments = {
-        well_name: (None if protocol_id is None else protocol_ids.index(protocol_id))
-        for well_name, protocol_id in stim_info["protocol_assignments"].items()
-    }
-    stim_info["protocol_assignments"] = converted_protocol_assignments
-    return stim_info
 
 
 def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_stimulation_not_running_on_any_wells(

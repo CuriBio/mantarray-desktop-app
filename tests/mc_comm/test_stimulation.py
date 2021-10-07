@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 import copy
 
-from mantarray_desktop_app import convert_well_name_to_module_id
+from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
 from mantarray_desktop_app import StimulationProtocolUpdateFailedError
 from mantarray_desktop_app import StimulationProtocolUpdateWhileStimulatingError
 from mantarray_desktop_app import StimulationStatusUpdateFailedError
+from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
@@ -16,6 +17,7 @@ from ..fixtures_mc_comm import set_connection_and_register_simulator
 from ..fixtures_mc_simulator import create_random_stim_info
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import get_null_subprotocol
+from ..fixtures_mc_simulator import get_random_subprotocol
 from ..fixtures_mc_simulator import set_simulator_idle_ready
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -68,10 +70,10 @@ def test_McCommunicationProcess__processes_start_and_stop_stimulation_commands__
     set_stimulation_protocols(four_board_mc_comm_process_no_handshake, simulator, expected_stim_info)
     expected_stim_running_statuses = (
         {
-            convert_well_name_to_module_id(well_name): bool(protocol_id)
+            well_name: bool(protocol_id)
             for well_name, protocol_id in expected_stim_info["protocol_assignments"].items()
         },
-        {module_id: False for module_id in range(1, 25)},
+        {well_name: False for well_name in expected_stim_info["protocol_assignments"].keys()},
     )
 
     for command, stim_running_statuses in (
@@ -193,3 +195,133 @@ def test_McCommunicationProcess__raises_error_if_stop_stim_command_fails(
     invoke_process_run_and_check_errors(simulator)
     with pytest.raises(StimulationStatusUpdateFailedError, match="stop_stimulation"):
         invoke_process_run_and_check_errors(mc_process)
+
+
+def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument__one_status_per_packet(
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    input_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][0]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+
+    total_active_duration = 76000
+    test_well_idx = 10
+    expected_stim_info = {
+        "protocols": [
+            {
+                "protocol_id": "A",
+                "stimulation_type": "C",
+                "run_until_stopped": False,
+                "subprotocols": [get_random_subprotocol(total_active_duration=total_active_duration)],
+            }
+        ],
+        "protocol_assignments": {
+            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): (
+                "A" if well_idx == test_well_idx else None
+            )
+            for well_idx in range(24)
+        },
+    }
+    # send command to mc_process
+    set_protocols_command = {
+        "communication_type": "stimulation",
+        "command": "set_protocols",
+        "stim_info": expected_stim_info,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, input_queue)
+    # set protocols and process response
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
+    invoke_process_run_and_check_errors(mc_process)
+
+    mocker.patch.object(
+        mc_simulator,
+        "_get_us_since_subprotocol_start",
+        autospec=True,
+        side_effect=[0, total_active_duration, 0],
+    )
+
+    # send start stimulation command
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"communication_type": "stimulation", "command": "start_stimulation"}, input_queue
+    )
+    invoke_process_run_and_check_errors(mc_process)
+
+    # process command, send back response and initial stimulator status packet
+    invoke_process_run_and_check_errors(simulator)
+    # process command response only
+    invoke_process_run_and_check_errors(mc_process)
+    # send stimulator status packet after initial subprotocol completes
+    invoke_process_run_and_check_errors(simulator)
+    # process both stimulator status packets
+    invoke_process_run_and_check_errors(mc_process, num_iterations=2)
+    assert simulator.in_waiting == 0
+    # TODO make sure only the right stim status packet are sent to file writer
+
+
+def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument__multiple_statuses_in_a_single_packet(
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    input_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][0]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+
+    total_active_duration = 76000
+    test_well_idx = 10
+    expected_stim_info = {
+        "protocols": [
+            {
+                "protocol_id": "A",
+                "stimulation_type": "C",
+                "run_until_stopped": False,
+                "subprotocols": [get_random_subprotocol(total_active_duration=total_active_duration)],
+            }
+        ],
+        "protocol_assignments": {
+            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): (
+                "A" if well_idx == test_well_idx else None
+            )
+            for well_idx in range(24)
+        },
+    }
+    # send command to mc_process
+    set_protocols_command = {
+        "communication_type": "stimulation",
+        "command": "set_protocols",
+        "stim_info": expected_stim_info,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, input_queue)
+    # set protocols and process response
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
+    invoke_process_run_and_check_errors(mc_process)
+
+    mocker.patch.object(
+        mc_simulator,
+        "_get_us_since_subprotocol_start",
+        autospec=True,
+        side_effect=[total_active_duration, total_active_duration, 0],
+    )
+
+    # send start stimulation command
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"communication_type": "stimulation", "command": "start_stimulation"}, input_queue
+    )
+    invoke_process_run_and_check_errors(mc_process)
+    # process command, send back and process response plus both stim statuses
+    invoke_process_run_and_check_errors(simulator)
+    invoke_process_run_and_check_errors(mc_process)
+    # process stimulator status packets
+    invoke_process_run_and_check_errors(mc_process, num_iterations=1)
+    assert simulator.in_waiting == 0
+    # TODO make sure only the right stim statuses are sent to file writer
