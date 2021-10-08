@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Controlling communication with the OpalKelly FPGA Boards."""
+"""Writing data to files."""
 from __future__ import annotations
 
 from collections import deque

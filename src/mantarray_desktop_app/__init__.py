@@ -3,6 +3,7 @@
 
 from . import fifo_read_producer
 from . import fifo_simulator
+from . import file_uploader
 from . import file_writer
 from . import firmware_manager
 from . import main
@@ -569,4 +570,5 @@ __all__ = [
     "get_redacted_string",
     "UnrecognizedCommandFromServerToMainError",
     "IncorrectSamplingPeriodFromInstrumentError",
+    "file_uploader",
 ]
