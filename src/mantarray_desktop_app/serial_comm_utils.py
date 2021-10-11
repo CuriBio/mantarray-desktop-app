@@ -219,7 +219,7 @@ def convert_subprotocol_dict_to_bytes(subprotocol_dict: Dict[str, int], is_volta
         + (subprotocol_dict["phase_two_charge"] // conversion_factor).to_bytes(
             2, byteorder="little", signed=True
         )
-        + subprotocol_dict["repeat_delay_interval"].to_bytes(4, byteorder="little")
+        + int(subprotocol_dict["repeat_delay_interval"]).to_bytes(4, byteorder="little")  # TODO unit test this
         + bytes(2)  # repeat_delay_interval amplitude (always 0)
         + subprotocol_dict["total_active_duration"].to_bytes(4, byteorder="little")
         + bytes([is_null_subprotocol(subprotocol_dict)])
@@ -271,6 +271,7 @@ def convert_stim_dict_to_bytes(stim_dict: Dict[str, Any]) -> bytes:
         protocol_assignment_list[module_id - 1] = (
             255 if protocol_id is None else protocol_ids.index(protocol_id)
         )
+    print("protocol_assignment_list: ", protocol_assignment_list)
     stim_bytes += bytes(protocol_assignment_list)
     return stim_bytes
 

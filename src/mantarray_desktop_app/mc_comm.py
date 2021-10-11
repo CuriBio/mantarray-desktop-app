@@ -398,23 +398,30 @@ class McCommunicationProcess(InstrumentCommProcess):
         6. Make sure commands are not overdue. This task should happen after the instrument has been determined to be working properly.
         7. If rebooting, make sure that the reboot has not taken longer than the max allowed reboot time.
         """
+        # print(5)
         if self._in_simulation_mode:
             if self._check_simulator_error():
                 self.stop()
                 return
+        # print(6)
         if not self._is_waiting_for_reboot:
             self._process_next_communication_from_main()
             self._handle_sending_handshake()
+        # print(self._is_data_streaming)
         if self._is_data_streaming:
             self._handle_data_stream()
         else:
             self._handle_comm_from_instrument()
+        # print(1)
         self._handle_beacon_tracking()
+        # print(2)
         self._handle_command_tracking()
 
         if self._is_waiting_for_reboot:
+            print(2.5)
             self._check_reboot_status()
 
+        # print(3)
         # process can be soft stopped if no commands in queue from main and no command responses needed from instrument
         self._process_can_be_soft_stopped = (
             not bool(self._commands_awaiting_response)
@@ -422,6 +429,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 0
             ].empty()  # Tanner (3/23/21): consider replacing this with is_queue_eventually_empty
         )
+        # print(4)
 
     def _process_next_communication_from_main(self) -> None:
         """Process the next communication sent from the main process.
@@ -547,8 +555,9 @@ class McCommunicationProcess(InstrumentCommProcess):
         data_packet_bytes = board.read(size=packet_size)
         # check that the expected number of bytes are read. Read function will never return more bytes than requested, but can return less bytes than requested if not enough are present before the read timeout
         if len(data_packet_bytes) < packet_size:
+            print(int.from_bytes(data_packet_bytes[:8], byteorder="little") // int(1e6))
             raise SerialCommNotEnoughAdditionalBytesReadError(
-                f"Expected Size: {packet_size}, Actual Size: {len(data_packet_bytes)}"
+                f"Expected Size: {packet_size}, Actual Size: {len(data_packet_bytes)}, {data_packet_bytes}"
             )
         # validate checksum before handling the communication. Need to reconstruct the whole packet to get the correct checksum
         full_data_packet = SERIAL_COMM_MAGIC_WORD_BYTES + packet_size_bytes + data_packet_bytes
@@ -620,10 +629,19 @@ class McCommunicationProcess(InstrumentCommProcess):
                     if not self._hardware_test_mode:
                         raise InstrumentDataStreamingAlreadyStartedError()
                     prev_command["hardware_test_message"] = "Data stream already started"  # pragma: no cover
-                self._base_global_time_of_data_stream = int.from_bytes(response_data[1:9], byteorder="little")
-                prev_command["sampling_period"] = int.from_bytes(response_data[9:11], byteorder="little")
-                prev_command["magnetometer_config"] = convert_bytes_to_config_dict(response_data[11:])
-                prev_command["timestamp"] = _get_formatted_utc_now()
+                else:
+                    self._base_global_time_of_data_stream = int.from_bytes(
+                        response_data[1:9], byteorder="little"
+                    )
+                    prev_command["sampling_period"] = int.from_bytes(response_data[9:11], byteorder="little")
+                    prev_command["magnetometer_config"] = convert_bytes_to_config_dict(response_data[11:])
+                    # prev_command["sampling_period"] = int.from_bytes(response_data[1:3], byteorder="little")
+                    # prev_command["magnetometer_config"] = convert_bytes_to_config_dict(response_data[3:])
+                prev_command[
+                    "timestamp"
+                ] = (
+                    _get_formatted_utc_now()
+                )  # TODO figure out if this value needs to be send back to main for stop_managed_acquisition
                 # Tanner (6/11/21): This helps prevent against status beacon timeouts with beacons that come just after the data stream begins but before 1 second of data is available
                 self._time_of_last_beacon_secs = perf_counter()
             elif prev_command["command"] == "stop_managed_acquisition":
@@ -811,7 +829,9 @@ class McCommunicationProcess(InstrumentCommProcess):
                 sleep(1)
             else:
                 # if the entire period has passed and no more bytes are available an error has occurred with the Mantarray that is considered fatal
-                raise SerialCommPacketRegistrationTimoutError(magic_word_test_bytes)
+                raise SerialCommPacketRegistrationTimoutError(
+                    magic_word_test_bytes
+                )  # TODO fix name here timout -> timeout
         # read more bytes until the magic word is registered, the timeout value is reached, or the maximum number of bytes are read
         num_bytes_checked = 0
         read_dur_secs = 0.0
@@ -845,10 +865,12 @@ class McCommunicationProcess(InstrumentCommProcess):
         data_read_bytes = board.read_all()
         self._data_read_durations.append(_get_dur_of_data_read_secs(data_read_start))
         self._data_read_lengths.append(len(data_read_bytes))
+        # print("data len:", len(data_read_bytes))
 
         self._data_packet_cache += data_read_bytes
         # If stopping data stream, make sure at least 1 byte is available.
         # Otherwise, wait for at least 1 second of data
+
         return_cond = (
             len(self._data_packet_cache) == 0
             if self._is_stopping_data_stream
@@ -856,6 +878,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         )
         if return_cond:
             return
+        # print("PARSING")
 
         # update performance tracking values
         self._parses_since_last_logging[board_idx] += 1
@@ -886,8 +909,10 @@ class McCommunicationProcess(InstrumentCommProcess):
         # create dict and send to file writer if any packets were read  # Tanner (5/25/21): it is possible 0 data packets are read when stopping data stream
         self._dump_data_packets(num_data_packets_read, time_indices, time_offsets, data)
 
+        # print("other_packet_info_list:", other_packet_info_list)
         # process any interrupting packets
         for other_packet_info in other_packet_info_list:
+            # print("other_packet_info:", other_packet_info)
             self._process_comm_from_instrument(
                 *other_packet_info[1:],
             )
@@ -896,6 +921,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         if self._parses_since_last_logging[board_idx] >= self._performance_logging_cycles:
             self._handle_performance_logging()
             self._parses_since_last_logging[board_idx] = 0
+        # print("exiting handle_data_stream")
 
     def _dump_data_packets(
         self, num_data_packets_read: int, time_indices: NDArray, time_offsets: NDArray, data: NDArray

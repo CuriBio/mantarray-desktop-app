@@ -78,7 +78,7 @@ def create_random_stim_info():
                 "stimulation_type": choice(["C", "V"]),
                 "run_until_stopped": choice([True, False]),
                 "subprotocols": [
-                    choice([get_random_subprotocol(), get_null_subprotocol(450)])
+                    choice([get_random_subprotocol(), get_null_subprotocol(50000)])
                     for _ in range(randint(1, 2))
                 ],
             }

@@ -200,6 +200,7 @@ def handle_data_packets(
     cdef int channel
     cdef int bytes_idx = 0
     while bytes_idx <= num_bytes - MIN_PACKET_SIZE:
+        # print("data_packet_idx:", data_packet_idx)
         p = <Packet *> &read_bytes[bytes_idx]
 
         # check that magic word is correct
@@ -214,6 +215,7 @@ def handle_data_packets(
         crc = crc32(crc, <uint8_t *> &p.magic, p.packet_len + 6)
         # check that actual CRC is the expected value. Do this before checking if it is a data packet
         if crc != original_crc:
+            print("PACKET TYPE:", p.packet_type)
             # raising error here, so ok to incur reasonable amount of python overhead here
             full_data_packet = bytearray(read_bytes[bytes_idx : bytes_idx + p.packet_len + 10])
             raise SerialCommIncorrectChecksumFromInstrumentError(

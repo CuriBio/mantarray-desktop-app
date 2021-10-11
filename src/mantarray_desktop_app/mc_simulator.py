@@ -776,6 +776,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                     "total_active_duration"
                 ]
             dur_since_subprotocol_start = _get_us_since_subprotocol_start(start_timepoint)
+            print("A", dur_since_subprotocol_start, curr_subprotocol_duration)
             while dur_since_subprotocol_start >= curr_subprotocol_duration:
                 # update time index for subprotocol
                 self._stim_time_indices[protocol_idx] += curr_subprotocol_duration
@@ -810,6 +811,8 @@ class MantarrayMcSimulator(InfiniteProcess):
                 curr_subprotocol_duration = subprotocols[self._stim_subprotocol_indices[protocol_idx]][
                     "total_active_duration"
                 ]
+                print("B", dur_since_subprotocol_start, curr_subprotocol_duration)
+        print("num status updates:", num_status_updates)
         if num_status_updates > 0:
             packet_bytes = bytes([num_status_updates]) + packet_bytes
             self._send_data_packet(
