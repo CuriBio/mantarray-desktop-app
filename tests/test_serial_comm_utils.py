@@ -457,9 +457,9 @@ def test_convert_stim_dict_to_bytes__return_expected_bytes():
     stim_info_dict = {
         "protocols": [
             {
+                "run_until_stopped": True,
                 "protocol_id": "A",
                 "stimulation_type": "C",
-                "run_until_stopped": True,
                 "subprotocols": [
                     {
                         "phase_one_duration": randint(1, 50),
@@ -504,14 +504,20 @@ def test_convert_stim_dict_to_bytes__return_expected_bytes():
     expected_bytes = bytes([2])  # num unique protocols
     # bytes for protocol A
     expected_bytes += bytes([2])  # num subprotocols in protocol A
-    expected_bytes += convert_subprotocol_dict_to_bytes(stim_info_dict["protocols"][0]["subprotocols"][0])
-    expected_bytes += convert_subprotocol_dict_to_bytes(stim_info_dict["protocols"][0]["subprotocols"][1])
+    expected_bytes += convert_subprotocol_dict_to_bytes(
+        stim_info_dict["protocols"][0]["subprotocols"][0], is_voltage=False
+    )
+    expected_bytes += convert_subprotocol_dict_to_bytes(
+        stim_info_dict["protocols"][0]["subprotocols"][1], is_voltage=False
+    )
     expected_bytes += bytes([0])  # control method
     expected_bytes += bytes([1])  # schedule mode
     expected_bytes += bytes(1)  # data type
     # bytes for protocol D
-    expected_bytes += bytes([1])  # num subprotocols in protocol A
-    expected_bytes += convert_subprotocol_dict_to_bytes(stim_info_dict["protocols"][1]["subprotocols"][0])
+    expected_bytes += bytes([1])  # num subprotocols in protocol B
+    expected_bytes += convert_subprotocol_dict_to_bytes(
+        stim_info_dict["protocols"][1]["subprotocols"][0], is_voltage=True
+    )
     expected_bytes += bytes([1])  # control method
     expected_bytes += bytes([0])  # schedule mode
     expected_bytes += bytes(1)  # data type

@@ -257,11 +257,14 @@ def convert_stim_dict_to_bytes(stim_dict: Dict[str, Any]) -> bytes:
     stim_bytes = bytes([len(stim_dict["protocols"])])  # number of unique protocols
     protocol_ids = list()
     for protocol_dict in stim_dict["protocols"]:
+        is_voltage_controlled = protocol_dict["stimulation_type"] == "V"
         protocol_ids.append(protocol_dict["protocol_id"])
         stim_bytes += bytes([len(protocol_dict["subprotocols"])])  # num subprotocols
         for subprotocol_dict in protocol_dict["subprotocols"]:
-            stim_bytes += convert_subprotocol_dict_to_bytes(subprotocol_dict)
-        stim_bytes += bytes([protocol_dict["stimulation_type"] == "V"])  # control method
+            stim_bytes += convert_subprotocol_dict_to_bytes(
+                subprotocol_dict, is_voltage=is_voltage_controlled
+            )
+        stim_bytes += bytes([is_voltage_controlled])  # control method
         stim_bytes += bytes([protocol_dict["run_until_stopped"]])  # schedule mode
         stim_bytes += bytes([0])  # data type, always 0 as of 9/29/21
     # add bytes for module ID / protocol ID pairs
@@ -296,18 +299,18 @@ def convert_stim_bytes_to_dict(stim_bytes: bytes) -> Dict[str, Any]:
         num_subprotocols = stim_bytes[curr_byte_idx]
         curr_byte_idx += 1
 
-        subprotocol_list = []
+        subprotocol_bytes_list = []
         for _ in range(num_subprotocols):
-            subprotocol_list.append(
-                convert_bytes_to_subprotocol_dict(
-                    stim_bytes[curr_byte_idx : curr_byte_idx + 28], is_voltage=bool(stim_bytes[curr_byte_idx])
-                )
-            )
+            subprotocol_bytes_list.append(stim_bytes[curr_byte_idx : curr_byte_idx + 28])
             curr_byte_idx += 29  # is_null_subprotocol byte is unused here
 
         stimulation_type = "V" if stim_bytes[curr_byte_idx] else "C"
         run_until_stopped = bool(stim_bytes[curr_byte_idx + 1])
 
+        subprotocol_list = [
+            convert_bytes_to_subprotocol_dict(subprotocol_bytes, is_voltage=stimulation_type == "V")
+            for subprotocol_bytes in subprotocol_bytes_list
+        ]
         stim_info_dict["protocols"].append(
             {
                 "stimulation_type": stimulation_type,

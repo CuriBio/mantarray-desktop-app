@@ -1264,3 +1264,29 @@ def test_set_protocols__returns_error_code_if_one_of_the_given_protocols_is_not_
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
     assert response.status.endswith(f"Protocol assignments missing protocol ID: {test_ids[1]}") is True
+
+
+def test_set_protocols__returns_success_code_if_protocols_would_not_be_updated(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = False
+
+    test_stim_info_dict = {
+        "protocols": [
+            {
+                "protocol_id": "J",
+                "run_until_stopped": False,
+                "stimulation_type": "V",
+                "subprotocols": [get_random_subprotocol()],
+            }
+        ],
+        "protocol_assignments": {
+            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "J" for well_idx in range(24)
+        },
+    }
+    shared_values_dict["stimulation_info"] = test_stim_info_dict
+
+    response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
+    assert response.status_code == 200

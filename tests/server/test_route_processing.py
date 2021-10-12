@@ -1383,8 +1383,8 @@ def test_set_protocols__waits_for_stim_info_in_shared_values_dict_to_be_updated_
     test_protocol_dict = {
         "protocols": [
             {
-                "stimulation_type": "C",
                 "protocol_id": "S",
+                "stimulation_type": "C",
                 "run_until_stopped": True,
                 "subprotocols": [get_random_subprotocol(), get_random_subprotocol()],
             }

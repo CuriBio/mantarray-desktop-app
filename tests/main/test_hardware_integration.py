@@ -47,8 +47,8 @@ RANDOM_STIM_INFO_1 = {
     "protocols": [
         {
             "protocol_id": "A",
-            "stimulation_type": "C",
             "run_until_stopped": True,
+            "stimulation_type": "C",
             "subprotocols": [
                 {
                     "phase_one_duration": 20000,
