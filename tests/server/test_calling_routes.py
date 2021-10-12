@@ -880,7 +880,16 @@ def test_set_stim_status__returns_error_code_and_message_if_running_arg_is_not_g
     assert response.status.endswith("Request missing 'running' parameter") is True
 
 
-def test_set_stim_status__returns_error_code_and_message_if_set_to_true_before_protocols_are_set(
+@pytest.mark.parametrize(
+    "test_status,test_description",
+    [
+        (False, "returns error code when setting status to False"),
+        (True, "returns error code when setting status to True"),
+    ],
+)
+def test_set_stim_status__returns_error_code_and_message_if_called_before_protocols_are_set(
+    test_status,
+    test_description,
     client_and_server_manager_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
@@ -888,7 +897,7 @@ def test_set_stim_status__returns_error_code_and_message_if_set_to_true_before_p
     shared_values_dict["stimulation_running"] = False
     shared_values_dict["stimulation_info"] = None
 
-    response = test_client.post("/set_stim_status?running=True")
+    response = test_client.post(f"/set_stim_status?running={test_status}")
     assert response.status_code == 406
     assert response.status.endswith("Protocols have not been set") is True
 
@@ -898,8 +907,9 @@ def test_set_stim_status__returns_code_and_message_if_new_status_is_the_same_as_
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
-
     shared_values_dict["stimulation_running"] = False
+    shared_values_dict["stimulation_info"] = {}
+
     response = test_client.post("/set_stim_status?running=false")
     assert response.status_code == 304
     assert response.status.endswith("Status not updated") is True
@@ -940,7 +950,7 @@ def test_set_protocols__returns_error_code_if_protocol_list_is_empty(
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["stimulation_running"] = False
 
-    response = test_client.post("/set_protocols", json=json.dumps({"protocols": []}))
+    response = test_client.post("/set_protocols", json={"data": json.dumps({"protocols": []})})
     assert response.status_code == 400
     assert response.status.endswith("Protocol list empty") is True
 
@@ -964,7 +974,7 @@ def test_set_protocols__returns_error_code_if_two_protocols_are_given_with_the_s
         ]
         * 2,
     }
-    response = test_client.post("/set_protocols", json=json.dumps(test_stim_info_dict))
+    response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
     assert response.status.endswith(f"Multiple protocols given with ID: {expected_id}") is True
 
@@ -985,7 +995,7 @@ def test_set_protocols__returns_error_code_with_invalid_stimulation_type(
     shared_values_dict["stimulation_running"] = False
 
     test_stim_info_dict = {"protocols": [{"protocol_id": "A", "stimulation_type": test_stimulation_type}]}
-    response = test_client.post("/set_protocols", json=json.dumps(test_stim_info_dict))
+    response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
     assert response.status.endswith(f"Invalid stimulation type: {test_stimulation_type}") is True
 
@@ -1048,7 +1058,7 @@ def test_set_protocols__returns_error_code_with_invalid_stimulation_type(
         ("repeat_delay_interval", -1, "C", "Invalid repeat delay interval: -1"),
         (
             "total_active_duration",
-            STIM_MAX_PULSE_DURATION_MICROSECONDS - 1,
+            STIM_MAX_PULSE_DURATION_MICROSECONDS // int(1e3) - 1,
             "C",
             "Total active duration less than the duration of the subprotocol",
         ),
@@ -1095,7 +1105,7 @@ def test_set_protocols__returns_error_code_with_single_invalid_subprotocol_value
     # add bad value
     test_stim_info_dict["protocols"][0]["subprotocols"][0][test_subprotocol_item] = test_value
 
-    response = test_client.post("/set_protocols", json=json.dumps(test_stim_info_dict))
+    response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert f"400 {test_description}" in response.status
 
 
@@ -1126,7 +1136,7 @@ def test_set_protocols__returns_error_code_when_pulse_duration_is_too_long(
             }
         ]
     }
-    response = test_client.post("/set_protocols", json=json.dumps(test_stim_info_dict))
+    response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert "400 Pulse duration too long" in response.status
 
 
@@ -1156,7 +1166,7 @@ def test_set_protocols__returns_error_code_if_a_single_well_is_missing_from_prot
         ],
         "protocol_assignments": protocol_assignments,
     }
-    response = test_client.post("/set_protocols", json=json.dumps(test_stim_info_dict))
+    response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert f"400 Protocol assignments missing well {missing_well}" in response.status
 
 
@@ -1189,7 +1199,7 @@ def test_set_protocols__returns_error_code_with_invalid_well_name(
         ],
         "protocol_assignments": protocol_assignments,
     }
-    response = test_client.post("/set_protocols", json=json.dumps(test_stim_info_dict))
+    response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
     assert response.status.endswith(f"Protocol assignments contain invalid well: {test_well_name}") is True
 
@@ -1220,7 +1230,7 @@ def test_set_protocols__returns_error_code_if_protocol_assignments_contains_a_si
         ],
         "protocol_assignments": protocol_assignments,
     }
-    response = test_client.post("/set_protocols", json=json.dumps(test_stim_info_dict))
+    response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
     assert response.status.endswith(f"Protocol assignments contain invalid protocol ID: {bad_id}") is True
 
@@ -1251,6 +1261,6 @@ def test_set_protocols__returns_error_code_if_one_of_the_given_protocols_is_not_
         ],
         "protocol_assignments": protocol_assignments,
     }
-    response = test_client.post("/set_protocols", json=json.dumps(test_stim_info_dict))
+    response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
     assert response.status.endswith(f"Protocol assignments missing protocol ID: {test_ids[1]}") is True

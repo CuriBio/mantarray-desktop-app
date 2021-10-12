@@ -11,7 +11,6 @@ from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import server
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
-from mantarray_desktop_app import STIM_MAX_PULSE_DURATION_MICROSECONDS
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
@@ -48,6 +47,8 @@ from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
+from ..fixtures_mc_simulator import get_null_subprotocol
+from ..fixtures_mc_simulator import get_random_subprotocol
 from ..fixtures_process_monitor import fixture_test_monitor
 from ..fixtures_server import fixture_client_and_server_manager_and_shared_values
 from ..fixtures_server import fixture_server_manager
@@ -1191,7 +1192,7 @@ def test_set_stim_status__populates_queue_to_process_monitor_with_new_stim_statu
 
 
 def test_set_protocols__populates_queue_to_process_monitor_with_new_protocol(
-    client_and_server_manager_and_shared_values,
+    client_and_server_manager_and_shared_values, mocker
 ):
     (
         test_client,
@@ -1207,24 +1208,18 @@ def test_set_protocols__populates_queue_to_process_monitor_with_new_protocol(
                 "stimulation_type": "C",
                 "protocol_id": "X",
                 "run_until_stopped": True,
-                "subprotocols": [
-                    {
-                        "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
-                        "phase_one_charge": 0,
-                        "interpulse_interval": 0,
-                        "phase_two_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
-                        "phase_two_charge": 0,
-                        "repeat_delay_interval": 0,
-                        "total_active_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS * 20,
-                    }
-                ],
+                "subprotocols": [get_null_subprotocol(5000), get_random_subprotocol()],
             }
         ],
         "protocol_assignments": {
             GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "X" for well_idx in range(24)
         },
     }
-    response = test_client.post("/set_protocols", json=json.dumps(test_protocol_dict))
+    mocker.patch.object(
+        server, "_get_stim_info_from_process_monitor", autospec=True, return_value=test_protocol_dict
+    )
+
+    response = test_client.post("/set_protocols", json={"data": json.dumps(test_protocol_dict)})
     assert response.status_code == 200
 
     comm_queue = server_manager.get_queue_to_main()
@@ -1232,4 +1227,4 @@ def test_set_protocols__populates_queue_to_process_monitor_with_new_protocol(
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "stimulation"
     assert communication["command"] == "set_protocols"
-    assert communication["protocols"] == test_protocol_dict["protocols"]
+    assert communication["stim_info"] == test_protocol_dict

@@ -142,7 +142,7 @@ class UnrecognizedSerialCommPacketTypeError(Exception):
     pass
 
 
-class SerialCommPacketRegistrationTimoutError(Exception):
+class SerialCommPacketRegistrationTimeoutError(Exception):
     pass
 
 

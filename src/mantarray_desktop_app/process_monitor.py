@@ -189,9 +189,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._put_communication_into_instrument_comm_queue(
                     {
                         "communication_type": communication_type,
-                        "command": "start_stimulation"
-                        if communication["status"]
-                        else "stop_stimulation",  # TODO unit test this
+                        "command": "start_stimulation" if communication["status"] else "stop_stimulation",
                     }
                 )
             elif command == "set_protocols":

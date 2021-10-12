@@ -246,7 +246,6 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._simulated_data_index = 0
             self._time_index_us = self._get_global_timer()
             if self._sampling_period_us == 0:
-                # TODO Tanner (5/13/21): Need to determine what to do if sampling period is not set when data begins streaming
                 raise NotImplementedError("sampling period must be set before streaming data")
             self._simulated_data = self.get_interpolated_data(self._sampling_period_us)
         else:
@@ -776,7 +775,6 @@ class MantarrayMcSimulator(InfiniteProcess):
                     "total_active_duration"
                 ]
             dur_since_subprotocol_start = _get_us_since_subprotocol_start(start_timepoint)
-            print("A", dur_since_subprotocol_start, curr_subprotocol_duration)
             while dur_since_subprotocol_start >= curr_subprotocol_duration:
                 # update time index for subprotocol
                 self._stim_time_indices[protocol_idx] += curr_subprotocol_duration
@@ -811,8 +809,6 @@ class MantarrayMcSimulator(InfiniteProcess):
                 curr_subprotocol_duration = subprotocols[self._stim_subprotocol_indices[protocol_idx]][
                     "total_active_duration"
                 ]
-                print("B", dur_since_subprotocol_start, curr_subprotocol_duration)
-        print("num status updates:", num_status_updates)
         if num_status_updates > 0:
             packet_bytes = bytes([num_status_updates]) + packet_bytes
             self._send_data_packet(

@@ -134,7 +134,7 @@ const start_python_subprocess = () => {
     console.log("sending command line args: " + command_line_args); // allow-log
     const options = {
       mode: "text",
-      pythonPath: "python", // In Cloud9, you need to specify python3 to use the installation inside the virtual environment...just Python defaults to system installation
+      pythonPath: "python3", // process.platform === "win32" ? "python3" : "python",
       // pythonOptions: ['-u'], // get print results in real-time
       scriptPath: "src",
       args: command_line_args,

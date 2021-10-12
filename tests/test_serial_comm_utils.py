@@ -258,7 +258,7 @@ def test_convert_bytes_to_config_dict__returns_correct_values_for_every_module_i
     assert actual == expected_config_dict
 
 
-def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__when_subprotocol_is_not_a_delay():
+def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__when_voltage_controlled_subprotocol_is_not_a_delay():
     test_subprotocol_dict = {
         "phase_one_duration": 0x111,
         "phase_one_charge": 0x333,
@@ -277,6 +277,36 @@ def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__when_subprot
             0, 0,  # interpulse_interval amplitude (always 0)
             0x77, 7, 0, 0,  # phase_two_duration
             0xFF, 0xFF,  # phase_two_charge
+            0x99, 9, 0, 0,  # repeat_delay_interval
+            0, 0,  # repeat_delay_interval amplitude (always 0)
+            0x34, 0x12, 0, 0,  # total_active_duration
+            0,  # is_null_subprotocol
+        ]
+    )
+    # fmt: on
+    actual = convert_subprotocol_dict_to_bytes(test_subprotocol_dict, is_voltage=True)
+    assert actual == expected_bytes
+
+
+def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__when_current_controlled_subprotocol_is_not_a_delay():
+    test_subprotocol_dict = {
+        "phase_one_duration": 0x111,
+        "phase_one_charge": 50,
+        "interpulse_interval": 0x555,
+        "phase_two_duration": 0x777,
+        "phase_two_charge": -50,
+        "repeat_delay_interval": 0x999,
+        "total_active_duration": 0x1234,
+    }
+    # fmt: off
+    expected_bytes = bytes(
+        [
+            0x11, 1, 0, 0,  # phase_one_duration
+            0x05, 0,  # phase_one_charge
+            0x55, 5, 0, 0,  # interpulse_interval
+            0, 0,  # interpulse_interval amplitude (always 0)
+            0x77, 7, 0, 0,  # phase_two_duration
+            0xFB, 0xFF,  # phase_two_charge
             0x99, 9, 0, 0,  # repeat_delay_interval
             0, 0,  # repeat_delay_interval amplitude (always 0)
             0x34, 0x12, 0, 0,  # total_active_duration
@@ -318,7 +348,7 @@ def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__when_subprot
     assert actual == expected_bytes
 
 
-def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__when_subprotocol_is_not_a_delay():
+def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__when_voltage_controlled_subprotocol_is_not_a_delay():
     # fmt: off
     test_bytes = bytes(
         [
@@ -341,6 +371,37 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__when_subproto
         "interpulse_interval": 0x555,
         "phase_two_duration": 0x333,
         "phase_two_charge": -1,
+        "repeat_delay_interval": 0x111,
+        "total_active_duration": 0x4321,
+    }
+
+    actual = convert_bytes_to_subprotocol_dict(test_bytes, is_voltage=True)
+    assert actual == expected_subprotocol_dict
+
+
+def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__when_current_controlled_subprotocol_is_not_a_delay():
+    # fmt: off
+    test_bytes = bytes(
+        [
+            0x99, 9, 0, 0,  # phase_one_duration
+            0x77, 7,  # phase_one_charge
+            0x55, 5, 0, 0,  # interpulse_interval
+            0, 0,  # interpulse_interval amplitude (always 0)
+            0x33, 3, 0, 0,  # phase_two_duration
+            0xFF, 0xFF,  # phase_two_charge
+            0x11, 1, 0, 0,  # repeat_delay_interval
+            0, 0,  # repeat_delay_interval amplitude (always 0)
+            0x21, 0x43, 0, 0,  # total_active_duration
+            0,  # is_null_subprotocol
+        ]
+    )
+    # fmt: on
+    expected_subprotocol_dict = {
+        "phase_one_duration": 0x999,
+        "phase_one_charge": 0x777 * 10,
+        "interpulse_interval": 0x555,
+        "phase_two_duration": 0x333,
+        "phase_two_charge": -1 * 10,
         "repeat_delay_interval": 0x111,
         "total_active_duration": 0x4321,
     }

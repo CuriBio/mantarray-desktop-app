@@ -200,7 +200,7 @@ from .exceptions import SerialCommNotEnoughAdditionalBytesReadError
 from .exceptions import SerialCommPacketFromMantarrayTooSmallError
 from .exceptions import SerialCommPacketRegistrationReadEmptyError
 from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
-from .exceptions import SerialCommPacketRegistrationTimoutError
+from .exceptions import SerialCommPacketRegistrationTimeoutError
 from .exceptions import SerialCommStatusBeaconTimeoutError
 from .exceptions import SerialCommTooManyMissedHandshakesError
 from .exceptions import SerialCommUntrackedCommandResponseError
@@ -470,7 +470,7 @@ __all__ = [
     "McCommunicationProcess",
     "SERIAL_COMM_CHECKSUM_LENGTH_BYTES",
     "SERIAL_COMM_TIMESTAMP_LENGTH_BYTES",
-    "SerialCommPacketRegistrationTimoutError",
+    "SerialCommPacketRegistrationTimeoutError",
     "SerialCommIncorrectMagicWordFromMantarrayError",
     "SerialCommPacketRegistrationReadEmptyError",
     "SERIAL_COMM_MAX_PACKET_LENGTH_BYTES",

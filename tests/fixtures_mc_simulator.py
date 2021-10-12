@@ -59,10 +59,10 @@ def get_null_subprotocol(duration):
 
 def get_random_subprotocol(**kwargs):
     return {
-        "phase_one_duration": kwargs.get("phase_one_duration", randint(1, 50000)),
+        "phase_one_duration": kwargs.get("phase_one_duration", randint(1, 16000)),
         "phase_one_charge": kwargs.get("phase_one_charge", randint(1, 100) * 10),
-        "interpulse_interval": kwargs.get("interpulse_interval", randint(0, 50000)),
-        "phase_two_duration": kwargs.get("phase_two_duration", randint(1, 50000)),
+        "interpulse_interval": kwargs.get("interpulse_interval", randint(0, 16000)),
+        "phase_two_duration": kwargs.get("phase_two_duration", randint(1, 16000)),
         "phase_two_charge": kwargs.get("phase_two_charge", randint(1, 100) * 10),
         "repeat_delay_interval": kwargs.get("repeat_delay_interval", randint(0, 50000)),
         "total_active_duration": kwargs.get("total_active_duration", randint(200000, 300000)),

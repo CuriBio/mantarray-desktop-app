@@ -207,7 +207,7 @@ def is_null_subprotocol(subprotocol_dict: Dict[str, int]) -> bool:
 
 
 def convert_subprotocol_dict_to_bytes(subprotocol_dict: Dict[str, int], is_voltage: bool = False) -> bytes:
-    conversion_factor = 1 if is_voltage else 10  # TODO unit test this
+    conversion_factor = 1 if is_voltage else 10
     return (
         subprotocol_dict["phase_one_duration"].to_bytes(4, byteorder="little")
         + (subprotocol_dict["phase_one_charge"] // conversion_factor).to_bytes(
@@ -219,7 +219,7 @@ def convert_subprotocol_dict_to_bytes(subprotocol_dict: Dict[str, int], is_volta
         + (subprotocol_dict["phase_two_charge"] // conversion_factor).to_bytes(
             2, byteorder="little", signed=True
         )
-        + int(subprotocol_dict["repeat_delay_interval"]).to_bytes(4, byteorder="little")  # TODO unit test this
+        + subprotocol_dict["repeat_delay_interval"].to_bytes(4, byteorder="little")
         + bytes(2)  # repeat_delay_interval amplitude (always 0)
         + subprotocol_dict["total_active_duration"].to_bytes(4, byteorder="little")
         + bytes([is_null_subprotocol(subprotocol_dict)])
@@ -227,7 +227,7 @@ def convert_subprotocol_dict_to_bytes(subprotocol_dict: Dict[str, int], is_volta
 
 
 def convert_bytes_to_subprotocol_dict(subprotocol_bytes: bytes, is_voltage: bool = False) -> Dict[str, int]:
-    conversion_factor = 1 if is_voltage else 10  # TODO unit test this
+    conversion_factor = 1 if is_voltage else 10
     return {
         "phase_one_duration": int.from_bytes(subprotocol_bytes[:4], byteorder="little"),
         "phase_one_charge": int.from_bytes(subprotocol_bytes[4:6], byteorder="little", signed=True)
@@ -271,7 +271,6 @@ def convert_stim_dict_to_bytes(stim_dict: Dict[str, Any]) -> bytes:
         protocol_assignment_list[module_id - 1] = (
             255 if protocol_id is None else protocol_ids.index(protocol_id)
         )
-    print("protocol_assignment_list: ", protocol_assignment_list)
     stim_bytes += bytes(protocol_assignment_list)
     return stim_bytes
 
@@ -300,7 +299,9 @@ def convert_stim_bytes_to_dict(stim_bytes: bytes) -> Dict[str, Any]:
         subprotocol_list = []
         for _ in range(num_subprotocols):
             subprotocol_list.append(
-                convert_bytes_to_subprotocol_dict(stim_bytes[curr_byte_idx : curr_byte_idx + 28])
+                convert_bytes_to_subprotocol_dict(
+                    stim_bytes[curr_byte_idx : curr_byte_idx + 28], is_voltage=bool(stim_bytes[curr_byte_idx])
+                )
             )
             curr_byte_idx += 29  # is_null_subprotocol byte is unused here
 
