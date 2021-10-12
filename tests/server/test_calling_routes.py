@@ -1054,7 +1054,7 @@ def test_set_protocols__returns_error_code_with_invalid_stimulation_type(
         ("phase_one_duration", 0, "C", "Invalid phase one duration: 0"),
         ("phase_one_duration", -1, "C", "Invalid phase one duration: -1"),
         ("phase_two_duration", -1, "C", "Invalid phase two duration: -1"),
-        ("interpulse_interval", -1, "C", "Invalid interpulse interval: -1"),
+        ("interphase_interval", -1, "C", "Invalid interphase interval: -1"),
         ("repeat_delay_interval", -1, "C", "Invalid repeat delay interval: -1"),
         (
             "total_active_duration",
@@ -1092,7 +1092,7 @@ def test_set_protocols__returns_error_code_with_single_invalid_subprotocol_value
                     {
                         "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
                         "phase_one_charge": test_base_charge,
-                        "interpulse_interval": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
+                        "interphase_interval": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
                         "phase_two_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
                         "phase_two_charge": -test_base_charge,
                         "repeat_delay_interval": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
@@ -1126,7 +1126,7 @@ def test_set_protocols__returns_error_code_when_pulse_duration_is_too_long(
                     {
                         "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
                         "phase_one_charge": 0,
-                        "interpulse_interval": 1,
+                        "interphase_interval": 1,
                         "phase_two_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
                         "phase_two_charge": 0,
                         "repeat_delay_interval": STIM_MAX_PULSE_DURATION_MICROSECONDS * 10,

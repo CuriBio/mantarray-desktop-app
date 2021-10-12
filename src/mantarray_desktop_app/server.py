@@ -501,9 +501,9 @@ def set_protocols() -> Response:
             # subprotocol components
             if subprotocol["phase_one_duration"] <= 0:
                 return Response(status=f"400 Invalid phase one duration: {subprotocol['phase_one_duration']}")
-            if subprotocol["interpulse_interval"] < 0:
+            if subprotocol["interphase_interval"] < 0:
                 return Response(
-                    status=f"400 Invalid interpulse interval: {subprotocol['interpulse_interval']}"
+                    status=f"400 Invalid interphase interval: {subprotocol['interphase_interval']}"
                 )
             if subprotocol["phase_two_duration"] < 0:
                 return Response(status=f"400 Invalid phase two duration: {subprotocol['phase_two_duration']}")
@@ -524,10 +524,10 @@ def set_protocols() -> Response:
             single_pulse_dur_microsecs = (
                 subprotocol["phase_one_duration"]
                 + subprotocol["phase_two_duration"]
-                + subprotocol["interpulse_interval"]
+                + subprotocol["interphase_interval"]
             )
             if (
-                subprotocol["interpulse_interval"] > 0 or subprotocol["phase_two_duration"] > 0
+                subprotocol["interphase_interval"] > 0 or subprotocol["phase_two_duration"] > 0
             ) and single_pulse_dur_microsecs > STIM_MAX_PULSE_DURATION_MICROSECONDS:
                 return Response(status="400 Pulse duration too long")
             # make sure subprotocol is set to run for at least one full pulse

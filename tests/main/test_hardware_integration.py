@@ -53,7 +53,7 @@ RANDOM_STIM_INFO_1 = {
                 {
                     "phase_one_duration": 20000,
                     "phase_one_charge": 50000,
-                    "interpulse_interval": 10000,
+                    "interphase_interval": 10000,
                     "phase_two_duration": 20000,
                     "phase_two_charge": -50000,
                     "repeat_delay_interval": 116666,

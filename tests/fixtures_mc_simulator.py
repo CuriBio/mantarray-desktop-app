@@ -48,7 +48,7 @@ def get_null_subprotocol(duration):
     return {
         "phase_one_duration": duration,
         "phase_one_charge": 0,
-        "interpulse_interval": 0,
+        "interphase_interval": 0,
         "phase_two_duration": 0,
         # pylint: disable=duplicate-code
         "phase_two_charge": 0,
@@ -61,7 +61,7 @@ def get_random_subprotocol(**kwargs):
     return {
         "phase_one_duration": kwargs.get("phase_one_duration", randint(1, 16000)),
         "phase_one_charge": kwargs.get("phase_one_charge", randint(1, 100) * 10),
-        "interpulse_interval": kwargs.get("interpulse_interval", randint(0, 16000)),
+        "interphase_interval": kwargs.get("interphase_interval", randint(0, 16000)),
         "phase_two_duration": kwargs.get("phase_two_duration", randint(1, 16000)),
         "phase_two_charge": kwargs.get("phase_two_charge", randint(1, 100) * 10),
         "repeat_delay_interval": kwargs.get("repeat_delay_interval", randint(0, 50000)),

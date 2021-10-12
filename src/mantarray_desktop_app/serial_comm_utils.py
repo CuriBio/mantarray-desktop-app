@@ -213,8 +213,8 @@ def convert_subprotocol_dict_to_bytes(subprotocol_dict: Dict[str, int], is_volta
         + (subprotocol_dict["phase_one_charge"] // conversion_factor).to_bytes(
             2, byteorder="little", signed=True
         )
-        + subprotocol_dict["interpulse_interval"].to_bytes(4, byteorder="little")
-        + bytes(2)  # interpulse_interval amplitude (always 0)
+        + subprotocol_dict["interphase_interval"].to_bytes(4, byteorder="little")
+        + bytes(2)  # interphase_interval amplitude (always 0)
         + subprotocol_dict["phase_two_duration"].to_bytes(4, byteorder="little")
         + (subprotocol_dict["phase_two_charge"] // conversion_factor).to_bytes(
             2, byteorder="little", signed=True
@@ -232,7 +232,7 @@ def convert_bytes_to_subprotocol_dict(subprotocol_bytes: bytes, is_voltage: bool
         "phase_one_duration": int.from_bytes(subprotocol_bytes[:4], byteorder="little"),
         "phase_one_charge": int.from_bytes(subprotocol_bytes[4:6], byteorder="little", signed=True)
         * conversion_factor,
-        "interpulse_interval": int.from_bytes(subprotocol_bytes[6:10], byteorder="little"),
+        "interphase_interval": int.from_bytes(subprotocol_bytes[6:10], byteorder="little"),
         "phase_two_duration": int.from_bytes(subprotocol_bytes[12:16], byteorder="little"),
         "phase_two_charge": int.from_bytes(subprotocol_bytes[16:18], byteorder="little", signed=True)
         * conversion_factor,
