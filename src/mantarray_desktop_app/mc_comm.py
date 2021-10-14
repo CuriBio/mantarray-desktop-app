@@ -76,6 +76,7 @@ from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from .constants import StimStatuses
 from .constants import STM_VID
 from .exceptions import InstrumentDataStreamingAlreadyStartedError
 from .exceptions import InstrumentDataStreamingAlreadyStoppedError
@@ -673,7 +674,30 @@ class McCommunicationProcess(InstrumentCommProcess):
                 barcode_comm["valid"] = check_barcode_is_valid(barcode)
             self._board_queues[board_idx][1].put_nowait(barcode_comm)
         elif packet_type == SERIAL_COMM_STIM_STATUS_PACKET_TYPE:
-            pass  # Tanner (10/6/21): when implementing this, make sure to test that all statuses in the packet are parsed but only the full statuses are sent to file writer
+            well_statuses = dict()
+            num_status_updates = packet_body[0]
+            status_start_idx = 1
+            # print("$$$ num statuses", num_status_updates)
+            for _ in range(num_status_updates):
+                well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[packet_body[status_start_idx]]
+                stim_status = packet_body[status_start_idx + 1]
+                global_time = int.from_bytes(
+                    packet_body[status_start_idx + 2 : status_start_idx + 10], byteorder="little"
+                )
+                subprotocol_idx = packet_body[status_start_idx + 10]
+                status_start_idx += 11
+                # print("###", well_idx, stim_status, global_time, subprotocol_idx)
+                if stim_status == StimStatuses.RESTARTING:
+                    continue
+                if well_idx not in well_statuses:
+                    well_statuses[well_idx] = [[global_time], [subprotocol_idx]]
+                else:
+                    well_statuses[well_idx][0].append(global_time)
+                    well_statuses[well_idx][1].append(subprotocol_idx)
+            # TODO send all packets except those with status == restarting
+
+            to_fw_queue = self._board_queues[0][2]
+            to_fw_queue.put_nowait({"data_type": "stimulation", "well_statuses": well_statuses})
         else:
             raise UnrecognizedSerialCommPacketTypeError(
                 f"Packet Type ID: {packet_type} is not defined for Module ID: {module_id}"
@@ -907,6 +931,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         if num_data_packets_read == 0:
             return
         fw_item: Dict[Any, Any] = {
+            "data_type": "mangetometer",
             "time_indices": time_indices[:num_data_packets_read],
             "is_first_packet_of_stream": not self._has_data_packet_been_sent,
         }
@@ -979,33 +1004,16 @@ class McCommunicationProcess(InstrumentCommProcess):
         return simulator_has_error
 
     def _handle_performance_logging(self) -> None:
-        performance_metrics: Dict[str, Any] = {
-            "communication_type": "performance_metrics",
-        }
+        performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}
         mc_measurements: List[
             Union[int, float]
         ]  # Tanner (5/28/20): This type annotation and the 'ignore' on the following line are necessary for mypy to not incorrectly type this variable
         for name, mc_measurements in (  # type: ignore
-            (
-                "data_read_num_bytes",
-                self._data_read_lengths,
-            ),
-            (
-                "data_read_duration",
-                self._data_read_durations,
-            ),
-            (
-                "data_parsing_duration",
-                self._data_parsing_durations,
-            ),
-            (
-                "data_parsing_num_packets_produced",
-                self._data_parsing_num_packets_produced,
-            ),
-            (
-                "duration_between_parsing",
-                self._durations_between_parsing,
-            ),
+            ("data_read_num_bytes", self._data_read_lengths),
+            ("data_read_duration", self._data_read_durations),
+            ("data_parsing_duration", self._data_parsing_durations),
+            ("data_parsing_num_packets_produced", self._data_parsing_num_packets_produced),
+            ("duration_between_parsing", self._durations_between_parsing),
         ):
             performance_metrics[name] = {
                 "max": max(mc_measurements),

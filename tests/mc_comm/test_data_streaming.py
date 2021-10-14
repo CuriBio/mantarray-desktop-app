@@ -850,7 +850,10 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
     expected_time_indices = list(range(0, max_time_idx_us, test_sampling_period_us))
 
     simulated_data = simulator.get_interpolated_data(test_sampling_period_us)
-    expected_fw_item = {"time_indices": np.array(expected_time_indices, np.uint64)}
+    expected_fw_item = {
+        "data_type": "mangetometer",
+        "time_indices": np.array(expected_time_indices, np.uint64),
+    }
     for well_idx in range(test_num_wells):
         channel_dict = {
             "time_offsets": np.zeros((SERIAL_COMM_NUM_SENSORS_PER_WELL, test_num_packets), dtype=np.uint16),
@@ -868,7 +871,7 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
     assert actual_fw_item.keys() == expected_fw_item.keys()
     np.testing.assert_array_equal(actual_fw_item["time_indices"], expected_fw_item["time_indices"])
     for key, expected_item in expected_fw_item.items():
-        if key in ("is_first_packet_of_stream", "time_indices"):
+        if key in ("data_type", "is_first_packet_of_stream", "time_indices"):
             continue
         actual_item = actual_fw_item[key]
         assert actual_item.keys() == expected_item.keys()  # pylint: disable=no-member
@@ -964,7 +967,10 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
     expected_time_indices = list(range(0, max_time_idx_us, test_sampling_period_us))
 
     simulated_data = simulator.get_interpolated_data(test_sampling_period_us)
-    expected_fw_item = {"time_indices": np.array(expected_time_indices, np.uint64)}
+    expected_fw_item = {
+        "data_type": "mangetometer",
+        "time_indices": np.array(expected_time_indices, np.uint64),
+    }
     for well_idx in range(test_num_wells):
         config_values = list(test_config_dict[SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]].values())
         if not any(config_values):
@@ -992,7 +998,7 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
     assert actual_fw_item.keys() == expected_fw_item.keys()
     np.testing.assert_array_equal(actual_fw_item["time_indices"], expected_fw_item["time_indices"])
     for key, expected_item in expected_fw_item.items():
-        if key in ("is_first_packet_of_stream", "time_indices"):
+        if key in ("data_type", "is_first_packet_of_stream", "time_indices"):
             continue
         actual_item = actual_fw_item[key]
         assert actual_item.keys() == expected_item.keys()  # pylint: disable=no-member
@@ -1046,7 +1052,10 @@ def test_McCommunicationProcess__handles_one_second_read_with_two_interrupting_p
 
     simulated_data = simulator.get_interpolated_data(test_sampling_period_us)
     expected_sensor_axis_id = 0
-    expected_fw_item = {"time_indices": np.array(expected_time_indices, np.uint64)}
+    expected_fw_item = {
+        "data_type": "mangetometer",
+        "time_indices": np.array(expected_time_indices, np.uint64),
+    }
     for module_id in range(10, 16):
         well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
         channel_data = np.concatenate((simulated_data, simulated_data[: test_num_packets // 3]))
@@ -1088,7 +1097,7 @@ def test_McCommunicationProcess__handles_one_second_read_with_two_interrupting_p
     np.testing.assert_array_equal(actual_fw_item["time_indices"], expected_fw_item["time_indices"])
 
     for key, expected_item in expected_fw_item.items():
-        if key in ("is_first_packet_of_stream", "time_indices"):
+        if key in ("data_type", "is_first_packet_of_stream", "time_indices"):
             continue
         actual_time_offsets = actual_fw_item[key]["time_offsets"]
         actual_data = actual_fw_item[key][expected_sensor_axis_id]
@@ -1148,7 +1157,10 @@ def test_McCommunicationProcess__handles_less_than_one_second_read_when_stopping
 
     simulated_data = simulator.get_interpolated_data(test_sampling_period_us)
     expected_sensor_axis_id = 0
-    expected_fw_item = {"time_indices": np.array(expected_time_indices, np.uint64)}
+    expected_fw_item = {
+        "data_type": "mangetometer",
+        "time_indices": np.array(expected_time_indices, np.uint64),
+    }
     for module_id in range(10, 16):
         well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
         channel_dict = {
@@ -1174,7 +1186,7 @@ def test_McCommunicationProcess__handles_less_than_one_second_read_when_stopping
     assert actual_fw_item.keys() == expected_fw_item.keys()
     np.testing.assert_array_equal(actual_fw_item["time_indices"], expected_fw_item["time_indices"])
     for key, expected_item in expected_fw_item.items():
-        if key in ("is_first_packet_of_stream", "time_indices"):
+        if key in ("data_type", "is_first_packet_of_stream", "time_indices"):
             continue
         actual_time_offsets = actual_fw_item[key]["time_offsets"]
         actual_data = actual_fw_item[key][expected_sensor_axis_id]

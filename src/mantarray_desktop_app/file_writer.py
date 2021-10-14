@@ -748,6 +748,18 @@ class FileWriterProcess(InfiniteProcess):
         except queue.Empty:
             return
 
+        data_type = "magnetometer" if not self._beta_2_mode else data_packet["data_type"]
+        if data_type == "magnetometer":
+            self._process_magnetometer_data_packet(data_packet)
+        elif data_type == "stimulation":
+            pass  # TODO
+        else:
+            raise NotImplementedError(f"Invalid data type from instrument comm process: {data_type}")
+
+        if not input_queue.empty():
+            self._process_can_be_soft_stopped = False
+
+    def _process_magnetometer_data_packet(self, data_packet: Dict[Any, Any]) -> None:
         # Tanner (5/25/21): Creating this log message takes a long time so only do it if we are actually logging. TODO: Should probably refactor this function to something more efficient eventually
         if logging.DEBUG >= self.get_logging_level():  # pragma: no cover
             put_log_message_into_queue(
@@ -783,9 +795,6 @@ class FileWriterProcess(InfiniteProcess):
             self._handle_recording_of_packet(data_packet)
             recording_dur = time.perf_counter() - start
             self._recording_durations.append(recording_dur)
-
-        if not input_queue.empty():
-            self._process_can_be_soft_stopped = False
 
     def _handle_recording_of_packet(self, data_packet: Dict[Any, Any]) -> None:
         if self._beta_2_mode:

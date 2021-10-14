@@ -882,6 +882,8 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_restarting_status_corr
         bytes([2])  # number of status updates in this packet
         + bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
         + bytes([StimStatuses.RESTARTING])
+        + (spied_global_timer.spy_return + test_duration_us).to_bytes(8, byteorder="little")
+        + bytes([0])  # subprotocol idx
         + bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
         + bytes([StimStatuses.ACTIVE])
         + (spied_global_timer.spy_return + test_duration_us).to_bytes(8, byteorder="little")
@@ -902,6 +904,8 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_finished_status_correc
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+
+    spied_global_timer = mocker.spy(simulator, "_get_global_timer")
 
     test_duration_us = 63000
     test_well_idx = randint(0, 23)
@@ -944,6 +948,8 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_finished_status_correc
         bytes([1])  # number of status updates in this packet
         + bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
         + bytes([StimStatuses.FINISHED])
+        + (spied_global_timer.spy_return + test_duration_us).to_bytes(8, byteorder="little")
+        + bytes([255])  # subprotocol idx
     )
     expected_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
     stim_status_packet = simulator.read(size=expected_size)
