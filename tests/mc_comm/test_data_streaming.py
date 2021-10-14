@@ -19,6 +19,7 @@ from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
@@ -528,6 +529,55 @@ def test_handle_data_packets__raises_error_when_packet_from_instrument_has_incor
     assert str(bad_checksum) in exc_info.value.args[0]
     assert str(expected_checksum) in exc_info.value.args[0]
     assert str(bytearray(bad_packet)) in exc_info.value.args[0]
+
+
+def test_handle_data_packets__does_not_parse_final_packet_if_it_is_not_complete():
+    test_num_data_packets = 1
+    expected_time_index = 10000
+
+    base_global_time = randint(0, 100)
+
+    data_packet_body, expected_time_offsets, expected_data_points = create_data_stream_body(
+        expected_time_index + base_global_time
+    )
+    full_packet = create_data_packet(  # add one full packet
+        random_timestamp(),
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE,
+        data_packet_body,
+    )
+    incomplete_packet = create_data_packet(  # add one incomplete packet with arbitrary data
+        random_timestamp(),
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+        bytes(10),
+    )[:-1]
+    test_data_packet_bytes = full_packet + incomplete_packet
+
+    (
+        actual_time_indices,
+        actual_time_offsets,
+        actual_data,
+        num_data_packets_read,
+        other_packet_info,
+        unread_bytes,
+    ) = handle_data_packets(
+        bytearray(test_data_packet_bytes), FULL_DATA_PACKET_CHANNEL_LIST, base_global_time
+    )
+
+    expected_time_offsets = np.array(expected_time_offsets).reshape(
+        (len(expected_time_offsets) // test_num_data_packets, test_num_data_packets), order="F"
+    )
+    expected_data_points = np.array(expected_data_points).reshape(
+        (len(expected_data_points) // test_num_data_packets, test_num_data_packets), order="F"
+    )
+
+    np.testing.assert_array_equal(actual_time_indices, expected_time_index)
+    np.testing.assert_array_equal(actual_time_offsets, expected_time_offsets)
+    np.testing.assert_array_equal(actual_data, expected_data_points)
+    assert num_data_packets_read == test_num_data_packets
+    assert other_packet_info == []
+    assert unread_bytes == incomplete_packet
 
 
 def test_handle_data_packets__performance_test():

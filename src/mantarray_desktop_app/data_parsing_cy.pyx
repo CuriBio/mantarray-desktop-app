@@ -202,6 +202,10 @@ def handle_data_packets(
     while bytes_idx <= num_bytes - MIN_PACKET_SIZE:
         p = <Packet *> &read_bytes[bytes_idx]
 
+        # make sure data packet is complete before attempting to parse
+        if num_bytes - (bytes_idx + MAGIC_WORD_LEN + 2) < p.packet_len:
+            break
+
         # check that magic word is correct
         strncpy(magic_word, p.magic, MAGIC_WORD_LEN);
         if strncmp(magic_word, MAGIC_WORD, MAGIC_WORD_LEN) != 0:
@@ -215,7 +219,7 @@ def handle_data_packets(
         # check that actual CRC is the expected value. Do this before checking if it is a data packet
         if crc != original_crc:
             # raising error here, so ok to incur reasonable amount of python overhead here
-            full_data_packet = bytearray(read_bytes[bytes_idx : bytes_idx + p.packet_len + 10])
+            full_data_packet = bytearray(read_bytes[bytes_idx : bytes_idx + p.packet_len + MAGIC_WORD_LEN + 2])
             raise SerialCommIncorrectChecksumFromInstrumentError(
                 f"Checksum Received: {original_crc}, Checksum Calculated: {crc}, Full Data Packet: {str(full_data_packet)}"
             )
@@ -232,7 +236,7 @@ def handle_data_packets(
                 ]
             )
             other_packet_info.append((p.timestamp, p.module_id, p.packet_type, other_bytes))
-            bytes_idx += p.packet_len + 10
+            bytes_idx += p.packet_len + MAGIC_WORD_LEN + 2
             continue
 
         # add to time index array

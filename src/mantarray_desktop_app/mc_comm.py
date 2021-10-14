@@ -407,7 +407,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._process_next_communication_from_main()
             self._handle_sending_handshake()
         if self._is_data_streaming:
-            self._handle_data_stream()
+            self._handle_streams()
         else:
             self._handle_comm_from_instrument()
         self._handle_beacon_tracking()
@@ -860,7 +860,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise SerialCommPacketRegistrationReadEmptyError()
         self._is_registered_with_serial_comm[board_idx] = True
 
-    def _handle_data_stream(self) -> None:
+    def _handle_streams(self) -> None:
         board_idx = 0
         board = self._board_connections[board_idx]
         if board is None:
@@ -877,12 +877,13 @@ class McCommunicationProcess(InstrumentCommProcess):
         # If stopping data stream, make sure at least 1 byte is available.
         # Otherwise, wait for at least 1 second of data
 
-        return_cond = (
+        data_stream_return_condition = (
             len(self._data_packet_cache) == 0
             if self._is_stopping_data_stream
             else len(self._data_packet_cache) < num_bytes_per_second
         )
-        if return_cond:
+        stim_stream_return_condition = True
+        if data_stream_return_condition and stim_stream_return_condition:
             return
 
         # update performance tracking values
