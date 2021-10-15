@@ -126,7 +126,6 @@ from mantarray_desktop_app import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_STOP_STIM_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
-from mantarray_desktop_app import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_CY
 from mantarray_desktop_app import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_TIME_SYNC_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
@@ -515,7 +514,6 @@ def test_serial_comm():
 
 def test_cython_constants():
     assert SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY == len(SERIAL_COMM_MAGIC_WORD_BYTES)
-    assert SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_CY == SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
     assert SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_CY == SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 
 

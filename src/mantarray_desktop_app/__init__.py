@@ -297,7 +297,6 @@ if 6 < 9:  # pragma: no cover # protect this from zimports deleting the pylint d
         parse_sensor_bytes,
         handle_data_packets,
         SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY,
-        SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_CY,
         SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_CY,
     )
 
@@ -558,7 +557,6 @@ __all__ = [
     "SERIAL_COMM_NUM_CHANNELS_PER_SENSOR",
     "SERIAL_COMM_NUM_SENSORS_PER_WELL",
     "SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY",
-    "SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_CY",
     "SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_CY",
     "create_active_channel_per_sensor_list",
     "get_time_offset_dataset_from_file",

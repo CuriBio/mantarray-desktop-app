@@ -44,6 +44,7 @@ from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from .constants import SERIAL_COMM_IDLE_READY_CODE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
+from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
@@ -76,7 +77,6 @@ from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
-from .constants import StimStatuses
 from .constants import STM_VID
 from .exceptions import InstrumentDataStreamingAlreadyStartedError
 from .exceptions import InstrumentDataStreamingAlreadyStoppedError
@@ -548,6 +548,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         data_packet_bytes = board.read(size=packet_size)
         # check that the expected number of bytes are read. Read function will never return more bytes than requested, but can return less bytes than requested if not enough are present before the read timeout
         if len(data_packet_bytes) < packet_size:
+            # TODO try reading one more time, then raise error
             raise SerialCommNotEnoughAdditionalBytesReadError(
                 f"Expected Size: {packet_size}, Actual Size: {len(data_packet_bytes)}, {data_packet_bytes}"  # type: ignore
             )
@@ -591,6 +592,10 @@ class McCommunicationProcess(InstrumentCommProcess):
         board_idx = 0
         if packet_type == SERIAL_COMM_STATUS_BEACON_PACKET_TYPE:
             self._process_status_beacon(packet_body)
+        elif packet_type == SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE:
+            raise NotImplementedError(
+                "Should never receive magnetometer data packets when not streaming data"
+            )
         elif packet_type == SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE:
             response_data = packet_body[SERIAL_COMM_TIMESTAMP_LENGTH_BYTES:]
             if not self._commands_awaiting_response:
@@ -674,30 +679,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 barcode_comm["valid"] = check_barcode_is_valid(barcode)
             self._board_queues[board_idx][1].put_nowait(barcode_comm)
         elif packet_type == SERIAL_COMM_STIM_STATUS_PACKET_TYPE:
-            well_statuses = dict()
-            num_status_updates = packet_body[0]
-            status_start_idx = 1
-            # print("$$$ num statuses", num_status_updates)
-            for _ in range(num_status_updates):
-                well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[packet_body[status_start_idx]]
-                stim_status = packet_body[status_start_idx + 1]
-                global_time = int.from_bytes(
-                    packet_body[status_start_idx + 2 : status_start_idx + 10], byteorder="little"
-                )
-                subprotocol_idx = packet_body[status_start_idx + 10]
-                status_start_idx += 11
-                # print("###", well_idx, stim_status, global_time, subprotocol_idx)
-                if stim_status == StimStatuses.RESTARTING:
-                    continue
-                if well_idx not in well_statuses:
-                    well_statuses[well_idx] = [[global_time], [subprotocol_idx]]
-                else:
-                    well_statuses[well_idx][0].append(global_time)
-                    well_statuses[well_idx][1].append(subprotocol_idx)
-            # TODO send all packets except those with status == restarting
-
-            to_fw_queue = self._board_queues[0][2]
-            to_fw_queue.put_nowait({"data_type": "stimulation", "well_statuses": well_statuses})
+            raise NotImplementedError("Should never receive stim status packets when not stimulating")
         else:
             raise UnrecognizedSerialCommPacketTypeError(
                 f"Packet Type ID: {packet_type} is not defined for Module ID: {module_id}"
@@ -910,12 +892,14 @@ class McCommunicationProcess(InstrumentCommProcess):
         )
         self._data_parsing_durations.append(_get_dur_of_data_parse_secs(data_parsing_start))
         self._data_parsing_num_packets_produced.append(num_data_packets_read)
+        # TODO Tanner (10/15/21): Add metrics for stim data packets once implemented
 
         self._data_packet_cache = unread_bytes
         # create dict and send to file writer if any packets were read  # Tanner (5/25/21): it is possible 0 data packets are read when stopping data stream
         self._dump_data_packets(num_data_packets_read, time_indices, time_offsets, data)
+        # self._dump_stim_packets()
 
-        # process any interrupting packets
+        # process any other packets
         for other_packet_info in other_packet_info_list:
             self._process_comm_from_instrument(
                 *other_packet_info[1:],
@@ -955,6 +939,32 @@ class McCommunicationProcess(InstrumentCommProcess):
         to_fw_queue = self._board_queues[0][2]
         to_fw_queue.put_nowait(fw_item)
         self._has_data_packet_been_sent = True
+
+    def _dump_stim_packets(self) -> None:
+        pass
+        # well_statuses = dict()
+        # num_status_updates = packet_body[0]
+        # status_start_idx = 1
+        # # print("$$$ num statuses", num_status_updates)
+        # for _ in range(num_status_updates):
+        #     well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[packet_body[status_start_idx]]
+        #     stim_status = packet_body[status_start_idx + 1]
+        #     global_time = int.from_bytes(
+        #         packet_body[status_start_idx + 2 : status_start_idx + 10], byte order="little"
+        #     )
+        #     subprotocol_idx = packet_body[status_start_idx + 10]
+        #     status_start_idx += 11
+        #     # print("###", well_idx, stim_status, global_time, subprotocol_idx)
+        #     if stim_status == StimStatuses.RESTARTING:
+        #         continue
+        #     if well_idx not in well_statuses:
+        #         well_statuses[well_idx] = [[global_time], [subprotocol_idx]]
+        #     else:
+        #         well_statuses[well_idx][0].append(global_time)
+        #         well_statuses[well_idx][1].append(subprotocol_idx)
+        # TODO send all packets except those with status == restarting
+        # to_fw_queue = self._board_queues[0][2]
+        # to_fw_queue.put_nowait({"data_type": "stimulation", "well_statuses": well_statuses})
 
     def _handle_beacon_tracking(self) -> None:
         if self._time_of_last_beacon_secs is None:
