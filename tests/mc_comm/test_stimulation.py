@@ -2,8 +2,14 @@
 import copy
 from random import randint
 
+from mantarray_desktop_app import create_data_packet
+from mantarray_desktop_app import handle_data_packets
 from mantarray_desktop_app import mc_simulator
+from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
+from mantarray_desktop_app import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
+from mantarray_desktop_app import StimStatuses
 from mantarray_desktop_app import StimulationProtocolUpdateFailedError
 from mantarray_desktop_app import StimulationProtocolUpdateWhileStimulatingError
 from mantarray_desktop_app import StimulationStatusUpdateFailedError
@@ -20,6 +26,8 @@ from ..fixtures_mc_simulator import create_random_stim_info
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import get_null_subprotocol
 from ..fixtures_mc_simulator import get_random_subprotocol
+from ..fixtures_mc_simulator import random_time_index
+from ..fixtures_mc_simulator import random_timestamp
 from ..fixtures_mc_simulator import set_simulator_idle_ready
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -54,6 +62,143 @@ def set_stimulation_protocols(
 
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
     to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+
+
+def test_handle_data_packets__parses_single_stim_data_packet_with_a_single_status_correctly():
+    base_global_time = randint(0, 100)
+    test_time_index = random_time_index()
+    test_well_idx = randint(0, 23)
+    test_subprotocol_idx = randint(0, 5)
+
+    stim_packet_body = (
+        bytes([1])  # num status updates in packet
+        + bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
+        + bytes([StimStatuses.ACTIVE])
+        + test_time_index.to_bytes(8, byteorder="little")
+        + bytes([test_subprotocol_idx])
+    )
+    test_data_packet = create_data_packet(
+        random_timestamp(),
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
+        stim_packet_body,
+    )
+
+    parsed_data_dict = handle_data_packets(bytearray(test_data_packet), [], base_global_time)
+    actual_stim_data = parsed_data_dict["stim_data"]
+    assert list(actual_stim_data.keys()) == [test_well_idx]
+    assert actual_stim_data[test_well_idx].dtype == np.uint64
+    np.testing.assert_array_equal(
+        actual_stim_data[test_well_idx], [[test_time_index - base_global_time], [test_subprotocol_idx]]
+    )
+
+    # make sure no magnetometer data was returned
+    assert not any(parsed_data_dict["magnetometer_data"].values())
+
+
+def test_handle_data_packets__parses_single_stim_data_packet_with_multiple_statuses_correctly():
+    base_global_time = randint(0, 100)
+    test_time_indices = [random_time_index(), random_time_index(), random_time_index()]
+    test_well_idx = randint(0, 23)
+    test_subprotocol_indices = [randint(0, 5), randint(0, 5), 0]
+    test_statuses = [StimStatuses.ACTIVE, StimStatuses.NULL, StimStatuses.RESTARTING]
+
+    stim_packet_body = bytes([3])  # num status updates in packet
+    for packet_idx in range(3):
+        stim_packet_body += (
+            bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
+            + bytes([test_statuses[packet_idx]])
+            + test_time_indices[packet_idx].to_bytes(8, byteorder="little")
+            + bytes([test_subprotocol_indices[packet_idx]])
+        )
+    test_data_packet = create_data_packet(
+        random_timestamp(),
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
+        stim_packet_body,
+    )
+
+    parsed_data_dict = handle_data_packets(
+        bytearray(test_data_packet), [1, 2, 3, 4], base_global_time  # arbitrary channel list,
+    )
+    actual_stim_data = parsed_data_dict["stim_data"]
+    assert list(actual_stim_data.keys()) == [test_well_idx]
+    np.testing.assert_array_equal(
+        actual_stim_data[test_well_idx],
+        # removing last item in these lists since restarting status info is not needed
+        [np.array(test_time_indices[:-1]) - base_global_time, test_subprotocol_indices[:-1]],
+    )
+
+
+def test_handle_data_packets__parses_multiple_stim_data_packet_with_multiple_wells_and_statuses_correctly():
+    base_global_time = randint(0, 100)
+    test_well_indices = [randint(0, 11), randint(12, 23)]
+    test_time_indices = [
+        [random_time_index(), random_time_index()],
+        [random_time_index(), random_time_index(), random_time_index()],
+    ]
+    test_subprotocol_indices = [
+        [0, randint(1, 5)],
+        [randint(0, 5), randint(0, 5), 255],
+    ]
+    test_statuses = [
+        [StimStatuses.RESTARTING, StimStatuses.NULL],
+        [StimStatuses.ACTIVE, StimStatuses.NULL, StimStatuses.FINISHED],
+    ]
+
+    stim_packet_body_1 = (
+        bytes([2])  # num status updates in packet
+        + bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[test_well_indices[0]]])
+        + bytes([test_statuses[0][0]])
+        + test_time_indices[0][0].to_bytes(8, byteorder="little")
+        + bytes([test_subprotocol_indices[0][0]])
+        + bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[test_well_indices[1]]])
+        + bytes([test_statuses[1][0]])
+        + test_time_indices[1][0].to_bytes(8, byteorder="little")
+        + bytes([test_subprotocol_indices[1][0]])
+    )
+    stim_packet_body_2 = (
+        bytes([3])  # num status updates in packet
+        + bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[test_well_indices[1]]])
+        + bytes([test_statuses[1][1]])
+        + test_time_indices[1][1].to_bytes(8, byteorder="little")
+        + bytes([test_subprotocol_indices[1][1]])
+        + bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[test_well_indices[0]]])
+        + bytes([test_statuses[0][1]])
+        + test_time_indices[0][1].to_bytes(8, byteorder="little")
+        + bytes([test_subprotocol_indices[0][1]])
+        + bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[test_well_indices[1]]])
+        + bytes([test_statuses[1][2]])
+        + test_time_indices[1][2].to_bytes(8, byteorder="little")
+        + bytes([test_subprotocol_indices[1][2]])
+    )
+    test_data_packet_1 = create_data_packet(
+        random_timestamp(),
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
+        stim_packet_body_1,
+    )
+    test_data_packet_2 = create_data_packet(
+        random_timestamp(),
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
+        stim_packet_body_2,
+    )
+
+    parsed_data_dict = handle_data_packets(
+        bytearray(test_data_packet_1 + test_data_packet_2), [], base_global_time
+    )
+    actual_stim_data = parsed_data_dict["stim_data"]
+    assert sorted(list(actual_stim_data.keys())) == sorted(test_well_indices)
+    np.testing.assert_array_equal(
+        actual_stim_data[test_well_indices[0]],
+        # removing first item in these lists since restarting status info is not needed
+        [np.array(test_time_indices[0][1:]) - base_global_time, test_subprotocol_indices[0][1:]],
+    )
+    np.testing.assert_array_equal(
+        actual_stim_data[test_well_indices[1]],
+        [np.array(test_time_indices[1]) - base_global_time, test_subprotocol_indices[1]],
+    )
 
 
 def test_McCommunicationProcess__processes_start_and_stop_stimulation_commands__when_commands_are_successful(
@@ -199,7 +344,7 @@ def test_McCommunicationProcess__raises_error_if_stop_stim_command_fails(
         invoke_process_run_and_check_errors(mc_process)
 
 
-def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument__one_status_per_packet(
+def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument(
     four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
@@ -263,86 +408,6 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     # send stimulator status packet after initial subprotocol completes
     invoke_process_run_and_check_errors(simulator)
     # process both stimulator status packets
-    invoke_process_run_and_check_errors(mc_process, num_iterations=2)
-    assert simulator.in_waiting == 0
-
-    # check status packets sent to file writer
-    confirm_queue_is_eventually_of_size(to_fw_queue, 2)
-    first_msg_to_fw = to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert first_msg_to_fw["data_type"] == "stimulation"
-    assert list(first_msg_to_fw["well_statuses"].keys()) == [test_well_idx]
-    expected_well_statuses_1 = [[spied_global_timer.spy_return], [0]]  # subprotocol idx
-    np.testing.assert_array_equal(first_msg_to_fw["well_statuses"][test_well_idx], expected_well_statuses_1)
-    second_msg_to_fw = to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert second_msg_to_fw["data_type"] == "stimulation"
-    assert list(second_msg_to_fw["well_statuses"].keys()) == [test_well_idx]
-    expected_well_statuses_2 = [
-        [spied_global_timer.spy_return + total_active_duration],
-        [255],  # subprotocol idx
-    ]
-    np.testing.assert_array_equal(second_msg_to_fw["well_statuses"][test_well_idx], expected_well_statuses_2)
-
-
-def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument__multiple_statuses_for_a_single_well_in_a_single_packet(
-    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
-):
-    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
-    input_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][0]
-    to_fw_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][2]
-    simulator = mantarray_mc_simulator_no_beacon["simulator"]
-
-    set_connection_and_register_simulator(
-        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
-    )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
-
-    total_active_duration = 76000
-    test_well_idx = randint(0, 23)
-    expected_stim_info = {
-        "protocols": [
-            {
-                "protocol_id": "A",
-                "stimulation_type": "C",
-                "run_until_stopped": True,
-                "subprotocols": [get_random_subprotocol(total_active_duration=total_active_duration)],
-            }
-        ],
-        "protocol_assignments": {
-            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): (
-                "A" if well_idx == test_well_idx else None
-            )
-            for well_idx in range(24)
-        },
-    }
-    # send command to mc_process
-    set_protocols_command = {
-        "communication_type": "stimulation",
-        "command": "set_protocols",
-        "stim_info": expected_stim_info,
-    }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, input_queue)
-    # set protocols and process response
-    invoke_process_run_and_check_errors(mc_process)
-    invoke_process_run_and_check_errors(simulator)
-    invoke_process_run_and_check_errors(mc_process)
-
-    mocker.patch.object(
-        mc_simulator,
-        "_get_us_since_subprotocol_start",
-        autospec=True,
-        side_effect=[total_active_duration],
-    )
-    spied_global_timer = mocker.spy(simulator, "_get_global_timer")
-
-    # send start stimulation command
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"communication_type": "stimulation", "command": "start_stimulation"}, input_queue
-    )
-    invoke_process_run_and_check_errors(mc_process)
-    # process command, send back and process response plus both stim statuses
-    invoke_process_run_and_check_errors(simulator)
-    invoke_process_run_and_check_errors(mc_process)
-    # process stimulator status packets
     invoke_process_run_and_check_errors(mc_process, num_iterations=1)
     assert simulator.in_waiting == 0
 
@@ -353,99 +418,6 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     assert list(msg_to_fw["well_statuses"].keys()) == [test_well_idx]
     expected_well_statuses = [
         [spied_global_timer.spy_return, spied_global_timer.spy_return + total_active_duration],
-        [0, 0],  # subprotocol idxs
+        [0, 255],  # subprotocol indices
     ]
     np.testing.assert_array_equal(msg_to_fw["well_statuses"][test_well_idx], expected_well_statuses)
-
-
-def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument__multiple_statuses_for_a_multiple_wells_in_a_single_packet(
-    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
-):
-    # TODO
-    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
-    input_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][0]
-    to_fw_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][2]
-    simulator = mantarray_mc_simulator_no_beacon["simulator"]
-
-    set_connection_and_register_simulator(
-        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
-    )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
-
-    total_active_durations = [58000, 85000]
-    test_well_indices = [10, 20]
-    test_protocol_ids = ["A", "E"]
-    test_num_wells_active = 2
-
-    test_protocol_assignments = {
-        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): None for well_idx in range(24)
-    }
-    for i, test_well_idx in enumerate(test_well_indices):
-        test_protocol_assignments[
-            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_idx)
-        ] = test_protocol_ids[i]
-
-    expected_stim_info = {
-        "protocols": [
-            {
-                "protocol_id": test_protocol_ids[i],
-                "stimulation_type": "C",
-                "run_until_stopped": True,
-                "subprotocols": [
-                    get_random_subprotocol(total_active_duration=total_active_durations[i]),
-                    get_null_subprotocol(total_active_durations[i]),
-                ],
-            }
-            for i in range(test_num_wells_active)
-        ],
-        "protocol_assignments": test_protocol_assignments,
-    }
-    # send command to mc_process
-    set_protocols_command = {
-        "communication_type": "stimulation",
-        "command": "set_protocols",
-        "stim_info": expected_stim_info,
-    }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, input_queue)
-    # set protocols and process response
-    invoke_process_run_and_check_errors(mc_process)
-    invoke_process_run_and_check_errors(simulator)
-    invoke_process_run_and_check_errors(mc_process)
-
-    mocker.patch.object(
-        mc_simulator,
-        "_get_us_since_subprotocol_start",
-        autospec=True,
-        side_effect=total_active_durations,
-    )
-    spied_global_timer = mocker.spy(simulator, "_get_global_timer")
-
-    # send start stimulation command
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"communication_type": "stimulation", "command": "start_stimulation"}, input_queue
-    )
-    invoke_process_run_and_check_errors(mc_process)
-    # process command, send back and process response plus both stim statuses
-    invoke_process_run_and_check_errors(simulator)
-    invoke_process_run_and_check_errors(mc_process)
-    # process stimulator status packets
-    invoke_process_run_and_check_errors(mc_process, num_iterations=1)
-    assert simulator.in_waiting == 0
-
-    # check status packets sent to file writer
-    confirm_queue_is_eventually_of_size(to_fw_queue, 1)
-    msg_to_fw = to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert msg_to_fw["data_type"] == "stimulation"
-    assert list(msg_to_fw["well_statuses"].keys()) == test_well_indices
-    expected_well_statuses = (
-        [
-            [spied_global_timer.spy_return, spied_global_timer.spy_return + total_active_durations[0]],
-            [0, 0],  # subprotocol idxs
-        ],
-        [
-            [spied_global_timer.spy_return, spied_global_timer.spy_return + total_active_durations[1]],
-            [0, 0],  # subprotocol idxs
-        ],
-    )
-    np.testing.assert_array_equal(msg_to_fw["well_statuses"][test_well_indices[0]], expected_well_statuses[0])
-    np.testing.assert_array_equal(msg_to_fw["well_statuses"][test_well_indices[1]], expected_well_statuses[1])

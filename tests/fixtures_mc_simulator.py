@@ -11,6 +11,7 @@ from mantarray_desktop_app import SERIAL_COMM_BOOT_UP_CODE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_IDLE_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
+from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 import pytest
 from stdlib_utils import drain_queue
@@ -32,6 +33,22 @@ TEST_HANDSHAKE = create_data_packet(
 )
 
 DEFAULT_SIMULATOR_STATUS_CODE = convert_to_status_code_bytes(SERIAL_COMM_BOOT_UP_CODE)
+
+
+def random_time_index():
+    return randint(100, 0xFFFFFFFFFF)
+
+
+def random_time_offset():
+    return randint(0, 0xFFFF)
+
+
+def random_data_value():
+    return randint(-0x8000, 0x7FFF)
+
+
+def random_timestamp():
+    return randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
 
 
 def set_simulator_idle_ready(simulator_fixture):

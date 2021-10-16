@@ -18,6 +18,8 @@ from .constants import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from .constants import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
+from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
+from .constants import StimStatuses
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
 from .exceptions import SerialCommIncorrectMagicWordFromMantarrayError
 
@@ -145,9 +147,9 @@ cdef packed struct MagnetometerData:
     SensorData sensor_data
 
 
-def handle_data_packets(
+cpdef dict handle_data_packets(
     unsigned char [:] read_bytes, list active_channels_list, base_global_time: int
-) -> Tuple[NDArray, NDArray, NDArray, int, List[Tuple[int, int, int, bytearray]], bytearray]:
+):
     """Read the given number of data packets from the instrument.
 
     If data stream is interrupted by a packet that is not part of the data stream,
@@ -163,8 +165,6 @@ def handle_data_packets(
     read_bytes = read_bytes.copy()  # make sure data is C contiguous
     cdef int num_bytes = len(read_bytes)
 
-    # cdef int num_wells = 24
-
     # magnetometer data parsing values
     cdef int num_time_offsets = len(active_channels_list)
     cdef int num_data_channels = sum(active_channels_list)
@@ -176,6 +176,12 @@ def handle_data_packets(
     cdef unsigned char [:] data_packet_bytes = bytearray(num_bytes)
     cdef int data_packet_byte_idx = 0
     cdef int num_data_packets = 0
+
+    # stim data parsing values
+    cdef int stim_packet_body_len
+    cdef unsigned char [:] stim_packet_bytes = bytearray(num_bytes)
+    cdef int stim_packet_byte_idx = 0
+    cdef int num_stim_packets = 0
 
     # list for storing non-data packets
     other_packet_info = list()
@@ -235,11 +241,16 @@ def handle_data_packets(
             ]
             data_packet_byte_idx += data_packet_len
             num_data_packets += 1
-            # TODO append data packet bytes
         else:
-            pass # TODO append stim packet bytes
+            stim_packet_body_len = p.packet_len + 6 - SERIAL_COMM_ADDITIONAL_BYTES_INDEX_C_INT
+            stim_packet_bytes[
+                stim_packet_byte_idx : stim_packet_byte_idx + stim_packet_body_len
+            ] = read_bytes[  # does not include CRC bytes
+                bytes_idx + SERIAL_COMM_ADDITIONAL_BYTES_INDEX_C_INT : bytes_idx + p.packet_len + 6
+            ]
+            stim_packet_byte_idx += stim_packet_body_len
+            num_stim_packets += 1
         bytes_idx += MAGIC_WORD_LEN + 2 + p.packet_len
-
 
     # convert active_channels_list to an array for faster indexing later
     active_channels_list_arr = np.array(active_channels_list, dtype=np.uint8, order="C")
@@ -264,18 +275,28 @@ def handle_data_packets(
         )
         time_indices -= base_global_time
 
+    # dict for storing stim statuses
+    cdef dict stim_data_dict = {}
 
-    # _parse_stim_data()
+    if num_stim_packets > 0:
+        _parse_stim_data(
+            stim_packet_bytes,
+            num_stim_packets,
+            base_global_time,
+            stim_data_dict,
+        )
 
-
-    return (
-        time_indices,
-        time_offsets,
-        data,
-        num_data_packets,
-        other_packet_info,
-        bytearray(read_bytes[bytes_idx:]),
-    )
+    return {
+        "magnetometer_data": {
+            "time_indices": time_indices,
+            "time_offsets": time_offsets,
+            "data": data,
+            "num_data_packets": num_data_packets,
+        },
+        "stim_data": stim_data_dict,
+        "other_packet_info": other_packet_info,
+        "unread_bytes": bytearray(read_bytes[bytes_idx:]),
+    }
 
 
 cdef _parse_magetometer_data(
@@ -326,25 +347,33 @@ cdef _parse_magetometer_data(
         data_packet_idx += 1
 
 
-cdef _parse_stim_data():
-    return
-    # well_statuses = dict()
-    # num_status_updates = packet_body[0]
-    # status_start_idx = 1
-    # # print("$$$ num statuses", num_status_updates)
-    # for _ in range(num_status_updates):
-    #     well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[packet_body[status_start_idx]]
-    #     stim_status = packet_body[status_start_idx + 1]
-    #     global_time = int.from_bytes(
-    #         packet_body[status_start_idx + 2 : status_start_idx + 10], byteorder="little"
-    #     )
-    #     subprotocol_idx = packet_body[status_start_idx + 10]
-    #     status_start_idx += 11
-    #     # print("###", well_idx, stim_status, global_time, subprotocol_idx)
-    #     if stim_status == StimStatuses.RESTARTING:
-    #         continue
-    #     if well_idx not in well_statuses:
-    #         well_statuses[well_idx] = [[global_time], [subprotocol_idx]]
-    #     else:
-    #         well_statuses[well_idx][0].append(global_time)
-    #         well_statuses[well_idx][1].append(subprotocol_idx)
+cdef _parse_stim_data(
+    unsigned char [:] stim_packet_bytes,
+    int num_stim_packets,
+    int base_global_time,
+    dict stim_data_dict,
+):
+    # Tanner (10/15/21): No need to heavily optimize this function until stim waveforms are streamed
+    cdef int num_status_updates
+    cdef int stim_packet_idx
+    cdef int bytes_idx = 0
+    for stim_packet_idx in range(num_stim_packets):
+        num_status_updates = stim_packet_bytes[bytes_idx]
+        bytes_idx += 1
+        for _ in range(num_status_updates):
+            well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[stim_packet_bytes[bytes_idx]]
+            stim_status = stim_packet_bytes[bytes_idx + 1]
+            time_index = int.from_bytes(
+                stim_packet_bytes[bytes_idx + 2 : bytes_idx + 10], byteorder="little"
+            )
+            subprotocol_idx = stim_packet_bytes[bytes_idx + 10]
+            bytes_idx += 11
+            if stim_status == StimStatuses.RESTARTING:
+                continue
+            if well_idx not in stim_data_dict:
+                stim_data_dict[well_idx] = [[time_index - base_global_time], [subprotocol_idx]]
+            else:
+                stim_data_dict[well_idx][0].append(time_index - base_global_time)
+                stim_data_dict[well_idx][1].append(subprotocol_idx)
+    for well_idx, stim_statuses in stim_data_dict.items():
+        stim_data_dict[well_idx] = np.array(stim_statuses, dtype=np.uint64)
