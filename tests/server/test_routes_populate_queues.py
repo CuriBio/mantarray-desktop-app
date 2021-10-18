@@ -1129,8 +1129,13 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
 @pytest.mark.parametrize(
     "test_stim_running_status,test_stim_info,expected_value,test_description",
     [
-        (False, None, "", "sets metadata value to '' when protocols not set and stim not running"),
-        (False, {"test": "info"}, "", "sets metadata value to '' when protocols set and stim not running"),
+        (False, None, None, "sets metadata value to None when protocols not set and stim not running"),
+        (
+            False,
+            {"test": "info"},
+            None,
+            "sets metadata value to None when protocols set and stim not running",
+        ),
         (
             True,
             {"test": "info"},

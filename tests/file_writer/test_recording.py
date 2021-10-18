@@ -54,6 +54,7 @@ from mantarray_file_manager import SLEEP_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
 from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
 from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
+from mantarray_file_manager import STIMULATION_PROTOCOL_UUID
 from mantarray_file_manager import TAMPER_FLAG_UUID
 from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import TOTAL_WELL_COUNT_UUID
@@ -332,9 +333,7 @@ def test_FileWriterProcess__beta_1_mode__only_creates_file_indices_specified__wh
     comm_to_main = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert comm_to_main["communication_type"] == "command_receipt"
     assert comm_to_main["command"] == "start_recording"
-    assert (
-        "mp" in comm_to_main["file_folder"]
-    )  # cross platform way of checking for 'temp' being part of the file path
+    assert file_dir in comm_to_main["file_folder"]
     assert expected_barcode in comm_to_main["file_folder"]
     spied_abspath.assert_any_call(
         file_writer_process.get_file_directory()
@@ -405,14 +404,61 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_magnetometer
     comm_to_main = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert comm_to_main["communication_type"] == "command_receipt"
     assert comm_to_main["command"] == "start_recording"
-    assert (
-        "mp" in comm_to_main["file_folder"]
-    )  # cross platform way of checking for 'temp' being part of the file path
+    assert file_dir in comm_to_main["file_folder"]
     assert expected_barcode in comm_to_main["file_folder"]
     spied_abspath.assert_any_call(
         file_writer_process.get_file_directory()
     )  # Eli (3/16/20): apparently numpy calls this quite frequently, so can only assert_any_call, not assert_called_once_with
     assert isinstance(comm_to_main["timepoint_to_begin_recording_at"], int) is True
+
+
+@pytest.mark.timeout(4)
+def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_protoco__when_receiving_communication_to_start_recording(
+    four_board_file_writer_process, mocker
+):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    file_writer_process.set_beta_2_mode()
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    file_dir = four_board_file_writer_process["file_dir"]
+
+    timestamp_str = "2020_02_09_190359"
+    expected_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+        PLATE_BARCODE_UUID
+    ]
+    this_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
+    invoke_process_run_and_check_errors(file_writer_process)
+
+    expected_stim_info = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+        STIMULATION_PROTOCOL_UUID
+    ]
+    labeled_protocol_dict = {
+        protocol["protocol_id"]: protocol for protocol in expected_stim_info["protocols"]
+    }
+    expected_protocols = {
+        well_name: labeled_protocol_dict.get(protocol_id, None)
+        for well_name, protocol_id in expected_stim_info["protocol_assignments"].items()
+    }
+
+    # test created files
+    actual_set_of_files = set(os.listdir(os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}")))
+    expected_set_of_files = {
+        f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5"
+        for well_idx in range(24)
+    }
+    assert actual_set_of_files == expected_set_of_files
+    for well_idx in range(24):
+        well_name = WELL_DEF_24.get_well_name_from_well_index(well_idx)
+        this_file = h5py.File(
+            os.path.join(
+                file_dir,
+                f"{expected_barcode}__{timestamp_str}",
+                f"{expected_barcode}__{timestamp_str}__{well_name}.h5",
+            ),
+            "r",
+        )
+        assert this_file.attrs[str(STIMULATION_PROTOCOL_UUID)] == json.dumps(expected_protocols[well_name])
 
 
 def test_FileWriterProcess__start_recording__sets_stop_recording_timestamp_to_none__and_tissue_and_reference_finalization_status_to_false__and_is_recording_to_true(

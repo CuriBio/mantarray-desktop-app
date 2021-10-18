@@ -32,6 +32,7 @@ from mantarray_file_manager import ORIGINAL_FILE_VERSION_UUID
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import REF_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import REFERENCE_SENSOR_READINGS
+from mantarray_file_manager import STIMULATION_PROTOCOL_UUID
 from mantarray_file_manager import TIME_INDICES
 from mantarray_file_manager import TIME_OFFSETS
 from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
@@ -394,14 +395,24 @@ class FileWriterProcess(InfiniteProcess):
         communication["abs_path_to_file_folder"] = file_folder_dir
         os.makedirs(file_folder_dir)
 
+        labeled_protocol_dict = {}
+        if self._beta_2_mode:
+            labeled_protocol_dict = {
+                protocol["protocol_id"]: protocol
+                for protocol in communication["metadata_to_copy_onto_main_file_attributes"][
+                    STIMULATION_PROTOCOL_UUID
+                ]["protocols"]
+            }
+
         tissue_status, reference_status = self.get_recording_finalization_statuses()
         tissue_status[0].clear()
         reference_status[0].clear()
         for this_well_idx in communication["active_well_indices"]:
+            well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(this_well_idx)
             file_path = os.path.join(
                 self._file_directory,
                 sub_dir_name,
-                f"{sub_dir_name}__{GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(this_well_idx)}.h5",
+                f"{sub_dir_name}__{well_name}.h5",
             )
             file_version = (
                 CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
@@ -411,9 +422,7 @@ class FileWriterProcess(InfiniteProcess):
             this_file = MantarrayH5FileCreator(file_path, file_format_version=file_version)
             self._open_files[0][this_well_idx] = this_file
             this_file.attrs[str(ORIGINAL_FILE_VERSION_UUID)] = file_version
-            this_file.attrs[str(WELL_NAME_UUID)] = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(
-                this_well_idx
-            )
+            this_file.attrs[str(WELL_NAME_UUID)] = well_name
             (
                 this_row,
                 this_col,
@@ -443,6 +452,9 @@ class FileWriterProcess(InfiniteProcess):
                     module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[this_well_idx]
                     sensor_axis_dict = create_sensor_axis_dict(this_attr_value[module_id])
                     this_attr_value = json.dumps(sensor_axis_dict)
+                elif this_attr_name == STIMULATION_PROTOCOL_UUID:
+                    assigned_protocol_id = this_attr_value["protocol_assignments"][well_name]
+                    this_attr_value = json.dumps(labeled_protocol_dict.get(assigned_protocol_id, None))
                 if METADATA_UUID_DESCRIPTIONS[this_attr_name].startswith("UTC Timestamp"):
                     this_attr_value = this_attr_value.strftime("%Y-%m-%d %H:%M:%S.%f")
                 this_attr_name = str(this_attr_name)

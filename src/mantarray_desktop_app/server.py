@@ -689,7 +689,7 @@ def start_recording() -> Response:
         instrument_metadata = shared_values_dict["instrument_metadata"][board_idx]
         magnetometer_config_dict = shared_values_dict["magnetometer_config_dict"]
         stim_info_value = (
-            "" if not shared_values_dict["stimulation_running"] else shared_values_dict["stimulation_info"]
+            None if not shared_values_dict["stimulation_running"] else shared_values_dict["stimulation_info"]
         )
         comm_dict["metadata_to_copy_onto_main_file_attributes"].update(
             {
