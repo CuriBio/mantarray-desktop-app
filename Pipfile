@@ -34,7 +34,7 @@ h5py = "==3.2.1"
 immutabledict = "==1.3.0"
 immutable-data-validation = "==0.2.1"
 labware-domain-models = "==0.3.1"
-mantarray-file-manager = "==1.0.0"
+mantarray-file-manager = {ref = "stim-metadata", git = "https://github.com/CuriBio/mantarray-file-manager.git", editable = true}
 mantarray-waveform-analysis = "==1.0.1"
 nptyping = "==1.4.0"
 numpy = "==1.20.2"

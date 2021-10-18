@@ -72,6 +72,7 @@ from mantarray_file_manager import SLEEP_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
 from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
 from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
+from mantarray_file_manager import STIMULATION_PROTOCOL_UUID
 from mantarray_file_manager import TAMPER_FLAG_UUID
 from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
@@ -687,6 +688,9 @@ def start_recording() -> Response:
     if shared_values_dict["beta_2_mode"]:
         instrument_metadata = shared_values_dict["instrument_metadata"][board_idx]
         magnetometer_config_dict = shared_values_dict["magnetometer_config_dict"]
+        stim_info_value = (
+            "" if not shared_values_dict["stimulation_running"] else shared_values_dict["stimulation_info"]
+        )
         comm_dict["metadata_to_copy_onto_main_file_attributes"].update(
             {
                 BOOTUP_COUNTER_UUID: instrument_metadata[BOOTUP_COUNTER_UUID],
@@ -695,6 +699,7 @@ def start_recording() -> Response:
                 PCB_SERIAL_NUMBER_UUID: instrument_metadata[PCB_SERIAL_NUMBER_UUID],
                 TISSUE_SAMPLING_PERIOD_UUID: magnetometer_config_dict["sampling_period"],
                 MAGNETOMETER_CONFIGURATION_UUID: magnetometer_config_dict["magnetometer_config"],
+                STIMULATION_PROTOCOL_UUID: stim_info_value,
             }
         )
     else:

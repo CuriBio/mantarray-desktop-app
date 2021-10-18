@@ -150,6 +150,9 @@ def put_generic_beta_2_start_recording_info_in_dict(shared_values_dict):
     }
     shared_values_dict["instrument_metadata"] = {board_idx: MantarrayMcSimulator.default_metadata_values}
 
+    shared_values_dict["stimulation_running"] = False
+    shared_values_dict["stimulation_info"] = None
+
 
 @pytest.fixture(scope="function", name="test_socketio_client")
 def fixture_test_socketio_client():

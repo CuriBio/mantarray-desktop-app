@@ -31,6 +31,7 @@ from mantarray_file_manager import SLEEP_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
 from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
 from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
+from mantarray_file_manager import STIMULATION_PROTOCOL_UUID
 from mantarray_file_manager import TAMPER_FLAG_UUID
 from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
@@ -1123,6 +1124,50 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     )
     response_json = response.get_json()
     assert response_json["command"] == "start_recording"
+
+
+@pytest.mark.parametrize(
+    "test_stim_running_status,test_stim_info,expected_value,test_description",
+    [
+        (False, None, "", "sets metadata value to '' when protocols not set and stim not running"),
+        (False, {"test": "info"}, "", "sets metadata value to '' when protocols set and stim not running"),
+        (
+            True,
+            {"test": "info"},
+            {"test": "info"},
+            "sets metadata value to stim info dict when protocols set and stim running",
+        ),
+    ],
+)
+def test_start_recording_command__beta_2_mode__populates_queue_with_stim_metadata_correctly(
+    test_stim_running_status,
+    test_stim_info,
+    expected_value,
+    test_description,
+    test_process_manager_creator,
+    test_client,
+):
+    test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
+    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+    put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
+
+    shared_values_dict["stimulation_info"] = test_stim_info
+    shared_values_dict["stimulation_running"] = test_stim_running_status
+
+    test_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+        PLATE_BARCODE_UUID
+    ]
+    response = test_client.get(f"/start_recording?barcode={test_barcode}&is_hardware_test_recording=false")
+    assert response.status_code == 200
+
+    comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    confirm_queue_is_eventually_of_size(comm_queue, 1)
+    communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["command"] == "start_recording"
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][STIMULATION_PROTOCOL_UUID]
+        == expected_value
+    )
 
 
 def test_shutdown__sends_hard_stop_command__waits_for_subprocesses_to_stop__then_shutdown_server_command_to_process_monitor(

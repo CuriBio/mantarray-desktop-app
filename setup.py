@@ -30,7 +30,7 @@ extensions = [
 
 if USE_CYTHON:
     # cythonizing data_parsing_cy.pyx with kwarg annotate=True will help when optimizing the code by enabling generation of the html annotation file
-    extensions = cythonize(extensions, annotate=True)
+    extensions = cythonize(extensions, annotate=False)
 
 setup(
     name="mantarray_desktop_app",
