@@ -38,6 +38,7 @@ from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
 from mantarray_file_manager import USER_ACCOUNT_ID_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
+from mantarray_file_manager import UTC_BEGINNING_STIMULATION_UUID
 from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import pytest
@@ -59,6 +60,7 @@ from ..fixtures_server import put_generic_beta_2_start_recording_info_in_dict
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import is_queue_eventually_not_empty
 from ..helpers import is_queue_eventually_of_size
+from ..helpers import random_bool
 
 __fixtures__ = [
     fixture_client_and_server_manager_and_shared_values,
@@ -1127,17 +1129,17 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
 
 
 @pytest.mark.parametrize(
-    "test_stim_running_status,test_stim_info,expected_value,test_description",
+    "test_stim_start_timestamp,test_stim_info,expected_stim_info,test_description",
     [
-        (False, None, None, "sets metadata value to None when protocols not set and stim not running"),
+        (None, None, None, "sets metadata value to None when protocols not set and stim not running"),
         (
-            False,
+            None,
             {"test": "info"},
             None,
             "sets metadata value to None when protocols set and stim not running",
         ),
         (
-            True,
+            datetime.datetime(year=2021, month=10, day=19, hour=12, minute=42, second=22, microsecond=332597),
             {"test": "info"},
             {"test": "info"},
             "sets metadata value to stim info dict when protocols set and stim running",
@@ -1145,9 +1147,9 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     ],
 )
 def test_start_recording_command__beta_2_mode__populates_queue_with_stim_metadata_correctly(
-    test_stim_running_status,
+    test_stim_start_timestamp,
     test_stim_info,
-    expected_value,
+    expected_stim_info,
     test_description,
     test_process_manager_creator,
     test_client,
@@ -1156,8 +1158,10 @@ def test_start_recording_command__beta_2_mode__populates_queue_with_stim_metadat
     shared_values_dict = test_process_manager.get_values_to_share_to_server()
     put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
 
+    expected_stim_running_list = [random_bool() for _ in range(24)]
+    shared_values_dict["stimulation_running"] = expected_stim_running_list
     shared_values_dict["stimulation_info"] = test_stim_info
-    shared_values_dict["stimulation_running"] = test_stim_running_status
+    shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] = [test_stim_start_timestamp]
 
     test_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
@@ -1169,9 +1173,14 @@ def test_start_recording_command__beta_2_mode__populates_queue_with_stim_metadat
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
+    assert communication["stim_running_statuses"] == expected_stim_running_list
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][UTC_BEGINNING_STIMULATION_UUID]
+        == test_stim_start_timestamp
+    )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][STIMULATION_PROTOCOL_UUID]
-        == expected_value
+        == expected_stim_info
     )
 
 
@@ -1228,7 +1237,7 @@ def test_set_stim_status__populates_queue_to_process_monitor_with_new_stim_statu
     shared_values_dict["stimulation_info"] = {"protocols": [None] * 4, "protocol_assignments": {}}
 
     expected_status_bool = test_status in ("true", "True")
-    shared_values_dict["stimulation_running"] = not expected_status_bool
+    shared_values_dict["stimulation_running"] = [not expected_status_bool] * 24
 
     response = test_client.post(f"/set_stim_status?running={test_status}")
     assert response.status_code == 200
@@ -1250,7 +1259,7 @@ def test_set_protocols__populates_queue_to_process_monitor_with_new_protocol(
         shared_values_dict,
     ) = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
-    shared_values_dict["stimulation_running"] = False
+    shared_values_dict["stimulation_running"] = [False] * 24
 
     test_protocol_dict = {
         "protocols": [

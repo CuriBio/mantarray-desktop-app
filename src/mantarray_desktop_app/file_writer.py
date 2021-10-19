@@ -28,6 +28,7 @@ from mantarray_file_manager import IS_FILE_ORIGINAL_UNTRIMMED_UUID
 from mantarray_file_manager import MAGNETOMETER_CONFIGURATION_UUID
 from mantarray_file_manager import MantarrayH5FileCreator
 from mantarray_file_manager import METADATA_UUID_DESCRIPTIONS
+from mantarray_file_manager import NOT_APPLICABLE_H5_METADATA
 from mantarray_file_manager import ORIGINAL_FILE_VERSION_UUID
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import REF_SAMPLING_PERIOD_UUID
@@ -41,6 +42,7 @@ from mantarray_file_manager import TOTAL_WELL_COUNT_UUID
 from mantarray_file_manager import TRIMMED_TIME_FROM_ORIGINAL_END_UUID
 from mantarray_file_manager import TRIMMED_TIME_FROM_ORIGINAL_START_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
+from mantarray_file_manager import UTC_BEGINNING_STIMULATION_UUID
 from mantarray_file_manager import UTC_FIRST_REF_DATA_POINT_UUID
 from mantarray_file_manager import UTC_FIRST_TISSUE_DATA_POINT_UUID
 from mantarray_file_manager import WELL_COLUMN_UUID
@@ -423,10 +425,7 @@ class FileWriterProcess(InfiniteProcess):
             self._open_files[0][this_well_idx] = this_file
             this_file.attrs[str(ORIGINAL_FILE_VERSION_UUID)] = file_version
             this_file.attrs[str(WELL_NAME_UUID)] = well_name
-            (
-                this_row,
-                this_col,
-            ) = GENERIC_24_WELL_DEFINITION.get_row_and_column_from_well_index(this_well_idx)
+            this_row, this_col = GENERIC_24_WELL_DEFINITION.get_row_and_column_from_well_index(this_well_idx)
             this_file.attrs[str(WELL_ROW_UUID)] = this_row
             this_file.attrs[str(WELL_COLUMN_UUID)] = this_col
             this_file.attrs[str(WELL_INDEX_UUID)] = this_well_idx
@@ -454,10 +453,21 @@ class FileWriterProcess(InfiniteProcess):
                     sensor_axis_dict = create_sensor_axis_dict(this_attr_value[module_id])
                     this_attr_value = json.dumps(sensor_axis_dict)
                 elif this_attr_name == STIMULATION_PROTOCOL_UUID:
-                    assigned_protocol_id = this_attr_value["protocol_assignments"][well_name]
-                    this_attr_value = json.dumps(labeled_protocol_dict.get(assigned_protocol_id, None))
-                # apply custom formatting to UTC value
-                if METADATA_UUID_DESCRIPTIONS[this_attr_name].startswith("UTC Timestamp"):
+                    if communication["stim_running_statuses"][this_well_idx]:
+                        assigned_protocol_id = this_attr_value["protocol_assignments"][well_name]
+                        this_attr_value = json.dumps(labeled_protocol_dict[assigned_protocol_id])
+                    else:
+                        this_attr_value = json.dumps(None)
+                elif (
+                    this_attr_name == UTC_BEGINNING_STIMULATION_UUID
+                    and not communication["stim_running_statuses"][this_well_idx]
+                ):
+                    this_attr_value = NOT_APPLICABLE_H5_METADATA
+                # apply custom formatting to UTC datetime value
+                if (
+                    METADATA_UUID_DESCRIPTIONS[this_attr_name].startswith("UTC Timestamp")
+                    and this_attr_value != NOT_APPLICABLE_H5_METADATA
+                ):
                     this_attr_value = this_attr_value.strftime("%Y-%m-%d %H:%M:%S.%f")
                 # UUIDs must be stored as strings
                 this_attr_name = str(this_attr_name)
@@ -608,10 +618,7 @@ class FileWriterProcess(InfiniteProcess):
             self._data_packet_buffers[0].clear()
             self._end_of_data_stream_reached[0] = True
             to_main.put_nowait(
-                {
-                    "communication_type": "command_receipt",
-                    "command": "stop_managed_acquisition",
-                }
+                {"communication_type": "command_receipt", "command": "stop_managed_acquisition"}
             )
             # TODO Tanner (5/25/21): Consider finalizing all open files here. If they are somehow still open here, they will never close as no more data is coming in
         elif command == "update_directory":

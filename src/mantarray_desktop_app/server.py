@@ -79,6 +79,7 @@ from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
 from mantarray_file_manager import USER_ACCOUNT_ID_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
+from mantarray_file_manager import UTC_BEGINNING_STIMULATION_UUID
 from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import requests
@@ -690,8 +691,11 @@ def start_recording() -> Response:
     if shared_values_dict["beta_2_mode"]:
         instrument_metadata = shared_values_dict["instrument_metadata"][board_idx]
         magnetometer_config_dict = shared_values_dict["magnetometer_config_dict"]
+        beginning_of_stim_timestamp = shared_values_dict["utc_timestamps_of_beginning_of_stimulation"][
+            board_idx
+        ]
         stim_info_value = (
-            None if not _is_stimulating_on_any_well() else shared_values_dict["stimulation_info"]
+            None if beginning_of_stim_timestamp is None else shared_values_dict["stimulation_info"]
         )
         comm_dict["metadata_to_copy_onto_main_file_attributes"].update(
             {
@@ -702,8 +706,10 @@ def start_recording() -> Response:
                 TISSUE_SAMPLING_PERIOD_UUID: magnetometer_config_dict["sampling_period"],
                 MAGNETOMETER_CONFIGURATION_UUID: magnetometer_config_dict["magnetometer_config"],
                 STIMULATION_PROTOCOL_UUID: stim_info_value,
+                UTC_BEGINNING_STIMULATION_UUID: beginning_of_stim_timestamp,
             }
         )
+        comm_dict["stim_running_statuses"] = shared_values_dict["stimulation_running"]
     else:
         adc_offsets: Dict[int, Dict[str, int]]
         if is_hardware_test_recording:
@@ -747,7 +753,10 @@ def start_recording() -> Response:
     ):
         if this_attr_name == "adc_offsets":
             continue
-        if METADATA_UUID_DESCRIPTIONS[this_attr_name].startswith("UTC Timestamp"):
+        if (
+            METADATA_UUID_DESCRIPTIONS[this_attr_name].startswith("UTC Timestamp")
+            and this_attr_value is not None
+        ):
             this_attr_value = this_attr_value.strftime("%Y-%m-%dT%H:%M:%S.%f")
             comm_dict["metadata_to_copy_onto_main_file_attributes"][this_attr_name] = this_attr_value
         if isinstance(this_attr_value, UUID):
