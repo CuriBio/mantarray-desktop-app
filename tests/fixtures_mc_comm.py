@@ -3,6 +3,8 @@
 
 import time
 
+from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
+from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import McCommunicationProcess
 from mantarray_desktop_app import STM_VID
@@ -14,7 +16,9 @@ from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import TestingQueue
 
 from .fixtures import generate_board_and_error_queues
+from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .fixtures_mc_simulator import MantarrayMcSimulatorNoBeacons
+from .helpers import confirm_queue_is_eventually_of_size
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 
@@ -45,6 +49,42 @@ def set_connection_and_register_simulator(
     invoke_process_run_and_check_errors(mc_process, num_iterations=num_iterations)
     # remove status code log message(s)
     drain_queue(output_queue)
+
+
+def set_magnetometer_config_and_start_streaming(
+    mc_fixture,
+    simulator,
+    magnetometer_config=DEFAULT_MAGNETOMETER_CONFIG,
+    sampling_period=DEFAULT_SAMPLING_PERIOD,
+):
+    mc_process = mc_fixture["mc_process"]
+    from_main_queue = mc_fixture["board_queues"][0][0]
+    to_main_queue = mc_fixture["board_queues"][0][1]
+    config_command = {
+        "communication_type": "acquisition_manager",
+        "command": "change_magnetometer_config",
+        "magnetometer_config": magnetometer_config,
+        "sampling_period": sampling_period,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(config_command, from_main_queue)
+    # send command, process command, process command response
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+
+    start_command = {
+        "communication_type": "acquisition_manager",
+        "command": "start_managed_acquisition",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
+    # send command, process command, process command response
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
 
 @pytest.fixture(scope="function", name="four_board_mc_comm_process")

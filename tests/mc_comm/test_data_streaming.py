@@ -43,6 +43,7 @@ from ..fixtures import fixture_patch_print
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process_no_handshake
 from ..fixtures_mc_comm import set_connection_and_register_simulator
+from ..fixtures_mc_comm import set_magnetometer_config_and_start_streaming
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import random_data_value
 from ..fixtures_mc_simulator import random_time_index
@@ -114,42 +115,6 @@ def create_data_stream_body(
                     data_values.append(data_value)
                     data_packet_body += data_value_bytes
     return data_packet_body, offset_values, data_values
-
-
-def set_magnetometer_config_and_start_streaming(
-    mc_fixture,
-    simulator,
-    magnetometer_config,
-    sampling_period,
-):
-    mc_process = mc_fixture["mc_process"]
-    from_main_queue = mc_fixture["board_queues"][0][0]
-    to_main_queue = mc_fixture["board_queues"][0][1]
-    config_command = {
-        "communication_type": "acquisition_manager",
-        "command": "change_magnetometer_config",
-        "magnetometer_config": magnetometer_config,
-        "sampling_period": sampling_period,
-    }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(config_command, from_main_queue)
-    # send command, process command, process command response
-    invoke_process_run_and_check_errors(mc_process)
-    invoke_process_run_and_check_errors(simulator)
-    invoke_process_run_and_check_errors(mc_process)
-    confirm_queue_is_eventually_of_size(to_main_queue, 1)
-    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-
-    start_command = {
-        "communication_type": "acquisition_manager",
-        "command": "start_managed_acquisition",
-    }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
-    # send command, process command, process command response
-    invoke_process_run_and_check_errors(mc_process)
-    invoke_process_run_and_check_errors(simulator)
-    invoke_process_run_and_check_errors(mc_process)
-    confirm_queue_is_eventually_of_size(to_main_queue, 1)
-    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
 
 def test_handle_data_packets__handles_two_full_data_packets_correctly__and_assigns_correct_data_type_to_parsed_values__when_all_channels_enabled():

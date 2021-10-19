@@ -876,7 +876,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         parsed_packet_dict = handle_data_packets(
             bytearray(self._data_packet_cache),
             self._active_sensors_list,
-            self._base_global_time_of_data_stream,  # TODO send the min value of this and global start time of stim
+            self._base_global_time_of_data_stream,
         )
         self._data_parsing_durations.append(_get_dur_of_data_parse_secs(data_parsing_start))
         self._data_parsing_num_packets_produced.append(
@@ -902,16 +902,16 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _dump_data_packets(self, parsed_packet_dict: Dict[str, Any]) -> None:
         # Tanner (10/15/21): if performance needs to be improved, consider converting some of this function to cython
         (
-            time_indices,  #: NDArray,
-            time_offsets,  #: NDArray,
-            data,  #: NDArray
-            num_data_packets_read,  #: int,
+            time_indices,
+            time_offsets,
+            data,
+            num_data_packets_read,
         ) = parsed_packet_dict.values()
         if num_data_packets_read == 0:
             return
 
         fw_item: Dict[Any, Any] = {
-            "data_type": "mangetometer",
+            "data_type": "magnetometer",
             "time_indices": time_indices[:num_data_packets_read],
             "is_first_packet_of_stream": not self._has_data_packet_been_sent,
         }
@@ -936,7 +936,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._has_data_packet_been_sent = True
 
     def _dump_stim_packets(self, well_statuses: Dict[int, Any]) -> None:
-        if not well_statuses:
+        if not self._is_data_streaming or not well_statuses:
             return
         to_fw_queue = self._board_queues[0][2]
         to_fw_queue.put_nowait({"data_type": "stimulation", "well_statuses": well_statuses})

@@ -523,4 +523,4 @@ def test_FileWriterProcess_process_next_data_packet__updates_dict_of_time_index_
         actual_latest_timepoint = fw_process.get_file_latest_timepoint(well_idx)
         assert (
             actual_latest_timepoint == expected_latest_timepoint
-        ), f"Inccorect latest timepoint for well {well_idx}"
+        ), f"Incorrect latest timepoint for well {well_idx}"

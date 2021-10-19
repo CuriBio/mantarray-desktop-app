@@ -85,6 +85,7 @@ cpdef int parse_little_endian_int24(unsigned char[3] data_bytes):
 
 # Beta 2
 from libc.stdint cimport int16_t
+from libc.stdint cimport int64_t
 from libc.stdint cimport uint8_t
 from libc.stdint cimport uint16_t
 from libc.stdint cimport uint32_t
@@ -148,7 +149,7 @@ cdef packed struct MagnetometerData:
 
 
 cpdef dict handle_data_packets(
-    unsigned char [:] read_bytes, list active_channels_list, base_global_time: int
+    unsigned char [:] read_bytes, list active_channels_list, uint64_t base_global_time
 ):
     """Read the given number of data packets from the instrument.
 
@@ -350,10 +351,11 @@ cdef _parse_magetometer_data(
 cdef _parse_stim_data(
     unsigned char [:] stim_packet_bytes,
     int num_stim_packets,
-    int base_global_time,
+    uint64_t base_global_time,
     dict stim_data_dict,
 ):
     # Tanner (10/15/21): No need to heavily optimize this function until stim waveforms are streamed
+    cdef int64_t time_index
     cdef int num_status_updates
     cdef int stim_packet_idx
     cdef int bytes_idx = 0
@@ -363,17 +365,15 @@ cdef _parse_stim_data(
         for _ in range(num_status_updates):
             well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[stim_packet_bytes[bytes_idx]]
             stim_status = stim_packet_bytes[bytes_idx + 1]
-            time_index = int.from_bytes(
-                stim_packet_bytes[bytes_idx + 2 : bytes_idx + 10], byteorder="little"
-            )
+            time_index = (<uint64_t *> &stim_packet_bytes[bytes_idx + 2])[0] - base_global_time
             subprotocol_idx = stim_packet_bytes[bytes_idx + 10]
             bytes_idx += 11
             if stim_status == StimStatuses.RESTARTING:
                 continue
             if well_idx not in stim_data_dict:
-                stim_data_dict[well_idx] = [[time_index - base_global_time], [subprotocol_idx]]
+                stim_data_dict[well_idx] = [[time_index], [subprotocol_idx]]
             else:
-                stim_data_dict[well_idx][0].append(time_index - base_global_time)
+                stim_data_dict[well_idx][0].append(time_index)
                 stim_data_dict[well_idx][1].append(subprotocol_idx)
     for well_idx, stim_statuses in stim_data_dict.items():
-        stim_data_dict[well_idx] = np.array(stim_statuses, dtype=np.uint64)
+        stim_data_dict[well_idx] = np.array(stim_statuses, dtype=np.int64)  # Tanner (10/18/21): using int64 here since top bit will never be used and these values can be negative

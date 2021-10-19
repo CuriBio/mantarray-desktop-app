@@ -22,6 +22,7 @@ from ..fixtures import fixture_patch_print
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process_no_handshake
 from ..fixtures_mc_comm import set_connection_and_register_simulator
+from ..fixtures_mc_comm import set_magnetometer_config_and_start_streaming
 from ..fixtures_mc_simulator import create_random_stim_info
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import get_null_subprotocol
@@ -87,7 +88,7 @@ def test_handle_data_packets__parses_single_stim_data_packet_with_a_single_statu
     parsed_data_dict = handle_data_packets(bytearray(test_data_packet), [], base_global_time)
     actual_stim_data = parsed_data_dict["stim_data"]
     assert list(actual_stim_data.keys()) == [test_well_idx]
-    assert actual_stim_data[test_well_idx].dtype == np.uint64
+    assert actual_stim_data[test_well_idx].dtype == np.int64
     np.testing.assert_array_equal(
         actual_stim_data[test_well_idx], [[test_time_index - base_global_time], [test_subprotocol_idx]]
     )
@@ -348,8 +349,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
-    input_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][0]
-    to_fw_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][2]
+    input_queue, to_main_queue, to_fw_queue = four_board_mc_comm_process_no_handshake["board_queues"][0]
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     set_connection_and_register_simulator(
@@ -386,12 +386,22 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     invoke_process_run_and_check_errors(mc_process)
     invoke_process_run_and_check_errors(simulator)
     invoke_process_run_and_check_errors(mc_process)
+    # remove message to main
+    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
+    # mock so no data packets are sent
     mocker.patch.object(
+        mc_simulator,
+        "_get_us_since_last_data_packet",
+        autospec=True,
+        return_value=0,
+    )
+    # mock so not status updates are sent yet
+    mocked_get_us_subprotocol = mocker.patch.object(
         mc_simulator,
         "_get_us_since_subprotocol_start",
         autospec=True,
-        side_effect=[0, total_active_duration],
+        return_value=0,
     )
     spied_global_timer = mocker.spy(simulator, "_get_global_timer")
 
@@ -400,16 +410,28 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
         {"communication_type": "stimulation", "command": "start_stimulation"}, input_queue
     )
     invoke_process_run_and_check_errors(mc_process)
-
     # process command, send back response and initial stimulator status packet
     invoke_process_run_and_check_errors(simulator)
     # process command response only
     invoke_process_run_and_check_errors(mc_process)
-    # send stimulator status packet after initial subprotocol completes
-    invoke_process_run_and_check_errors(simulator)
-    # process both stimulator status packets
-    invoke_process_run_and_check_errors(mc_process, num_iterations=1)
+    assert simulator.in_waiting > 0
+    # remove message to main
+    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    # process initial stim packet and make sure it was not sent to file writer
+    invoke_process_run_and_check_errors(mc_process)
     assert simulator.in_waiting == 0
+
+    expected_global_time_stim_start = spied_global_timer.spy_return
+
+    # start data streaming
+    set_magnetometer_config_and_start_streaming(four_board_mc_comm_process_no_handshake, simulator)
+    # send stimulator status packet after initial subprotocol completes
+    mocked_get_us_subprotocol.return_value = total_active_duration
+    invoke_process_run_and_check_errors(simulator)
+    # process stimulator status packet
+    invoke_process_run_and_check_errors(mc_process)
+
+    expected_global_time_data_start = spied_global_timer.spy_return
 
     # check status packets sent to file writer
     confirm_queue_is_eventually_of_size(to_fw_queue, 1)
@@ -417,7 +439,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     assert msg_to_fw["data_type"] == "stimulation"
     assert list(msg_to_fw["well_statuses"].keys()) == [test_well_idx]
     expected_well_statuses = [
-        [spied_global_timer.spy_return, spied_global_timer.spy_return + total_active_duration],
-        [0, 255],  # subprotocol indices
+        [expected_global_time_stim_start + total_active_duration - expected_global_time_data_start],
+        [255],  # subprotocol idx
     ]
     np.testing.assert_array_equal(msg_to_fw["well_statuses"][test_well_idx], expected_well_statuses)

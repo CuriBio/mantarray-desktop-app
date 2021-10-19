@@ -448,6 +448,7 @@ class FileWriterProcess(InfiniteProcess):
                     this_file.attrs[str(ADC_TISSUE_OFFSET_UUID)] = this_attr_value[this_well_idx]["construct"]
                     this_file.attrs[str(ADC_REF_OFFSET_UUID)] = this_attr_value[this_well_idx]["ref"]
                     continue
+                # extract config for well from full configuration for both stim and data streaming
                 if this_attr_name == MAGNETOMETER_CONFIGURATION_UUID:
                     module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[this_well_idx]
                     sensor_axis_dict = create_sensor_axis_dict(this_attr_value[module_id])
@@ -455,8 +456,10 @@ class FileWriterProcess(InfiniteProcess):
                 elif this_attr_name == STIMULATION_PROTOCOL_UUID:
                     assigned_protocol_id = this_attr_value["protocol_assignments"][well_name]
                     this_attr_value = json.dumps(labeled_protocol_dict.get(assigned_protocol_id, None))
+                # apply custom formatting to UTC value
                 if METADATA_UUID_DESCRIPTIONS[this_attr_name].startswith("UTC Timestamp"):
                     this_attr_value = this_attr_value.strftime("%Y-%m-%d %H:%M:%S.%f")
+                # UUIDs must be stored as strings
                 this_attr_name = str(this_attr_name)
                 if isinstance(this_attr_value, UUID):
                     this_attr_value = str(this_attr_value)
@@ -516,7 +519,7 @@ class FileWriterProcess(InfiniteProcess):
         self.get_stop_recording_timestamps()[0] = None
         data_packet_buffer = self._data_packet_buffers[0]
         for data_packet in data_packet_buffer:
-            self._handle_recording_of_packet(data_packet)
+            self._handle_recording_of_data_packet(data_packet)
 
     def _process_stop_recording_command(self, communication: Dict[str, Any]) -> None:
         self._is_recording = False
@@ -764,7 +767,7 @@ class FileWriterProcess(InfiniteProcess):
         if data_type == "magnetometer":
             self._process_magnetometer_data_packet(data_packet)
         elif data_type == "stimulation":
-            pass  # TODO
+            self._process_stim_data_packet(data_packet)
         else:
             raise NotImplementedError(f"Invalid data type from instrument comm process: {data_type}")
 
@@ -804,11 +807,11 @@ class FileWriterProcess(InfiniteProcess):
                 self._num_recorded_points.append(data_packet["data"].shape[1])
 
             start = time.perf_counter()
-            self._handle_recording_of_packet(data_packet)
+            self._handle_recording_of_data_packet(data_packet)
             recording_dur = time.perf_counter() - start
             self._recording_durations.append(recording_dur)
 
-    def _handle_recording_of_packet(self, data_packet: Dict[Any, Any]) -> None:
+    def _handle_recording_of_data_packet(self, data_packet: Dict[Any, Any]) -> None:
         if self._beta_2_mode:
             self._process_beta_2_data_packet(data_packet)
         else:
@@ -822,7 +825,11 @@ class FileWriterProcess(InfiniteProcess):
                 if this_well_idx in self._open_files[0]:
                     self._process_beta_1_data_packet_for_open_file(data_packet)
 
+    def _process_stim_data_packet(self, stim_packet: Dict[Any, Any]) -> None:
+        stim_packet["a"] = self._beta_2_mode
+
     def _update_data_packet_buffers(self) -> None:
+        # TODO add buffer for stim packets
         data_packet_buffer = self._data_packet_buffers[0]
         if not data_packet_buffer:
             return
