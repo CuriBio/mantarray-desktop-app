@@ -1372,3 +1372,48 @@ def test_MantarrayProcessesMonitor__clears_timestamp_in_shared_values_dict_after
 
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["utc_timestamps_of_beginning_of_stimulation"][0] is None
+
+
+def test_MantarrayProcessesMonitor__updates_stimulation_running_list_and_stimulation_start_time_timestamp_when_status_update_message_from_instrument_comm(
+    test_monitor, test_process_manager_creator
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+
+    test_wells_running = {0, 5, 10, 15}
+    shared_values_dict["stimulation_running"] = [well_idx in test_wells_running for well_idx in range(24)]
+    test_timestamp = datetime.datetime(
+        year=2021, month=10, day=19, hour=12, minute=8, second=5, microsecond=123456
+    )
+    shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] = [test_timestamp]
+
+    instrument_comm_to_main = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
+    )
+
+    # stop the first set of wells
+    test_wells_to_stop_1 = {0, 10}
+    msg_from_ic_1 = {
+        "communication_type": "stimulation",
+        "command": "status_update",
+        "wells_done_stimulating": list(test_wells_to_stop_1),
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(msg_from_ic_1, instrument_comm_to_main)
+    invoke_process_run_and_check_errors(monitor_thread)
+    # make sure that statuses were update correctly and the start timestamp was not cleared
+    expected_updated_statuses_1 = [
+        well_idx in (test_wells_running - test_wells_to_stop_1) for well_idx in range(24)
+    ]
+    assert shared_values_dict["stimulation_running"] == expected_updated_statuses_1
+    assert shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] == [test_timestamp]
+
+    # stop remaining wells
+    msg_from_ic_2 = {
+        "communication_type": "stimulation",
+        "command": "status_update",
+        "wells_done_stimulating": list(test_wells_running - test_wells_to_stop_1),
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(msg_from_ic_2, instrument_comm_to_main)
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert shared_values_dict["stimulation_running"] == [False] * 24
+    assert shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] == [None]

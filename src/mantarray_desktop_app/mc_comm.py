@@ -76,6 +76,7 @@ from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from .constants import STIM_COMPLETE_SUBPROTOCOL_IDX
 from .constants import STM_VID
 from .exceptions import InstrumentDataStreamingAlreadyStartedError
 from .exceptions import InstrumentDataStreamingAlreadyStoppedError
@@ -885,7 +886,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._data_packet_cache = parsed_packet_dict["unread_bytes"]
         # create dict and send to file writer if any packets were read  # Tanner (5/25/21): it is possible 0 data packets are read when stopping data stream
         self._dump_data_packets(parsed_packet_dict["magnetometer_data"])
-        self._dump_stim_packets(parsed_packet_dict["stim_data"])
+        self._handle_stim_packets(parsed_packet_dict["stim_data"])
 
         # process any other packets
         for other_packet_info in parsed_packet_dict["other_packet_info"]:
@@ -934,11 +935,26 @@ class McCommunicationProcess(InstrumentCommProcess):
         to_fw_queue.put_nowait(fw_item)
         self._has_data_packet_been_sent = True
 
-    def _dump_stim_packets(self, well_statuses: Dict[int, Any]) -> None:
-        if not self._is_data_streaming or not well_statuses:
+    def _handle_stim_packets(self, well_statuses: Dict[int, Any]) -> None:
+        if not well_statuses:
             return
-        to_fw_queue = self._board_queues[0][2]
-        to_fw_queue.put_nowait({"data_type": "stimulation", "well_statuses": well_statuses})
+        wells_done_stimulating = [
+            well_idx
+            for well_idx, status_updates_arr in well_statuses.items()
+            if status_updates_arr[1][-1] == STIM_COMPLETE_SUBPROTOCOL_IDX
+        ]
+        if wells_done_stimulating:
+            to_main_queue = self._board_queues[0][1]
+            to_main_queue.put_nowait(
+                {
+                    "communication_type": "stimulation",
+                    "command": "status_update",
+                    "wells_done_stimulating": wells_done_stimulating,
+                }
+            )
+        if self._is_data_streaming:
+            to_fw_queue = self._board_queues[0][2]
+            to_fw_queue.put_nowait({"data_type": "stimulation", "well_statuses": well_statuses})
 
     def _handle_beacon_tracking(self) -> None:
         if self._time_of_last_beacon_secs is None:

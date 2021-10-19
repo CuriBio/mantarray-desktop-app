@@ -82,6 +82,7 @@ from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from .constants import STIM_COMPLETE_SUBPROTOCOL_IDX
 from .constants import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
 from .constants import StimStatuses
 from .exceptions import SerialCommInvalidSamplingPeriodError
@@ -801,7 +802,9 @@ class MantarrayMcSimulator(InfiniteProcess):
                         packet_bytes += bytes([module_id, status]) + status_bytes[1:]
                         if protocol_finished:
                             # change subprotocol idx in status bytes
-                            packet_bytes = packet_bytes[:-1] + bytes([255])  # TODO make this a constant
+                            packet_bytes = packet_bytes[:-1] + bytes(
+                                [STIM_COMPLETE_SUBPROTOCOL_IDX]
+                            )  # TODO make this a constant
                             continue
                         # if status is restarting, then need to add one more status update
                         num_status_updates += 1

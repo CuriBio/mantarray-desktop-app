@@ -9,6 +9,7 @@ from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
+from mantarray_desktop_app import STIM_COMPLETE_SUBPROTOCOL_IDX
 from mantarray_desktop_app import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
 from mantarray_desktop_app import StimStatuses
 from mantarray_desktop_app import StimulationProtocolUpdateFailedError
@@ -141,7 +142,7 @@ def test_handle_data_packets__parses_multiple_stim_data_packet_with_multiple_wel
     ]
     test_subprotocol_indices = [
         [0, randint(1, 5)],
-        [randint(0, 5), randint(0, 5), 255],
+        [randint(0, 5), randint(0, 5), STIM_COMPLETE_SUBPROTOCOL_IDX],
     ]
     test_statuses = [
         [StimStatuses.RESTARTING, StimStatuses.NULL],
@@ -444,6 +445,14 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     assert list(msg_to_fw["well_statuses"].keys()) == [test_well_idx]
     expected_well_statuses = [
         [expected_global_time_stim_start + total_active_duration - expected_global_time_data_start],
-        [255],  # subprotocol idx
+        [STIM_COMPLETE_SUBPROTOCOL_IDX],
     ]
     np.testing.assert_array_equal(msg_to_fw["well_statuses"][test_well_idx], expected_well_statuses)
+
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+    msg_to_main = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert msg_to_main == {
+        "communication_type": "stimulation",
+        "command": "status_update",
+        "wells_done_stimulating": [test_well_idx],
+    }

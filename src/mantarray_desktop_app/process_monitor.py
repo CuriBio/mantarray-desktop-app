@@ -375,8 +375,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             logger.info(msg)
         communication_type = communication["communication_type"]
 
-        if "command" in communication:
-            command = communication["command"]
+        command = communication.get("command", None)
 
         if communication_type in "acquisition_manager":
             if command == "start_managed_acquisition":
@@ -406,6 +405,11 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 ]
             elif command == "stop_stimulation":
                 self._values_to_share_to_server["utc_timestamps_of_beginning_of_stimulation"] = [None]
+            elif command == "status_update":
+                for well_idx in communication["wells_done_stimulating"]:
+                    self._values_to_share_to_server["stimulation_running"][well_idx] = False
+                if not any(self._values_to_share_to_server["stimulation_running"]):
+                    self._values_to_share_to_server["utc_timestamps_of_beginning_of_stimulation"] = [None]
         elif communication_type == "board_connection_status_change":
             board_idx = communication["board_index"]
             self._values_to_share_to_server["in_simulation_mode"] = not communication["is_connected"]

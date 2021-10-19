@@ -26,6 +26,7 @@ from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_EPOCH
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import SerialCommMetadataValueTooLargeError
+from mantarray_desktop_app import STIM_NO_PROTOCOL_ASSIGNED
 from mantarray_desktop_app import validate_checksum
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 import pytest
@@ -452,7 +453,7 @@ def test_convert_stim_dict_to_bytes__return_expected_bytes():
         }
     )
     expected_module_protocol_pairs = [0, 1]
-    expected_module_protocol_pairs.extend([255] * 22)
+    expected_module_protocol_pairs.extend([STIM_NO_PROTOCOL_ASSIGNED] * 22)
 
     stim_info_dict = {
         "protocols": [

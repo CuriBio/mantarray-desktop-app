@@ -136,9 +136,11 @@ from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import START_BARCODE_SCAN_TRIG_BIT
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_desktop_app import STIM_COMPLETE_SUBPROTOCOL_IDX
 from mantarray_desktop_app import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
 from mantarray_desktop_app import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
 from mantarray_desktop_app import STIM_MAX_PULSE_DURATION_MICROSECONDS
+from mantarray_desktop_app import STIM_NO_PROTOCOL_ASSIGNED
 from mantarray_desktop_app import StimStatuses
 from mantarray_desktop_app import STM_VID
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
@@ -503,6 +505,10 @@ def test_serial_comm():
     assert STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS == int(100e3)
     assert STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS == int(1.2e3)
     assert STIM_MAX_PULSE_DURATION_MICROSECONDS == int(50e3)
+
+    assert STIM_COMPLETE_SUBPROTOCOL_IDX == 255
+
+    assert STIM_NO_PROTOCOL_ASSIGNED == 255
 
     assert issubclass(StimStatuses, IntEnum) is True
     assert StimStatuses.ACTIVE == 0
