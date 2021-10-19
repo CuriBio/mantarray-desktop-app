@@ -20,6 +20,7 @@ from mantarray_desktop_app import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from mantarray_desktop_app import UnrecognizedCommandFromServerToMainError
 from mantarray_desktop_app import UnrecognizedMantarrayNamingCommandError
 from mantarray_desktop_app import UnrecognizedRecordingCommandError
+from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
@@ -729,8 +730,18 @@ def test_MantarrayProcessesMonitor__processes_set_stim_status_command(
     )
     main_to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
 
-    shared_values_dict["stimulation_running"] = False
-    shared_values_dict["stimulation_protocol"] = {"protocols": [None] * 24}
+    test_well_names = ["A1", "A2", "B1"]
+    test_well_indices = [
+        GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name) for well_name in test_well_names
+    ]
+
+    shared_values_dict["stimulation_running"] = [
+        (not test_status if well_idx in test_well_indices else False) for well_idx in range(24)
+    ]
+    shared_values_dict["stimulation_info"] = {
+        "protocols": [{"protocol_id": "A"}],
+        "protocol_assignments": {well_name: "A" for well_name in test_well_names},
+    }
 
     test_command = {
         "communication_type": "stimulation",
@@ -740,7 +751,9 @@ def test_MantarrayProcessesMonitor__processes_set_stim_status_command(
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, server_to_main_queue)
 
     invoke_process_run_and_check_errors(monitor_thread)
-    assert shared_values_dict["stimulation_running"] is test_status
+    assert shared_values_dict["stimulation_running"] == [
+        (test_status if well_idx in test_well_indices else False) for well_idx in range(24)
+    ]
 
     confirm_queue_is_eventually_of_size(main_to_ic_queue, 1)
     actual = main_to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -759,7 +772,7 @@ def test_MantarrayProcessesMonitor__processes_set_protocols_command(
     )
     main_to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
 
-    shared_values_dict["stimulation_running"] = False
+    shared_values_dict["stimulation_running"] = [False] * 24
 
     test_command = {
         "communication_type": "stimulation",

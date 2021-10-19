@@ -652,6 +652,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                     if not self._hardware_test_mode:
                         raise StimulationStatusUpdateFailedError("start_stimulation")
                     prev_command["hardware_test_message"] = "Command failed"  # pragma: no cover
+                prev_command["timestamp"] = _get_formatted_utc_now()
                 self._is_stimulating = True
             elif prev_command["command"] == "stop_stimulation":
                 if response_data[0]:
@@ -660,12 +661,10 @@ class McCommunicationProcess(InstrumentCommProcess):
                     prev_command["hardware_test_message"] = "Command failed"  # pragma: no cover
                 self._is_stimulating = False
 
-            del prev_command[
-                "timepoint"
-            ]  # main process does not need to know the timepoint and is not expecting this key in the dictionary returned to it
-            self._board_queues[board_idx][1].put_nowait(
-                prev_command
-            )  # Tanner (3/17/21): to be consistent with OkComm, command responses will be sent back to main after the command is acknowledged by the Mantarray
+            # main process does not need to know the timepoint and is not expecting this key in the dictionary returned to it
+            del prev_command["timepoint"]
+            # Tanner (3/17/21): to be consistent with OkComm, command responses will be sent back to main after the command is acknowledged by the Mantarray
+            self._board_queues[board_idx][1].put_nowait(prev_command)
         elif packet_type == SERIAL_COMM_PLATE_EVENT_PACKET_TYPE:
             plate_was_placed = bool(packet_body[0])
             barcode = packet_body[1:].decode("ascii") if plate_was_placed else ""

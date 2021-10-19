@@ -4,6 +4,7 @@ from random import randint
 
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import handle_data_packets
+from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
@@ -203,8 +204,7 @@ def test_handle_data_packets__parses_multiple_stim_data_packet_with_multiple_wel
 
 
 def test_McCommunicationProcess__processes_start_and_stop_stimulation_commands__when_commands_are_successful(
-    four_board_mc_comm_process_no_handshake,
-    mantarray_mc_simulator_no_beacon,
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     input_queue, output_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][:2]
@@ -223,6 +223,8 @@ def test_McCommunicationProcess__processes_start_and_stop_stimulation_commands__
         },
         {well_name: False for well_name in expected_stim_info["protocol_assignments"].keys()},
     )
+
+    spied_get_utc_now = mocker.spy(mc_comm, "_get_formatted_utc_now")
 
     for command, stim_running_statuses in (
         ("start_stimulation", expected_stim_running_statuses[0]),
@@ -244,6 +246,8 @@ def test_McCommunicationProcess__processes_start_and_stop_stimulation_commands__
         # confirm correct message sent to main
         confirm_queue_is_eventually_of_size(output_queue, 1)
         message_to_main = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+        if command == "start_stimulation":
+            expected_response["timestamp"] = spied_get_utc_now.spy_return
         assert message_to_main == expected_response
 
 

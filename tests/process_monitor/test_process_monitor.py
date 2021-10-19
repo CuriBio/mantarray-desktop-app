@@ -1327,3 +1327,48 @@ def test_MantarrayProcessesMonitor__updates_magnetometer_config_after_receiving_
     assert comm_to_da == expected_comm_to_da
     # make sure update was not sent back to mc_comm
     confirm_queue_is_eventually_empty(main_to_ic)
+
+
+def test_MantarrayProcessesMonitor__sets_timestamp_in_shared_values_dict_after_receiving_start_stimulation_command_response_from_instrument_comm(
+    test_monitor, test_process_manager_creator
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+    shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] = [None]
+
+    instrument_comm_to_main = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
+    )
+
+    expected_timestamp = datetime.datetime(
+        year=2021, month=10, day=19, hour=10, minute=23, second=40, microsecond=123456
+    )
+    command_response = {
+        "communication_type": "stimulation",
+        "command": "start_stimulation",
+        "timestamp": expected_timestamp,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(command_response, instrument_comm_to_main)
+
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert shared_values_dict["utc_timestamps_of_beginning_of_stimulation"][0] == expected_timestamp
+
+
+def test_MantarrayProcessesMonitor__clears_timestamp_in_shared_values_dict_after_receiving_stop_stimulation_command_response_from_instrument_comm(
+    test_monitor, test_process_manager_creator
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+    shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] = [
+        datetime.datetime(year=2021, month=10, day=19, hour=10, minute=31, second=21, microsecond=123456)
+    ]
+
+    instrument_comm_to_main = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
+    )
+
+    command_response = {"communication_type": "stimulation", "command": "stop_stimulation"}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(command_response, instrument_comm_to_main)
+
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert shared_values_dict["utc_timestamps_of_beginning_of_stimulation"][0] is None

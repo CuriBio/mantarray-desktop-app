@@ -826,7 +826,7 @@ class FileWriterProcess(InfiniteProcess):
                     self._process_beta_1_data_packet_for_open_file(data_packet)
 
     def _process_stim_data_packet(self, stim_packet: Dict[Any, Any]) -> None:
-        stim_packet["a"] = self._beta_2_mode
+        pass
 
     def _update_data_packet_buffers(self) -> None:
         # TODO add buffer for stim packets

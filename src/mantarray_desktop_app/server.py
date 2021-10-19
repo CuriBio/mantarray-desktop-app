@@ -225,11 +225,10 @@ def queue_command_to_main(comm_dict: Dict[str, Any]) -> Response:
 
 def _get_timestamp_of_acquisition_sample_index_zero() -> datetime.datetime:  # pylint:disable=invalid-name # yeah, it's kind of long, but Eli (2/27/20) doesn't know a good way to shorten it
     shared_values_dict = _get_values_from_process_monitor()
+    board_idx = 0  # board index 0 hardcoded for now
     timestamp_of_sample_idx_zero: datetime.datetime = shared_values_dict[
         "utc_timestamps_of_beginning_of_data_acquisition"
-    ][
-        0
-    ]  # board index 0 hardcoded for now
+    ][board_idx]
     return timestamp_of_sample_idx_zero
 
 
@@ -459,6 +458,10 @@ def _get_stim_info_from_process_monitor() -> Dict[Any, Any]:
     return _get_values_from_process_monitor()["stimulation_info"]  # type: ignore
 
 
+def _is_stimulating_on_any_well() -> bool:
+    return any(_get_values_from_process_monitor()["stimulation_running"])
+
+
 @flask_app.route("/set_protocols", methods=["POST"])
 def set_protocols() -> Response:
     # pylint: disable=too-many-return-statements  # Tanner (8/9/21): lots of error codes that can be returned here
@@ -468,11 +471,10 @@ def set_protocols() -> Response:
 
     Can be invoked by: curl -d '<stimulation protocol as json>' -H 'Content-Type: application/json' -X POST http://localhost:4567/set_protocols
     """
-    shared_values_dict = _get_values_from_process_monitor()
-    if not shared_values_dict["beta_2_mode"]:
+    if not _get_values_from_process_monitor()["beta_2_mode"]:
         return Response(status="403 Route cannot be called in beta 1 mode")
-    if shared_values_dict["stimulation_running"]:
-        return Response(status="403 Cannot change protocol while stimulation is running")
+    if _is_stimulating_on_any_well():
+        return Response(status="403 Cannot change protocols while stimulation is running")
 
     stim_info = json.loads(request.get_json()["data"])
 
@@ -593,7 +595,7 @@ def set_stim_status() -> Response:
 
     if shared_values_dict["stimulation_info"] is None:
         return Response(status="406 Protocols have not been set")
-    if status is shared_values_dict["stimulation_running"]:
+    if status is _is_stimulating_on_any_well():
         return Response(status="304 Status not updated")
 
     response = queue_command_to_main(
@@ -689,7 +691,7 @@ def start_recording() -> Response:
         instrument_metadata = shared_values_dict["instrument_metadata"][board_idx]
         magnetometer_config_dict = shared_values_dict["magnetometer_config_dict"]
         stim_info_value = (
-            None if not shared_values_dict["stimulation_running"] else shared_values_dict["stimulation_info"]
+            None if not _is_stimulating_on_any_well() else shared_values_dict["stimulation_info"]
         )
         comm_dict["metadata_to_copy_onto_main_file_attributes"].update(
             {

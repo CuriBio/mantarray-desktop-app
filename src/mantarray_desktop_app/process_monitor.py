@@ -33,6 +33,7 @@ from .constants import BUFFERING_STATE
 from .constants import CALIBRATED_STATE
 from .constants import CALIBRATING_STATE
 from .constants import CALIBRATION_NEEDED_STATE
+from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
 from .constants import RECORDING_STATE
@@ -185,7 +186,18 @@ class MantarrayProcessesMonitor(InfiniteThread):
         elif communication_type == "stimulation":
             command = communication["command"]
             if command == "set_stim_status":
-                self._values_to_share_to_server["stimulation_running"] = communication["status"]
+                stim_running_list = [False] * 24
+                if communication["status"]:
+                    protocol_assignments = self._values_to_share_to_server["stimulation_info"][
+                        "protocol_assignments"
+                    ]
+                    for well_name, assignment in protocol_assignments.items():
+                        if not assignment:
+                            continue
+                        well_idx = GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name)
+                        stim_running_list[well_idx] = True
+                self._values_to_share_to_server["stimulation_running"] = stim_running_list
+
                 self._put_communication_into_instrument_comm_queue(
                     {
                         "communication_type": communication_type,
@@ -387,6 +399,13 @@ class MantarrayProcessesMonitor(InfiniteThread):
             elif command == "stop_managed_acquisition":
                 self._values_to_share_to_server["system_status"] = CALIBRATED_STATE
                 self._data_dump_buffer_size = 0
+        elif communication_type == "stimulation":
+            if command == "start_stimulation":
+                self._values_to_share_to_server["utc_timestamps_of_beginning_of_stimulation"] = [
+                    communication["timestamp"]
+                ]
+            elif command == "stop_stimulation":
+                self._values_to_share_to_server["utc_timestamps_of_beginning_of_stimulation"] = [None]
         elif communication_type == "board_connection_status_change":
             board_idx = communication["board_index"]
             self._values_to_share_to_server["in_simulation_mode"] = not communication["is_connected"]

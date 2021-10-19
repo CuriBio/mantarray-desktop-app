@@ -698,6 +698,9 @@ def test_FileWriterProcess__closes_the_files_and_adds_crc32_checksum_and_sends_c
     assert "_B2" in second_comm_to_main["file_path"]
 
 
+# TODO add tests for stim packet buffering
+
+
 def test_FileWriterProcess__adds_incoming_data_to_internal_buffer(
     four_board_file_writer_process,
 ):
