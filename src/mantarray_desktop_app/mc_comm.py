@@ -206,8 +206,8 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._data_packet_cache = bytes(0)
         # stimulation values
         self._is_stimulating = False
-        self._stim_status_buffer: Dict[int, Any]
-        self._reset_stim_status_buffer()
+        self._stim_status_buffers: Dict[int, Any]
+        self._reset_stim_status_buffers()
         # performance tracking values
         self._performance_logging_cycles = INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
         self._parses_since_last_logging: List[int] = [0] * len(self._board_queues)
@@ -289,8 +289,8 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._error = the_err
         super()._report_fatal_error(the_err)
 
-    def _reset_stim_status_buffer(self) -> None:
-        self._stim_status_buffer = {well_idx: [[], []] for well_idx in range(self._num_wells)}
+    def _reset_stim_status_buffers(self) -> None:
+        self._stim_status_buffers = {well_idx: [[], []] for well_idx in range(self._num_wells)}
 
     def is_registered_with_serial_comm(self, board_idx: int) -> bool:
         """Mainly for use in testing."""
@@ -644,7 +644,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 # send any buffered stim statuses
                 well_statuses: Dict[int, Any] = {}
                 for well_idx in range(self._num_wells):
-                    stim_statuses = self._stim_status_buffer[well_idx]
+                    stim_statuses = self._stim_status_buffers[well_idx]
                     if len(stim_statuses[0]) == 0:
                         continue
                     well_statuses[well_idx] = np.array(
@@ -682,6 +682,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                         raise StimulationStatusUpdateFailedError("stop_stimulation")
                     prev_command["hardware_test_message"] = "Command failed"  # pragma: no cover
                 self._is_stimulating = False
+                self._reset_stim_status_buffers()
 
             # main process does not need to know the timepoint and is not expecting this key in the dictionary returned to it
             del prev_command["timepoint"]
@@ -960,16 +961,16 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _handle_stim_packets(self, well_statuses: Dict[int, Any]) -> None:
         for well_idx in range(self._num_wells):
             stim_statuses = well_statuses.get(well_idx, [[], []])
-            num_statuses_in_buffer = len(self._stim_status_buffer[well_idx][0])
-            stim_completed_last_cycle = self._stim_status_buffer[well_idx][1][-1:] == [
+            num_statuses_in_buffer = len(self._stim_status_buffers[well_idx][0])
+            stim_completed_last_cycle = self._stim_status_buffers[well_idx][1][-1:] == [
                 STIM_COMPLETE_SUBPROTOCOL_IDX
             ]
             for i in range(2):
                 if stim_completed_last_cycle:
-                    self._stim_status_buffer[well_idx][i] = []
+                    self._stim_status_buffers[well_idx][i] = []
                 elif num_statuses_in_buffer > 1:
-                    self._stim_status_buffer[well_idx][i] = self._stim_status_buffer[well_idx][i][-1:]
-                self._stim_status_buffer[well_idx][i].extend(stim_statuses[i])
+                    self._stim_status_buffers[well_idx][i] = self._stim_status_buffers[well_idx][i][-1:]
+                self._stim_status_buffers[well_idx][i].extend(stim_statuses[i])
         if not well_statuses:
             return
         wells_done_stimulating = [

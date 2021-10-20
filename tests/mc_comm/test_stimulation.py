@@ -231,6 +231,7 @@ def test_McCommunicationProcess__processes_start_and_stop_stimulation_commands__
     )
 
     spied_get_utc_now = mocker.spy(mc_comm, "_get_formatted_utc_now")
+    spied_reset_stim_buffers = mocker.spy(mc_process, "_reset_stim_status_buffers")
 
     for command, stim_running_statuses in (
         ("start_stimulation", expected_stim_running_statuses[0]),
@@ -254,6 +255,9 @@ def test_McCommunicationProcess__processes_start_and_stop_stimulation_commands__
         message_to_main = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
         if command == "start_stimulation":
             expected_response["timestamp"] = spied_get_utc_now.spy_return
+            spied_reset_stim_buffers.assert_not_called()
+        else:
+            spied_reset_stim_buffers.assert_called_once()
         assert message_to_main == expected_response
 
 
