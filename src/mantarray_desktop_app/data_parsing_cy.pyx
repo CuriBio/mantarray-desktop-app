@@ -276,16 +276,9 @@ cpdef dict handle_data_packets(
         )
         time_indices -= base_global_time
 
-    # dict for storing stim statuses
-    cdef dict stim_data_dict = {}
-
+    cdef dict stim_data_dict = {}  # dict for storing stim statuses
     if num_stim_packets > 0:
-        _parse_stim_data(
-            stim_packet_bytes,
-            num_stim_packets,
-            base_global_time,
-            stim_data_dict,
-        )
+        _parse_stim_data(stim_packet_bytes, num_stim_packets, stim_data_dict)
 
     return {
         "magnetometer_data": {
@@ -351,7 +344,6 @@ cdef _parse_magetometer_data(
 cdef _parse_stim_data(
     unsigned char [:] stim_packet_bytes,
     int num_stim_packets,
-    uint64_t base_global_time,
     dict stim_data_dict,
 ):
     # Tanner (10/15/21): No need to heavily optimize this function until stim waveforms are streamed
@@ -365,7 +357,7 @@ cdef _parse_stim_data(
         for _ in range(num_status_updates):
             well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[stim_packet_bytes[bytes_idx]]
             stim_status = stim_packet_bytes[bytes_idx + 1]
-            time_index = (<uint64_t *> &stim_packet_bytes[bytes_idx + 2])[0] - base_global_time
+            time_index = (<uint64_t *> &stim_packet_bytes[bytes_idx + 2])[0]
             subprotocol_idx = stim_packet_bytes[bytes_idx + 10]
             bytes_idx += 11
             if stim_status == StimStatuses.RESTARTING:

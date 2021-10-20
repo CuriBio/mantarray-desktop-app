@@ -21,6 +21,7 @@ from typing import Union
 from zlib import crc32
 
 from mantarray_file_manager import DATETIME_STR_FORMAT
+import numpy as np
 import serial
 import serial.tools.list_ports as list_ports
 from stdlib_utils import put_log_message_into_queue
@@ -205,6 +206,8 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._data_packet_cache = bytes(0)
         # stimulation values
         self._is_stimulating = False
+        self._stim_status_buffer: Dict[int, Any]
+        self._reset_stim_status_buffer()
         # performance tracking values
         self._performance_logging_cycles = INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
         self._parses_since_last_logging: List[int] = [0] * len(self._board_queues)
@@ -285,6 +288,9 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _report_fatal_error(self, the_err: Exception) -> None:
         self._error = the_err
         super()._report_fatal_error(the_err)
+
+    def _reset_stim_status_buffer(self) -> None:
+        self._stim_status_buffer = {well_idx: [[], []] for well_idx in range(self._num_wells)}
 
     def is_registered_with_serial_comm(self, board_idx: int) -> bool:
         """Mainly for use in testing."""
@@ -635,6 +641,21 @@ class McCommunicationProcess(InstrumentCommProcess):
                 prev_command["timestamp"] = _get_formatted_utc_now()
                 # Tanner (6/11/21): This helps prevent against status beacon timeouts with beacons that come just after the data stream begins but before 1 second of data is available
                 self._time_of_last_beacon_secs = perf_counter()
+                # send any buffered stim statuses
+                well_statuses: Dict[int, Any] = {}
+                for well_idx in range(self._num_wells):
+                    stim_statuses = self._stim_status_buffer[well_idx]
+                    if len(stim_statuses[0]) == 0:
+                        continue
+                    well_statuses[well_idx] = np.array(
+                        [stim_statuses[0][-1:], stim_statuses[1][-1:]], dtype=np.int64
+                    )
+                    well_statuses[well_idx][0] -= self._base_global_time_of_data_stream
+
+                if well_statuses:
+                    to_fw_queue = self._board_queues[0][2]
+                    to_fw_queue.put_nowait({"data_type": "stimulation", "well_statuses": well_statuses})
+
             elif prev_command["command"] == "stop_managed_acquisition":
                 if response_data[0]:
                     if not self._hardware_test_mode:
@@ -884,15 +905,15 @@ class McCommunicationProcess(InstrumentCommProcess):
         )
 
         self._data_packet_cache = parsed_packet_dict["unread_bytes"]
-        # create dict and send to file writer if any packets were read  # Tanner (5/25/21): it is possible 0 data packets are read when stopping data stream
-        self._dump_data_packets(parsed_packet_dict["magnetometer_data"])
-        self._handle_stim_packets(parsed_packet_dict["stim_data"])
 
         # process any other packets
         for other_packet_info in parsed_packet_dict["other_packet_info"]:
             self._process_comm_from_instrument(
                 *other_packet_info[1:],
             )
+        # create dict and send to file writer if any packets were read
+        self._dump_data_packets(parsed_packet_dict["magnetometer_data"])
+        self._handle_stim_packets(parsed_packet_dict["stim_data"])
 
         # handle performance logging if ready
         if self._parses_since_last_logging[board_idx] >= self._performance_logging_cycles:
@@ -907,6 +928,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             data,
             num_data_packets_read,
         ) = parsed_packet_dict.values()
+        # Tanner (5/25/21): it is possible 0 data packets are read when stopping data stream
         if num_data_packets_read == 0:
             return
 
@@ -936,6 +958,18 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._has_data_packet_been_sent = True
 
     def _handle_stim_packets(self, well_statuses: Dict[int, Any]) -> None:
+        for well_idx in range(self._num_wells):
+            stim_statuses = well_statuses.get(well_idx, [[], []])
+            num_statuses_in_buffer = len(self._stim_status_buffer[well_idx][0])
+            stim_completed_last_cycle = self._stim_status_buffer[well_idx][1][-1:] == [
+                STIM_COMPLETE_SUBPROTOCOL_IDX
+            ]
+            for i in range(2):
+                if stim_completed_last_cycle:
+                    self._stim_status_buffer[well_idx][i] = []
+                elif num_statuses_in_buffer > 1:
+                    self._stim_status_buffer[well_idx][i] = self._stim_status_buffer[well_idx][i][-1:]
+                self._stim_status_buffer[well_idx][i].extend(stim_statuses[i])
         if not well_statuses:
             return
         wells_done_stimulating = [
@@ -953,6 +987,8 @@ class McCommunicationProcess(InstrumentCommProcess):
                 }
             )
         if self._is_data_streaming:
+            for stim_status_updates in well_statuses.values():
+                stim_status_updates[0] -= self._base_global_time_of_data_stream
             to_fw_queue = self._board_queues[0][2]
             to_fw_queue.put_nowait({"data_type": "stimulation", "well_statuses": well_statuses})
 

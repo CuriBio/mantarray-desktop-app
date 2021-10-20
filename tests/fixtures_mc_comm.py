@@ -51,7 +51,7 @@ def set_connection_and_register_simulator(
     drain_queue(output_queue)
 
 
-def set_magnetometer_config_and_start_streaming(
+def set_magnetometer_config(
     mc_fixture,
     simulator,
     magnetometer_config=DEFAULT_MAGNETOMETER_CONFIG,
@@ -60,6 +60,7 @@ def set_magnetometer_config_and_start_streaming(
     mc_process = mc_fixture["mc_process"]
     from_main_queue = mc_fixture["board_queues"][0][0]
     to_main_queue = mc_fixture["board_queues"][0][1]
+
     config_command = {
         "communication_type": "acquisition_manager",
         "command": "change_magnetometer_config",
@@ -73,6 +74,19 @@ def set_magnetometer_config_and_start_streaming(
     invoke_process_run_and_check_errors(mc_process)
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
     to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+
+
+def set_magnetometer_config_and_start_streaming(
+    mc_fixture,
+    simulator,
+    magnetometer_config=DEFAULT_MAGNETOMETER_CONFIG,
+    sampling_period=DEFAULT_SAMPLING_PERIOD,
+):
+    set_magnetometer_config(mc_fixture, simulator, magnetometer_config, sampling_period)
+
+    mc_process = mc_fixture["mc_process"]
+    from_main_queue = mc_fixture["board_queues"][0][0]
+    to_main_queue = mc_fixture["board_queues"][0][1]
 
     start_command = {
         "communication_type": "acquisition_manager",
