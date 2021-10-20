@@ -86,7 +86,9 @@ from .constants import SERIAL_COMM_BAUD_RATE
 from .constants import SERIAL_COMM_BOOT_UP_CODE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+from .constants import SERIAL_COMM_COMMAND_FAILURE_BYTE
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+from .constants import SERIAL_COMM_COMMAND_SUCCESS_BYTE
 from .constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from .constants import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
 from .constants import SERIAL_COMM_FATAL_ERROR_CODE
@@ -120,17 +122,19 @@ from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
+from .constants import SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_SOFT_ERROR_CODE
 from .constants import SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE
+from .constants import SERIAL_COMM_START_STIM_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
+from .constants import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
 from .constants import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
-from .constants import SERIAL_COMM_STREAM_MODE_CHANGED_BYTE
-from .constants import SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE
+from .constants import SERIAL_COMM_STOP_STIM_PACKET_TYPE
 from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
@@ -144,7 +148,9 @@ from .constants import START_BARCODE_SCAN_TRIG_BIT
 from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
 from .constants import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
+from .constants import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
 from .constants import STIM_MAX_PULSE_DURATION_MICROSECONDS
+from .constants import StimStatuses
 from .constants import STM_VID
 from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SUBPROCESS_POLL_DELAY_SECONDS
@@ -194,12 +200,15 @@ from .exceptions import SerialCommNotEnoughAdditionalBytesReadError
 from .exceptions import SerialCommPacketFromMantarrayTooSmallError
 from .exceptions import SerialCommPacketRegistrationReadEmptyError
 from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
-from .exceptions import SerialCommPacketRegistrationTimoutError
+from .exceptions import SerialCommPacketRegistrationTimeoutError
 from .exceptions import SerialCommStatusBeaconTimeoutError
 from .exceptions import SerialCommTooManyMissedHandshakesError
 from .exceptions import SerialCommUntrackedCommandResponseError
 from .exceptions import ServerManagerNotInitializedError
 from .exceptions import ServerManagerSingletonAlreadySetError
+from .exceptions import StimulationProtocolUpdateFailedError
+from .exceptions import StimulationProtocolUpdateWhileStimulatingError
+from .exceptions import StimulationStatusUpdateFailedError
 from .exceptions import SystemStartUpError
 from .exceptions import UnrecognizedCommandFromMainToDataAnalyzerError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
@@ -248,10 +257,15 @@ from .process_monitor import MantarrayProcessesMonitor
 from .queue_container import MantarrayQueueContainer
 from .serial_comm_utils import convert_bitmask_to_config_dict
 from .serial_comm_utils import convert_bytes_to_config_dict
+from .serial_comm_utils import convert_bytes_to_subprotocol_dict
 from .serial_comm_utils import convert_metadata_bytes_to_str
+from .serial_comm_utils import convert_module_id_to_well_name
+from .serial_comm_utils import convert_stim_dict_to_bytes
+from .serial_comm_utils import convert_subprotocol_dict_to_bytes
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_status_code_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
+from .serial_comm_utils import convert_well_name_to_module_id
 from .serial_comm_utils import create_data_packet
 from .serial_comm_utils import create_magnetometer_config_bytes
 from .serial_comm_utils import create_sensor_axis_bitmask
@@ -456,7 +470,7 @@ __all__ = [
     "McCommunicationProcess",
     "SERIAL_COMM_CHECKSUM_LENGTH_BYTES",
     "SERIAL_COMM_TIMESTAMP_LENGTH_BYTES",
-    "SerialCommPacketRegistrationTimoutError",
+    "SerialCommPacketRegistrationTimeoutError",
     "SerialCommIncorrectMagicWordFromMantarrayError",
     "SerialCommPacketRegistrationReadEmptyError",
     "SERIAL_COMM_MAX_PACKET_LENGTH_BYTES",
@@ -514,8 +528,8 @@ __all__ = [
     "InstrumentSoftError",
     "SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE",
     "SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE",
-    "SERIAL_COMM_STREAM_MODE_CHANGED_BYTE",
-    "SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE",
+    "SERIAL_COMM_COMMAND_SUCCESS_BYTE",
+    "SERIAL_COMM_COMMAND_FAILURE_BYTE",
     "InstrumentDataStreamingAlreadyStartedError",
     "InstrumentDataStreamingAlreadyStoppedError",
     "SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE",
@@ -569,4 +583,18 @@ __all__ = [
     "get_redacted_string",
     "UnrecognizedCommandFromServerToMainError",
     "IncorrectSamplingPeriodFromInstrumentError",
+    "convert_bytes_to_subprotocol_dict",
+    "convert_subprotocol_dict_to_bytes",
+    "convert_stim_dict_to_bytes",
+    "SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE",
+    "SERIAL_COMM_START_STIM_PACKET_TYPE",
+    "SERIAL_COMM_STOP_STIM_PACKET_TYPE",
+    "convert_module_id_to_well_name",
+    "convert_well_name_to_module_id",
+    "STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL",
+    "StimulationProtocolUpdateWhileStimulatingError",
+    "StimulationProtocolUpdateFailedError",
+    "StimulationStatusUpdateFailedError",
+    "StimStatuses",
+    "SERIAL_COMM_STIM_STATUS_PACKET_TYPE",
 ]

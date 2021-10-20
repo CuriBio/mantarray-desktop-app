@@ -531,7 +531,7 @@ def test_main__full_launch_script_runs_as_expected(fully_running_app_from_main_e
 
     shared_values_dict = app_info["object_access_inside_main"]["values_to_share_to_server"]
     assert shared_values_dict["stimulation_running"] is False
-    assert shared_values_dict["stimulation_protocols"] is None
+    assert shared_values_dict["stimulation_info"] is None
 
     # assert log messages were called in correct order
     expected_info_calls = iter(

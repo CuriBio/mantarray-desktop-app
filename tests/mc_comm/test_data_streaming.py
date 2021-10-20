@@ -41,10 +41,8 @@ from stdlib_utils import invoke_process_run_and_check_errors
 
 from ..fixtures import fixture_patch_print
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
-from ..fixtures_mc_comm import fixture_four_board_mc_comm_process
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process_no_handshake
 from ..fixtures_mc_comm import set_connection_and_register_simulator
-from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import set_simulator_idle_ready
 from ..helpers import confirm_queue_is_eventually_empty
@@ -53,10 +51,8 @@ from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_
 from ..helpers import random_bool
 
 __fixtures__ = [
-    fixture_mantarray_mc_simulator,
     fixture_mantarray_mc_simulator_no_beacon,
     fixture_patch_print,
-    fixture_four_board_mc_comm_process,
     fixture_four_board_mc_comm_process_no_handshake,
 ]
 

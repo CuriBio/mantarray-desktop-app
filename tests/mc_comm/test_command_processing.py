@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import copy
 import queue
+from random import choice
 import time
 
 from mantarray_desktop_app import convert_to_metadata_bytes
@@ -8,6 +9,7 @@ from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import UnrecognizedCommandFromMainToMcCommError
+from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 import pytest
@@ -21,6 +23,8 @@ from ..fixtures_mc_comm import fixture_runnable_four_board_mc_comm_process
 from ..fixtures_mc_comm import set_connection_and_register_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
+from ..fixtures_mc_simulator import get_null_subprotocol
+from ..fixtures_mc_simulator import get_random_subprotocol
 from ..fixtures_mc_simulator import set_simulator_idle_ready
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import handle_putting_multiple_objects_into_empty_queue
@@ -63,6 +67,13 @@ __fixtures__ = [
                 "command": "bad_command",
             },
             "raises error with invalid acquisition_manager command",
+        ),
+        (
+            {
+                "communication_type": "stimulation",
+                "command": "bad_command",
+            },
+            "raises error with invalid stimulation command",
         ),
     ],
 )
@@ -346,6 +357,73 @@ def test_McCommunicationProcess__processes_change_magnetometer_config_command(
     # assert that sampling period and configuration were updated
     assert simulator.get_sampling_period_us() == expected_sampling_period
     assert simulator.get_magnetometer_config() == expected_magnetometer_config
+    # run mc_process to process command response and send message back to main
+    invoke_process_run_and_check_errors(mc_process)
+    # confirm correct message sent to main
+    confirm_queue_is_eventually_of_size(output_queue, 1)
+    message_to_main = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert message_to_main == expected_response
+
+
+def test_McCommunicationProcess__processes_set_protocols_command(
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    board_queues = four_board_mc_comm_process_no_handshake["board_queues"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    input_queue = board_queues[0][0]
+    output_queue = board_queues[0][1]
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+
+    # confirm preconditions
+    assert simulator.get_stim_info() == {}
+
+    expected_protocol_ids = (None, "A", "B", "C")
+    test_num_wells = 24
+    expected_stim_info = {
+        "protocols": [
+            {
+                "protocol_id": protocol_id,
+                "stimulation_type": choice(["V", "C"]),
+                "run_until_stopped": choice([False, True]),
+                "subprotocols": [
+                    choice([get_random_subprotocol(), get_null_subprotocol(500)]) for _ in range(2)
+                ],
+            }
+            for protocol_id in expected_protocol_ids[1:]
+        ],
+        "protocol_assignments": {
+            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): choice(expected_protocol_ids)
+            for well_idx in range(test_num_wells)
+        },
+    }
+    # send command to mc_process
+    expected_response = {
+        "communication_type": "stimulation",
+        "command": "set_protocols",
+        "stim_info": expected_stim_info,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(expected_response), input_queue
+    )
+    # run mc_process to send command
+    invoke_process_run_and_check_errors(mc_process)
+    # run simulator to process command and send response
+    invoke_process_run_and_check_errors(simulator)
+    # assert that protocols were updated
+    actual = simulator.get_stim_info()
+    for protocol_idx in range(len(expected_protocol_ids) - 1):
+        expected_protocol_copy = copy.deepcopy(expected_stim_info["protocols"][protocol_idx])
+        del expected_protocol_copy["protocol_id"]  # the actual protocol ID letter is not included
+        assert actual["protocols"][protocol_idx] == expected_protocol_copy, protocol_idx
+    assert actual["protocol_assignments"] == {  # indices of the protocol are used instead
+        well_name: (None if protocol_id is None else expected_protocol_ids.index(protocol_id) - 1)
+        for well_name, protocol_id in expected_stim_info["protocol_assignments"].items()
+    }
     # run mc_process to process command response and send message back to main
     invoke_process_run_and_check_errors(mc_process)
     # confirm correct message sent to main

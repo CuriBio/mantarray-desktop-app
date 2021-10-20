@@ -14,7 +14,9 @@ from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import SERIAL_COMM_BOOT_UP_CODE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_COMMAND_FAILURE_BYTE
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_COMMAND_SUCCESS_BYTE
 from mantarray_desktop_app import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_FATAL_ERROR_CODE
 from mantarray_desktop_app import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
@@ -39,8 +41,6 @@ from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
-from mantarray_desktop_app import SERIAL_COMM_STREAM_MODE_CHANGED_BYTE
-from mantarray_desktop_app import SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE
 from mantarray_desktop_app import SERIAL_COMM_TIME_SYNC_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import SerialCommTooManyMissedHandshakesError
@@ -674,8 +674,8 @@ def test_MantarrayMcSimulator__processes_start_data_streaming_command(
 
     # need to send command once before data is being streamed and once after to test the response in both cases
     for response_byte_value in (
-        SERIAL_COMM_STREAM_MODE_CHANGED_BYTE,
-        SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE,
+        SERIAL_COMM_COMMAND_SUCCESS_BYTE,
+        SERIAL_COMM_COMMAND_FAILURE_BYTE,
     ):
         # send start streaming command
         expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
@@ -689,7 +689,7 @@ def test_MantarrayMcSimulator__processes_start_data_streaming_command(
         invoke_process_run_and_check_errors(simulator)
         # assert response is correct
         additional_bytes = convert_to_timestamp_bytes(expected_pc_timestamp) + bytes([response_byte_value])
-        if response_byte_value == SERIAL_COMM_STREAM_MODE_CHANGED_BYTE:
+        if response_byte_value == SERIAL_COMM_COMMAND_SUCCESS_BYTE:
             additional_bytes += spied_global_timer.spy_return.to_bytes(8, byteorder="little")
             additional_bytes += expected_sampling_period.to_bytes(2, byteorder="little")
             additional_bytes += create_magnetometer_config_bytes(simulator.get_magnetometer_config())
@@ -738,8 +738,8 @@ def test_MantarrayMcSimulator__processes_stop_data_streaming_command(
 
     # need to send command once while data is being streamed and once after it stops to test the response in both cases
     for response_byte_value in (
-        SERIAL_COMM_STREAM_MODE_CHANGED_BYTE,
-        SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE,
+        SERIAL_COMM_COMMAND_SUCCESS_BYTE,
+        SERIAL_COMM_COMMAND_FAILURE_BYTE,
     ):
         # send stop streaming command
         expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
