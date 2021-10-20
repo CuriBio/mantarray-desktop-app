@@ -206,7 +206,7 @@ class DataAnalyzerProcess(InfiniteProcess):
 
     def _commands_for_each_run_iteration(self) -> None:
         self._process_next_command_from_main()
-        self._handle_incoming_data()
+        self._handle_incoming_packet()
 
         if self._beta_2_mode:
             return
@@ -262,25 +262,31 @@ class DataAnalyzerProcess(InfiniteProcess):
         else:
             raise UnrecognizedCommandFromMainToDataAnalyzerError(communication_type)
 
-    def _handle_incoming_data(self) -> None:
+    def _handle_incoming_packet(self) -> None:
         input_queue = self._board_queues[0][0]
         try:
-            data_dict = input_queue.get_nowait()
+            packet = input_queue.get_nowait()
         except queue.Empty:
             return
 
-        if self._beta_2_mode and data_dict["is_first_packet_of_stream"]:
-            self._end_of_data_stream_reached[0] = False
-        if self._end_of_data_stream_reached[0]:
-            return
+        data_type = "magnetometer" if not self._beta_2_mode else packet["data_type"]
+        if data_type == "magnetometer":
+            if self._beta_2_mode and packet["is_first_packet_of_stream"]:
+                self._end_of_data_stream_reached[0] = False
+            if self._end_of_data_stream_reached[0]:
+                return
 
-        if self._beta_2_mode:
-            self._process_beta_2_data(data_dict)
+            if self._beta_2_mode:
+                self._process_beta_2_data(packet)
+            else:
+                if not packet["is_reference_sensor"]:
+                    well_idx = packet["well_index"]
+                    self._data_analysis_streams[well_idx][0].emit(packet["data"])
+                self._load_memory_into_buffer(packet)
+        elif data_type == "stimulation":
+            self._process_stim_packet(packet)
         else:
-            if not data_dict["is_reference_sensor"]:
-                well_idx = data_dict["well_index"]
-                self._data_analysis_streams[well_idx][0].emit(data_dict["data"])
-            self._load_memory_into_buffer(data_dict)
+            raise NotImplementedError(f"Invalid data type from File Writer Process: {data_type}")
 
     def _process_beta_2_data(self, data_dict: Dict[Any, Any]) -> None:
         outgoing_data = self._create_outgoing_beta_2_data(data_dict)
@@ -422,6 +428,9 @@ class DataAnalyzerProcess(InfiniteProcess):
             self._well_offsets[well_idx] = max(tissue_data[1])
         tissue_data[1] = (tissue_data[1] - self._well_offsets[well_idx]) * -1
         self._data_buffer[well_idx]["construct_data"] = tissue_data
+
+    def _process_stim_packet(self, stim_packet: Dict[Any, Any]) -> None:
+        pass  # pylint: disable=no-self-use,unused-argument
 
     def _handle_performance_logging(self) -> None:
         performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}

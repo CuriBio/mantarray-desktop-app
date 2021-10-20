@@ -8,7 +8,6 @@ from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 import numpy as np
-import pytest
 from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -28,7 +27,6 @@ __fixtures__ = [
 
 
 @freeze_time("2021-06-15 16:39:10.120589")
-@pytest.mark.slow
 def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_retrieves_a_data_packet_from_file_writer__and_sends_data_available_message_to_main(
     four_board_analyzer_process_beta_2_mode, mocker
 ):
@@ -109,7 +107,6 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
     assert outgoing_msg == expected_msg
 
 
-@pytest.mark.slow
 def test_DataAnalyzerProcess__does_not_process_data_packets_after_receiving_stop_managed_acquisition_command_until_receiving_first_packet_of_new_stream(
     four_board_analyzer_process_beta_2_mode, mocker
 ):
@@ -184,3 +181,17 @@ def test_DataAnalyzerProcess__does_not_process_data_packets_after_receiving_stop
 
     # prevent BrokenPipeErrors
     drain_queue(to_main_queue)
+
+
+def test_DataAnalyzerProcess__processes_incoming_stim_packet(four_board_analyzer_process_beta_2_mode, mocker):
+    # TODO Tanner (10/20/21): add to this test when ready to add stim handling
+    da_process = four_board_analyzer_process_beta_2_mode["da_process"]
+    incoming_data_queue = four_board_analyzer_process_beta_2_mode["board_queues"][0][0]
+
+    # can probably remove this spy and assertion once actual handling is implemented
+    spied_process_stim_packet = mocker.spy(da_process, "_process_stim_packet")
+
+    test_stim_packet = {"data_type": "stimulation"}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_stim_packet, incoming_data_queue)
+    invoke_process_run_and_check_errors(da_process)
+    spied_process_stim_packet.assert_called_once_with(test_stim_packet)

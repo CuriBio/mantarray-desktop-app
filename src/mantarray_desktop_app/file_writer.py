@@ -776,7 +776,7 @@ class FileWriterProcess(InfiniteProcess):
         elif data_type == "stimulation":
             self._process_stim_data_packet(data_packet)
         else:
-            raise NotImplementedError(f"Invalid data type from instrument comm process: {data_type}")
+            raise NotImplementedError(f"Invalid data type from Instrument Comm Process: {data_type}")
 
         if not input_queue.empty():
             self._process_can_be_soft_stopped = False
