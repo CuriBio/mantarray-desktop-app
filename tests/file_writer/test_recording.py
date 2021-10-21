@@ -99,6 +99,7 @@ from ..helpers import is_queue_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 from ..parsed_channel_data_packets import SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0
 from ..parsed_channel_data_packets import SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS
+from ..parsed_channel_data_packets import SIMPLE_STIM_DATA_PACKET_FROM_ALL_WELLS
 
 
 __fixtures__ = [
@@ -717,10 +718,7 @@ def test_FileWriterProcess__closes_the_files_and_adds_crc32_checksum_and_sends_c
     assert "_B2" in second_comm_to_main["file_path"]
 
 
-# TODO add tests for stim packet buffering
-
-
-def test_FileWriterProcess__adds_incoming_data_to_internal_buffer(
+def test_FileWriterProcess__adds_incoming_magnetometer_data_to_internal_buffer(
     four_board_file_writer_process,
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
@@ -739,7 +737,7 @@ def test_FileWriterProcess__adds_incoming_data_to_internal_buffer(
     assert actual_num_items == expected_num_items
 
 
-def test_FileWriterProcess__does_not_add_incoming_beta_2_data_to_internal_buffer_if_after_stop_timepoint(
+def test_FileWriterProcess__does_not_add_incoming_beta_2_magnetometer_data_to_internal_buffer_if_after_stop_timepoint(
     four_board_file_writer_process,
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
@@ -773,7 +771,7 @@ def test_FileWriterProcess__does_not_add_incoming_beta_2_data_to_internal_buffer
     drain_queue(board_queues[0][1])
 
 
-def test_FileWriterProcess__clears_leftover_beta_2_data_from_previous_data_stream_from_buffer_when_receiving_first_packet_of_new_stream(
+def test_FileWriterProcess__clears_leftover_beta_2_magnetometer_data_of_previous_data_stream_from_buffer_when_receiving_first_packet_of_new_stream(
     four_board_file_writer_process,
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
@@ -808,7 +806,7 @@ def test_FileWriterProcess__clears_leftover_beta_2_data_from_previous_data_strea
     drain_queue(board_queues[0][1])
 
 
-def test_FileWriterProcess__removes_beta_1_packets_from_data_buffer_that_are_older_than_buffer_memory_size(
+def test_FileWriterProcess__removes_beta_1_packets_from_magnetometer_data_buffer_that_are_older_than_buffer_memory_size(
     four_board_file_writer_process,
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
@@ -837,7 +835,7 @@ def test_FileWriterProcess__removes_beta_1_packets_from_data_buffer_that_are_old
     np.testing.assert_equal(data_packet_buffer[0]["data"], new_packet["data"])
 
 
-def test_FileWriterProcess__removes_beta_2_packets_from_data_buffer_that_are_older_than_buffer_memory_size(
+def test_FileWriterProcess__removes_beta_2_packets_from_magnetometer_data_buffer_that_are_older_than_buffer_memory_size(
     four_board_file_writer_process,
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
@@ -859,7 +857,7 @@ def test_FileWriterProcess__removes_beta_2_packets_from_data_buffer_that_are_old
     np.testing.assert_equal(data_packet_buffer[0]["time_indices"], new_packet["time_indices"])
 
 
-def test_FileWriterProcess__clears_data_buffer_when_stop_managed_acquisition_command_is_received(
+def test_FileWriterProcess__clears_magnetometer_data_buffer_when_stop_managed_acquisition_command_is_received(
     four_board_file_writer_process,
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
@@ -877,7 +875,7 @@ def test_FileWriterProcess__clears_data_buffer_when_stop_managed_acquisition_com
     assert len(data_packet_buffer) == 0
 
 
-def test_FileWriterProcess__records_all_requested_beta_1_data_in_buffer__and_creates_dict_of_latest_data_timepoints_for_open_files__when_start_recording_command_is_received(
+def test_FileWriterProcess__records_all_requested_beta_1_magnetometer_data_in_buffer__and_creates_dict_of_latest_data_timepoints_for_open_files__when_start_recording_command_is_received(
     four_board_file_writer_process,
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
@@ -925,7 +923,7 @@ def test_FileWriterProcess__records_all_requested_beta_1_data_in_buffer__and_cre
     assert actual_latest_timepoint == expected_latest_timepoint
 
 
-def test_FileWriterProcess__records_all_requested_beta_2_data_in_buffer__and_creates_dict_of_latest_data_timepoints_for_open_files__when_start_recording_command_is_received(
+def test_FileWriterProcess__records_all_requested_beta_2_magnetometer_data_in_buffer__and_creates_dict_of_latest_data_timepoints_for_open_files__when_start_recording_command_is_received(
     four_board_file_writer_process,
 ):
     # pylint: disable=too-many-locals  # Tanner (5/30/21): many variables needed for this test
@@ -1018,6 +1016,63 @@ def test_FileWriterProcess__records_all_requested_beta_2_data_in_buffer__and_cre
         ), f"Incorrect latest timepoint for well {well_idx}"
 
         this_file.close()
+
+
+def test_FileWriterProcess__adds_incoming_stim_data_to_internal_buffers(
+    four_board_file_writer_process,
+):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    file_writer_process.set_beta_2_mode()
+    board_queues = four_board_file_writer_process["board_queues"]
+    board_idx = 0
+
+    expected_num_packets = 3
+    expected_num_items = (
+        expected_num_packets * SIMPLE_STIM_DATA_PACKET_FROM_ALL_WELLS["well_statuses"][0].shape[1]
+    )
+    for _ in range(expected_num_packets):
+        board_queues[board_idx][0].put_nowait(SIMPLE_STIM_DATA_PACKET_FROM_ALL_WELLS)
+    confirm_queue_is_eventually_of_size(board_queues[board_idx][0], expected_num_packets)
+    invoke_process_run_and_check_errors(file_writer_process, num_iterations=expected_num_packets)
+
+    stim_data_buffers = file_writer_process.get_stim_data_buffers(board_idx)
+    for well_idx in range(24):
+        well_buffers = stim_data_buffers[well_idx]
+        assert len(well_buffers[0]) == expected_num_items, well_idx
+        assert len(well_buffers[1]) == expected_num_items, well_idx
+
+
+def test_FileWriterProcess__clears_stim_data_when_stop_managed_acquisition_command_received(
+    four_board_file_writer_process,
+):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    file_writer_process.set_beta_2_mode()
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
+    board_idx = 0
+    for _ in range(3):
+        file_writer_process.update_stim_data_buffers(SIMPLE_STIM_DATA_PACKET_FROM_ALL_WELLS["well_statuses"])
+    stim_data_buffers = file_writer_process.get_stim_data_buffers(board_idx)
+    for well_idx in range(24):
+        well_buffers = stim_data_buffers[well_idx]
+        assert len(well_buffers[0]) > 0, well_idx
+        assert len(well_buffers[1]) > 0, well_idx
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        STOP_MANAGED_ACQUISITION_COMMUNICATION, from_main_queue
+    )
+    invoke_process_run_and_check_errors(file_writer_process)
+
+    for well_idx in range(24):
+        well_buffers = stim_data_buffers[well_idx]
+        assert len(well_buffers[0]) == 0, well_idx
+        assert len(well_buffers[1]) == 0, well_idx
+
+
+# TODO create and test end_of_stim_stream_reached value
+
+
+# TODO add tests for stim packet buffering
 
 
 def test_FileWriterProcess__deletes_recorded_beta_1_well_data_after_stop_time(
@@ -1129,6 +1184,7 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
     for i in range(expected_remaining_packets_recorded):
         curr_idx = i * num_data_points_per_packet
         data_packet = {
+            "data_type": "magnetometer",
             "time_indices": expected_time_indices[curr_idx : curr_idx + num_data_points_per_packet],
             "is_first_packet_of_stream": False,
         }
@@ -1145,6 +1201,7 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
     for i in range(num_dummy_packets):
         first_timepoint = expected_stop_timepoint + 1 + (i * num_data_points_per_packet)
         data_packet = {
+            "data_type": "magnetometer",
             "time_indices": np.arange(
                 first_timepoint, first_timepoint + num_data_points_per_packet, dtype=np.uint64
             ),
@@ -1325,6 +1382,7 @@ def test_FileWriterProcess__raises_error_if_stop_recording_command_received_with
     )
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"]
     recorded_data_packet = {
+        "data_type": "magnetometer",
         "time_indices": np.array([start_timepoint], dtype=np.uint64),
         "is_first_packet_of_stream": False,
         test_well_index: {

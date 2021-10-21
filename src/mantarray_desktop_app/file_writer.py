@@ -222,36 +222,48 @@ class FileWriterProcess(InfiniteProcess):
         self._board_queues = board_queues
         self._from_main_queue = from_main_queue
         self._to_main_queue = to_main_queue
+        self._beta_2_mode = beta_2_mode
+        self._num_wells = 24
+        # general recording values
         self._file_directory = file_directory
+        self._is_recording = False
         self._open_files: Tuple[
             Dict[int, h5py._hl.files.File],
             ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-        ] = tuple([{}] * len(self._board_queues))
-        self._data_packet_buffers: Tuple[
-            Deque[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
-            ...,  # noqa: W504 # flake8 doesn't understand the 3 dots for type definition
-        ] = tuple(deque() for _ in range(len(self._board_queues)))
-        self._end_of_data_stream_reached: List[Optional[bool]] = [False] * len(self._board_queues)
-        self._latest_data_timepoints: Tuple[
-            Dict[int, int],
-            ...,  # noqa: W504 # flake8 doesn't understand the 3 dots for type definition
         ] = tuple(dict() for _ in range(len(self._board_queues)))
-        self._is_recording = False
+        self._end_of_data_stream_reached: List[Optional[bool]] = [False] * len(self._board_queues)
         self._start_recording_timestamps: List[Optional[Tuple[datetime.datetime, int]]] = list(
             [None] * len(self._board_queues)
         )
         self._stop_recording_timestamps: List[Optional[int]] = list([None] * len(self._board_queues))
+        # magnetometer data recording values
+        self._data_packet_buffers: Tuple[
+            Deque[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
+            ...,  # noqa: W504 # flake8 doesn't understand the 3 dots for type definition
+        ] = tuple(deque() for _ in range(len(self._board_queues)))
+        self._latest_data_timepoints: Tuple[
+            Dict[int, int],
+            ...,  # noqa: W504 # flake8 doesn't understand the 3 dots for type definition
+        ] = tuple(dict() for _ in range(len(self._board_queues)))
         self._tissue_data_finalized_for_recording: Tuple[Dict[int, bool], ...] = tuple(
             [dict()] * len(self._board_queues)
         )
         self._reference_data_finalized_for_recording: Tuple[
             Dict[int, bool],
             ...,  # noqa: W504 # flake8 doesn't understand the 3 dots for type definition
-        ] = tuple([dict()] * len(self._board_queues))
+        ] = tuple(dict() for _ in range(len(self._board_queues)))
+        # stimulation data recording values
+        self._stim_data_buffers: Tuple[
+            Dict[int, Tuple[Deque[int], Deque[int]]],  # pylint: disable=unsubscriptable-object
+            ...,  # noqa: W504 # flake8 doesn't understand the 3 dots for type definition
+        ] = tuple(
+            {well_idx: (deque(), deque()) for well_idx in range(self._num_wells)}
+            for _ in range(len(self._board_queues))
+        )
+        # performance tracking values
         self._iterations_since_last_logging = 0
         self._num_recorded_points: List[int] = list()
         self._recording_durations: List[float] = list()
-        self._beta_2_mode = beta_2_mode
 
     def start(self) -> None:
         for board_queue_tuple in self._board_queues:
@@ -294,12 +306,28 @@ class FileWriterProcess(InfiniteProcess):
     def get_file_latest_timepoint(self, well_idx: int) -> int:
         return self._latest_data_timepoints[0][well_idx]
 
+    def get_stim_data_buffers(self, board_idx: int) -> Dict[int, Tuple[Deque[int], Deque[int]]]:
+        return self._stim_data_buffers[board_idx]
+
     def set_beta_2_mode(self) -> None:
         """For use in unit tests."""
         self._beta_2_mode = True
 
     def is_recording(self) -> bool:
         return self._is_recording
+
+    def update_stim_data_buffers(self, well_statuses: Dict[int, Any]) -> None:
+        board_idx = 0
+        for well_idx, status_updates_arr in well_statuses.items():
+            well_buffers = self._stim_data_buffers[board_idx][well_idx]
+            well_buffers[0].extend(status_updates_arr[0])
+            well_buffers[1].extend(status_updates_arr[1])
+
+    def _clear_stim_data_buffer(self) -> None:
+        board_idx = 0
+        for well_buffers in self._stim_data_buffers[board_idx].values():
+            well_buffers[0].clear()
+            well_buffers[1].clear()
 
     def _board_has_open_files(self, board_idx: int) -> bool:
         return len(self._open_files[board_idx].keys()) > 0
@@ -332,7 +360,7 @@ class FileWriterProcess(InfiniteProcess):
     def _commands_for_each_run_iteration(self) -> None:
         if not self._is_finalizing_files_after_recording():
             self._process_next_command_from_main()
-        self._process_next_data_packet()
+        self._process_next_incoming_packet()
         self._update_data_packet_buffers()
         self._finalize_completed_files()
 
@@ -616,6 +644,7 @@ class FileWriterProcess(InfiniteProcess):
             )
         elif command == "stop_managed_acquisition":
             self._data_packet_buffers[0].clear()
+            self._clear_stim_data_buffer()
             self._end_of_data_stream_reached[0] = True
             to_main.put_nowait(
                 {"communication_type": "command_receipt", "command": "stop_managed_acquisition"}
@@ -757,14 +786,15 @@ class FileWriterProcess(InfiniteProcess):
 
         self._latest_data_timepoints[0][this_well_idx] = last_timepoint_of_new_data
 
-    def _process_next_data_packet(self) -> None:
-        """Process the next incoming data packet for that board.
+    def _process_next_incoming_packet(self) -> None:
+        """Process the next incoming packet for that board.
 
         If no data present, will just return.
 
         If multiple boards are implemented, a kwarg board_idx:int=0 can be added.
         """
-        input_queue = self._board_queues[0][0]
+        board_idx = 0
+        input_queue = self._board_queues[board_idx][0]
         try:
             data_packet = input_queue.get_nowait()
         except queue.Empty:
@@ -802,9 +832,9 @@ class FileWriterProcess(InfiniteProcess):
             self._data_packet_buffers[0].clear()
         if not self._end_of_data_stream_reached[0]:
             self._data_packet_buffers[0].append(data_packet)
-
-        output_queue = self._board_queues[0][1]
-        output_queue.put_nowait(data_packet)
+            # TODO unit test the next two lines
+            output_queue = self._board_queues[0][1]
+            output_queue.put_nowait(data_packet)
 
         # Tanner (5/17/21): This code was not previously guarded by this if statement. If issues start occurring with recorded data or performance metrics, check here first
         if self._is_recording or self._board_has_open_files(0):
@@ -833,10 +863,9 @@ class FileWriterProcess(InfiniteProcess):
                     self._process_beta_1_data_packet_for_open_file(data_packet)
 
     def _process_stim_data_packet(self, stim_packet: Dict[Any, Any]) -> None:
-        pass
+        self.update_stim_data_buffers(stim_packet["well_statuses"])
 
     def _update_data_packet_buffers(self) -> None:
-        # TODO add buffer for stim packets
         data_packet_buffer = self._data_packet_buffers[0]
         if not data_packet_buffer:
             return

@@ -55,6 +55,7 @@ def create_simple_data_packet(
     if isinstance(well_idxs, int):
         well_idxs = [well_idxs]
     data_packet = {
+        "data_type": "magnetometer",
         "time_indices": create_simple_data(time_index_start, num_data_points),
         "is_first_packet_of_stream": is_first_packet_of_stream,
     }

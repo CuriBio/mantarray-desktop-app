@@ -648,6 +648,7 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_2_files_after_stop_recordi
     start_timepoint = GENERIC_BETA_2_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
     test_data = np.zeros(test_num_data_points, dtype=np.int16)
     data_packet = {
+        "data_type": "magnetometer",
         "time_indices": np.arange(start_timepoint, start_timepoint + test_num_data_points, dtype=np.uint64),
         "is_first_packet_of_stream": False,
     }
@@ -800,6 +801,7 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_2_f
     num_data_points = 100
     start_timepoint = GENERIC_BETA_2_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
     data_packet = {
+        "data_type": "magnetometer",
         "time_indices": np.arange(start_timepoint, start_timepoint + num_data_points, dtype=np.uint64),
         "is_first_packet_of_stream": False,
     }

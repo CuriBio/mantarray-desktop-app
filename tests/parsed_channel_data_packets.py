@@ -25,3 +25,8 @@ for well_idx in range(24):
         SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: np.zeros(100, dtype=np.int16),
     }
     SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS[well_idx] = channel_dict
+
+SIMPLE_STIM_DATA_PACKET_FROM_ALL_WELLS: Dict[Any, Any] = {
+    "data_type": "stimulation",
+    "well_statuses": {well_idx: np.zeros((2, 5), dtype=np.uint64) for well_idx in range(24)},
+}

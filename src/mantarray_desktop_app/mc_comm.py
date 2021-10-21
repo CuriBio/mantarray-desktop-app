@@ -987,7 +987,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                     "wells_done_stimulating": wells_done_stimulating,
                 }
             )
-        if self._is_data_streaming:
+        if self._is_data_streaming and not self._is_stopping_data_stream:
             for stim_status_updates in well_statuses.values():
                 stim_status_updates[0] -= self._base_global_time_of_data_stream
             to_fw_queue = self._board_queues[0][2]
