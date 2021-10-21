@@ -17,6 +17,7 @@ from mantarray_desktop_app import DATA_FRAME_PERIOD
 from mantarray_desktop_app import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
 from mantarray_desktop_app import FILE_WRITER_BUFFER_SIZE_MICROSECONDS
 from mantarray_desktop_app import get_reference_dataset_from_file
+from mantarray_desktop_app import get_stimulation_dataset_from_file
 from mantarray_desktop_app import get_time_index_dataset_from_file
 from mantarray_desktop_app import get_time_offset_dataset_from_file
 from mantarray_desktop_app import get_tissue_dataset_from_file
@@ -844,7 +845,6 @@ def test_FileWriterProcess__removes_beta_2_packets_from_magnetometer_data_buffer
     file_writer_process.set_beta_2_mode()
     board_queues = four_board_file_writer_process["board_queues"]
 
-    # TODO fix this test
     new_packet = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
     new_packet["time_indices"] = np.array([FILE_WRITER_BUFFER_SIZE_MICROSECONDS + 1], dtype=np.uint64)
     old_packet = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
@@ -986,7 +986,7 @@ def test_FileWriterProcess__records_all_requested_beta_2_magnetometer_data_in_bu
         assert time_index_dataset.dtype == "uint64", f"Incorrect time index dtype for well {well_idx}"
         assert time_index_dataset.shape == (
             expected_total_num_data_points,
-        ), f"Incorrect tissue shape for well {well_idx}"
+        ), f"Incorrect time indices shape for well {well_idx}"
         np.testing.assert_array_equal(
             time_index_dataset,
             expected_time_indices,
@@ -1083,9 +1083,7 @@ def test_FileWriterProcess__does_not_add_incoming_stim_data_to_internal_buffer_i
     board_queues = four_board_file_writer_process["board_queues"]
 
     board_idx = 0
-    test_stim_buffers = file_writer_process.get_stim_data_buffers(
-        board_idx
-    )  # pylint: disable=protected-access
+    test_stim_buffers = file_writer_process.get_stim_data_buffers(board_idx)
 
     test_num_items = 3
     packet_len = SIMPLE_STIM_DATA_PACKET_FROM_ALL_WELLS["well_statuses"][0].shape[1]
@@ -1198,7 +1196,75 @@ def test_FileWriterProcess__removes_stim_statuses_from_buffer_that_are_no_longer
 def test_FileWriterProcess__records_all_relevant_stim_statuses_in_buffer_when_start_recording_command_is_received(
     four_board_file_writer_process,
 ):
-    pass
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    file_writer_process.set_beta_2_mode()
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
+    # dummy packets that will be ignored
+    for _ in range(2):
+        file_writer_process.append_to_stim_data_buffers(
+            SIMPLE_STIM_DATA_PACKET_FROM_ALL_WELLS["well_statuses"]
+        )
+    # set up test data packets and add to incoming data queue
+    expected_start_timepoint = 100
+    expected_num_packets_recorded = 3
+    num_data_points_per_packet = 2
+    expected_total_num_data_points = expected_num_packets_recorded * num_data_points_per_packet
+    expected_time_indices = np.arange(
+        expected_start_timepoint - 1,
+        expected_start_timepoint - 1 + (expected_total_num_data_points * 2),
+        2,
+        dtype=np.uint64,
+    )
+    for i in range(expected_num_packets_recorded):
+        test_packet = copy.deepcopy(SIMPLE_STIM_DATA_PACKET_FROM_ALL_WELLS)
+
+        curr_idx = i * num_data_points_per_packet
+        test_data = np.array(
+            [
+                expected_time_indices[curr_idx : curr_idx + num_data_points_per_packet],
+                np.ones(num_data_points_per_packet, dtype=np.int64),
+            ],
+            dtype=np.int64,
+        )
+        test_packet["well_statuses"] = {well_idx: test_data for well_idx in range(24)}
+        file_writer_process.append_to_stim_data_buffers(test_packet["well_statuses"])
+
+    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command["timepoint_to_begin_recording_at"] = expected_start_timepoint
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
+    invoke_process_run_and_check_errors(file_writer_process)
+
+    expected_stim_data = np.array(
+        [expected_time_indices, np.ones(expected_total_num_data_points, dtype=np.int64)], dtype=np.int64
+    )
+
+    expected_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
+        PLATE_BARCODE_UUID
+    ]
+    timestamp_str = "2020_02_09_190322"
+    for well_idx in range(24):
+        this_file = h5py.File(
+            os.path.join(
+                four_board_file_writer_process["file_dir"],
+                f"{expected_barcode}__{timestamp_str}",
+                f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
+            ),
+            "r",
+        )
+        stimulation_dataset = get_stimulation_dataset_from_file(this_file)
+        assert stimulation_dataset.dtype == "int64", f"Incorrect time index dtype for well {well_idx}"
+        assert stimulation_dataset.shape == (
+            2,
+            expected_total_num_data_points,
+        ), f"Incorrect stim data shape for well {well_idx}"
+        np.testing.assert_array_equal(
+            stimulation_dataset,
+            expected_stim_data,
+            err_msg=f"Incorrect stimulation data for well {well_idx}",
+        )
+
+        this_file.close()
 
 
 def test_FileWriterProcess__deletes_recorded_beta_1_well_data_after_stop_time(
@@ -1539,4 +1605,113 @@ def test_FileWriterProcess__raises_error_if_stop_recording_command_received_with
 def test_FileWriterProcess__deletes_recorded_stim_data_after_stop_time(
     four_board_file_writer_process,
 ):
-    pass  # TODO
+    # pylint: disable=too-many-locals  # Tanner (10/21/21): many variables needed for this test
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    file_writer_process.set_beta_2_mode()
+    board_idx = 0
+    instrument_board_queues = four_board_file_writer_process["board_queues"][board_idx]
+    comm_from_main_queue = four_board_file_writer_process["from_main_queue"]
+
+    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command["timepoint_to_begin_recording_at"] = 0
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        start_recording_command,
+        comm_from_main_queue,
+    )
+    invoke_process_run_and_check_errors(file_writer_process)
+
+    expected_stop_timepoint = 100
+    expected_remaining_packets_recorded = 4
+    num_data_points_per_packet = 3
+    expected_total_num_data_points = expected_remaining_packets_recorded * num_data_points_per_packet
+    expected_time_indices = np.arange(expected_total_num_data_points, dtype=np.uint64)
+    # add packets whose data will remain in the file
+    for i in range(expected_remaining_packets_recorded):
+        test_packet = copy.deepcopy(SIMPLE_STIM_DATA_PACKET_FROM_ALL_WELLS)
+        curr_idx = i * num_data_points_per_packet
+        test_data = np.array(
+            [
+                expected_time_indices[curr_idx : curr_idx + num_data_points_per_packet],
+                np.ones(num_data_points_per_packet, dtype=np.int64),
+            ],
+            dtype=np.int64,
+        )
+        test_packet["well_statuses"] = {well_idx: test_data for well_idx in range(24)}
+        instrument_board_queues[0].put_nowait(test_packet)
+    # add packets whose data will later be removed from the file
+    num_dummy_packets = 2
+    for i in range(num_dummy_packets):
+        test_packet = copy.deepcopy(SIMPLE_STIM_DATA_PACKET_FROM_ALL_WELLS)
+        first_timepoint = expected_stop_timepoint + 1 + (i * num_data_points_per_packet)
+        test_data = np.array(
+            [
+                np.arange(first_timepoint, first_timepoint + num_data_points_per_packet, dtype=np.uint64),
+                np.zeros(num_data_points_per_packet, dtype=np.int64),
+            ],
+            dtype=np.int64,
+        )
+        test_packet["well_statuses"] = {well_idx: test_data for well_idx in range(24)}
+        instrument_board_queues[0].put_nowait(test_packet)
+    # process all packets
+    confirm_queue_is_eventually_of_size(
+        instrument_board_queues[0],
+        expected_remaining_packets_recorded + num_dummy_packets,
+    )
+    invoke_process_run_and_check_errors(
+        file_writer_process,
+        num_iterations=(expected_remaining_packets_recorded + num_dummy_packets),
+    )
+    confirm_queue_is_eventually_empty(instrument_board_queues[0])
+
+    # add some magnetometer data so errors aren't raised
+    test_magnetometer_packet = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
+    num_time_indices = len(test_magnetometer_packet["time_indices"])
+    test_magnetometer_packet["time_indices"] = np.arange(
+        expected_stop_timepoint - 1, expected_stop_timepoint - 1 + num_time_indices, dtype=np.uint64
+    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_magnetometer_packet, instrument_board_queues[0]
+    )
+    invoke_process_run_and_check_errors(file_writer_process)
+
+    # send stop recording command
+    stop_recording_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    stop_recording_command["timepoint_to_stop_recording_at"] = expected_stop_timepoint
+    # ensure queue is empty before putting something else in
+    confirm_queue_is_eventually_empty(comm_from_main_queue)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        stop_recording_command,
+        comm_from_main_queue,
+    )
+    invoke_process_run_and_check_errors(file_writer_process)
+
+    expected_stim_data = np.array(
+        [expected_time_indices, np.ones(expected_total_num_data_points, dtype=np.int64)], dtype=np.int64
+    )
+
+    expected_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
+        PLATE_BARCODE_UUID
+    ]
+    timestamp_str = "2020_02_09_190322"
+    for well_idx in range(24):
+        this_file = h5py.File(
+            os.path.join(
+                four_board_file_writer_process["file_dir"],
+                f"{expected_barcode}__{timestamp_str}",
+                f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
+            ),
+            "r",
+        )
+        stimulation_dataset = get_stimulation_dataset_from_file(this_file)
+        assert stimulation_dataset.dtype == "int64", f"Incorrect time index dtype for well {well_idx}"
+        assert stimulation_dataset.shape == (
+            2,
+            expected_total_num_data_points,
+        ), f"Incorrect stim data shape for well {well_idx}"
+        np.testing.assert_array_equal(
+            stimulation_dataset,
+            expected_stim_data,
+            err_msg=f"Incorrect stimulation data for well {well_idx}",
+        )
+
+        this_file.close()

@@ -230,6 +230,7 @@ from .file_writer import FILE_WRITER_BUFFER_SIZE_MICROSECONDS
 from .file_writer import FileWriterProcess
 from .file_writer import get_data_slice_within_timepoints
 from .file_writer import get_reference_dataset_from_file
+from .file_writer import get_stimulation_dataset_from_file
 from .file_writer import get_time_index_dataset_from_file
 from .file_writer import get_time_offset_dataset_from_file
 from .file_writer import get_tissue_dataset_from_file
@@ -599,4 +600,5 @@ __all__ = [
     "STIM_COMPLETE_SUBPROTOCOL_IDX",
     "STIM_NO_PROTOCOL_ASSIGNED",
     "FILE_WRITER_BUFFER_SIZE_MICROSECONDS",
+    "get_stimulation_dataset_from_file",
 ]

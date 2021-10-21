@@ -34,6 +34,7 @@ from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import REF_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import REFERENCE_SENSOR_READINGS
 from mantarray_file_manager import STIMULATION_PROTOCOL_UUID
+from mantarray_file_manager import STIMULATION_READINGS
 from mantarray_file_manager import TIME_INDICES
 from mantarray_file_manager import TIME_OFFSETS
 from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
@@ -51,6 +52,7 @@ from mantarray_file_manager import WELL_NAME_UUID
 from mantarray_file_manager import WELL_ROW_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 from nptyping import NDArray
+import numpy as np
 from stdlib_utils import compute_crc32_and_write_to_file_head
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
@@ -77,32 +79,28 @@ def _get_formatted_utc_now() -> str:
     return datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
 
 
-def get_time_index_dataset_from_file(
-    the_file: h5py.File,
-) -> h5py.Dataset:
+def get_time_index_dataset_from_file(the_file: h5py.File) -> h5py.Dataset:
     """Return the dataset for time indices from the H5 file object."""
     return the_file[TIME_INDICES]
 
 
-def get_time_offset_dataset_from_file(
-    the_file: h5py.File,
-) -> h5py.Dataset:
+def get_time_offset_dataset_from_file(the_file: h5py.File) -> h5py.Dataset:
     """Return the dataset for time offsets from the H5 file object."""
     return the_file[TIME_OFFSETS]
 
 
-def get_tissue_dataset_from_file(
-    the_file: h5py.File,
-) -> h5py.Dataset:
+def get_tissue_dataset_from_file(the_file: h5py.File) -> h5py.Dataset:
     """Return the dataset for tissue sensor data from the H5 file object."""
     return the_file[TISSUE_SENSOR_READINGS]
 
 
-def get_reference_dataset_from_file(
-    the_file: h5py.File,
-) -> h5py.Dataset:
+def get_reference_dataset_from_file(the_file: h5py.File) -> h5py.Dataset:
     """Return the dataset for reference sensor data from the H5 file object."""
     return the_file[REFERENCE_SENSOR_READINGS]
+
+
+def get_stimulation_dataset_from_file(the_file: h5py.File) -> h5py.Dataset:
+    return the_file[STIMULATION_READINGS]
 
 
 def get_data_slice_within_timepoints(
@@ -367,44 +365,74 @@ class FileWriterProcess(InfiniteProcess):
             self._handle_performance_logging()
             self._iterations_since_last_logging = 0
 
-    def _finalize_completed_files(self) -> None:
-        """Finalize H5 files.
+    def _process_next_command_from_main(self) -> None:
+        input_queue = self._from_main_queue
+        try:
+            communication = input_queue.get_nowait()
+        except queue.Empty:
+            return
 
-        Go through and see if any open files are ready to be closed.
-        Close them, and communicate to main.
+        to_main = self._to_main_queue
+        logging_threshold = self.get_logging_level()
+        put_log_message_into_queue(
+            logging.DEBUG,
+            f"Timestamp: {_get_formatted_utc_now()} Received a command from Main: {communication}",
+            to_main,
+            logging_threshold,
+        )
 
-        It's possible that this could be optimized in the future by only being called when the finalization status of something has changed.
-        """
-        tissue_status, reference_status = self.get_recording_finalization_statuses()
-
-        for this_well_idx in list(
-            self._open_files[0].keys()
-        ):  # make a copy of the keys since they may be deleted during the run
-            # if this_well_idx in tissue_status[0]: # Tanner (7/22/20): This line was apparently always True. If problems start showing up later, likely due to this line being removed
-            if tissue_status[0][this_well_idx] and reference_status[0][this_well_idx]:
-                this_file = self._open_files[0][this_well_idx]
-                # the file name cannot be accessed after the file has been closed
-                this_filename = this_file.filename
-                this_file.close()
-                with open(this_filename, "rb+") as file_buffer:
-                    compute_crc32_and_write_to_file_head(file_buffer)
-                to_main_queue = self._to_main_queue
-                to_main_queue.put_nowait(
-                    {
-                        "communication_type": "file_finalized",
-                        "file_path": this_filename,
-                    }
-                )
-                del self._open_files[0][this_well_idx]
+        command = communication["command"]
+        if command == "start_recording":
+            self._process_start_recording_command(communication)
+            to_main.put_nowait(
+                {
+                    "communication_type": "command_receipt",
+                    "command": "start_recording",
+                    "timepoint_to_begin_recording_at": communication["timepoint_to_begin_recording_at"],
+                    "file_folder": communication["abs_path_to_file_folder"],
+                }
+            )
+        elif command == "stop_recording":
+            self._process_stop_recording_command(communication)
+            to_main.put_nowait(
+                {
+                    "communication_type": "command_receipt",
+                    "command": "stop_recording",
+                    "timepoint_to_stop_recording_at": communication["timepoint_to_stop_recording_at"],
+                }
+            )
+        elif command == "stop_managed_acquisition":
+            self._data_packet_buffers[0].clear()
+            self._clear_stim_data_buffers()
+            self._end_of_data_stream_reached[0] = True
+            self._end_of_stim_stream_reached[0] = True
+            to_main.put_nowait(
+                {"communication_type": "command_receipt", "command": "stop_managed_acquisition"}
+            )
+            # TODO Tanner (5/25/21): Consider finalizing all open files here. If they are somehow still open here, they will never close as no more data is coming in
+        elif command == "update_directory":
+            self._file_directory = communication["new_directory"]
+            to_main.put_nowait(
+                {
+                    "communication_type": "command_receipt",
+                    "command": "update_directory",
+                    "new_directory": communication["new_directory"],
+                }
+            )
+        else:
+            raise UnrecognizedCommandFromMainToFileWriterError(command)
+        if not input_queue.empty():
+            self._process_can_be_soft_stopped = False
 
     def _process_start_recording_command(self, communication: Dict[str, Any]) -> None:
         # pylint: disable=too-many-locals  # Tanner (5/17/21): many variables are needed to create files with all the necessary metadata
         self._is_recording = True
+        board_idx = 0
 
         attrs_to_copy = communication["metadata_to_copy_onto_main_file_attributes"]
         barcode = attrs_to_copy[PLATE_BARCODE_UUID]
         sample_idx_zero_timestamp = attrs_to_copy[UTC_BEGINNING_DATA_ACQUISTION_UUID]
-        self._start_recording_timestamps[0] = (
+        self._start_recording_timestamps[board_idx] = (
             sample_idx_zero_timestamp,
             communication["timepoint_to_begin_recording_at"],
         )
@@ -433,8 +461,8 @@ class FileWriterProcess(InfiniteProcess):
             }
 
         tissue_status, reference_status = self.get_recording_finalization_statuses()
-        tissue_status[0].clear()
-        reference_status[0].clear()
+        tissue_status[board_idx].clear()
+        reference_status[board_idx].clear()
         for this_well_idx in communication["active_well_indices"]:
             well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(this_well_idx)
             file_path = os.path.join(
@@ -448,7 +476,7 @@ class FileWriterProcess(InfiniteProcess):
                 else CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
             )
             this_file = MantarrayH5FileCreator(file_path, file_format_version=file_version)
-            self._open_files[0][this_well_idx] = this_file
+            self._open_files[board_idx][this_well_idx] = this_file
             this_file.attrs[str(ORIGINAL_FILE_VERSION_UUID)] = file_version
             this_file.attrs[str(WELL_NAME_UUID)] = well_name
             this_row, this_col = GENERIC_24_WELL_DEFINITION.get_row_and_column_from_well_index(this_well_idx)
@@ -527,6 +555,13 @@ class FileWriterProcess(InfiniteProcess):
                     dtype="uint16",
                     chunks=True,
                 )
+                this_file.create_dataset(
+                    STIMULATION_READINGS,
+                    (2, 0),
+                    maxshape=(2, max_data_len),
+                    dtype="int64",
+                    chunks=True,
+                )
             else:
                 data_shape = (0,)  # type: ignore  # mypy doesn't like this for some reason
                 maxshape = (max_data_len,)  # type: ignore  # mypy doesn't like this for some reason
@@ -548,14 +583,18 @@ class FileWriterProcess(InfiniteProcess):
             )
             this_file.swmr_mode = True
 
-            tissue_status[0][this_well_idx] = False
+            tissue_status[board_idx][this_well_idx] = False
             # TODO Tanner (5/19/21): replace this with False when ref data is added to beta 2 files
-            reference_status[0][this_well_idx] = self._beta_2_mode
+            reference_status[board_idx][this_well_idx] = self._beta_2_mode
 
-        self.get_stop_recording_timestamps()[0] = None
-        data_packet_buffer = self._data_packet_buffers[0]
+        self.get_stop_recording_timestamps()[board_idx] = None
+        data_packet_buffer = self._data_packet_buffers[board_idx]
         for data_packet in data_packet_buffer:
             self._handle_recording_of_data_packet(data_packet)
+        if self._beta_2_mode:
+            stim_data_buffers = self._stim_data_buffers[board_idx]
+            for well_idx, well_buffers in stim_data_buffers.items():
+                self._handle_recording_of_stim_statuses(well_idx, np.array(well_buffers))
 
     def _process_stop_recording_command(self, communication: Dict[str, Any]) -> None:
         self._is_recording = False
@@ -565,7 +604,7 @@ class FileWriterProcess(InfiniteProcess):
         for this_well_idx in self._open_files[0].keys():
             this_file = self._open_files[0][this_well_idx]
             if self._beta_2_mode:
-                # find num points needed to remove
+                # find num points needed to remove from magnetometer datasets
                 time_index_dataset = get_time_index_dataset_from_file(this_file)
                 try:
                     num_indices_to_remove = next(
@@ -578,15 +617,30 @@ class FileWriterProcess(InfiniteProcess):
                         f"The timepoint {stop_recording_timepoint} is earlier than all recorded timepoints"
                     ) from e
                 # trim off data after stop recording timepoint
-                datasets = [
+                magnetometer_datasets = [
                     time_index_dataset,
                     get_time_offset_dataset_from_file(this_file),
                     get_tissue_dataset_from_file(this_file),
                 ]
-                for dataset in datasets:
+                for dataset in magnetometer_datasets:
                     dataset_shape = list(dataset.shape)
                     dataset_shape[-1] -= num_indices_to_remove
                     dataset.resize(dataset_shape)
+
+                # find num points needed to remove from stimulation datasets
+                stimulation_dataset = get_stimulation_dataset_from_file(this_file)
+                try:
+                    num_indices_to_remove = next(
+                        i
+                        for i, time in enumerate(reversed(stimulation_dataset[0]))
+                        if time <= stop_recording_timepoint
+                    )
+                except StopIteration:
+                    num_indices_to_remove = 0
+                # trim off data after stop recording timepoint
+                dataset_shape = list(stimulation_dataset.shape)
+                dataset_shape[-1] -= num_indices_to_remove
+                stimulation_dataset.resize(dataset_shape)
             else:
                 latest_timepoint = self.get_file_latest_timepoint(this_well_idx)
                 datasets = [
@@ -604,64 +658,105 @@ class FileWriterProcess(InfiniteProcess):
                     dataset.resize(new_data.shape)
             # TODO Tanner (5/19/21): consider finalizing any files here that are ready
 
-    def _process_next_command_from_main(self) -> None:
-        input_queue = self._from_main_queue
+    def _finalize_completed_files(self) -> None:
+        """Finalize H5 files.
+
+        Go through and see if any open files are ready to be closed.
+        Close them, and communicate to main.
+
+        It's possible that this could be optimized in the future by only being called when the finalization status of something has changed.
+        """
+        tissue_status, reference_status = self.get_recording_finalization_statuses()
+
+        for this_well_idx in list(
+            self._open_files[0].keys()
+        ):  # make a copy of the keys since they may be deleted during the run
+            # if this_well_idx in tissue_status[0]: # Tanner (7/22/20): This line was apparently always True. If problems start showing up later, likely due to this line being removed
+            if tissue_status[0][this_well_idx] and reference_status[0][this_well_idx]:
+                this_file = self._open_files[0][this_well_idx]
+                # the file name cannot be accessed after the file has been closed
+                this_filename = this_file.filename
+                this_file.close()
+                with open(this_filename, "rb+") as file_buffer:
+                    compute_crc32_and_write_to_file_head(file_buffer)
+                to_main_queue = self._to_main_queue
+                to_main_queue.put_nowait(
+                    {
+                        "communication_type": "file_finalized",
+                        "file_path": this_filename,
+                    }
+                )
+                del self._open_files[0][this_well_idx]
+
+    def _process_next_incoming_packet(self) -> None:
+        """Process the next incoming packet for that board.
+
+        If no data present, will just return.
+
+        If multiple boards are implemented, a kwarg board_idx:int=0 can be added.
+        """
+        board_idx = 0
+        input_queue = self._board_queues[board_idx][0]
         try:
-            communication = input_queue.get_nowait()
+            data_packet = input_queue.get_nowait()
         except queue.Empty:
             return
 
-        to_main = self._to_main_queue
-        logging_threshold = self.get_logging_level()
-        put_log_message_into_queue(
-            logging.DEBUG,
-            f"Timestamp: {_get_formatted_utc_now()} Received a command from Main: {communication}",
-            to_main,
-            logging_threshold,
-        )
-
-        command = communication["command"]
-        if command == "start_recording":
-            self._process_start_recording_command(communication)
-            to_main.put_nowait(
-                {
-                    "communication_type": "command_receipt",
-                    "command": "start_recording",
-                    "timepoint_to_begin_recording_at": communication["timepoint_to_begin_recording_at"],
-                    "file_folder": communication["abs_path_to_file_folder"],
-                }
-            )
-        elif command == "stop_recording":
-            self._process_stop_recording_command(communication)
-            to_main.put_nowait(
-                {
-                    "communication_type": "command_receipt",
-                    "command": "stop_recording",
-                    "timepoint_to_stop_recording_at": communication["timepoint_to_stop_recording_at"],
-                }
-            )
-        elif command == "stop_managed_acquisition":
-            self._data_packet_buffers[0].clear()
-            self._clear_stim_data_buffers()
-            self._end_of_data_stream_reached[0] = True
-            self._end_of_stim_stream_reached[0] = True
-            to_main.put_nowait(
-                {"communication_type": "command_receipt", "command": "stop_managed_acquisition"}
-            )
-            # TODO Tanner (5/25/21): Consider finalizing all open files here. If they are somehow still open here, they will never close as no more data is coming in
-        elif command == "update_directory":
-            self._file_directory = communication["new_directory"]
-            to_main.put_nowait(
-                {
-                    "communication_type": "command_receipt",
-                    "command": "update_directory",
-                    "new_directory": communication["new_directory"],
-                }
-            )
+        data_type = "magnetometer" if not self._beta_2_mode else data_packet["data_type"]
+        if data_type == "magnetometer":
+            self._process_magnetometer_data_packet(data_packet)
+        elif data_type == "stimulation":
+            self._process_stim_data_packet(data_packet)
         else:
-            raise UnrecognizedCommandFromMainToFileWriterError(command)
+            raise NotImplementedError(f"Invalid data type from Instrument Comm Process: {data_type}")
+
         if not input_queue.empty():
             self._process_can_be_soft_stopped = False
+
+    def _process_magnetometer_data_packet(self, data_packet: Dict[Any, Any]) -> None:
+        # Tanner (5/25/21): Creating this log message takes a long time so only do it if we are actually logging. TODO: Should probably refactor this function to something more efficient eventually
+        if logging.DEBUG >= self.get_logging_level():  # pragma: no cover
+            put_log_message_into_queue(
+                logging.DEBUG,
+                f"Timestamp: {_get_formatted_utc_now()} Received a data packet from InstrumentCommProcess: {data_packet}",
+                self._to_main_queue,
+                self.get_logging_level(),
+            )
+
+        if self._beta_2_mode and data_packet["is_first_packet_of_stream"]:
+            self._end_of_data_stream_reached[0] = False
+            self._data_packet_buffers[0].clear()
+        if not self._end_of_data_stream_reached[0]:
+            self._data_packet_buffers[0].append(data_packet)
+            # TODO unit test the next two lines
+            output_queue = self._board_queues[0][1]
+            output_queue.put_nowait(data_packet)
+
+        # Tanner (5/17/21): This code was not previously guarded by this if statement. If issues start occurring with recorded data or performance metrics, check here first
+        if self._is_recording or self._board_has_open_files(0):
+            if self._beta_2_mode:
+                self._num_recorded_points.append(data_packet["time_indices"].shape[0])
+            else:
+                self._num_recorded_points.append(data_packet["data"].shape[1])
+
+            start = time.perf_counter()
+            self._handle_recording_of_data_packet(data_packet)
+            recording_dur = time.perf_counter() - start
+            self._recording_durations.append(recording_dur)
+
+    def _handle_recording_of_data_packet(self, data_packet: Dict[Any, Any]) -> None:
+        if self._beta_2_mode:
+            self._process_beta_2_data_packet(data_packet)
+        else:
+            is_reference_sensor = data_packet["is_reference_sensor"]
+            if is_reference_sensor:
+                well_indices_to_process = data_packet["reference_for_wells"]
+            else:
+                well_indices_to_process = set([data_packet["well_index"]])
+            for this_well_idx in well_indices_to_process:
+                data_packet["well_index"] = this_well_idx
+                if this_well_idx in self._open_files[0]:
+                    self._process_beta_1_data_packet_for_open_file(data_packet)
 
     def _process_beta_2_data_packet(self, data_packet: Dict[Union[str, int], Any]) -> None:
         """Process a Beta 2 data packet for a file that is known to be open."""
@@ -785,76 +880,6 @@ class FileWriterProcess(InfiniteProcess):
 
         self._latest_data_timepoints[0][this_well_idx] = last_timepoint_of_new_data
 
-    def _process_next_incoming_packet(self) -> None:
-        """Process the next incoming packet for that board.
-
-        If no data present, will just return.
-
-        If multiple boards are implemented, a kwarg board_idx:int=0 can be added.
-        """
-        board_idx = 0
-        input_queue = self._board_queues[board_idx][0]
-        try:
-            data_packet = input_queue.get_nowait()
-        except queue.Empty:
-            return
-
-        data_type = "magnetometer" if not self._beta_2_mode else data_packet["data_type"]
-        if data_type == "magnetometer":
-            self._process_magnetometer_data_packet(data_packet)
-        elif data_type == "stimulation":
-            self._process_stim_data_packet(data_packet)
-        else:
-            raise NotImplementedError(f"Invalid data type from Instrument Comm Process: {data_type}")
-
-        if not input_queue.empty():
-            self._process_can_be_soft_stopped = False
-
-    def _process_magnetometer_data_packet(self, data_packet: Dict[Any, Any]) -> None:
-        # Tanner (5/25/21): Creating this log message takes a long time so only do it if we are actually logging. TODO: Should probably refactor this function to something more efficient eventually
-        if logging.DEBUG >= self.get_logging_level():  # pragma: no cover
-            put_log_message_into_queue(
-                logging.DEBUG,
-                f"Timestamp: {_get_formatted_utc_now()} Received a data packet from InstrumentCommProcess: {data_packet}",
-                self._to_main_queue,
-                self.get_logging_level(),
-            )
-
-        if self._beta_2_mode and data_packet["is_first_packet_of_stream"]:
-            self._end_of_data_stream_reached[0] = False
-            self._data_packet_buffers[0].clear()
-        if not self._end_of_data_stream_reached[0]:
-            self._data_packet_buffers[0].append(data_packet)
-            # TODO unit test the next two lines
-            output_queue = self._board_queues[0][1]
-            output_queue.put_nowait(data_packet)
-
-        # Tanner (5/17/21): This code was not previously guarded by this if statement. If issues start occurring with recorded data or performance metrics, check here first
-        if self._is_recording or self._board_has_open_files(0):
-            if self._beta_2_mode:
-                self._num_recorded_points.append(data_packet["time_indices"].shape[0])
-            else:
-                self._num_recorded_points.append(data_packet["data"].shape[1])
-
-            start = time.perf_counter()
-            self._handle_recording_of_data_packet(data_packet)
-            recording_dur = time.perf_counter() - start
-            self._recording_durations.append(recording_dur)
-
-    def _handle_recording_of_data_packet(self, data_packet: Dict[Any, Any]) -> None:
-        if self._beta_2_mode:
-            self._process_beta_2_data_packet(data_packet)
-        else:
-            is_reference_sensor = data_packet["is_reference_sensor"]
-            if is_reference_sensor:
-                well_indices_to_process = data_packet["reference_for_wells"]
-            else:
-                well_indices_to_process = set([data_packet["well_index"]])
-            for this_well_idx in well_indices_to_process:
-                data_packet["well_index"] = this_well_idx
-                if this_well_idx in self._open_files[0]:
-                    self._process_beta_1_data_packet_for_open_file(data_packet)
-
     def _process_stim_data_packet(self, stim_packet: Dict[Any, Any]) -> None:
         if stim_packet["is_first_packet_of_stream"]:
             self._end_of_stim_stream_reached[0] = False
@@ -864,6 +889,34 @@ class FileWriterProcess(InfiniteProcess):
             # TODO add unit test for passing stim packets through to output queue
             # output_queue = self._board_queues[0][1]
             # output_queue.put_nowait(stim_packet)
+
+        if self._is_recording or self._board_has_open_files(0):
+            # TODO Tanner (10/21/21): once real stim traces are sent from instrument, add performance metrics
+            for well_idx, well_statuses in stim_packet["well_statuses"].items():
+                self._handle_recording_of_stim_statuses(well_idx, well_statuses)
+
+    def _handle_recording_of_stim_statuses(
+        self, well_idx: int, stim_data_arr: NDArray[(2, Any), int]
+    ) -> None:
+        board_idx = 0
+        this_start_recording_timestamps = self._start_recording_timestamps[board_idx]
+        if this_start_recording_timestamps is None:  # check needed for mypy to be happy
+            raise NotImplementedError("Something wrong in the code. This should never be none.")
+
+        earliest_magnetometer_time_idx = this_start_recording_timestamps[1]
+        earliest_valid_index = _find_earliest_valid_stim_status_index(
+            stim_data_arr[0],
+            earliest_magnetometer_time_idx,
+        )
+        if earliest_valid_index == -1:
+            return
+        stim_data_arr = stim_data_arr[:, earliest_valid_index:]
+
+        this_well_file = self._open_files[board_idx][well_idx]
+        stimulation_dataset = get_stimulation_dataset_from_file(this_well_file)
+        previous_data_size = stimulation_dataset.shape[1]
+        stimulation_dataset.resize((2, previous_data_size + stim_data_arr.shape[1]))
+        stimulation_dataset[:, previous_data_size:] = stim_data_arr
 
     def _update_buffers(self) -> None:
         board_idx = 0
