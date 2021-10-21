@@ -15,7 +15,6 @@ from mantarray_desktop_app import get_data_slice_within_timepoints
 from mantarray_desktop_app import get_time_index_dataset_from_file
 from mantarray_desktop_app import get_time_offset_dataset_from_file
 from mantarray_desktop_app import get_tissue_dataset_from_file
-from mantarray_desktop_app import InvalidDataTypeFromOkCommError
 from mantarray_desktop_app import MantarrayH5FileCreator
 from mantarray_desktop_app import REF_INDEX_TO_24_WELL_INDEX
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
@@ -116,20 +115,6 @@ def test_FileWriterProcess_soft_stop_not_allowed_if_incoming_data_still_in_queue
 
     # Tanner (3/8/21): Prevent BrokenPipeErrors
     drain_queue(board_queues[0][0])
-
-
-def test_FileWriterProcess__raises_error_if_not_a_dict_is_passed_through_the_queue_for_board_0_from_instrument_comm(
-    four_board_file_writer_process, mocker, patch_print
-):
-
-    file_writer_process = four_board_file_writer_process["fw_process"]
-    board_queues = four_board_file_writer_process["board_queues"]
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        "a string is not a dictionary",
-        board_queues[0][0],
-    )
-    with pytest.raises(InvalidDataTypeFromOkCommError, match="a string is not a dictionary"):
-        invoke_process_run_and_check_errors(file_writer_process)
 
 
 @pytest.mark.timeout(4)

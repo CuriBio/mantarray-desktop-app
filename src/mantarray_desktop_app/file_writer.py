@@ -60,6 +60,7 @@ from .constants import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from .constants import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
 from .constants import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from .constants import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
+from .constants import FILE_WRITER_BUFFER_SIZE_MICROSECONDS
 from .constants import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import MICRO_TO_BASE_CONVERSION
@@ -67,7 +68,6 @@ from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from .constants import ROUND_ROBIN_PERIOD
 from .constants import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
-from .exceptions import InvalidDataTypeFromOkCommError
 from .exceptions import InvalidStopRecordingTimepointError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
 from .utils import create_sensor_axis_dict
@@ -183,6 +183,16 @@ def _drain_board_queues(
     return board_dict
 
 
+def _find_earliest_valid_stim_status_index(  # pylint: disable=invalid-name
+    time_index_buffer: Deque[int],  # pylint: disable=unsubscriptable-object
+    earliest_magnetometer_time_idx: int,
+) -> int:
+    idx = len(time_index_buffer) - 1
+    while idx > 0 and time_index_buffer[idx] > earliest_magnetometer_time_idx:
+        idx -= 1
+    return idx
+
+
 # pylint: disable=too-many-instance-attributes
 class FileWriterProcess(InfiniteProcess):
     """Process that writes data to disk.
@@ -253,6 +263,7 @@ class FileWriterProcess(InfiniteProcess):
             ...,  # noqa: W504 # flake8 doesn't understand the 3 dots for type definition
         ] = tuple(dict() for _ in range(len(self._board_queues)))
         # stimulation data recording values
+        self._end_of_stim_stream_reached: List[Optional[bool]] = [False] * len(self._board_queues)
         self._stim_data_buffers: Tuple[
             Dict[int, Tuple[Deque[int], Deque[int]]],  # pylint: disable=unsubscriptable-object
             ...,  # noqa: W504 # flake8 doesn't understand the 3 dots for type definition
@@ -316,19 +327,6 @@ class FileWriterProcess(InfiniteProcess):
     def is_recording(self) -> bool:
         return self._is_recording
 
-    def update_stim_data_buffers(self, well_statuses: Dict[int, Any]) -> None:
-        board_idx = 0
-        for well_idx, status_updates_arr in well_statuses.items():
-            well_buffers = self._stim_data_buffers[board_idx][well_idx]
-            well_buffers[0].extend(status_updates_arr[0])
-            well_buffers[1].extend(status_updates_arr[1])
-
-    def _clear_stim_data_buffer(self) -> None:
-        board_idx = 0
-        for well_buffers in self._stim_data_buffers[board_idx].values():
-            well_buffers[0].clear()
-            well_buffers[1].clear()
-
     def _board_has_open_files(self, board_idx: int) -> bool:
         return len(self._open_files[board_idx].keys()) > 0
 
@@ -361,7 +359,7 @@ class FileWriterProcess(InfiniteProcess):
         if not self._is_finalizing_files_after_recording():
             self._process_next_command_from_main()
         self._process_next_incoming_packet()
-        self._update_data_packet_buffers()
+        self._update_buffers()
         self._finalize_completed_files()
 
         self._iterations_since_last_logging += 1
@@ -644,8 +642,9 @@ class FileWriterProcess(InfiniteProcess):
             )
         elif command == "stop_managed_acquisition":
             self._data_packet_buffers[0].clear()
-            self._clear_stim_data_buffer()
+            self._clear_stim_data_buffers()
             self._end_of_data_stream_reached[0] = True
+            self._end_of_stim_stream_reached[0] = True
             to_main.put_nowait(
                 {"communication_type": "command_receipt", "command": "stop_managed_acquisition"}
             )
@@ -821,12 +820,6 @@ class FileWriterProcess(InfiniteProcess):
                 self.get_logging_level(),
             )
 
-        if not isinstance(data_packet, dict):
-            # (Eli 3/2/20) - we had a bug where an integer was being passed through the Queue and the default Python error was extremely unhelpful in debugging. So this explicit error was added.
-            raise InvalidDataTypeFromOkCommError(
-                f"The object received from OkComm was not a dictionary, it was a {data_packet.__class__} with the value: {data_packet}"
-            )
-
         if self._beta_2_mode and data_packet["is_first_packet_of_stream"]:
             self._end_of_data_stream_reached[0] = False
             self._data_packet_buffers[0].clear()
@@ -863,22 +856,66 @@ class FileWriterProcess(InfiniteProcess):
                     self._process_beta_1_data_packet_for_open_file(data_packet)
 
     def _process_stim_data_packet(self, stim_packet: Dict[Any, Any]) -> None:
-        self.update_stim_data_buffers(stim_packet["well_statuses"])
+        if stim_packet["is_first_packet_of_stream"]:
+            self._end_of_stim_stream_reached[0] = False
+            self._clear_stim_data_buffers()
+        if not self._end_of_stim_stream_reached[0]:
+            self.append_to_stim_data_buffers(stim_packet["well_statuses"])
+            # TODO add unit test for passing stim packets through to output queue
+            # output_queue = self._board_queues[0][1]
+            # output_queue.put_nowait(stim_packet)
 
-    def _update_data_packet_buffers(self) -> None:
-        data_packet_buffer = self._data_packet_buffers[0]
+    def _update_buffers(self) -> None:
+        board_idx = 0
+        data_packet_buffer = self._data_packet_buffers[board_idx]
         if not data_packet_buffer:
             return
 
-        buffer_memory_size: int
+        # update magnetometer data buffer
+        curr_buffer_memory_size: int
+        max_buffer_memory_size: int
         if self._beta_2_mode:
-            buffer_memory_size = (
+            curr_buffer_memory_size = (
                 data_packet_buffer[-1]["time_indices"][0] - data_packet_buffer[0]["time_indices"][0]
             )
+            max_buffer_memory_size = FILE_WRITER_BUFFER_SIZE_MICROSECONDS
         else:
-            buffer_memory_size = data_packet_buffer[-1]["data"][0, 0] - data_packet_buffer[0]["data"][0, 0]
-        if buffer_memory_size > FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS:
+            curr_buffer_memory_size = (
+                data_packet_buffer[-1]["data"][0, 0] - data_packet_buffer[0]["data"][0, 0]
+            )
+            max_buffer_memory_size = FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
+        if curr_buffer_memory_size > max_buffer_memory_size:
             data_packet_buffer.popleft()
+
+        if not self._beta_2_mode:
+            return
+
+        # update stim data buffer
+        earliest_magnetometer_time_idx = data_packet_buffer[0]["time_indices"][0]
+        stim_data_buffers = self._stim_data_buffers[board_idx]
+        for well_buffers in stim_data_buffers.values():
+            earliest_valid_index = _find_earliest_valid_stim_status_index(
+                well_buffers[0],
+                earliest_magnetometer_time_idx,
+            )
+            for well_buffer in well_buffers:
+                buffer_slice = list(well_buffer)[earliest_valid_index:]
+                well_buffer.clear()
+                well_buffer.extend(buffer_slice)
+
+    def append_to_stim_data_buffers(self, well_statuses: Dict[int, Any]) -> None:
+        """Public solely for use in unit testing."""
+        board_idx = 0
+        for well_idx, status_updates_arr in well_statuses.items():
+            well_buffers = self._stim_data_buffers[board_idx][well_idx]
+            well_buffers[0].extend(status_updates_arr[0])
+            well_buffers[1].extend(status_updates_arr[1])
+
+    def _clear_stim_data_buffers(self) -> None:
+        board_idx = 0
+        for well_buffers in self._stim_data_buffers[board_idx].values():
+            well_buffers[0].clear()
+            well_buffers[1].clear()
 
     def _handle_performance_logging(self) -> None:
         performance_metrics: Dict[str, Any] = {

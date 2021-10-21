@@ -181,7 +181,6 @@ from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import InstrumentSoftError
 from .exceptions import InvalidBeta2FlagOptionError
 from .exceptions import InvalidDataFramePeriodError
-from .exceptions import InvalidDataTypeFromOkCommError
 from .exceptions import InvalidScriptCommandError
 from .exceptions import InvalidStopRecordingTimepointError
 from .exceptions import LocalServerPortAlreadyInUseError
@@ -227,6 +226,7 @@ from .exceptions import UnrecognizedSimulatorTestCommandError
 from .fifo_read_producer import FIFOReadProducer
 from .fifo_read_producer import produce_data
 from .fifo_simulator import RunningFIFOSimulator
+from .file_writer import FILE_WRITER_BUFFER_SIZE_MICROSECONDS
 from .file_writer import FileWriterProcess
 from .file_writer import get_data_slice_within_timepoints
 from .file_writer import get_reference_dataset_from_file
@@ -345,7 +345,6 @@ __all__ = [
     "REFERENCE_VOLTAGE",
     "MILLIVOLTS_PER_VOLT",
     "FileWriterProcess",
-    "InvalidDataTypeFromOkCommError",
     "build_file_writer_objects",
     "UnrecognizedCommandFromMainToOkCommError",
     "fifo_simulator",
@@ -599,4 +598,5 @@ __all__ = [
     "SERIAL_COMM_STIM_STATUS_PACKET_TYPE",
     "STIM_COMPLETE_SUBPROTOCOL_IDX",
     "STIM_NO_PROTOCOL_ASSIGNED",
+    "FILE_WRITER_BUFFER_SIZE_MICROSECONDS",
 ]

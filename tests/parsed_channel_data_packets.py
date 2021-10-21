@@ -29,4 +29,5 @@ for well_idx in range(24):
 SIMPLE_STIM_DATA_PACKET_FROM_ALL_WELLS: Dict[Any, Any] = {
     "data_type": "stimulation",
     "well_statuses": {well_idx: np.zeros((2, 5), dtype=np.uint64) for well_idx in range(24)},
+    "is_first_packet_of_stream": False,
 }

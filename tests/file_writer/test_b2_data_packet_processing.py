@@ -75,7 +75,7 @@ def create_simple_well_dict(start_timepoint, num_data_points):
 
 
 @pytest.mark.timeout(15)
-def test_FileWriterProcess__passes_data_packet_through_to_output_queue(
+def test_FileWriterProcess__passes_data_packet_through_to_output_queue_correctly(
     runnable_four_board_file_writer_process,
 ):
     fw_process = runnable_four_board_file_writer_process["fw_process"]
@@ -104,6 +104,8 @@ def test_FileWriterProcess__passes_data_packet_through_to_output_queue(
                 expected_data,
                 err_msg=f"Incorrect data for well {well_idx}, channel id {channel_id}",
             )
+
+    # TODO update this test (see TODO in file_writer)
 
     # clean up
     fw_process.hard_stop()
