@@ -64,7 +64,16 @@ DEFAULT_USER_CONFIG = immutabledict(
         "User Account ID": "",
     }
 )
-VALID_CONFIG_SETTINGS = frozenset(["customer_account_uuid", "user_account_uuid", "recording_directory"])
+VALID_CONFIG_SETTINGS = frozenset(
+    [
+        "customer_account_uuid",
+        "user_account_uuid",
+        "customer_pass_key",
+        "recording_directory",
+        "auto_upload",
+        "auto_delete",
+    ]
+)
 
 DATA_FRAME_PERIOD = 20  # in centimilliseconds
 ROUND_ROBIN_PERIOD = DATA_FRAME_PERIOD * DATA_FRAMES_PER_ROUND_ROBIN

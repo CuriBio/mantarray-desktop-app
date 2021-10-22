@@ -25,6 +25,7 @@ from mantarray_desktop_app import OkCommunicationProcess
 from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import queue_container
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_desktop_app.constants import CURI_BIO_ACCOUNT_UUID
 import pytest
 import requests
 from stdlib_utils import confirm_port_available
@@ -134,7 +135,11 @@ def fixture_test_process_manager_creator(mocker):
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             manager = MantarrayProcessesManager(
-                file_directory=tmp_dir, values_to_share_to_server={"beta_2_mode": beta_2_mode}
+                file_directory=tmp_dir,
+                values_to_share_to_server={
+                    "beta_2_mode": beta_2_mode,
+                    "stored_customer_ids": {str(CURI_BIO_ACCOUNT_UUID): "filler_password"},
+                },
             )
             if use_testing_queues:
                 mocker.patch.object(
@@ -208,6 +213,7 @@ def fixture_patched_test_xem_scripts_folder():
     for file in os.listdir(real_path):
         file_path = os.path.join(real_path, file)
         os.remove(file_path)
+
     os.rmdir(real_path)
     os.rename(tmp_path, real_path)
 

@@ -2,6 +2,11 @@ const path = require("path");
 const electron = require("electron");
 const Conf = require("conf");
 
+/**
+ * Depending on whether Electron is running, get the application version from package.json or from the Electron process itself
+ *
+ * @return {string} the semantic version
+ */
 export default class ElectronStore extends Conf {
   constructor(options) {
     options = {

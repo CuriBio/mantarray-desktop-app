@@ -162,7 +162,8 @@ from .exceptions import BarcodeNotClearedError
 from .exceptions import BarcodeScannerNotRespondingError
 from .exceptions import FirmwareFileNameDoesNotMatchWireOutVersionError
 from .exceptions import FirstManagedReadLessThanOneRoundRobinError
-from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
+from .exceptions import ImproperlyFormattedCustomerAccountIDError
+from .exceptions import ImproperlyFormattedCustomerAccountPasskeyError
 from .exceptions import ImproperlyFormattedUserAccountUUIDError
 from .exceptions import IncorrectMagnetometerConfigFromInstrumentError
 from .exceptions import IncorrectSamplingPeriodFromInstrumentError
@@ -173,6 +174,8 @@ from .exceptions import InstrumentFatalError
 from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import InstrumentSoftError
 from .exceptions import InvalidBeta2FlagOptionError
+from .exceptions import InvalidCustomerAccountIDError
+from .exceptions import InvalidCustomerPasskeyError
 from .exceptions import InvalidDataFramePeriodError
 from .exceptions import InvalidDataTypeFromOkCommError
 from .exceptions import InvalidScriptCommandError
@@ -217,6 +220,7 @@ from .exceptions import UnrecognizedSimulatorTestCommandError
 from .fifo_read_producer import FIFOReadProducer
 from .fifo_read_producer import produce_data
 from .fifo_simulator import RunningFIFOSimulator
+from .file_uploader import ErrorCatchingThread
 from .file_writer import FileWriterProcess
 from .file_writer import get_data_slice_within_timepoints
 from .file_writer import get_reference_dataset_from_file
@@ -397,7 +401,8 @@ __all__ = [
     "CURI_BIO_USER_ACCOUNT_ID",
     "MantarrayFrontPanelMixIn",
     "MantarrayFrontPanel",
-    "ImproperlyFormattedCustomerAccountUUIDError",
+    "ImproperlyFormattedCustomerAccountIDError",
+    "ImproperlyFormattedCustomerAccountPasskeyError",
     "ImproperlyFormattedUserAccountUUIDError",
     "RecordingFolderDoesNotExistError",
     "VALID_CONFIG_SETTINGS",
@@ -571,4 +576,7 @@ __all__ = [
     "UnrecognizedCommandFromServerToMainError",
     "IncorrectSamplingPeriodFromInstrumentError",
     "file_uploader",
+    "ErrorCatchingThread",
+    "InvalidCustomerAccountIDError",
+    "InvalidCustomerPasskeyError",
 ]

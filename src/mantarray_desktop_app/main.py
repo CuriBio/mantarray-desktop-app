@@ -108,6 +108,9 @@ def main(
     """Parse command line arguments and run."""
     if object_access_for_testing is None:
         object_access_for_testing = dict()
+
+    logger.info(command_line_args)
+
     log_level = logging.INFO
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -166,6 +169,10 @@ def main(
         nargs="+",
         choices=["no_flask", "no_subprocesses"],
         help="indicate how much of the main script should not be started",
+    )
+    parser.add_argument(
+        "--stored-customer-ids",
+        help="provides stored customer account credentials",
     )
     parsed_args = parser.parse_args(command_line_args)
 
@@ -233,6 +240,8 @@ def main(
 
     log_file_uuid = settings_dict.get("log_file_uuid", uuid.uuid4())
     shared_values_dict["log_file_uuid"] = log_file_uuid
+
+    shared_values_dict["stored_customer_ids"] = parsed_args.stored_customer_ids
 
     computer_name_hash = hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).hexdigest()
     shared_values_dict["computer_name_hash"] = computer_name_hash

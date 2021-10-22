@@ -13,7 +13,6 @@ from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
-from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
@@ -935,12 +934,12 @@ def test_update_settings__stores_values_in_shared_values_dict__and_recordings_fo
 
     spied_utils_logger = mocker.spy(utils.logger, "info")
 
-    expected_customer_uuid = "2dc06596-9cea-46a2-9ddd-a0d8a0f13584"
+    expected_customer_uuid = str(CURI_BIO_ACCOUNT_UUID)
     expected_user_uuid = "21875600-ca08-44c4-b1ea-0877b3c63ca7"
 
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         response = test_client.get(
-            f"/update_settings?customer_account_uuid={expected_customer_uuid}&user_account_uuid={expected_user_uuid}&recording_directory={expected_recordings_dir}"
+            f"/update_settings?customer_account_uuid={expected_customer_uuid}&customer_pass_key=filler_password&user_account_uuid={expected_user_uuid}&recording_directory={expected_recordings_dir}"
         )
         assert response.status_code == 200
         invoke_process_run_and_check_errors(monitor_thread)
@@ -956,25 +955,10 @@ def test_update_settings__stores_values_in_shared_values_dict__and_recordings_fo
     queue_from_main_to_file_writer = (
         test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
     )
-    confirm_queue_is_eventually_of_size(queue_from_main_to_file_writer, 1)
+    confirm_queue_is_eventually_of_size(queue_from_main_to_file_writer, 2)
 
     # clean up the message that goes to file writer to update the recording directory
     drain_queue(queue_from_main_to_file_writer)
-
-
-def test_update_settings__replaces_curi_with_default_account_uuids(
-    test_process_manager_creator, test_client, test_monitor
-):
-    test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-
-    response = test_client.get("/update_settings?customer_account_uuid=curi")
-    assert response.status_code == 200
-
-    invoke_process_run_and_check_errors(monitor_thread)
-
-    assert shared_values_dict["config_settings"]["Customer Account ID"] == str(CURI_BIO_ACCOUNT_UUID)
-    assert shared_values_dict["config_settings"]["User Account ID"] == str(CURI_BIO_USER_ACCOUNT_ID)
 
 
 def test_update_settings__replaces_only_new_values_in_shared_values_dict(
@@ -983,18 +967,41 @@ def test_update_settings__replaces_only_new_values_in_shared_values_dict(
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
-    expected_customer_uuid = "b357cab5-adba-4cc3-a805-93b0b57a6d72"
-    expected_user_uuid = "05dab94c-88dc-4505-ae4f-be6fa4a6f5f0"
+    expected_customer_uuid = str(CURI_BIO_ACCOUNT_UUID)
+    expected_passkey = "filler_password"
 
     shared_values_dict["config_settings"] = {
         "Customer Account ID": "2dc06596-9cea-46a2-9ddd-a0d8a0f13584",
-        "User Account ID": expected_user_uuid,
+        "Customer Passkey": "other_password",
     }
-    response = test_client.get(f"/update_settings?customer_account_uuid={expected_customer_uuid}")
+
+    response = test_client.get(
+        f"/update_settings?customer_account_uuid={expected_customer_uuid}&customer_pass_key=filler_password"
+    )
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
+
     assert shared_values_dict["config_settings"]["Customer Account ID"] == expected_customer_uuid
-    assert shared_values_dict["config_settings"]["User Account ID"] == expected_user_uuid
+    assert shared_values_dict["config_settings"]["Customer Passkey"] == expected_passkey
+
+
+def test_update_settings__returns_boolean_values_for_auto_upload_delete_values(
+    test_process_manager_creator, test_client, test_monitor
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+
+    shared_values_dict["config_settings"] = {
+        "Auto Upload On Completion": True,
+        "Auto Delete Local Files": False,
+    }
+
+    response = test_client.get("/update_settings?auto_upload=false&auto_delete=true")
+    assert response.status_code == 200
+    invoke_process_run_and_check_errors(monitor_thread)
+
+    assert shared_values_dict["config_settings"]["Auto Upload On Completion"] is False
+    assert shared_values_dict["config_settings"]["Auto Delete Local Files"] is True
 
 
 def test_single_update_settings_command_with_recording_dir__gets_processed_by_FileWriter(

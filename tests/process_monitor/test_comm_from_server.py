@@ -364,7 +364,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     shared_values_dict["config_settings"] = dict()
     shared_values_dict["config_settings"]["User Account ID"] = original_id
     communication = {
-        "communication_type": "update_shared_values_dictionary",
+        "communication_type": "update_customer_settings",
         "content": {"config_settings": {"User Account ID": new_id}},
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
@@ -388,7 +388,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         communication = {
-            "communication_type": "update_shared_values_dictionary",
+            "communication_type": "update_customer_settings",
             "content": {"config_settings": {"Recording Directory": expected_recordings_dir}},
         }
 

@@ -10,6 +10,7 @@ from multiprocessing import Queue
 from multiprocessing import queues as mpqueues
 import os
 import queue
+import shutil
 from statistics import stdev
 import time
 from typing import Any
@@ -67,6 +68,8 @@ from .constants import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from .exceptions import InvalidDataTypeFromOkCommError
 from .exceptions import InvalidStopRecordingTimepointError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
+from .file_uploader import ErrorCatchingThread
+from .file_uploader import uploader
 from .utils import create_sensor_axis_dict
 
 
@@ -211,6 +214,7 @@ class FileWriterProcess(InfiniteProcess):
         fatal_error_reporter: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
             Tuple[Exception, str]
         ],
+        shared_values_dict: Optional[Dict[str, Any]] = None,
         file_directory: str = "",
         logging_level: int = logging.INFO,
         beta_2_mode: bool = False,
@@ -220,6 +224,7 @@ class FileWriterProcess(InfiniteProcess):
         self._from_main_queue = from_main_queue
         self._to_main_queue = to_main_queue
         self._file_directory = file_directory
+        self._shared_values_dict: Optional[Dict[str, Any]] = shared_values_dict
         self._open_files: Tuple[
             Dict[int, h5py._hl.files.File],
             ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
@@ -249,6 +254,12 @@ class FileWriterProcess(InfiniteProcess):
         self._num_recorded_points: List[int] = list()
         self._recording_durations: List[float] = list()
         self._beta_2_mode = beta_2_mode
+        self._customer_account_uuid: str = ""
+        self._customer_pass_key: str = ""
+        self._auto_upload_on_completion: bool = True
+        self._auto_delete_local_files: bool = False
+        self._sub_dir_name: str = ""
+        self._upload_status: Optional[str] = ""
 
     def start(self) -> None:
         for board_queue_tuple in self._board_queues:
@@ -262,6 +273,10 @@ class FileWriterProcess(InfiniteProcess):
                 raise NotImplementedError(
                     "All queues must be standard multiprocessing queues to start this process"
                 )
+
+        if self._shared_values_dict is not None:
+            self._process_failed_uploads_on_start()
+
         super().start()
 
     def get_recording_finalization_statuses(
@@ -332,6 +347,28 @@ class FileWriterProcess(InfiniteProcess):
         self._process_next_data_packet()
         self._update_data_packet_buffers()
         self._finalize_completed_files()
+        if self._auto_upload_on_completion and self._customer_account_uuid != "":
+            upload_thread = ErrorCatchingThread(
+                target=uploader,
+                args=(
+                    self._file_directory,
+                    self._sub_dir_name,
+                    self._customer_account_uuid,
+                    self._customer_pass_key,
+                ),
+            )
+            upload_thread.start()
+            upload_thread.join()
+            if upload_thread.error:
+                self._handle_failed_upload()
+                self._upload_status = "upload failed"
+            else:
+                self._upload_status = upload_thread.result
+                if self._auto_delete_local_files:
+                    self._delete_local_files()
+
+        if self._auto_delete_local_files and not self._auto_upload_on_completion:
+            self._delete_local_files()
 
         self._iterations_since_last_logging += 1
         if self._iterations_since_last_logging >= FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES:
@@ -388,9 +425,9 @@ class FileWriterProcess(InfiniteProcess):
             attrs_to_copy[UTC_BEGINNING_DATA_ACQUISTION_UUID] + timedelta_to_recording_start
         )
         recording_start_timestamp_str = (recording_start_timestamp).strftime("%Y_%m_%d_%H%M%S")
-        sub_dir_name = f"{barcode}__{recording_start_timestamp_str}"
+        self._sub_dir_name = f"{barcode}__{recording_start_timestamp_str}"
 
-        file_folder_dir = os.path.join(os.path.abspath(self._file_directory), sub_dir_name)
+        file_folder_dir = os.path.join(os.path.abspath(self._file_directory), self._sub_dir_name)
         communication["abs_path_to_file_folder"] = file_folder_dir
         os.makedirs(file_folder_dir)
 
@@ -400,8 +437,8 @@ class FileWriterProcess(InfiniteProcess):
         for this_well_idx in communication["active_well_indices"]:
             file_path = os.path.join(
                 self._file_directory,
-                sub_dir_name,
-                f"{sub_dir_name}__{GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(this_well_idx)}.h5",
+                self._sub_dir_name,
+                f"{self._sub_dir_name}__{GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(this_well_idx)}.h5",
             )
             file_version = (
                 CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
@@ -606,6 +643,19 @@ class FileWriterProcess(InfiniteProcess):
                     "communication_type": "command_receipt",
                     "command": "update_directory",
                     "new_directory": communication["new_directory"],
+                }
+            )
+        elif command == "update_customer_settings":
+            self._auto_upload_on_completion = communication["config_settings"]["Auto Upload On Completion"]
+            self._auto_delete_local_files = communication["config_settings"]["Auto Delete Local Files"]
+
+            self._customer_account_uuid = communication["config_settings"]["Customer Account ID"]
+            self._customer_pass_key = communication["config_settings"]["Customer Passkey"]
+
+            to_main.put_nowait(
+                {
+                    "communication_type": "command_receipt",
+                    "command": "update_customer_settings",
                 }
             )
         else:
@@ -846,6 +896,70 @@ class FileWriterProcess(InfiniteProcess):
             self._to_main_queue,
             self.get_logging_level(),
         )
+
+    def _delete_local_files(self) -> None:
+        file_folder_dir = os.path.join(os.path.abspath(self._file_directory), self._sub_dir_name)
+        zipped_file_path = os.path.join(
+            os.path.abspath(self._file_directory), "zipped_recordings", f"{self._sub_dir_name}.zip"
+        )
+        # Remove directory and all .h5 files
+        for file in os.listdir(file_folder_dir):
+            os.remove(os.path.join(file_folder_dir, file))
+        os.rmdir(file_folder_dir)
+        # Remove zipped file, won't always be a zip file if auto-upload was selected to False
+        if os.path.exists(zipped_file_path):
+            os.remove(zipped_file_path)
+
+    def _handle_failed_upload(self) -> None:
+
+        if not os.path.exists(
+            os.path.join(os.path.abspath(self._file_directory), "failed_uploads", self._customer_account_uuid)
+        ):
+            os.makedirs(
+                os.path.join(
+                    os.path.abspath(self._file_directory), "failed_uploads", self._customer_account_uuid
+                )
+            )
+
+        file_name = f"{self._sub_dir_name}.zip"
+        zipped_file = os.path.join(os.path.abspath(self._file_directory), "zipped_recordings", file_name)
+
+        updated_zipped_file = os.path.join(
+            os.path.abspath(self._file_directory), "failed_uploads", self._customer_account_uuid, file_name
+        )
+        # store failed zip file in failed uploads directory to check at next startup
+        if os.path.exists(zipped_file):
+            shutil.move(zipped_file, updated_zipped_file)
+
+    def _process_failed_uploads_on_start(self) -> None:
+        if self._shared_values_dict is not None:
+            stored_customer_ids = self._shared_values_dict["stored_customer_ids"]
+            failed_upload_path = os.path.join(os.path.abspath(self._file_directory), "failed_uploads")
+            zipped_recordings_path = os.path.join(os.path.abspath(self._file_directory), "zipped_recordings")
+
+            for customer_dir in os.listdir(failed_upload_path):
+                customer_passkey = stored_customer_ids[customer_dir]
+                file_dir = os.path.join(failed_upload_path, customer_dir)
+                for file in customer_dir:
+                    upload_thread = ErrorCatchingThread(
+                        target=uploader,
+                        args=(
+                            file_dir,
+                            file,
+                            customer_dir,
+                            customer_passkey,
+                        ),
+                    )
+                    upload_thread.start()
+                    upload_thread.join()
+                    if upload_thread.error:
+                        self._upload_status = "upload failed"
+                        # TODO (Luci 10/20/21) not sure how to handle this re-upload error except to leave file and try again
+                    else:
+                        self._upload_status = upload_thread.result
+                        shutil.move(os.path.join(file_dir, file), zipped_recordings_path)
+                        # TODO (Luci 10/20/21) figure out how to handle if delete local files had been selected on original customer settings and how to handle the zip file
+                        # could call _delete_local_files here
 
     def _drain_all_queues(self) -> Dict[str, Any]:
         queue_items: Dict[str, Any] = dict()

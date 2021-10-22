@@ -20,7 +20,7 @@ from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import get_api_endpoint
 from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import get_server_port_number
-from mantarray_desktop_app import ImproperlyFormattedCustomerAccountUUIDError
+from mantarray_desktop_app import ImproperlyFormattedCustomerAccountIDError
 from mantarray_desktop_app import ImproperlyFormattedUserAccountUUIDError
 from mantarray_desktop_app import InvalidBeta2FlagOptionError
 from mantarray_desktop_app import LocalServerPortAlreadyInUseError
@@ -142,6 +142,7 @@ def test_main__logs_command_line_arguments(mocker):
         "skip_software_version_verification": False,
         "beta_2_mode": False,
         "startup_test_options": None,
+        "stored_customer_ids": None,
     }
     spied_info_logger.assert_any_call(f"Command Line Args: {expected_cmd_line_args_dict}")
 
@@ -219,7 +220,7 @@ def test_main__raises_error_when_invalid_customer_account_uuid_is_passed_in_cmd_
     json_str = json.dumps(test_dict)
     b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
     command_line_args = [f"--initial-base64-settings={b64_encoded}"]
-    with pytest.raises(ImproperlyFormattedCustomerAccountUUIDError, match=invalid_uuid):
+    with pytest.raises(ImproperlyFormattedCustomerAccountIDError, match=invalid_uuid):
         main.main(command_line_args)
 
 

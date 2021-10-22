@@ -2,13 +2,9 @@ const path = require("path");
 const mkdirp = require("mkdirp");
 const url_safe_base64 = require("urlsafe-base64");
 import ElectronStore from "./electron_store.js";
+// const ElectronStore = require('./electron_store.js');
 const yaml = require("js-yaml");
 
-/**
- * Depending on whether Electron is running, get the application version from package.json or from the Electron process itself
- *
- * @return {string} the semantic version
- */
 const get_current_app_version = function () {
   // Eli (3/30/21): Do NOT use `process.env.npm_package_version` to try and do this. It works in CI using the test runner, but does not actually work when running on a standalone machine--it just evaluates to undefined.
   // adapted from https://github.com/electron/electron/issues/7085
@@ -37,16 +33,20 @@ const create_store = function ({
     serialize: yaml.dump,
     deserialize: yaml.load,
     defaults: {
-      customer_account_ids: [],
+      customer_account_ids: {
+        "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
+      },
       active_customer_account_index: 0,
       active_user_account_index: 0,
       beta_2_mode: false,
     },
   });
   store.set("beta_2_mode", false); // Tanner (9/13/21): temporarily overriding this value since beta 2 mode is not ready yet but a patch release is needed
+  store.set("customer_account_ids", {
+    "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
+  });
   return store;
 };
-
 /**
  * Generate the command line arguments to pass to the local server as it is initialized. This also creates the necessary directories if they don't exist to hold the log files and recordings...although (Eli 1/15/21) unclear why the server doesn't do that itself...
  *
@@ -69,18 +69,29 @@ const generate_flask_command_line_args = function (electron_store) {
     "--expected-software-version=" + export_functions.get_current_app_version()
   );
   const recording_directory_path = path.join(electron_store_dir, "recordings");
+  const zipped_recording_dir_path = path.join(
+    recording_directory_path,
+    "zipped_recordings"
+  );
+  const failed_uploads_dir_path = path.join(
+    recording_directory_path,
+    "failed_uploads"
+  );
   mkdirp.sync(flask_logs_full_path);
   mkdirp.sync(recording_directory_path);
+  mkdirp.sync(zipped_recording_dir_path);
+  mkdirp.sync(failed_uploads_dir_path);
 
   const settings_to_supply = { recording_directory: recording_directory_path };
 
   const customer_account_ids = electron_store.get("customer_account_ids");
-  if (customer_account_ids.length > 0) {
-    const active_customer_account = customer_account_ids[0];
-    settings_to_supply.customer_account_uuid = active_customer_account.uuid;
-    settings_to_supply.user_account_uuid =
-      active_customer_account.user_account_ids[0].uuid;
-  }
+  // if (customer_account_ids.length > 0) {
+  //   const active_customer_account = customer_account_ids[0];
+  //   settings_to_supply.customer_account_uuid = active_customer_account.uuid;
+  //   settings_to_supply.user_account_uuid =
+  //     active_customer_account.user_account_ids[0].uuid;
+  // }
+  args.push("--stored-customer-ids=" + JSON.stringify(customer_account_ids));
 
   const settings_to_supply_json_str = JSON.stringify(settings_to_supply);
   const settings_to_supply_buf = Buffer.from(
@@ -106,4 +117,5 @@ const export_functions = {
   create_store,
   get_current_app_version,
 };
+
 export default export_functions;

@@ -142,6 +142,15 @@ GENERIC_STOP_RECORDING_COMMAND: Dict[str, Any] = {
     "timepoint_to_stop_recording_at": 302412 * 125,
 }
 
+GENERIC_UPDATE_CUSTOMER_SETTINGS: Dict[str, Any] = {
+    "command": "update_customer_settings",
+    "config_settings": {
+        "Customer Account ID": "test_customer_id",
+        "Customer Passkey": "test_password",
+        "Auto Upload On Completion": True,
+        "Auto Delete Local Files": True,
+    },
+}
 
 GENERIC_NUMPY_ARRAY_FOR_TISSUE_DATA_PACKET = np.zeros((2, 50), dtype=np.int32)
 for i in range(50):
@@ -219,7 +228,14 @@ def fixture_four_board_file_writer_process():
         error_queue,
     ) = generate_fw_from_main_to_main_board_and_error_queues()
     with tempfile.TemporaryDirectory() as tmp_dir:
-        fw_process = FileWriterProcess(board_queues, from_main, to_main, error_queue, file_directory=tmp_dir)
+        fw_process = FileWriterProcess(
+            board_queues,
+            from_main,
+            to_main,
+            error_queue,
+            file_directory=tmp_dir,
+            shared_values_dict={"stored_customer_ids": {}},
+        )
         fw_items_dict = {
             "fw_process": fw_process,
             "board_queues": board_queues,

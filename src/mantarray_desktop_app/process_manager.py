@@ -116,6 +116,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             file_directory=self._file_directory,
             logging_level=self._logging_level,
             beta_2_mode=beta_2_mode,
+            shared_values_dict=self._values_to_share_to_server,
         )
 
         self._data_analyzer_process = DataAnalyzerProcess(

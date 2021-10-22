@@ -6,9 +6,9 @@ from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import create_magnetometer_config_dict
-from mantarray_desktop_app import ImproperlyFormattedCustomerAccountUUIDError
 from mantarray_desktop_app import ImproperlyFormattedUserAccountUUIDError
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
+from mantarray_desktop_app import InvalidCustomerAccountIDError
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import RECORDING_STATE
@@ -282,27 +282,18 @@ def test_start_managed_acquisition__returns_error_code_and_message_if_mantarray_
     assert response.status.endswith("Mantarray has not been assigned a Serial Number") is True
 
 
-@pytest.mark.parametrize(
-    "test_uuid,test_description",
-    [
-        (
-            "",
-            "returns error_message when uuid is empty",
-        ),
-        (
-            "e140e2b-397a-427b-81f3-4f889c5181a9",
-            "returns error_message when uuid is missing one char",
-        ),
-    ],
-)
-def test_update_settings__returns_error_message_for_invalid_customer_account_uuid(
-    test_uuid,
-    test_description,
-    test_client,
+def test_update_settings__returns_error_message_when_customer_creds_dont_make_stored_pairs(
+    client_and_server_manager_and_shared_values,
 ):
-    response = test_client.get(f"/update_settings?customer_account_uuid={test_uuid}")
-    assert response.status_code == 400
-    assert response.status.endswith(f"{repr(ImproperlyFormattedCustomerAccountUUIDError(test_uuid))}") is True
+    invalid_customer_id = "invalid_id"
+    invalid_password_id = "invalid_pass"
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["stored_customer_ids"] = {"real_id": "real_pass"}
+    response = test_client.get(
+        f"/update_settings?customer_account_uuid={invalid_customer_id}&customer_pass_key={invalid_password_id}"
+    )
+    assert response.status_code == 401
+    assert response.status.endswith(f"{repr(InvalidCustomerAccountIDError(invalid_customer_id))}") is True
 
 
 def test_update_settings__returns_error_message_when_recording_directory_does_not_exist(

@@ -12,6 +12,7 @@ Custom HTTP Error Codes:
 * 400 - Call to /set_magnetometer_config with invalid or missing sampling period
 * 400 - Call to /set_protocol with an invalid protocol
 * 400 - Call to /set_stim_status with missing 'running' status
+* 401 - Call to /update_settings with invalid customer credentials
 * 403 - Call to /start_recording with is_hardware_test_recording=False after calling route with is_hardware_test_recording=True (default value)
 * 403 - Call to any /insert_xem_command_into_queue/* route when in Beta 2 mode
 * 403 - Call to /boot_up when in Beta 2 mode
@@ -111,8 +112,11 @@ from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SUBPROCESS_POLL_DELAY_SECONDS
 from .constants import SYSTEM_STATUS_UUIDS
 from .constants import VALID_CONFIG_SETTINGS
-from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
+from .exceptions import ImproperlyFormattedCustomerAccountIDError
+from .exceptions import ImproperlyFormattedCustomerAccountPasskeyError
 from .exceptions import ImproperlyFormattedUserAccountUUIDError
+from .exceptions import InvalidCustomerAccountIDError
+from .exceptions import InvalidCustomerPasskeyError
 from .exceptions import LocalServerPortAlreadyInUseError
 from .exceptions import RecordingFolderDoesNotExistError
 from .exceptions import ServerManagerNotInitializedError
@@ -123,9 +127,9 @@ from .utils import check_barcode_for_errors
 from .utils import convert_request_args_to_config_dict
 from .utils import get_current_software_version
 from .utils import get_redacted_string
+from .utils import validate_customer_credentials
 from .utils import validate_magnetometer_config_keys
 from .utils import validate_settings
-
 
 logger = logging.getLogger(__name__)
 os.environ[
@@ -351,6 +355,7 @@ def update_settings() -> Response:
     """Update the user settings.
 
     Can be invoked by: curl http://localhost:4567/update_settings?customer_account_uuid=<UUID>&user_account_uuid=<UUID>&recording_directory=recording_dir
+        curl http://localhost:4567/update_settings?customer_account_uuid=<string>&customer_pass_key=<string>&auto_upload=<bool>&auto_delete=<bool>
     """
     for arg in request.args:
         if arg not in VALID_CONFIG_SETTINGS:
@@ -360,20 +365,29 @@ def update_settings() -> Response:
     try:
         validate_settings(request.args)
     except (
-        ImproperlyFormattedCustomerAccountUUIDError,
+        ImproperlyFormattedCustomerAccountIDError,
+        ImproperlyFormattedCustomerAccountPasskeyError,
         ImproperlyFormattedUserAccountUUIDError,
         RecordingFolderDoesNotExistError,
     ) as e:
         response = Response(status=f"400 {repr(e)}")
         return response
 
+    try:
+        shared_values_dict = _get_values_from_process_monitor()
+        validate_customer_credentials(request.args, shared_values_dict)
+    except (InvalidCustomerAccountIDError, InvalidCustomerPasskeyError) as e:
+        response = Response(status=f"401 {repr(e)}")
+        return response
+
     queue_command_to_main(
         {
-            "communication_type": "update_shared_values_dictionary",
+            "communication_type": "update_customer_settings",
             "content": convert_request_args_to_config_dict(request.args),
         }
     )
     response = Response(json.dumps(request.args), mimetype="application/json")
+
     return response
 
 
@@ -596,6 +610,7 @@ def start_recording() -> Response:
         return response
 
     shared_values_dict = _get_values_from_process_monitor()
+
     if not shared_values_dict["config_settings"]["Customer Account ID"]:
         response = Response(status="406 Customer Account ID has not yet been set")
         return response

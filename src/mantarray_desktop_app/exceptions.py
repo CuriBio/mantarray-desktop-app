@@ -22,6 +22,14 @@ class UnrecognizedCommandFromMainToOkCommError(Exception):
     pass
 
 
+class InvalidCustomerAccountIDError(Exception):
+    pass
+
+
+class InvalidCustomerPasskeyError(Exception):
+    pass
+
+
 class UnrecognizedCommandFromMainToFileWriterError(Exception):
     pass
 
@@ -94,11 +102,15 @@ class UnrecognizedSimulatorTestCommandError(Exception):
     pass
 
 
-class ImproperlyFormattedCustomerAccountUUIDError(Exception):
+class ImproperlyFormattedCustomerAccountIDError(Exception):
     pass
 
 
 class ImproperlyFormattedUserAccountUUIDError(Exception):
+    pass
+
+
+class ImproperlyFormattedCustomerAccountPasskeyError(Exception):
     pass
 
 
