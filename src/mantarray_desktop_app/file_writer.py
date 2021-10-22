@@ -451,14 +451,16 @@ class FileWriterProcess(InfiniteProcess):
         communication["abs_path_to_file_folder"] = file_folder_dir
         os.makedirs(file_folder_dir)
 
+        stim_protocols = None
         labeled_protocol_dict = {}
         if self._beta_2_mode:
-            labeled_protocol_dict = {
-                protocol["protocol_id"]: protocol
-                for protocol in communication["metadata_to_copy_onto_main_file_attributes"][
-                    STIMULATION_PROTOCOL_UUID
-                ]["protocols"]
-            }
+            stim_protocols = communication["metadata_to_copy_onto_main_file_attributes"][
+                STIMULATION_PROTOCOL_UUID
+            ]
+            if stim_protocols is not None:
+                labeled_protocol_dict = {
+                    protocol["protocol_id"]: protocol for protocol in stim_protocols["protocols"]
+                }
 
         tissue_status, reference_status = self.get_recording_finalization_statuses()
         tissue_status[board_idx].clear()

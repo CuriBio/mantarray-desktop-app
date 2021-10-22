@@ -604,6 +604,18 @@ def test_start_recording__allows_correct_kit_ids_in_ML_barcodes(
     assert response.status_code == 200
 
 
+def test_start_recording__returns_error_code_and_message_if_already_recording(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
+    shared_values_dict["system_status"] = RECORDING_STATE
+
+    response = test_client.get("/start_recording?barcode=MA200440001")
+    assert response.status_code == 304
+    assert response.status.endswith("Already recording") is True
+
+
 def test_route_with_no_url_rule__returns_error_message__and_logs_reponse_to_request(test_client, mocker):
     mocked_logger = mocker.spy(server.logger, "info")
 
@@ -894,7 +906,7 @@ def test_set_stim_status__returns_error_code_and_message_if_called_before_protoc
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
-    shared_values_dict["stimulation_running"] = False
+    shared_values_dict["stimulation_running"] = [False] * 24
     shared_values_dict["stimulation_info"] = None
 
     response = test_client.post(f"/set_stim_status?running={test_status}")
@@ -907,14 +919,15 @@ def test_set_stim_status__returns_code_and_message_if_new_status_is_the_same_as_
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
-    shared_values_dict["stimulation_running"] = False
+    shared_values_dict["stimulation_running"] = [False] * 24
     shared_values_dict["stimulation_info"] = {}
 
     response = test_client.post("/set_stim_status?running=false")
     assert response.status_code == 304
     assert response.status.endswith("Status not updated") is True
 
-    shared_values_dict["stimulation_running"] = True
+    shared_values_dict["stimulation_running"] = [False] * 24
+    shared_values_dict["stimulation_running"][0] = True  # arbitrary well
     response = test_client.post("/set_stim_status?running=true")
     assert response.status_code == 304
     assert response.status.endswith("Status not updated") is True
@@ -936,11 +949,25 @@ def test_set_protocols__returns_error_code_if_called_while_stimulation_is_runnin
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
-    shared_values_dict["stimulation_running"] = True
+    shared_values_dict["stimulation_running"] = [False] * 24
+    shared_values_dict["stimulation_running"][1] = True  # arbitrary well
 
     response = test_client.post("/set_protocols")
     assert response.status_code == 403
-    assert response.status.endswith("Cannot change protocol while stimulation is running") is True
+    assert response.status.endswith("Cannot change protocols while stimulation is running") is True
+
+
+def test_set_protocols__returns_error_code_if_called_while_recording(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = [False] * 24
+    shared_values_dict["system_status"] = RECORDING_STATE
+
+    response = test_client.post("/set_protocols")
+    assert response.status_code == 403
+    assert response.status.endswith("Cannot change protocols while recording") is True
 
 
 def test_set_protocols__returns_error_code_if_protocol_list_is_empty(
@@ -948,7 +975,7 @@ def test_set_protocols__returns_error_code_if_protocol_list_is_empty(
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
-    shared_values_dict["stimulation_running"] = False
+    shared_values_dict["stimulation_running"] = [False] * 24
 
     response = test_client.post("/set_protocols", json={"data": json.dumps({"protocols": []})})
     assert response.status_code == 400
@@ -960,7 +987,7 @@ def test_set_protocols__returns_error_code_if_two_protocols_are_given_with_the_s
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
-    shared_values_dict["stimulation_running"] = False
+    shared_values_dict["stimulation_running"] = [False] * 24
 
     expected_id = "Z"
     test_stim_info_dict = {
@@ -992,7 +1019,7 @@ def test_set_protocols__returns_error_code_with_invalid_stimulation_type(
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
-    shared_values_dict["stimulation_running"] = False
+    shared_values_dict["stimulation_running"] = [False] * 24
 
     test_stim_info_dict = {"protocols": [{"protocol_id": "A", "stimulation_type": test_stimulation_type}]}
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
@@ -1076,7 +1103,7 @@ def test_set_protocols__returns_error_code_with_single_invalid_subprotocol_value
 
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
-    shared_values_dict["stimulation_running"] = False
+    shared_values_dict["stimulation_running"] = [False] * 24
 
     test_base_charge = (
         STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS if test_stim_type == "V" else STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
@@ -1114,7 +1141,7 @@ def test_set_protocols__returns_error_code_when_pulse_duration_is_too_long(
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
-    shared_values_dict["stimulation_running"] = False
+    shared_values_dict["stimulation_running"] = [False] * 24
 
     test_stim_info_dict = {
         "protocols": [
@@ -1145,7 +1172,7 @@ def test_set_protocols__returns_error_code_if_a_single_well_is_missing_from_prot
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
-    shared_values_dict["stimulation_running"] = False
+    shared_values_dict["stimulation_running"] = [False] * 24
 
     test_num_wells = 24
     protocol_assignments = {
@@ -1182,7 +1209,7 @@ def test_set_protocols__returns_error_code_with_invalid_well_name(
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
-    shared_values_dict["stimulation_running"] = False
+    shared_values_dict["stimulation_running"] = [False] * 24
 
     protocol_assignments = {
         GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "F" for well_idx in range(24)
@@ -1209,7 +1236,7 @@ def test_set_protocols__returns_error_code_if_protocol_assignments_contains_a_si
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
-    shared_values_dict["stimulation_running"] = False
+    shared_values_dict["stimulation_running"] = [False] * 24
 
     protocol_assignments = {
         GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "K" for well_idx in range(24)
@@ -1240,7 +1267,7 @@ def test_set_protocols__returns_error_code_if_one_of_the_given_protocols_is_not_
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
-    shared_values_dict["stimulation_running"] = False
+    shared_values_dict["stimulation_running"] = [False] * 24
 
     test_ids = ("L", "M")
     protocol_assignments = {
@@ -1271,7 +1298,7 @@ def test_set_protocols__returns_success_code_if_protocols_would_not_be_updated(
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
-    shared_values_dict["stimulation_running"] = False
+    shared_values_dict["stimulation_running"] = [False] * 24
 
     test_stim_info_dict = {
         "protocols": [

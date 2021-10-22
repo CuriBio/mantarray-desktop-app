@@ -366,6 +366,9 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_magnetometer
     ]
     this_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
 
+    # remove stim info
+    this_command["metadata_to_copy_onto_main_file_attributes"][STIMULATION_PROTOCOL_UUID] = None
+
     active_well_indices = [4, 9, 15]
     this_command["active_well_indices"] = active_well_indices
     test_magnetometer_config = create_magnetometer_config_dict(24)
@@ -405,6 +408,12 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_magnetometer
         assert get_tissue_dataset_from_file(this_file).shape[0] == sum(
             test_magnetometer_config[module_id].values()
         )
+
+        # make sure stim metadata is correct
+        assert this_file.attrs[str(STIMULATION_PROTOCOL_UUID)] == json.dumps(None), well_idx
+        assert this_file.attrs[str(UTC_BEGINNING_STIMULATION_UUID)] == str(
+            NOT_APPLICABLE_H5_METADATA
+        ), well_idx
 
     # test command receipt
     confirm_queue_is_eventually_of_size(to_main_queue, 1)

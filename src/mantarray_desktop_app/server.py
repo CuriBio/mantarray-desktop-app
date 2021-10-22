@@ -4,6 +4,7 @@
 Custom HTTP Error Codes:
 
 * 304 - Call to /set_stim_status with the current stim status (no updates will be made to status)
+* 304 - Call to /start_recording while already recording
 * 400 - Call to /start_recording with invalid or missing barcode parameter
 * 400 - Call to /set_mantarray_nickname with invalid nickname parameter
 * 400 - Call to /update_settings with unexpected argument, invalid account UUID, or a recording directory that doesn't exist
@@ -22,7 +23,7 @@ Custom HTTP Error Codes:
 * 403 - Call to /set_protocols while stimulation is running
 * 403 - Call to /set_stim_status when in Beta 1 mode
 * 404 - Route not implemented
-* 406 - Call to /set_stim_status before protocol is set
+* 406 - Call to /set_stim_status before protocol is set or while recording
 * 406 - Call to /start_managed_acquisition before magnetometer configuration is set
 * 406 - Call to /start_managed_acquisition when Mantarray device does not have a serial number assigned to it
 * 406 - Call to /start_recording before customer_account_uuid and user_account_uuid are set
@@ -446,6 +447,11 @@ def _is_data_streaming() -> bool:
     return current_system_status in (BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE, RECORDING_STATE)
 
 
+def _is_recording() -> bool:
+    current_system_status = _get_values_from_process_monitor()["system_status"]
+    return current_system_status == RECORDING_STATE  # type: ignore  # mypy doesn't think this is a bool
+
+
 def _is_instrument_initialized() -> bool:
     current_system_status = _get_values_from_process_monitor()["system_status"]
     return current_system_status not in (
@@ -476,6 +482,8 @@ def set_protocols() -> Response:
         return Response(status="403 Route cannot be called in beta 1 mode")
     if _is_stimulating_on_any_well():
         return Response(status="403 Cannot change protocols while stimulation is running")
+    if _is_recording():
+        return Response(status="403 Cannot change protocols while recording")
 
     stim_info = json.loads(request.get_json()["data"])
 
@@ -623,21 +631,20 @@ def start_recording() -> Response:
     board_idx = 0
 
     if "barcode" not in request.args:
-        response = Response(status="400 Request missing 'barcode' parameter")
-        return response
+        return Response(status="400 Request missing 'barcode' parameter")
     barcode = request.args["barcode"]
     error_message = check_barcode_for_errors(barcode)
     if error_message:
-        response = Response(status=f"400 {error_message}")
-        return response
+        return Response(status=f"400 {error_message}")
+
+    if _is_recording():
+        return Response(status="304 Already recording")
 
     shared_values_dict = _get_values_from_process_monitor()
     if not shared_values_dict["config_settings"]["Customer Account ID"]:
-        response = Response(status="406 Customer Account ID has not yet been set")
-        return response
+        return Response(status="406 Customer Account ID has not yet been set")
     if not shared_values_dict["config_settings"]["User Account ID"]:
-        response = Response(status="406 User Account ID has not yet been set")
-        return response
+        return Response(status="406 User Account ID has not yet been set")
 
     is_hardware_test_recording = request.args.get("is_hardware_test_recording", True)
     if isinstance(is_hardware_test_recording, str):
@@ -647,10 +654,9 @@ def start_recording() -> Response:
         )
 
     if shared_values_dict.get("is_hardware_test_recording", False) and not is_hardware_test_recording:
-        response = Response(
+        return Response(
             status="403 Cannot make standard recordings after previously making hardware test recordings. Server and board must both be restarted before making any more standard recordings"
         )
-        return response
     timestamp_of_sample_idx_zero = _get_timestamp_of_acquisition_sample_index_zero()
 
     begin_timepoint: Union[int, float]
@@ -748,6 +754,8 @@ def start_recording() -> Response:
     to_main_queue.put_nowait(
         copy.deepcopy(comm_dict)
     )  # Eli (3/16/20): apparently when using multiprocessing.Queue you have to be careful when modifying values put into the queue because they might still be editable. So making a copy first
+
+    # fixing values here for response, not for message to main
     for this_attr_name, this_attr_value in list(
         comm_dict["metadata_to_copy_onto_main_file_attributes"].items()
     ):
@@ -764,9 +772,7 @@ def start_recording() -> Response:
         del comm_dict["metadata_to_copy_onto_main_file_attributes"][this_attr_name]
         this_attr_name = str(this_attr_name)
         comm_dict["metadata_to_copy_onto_main_file_attributes"][this_attr_name] = this_attr_value
-
     response = Response(json.dumps(comm_dict), mimetype="application/json")
-
     return response
 
 

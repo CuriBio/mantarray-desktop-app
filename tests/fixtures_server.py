@@ -7,6 +7,7 @@ from mantarray_desktop_app import get_api_endpoint
 from mantarray_desktop_app import get_server_port_number
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import RunningFIFOSimulator
+from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import ServerManager
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
@@ -38,7 +39,8 @@ def fixture_server_manager(generic_queue_container):
 
     sm = ServerManager(to_main_queue, generic_queue_container)
     shared_values_dict = sm._values_from_process_monitor  # pylint:disable=protected-access
-    # Tanner (4/23/21): Many routes require this value to be in the shared values dictionary. It is normally set during app start up, so manually setting here
+    # Tanner (4/23/21): Many routes require these values to be in the shared values dictionary. They are normally set during app start up, so manually setting here
+    shared_values_dict["system_status"] = SERVER_READY_STATE
     shared_values_dict["beta_2_mode"] = False
 
     yield sm, to_main_queue
@@ -70,6 +72,7 @@ def fixture_client_and_server_manager_and_shared_values(server_manager, test_cli
 
 
 def put_generic_beta_1_start_recording_info_in_dict(shared_values_dict):
+    shared_values_dict["system_status"] = SERVER_READY_STATE
     shared_values_dict["beta_2_mode"] = False
 
     board_idx = 0
@@ -111,6 +114,7 @@ def put_generic_beta_1_start_recording_info_in_dict(shared_values_dict):
 
 
 def put_generic_beta_2_start_recording_info_in_dict(shared_values_dict):
+    shared_values_dict["system_status"] = SERVER_READY_STATE
     shared_values_dict["beta_2_mode"] = True
 
     board_idx = 0
