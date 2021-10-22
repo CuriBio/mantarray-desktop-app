@@ -26,6 +26,7 @@ from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import server
 from mantarray_desktop_app import utils
+from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
@@ -53,6 +54,7 @@ from ..fixtures import GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
+from ..fixtures_mc_simulator import get_random_subprotocol
 from ..fixtures_process_monitor import fixture_test_monitor
 from ..fixtures_server import fixture_client_and_server_manager_and_shared_values
 from ..fixtures_server import fixture_server_manager
@@ -1376,6 +1378,40 @@ def test_set_magnetometer_config__gets_processed__and_default_channel_is_enabled
     for key, inner_dict in module_configs.items():
         key_list = list(inner_dict.keys())
         assert all(key_list[i] == key_list[i + 1] - 1 for i in range(len(key_list) - 1)) is True
+
+
+def test_set_protocols__waits_for_stim_info_in_shared_values_dict_to_be_updated_before_returning(
+    client_and_server_manager_and_shared_values, test_client, mocker
+):
+    _, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = False
+
+    test_protocol_dict = {
+        "protocols": [
+            {
+                "protocol_id": "S",
+                "stimulation_type": "C",
+                "run_until_stopped": True,
+                "subprotocols": [get_random_subprotocol(), get_random_subprotocol()],
+            }
+        ],
+        "protocol_assignments": {
+            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "S" for well_idx in range(24)
+        },
+    }
+
+    mocker.patch.object(
+        server,
+        "_get_stim_info_from_process_monitor",
+        autospec=True,
+        side_effect=[None, None, test_protocol_dict],
+    )
+    mocked_sleep = mocker.patch.object(server, "sleep", autospec=True)
+
+    response = test_client.post("/set_protocols", json={"data": json.dumps(test_protocol_dict)})
+    assert response.status_code == 200
+    assert mocked_sleep.call_args_list == [mocker.call(0.1), mocker.call(0.1)]
 
 
 def test_system_status__returns_no_plate_barcode_and_status_when_none_present(

@@ -10,7 +10,7 @@ Custom HTTP Error Codes:
 * 400 - Call to /insert_xem_command_into_queue/set_mantarray_serial_number with invalid serial_number parameter
 * 400 - Call to /set_magnetometer_config with invalid configuration dict
 * 400 - Call to /set_magnetometer_config with invalid or missing sampling period
-* 400 - Call to /set_protocol with an invalid protocol
+* 400 - Call to /set_protocols with an invalid protocol or protocol assignments
 * 400 - Call to /set_stim_status with missing 'running' status
 * 401 - Call to /update_settings with invalid customer credentials
 * 403 - Call to /start_recording with is_hardware_test_recording=False after calling route with is_hardware_test_recording=True (default value)
@@ -19,11 +19,11 @@ Custom HTTP Error Codes:
 * 403 - Call to /set_magnetometer_config when in Beta 1 mode
 * 403 - Call to /set_magnetometer_config while data is streaming in Beta 2 mode
 * 403 - Call to /set_magnetometer_config before instrument finishes initializing in Beta 2 mode
-* 403 - Call to /set_protocol when in Beta 1 mode
-* 403 - Call to /set_protocol while stimulation is running
+* 403 - Call to /set_protocols when in Beta 1 mode
+* 403 - Call to /set_protocols while stimulation is running
 * 403 - Call to /set_stim_status when in Beta 1 mode
 * 404 - Route not implemented
-* 406 - Call to /set_stim_status when before protocol is set
+* 406 - Call to /set_stim_status before protocol is set
 * 406 - Call to /start_managed_acquisition before magnetometer configuration is set
 * 406 - Call to /start_managed_acquisition when Mantarray device does not have a serial number assigned to it
 * 406 - Call to /start_recording before customer_account_uuid and user_account_uuid are set
@@ -54,8 +54,6 @@ from flask import Response
 from flask_cors import CORS
 from flask_socketio import SocketIO
 from immutabledict import immutabledict
-from labware_domain_models import get_row_and_column_from_well_name
-from labware_domain_models import PositionInvalidForLabwareDefinitionError
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
@@ -470,14 +468,18 @@ def _is_instrument_initialized() -> bool:
     )
 
 
-@flask_app.route("/set_protocol", methods=["POST"])
-def set_protocol() -> Response:
+def _get_stim_info_from_process_monitor() -> Dict[Any, Any]:
+    return _get_values_from_process_monitor()["stimulation_info"]  # type: ignore
+
+
+@flask_app.route("/set_protocols", methods=["POST"])
+def set_protocols() -> Response:
     # pylint: disable=too-many-return-statements  # Tanner (8/9/21): lots of error codes that can be returned here
-    """Set the stimulation protocol in hardware memory.
+    """Set the stimulation protocols in hardware memory.
 
     Not available for Beta 1 instruments.
 
-    Can be invoked by: curl -d '<stimulation protocol as json>' -H 'Content-Type: application/json' -X POST http://localhost:4567/set_protocol
+    Can be invoked by: curl -d '<stimulation protocol as json>' -H 'Content-Type: application/json' -X POST http://localhost:4567/set_protocols
     """
     shared_values_dict = _get_values_from_process_monitor()
     if not shared_values_dict["beta_2_mode"]:
@@ -485,12 +487,20 @@ def set_protocol() -> Response:
     if shared_values_dict["stimulation_running"]:
         return Response(status="403 Cannot change protocol while stimulation is running")
 
-    protocol_json = request.get_json()
-    protocol_list = json.loads(protocol_json)["protocols"]
-    if len(protocol_list) < 24:
-        return Response(status="400 Not enough protocols for all 24 wells")
+    stim_info = json.loads(request.get_json()["data"])
+
+    protocol_list = stim_info["protocols"]
+    # make sure at least one protocol is given
+    if not protocol_list:
+        return Response(status="400 Protocol list empty")
     # validate protocols
+    protocol_ids = set()
     for protocol in protocol_list:
+        # make sure protocol ID is unique
+        if protocol["protocol_id"] in protocol_ids:
+            return Response(status=f"400 Multiple protocols given with ID: {protocol['protocol_id']}")
+        protocol_ids.add(protocol["protocol_id"])
+        # validate stim type
         if protocol["stimulation_type"] not in ("C", "V"):
             return Response(status=f"400 Invalid stimulation type: {protocol['stimulation_type']}")
         max_abs_charge = (
@@ -499,60 +509,82 @@ def set_protocol() -> Response:
             else STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
         )
         charge_unit = "mV" if protocol["stimulation_type"] == "V" else "µA"
-        try:
-            GENERIC_24_WELL_DEFINITION.validate_position(
-                *get_row_and_column_from_well_name(protocol["well_number"])
-            )
-        except PositionInvalidForLabwareDefinitionError:
-            return Response(status=f"400 Invalid well: {protocol['well_number']}")
-        # validate pulse dictionaries
+        # validate subprotocol dictionaries
         total_protocol_dur_microsecs = 0
-        for pulse in protocol["pulses"]:
-            # pulse components
-            if pulse["phase_one_duration"] <= 0:
-                return Response(status=f"400 Invalid phase one duration: {pulse['phase_one_duration']}")
-            if pulse["interpulse_interval"] < 0:
-                return Response(status=f"400 Invalid interpulse interval: {pulse['interpulse_interval']}")
-            if pulse["phase_two_duration"] < 0:
-                return Response(status=f"400 Invalid phase two duration: {pulse['phase_two_duration']}")
-            if abs(int(pulse["phase_one_charge"])) > max_abs_charge:
+        for subprotocol in protocol["subprotocols"]:
+            # subprotocol components
+            if subprotocol["phase_one_duration"] <= 0:
+                return Response(status=f"400 Invalid phase one duration: {subprotocol['phase_one_duration']}")
+            if subprotocol["interphase_interval"] < 0:
                 return Response(
-                    status=f"400 Invalid phase one charge: {pulse['phase_one_charge']} {charge_unit}"
+                    status=f"400 Invalid interphase interval: {subprotocol['interphase_interval']}"
                 )
-            if abs(int(pulse["phase_two_charge"])) > max_abs_charge:
+            if subprotocol["phase_two_duration"] < 0:
+                return Response(status=f"400 Invalid phase two duration: {subprotocol['phase_two_duration']}")
+            if abs(int(subprotocol["phase_one_charge"])) > max_abs_charge:
                 return Response(
-                    status=f"400 Invalid phase two charge: {pulse['phase_two_charge']} {charge_unit}"
+                    status=f"400 Invalid phase one charge: {subprotocol['phase_one_charge']} {charge_unit}"
                 )
-            # delay before repeating pulse
-            if pulse["repeat_delay_interval"] < 0:
-                return Response(status=f"400 Invalid repeat delay interval: {pulse['repeat_delay_interval']}")
-            # make sure pulse duration (not including delay after) is not too large
+            if abs(int(subprotocol["phase_two_charge"])) > max_abs_charge:
+                return Response(
+                    status=f"400 Invalid phase two charge: {subprotocol['phase_two_charge']} {charge_unit}"
+                )
+            # delay before repeating subprotocol
+            if subprotocol["repeat_delay_interval"] < 0:
+                return Response(
+                    status=f"400 Invalid repeat delay interval: {subprotocol['repeat_delay_interval']}"
+                )
+            # make sure subprotocol duration (not including period after pulse) is not too large unless it is a delay
             single_pulse_dur_microsecs = (
-                pulse["phase_one_duration"] + pulse["phase_two_duration"] + pulse["interpulse_interval"]
+                subprotocol["phase_one_duration"]
+                + subprotocol["phase_two_duration"]
+                + subprotocol["interphase_interval"]
             )
-            if single_pulse_dur_microsecs > STIM_MAX_PULSE_DURATION_MICROSECONDS:
+            if (
+                subprotocol["interphase_interval"] > 0 or subprotocol["phase_two_duration"] > 0
+            ) and single_pulse_dur_microsecs > STIM_MAX_PULSE_DURATION_MICROSECONDS:
                 return Response(status="400 Pulse duration too long")
-            # make sure pulse is set to run for at least the duration of a single complete pulse
-            if pulse["total_active_duration"] < single_pulse_dur_microsecs:
-                return Response(status="400 Total active duration less than the duration of the pulse")
-            # add total time for running this pulse to total time of protocol
-            total_protocol_dur_microsecs += pulse["total_active_duration"]
-        # make sure the total duration of the protocol is at least the sum of each pulse's total duration
-        if (
-            protocol["total_protocol_duration"] < total_protocol_dur_microsecs
-            and protocol["total_protocol_duration"] != -1
-        ):
-            return Response(status="400 Total protocol duration less than duration of all pulses")
+            # make sure subprotocol is set to run for at least one full pulse
+            if subprotocol["total_active_duration"] * int(1e3) < single_pulse_dur_microsecs:
+                return Response(status="400 Total active duration less than the duration of the subprotocol")
+            # add total time for running this subprotocol to total time of protocol
+            total_protocol_dur_microsecs += subprotocol["total_active_duration"]
+    # make sure protocol assignments are not missing any wells and do not contain any invalid wells
+    protocol_assignments_dict = stim_info["protocol_assignments"]
+    expected_well_names = set(
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx) for well_idx in range(24)
+    )
+    actual_well_names = set(protocol_assignments_dict.keys())
+    for well_name in expected_well_names:
+        if well_name not in protocol_assignments_dict:
+            return Response(status=f"400 Protocol assignments missing well {well_name}")
+        actual_well_names.remove(well_name)
+    if len(actual_well_names) > 0:
+        return Response(status=f"400 Protocol assignments contain invalid well: {actual_well_names.pop()}")
+    # make sure all protocol IDs are valid and that no protocols are unassigned
+    assigned_ids = set(protocol_assignments_dict.values())
+    if None in assigned_ids:
+        assigned_ids.remove(None)  # remove since checking for wells with not assignment is unnecessary
+    for protocol_id in protocol_ids:
+        if protocol_id not in assigned_ids:
+            return Response(status=f"400 Protocol assignments missing protocol ID: {protocol_id}")
+        assigned_ids.remove(protocol_id)
+    if len(assigned_ids) > 0:
+        return Response(status=f"400 Protocol assignments contain invalid protocol ID: {assigned_ids.pop()}")
 
     queue_command_to_main(
         {
             "communication_type": "stimulation",
-            "command": "set_protocol",
-            "protocols": protocol_list,
+            "command": "set_protocols",
+            "stim_info": stim_info,
         }
     )
 
-    return Response(protocol_json, mimetype="application/json")
+    # wait for process monitor to update stim info in shared values dictionary
+    while _get_stim_info_from_process_monitor() != stim_info:
+        sleep(0.1)
+
+    return Response(json.dumps(stim_info), mimetype="application/json")
 
 
 @flask_app.route("/set_stim_status", methods=["POST"])
@@ -572,10 +604,10 @@ def set_stim_status() -> Response:
     except KeyError:
         return Response(status="400 Request missing 'running' parameter")
 
+    if shared_values_dict["stimulation_info"] is None:
+        return Response(status="406 Protocols have not been set")
     if status is shared_values_dict["stimulation_running"]:
         return Response(status="304 Status not updated")
-    if status and shared_values_dict["stimulation_protocols"] is None:
-        return Response(status="406 Protocol has not been set")
 
     response = queue_command_to_main(
         {

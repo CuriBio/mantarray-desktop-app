@@ -25,7 +25,7 @@ from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_TIME_SYNC_READY_CODE
 from mantarray_desktop_app import SerialCommPacketRegistrationReadEmptyError
 from mantarray_desktop_app import SerialCommPacketRegistrationSearchExhaustedError
-from mantarray_desktop_app import SerialCommPacketRegistrationTimoutError
+from mantarray_desktop_app import SerialCommPacketRegistrationTimeoutError
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 import pytest
 import serial
@@ -284,7 +284,7 @@ def test_McCommunicationProcess_register_magic_word__raises_error_if_less_than_8
 
     board_idx = 0
     mc_process.set_board_connection(board_idx, simulator)
-    with pytest.raises(SerialCommPacketRegistrationTimoutError) as exc_info:
+    with pytest.raises(SerialCommPacketRegistrationTimeoutError) as exc_info:
         invoke_process_run_and_check_errors(mc_process)
     assert str(expected_partial_bytes) in str(exc_info.value)
 

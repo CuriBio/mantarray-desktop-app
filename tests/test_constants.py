@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import datetime
+from enum import IntEnum
 import uuid
 
 from mantarray_desktop_app import ADC_CH_TO_24_WELL_INDEX
@@ -73,7 +74,9 @@ from mantarray_desktop_app import SERIAL_COMM_BAUD_RATE
 from mantarray_desktop_app import SERIAL_COMM_BOOT_UP_CODE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_COMMAND_FAILURE_BYTE
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_COMMAND_SUCCESS_BYTE
 from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from mantarray_desktop_app import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_FATAL_ERROR_CODE
@@ -109,17 +112,19 @@ from mantarray_desktop_app import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_SOFT_ERROR_CODE
 from mantarray_desktop_app import SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_START_STIM_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
-from mantarray_desktop_app import SERIAL_COMM_STREAM_MODE_CHANGED_BYTE
-from mantarray_desktop_app import SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE
+from mantarray_desktop_app import SERIAL_COMM_STOP_STIM_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_CY
 from mantarray_desktop_app import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
@@ -135,6 +140,7 @@ from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
 from mantarray_desktop_app import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
 from mantarray_desktop_app import STIM_MAX_PULSE_DURATION_MICROSECONDS
+from mantarray_desktop_app import StimStatuses
 from mantarray_desktop_app import STM_VID
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import SUBPROCESS_POLL_DELAY_SECONDS
@@ -445,14 +451,10 @@ def test_serial_comm():
     assert SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE == 4
     assert SERIAL_COMM_HANDSHAKE_PACKET_TYPE == 4
     assert SERIAL_COMM_PLATE_EVENT_PACKET_TYPE == 6
-    assert SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE == 255
-    assert SERIAL_COMM_REBOOT_COMMAND_BYTE == 0
-    assert SERIAL_COMM_GET_METADATA_COMMAND_BYTE == 6
-    assert SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE == 9
-
-    assert SERIAL_COMM_METADATA_BYTES_LENGTH == 32
-    assert SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE == 4
-    assert SERIAL_COMM_HANDSHAKE_PACKET_TYPE == 4
+    assert SERIAL_COMM_STIM_STATUS_PACKET_TYPE == 7
+    assert SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE == 20
+    assert SERIAL_COMM_START_STIM_PACKET_TYPE == 21
+    assert SERIAL_COMM_STOP_STIM_PACKET_TYPE == 22
     assert SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE == 255
 
     assert SERIAL_COMM_REBOOT_COMMAND_BYTE == 0
@@ -464,8 +466,8 @@ def test_serial_comm():
     assert SERIAL_COMM_SET_TIME_COMMAND_BYTE == 8
     assert SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE == 9
 
-    assert SERIAL_COMM_STREAM_MODE_CHANGED_BYTE == 0
-    assert SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE == 1
+    assert SERIAL_COMM_COMMAND_SUCCESS_BYTE == 0
+    assert SERIAL_COMM_COMMAND_FAILURE_BYTE == 1
 
     assert SERIAL_COMM_METADATA_BYTES_LENGTH == 32
 
@@ -502,6 +504,13 @@ def test_serial_comm():
     assert STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS == int(100e3)
     assert STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS == int(1.2e3)
     assert STIM_MAX_PULSE_DURATION_MICROSECONDS == int(50e3)
+
+    assert issubclass(StimStatuses, IntEnum) is True
+    assert StimStatuses.ACTIVE == 0
+    assert StimStatuses.NULL == 1
+    assert StimStatuses.RESTARTING == 2
+    assert StimStatuses.FINISHED == 3
+    assert StimStatuses.ERROR == 4
 
 
 def test_cython_constants():

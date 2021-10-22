@@ -154,7 +154,7 @@ class UnrecognizedSerialCommPacketTypeError(Exception):
     pass
 
 
-class SerialCommPacketRegistrationTimoutError(Exception):
+class SerialCommPacketRegistrationTimeoutError(Exception):
     pass
 
 
@@ -235,6 +235,18 @@ class InstrumentDataStreamingAlreadyStartedError(Exception):
 
 
 class InstrumentDataStreamingAlreadyStoppedError(Exception):
+    pass
+
+
+class StimulationProtocolUpdateWhileStimulatingError(Exception):
+    pass
+
+
+class StimulationProtocolUpdateFailedError(Exception):
+    pass
+
+
+class StimulationStatusUpdateFailedError(Exception):
     pass
 
 

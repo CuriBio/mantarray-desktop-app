@@ -712,8 +712,15 @@ def test_MantarrayProcessesMonitor__passes_magnetometer_config_dict_from_server_
     assert main_to_da_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_comm
 
 
+@pytest.mark.parametrize(
+    "test_status,test_description",
+    [
+        (True, "processes command when status is True"),
+        (False, "processes command when status is False"),
+    ],
+)
 def test_MantarrayProcessesMonitor__processes_set_stim_status_command(
-    test_process_manager_creator, test_monitor
+    test_status, test_description, test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
@@ -728,19 +735,21 @@ def test_MantarrayProcessesMonitor__processes_set_stim_status_command(
     test_command = {
         "communication_type": "stimulation",
         "command": "set_stim_status",
-        "status": True,
+        "status": test_status,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, server_to_main_queue)
 
     invoke_process_run_and_check_errors(monitor_thread)
-    assert shared_values_dict["stimulation_running"] is True
+    assert shared_values_dict["stimulation_running"] is test_status
 
     confirm_queue_is_eventually_of_size(main_to_ic_queue, 1)
     actual = main_to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert actual == test_command
+
+    expected_command = "start_stimulation" if test_status else "stop_stimulation"
+    assert actual == {"communication_type": "stimulation", "command": expected_command}
 
 
-def test_MantarrayProcessesMonitor__processes_set_protocol_command(
+def test_MantarrayProcessesMonitor__processes_set_protocols_command(
     test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
@@ -754,13 +763,13 @@ def test_MantarrayProcessesMonitor__processes_set_protocol_command(
 
     test_command = {
         "communication_type": "stimulation",
-        "command": "set_protocol",
-        "protocols": [None] * 24,
+        "command": "set_protocols",
+        "stim_info": {"protocols": [None] * 3, "protocol_assignments": {"dummy": "values"}},
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, server_to_main_queue)
 
     invoke_process_run_and_check_errors(monitor_thread)
-    assert shared_values_dict["stimulation_protocols"] == test_command["protocols"]
+    assert shared_values_dict["stimulation_info"] == test_command["stim_info"]
 
     confirm_queue_is_eventually_of_size(main_to_ic_queue, 1)
     actual = main_to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
