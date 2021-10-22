@@ -554,7 +554,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         data_packet_bytes = board.read(size=packet_size)
         # check that the expected number of bytes are read. Read function will never return more bytes than requested, but can return less bytes than requested if not enough are present before the read timeout
         if len(data_packet_bytes) < packet_size:
-            # TODO try reading one more time, then raise error
+            # Tanner (10/22/21): if problems with not enough bytes being read persist, then try reading one more time before raising error
             raise SerialCommNotEnoughAdditionalBytesReadError(
                 f"Expected Size: {packet_size}, Actual Size: {len(data_packet_bytes)}, {data_packet_bytes}"  # type: ignore
             )
@@ -885,7 +885,8 @@ class McCommunicationProcess(InstrumentCommProcess):
         if return_cond:
             return
 
-        # update performance tracking values  # TODO add stim packets to metrics
+        # TODO Tanner (10/22/21): add stim packet parsing to metrics once real stream is implemented
+        # update performance tracking values
         self._parses_since_last_logging[board_idx] += 1
         if self._timepoint_of_prev_data_parse_secs is None:
             self._timepoint_of_prev_data_parse_secs = perf_counter()

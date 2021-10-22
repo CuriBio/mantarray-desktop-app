@@ -899,7 +899,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_restarting_status_corr
     )
 
 
-def test_MantarrayMcSimulator__sends_protocol_status_with_finished_status_correctly(
+def test_MantarrayMcSimulator__sends_protocol_status_with_finished_status_correctly__and_stops_stim_on_the_finished_well(
     mantarray_mc_simulator_no_beacon, mocker
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
@@ -936,7 +936,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_finished_status_correc
         mc_simulator,
         "_get_us_since_subprotocol_start",
         autospec=True,
-        side_effect=[test_duration_us - 1, test_duration_us, 0],
+        side_effect=[test_duration_us - 1, test_duration_us, test_duration_us],
     )
 
     invoke_process_run_and_check_errors(simulator)
@@ -959,3 +959,6 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_finished_status_correc
         SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
         additional_bytes=additional_bytes,
     )
+
+    invoke_process_run_and_check_errors(simulator)
+    assert simulator.in_waiting == 0

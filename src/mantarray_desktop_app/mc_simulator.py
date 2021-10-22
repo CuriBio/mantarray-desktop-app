@@ -223,7 +223,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._sampling_period_us: int
         self._stim_info: Dict[str, Any]
         self._stim_running_statuses: Dict[str, bool]
-        self._timepoints_of_subprotocols_start: List[int]
+        self._timepoints_of_subprotocols_start: List[Optional[int]]
         self._stim_time_indices: List[int]
         self._stim_subprotocol_indices: List[int]
         self._handle_boot_up_config()
@@ -766,7 +766,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         for protocol_idx, protocol in enumerate(self._stim_info["protocols"]):
             start_timepoint = self._timepoints_of_subprotocols_start[protocol_idx]
             if start_timepoint is None:
-                raise NotImplementedError("start_timepoint of subprotocol should never be None here")
+                continue
             subprotocols = protocol["subprotocols"]
 
             if self._stim_subprotocol_indices[protocol_idx] == -1:
@@ -789,26 +789,41 @@ class MantarrayMcSimulator(InfiniteProcess):
                     + self._stim_time_indices[protocol_idx].to_bytes(8, byteorder="little")
                     + bytes([self._stim_subprotocol_indices[protocol_idx]])
                 )
+                protocol_complete = (
+                    self._stim_subprotocol_indices[protocol_idx] == 0 and curr_subprotocol_duration > 0
+                )
+                protocol_stopping = not protocol["run_until_stopped"] if protocol_complete else False
+                if protocol_complete:
+                    protocol_complete_status = (
+                        StimStatuses.FINISHED if protocol_stopping else StimStatuses.RESTARTING
+                    )
+                    protocol_complete_bytes = bytes([protocol_complete_status]) + status_bytes[1:]
+                    if protocol_stopping:
+                        # change subprotocol idx in status bytes
+                        protocol_complete_bytes = protocol_complete_bytes[:-1] + bytes(
+                            [STIM_COMPLETE_SUBPROTOCOL_IDX]
+                        )
+
                 for well_name, protocol_assigment in self._stim_info["protocol_assignments"].items():
                     if protocol_assigment != protocol_idx:
                         continue
-                    num_status_updates += 1  # increment for all statuses
                     module_id = convert_well_name_to_module_id(well_name)
-                    if self._stim_subprotocol_indices[protocol_idx] == 0 and curr_subprotocol_duration > 0:
-                        # TODO actually stop stim for this well
-                        protocol_finished = not protocol["run_until_stopped"]
-                        status = StimStatuses.FINISHED if protocol_finished else StimStatuses.RESTARTING
-                        packet_bytes += bytes([module_id, status]) + status_bytes[1:]
-                        if protocol_finished:
-                            # change subprotocol idx in status bytes
-                            packet_bytes = packet_bytes[:-1] + bytes([STIM_COMPLETE_SUBPROTOCOL_IDX])
-                            continue
-                        # if status is restarting, then need to add one more status update
+                    if protocol_complete:
+                        packet_bytes += bytes([module_id]) + protocol_complete_bytes
                         num_status_updates += 1
+                        if protocol_stopping:
+                            # change subprotocol idx in status bytes
+                            continue
                     packet_bytes += bytes([module_id]) + status_bytes
+                    num_status_updates += 1  # increment for all statuses
+                if protocol_stopping:
+                    self._timepoints_of_subprotocols_start[protocol_idx] = None
+                    continue
 
                 # update timepoints and durations for next iteration
-                self._timepoints_of_subprotocols_start[protocol_idx] += curr_subprotocol_duration
+                self._timepoints_of_subprotocols_start[  # type: ignore  # mypy doesn't understand that this value has already been checked to not be None
+                    protocol_idx
+                ] += curr_subprotocol_duration
                 dur_since_subprotocol_start -= curr_subprotocol_duration
                 curr_subprotocol_duration = subprotocols[self._stim_subprotocol_indices[protocol_idx]][
                     "total_active_duration"

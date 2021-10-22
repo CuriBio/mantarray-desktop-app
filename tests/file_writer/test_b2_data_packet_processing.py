@@ -119,8 +119,6 @@ def test_FileWriterProcess__passes_magnetometer_data_packet_through_to_output_qu
                 err_msg=f"Incorrect data for well {well_idx}, channel id {channel_id}",
             )
 
-    # update this test (see TODO in file_writer)
-
     # clean up
     fw_process.hard_stop()
     fw_process.join()

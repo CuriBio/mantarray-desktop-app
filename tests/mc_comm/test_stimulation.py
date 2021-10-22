@@ -404,7 +404,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
     # mock so protocol will complete in first iteration
-    mocked_get_us_subprotocol = mocker.patch.object(
+    mocker.patch.object(
         mc_simulator,
         "_get_us_since_subprotocol_start",
         autospec=True,
@@ -435,8 +435,6 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     assert msg_to_main["command"] == "status_update"
     assert set(msg_to_main["wells_done_stimulating"]) == set(test_well_indices)
 
-    # TODO Tanner: remove this value once simulator actually ends stim on wells that are done
-    mocked_get_us_subprotocol.return_value = 0
     # mock so no data packets are sent
     mocker.patch.object(
         mc_simulator,
@@ -453,7 +451,6 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
 def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument__data_stream_begins_in_middle_of_protocol(
     four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
 ):
-    # TODO get this test passing after buffer is implemented (this test shouldn't need any changes)
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     input_queue, to_main_queue, to_fw_queue = four_board_mc_comm_process_no_handshake["board_queues"][0]
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
