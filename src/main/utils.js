@@ -41,7 +41,6 @@ const create_store = function ({
       beta_2_mode: false,
     },
   });
-  store.set("beta_2_mode", false); // Tanner (9/13/21): temporarily overriding this value since beta 2 mode is not ready yet but a patch release is needed
   store.set("customer_account_ids", {
     "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
   });
@@ -82,16 +81,18 @@ const generate_flask_command_line_args = function (electron_store) {
   mkdirp.sync(zipped_recording_dir_path);
   mkdirp.sync(failed_uploads_dir_path);
 
-  const settings_to_supply = { recording_directory: recording_directory_path };
+  const stored_customer_ids = electron_store.get("customer_account_ids");
+  const settings_to_supply = {
+    recording_directory: recording_directory_path,
+    stored_customer_ids,
+  };
 
-  const customer_account_ids = electron_store.get("customer_account_ids");
   // if (customer_account_ids.length > 0) {
   //   const active_customer_account = customer_account_ids[0];
   //   settings_to_supply.customer_account_uuid = active_customer_account.uuid;
   //   settings_to_supply.user_account_uuid =
   //     active_customer_account.user_account_ids[0].uuid;
   // }
-  args.push("--stored-customer-ids=" + JSON.stringify(customer_account_ids));
 
   const settings_to_supply_json_str = JSON.stringify(settings_to_supply);
   const settings_to_supply_buf = Buffer.from(

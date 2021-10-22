@@ -170,10 +170,6 @@ def main(
         choices=["no_flask", "no_subprocesses"],
         help="indicate how much of the main script should not be started",
     )
-    parser.add_argument(
-        "--stored-customer-ids",
-        help="provides stored customer account credentials",
-    )
     parsed_args = parser.parse_args(command_line_args)
 
     if parsed_args.beta_2_mode:
@@ -232,7 +228,9 @@ def main(
         # Eli (7/15/20): Moved this ahead of the exit for debug_test_post_build so that it could be easily unit tested. The equals signs are adding padding..apparently a quirk in python https://stackoverflow.com/questions/2941995/python-ignore-incorrect-padding-error-when-base64-decoding
         decoded_settings: bytes = base64.urlsafe_b64decode(str(parsed_args.initial_base64_settings) + "===")
         settings_dict = json.loads(decoded_settings)
-        validate_settings(settings_dict)
+        shared_values_dict["stored_customer_ids"] = settings_dict["stored_customer_ids"]
+        recording_dict = {"recording_directory": settings_dict["recording_directory"]}
+        validate_settings(recording_dict)
 
     if parsed_args.expected_software_version:
         if not parsed_args.skip_software_version_verification:
@@ -240,8 +238,6 @@ def main(
 
     log_file_uuid = settings_dict.get("log_file_uuid", uuid.uuid4())
     shared_values_dict["log_file_uuid"] = log_file_uuid
-
-    shared_values_dict["stored_customer_ids"] = parsed_args.stored_customer_ids
 
     computer_name_hash = hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).hexdigest()
     shared_values_dict["computer_name_hash"] = computer_name_hash
@@ -271,8 +267,8 @@ def main(
     if is_port_in_use(_server_port_number):
         raise LocalServerPortAlreadyInUseError(_server_port_number)
 
-    if settings_dict:
-        update_shared_dict(shared_values_dict, convert_request_args_to_config_dict(settings_dict))
+    if recording_dict:
+        update_shared_dict(shared_values_dict, convert_request_args_to_config_dict(recording_dict))
     _log_system_info()
     logger.info("Spawning subprocesses")
 

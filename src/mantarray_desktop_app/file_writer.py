@@ -274,8 +274,7 @@ class FileWriterProcess(InfiniteProcess):
                     "All queues must be standard multiprocessing queues to start this process"
                 )
 
-        if self._shared_values_dict is not None:
-            self._process_failed_uploads_on_start()
+        self._process_failed_uploads_on_start()
 
         super().start()
 
