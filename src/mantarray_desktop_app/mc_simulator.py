@@ -795,16 +795,13 @@ class MantarrayMcSimulator(InfiniteProcess):
                     num_status_updates += 1  # increment for all statuses
                     module_id = convert_well_name_to_module_id(well_name)
                     if self._stim_subprotocol_indices[protocol_idx] == 0 and curr_subprotocol_duration > 0:
-                        protocol_finished = not protocol[
-                            "run_until_stopped"
-                        ]  # TODO actually stop stim for this well
+                        # TODO actually stop stim for this well
+                        protocol_finished = not protocol["run_until_stopped"]
                         status = StimStatuses.FINISHED if protocol_finished else StimStatuses.RESTARTING
                         packet_bytes += bytes([module_id, status]) + status_bytes[1:]
                         if protocol_finished:
                             # change subprotocol idx in status bytes
-                            packet_bytes = packet_bytes[:-1] + bytes(
-                                [STIM_COMPLETE_SUBPROTOCOL_IDX]
-                            )  # TODO make this a constant
+                            packet_bytes = packet_bytes[:-1] + bytes([STIM_COMPLETE_SUBPROTOCOL_IDX])
                             continue
                         # if status is restarting, then need to add one more status update
                         num_status_updates += 1

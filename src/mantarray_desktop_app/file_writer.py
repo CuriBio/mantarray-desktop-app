@@ -723,17 +723,18 @@ class FileWriterProcess(InfiniteProcess):
                 self.get_logging_level(),
             )
 
+        board_idx = 0
+
         if self._beta_2_mode and data_packet["is_first_packet_of_stream"]:
-            self._end_of_data_stream_reached[0] = False
-            self._data_packet_buffers[0].clear()
-        if not self._end_of_data_stream_reached[0]:
-            self._data_packet_buffers[0].append(data_packet)
-            # TODO unit test the next two lines
-            output_queue = self._board_queues[0][1]
+            self._end_of_data_stream_reached[board_idx] = False
+            self._data_packet_buffers[board_idx].clear()
+        if not self._end_of_data_stream_reached[board_idx]:
+            self._data_packet_buffers[board_idx].append(data_packet)
+            output_queue = self._board_queues[board_idx][1]
             output_queue.put_nowait(data_packet)
 
         # Tanner (5/17/21): This code was not previously guarded by this if statement. If issues start occurring with recorded data or performance metrics, check here first
-        if self._is_recording or self._board_has_open_files(0):
+        if self._is_recording or self._board_has_open_files(board_idx):
             if self._beta_2_mode:
                 self._num_recorded_points.append(data_packet["time_indices"].shape[0])
             else:
@@ -761,7 +762,7 @@ class FileWriterProcess(InfiniteProcess):
     def _process_beta_2_data_packet(self, data_packet: Dict[Union[str, int], Any]) -> None:
         """Process a Beta 2 data packet for a file that is known to be open."""
         board_idx = 0
-        this_start_recording_timestamps = self._start_recording_timestamps[0]
+        this_start_recording_timestamps = self._start_recording_timestamps[board_idx]
         if this_start_recording_timestamps is None:  # check needed for mypy to be happy
             raise NotImplementedError("Something wrong in the code. This should never be none.")
 
@@ -770,12 +771,12 @@ class FileWriterProcess(InfiniteProcess):
         if time_indices[-1] < timepoint_to_start_recording_at:
             return
         is_final_packet = False
-        stop_recording_timestamp = self.get_stop_recording_timestamps()[0]
+        stop_recording_timestamp = self.get_stop_recording_timestamps()[board_idx]
         if stop_recording_timestamp is not None:
             is_final_packet = time_indices[-1] >= stop_recording_timestamp
             if is_final_packet:
                 for well_idx in self._open_files[board_idx].keys():
-                    self._tissue_data_finalized_for_recording[0][well_idx] = True
+                    self._tissue_data_finalized_for_recording[board_idx][well_idx] = True
             if time_indices[0] >= stop_recording_timestamp:
                 return
 
@@ -881,16 +882,16 @@ class FileWriterProcess(InfiniteProcess):
         self._latest_data_timepoints[0][this_well_idx] = last_timepoint_of_new_data
 
     def _process_stim_data_packet(self, stim_packet: Dict[Any, Any]) -> None:
+        board_idx = 0
         if stim_packet["is_first_packet_of_stream"]:
-            self._end_of_stim_stream_reached[0] = False
+            self._end_of_stim_stream_reached[board_idx] = False
             self._clear_stim_data_buffers()
-        if not self._end_of_stim_stream_reached[0]:
+        if not self._end_of_stim_stream_reached[board_idx]:
             self.append_to_stim_data_buffers(stim_packet["well_statuses"])
-            # TODO add unit test for passing stim packets through to output queue
-            # output_queue = self._board_queues[0][1]
-            # output_queue.put_nowait(stim_packet)
+            output_queue = self._board_queues[board_idx][1]
+            output_queue.put_nowait(stim_packet)
 
-        if self._is_recording or self._board_has_open_files(0):
+        if self._is_recording or self._board_has_open_files(board_idx):
             # TODO Tanner (10/21/21): once real stim traces are sent from instrument, add performance metrics
             for well_idx, well_statuses in stim_packet["well_statuses"].items():
                 self._handle_recording_of_stim_statuses(well_idx, well_statuses)
@@ -899,9 +900,15 @@ class FileWriterProcess(InfiniteProcess):
         self, well_idx: int, stim_data_arr: NDArray[(2, Any), int]
     ) -> None:
         board_idx = 0
+        if well_idx not in self._open_files[board_idx]:
+            return
         this_start_recording_timestamps = self._start_recording_timestamps[board_idx]
         if this_start_recording_timestamps is None:  # check needed for mypy to be happy
             raise NotImplementedError("Something wrong in the code. This should never be none.")
+
+        stop_recording_timestamp = self.get_stop_recording_timestamps()[board_idx]
+        if stop_recording_timestamp is not None and stim_data_arr[0, 0] >= stop_recording_timestamp:
+            return
 
         earliest_magnetometer_time_idx = this_start_recording_timestamps[1]
         earliest_valid_index = _find_earliest_valid_stim_status_index(
@@ -911,7 +918,7 @@ class FileWriterProcess(InfiniteProcess):
         if earliest_valid_index == -1:
             return
         stim_data_arr = stim_data_arr[:, earliest_valid_index:]
-
+        # update dataset in h5 file
         this_well_file = self._open_files[board_idx][well_idx]
         stimulation_dataset = get_stimulation_dataset_from_file(this_well_file)
         previous_data_size = stimulation_dataset.shape[1]
@@ -971,9 +978,7 @@ class FileWriterProcess(InfiniteProcess):
             well_buffers[1].clear()
 
     def _handle_performance_logging(self) -> None:
-        performance_metrics: Dict[str, Any] = {
-            "communication_type": "performance_metrics",
-        }
+        performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}
         performance_tracker = self.reset_performance_tracker()
         performance_metrics["percent_use"] = performance_tracker["percent_use"]
         performance_metrics["longest_iterations"] = sorted(performance_tracker["longest_iterations"])
