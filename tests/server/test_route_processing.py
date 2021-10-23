@@ -946,9 +946,9 @@ def test_update_settings__stores_values_in_shared_values_dict__and_recordings_fo
         assert response.status_code == 200
         invoke_process_run_and_check_errors(monitor_thread)
 
-        assert shared_values_dict["config_settings"]["Customer Account ID"] == expected_customer_uuid
-        assert shared_values_dict["config_settings"]["Recording Directory"] == expected_recordings_dir
-        assert shared_values_dict["config_settings"]["User Account ID"] == expected_user_uuid
+        assert shared_values_dict["config_settings"]["customer_account_id"] == expected_customer_uuid
+        assert shared_values_dict["config_settings"]["recording_directory"] == expected_recordings_dir
+        assert shared_values_dict["config_settings"]["user_account_id"] == expected_user_uuid
         assert test_process_manager.get_file_directory() == expected_recordings_dir
 
         scrubbed_recordings_dir = redact_sensitive_info_from_path(expected_recordings_dir)
@@ -973,8 +973,8 @@ def test_update_settings__replaces_only_new_values_in_shared_values_dict(
     expected_passkey = "filler_password"
 
     shared_values_dict["config_settings"] = {
-        "Customer Account ID": "2dc06596-9cea-46a2-9ddd-a0d8a0f13584",
-        "Customer Passkey": "other_password",
+        "customer_account_id": "2dc06596-9cea-46a2-9ddd-a0d8a0f13584",
+        "customer_pass_key": "other_password",
     }
 
     response = test_client.get(
@@ -983,8 +983,8 @@ def test_update_settings__replaces_only_new_values_in_shared_values_dict(
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
 
-    assert shared_values_dict["config_settings"]["Customer Account ID"] == expected_customer_uuid
-    assert shared_values_dict["config_settings"]["Customer Passkey"] == expected_passkey
+    assert shared_values_dict["config_settings"]["customer_account_id"] == expected_customer_uuid
+    assert shared_values_dict["config_settings"]["customer_pass_key"] == expected_passkey
 
 
 def test_update_settings__returns_boolean_values_for_auto_upload_delete_values(
@@ -994,16 +994,16 @@ def test_update_settings__returns_boolean_values_for_auto_upload_delete_values(
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
     shared_values_dict["config_settings"] = {
-        "Auto Upload On Completion": True,
-        "Auto Delete Local Files": False,
+        "auto_upload_on_completion": True,
+        "auto_delete_local_files": False,
     }
 
     response = test_client.get("/update_settings?auto_upload=false&auto_delete=true")
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
 
-    assert shared_values_dict["config_settings"]["Auto Upload On Completion"] is False
-    assert shared_values_dict["config_settings"]["Auto Delete Local Files"] is True
+    assert shared_values_dict["config_settings"]["auto_upload_on_completion"] is False
+    assert shared_values_dict["config_settings"]["auto_delete_local_files"] is True
 
 
 def test_single_update_settings_command_with_recording_dir__gets_processed_by_FileWriter(

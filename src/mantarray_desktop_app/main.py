@@ -74,7 +74,7 @@ def _create_process_manager(shared_values_dict: Dict[str, Any]) -> MantarrayProc
     base_path = os.path.join(get_current_file_abs_directory(), os.pardir, os.pardir)
     relative_path = "recordings"
     try:
-        file_dir = shared_values_dict["config_settings"]["Recording Directory"]
+        file_dir = shared_values_dict["config_settings"]["recording_directory"]
     except KeyError:
         file_dir = resource_path(relative_path, base_path=base_path)
 

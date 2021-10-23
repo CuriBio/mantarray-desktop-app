@@ -159,13 +159,18 @@ def test_FileWriterProcess__correctly_updates_customer_settings_and_responds_to_
 
 def test_FileWriterProcess__correctly_handles_when_file_upload_fails(four_board_file_writer_process, mocker):
     file_writer_process = four_board_file_writer_process["fw_process"]
-    spied_failed_upload_function = mocker.spy(file_writer_process, "_handle_failed_upload")
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
+    spied_failed_upload_function = mocker.spy(file_writer_process, "_process_failed_uploads")
 
     mocker.patch.object(file_writer_process, "_is_finalizing_files_after_recording", autospec=True)
     mocker.patch.object(file_writer_process, "_process_next_command_from_main", autospec=True)
     mocker.patch.object(file_writer_process, "_process_next_data_packet", autospec=True)
     mocker.patch.object(file_writer_process, "_update_data_packet_buffers", autospec=True)
     mocker.patch.object(file_writer_process, "_finalize_completed_files", autospec=True)
+
+    this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
 
     file_writer_process._commands_for_each_run_iteration()
     spied_failed_upload_function.assert_called_once()
@@ -198,11 +203,14 @@ def test_FileWriterProcess__correctly_handles_when_file_successfully_loads(
     mocker.patch.object(file_writer_process, "_finalize_completed_files", autospec=True)
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(update_command, from_main_queue)
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
-
     invoke_process_run_and_check_errors(file_writer_process)
-    # file_writer_process._commands_for_each_run_iteration()
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
+    invoke_process_run_and_check_errors(file_writer_process)
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
+    invoke_process_run_and_check_errors(file_writer_process)
+
     uploader_spy.assert_called_with({})
     spied_failed_upload_function.assert_called_once()
 

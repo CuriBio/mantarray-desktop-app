@@ -362,17 +362,17 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     original_id = UUID("e623b13c-05a5-41f2-8526-c2eba8e78e7f")
     new_id = UUID("e7744225-c41c-4bd5-9e32-e79716cc8f40")
     shared_values_dict["config_settings"] = dict()
-    shared_values_dict["config_settings"]["User Account ID"] = original_id
+    shared_values_dict["config_settings"]["user_account_id"] = original_id
     communication = {
         "communication_type": "update_customer_settings",
-        "content": {"config_settings": {"User Account ID": new_id}},
+        "content": {"config_settings": {"user_account_id": new_id}},
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
 
     assert (
-        test_process_manager.get_values_to_share_to_server()["config_settings"]["User Account ID"] == new_id
+        test_process_manager.get_values_to_share_to_server()["config_settings"]["user_account_id"] == new_id
     )
 
 
@@ -389,7 +389,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         communication = {
             "communication_type": "update_customer_settings",
-            "content": {"config_settings": {"Recording Directory": expected_recordings_dir}},
+            "content": {"config_settings": {"recording_directory": expected_recordings_dir}},
         }
 
         put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)

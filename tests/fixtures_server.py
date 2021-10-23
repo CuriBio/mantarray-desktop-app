@@ -78,8 +78,8 @@ def put_generic_beta_1_start_recording_info_in_dict(shared_values_dict):
     ]
     shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [timestamp]
     shared_values_dict["config_settings"] = {
-        "Customer Account ID": CURI_BIO_ACCOUNT_UUID,
-        "User Account ID": CURI_BIO_USER_ACCOUNT_ID,
+        "customer_account_id": CURI_BIO_ACCOUNT_UUID,
+        "user_account_id": CURI_BIO_USER_ACCOUNT_ID,
     }
     shared_values_dict["adc_gain"] = 32
     shared_values_dict["adc_offsets"] = dict()
@@ -119,8 +119,8 @@ def put_generic_beta_2_start_recording_info_in_dict(shared_values_dict):
     ]
     shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [timestamp]
     shared_values_dict["config_settings"] = {
-        "Customer Account ID": CURI_BIO_ACCOUNT_UUID,
-        "User Account ID": CURI_BIO_USER_ACCOUNT_ID,
+        "customer_account_id": CURI_BIO_ACCOUNT_UUID,
+        "user_account_id": CURI_BIO_USER_ACCOUNT_ID,
     }
     shared_values_dict["main_firmware_version"] = {board_idx: MantarrayMcSimulator.default_firmware_version}
     shared_values_dict["mantarray_serial_number"] = {

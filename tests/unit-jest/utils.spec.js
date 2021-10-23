@@ -96,7 +96,7 @@ describe("utils.js", () => {
             ])
           );
         });
-        test("Given the store has a customer and user account ID, When the function is invoked, Then the returned --initial-base64-settings encoded settings argument contains the current user account and customer account IDs from the store and the recording directory", () => {
+        test("Given the store has a customer and user_account_id, When the function is invoked, Then the returned --initial-base64-settings encoded settings argument contains the current user account and customer_account_ids from the store and the recording directory", () => {
           const id_list = store.get("customer_account_ids");
           id_list.push(generic_id_info);
           store.set("customer_account_ids", id_list);
@@ -159,7 +159,7 @@ describe("utils.js", () => {
           const actual_value = store.get(the_key);
           expect(actual_value).toStrictEqual(expected_value);
         });
-        test("When for customer account ids and account ID index and user ID index are accessed, Then they return the default value of an empty list", () => {
+        test("When for customer_account_ids and account ID index and user ID index are accessed, Then they return the default value of an empty list", () => {
           let actual_value = store.get("customer_account_ids");
           expect(actual_value).toStrictEqual([]);
           actual_value = store.get("active_customer_account_index");
@@ -167,7 +167,7 @@ describe("utils.js", () => {
           actual_value = store.get("active_user_account_index");
           expect(actual_value).toStrictEqual(0);
         });
-        test("When a customer account ID is added, Then a new store instance can load it", () => {
+        test("When a customer_account_id is added, Then a new store instance can load it", () => {
           const id_list = store.get("customer_account_ids");
           id_list.push(generic_id_info);
           store.set("customer_account_ids", id_list);

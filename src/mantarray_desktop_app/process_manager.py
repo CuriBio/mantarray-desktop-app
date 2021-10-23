@@ -92,6 +92,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         self._queue_container = queue_container
 
         beta_2_mode = self._values_to_share_to_server["beta_2_mode"]
+        stored_customer_ids = self._values_to_share_to_server["stored_customer_ids"]
 
         self._server_manager = ServerManager(
             queue_container.get_communication_queue_from_server_to_main(),
@@ -116,7 +117,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             file_directory=self._file_directory,
             logging_level=self._logging_level,
             beta_2_mode=beta_2_mode,
-            shared_values_dict=self._values_to_share_to_server,
+            stored_customer_ids=stored_customer_ids,
         )
 
         self._data_analyzer_process = DataAnalyzerProcess(

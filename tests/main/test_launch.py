@@ -17,7 +17,6 @@ import uuid
 from freezegun import freeze_time
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
-from mantarray_desktop_app import FileWriterProcess
 from mantarray_desktop_app import get_api_endpoint
 from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import get_server_port_number
@@ -178,7 +177,6 @@ def test_main_configures_logging(mocker):
 def test_main__logs_system_info__and_software_version_at_very_start(
     mocker,
 ):
-    mocker.patch.object(FileWriterProcess, "_process_failed_uploads_on_start", autospec=True)
 
     spied_info_logger = mocker.spy(main.logger, "info")
     expected_uuid = "c7d3e956-cfc3-42df-94d9-b3a19cf1529c"
@@ -437,9 +435,9 @@ def test_main__stores_values_from_command_line_arguments(mocker, fully_running_a
         shared_values_dict = app_info["object_access_inside_main"]["values_to_share_to_server"]
         assert shared_values_dict["beta_2_mode"] is False
         actual_config_settings = shared_values_dict["config_settings"]
-        # assert actual_config_settings["Customer Account ID"] == "14b9294a-9efb-47dd-a06e-8247e982e196"
-        assert actual_config_settings["Recording Directory"] == expected_recordings_dir
-        assert actual_config_settings["User Account ID"] == "0288efbc-7705-4946-8815-02701193f766"
+        # assert actual_config_settings["customer_account_id"] == "14b9294a-9efb-47dd-a06e-8247e982e196"
+        assert actual_config_settings["recording_directory"] == expected_recordings_dir
+        assert actual_config_settings["user_account_id"] == "0288efbc-7705-4946-8815-02701193f766"
         assert shared_values_dict["log_file_uuid"] == "91dbb151-0867-44da-a595-bd303f91927d"
         assert shared_values_dict["stored_customer_ids"] == {
             "customer_account_uuid": "14b9294a-9efb-47dd-a06e-8247e982e196"
@@ -456,7 +454,6 @@ def test_main__generates_log_file_uuid_if_none_passed_in_cmd_line_args(
     expected_log_file_uuid = uuid.UUID("ab2e730b-8be5-440b-81f8-b268c7fb3584")
     mocker.patch.object(uuid, "uuid4", autospec=True, return_value=expected_log_file_uuid)
 
-    mocker.patch.object(FileWriterProcess, "_process_failed_uploads_on_start", autospec=True)
     test_dict = {
         "stored_customer_ids": {"customer_account_uuid": "14b9294a-9efb-47dd-a06e-8247e982e196"},
         "user_account_uuid": "0288efbc-7705-4946-8815-02701193f766",

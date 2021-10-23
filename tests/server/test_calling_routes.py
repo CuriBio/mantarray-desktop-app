@@ -366,11 +366,11 @@ def test_start_recording__returns_error_code_and_message_if_user_account_id_not_
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
-    shared_values_dict["config_settings"]["User Account ID"] = ""
+    shared_values_dict["config_settings"]["user_account_id"] = ""
 
     response = test_client.get("/start_recording?barcode=MA200440001")
     assert response.status_code == 406
-    assert response.status.endswith("User Account ID has not yet been set") is True
+    assert response.status.endswith("user_account_id has not yet been set") is True
 
 
 def test_start_recording__returns_error_code_and_message_if_customer_account_id_not_set(
@@ -378,11 +378,11 @@ def test_start_recording__returns_error_code_and_message_if_customer_account_id_
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
-    shared_values_dict["config_settings"]["Customer Account ID"] = ""
+    shared_values_dict["config_settings"]["customer_account_id"] = ""
 
     response = test_client.get("/start_recording?barcode=MA200440001")
     assert response.status_code == 406
-    assert response.status.endswith("Customer Account ID has not yet been set") is True
+    assert response.status.endswith("customer_account_id has not yet been set") is True
 
 
 def test_start_recording__returns_error_code_and_message_if_barcode_is_not_given(

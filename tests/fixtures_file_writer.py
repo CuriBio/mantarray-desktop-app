@@ -145,10 +145,10 @@ GENERIC_STOP_RECORDING_COMMAND: Dict[str, Any] = {
 GENERIC_UPDATE_CUSTOMER_SETTINGS: Dict[str, Any] = {
     "command": "update_customer_settings",
     "config_settings": {
-        "Customer Account ID": "test_customer_id",
-        "Customer Passkey": "test_password",
-        "Auto Upload On Completion": True,
-        "Auto Delete Local Files": True,
+        "customer_account_id": "test_customer_id",
+        "customer_pass_key": "test_password",
+        "auto_upload_on_completion": True,
+        "auto_delete_local_files": True,
     },
 }
 
@@ -234,7 +234,7 @@ def fixture_four_board_file_writer_process():
             to_main,
             error_queue,
             file_directory=tmp_dir,
-            shared_values_dict={"stored_customer_ids": {}},
+            stored_customer_ids=dict(),
         )
         fw_items_dict = {
             "fw_process": fw_process,

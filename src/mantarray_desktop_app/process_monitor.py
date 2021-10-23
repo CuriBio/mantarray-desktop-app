@@ -181,7 +181,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 )
                 process_manager.set_file_directory(new_recording_directory)
 
-            if "Customer Account ID" in new_values["config_settings"]:
+            if "customer_account_id" in new_values["config_settings"]:
                 to_file_writer_queue = (
                     process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
                 )

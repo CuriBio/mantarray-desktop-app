@@ -93,28 +93,21 @@ def convert_request_args_to_config_dict(request_args: Dict[str, Any]) -> Dict[st
         if customer_account_uuid == "curi":
             customer_account_uuid = str(CURI_BIO_ACCOUNT_UUID)
             user_account_uuid = str(CURI_BIO_USER_ACCOUNT_ID)
-        out_dict["config_settings"]["Customer Account ID"] = customer_account_uuid
+        out_dict["config_settings"]["customer_account_id"] = customer_account_uuid
     if customer_pass_key is not None:
-        out_dict["config_settings"]["Customer Passkey"] = customer_pass_key
+        out_dict["config_settings"]["customer_pass_key"] = customer_pass_key
     if user_account_uuid is not None:
-        out_dict["config_settings"]["User Account ID"] = user_account_uuid
+        out_dict["config_settings"]["user_account_id"] = user_account_uuid
     if recording_directory is not None:
-        out_dict["config_settings"]["Recording Directory"] = recording_directory
+        out_dict["config_settings"]["recording_directory"] = recording_directory
     if auto_upload_on_completion is not None:
-        auto_upload_bool = convert_to_boolean(auto_upload_on_completion)
-        out_dict["config_settings"]["Auto Upload On Completion"] = auto_upload_bool
+        auto_upload_bool = auto_upload_on_completion.lower() == "true"
+        out_dict["config_settings"]["auto_upload_on_completion"] = auto_upload_bool
     if auto_delete_local_files is not None:
-        auto_delete_bool = convert_to_boolean(auto_delete_local_files)
-        out_dict["config_settings"]["Auto Delete Local Files"] = auto_delete_bool
+        auto_delete_bool = auto_delete_local_files.lower() == "true"
+        out_dict["config_settings"]["auto_delete_local_files"] = auto_delete_bool
 
     return out_dict
-
-
-def convert_to_boolean(input: str) -> bool:
-    if input == "true":
-        return True
-    else:
-        return False
 
 
 def attempt_to_get_recording_directory_from_new_dict(  # pylint:disable=invalid-name # Eli (12/8/20) I know this is a long name, can try and shorten later
@@ -122,7 +115,7 @@ def attempt_to_get_recording_directory_from_new_dict(  # pylint:disable=invalid-
 ) -> Optional[str]:
     """Attempt to get the recording directory from the dict of new values."""
     try:
-        directory = new_dict["config_settings"]["Recording Directory"]
+        directory = new_dict["config_settings"]["recording_directory"]
     except KeyError:
         return None
     if not isinstance(directory, str):

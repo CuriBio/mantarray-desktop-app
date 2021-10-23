@@ -6,7 +6,7 @@ Custom HTTP Error Codes:
 * 304 - Call to /set_stim_status with the current stim status (no updates will be made to status)
 * 400 - Call to /start_recording with invalid or missing barcode parameter
 * 400 - Call to /set_mantarray_nickname with invalid nickname parameter
-* 400 - Call to /update_settings with unexpected argument, invalid account UUID, or a recording directory that doesn't exist
+* 400 - Call to /update_settings with unexpected argument, invalid account UUID, or a recording_directory that doesn't exist
 * 400 - Call to /insert_xem_command_into_queue/set_mantarray_serial_number with invalid serial_number parameter
 * 400 - Call to /set_magnetometer_config with invalid configuration dict
 * 400 - Call to /set_magnetometer_config with invalid or missing sampling period
@@ -643,11 +643,11 @@ def start_recording() -> Response:
 
     shared_values_dict = _get_values_from_process_monitor()
 
-    if not shared_values_dict["config_settings"]["Customer Account ID"]:
-        response = Response(status="406 Customer Account ID has not yet been set")
+    if not shared_values_dict["config_settings"]["customer_account_id"]:
+        response = Response(status="406 customer_account_id has not yet been set")
         return response
-    if not shared_values_dict["config_settings"]["User Account ID"]:
-        response = Response(status="406 User Account ID has not yet been set")
+    if not shared_values_dict["config_settings"]["user_account_id"]:
+        response = Response(status="406 user_account_id has not yet been set")
         return response
 
     is_hardware_test_recording = request.args.get("is_hardware_test_recording", True)
@@ -687,8 +687,8 @@ def start_recording() -> Response:
             UTC_BEGINNING_DATA_ACQUISTION_UUID: timestamp_of_sample_idx_zero,
             START_RECORDING_TIME_INDEX_UUID: begin_timepoint,
             UTC_BEGINNING_RECORDING_UUID: timestamp_of_begin_recording,
-            CUSTOMER_ACCOUNT_ID_UUID: shared_values_dict["config_settings"]["Customer Account ID"],
-            USER_ACCOUNT_ID_UUID: shared_values_dict["config_settings"]["User Account ID"],
+            CUSTOMER_ACCOUNT_ID_UUID: shared_values_dict["config_settings"]["customer_account_id"],
+            USER_ACCOUNT_ID_UUID: shared_values_dict["config_settings"]["user_account_id"],
             SOFTWARE_BUILD_NUMBER_UUID: COMPILED_EXE_BUILD_TIMESTAMP,
             SOFTWARE_RELEASE_VERSION_UUID: CURRENT_SOFTWARE_VERSION,
             MAIN_FIRMWARE_VERSION_UUID: shared_values_dict["main_firmware_version"][board_idx],

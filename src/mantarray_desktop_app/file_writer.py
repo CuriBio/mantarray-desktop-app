@@ -214,7 +214,7 @@ class FileWriterProcess(InfiniteProcess):
         fatal_error_reporter: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
             Tuple[Exception, str]
         ],
-        shared_values_dict: Optional[Dict[str, Any]] = None,
+        stored_customer_ids: Optional[Dict[str, Any]] = None,
         file_directory: str = "",
         logging_level: int = logging.INFO,
         beta_2_mode: bool = False,
@@ -224,7 +224,7 @@ class FileWriterProcess(InfiniteProcess):
         self._from_main_queue = from_main_queue
         self._to_main_queue = to_main_queue
         self._file_directory = file_directory
-        self._shared_values_dict: Optional[Dict[str, Any]] = shared_values_dict
+        self._stored_customer_ids: Optional[Dict[str, Any]] = stored_customer_ids
         self._open_files: Tuple[
             Dict[int, h5py._hl.files.File],
             ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
@@ -254,10 +254,7 @@ class FileWriterProcess(InfiniteProcess):
         self._num_recorded_points: List[int] = list()
         self._recording_durations: List[float] = list()
         self._beta_2_mode = beta_2_mode
-        self._customer_account_uuid: str = ""
-        self._customer_pass_key: str = ""
-        self._auto_upload_on_completion: bool = True
-        self._auto_delete_local_files: bool = False
+        self._customer_settings: Dict[str, Any] = dict()
         self._sub_dir_name: str = ""
         self._upload_status: Optional[str] = ""
 
@@ -273,9 +270,6 @@ class FileWriterProcess(InfiniteProcess):
                 raise NotImplementedError(
                     "All queues must be standard multiprocessing queues to start this process"
                 )
-
-        self._process_failed_uploads_on_start()
-
         super().start()
 
     def get_recording_finalization_statuses(
@@ -318,6 +312,11 @@ class FileWriterProcess(InfiniteProcess):
     def _is_finalizing_files_after_recording(self) -> bool:
         return self._board_has_open_files(0) and not self._is_recording
 
+    def _setup_before_loop(self) -> None:
+        super()._setup_before_loop()
+        if self._stored_customer_ids is not None:
+            self._process_failed_uploads_on_start()
+
     def _teardown_after_loop(self) -> None:
         to_main_queue = self._to_main_queue
         msg = f"File Writer Process beginning teardown at {_get_formatted_utc_now()}"
@@ -346,29 +345,8 @@ class FileWriterProcess(InfiniteProcess):
         self._process_next_data_packet()
         self._update_data_packet_buffers()
         self._finalize_completed_files()
-        if self._auto_upload_on_completion and self._customer_account_uuid != "":
-            upload_thread = ErrorCatchingThread(
-                target=uploader,
-                args=(
-                    self._file_directory,
-                    self._sub_dir_name,
-                    self._customer_account_uuid,
-                    self._customer_pass_key,
-                ),
-            )
-            upload_thread.start()
-            upload_thread.join()
-            if upload_thread.error:
-                self._handle_failed_upload()
-                self._upload_status = "upload failed"
-            else:
-                self._upload_status = upload_thread.result
-                if self._auto_delete_local_files:
-                    self._delete_local_files()
-
-        if self._auto_delete_local_files and not self._auto_upload_on_completion:
-            self._delete_local_files()
-
+        if self._customer_settings:
+            self._process_file_uploads()
         self._iterations_since_last_logging += 1
         if self._iterations_since_last_logging >= FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES:
             self._handle_performance_logging()
@@ -645,11 +623,7 @@ class FileWriterProcess(InfiniteProcess):
                 }
             )
         elif command == "update_customer_settings":
-            self._auto_upload_on_completion = communication["config_settings"]["Auto Upload On Completion"]
-            self._auto_delete_local_files = communication["config_settings"]["Auto Delete Local Files"]
-
-            self._customer_account_uuid = communication["config_settings"]["Customer Account ID"]
-            self._customer_pass_key = communication["config_settings"]["Customer Passkey"]
+            self._customer_settings = communication["config_settings"]
 
             to_main.put_nowait(
                 {
@@ -896,7 +870,45 @@ class FileWriterProcess(InfiniteProcess):
             self.get_logging_level(),
         )
 
+    def _process_file_uploads(self) -> None:
+        """Upload file recordings to the cloud.
+
+        Processes upload thread and if successful, the upload status
+        will get updated and will delete local files if set to true. If
+        unsuccessful, the file will get placed in failed_uploads
+        directory to process later.
+        """
+        auto_upload = self._customer_settings["auto_upload_on_completion"]
+        auto_delete = self._customer_settings["auto_delete_local_files"]
+
+        if auto_upload:
+            upload_thread = ErrorCatchingThread(
+                target=uploader,
+                args=(
+                    self._file_directory,
+                    self._sub_dir_name,
+                    self._customer_settings["customer_account_id"],
+                    self._customer_settings["customer_pass_key"],
+                ),
+            )
+            upload_thread.start()
+            upload_thread.join()
+            if upload_thread.error:
+                self._process_failed_uploads()
+                self._upload_status = "upload failed"
+            else:
+                self._upload_status = upload_thread.result
+                if auto_delete:
+                    self._delete_local_files()
+
+        if auto_delete and not auto_upload:
+            self._delete_local_files()
+
     def _delete_local_files(self) -> None:
+        """Call after upload if true.
+
+        Deletes entire recording directory and relating .zip files.
+        """
         file_folder_dir = os.path.join(os.path.abspath(self._file_directory), self._sub_dir_name)
         zipped_file_path = os.path.join(
             os.path.abspath(self._file_directory), "zipped_recordings", f"{self._sub_dir_name}.zip"
@@ -909,35 +921,52 @@ class FileWriterProcess(InfiniteProcess):
         if os.path.exists(zipped_file_path):
             os.remove(zipped_file_path)
 
-    def _handle_failed_upload(self) -> None:
+    def _process_failed_uploads(self) -> None:
+        """Call when a file upload errors.
 
+        If none exists, creates customer directory in failed_uploads to
+        place failed .zip files to process next start.
+        """
+        customer_account_id = self._customer_settings["customer_account_id"]
         if not os.path.exists(
-            os.path.join(os.path.abspath(self._file_directory), "failed_uploads", self._customer_account_uuid)
+            os.path.join(os.path.abspath(self._file_directory), "failed_uploads", customer_account_id)
         ):
             os.makedirs(
-                os.path.join(
-                    os.path.abspath(self._file_directory), "failed_uploads", self._customer_account_uuid
-                )
+                os.path.join(os.path.abspath(self._file_directory), "failed_uploads", customer_account_id)
             )
 
         file_name = f"{self._sub_dir_name}.zip"
         zipped_file = os.path.join(os.path.abspath(self._file_directory), "zipped_recordings", file_name)
 
         updated_zipped_file = os.path.join(
-            os.path.abspath(self._file_directory), "failed_uploads", self._customer_account_uuid, file_name
+            os.path.abspath(self._file_directory), "failed_uploads", customer_account_id, file_name
         )
         # store failed zip file in failed uploads directory to check at next startup
         if os.path.exists(zipped_file):
             shutil.move(zipped_file, updated_zipped_file)
 
+        # TODO (Luci 10/22/2021) this would be where to notify FE of error to display
+
     def _process_failed_uploads_on_start(self) -> None:
-        if self._shared_values_dict is not None:
-            stored_customer_ids = self._shared_values_dict["stored_customer_ids"]
+        """Re-upload any failed files on setup_before_loop.
+
+        Will try to process all uploads in
+        failed_uploads directory. Will redirect processed .zip file after
+        successful upload to zipped_recordings directory, but will not move on
+        error.
+
+        If no files to re-upload, will return.
+        """
+        # this path is created in electrons main process, but this check is for testing purposes
+        if (
+            os.path.exists(os.path.join(os.path.abspath(self._file_directory), "failed_uploads"))
+            and self._stored_customer_ids is not None
+        ):
             failed_upload_path = os.path.join(os.path.abspath(self._file_directory), "failed_uploads")
             zipped_recordings_path = os.path.join(os.path.abspath(self._file_directory), "zipped_recordings")
 
             for customer_dir in os.listdir(failed_upload_path):
-                customer_passkey = stored_customer_ids[customer_dir]
+                customer_passkey = self._stored_customer_ids[customer_dir]
                 file_dir = os.path.join(failed_upload_path, customer_dir)
                 for file in customer_dir:
                     upload_thread = ErrorCatchingThread(
