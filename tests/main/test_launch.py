@@ -434,7 +434,7 @@ def test_main__stores_values_from_command_line_arguments(mocker, fully_running_a
         shared_values_dict = app_info["object_access_inside_main"]["values_to_share_to_server"]
         assert shared_values_dict["beta_2_mode"] is False
         actual_config_settings = shared_values_dict["config_settings"]
-        # assert actual_config_settings["customer_account_id"] == "14b9294a-9efb-47dd-a06e-8247e982e196"
+
         assert actual_config_settings["recording_directory"] == expected_recordings_dir
         assert shared_values_dict["log_file_uuid"] == "91dbb151-0867-44da-a595-bd303f91927d"
         assert shared_values_dict["stored_customer_ids"] == {

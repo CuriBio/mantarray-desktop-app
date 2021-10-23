@@ -9,7 +9,6 @@ import time
 
 from freezegun import freeze_time
 import h5py
-from mantarray_desktop_app import ErrorCatchingThread
 from mantarray_desktop_app import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import FileWriterProcess
 from mantarray_desktop_app import get_data_slice_within_timepoints
@@ -157,62 +156,62 @@ def test_FileWriterProcess__correctly_updates_customer_settings_and_responds_to_
     )
 
 
-def test_FileWriterProcess__correctly_handles_when_file_upload_fails(four_board_file_writer_process, mocker):
-    file_writer_process = four_board_file_writer_process["fw_process"]
-    from_main_queue = four_board_file_writer_process["from_main_queue"]
+# def test_FileWriterProcess__correctly_handles_when_file_upload_fails(four_board_file_writer_process, mocker):
+#     file_writer_process = four_board_file_writer_process["fw_process"]
+#     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
-    spied_failed_upload_function = mocker.spy(file_writer_process, "_process_failed_uploads")
+#     spied_failed_upload_function = mocker.spy(file_writer_process, "_process_failed_uploads")
 
-    mocker.patch.object(file_writer_process, "_is_finalizing_files_after_recording", autospec=True)
-    mocker.patch.object(file_writer_process, "_process_next_command_from_main", autospec=True)
-    mocker.patch.object(file_writer_process, "_process_next_data_packet", autospec=True)
-    mocker.patch.object(file_writer_process, "_update_data_packet_buffers", autospec=True)
-    mocker.patch.object(file_writer_process, "_finalize_completed_files", autospec=True)
+#     mocker.patch.object(file_writer_process, "_is_finalizing_files_after_recording", autospec=True)
+#     mocker.patch.object(file_writer_process, "_process_next_command_from_main", autospec=True)
+#     mocker.patch.object(file_writer_process, "_process_next_data_packet", autospec=True)
+#     mocker.patch.object(file_writer_process, "_update_data_packet_buffers", autospec=True)
+#     mocker.patch.object(file_writer_process, "_finalize_completed_files", autospec=True)
 
-    this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
+#     this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
+#     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
 
-    file_writer_process._commands_for_each_run_iteration()
-    spied_failed_upload_function.assert_called_once()
+#     file_writer_process._commands_for_each_run_iteration()
+#     spied_failed_upload_function.assert_called_once()
 
 
-def test_FileWriterProcess__correctly_handles_when_file_successfully_loads(
-    four_board_file_writer_process, mocker
-):
-    file_writer_process = four_board_file_writer_process["fw_process"]
-    file_writer_process.set_beta_2_mode()
-    from_main_queue = four_board_file_writer_process["from_main_queue"]
-    # to_main_queue = four_board_file_writer_process["to_main_queue"]
-    # file_dir = four_board_file_writer_process["file_dir"]
-    uploader_spy = mocker.spy(ErrorCatchingThread, "start")
-    expected_well_idx = 0
-    start_timepoint_1 = 440000
-    start_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
-    start_command["timepoint_to_begin_recording_at"] = start_timepoint_1
-    start_command["active_well_indices"] = [expected_well_idx]
+# def test_FileWriterProcess__correctly_handles_when_file_successfully_loads(
+#     four_board_file_writer_process, mocker
+# ):
+#     file_writer_process = four_board_file_writer_process["fw_process"]
+#     file_writer_process.set_beta_2_mode()
+#     from_main_queue = four_board_file_writer_process["from_main_queue"]
+#     # to_main_queue = four_board_file_writer_process["to_main_queue"]
+#     # file_dir = four_board_file_writer_process["file_dir"]
+#     uploader_spy = mocker.spy(ErrorCatchingThread, "start")
+#     expected_well_idx = 0
+#     start_timepoint_1 = 440000
+#     start_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+#     start_command["timepoint_to_begin_recording_at"] = start_timepoint_1
+#     start_command["active_well_indices"] = [expected_well_idx]
 
-    stop_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
-    update_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
+#     stop_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+#     update_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
 
-    spied_failed_upload_function = mocker.spy(file_writer_process, "_delete_local_files")
+#     spied_failed_upload_function = mocker.spy(file_writer_process, "_delete_local_files")
 
-    mocker.patch.object(file_writer_process, "_is_finalizing_files_after_recording", autospec=True)
-    mocker.patch.object(file_writer_process, "_process_next_command_from_main", autospec=True)
-    mocker.patch.object(file_writer_process, "_process_next_data_packet", autospec=True)
-    mocker.patch.object(file_writer_process, "_update_data_packet_buffers", autospec=True)
-    mocker.patch.object(file_writer_process, "_finalize_completed_files", autospec=True)
+#     mocker.patch.object(file_writer_process, "_is_finalizing_files_after_recording", autospec=True)
+#     mocker.patch.object(file_writer_process, "_process_next_command_from_main", autospec=True)
+#     mocker.patch.object(file_writer_process, "_process_next_data_packet", autospec=True)
+#     mocker.patch.object(file_writer_process, "_update_data_packet_buffers", autospec=True)
+#     mocker.patch.object(file_writer_process, "_finalize_completed_files", autospec=True)
 
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(update_command, from_main_queue)
-    invoke_process_run_and_check_errors(file_writer_process)
+#     put_object_into_queue_and_raise_error_if_eventually_still_empty(update_command, from_main_queue)
+#     invoke_process_run_and_check_errors(file_writer_process)
 
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
-    invoke_process_run_and_check_errors(file_writer_process)
+#     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
+#     invoke_process_run_and_check_errors(file_writer_process)
 
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
-    invoke_process_run_and_check_errors(file_writer_process)
+#     put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
+#     invoke_process_run_and_check_errors(file_writer_process)
 
-    uploader_spy.assert_called_with({})
-    spied_failed_upload_function.assert_called_once()
+#     uploader_spy.assert_called_with({})
+#     spied_failed_upload_function.assert_called_once()
 
 
 @pytest.mark.timeout(4)
