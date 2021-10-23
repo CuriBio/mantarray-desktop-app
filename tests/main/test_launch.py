@@ -417,7 +417,6 @@ def test_main__stores_values_from_command_line_arguments(mocker, fully_running_a
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         test_dict = {
             "stored_customer_ids": {"customer_account_uuid": "14b9294a-9efb-47dd-a06e-8247e982e196"},
-            "user_account_uuid": "0288efbc-7705-4946-8815-02701193f766",
             "recording_directory": expected_recordings_dir,
             "log_file_uuid": "91dbb151-0867-44da-a595-bd303f91927d",
         }
@@ -437,7 +436,6 @@ def test_main__stores_values_from_command_line_arguments(mocker, fully_running_a
         actual_config_settings = shared_values_dict["config_settings"]
         # assert actual_config_settings["customer_account_id"] == "14b9294a-9efb-47dd-a06e-8247e982e196"
         assert actual_config_settings["recording_directory"] == expected_recordings_dir
-        assert actual_config_settings["user_account_id"] == "0288efbc-7705-4946-8815-02701193f766"
         assert shared_values_dict["log_file_uuid"] == "91dbb151-0867-44da-a595-bd303f91927d"
         assert shared_values_dict["stored_customer_ids"] == {
             "customer_account_uuid": "14b9294a-9efb-47dd-a06e-8247e982e196"
@@ -456,7 +454,6 @@ def test_main__generates_log_file_uuid_if_none_passed_in_cmd_line_args(
 
     test_dict = {
         "stored_customer_ids": {"customer_account_uuid": "14b9294a-9efb-47dd-a06e-8247e982e196"},
-        "user_account_uuid": "0288efbc-7705-4946-8815-02701193f766",
         "recording_directory": "/tmp",
         "log_file_uuid": str(expected_log_file_uuid),
     }

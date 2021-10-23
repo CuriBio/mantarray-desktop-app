@@ -376,7 +376,14 @@ def test_user_config():
         "user_account_id": "",
     }
     assert VALID_CONFIG_SETTINGS == frozenset(
-        ["customer_account_uuid", "user_account_uuid", "recording_directory"]
+        [
+            "customer_account_uuid",
+            "user_account_uuid",
+            "customer_pass_key",
+            "recording_directory",
+            "auto_upload",
+            "auto_delete",
+        ]
     )
 
 

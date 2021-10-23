@@ -231,6 +231,7 @@ def main(
         shared_values_dict["stored_customer_ids"] = settings_dict["stored_customer_ids"]
         recording_dict = {"recording_directory": settings_dict["recording_directory"]}
         validate_settings(recording_dict)
+        update_shared_dict(shared_values_dict, convert_request_args_to_config_dict(recording_dict))
 
     if parsed_args.expected_software_version:
         if not parsed_args.skip_software_version_verification:
@@ -267,8 +268,6 @@ def main(
     if is_port_in_use(_server_port_number):
         raise LocalServerPortAlreadyInUseError(_server_port_number)
 
-    if recording_dict:
-        update_shared_dict(shared_values_dict, convert_request_args_to_config_dict(recording_dict))
     _log_system_info()
     logger.info("Spawning subprocesses")
 
