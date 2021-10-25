@@ -93,9 +93,10 @@ def test_main__redacts_log_file_dir_from_log_message_of_command_line_args(mocker
 
 
 def test_main__logs_command_line_arguments(mocker):
-    test_command_line_args = ["--debug-test-post-build", "--log-level-debug"]
+
     spied_info_logger = mocker.spy(main.logger, "info")
-    main.main(test_command_line_args)
+
+    main.main(["--debug-test-post-build", "--log-level-debug"])
 
     expected_cmd_line_args_dict = {
         "debug_test_post_build": True,
@@ -103,17 +104,17 @@ def test_main__logs_command_line_arguments(mocker):
         "skip_mantarray_boot_up": False,
         "port_number": None,
         "log_file_dir": None,
+        "initial_base64_settings": None,
         "expected_software_version": None,
         "no_load_firmware": False,
         "skip_software_version_verification": False,
         "beta_2_mode": False,
         "startup_test_options": None,
     }
-
     spied_info_logger.assert_any_call(f"Command Line Args: {expected_cmd_line_args_dict}")
 
     for call_args in spied_info_logger.call_args_list:
-        assert "initial_base64_settings" in call_args[0]
+        assert "initial_base64_settings" not in call_args[0]
 
 
 @pytest.mark.timeout(2)

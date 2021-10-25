@@ -828,7 +828,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         da_out = test_process_manager.queue_container().get_data_analyzer_data_out_queue()
 
         response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=filler_password&user_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&recording_directory={expected_recordings_dir}&auto_upload=true&auto_delete=false"
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=filler_password&user_account_uuid=455b93eb-c78f-4494-9f73-d3291130f126&recording_directory={expected_recordings_dir}&auto_upload=true&auto_delete=false"
         )
         assert response.status_code == 200
 

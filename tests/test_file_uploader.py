@@ -109,7 +109,7 @@ def test_create_zip_file__correctly_writes_h5_files_to_zipfile_at_designated_pat
     test_zipped_path = f"{test_dir_path}/zipped_recordings/cid"
 
     create_zip_file(test_dir_path, test_file_name, test_zipped_path)
-    mocked_zip_function.assert_called_once_with(f"{test_zipped_path}/{test_file_name}.zip", "w")
+    mocked_zip_function.assert_called_once_with(f"{os.path.join(test_zipped_path, test_file_name)}.zip", "w")
 
 
 def test_create_zip_file__create_zip_file_should_not_be_called_with_failed_zip_file(mocker):
