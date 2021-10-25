@@ -107,10 +107,10 @@ def test_create_zip_file__correctly_writes_h5_files_to_zipfile_at_designated_pat
     with tempfile.TemporaryDirectory() as tmp_dir:
         test_dir_path = tmp_dir
         test_file_name = "test_h5_files"
-        test_zipped_path = f"{tmp_dir}/zipped_recordings/{test_file_name}"
+        test_zipped_path = f"{tmp_dir}/zipped_recordings/cid"
 
-        create_zip_file(test_dir_path, test_file_name)
-        mocked_zip_function.assert_called_once_with(f"{test_zipped_path}.zip", "w")
+        create_zip_file(test_dir_path, test_file_name, test_zipped_path)
+        mocked_zip_function.assert_called_once_with(f"{test_zipped_path}/{test_file_name}.zip", "w")
 
 
 def test_create_zip_file__create_zip_file_should_not_be_called_with_failed_zip_file(mocker):
@@ -123,10 +123,11 @@ def test_create_zip_file__create_zip_file_should_not_be_called_with_failed_zip_f
 
     test_file_name = "zip_file"
     test_file_path = "/test"
+    test_zip_dir = "/test/zipped_recordings"
     test_customer_account_id = "cid"
     test_password = "pw"
 
-    uploader(test_file_path, test_file_name, test_customer_account_id, test_password)
+    uploader(test_file_path, test_file_name, test_zip_dir, test_customer_account_id, test_password)
     mocked_create_zip_file.assert_not_called()
 
 
@@ -144,14 +145,17 @@ def test_uploader__runs_upload_procedure_correctly(mocker):
         expected_md5 = mocked_get_file_md5.return_value
         test_file_name = tmp_dir
         test_file_path = "/test"
+        test_zip_dir = "/test/zipped_recordings"
         test_customer_account_id = "cid"
         test_password = "pw"
-        zipped_file_path = f"{test_file_path}/zipped_recordings/{test_file_name}.zip"
+        zipped_file_path = f"{test_file_path}/zipped_recordings/cid/{test_file_name}.zip"
         zipped_file_name = f"{test_file_name}.zip"
         mocked_create_zip_file.return_value = zipped_file_path
 
-        uploader(test_file_path, test_file_name, test_customer_account_id, test_password)
-        mocked_create_zip_file.assert_called_once_with(test_file_path, test_file_name)
+        uploader(test_file_path, test_file_name, test_zip_dir, test_customer_account_id, test_password)
+        mocked_create_zip_file.assert_called_once_with(
+            test_file_path, test_file_name, f"{test_zip_dir}/{test_customer_account_id}"
+        )
         mocked_get_access_token.assert_called_once_with(test_customer_account_id, test_password)
         mocked_get_file_md5.assert_called_once_with(zipped_file_path)
         mocked_get_upload_details.assert_called_once_with(
@@ -178,11 +182,13 @@ def test_ErrorCatchingThread__correctly_returns_error_to_caller_thread(mocker):
 
     test_file_path = "/test"
     test_sub_dir = "/sub_dir"
+    test_zip_dir = "/test/zipped_recordings"
     test_customer_id = "username"
     test_password = "password"
 
     mocked_thread = ErrorCatchingThread(
-        target=mocked_uploader_function, args=(test_file_path, test_sub_dir, test_customer_id, test_password)
+        target=mocked_uploader_function,
+        args=(test_file_path, test_sub_dir, test_zip_dir, test_customer_id, test_password),
     )
     mocked_thread.start()
 

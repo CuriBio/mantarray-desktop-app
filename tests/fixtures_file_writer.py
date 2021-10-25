@@ -234,7 +234,7 @@ def fixture_four_board_file_writer_process():
             to_main,
             error_queue,
             file_directory=tmp_dir,
-            stored_customer_ids=dict(),
+            stored_customer_settings=None,
         )
         fw_items_dict = {
             "fw_process": fw_process,
@@ -260,7 +260,14 @@ def fixture_runnable_four_board_file_writer_process():
         error_queue,
     ) = generate_fw_from_main_to_main_board_and_error_queues(queue_type=MPQueue)
     with tempfile.TemporaryDirectory() as tmp_dir:
-        fw_process = FileWriterProcess(board_queues, from_main, to_main, error_queue, file_directory=tmp_dir)
+        fw_process = FileWriterProcess(
+            board_queues,
+            from_main,
+            to_main,
+            error_queue,
+            file_directory=tmp_dir,
+            stored_customer_settings=dict(),
+        )
         fw_items_dict = {
             "fw_process": fw_process,
             "board_queues": board_queues,

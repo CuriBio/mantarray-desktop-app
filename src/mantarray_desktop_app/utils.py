@@ -65,7 +65,7 @@ def validate_settings(settings_dict: Dict[str, Any]) -> None:
 def validate_customer_credentials(request_args: Dict[str, Any], shared_values_dict: Dict[str, Any]) -> None:
     customer_account_uuid = request_args.get("customer_account_uuid", None)
     customer_pass_key = request_args.get("customer_pass_key", None)
-    stored_customer_ids = shared_values_dict["stored_customer_ids"]
+    stored_customer_ids = shared_values_dict["stored_customer_settings"]["stored_customer_ids"]
 
     if customer_account_uuid is not None:
         if customer_account_uuid in stored_customer_ids:

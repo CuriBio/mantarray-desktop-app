@@ -131,6 +131,7 @@ def test_send_xem_scripts_command__gets_processed_in_fully_running_app(
     fully_running_app_from_main_entrypoint,
     patched_xem_scripts_folder,
 ):
+
     # Tanner (12/29/20): start up the app but skip automatic instrument boot-up process so we can manually test that xem_scripts are run
     app_info = fully_running_app_from_main_entrypoint(["--skip-mantarray-boot-up"])
     wait_for_subprocesses_to_start()
@@ -185,8 +186,11 @@ def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_li
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         # Tanner (12/29/20): Sending in alternate recording directory through command line args
         test_dict = {
-            "user_account_uuid": "0288efbc-7705-4946-8815-02701193f766",
-            "customer_account_uuid": "14b9294a-9efb-47dd-a06e-8247e982e196",
+            "stored_customer_ids": {
+                "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
+            },
+            "zipped_recording_dir": f"{expected_recordings_dir}/zipped_recordings",
+            "failed_uploads_dir": f"{expected_recordings_dir}/failed_uploads",
             "recording_directory": expected_recordings_dir,
         }
         json_str = json.dumps(test_dict)
@@ -349,7 +353,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         # Tanner (12/29/20): Manually set recording directory through update_settings route
         response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=curi&recording_directory={expected_recordings_dir}"
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=filler_password&recording_directory={expected_recordings_dir}"
         )
         assert response.status_code == 200
 
@@ -688,7 +692,7 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         # Tanner (12/29/20): use updated settings to set the recording directory to the TemporaryDirectory
         response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=curi&recording_directory={expected_recordings_dir}"
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=filler_password&recording_directory={expected_recordings_dir}"
         )
         assert response.status_code == 200
 
@@ -765,22 +769,37 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
             BACKEND_LOG_UUID
         ],
     )
-
-    app_info = fully_running_app_from_main_entrypoint(["--beta-2-mode"])
-    wait_for_subprocesses_to_start()
-    test_process_manager = app_info["object_access_inside_main"]["process_manager"]
-
-    sio, msg_list_container = test_socketio_client()
-
-    assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 10) is True
-
-    da_out = test_process_manager.queue_container().get_data_analyzer_data_out_queue()
-
     # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         # Tanner (12/29/20): Manually set recording directory through update_settings route
+
+        test_dict = {
+            "stored_customer_ids": {
+                "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
+            },
+            "zipped_recording_dir": f"{expected_recordings_dir}/zipped_recordings",
+            "failed_uploads_dir": f"{expected_recordings_dir}/failed_uploads",
+            "recording_directory": expected_recordings_dir,
+        }
+        json_str = json.dumps(test_dict)
+        b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
+        command_line_args = [
+            "--beta-2-mode",
+            f"--initial-base64-settings={b64_encoded}",
+        ]
+
+        app_info = fully_running_app_from_main_entrypoint(command_line_args)
+        wait_for_subprocesses_to_start()
+        test_process_manager = app_info["object_access_inside_main"]["process_manager"]
+
+        sio, msg_list_container = test_socketio_client()
+
+        assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 10) is True
+
+        da_out = test_process_manager.queue_container().get_data_analyzer_data_out_queue()
+
         response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=curi&recording_directory={expected_recordings_dir}"
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=filler_password"
         )
         assert response.status_code == 200
 

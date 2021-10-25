@@ -214,7 +214,7 @@ class FileWriterProcess(InfiniteProcess):
         fatal_error_reporter: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
             Tuple[Exception, str]
         ],
-        stored_customer_ids: Optional[Dict[str, Any]] = None,
+        stored_customer_settings: Optional[Dict[str, Any]] = None,
         file_directory: str = "",
         logging_level: int = logging.INFO,
         beta_2_mode: bool = False,
@@ -224,7 +224,7 @@ class FileWriterProcess(InfiniteProcess):
         self._from_main_queue = from_main_queue
         self._to_main_queue = to_main_queue
         self._file_directory = file_directory
-        self._stored_customer_ids: Optional[Dict[str, Any]] = stored_customer_ids
+        self._stored_customer_settings: Optional[Dict[str, Any]] = stored_customer_settings
         self._open_files: Tuple[
             Dict[int, h5py._hl.files.File],
             ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
@@ -314,7 +314,7 @@ class FileWriterProcess(InfiniteProcess):
 
     def _setup_before_loop(self) -> None:
         super()._setup_before_loop()
-        if self._stored_customer_ids is not None:
+        if self._stored_customer_settings is not None:
             self._process_failed_uploads_on_start()
 
     def _teardown_after_loop(self) -> None:
@@ -345,7 +345,7 @@ class FileWriterProcess(InfiniteProcess):
         self._process_next_data_packet()
         self._update_data_packet_buffers()
         self._finalize_completed_files()
-        if self._customer_settings:
+        if "customer_account_id" in self._customer_settings:
             self._process_file_uploads()
         self._iterations_since_last_logging += 1
         if self._iterations_since_last_logging >= FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES:
@@ -880,46 +880,47 @@ class FileWriterProcess(InfiniteProcess):
         """
         auto_upload = self._customer_settings["auto_upload_on_completion"]
         auto_delete = self._customer_settings["auto_delete_local_files"]
+        customer_account_id = self._customer_settings["customer_account_id"]
+        password = self._customer_settings["customer_pass_key"]
 
-        if auto_upload:
-            upload_thread = ErrorCatchingThread(
-                target=uploader,
-                args=(
-                    self._file_directory,
-                    self._sub_dir_name,
-                    self._customer_settings["customer_account_id"],
-                    self._customer_settings["customer_pass_key"],
-                ),
-            )
-            upload_thread.start()
-            upload_thread.join()
-            if upload_thread.error:
-                self._process_failed_uploads()
-                self._upload_status = "upload failed"
-            else:
-                self._upload_status = upload_thread.result
-                if auto_delete:
-                    self._delete_local_files()
+        if self._stored_customer_settings is not None:
+            zipped_recordings_dir = self._stored_customer_settings["zipped_recordings_dir"]
 
-        if auto_delete and not auto_upload:
-            self._delete_local_files()
+            if auto_upload:
+                upload_thread = ErrorCatchingThread(
+                    target=uploader,
+                    args=(
+                        self._file_directory,
+                        self._sub_dir_name,
+                        zipped_recordings_dir,
+                        customer_account_id,
+                        password,
+                    ),
+                )
+                upload_thread.start()
+                upload_thread.join()
+                if upload_thread.error:
+                    self._process_failed_uploads()
+                    self._upload_status = "upload failed"
+                else:
+                    self._upload_status = upload_thread.result
+                    if auto_delete:
+                        self._delete_local_files()
+
+            if auto_delete and not auto_upload:
+                self._delete_local_files()
 
     def _delete_local_files(self) -> None:
         """Call after upload if true.
 
-        Deletes entire recording directory and relating .zip files.
+        Deletes entire recording directory containing h5 files.
         """
         file_folder_dir = os.path.join(os.path.abspath(self._file_directory), self._sub_dir_name)
-        zipped_file_path = os.path.join(
-            os.path.abspath(self._file_directory), "zipped_recordings", f"{self._sub_dir_name}.zip"
-        )
+
         # Remove directory and all .h5 files
         for file in os.listdir(file_folder_dir):
             os.remove(os.path.join(file_folder_dir, file))
         os.rmdir(file_folder_dir)
-        # Remove zipped file, won't always be a zip file if auto-upload was selected to False
-        if os.path.exists(zipped_file_path):
-            os.remove(zipped_file_path)
 
     def _process_failed_uploads(self) -> None:
         """Call when a file upload errors.
@@ -927,23 +928,24 @@ class FileWriterProcess(InfiniteProcess):
         If none exists, creates customer directory in failed_uploads to
         place failed .zip files to process next start.
         """
-        customer_account_id = self._customer_settings["customer_account_id"]
-        if not os.path.exists(
-            os.path.join(os.path.abspath(self._file_directory), "failed_uploads", customer_account_id)
-        ):
-            os.makedirs(
-                os.path.join(os.path.abspath(self._file_directory), "failed_uploads", customer_account_id)
-            )
+        if self._stored_customer_settings is not None:
+            failed_uploads_dir = self._stored_customer_settings["failed_uploads_dir"]
+            zipped_recordings_dir = self._stored_customer_settings["zipped_recordings_dir"]
 
-        file_name = f"{self._sub_dir_name}.zip"
-        zipped_file = os.path.join(os.path.abspath(self._file_directory), "zipped_recordings", file_name)
+            customer_account_id = self._customer_settings["customer_account_id"]
 
-        updated_zipped_file = os.path.join(
-            os.path.abspath(self._file_directory), "failed_uploads", customer_account_id, file_name
-        )
-        # store failed zip file in failed uploads directory to check at next startup
-        if os.path.exists(zipped_file):
-            shutil.move(zipped_file, updated_zipped_file)
+            customer_failed_uploads_dir = os.path.join(failed_uploads_dir, customer_account_id)
+
+            if not os.path.exists(customer_failed_uploads_dir):
+                os.makedirs(customer_failed_uploads_dir)
+
+            file_name = f"{self._sub_dir_name}.zip"
+            zipped_file = os.path.join(zipped_recordings_dir, customer_account_id, file_name)
+            updated_zipped_file = os.path.join(failed_uploads_dir, customer_account_id, file_name)
+
+            # store failed zip file in failed uploads directory to check at next startup
+            if os.path.exists(zipped_file):
+                shutil.move(zipped_file, updated_zipped_file)
 
         # TODO (Luci 10/22/2021) this would be where to notify FE of error to display
 
@@ -958,22 +960,21 @@ class FileWriterProcess(InfiniteProcess):
         If no files to re-upload, will return.
         """
         # this path is created in electrons main process, but this check is for testing purposes
-        if (
-            os.path.exists(os.path.join(os.path.abspath(self._file_directory), "failed_uploads"))
-            and self._stored_customer_ids is not None
-        ):
-            failed_upload_path = os.path.join(os.path.abspath(self._file_directory), "failed_uploads")
-            zipped_recordings_path = os.path.join(os.path.abspath(self._file_directory), "zipped_recordings")
+        if self._stored_customer_settings is not None:
+            failed_uploads_dir = self._stored_customer_settings["failed_uploads_dir"]
+            zipped_recordings_dir = self._stored_customer_settings["zipped_recordings_dir"]
+            stored_customer_ids = self._stored_customer_settings["stored_customer_ids"]
 
-            for customer_dir in os.listdir(failed_upload_path):
-                customer_passkey = self._stored_customer_ids[customer_dir]
-                file_dir = os.path.join(failed_upload_path, customer_dir)
-                for file in customer_dir:
+            for customer_dir in os.listdir(failed_uploads_dir):
+                customer_passkey = stored_customer_ids[customer_dir]
+                customer_failed_uploads_dir = os.path.join(failed_uploads_dir, customer_dir)
+                for file_name in customer_dir:
                     upload_thread = ErrorCatchingThread(
                         target=uploader,
                         args=(
-                            file_dir,
-                            file,
+                            customer_failed_uploads_dir,
+                            file_name,
+                            zipped_recordings_dir,
                             customer_dir,
                             customer_passkey,
                         ),
@@ -985,7 +986,10 @@ class FileWriterProcess(InfiniteProcess):
                         # TODO (Luci 10/20/21) not sure how to handle this re-upload error except to leave file and try again
                     else:
                         self._upload_status = upload_thread.result
-                        shutil.move(os.path.join(file_dir, file), zipped_recordings_path)
+                        shutil.move(
+                            os.path.join(customer_failed_uploads_dir, file_name),
+                            os.path.join(zipped_recordings_dir, customer_dir),
+                        )
                         # TODO (Luci 10/20/21) figure out how to handle if delete local files had been selected on original customer settings and how to handle the zip file
                         # could call _delete_local_files here
 
