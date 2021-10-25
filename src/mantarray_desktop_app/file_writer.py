@@ -669,26 +669,25 @@ class FileWriterProcess(InfiniteProcess):
         It's possible that this could be optimized in the future by only being called when the finalization status of something has changed.
         """
         tissue_status, reference_status = self.get_recording_finalization_statuses()
-
         for this_well_idx in list(
             self._open_files[0].keys()
         ):  # make a copy of the keys since they may be deleted during the run
             # if this_well_idx in tissue_status[0]: # Tanner (7/22/20): This line was apparently always True. If problems start showing up later, likely due to this line being removed
-            if tissue_status[0][this_well_idx] and reference_status[0][this_well_idx]:
-                this_file = self._open_files[0][this_well_idx]
-                # the file name cannot be accessed after the file has been closed
-                this_filename = this_file.filename
-                this_file.close()
-                with open(this_filename, "rb+") as file_buffer:
-                    compute_crc32_and_write_to_file_head(file_buffer)
-                to_main_queue = self._to_main_queue
-                to_main_queue.put_nowait(
-                    {
-                        "communication_type": "file_finalized",
-                        "file_path": this_filename,
-                    }
-                )
-                del self._open_files[0][this_well_idx]
+            if not (tissue_status[0][this_well_idx] and reference_status[0][this_well_idx]):
+                continue
+            this_file = self._open_files[0][this_well_idx]
+            # the file name cannot be accessed after the file has been closed
+            this_filename = this_file.filename
+            this_file.close()
+            with open(this_filename, "rb+") as file_buffer:
+                compute_crc32_and_write_to_file_head(file_buffer)
+            self._to_main_queue.put_nowait(
+                {
+                    "communication_type": "file_finalized",
+                    "file_path": this_filename,
+                }
+            )
+            del self._open_files[0][this_well_idx]
 
     def _process_next_incoming_packet(self) -> None:
         """Process the next incoming packet for that board.
