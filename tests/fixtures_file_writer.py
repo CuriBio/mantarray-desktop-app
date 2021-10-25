@@ -266,7 +266,7 @@ def fixture_runnable_four_board_file_writer_process():
             to_main,
             error_queue,
             file_directory=tmp_dir,
-            stored_customer_settings=dict(),
+            stored_customer_settings=None,
         )
         fw_items_dict = {
             "fw_process": fw_process,
