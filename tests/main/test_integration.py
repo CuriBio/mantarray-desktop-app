@@ -797,7 +797,6 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
             BACKEND_LOG_UUID
         ],
     )
-    mocker.patch.object(os, "listdir", autospec=True, return_value=[])
 
     # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
