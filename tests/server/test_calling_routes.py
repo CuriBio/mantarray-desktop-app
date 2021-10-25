@@ -75,10 +75,11 @@ def test_system_status__returns_correct_state_and_simulation_values(
         (False, "returns False when not stimulating"),
     ],
 )
-def test_system_status__returns_correct_stimulating_value(
+def test_system_status__beta_2_mode__returns_correct_stimulating_value(
     test_stimulating_value, test_description, client_and_server_manager_and_shared_values
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
     shared_values_dict["stimulation_running"] = [False] * 24
     shared_values_dict["stimulation_running"][0] = test_stimulating_value
 
@@ -87,6 +88,18 @@ def test_system_status__returns_correct_stimulating_value(
 
     response_json = response.get_json()
     assert response_json["is_stimulating"] is test_stimulating_value
+
+
+def test_system_status__beta_1_mode__returns_False_for_stimulating_value(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, *_ = client_and_server_manager_and_shared_values
+
+    response = test_client.get("/system_status")
+    assert response.status_code == 200
+
+    response_json = response.get_json()
+    assert response_json["is_stimulating"] is False
 
 
 def test_system_status__returns_in_simulator_mode_False_as_default_value(
