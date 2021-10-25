@@ -578,6 +578,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             response_body += bytes([command_failed])
             if not command_failed:
                 self._is_stimulating = False
+            # TODO send stim complete packets from each well that is currently stimulating
         else:
             module_id = comm_from_pc[SERIAL_COMM_MODULE_ID_INDEX]
             raise UnrecognizedSerialCommPacketTypeError(
@@ -770,15 +771,17 @@ class MantarrayMcSimulator(InfiniteProcess):
             subprotocols = protocol["subprotocols"]
 
             if self._stim_subprotocol_indices[protocol_idx] == -1:
-                curr_subprotocol_duration = 0
+                curr_subprotocol_duration_us = 0
             else:
-                curr_subprotocol_duration = subprotocols[self._stim_subprotocol_indices[protocol_idx]][
+                curr_subprotocol_duration_us = subprotocols[self._stim_subprotocol_indices[protocol_idx]][
                     "total_active_duration"
-                ]
+                ] * int(
+                    1e3
+                )  # convert from ms to µs
             dur_since_subprotocol_start = _get_us_since_subprotocol_start(start_timepoint)
-            while dur_since_subprotocol_start >= curr_subprotocol_duration:
+            while dur_since_subprotocol_start >= curr_subprotocol_duration_us:
                 # update time index for subprotocol
-                self._stim_time_indices[protocol_idx] += curr_subprotocol_duration
+                self._stim_time_indices[protocol_idx] += curr_subprotocol_duration_us
                 # move onto next subprotocol in protocol
                 self._stim_subprotocol_indices[protocol_idx] = (
                     self._stim_subprotocol_indices[protocol_idx] + 1
@@ -790,7 +793,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                     + bytes([self._stim_subprotocol_indices[protocol_idx]])
                 )
                 protocol_complete = (
-                    self._stim_subprotocol_indices[protocol_idx] == 0 and curr_subprotocol_duration > 0
+                    self._stim_subprotocol_indices[protocol_idx] == 0 and curr_subprotocol_duration_us > 0
                 )
                 protocol_stopping = not protocol["run_until_stopped"] if protocol_complete else False
                 if protocol_complete:
@@ -818,16 +821,18 @@ class MantarrayMcSimulator(InfiniteProcess):
                     num_status_updates += 1  # increment for all statuses
                 if protocol_stopping:
                     self._timepoints_of_subprotocols_start[protocol_idx] = None
-                    continue
+                    break
 
                 # update timepoints and durations for next iteration
                 self._timepoints_of_subprotocols_start[  # type: ignore  # mypy doesn't understand that this value has already been checked to not be None
                     protocol_idx
-                ] += curr_subprotocol_duration
-                dur_since_subprotocol_start -= curr_subprotocol_duration
-                curr_subprotocol_duration = subprotocols[self._stim_subprotocol_indices[protocol_idx]][
+                ] += curr_subprotocol_duration_us
+                dur_since_subprotocol_start -= curr_subprotocol_duration_us
+                curr_subprotocol_duration_us = subprotocols[self._stim_subprotocol_indices[protocol_idx]][
                     "total_active_duration"
-                ]
+                ] * int(
+                    1e3
+                )  # convert from ms to µs
         if num_status_updates > 0:
             packet_bytes = bytes([num_status_updates]) + packet_bytes
             self._send_data_packet(

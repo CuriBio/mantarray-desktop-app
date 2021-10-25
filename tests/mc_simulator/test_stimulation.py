@@ -299,7 +299,7 @@ def test_MantarrayMcSimulator__processes_start_stimulation_command__after_protoc
 
     spied_global_timer = mocker.spy(simulator, "_get_global_timer")
     # mock so no protocol status packets are sent
-    mocker.patch.object(mc_simulator, "_get_us_since_subprotocol_start", autospec=True, return_value=0)
+    mocker.patch.object(mc_simulator, "_get_ms_since_subprotocol_start", autospec=True, return_value=0)
 
     # set single arbitrary protocol applied to wells randomly
     stim_info = simulator.get_stim_info()
@@ -416,7 +416,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_packet_for_initial_subproto
     spied_global_timer = mocker.spy(simulator, "_get_global_timer")
     mocker.patch.object(
         mc_simulator,
-        "_get_us_since_subprotocol_start",
+        "_get_ms_since_subprotocol_start",
         autospec=True,
         side_effect=[0, 1, 0],
     )
@@ -508,7 +508,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_packet_when_a_new_subprotoc
 
     mocker.patch.object(
         mc_simulator,
-        "_get_us_since_subprotocol_start",
+        "_get_ms_since_subprotocol_start",
         autospec=True,
         side_effect=[test_duration_us - 1, test_duration_us, 0],
     )
@@ -571,7 +571,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_packets_when_multiple_wells
 
     mocker.patch.object(
         mc_simulator,
-        "_get_us_since_subprotocol_start",
+        "_get_ms_since_subprotocol_start",
         autospec=True,
         side_effect=[test_duration_us - 1, test_duration_us, 0],
     )
@@ -641,7 +641,7 @@ def test_MantarrayMcSimulator__sends_multiple_protocol_status_packets_if_multipl
 
     mocker.patch.object(
         mc_simulator,
-        "_get_us_since_subprotocol_start",
+        "_get_ms_since_subprotocol_start",
         autospec=True,
         side_effect=[test_duration_us_1 - 1, test_duration_us_1 + test_duration_us_2, 0],
     )
@@ -727,7 +727,7 @@ def test_MantarrayMcSimulator__sends_multiple_protocol_status_packets_if_subprot
 
     mocker.patch.object(
         mc_simulator,
-        "_get_us_since_subprotocol_start",
+        "_get_ms_since_subprotocol_start",
         autospec=True,
         side_effect=[
             test_duration_us_1 - 1,
@@ -806,7 +806,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_null_status_correctly(
 
     mocker.patch.object(
         mc_simulator,
-        "_get_us_since_subprotocol_start",
+        "_get_ms_since_subprotocol_start",
         autospec=True,
         side_effect=[test_duration_us - 1, test_duration_us, 0],
     )
@@ -868,7 +868,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_restarting_status_corr
 
     mocker.patch.object(
         mc_simulator,
-        "_get_us_since_subprotocol_start",
+        "_get_ms_since_subprotocol_start",
         autospec=True,
         side_effect=[test_duration_us - 1, test_duration_us, 0],
     )
@@ -934,7 +934,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_finished_status_correc
 
     mocker.patch.object(
         mc_simulator,
-        "_get_us_since_subprotocol_start",
+        "_get_ms_since_subprotocol_start",
         autospec=True,
         side_effect=[test_duration_us - 1, test_duration_us, test_duration_us],
     )

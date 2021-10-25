@@ -162,7 +162,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             elif command == "shutdown_server":
                 self._process_manager.shutdown_server()
             else:
-                raise NotImplementedError("Unrecognized shutdown command")
+                raise NotImplementedError(f"Unrecognized shutdown command from Server: {command}")
         elif communication_type == "update_shared_values_dictionary":
             new_values = communication["content"]
             new_recording_directory: Optional[str] = attempt_to_get_recording_directory_from_new_dict(
@@ -186,18 +186,6 @@ class MantarrayProcessesMonitor(InfiniteThread):
         elif communication_type == "stimulation":
             command = communication["command"]
             if command == "set_stim_status":
-                stim_running_list = [False] * 24
-                if communication["status"]:
-                    protocol_assignments = self._values_to_share_to_server["stimulation_info"][
-                        "protocol_assignments"
-                    ]
-                    for well_name, assignment in protocol_assignments.items():
-                        if not assignment:
-                            continue
-                        well_idx = GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name)
-                        stim_running_list[well_idx] = True
-                self._values_to_share_to_server["stimulation_running"] = stim_running_list
-
                 self._put_communication_into_instrument_comm_queue(
                     {
                         "communication_type": communication_type,
@@ -209,7 +197,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._put_communication_into_instrument_comm_queue(communication)
             else:
                 # Tanner (8/9/21): could make this a custom error if needed
-                raise NotImplementedError(f"Unrecognized stimulation command: '{command}'")
+                raise NotImplementedError(f"Unrecognized stimulation command from Server: {command}")
         elif communication_type == "xem_scripts":
             # Tanner (12/28/20): start_calibration is the only xem_scripts command that will come from server (called directly from /start_calibration). This comm type will be removed/replaced in beta 2 so not adding handling for unrecognized command.
             if shared_values_dict["beta_2_mode"]:
@@ -341,7 +329,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         data_to_server_queue.put_nowait(outgoing_data_json)
 
     def _check_and_handle_instrument_comm_to_main_queue(self) -> None:
-        # pylint: disable=too-many-branches  # Tanner (5/22/21): many branches needed here
+        # pylint: disable=too-many-branches,too-many-statements  # TODO Tanner (10/25/21): refactor this into smaller methods
         process_manager = self._process_manager
         instrument_comm_to_main = (
             process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
@@ -403,9 +391,22 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._values_to_share_to_server["utc_timestamps_of_beginning_of_stimulation"] = [
                     communication["timestamp"]
                 ]
+                # TODO unit test this
+                stim_running_list = [False] * 24
+                protocol_assignments = self._values_to_share_to_server["stimulation_info"][
+                    "protocol_assignments"
+                ]
+                for well_name, assignment in protocol_assignments.items():
+                    if not assignment:
+                        continue
+                    well_idx = GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name)
+                    stim_running_list[well_idx] = True
+                self._values_to_share_to_server["stimulation_running"] = stim_running_list
             elif command == "stop_stimulation":
                 self._values_to_share_to_server["utc_timestamps_of_beginning_of_stimulation"] = [None]
+                self._values_to_share_to_server["stimulation_running"] = [False] * 24  # TODO unit test this
             elif command == "status_update":
+                # ignore stim status updates if stim was already stopped manually
                 for well_idx in communication["wells_done_stimulating"]:
                     self._values_to_share_to_server["stimulation_running"][well_idx] = False
                 if not any(self._values_to_share_to_server["stimulation_running"]):

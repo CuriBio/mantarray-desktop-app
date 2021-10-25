@@ -264,6 +264,7 @@ def system_status() -> Response:
     status = shared_values_dict["system_status"]
     status_dict = {
         "ui_status_code": str(SYSTEM_STATUS_UUIDS[status]),
+        "is_stimulating": _is_stimulating_on_any_well(),  # TODO unit test this line
         # Tanner (7/1/20): this route may be called before process_monitor adds the following values to shared_values_dict, so default values are needed
         "in_simulation_mode": shared_values_dict.get("in_simulation_mode", False),
         "mantarray_serial_number": shared_values_dict.get("mantarray_serial_number", ""),
@@ -606,6 +607,7 @@ def set_stim_status() -> Response:
         return Response(status="406 Protocols have not been set")
     if status is _is_stimulating_on_any_well():
         return Response(status="304 Status not updated")
+    # TODO prevent starting stim while recording for now
 
     response = queue_command_to_main(
         {

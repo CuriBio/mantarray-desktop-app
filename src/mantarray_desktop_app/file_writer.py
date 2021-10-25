@@ -726,13 +726,12 @@ class FileWriterProcess(InfiniteProcess):
             )
 
         board_idx = 0
-
+        output_queue = self._board_queues[board_idx][1]
         if self._beta_2_mode and data_packet["is_first_packet_of_stream"]:
             self._end_of_data_stream_reached[board_idx] = False
             self._data_packet_buffers[board_idx].clear()
-        if not self._end_of_data_stream_reached[board_idx]:
+        if not (self._beta_2_mode and self._end_of_data_stream_reached[board_idx]):
             self._data_packet_buffers[board_idx].append(data_packet)
-            output_queue = self._board_queues[board_idx][1]
             output_queue.put_nowait(data_packet)
 
         # Tanner (5/17/21): This code was not previously guarded by this if statement. If issues start occurring with recorded data or performance metrics, check here first

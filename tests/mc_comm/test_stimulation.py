@@ -406,7 +406,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     # mock so protocol will complete in first iteration
     mocker.patch.object(
         mc_simulator,
-        "_get_us_since_subprotocol_start",
+        "_get_ms_since_subprotocol_start",
         autospec=True,
         return_value=total_active_duration,
     )
@@ -506,7 +506,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     # mock so one status update is produced
     mocked_get_us_subprotocol = mocker.patch.object(
         mc_simulator,
-        "_get_us_since_subprotocol_start",
+        "_get_ms_since_subprotocol_start",
         autospec=True,
         return_value=total_active_duration,
     )
@@ -629,7 +629,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     # mock so protocol will complete in first iteration
     mocker.patch.object(
         mc_simulator,
-        "_get_us_since_subprotocol_start",
+        "_get_ms_since_subprotocol_start",
         autospec=True,
         return_value=total_active_duration,
     )
