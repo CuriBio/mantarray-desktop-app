@@ -185,6 +185,8 @@ def test_main__logs_system_info__and_software_version_at_very_start(
         "stored_customer_ids": {
             "customer_account_uuid": "test_pass",
         },
+        "zipped_recordings_dir": "/tmp/zipped_recordings_dir",
+        "failed_uploads_dir": "/tmp/failed_uploads_dir",
         "recording_directory": "/tmp",
     }
     json_str = json.dumps(test_dict)
