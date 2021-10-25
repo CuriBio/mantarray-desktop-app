@@ -225,7 +225,7 @@ def main(
         # Eli (7/15/20): Moved this ahead of the exit for debug_test_post_build so that it could be easily unit tested. The equals signs are adding padding..apparently a quirk in python https://stackoverflow.com/questions/2941995/python-ignore-incorrect-padding-error-when-base64-decoding
         decoded_settings: bytes = base64.urlsafe_b64decode(str(parsed_args.initial_base64_settings) + "===")
         settings_dict = json.loads(decoded_settings)
-        shared_values_dict["config_settings"] = dict()
+        shared_values_dict["config_settings"] = {"recording_directory": settings_dict["recording_directory"]}
         shared_values_dict["stored_customer_settings"] = {
             "stored_customer_ids": settings_dict["stored_customer_ids"],
             "zipped_recordings_dir": settings_dict["zipped_recordings_dir"],

@@ -55,7 +55,7 @@ def upload_file_to_s3(file_path: str, file_name: str, upload_details: Dict[Any, 
         )
 
 
-def create_zip_file(file_directory: str, file_name: str, zipped_recording_dir: str) -> str:
+def create_zip_file(file_directory: str, file_name: str, zipped_recordings_dir: str) -> str:
     file_directory_path = os.path.join(os.path.abspath(file_directory), file_name)
     file_paths = []
 
@@ -70,7 +70,7 @@ def create_zip_file(file_directory: str, file_name: str, zipped_recording_dir: s
     # if not os.path.exists(os.path.join(os.path.abspath(file_directory), "zipped_recordings")):
     #     os.makedirs(os.path.join(os.path.abspath(file_directory), "zipped_recordings"))
 
-    zipped_file_path: str = os.path.join(zipped_recording_dir, f"{file_name}.zip")
+    zipped_file_path: str = os.path.join(zipped_recordings_dir, f"{file_name}.zip")
 
     # writing files to a zipfile
     zip_file = zipfile.ZipFile(zipped_file_path, "w")
@@ -97,7 +97,7 @@ def get_sdk_status(access_token: str, upload_details: Dict[Any, Any]) -> str:
 def uploader(
     file_directory: str,
     file_name: str,
-    zipped_recording_dir: str,
+    zipped_recordings_dir: str,
     customer_account_id: str,
     password: str,
 ) -> str:
@@ -105,7 +105,7 @@ def uploader(
     # Failed uploads will call function with zip file, not directory of well data
     if os.path.isdir(file_path):
         # store zipped files under customer specific and static zipped directory
-        customer_zipped_recordings_dir = os.path.join(zipped_recording_dir, customer_account_id)
+        customer_zipped_recordings_dir = os.path.join(zipped_recordings_dir, customer_account_id)
         zipped_file_path = create_zip_file(file_directory, file_name, customer_zipped_recordings_dir)
         file_name = f"{file_name}.zip"
     else:

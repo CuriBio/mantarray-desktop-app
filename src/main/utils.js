@@ -68,7 +68,7 @@ const generate_flask_command_line_args = function (electron_store) {
     "--expected-software-version=" + export_functions.get_current_app_version()
   );
   const recording_directory_path = path.join(electron_store_dir, "recordings");
-  const zipped_recording_dir_path = path.join(
+  const zipped_recordings_dir_path = path.join(
     recording_directory_path,
     "zipped_recordings"
   );
@@ -78,7 +78,7 @@ const generate_flask_command_line_args = function (electron_store) {
   );
   mkdirp.sync(flask_logs_full_path);
   mkdirp.sync(recording_directory_path);
-  mkdirp.sync(zipped_recording_dir_path);
+  mkdirp.sync(zipped_recordings_dir_path);
   mkdirp.sync(failed_uploads_dir_path);
 
   const stored_customer_ids = electron_store.get("customer_account_ids");
@@ -86,7 +86,7 @@ const generate_flask_command_line_args = function (electron_store) {
   const settings_to_supply = {
     recording_directory: recording_directory_path,
     stored_customer_ids,
-    zipped_recordings_dir: zipped_recording_dir_path,
+    zipped_recordings_dir: zipped_recordings_dir_path,
     failed_uploads_dir: failed_uploads_dir_path,
   };
 

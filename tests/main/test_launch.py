@@ -4,12 +4,10 @@ import hashlib
 import json
 import logging
 import multiprocessing
-import os
 import platform
 import socket
 import sys
 import tempfile
-import threading
 import time
 from unittest.mock import ANY
 import uuid
@@ -75,30 +73,6 @@ def test_main__stores_and_logs_port_number_from_command_line_arguments(
     spied_info_logger.assert_any_call(f"Using server port number: {expected_port_number}")
 
 
-def test_main__handles_base64_command_line_argument_with_padding_issue__and_redacts_initial_base64_settings_from_log_messages(
-    mocker,
-):
-    # Tanner (12/31/20): Need to mock this since the recording folder passed in --initial-base64-settings does not exist
-    mocker.patch.object(os.path, "isdir", autospec=True, return_value=True)
-
-    expected_command_line_args = [
-        "--debug-test-post-build",
-        "--initial-base64-settings=eyJyZWNvcmRpbmdfZGlyZWN0b3J5IjoiL3RtcCIsInN0b3JlZF9jdXN0b21lcl9pZHMiOnsiaGkiOiJ0ZXN0In19",
-    ]
-    spied_info_logger = mocker.spy(main.logger, "info")
-    main.main(expected_command_line_args)
-
-    for call_args in spied_info_logger.call_args_list:
-        if "Command Line Args:" in call_args[0][0]:
-            break
-    else:
-        assert False, "Command Line Args not found in any log message"
-    for i, call_args in enumerate(spied_info_logger.call_args_list):
-        assert (
-            "initial_base64_settings" not in call_args[0][0]
-        ), f"Error: initial_base64_settings found in call #{i}"
-
-
 def test_main__redacts_log_file_dir_from_log_message_of_command_line_args(mocker):
     with tempfile.TemporaryDirectory() as expected_log_file_dir:
         spied_info_logger = mocker.spy(main.logger, "info")
@@ -121,13 +95,7 @@ def test_main__redacts_log_file_dir_from_log_message_of_command_line_args(mocker
 def test_main__logs_command_line_arguments(mocker):
     test_command_line_args = ["--debug-test-post-build", "--log-level-debug"]
     spied_info_logger = mocker.spy(main.logger, "info")
-    main_thread = threading.Thread(
-        target=main.main,
-        args=[test_command_line_args],
-        name="thread_for_main_function_in_test",
-    )
-    main_thread.start()
-    main_thread.join()
+    main.main(test_command_line_args)
 
     expected_cmd_line_args_dict = {
         "debug_test_post_build": True,
@@ -145,7 +113,7 @@ def test_main__logs_command_line_arguments(mocker):
     spied_info_logger.assert_any_call(f"Command Line Args: {expected_cmd_line_args_dict}")
 
     for call_args in spied_info_logger.call_args_list:
-        assert "initial_base64_settings" not in call_args[0]
+        assert "initial_base64_settings" in call_args[0]
 
 
 @pytest.mark.timeout(2)
@@ -420,6 +388,8 @@ def test_main__stores_values_from_command_line_arguments(mocker, fully_running_a
         test_dict = {
             "stored_customer_ids": {"customer_account_uuid": "14b9294a-9efb-47dd-a06e-8247e982e196"},
             "recording_directory": expected_recordings_dir,
+            "zipped_recordings_dir": f"{expected_recordings_dir}/zipped_recordings",
+            "failed_uploads_dir": f"{expected_recordings_dir}/failed_uploads",
             "log_file_uuid": "91dbb151-0867-44da-a595-bd303f91927d",
         }
         json_str = json.dumps(test_dict)
@@ -439,9 +409,7 @@ def test_main__stores_values_from_command_line_arguments(mocker, fully_running_a
 
         assert actual_config_settings["recording_directory"] == expected_recordings_dir
         assert shared_values_dict["log_file_uuid"] == "91dbb151-0867-44da-a595-bd303f91927d"
-        assert shared_values_dict["stored_customer_ids"] == {
-            "customer_account_uuid": "14b9294a-9efb-47dd-a06e-8247e982e196"
-        }
+        assert "stored_customer_ids" in shared_values_dict["stored_customer_settings"]
         assert (
             shared_values_dict["computer_name_hash"]
             == hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).hexdigest()
@@ -455,7 +423,11 @@ def test_main__generates_log_file_uuid_if_none_passed_in_cmd_line_args(
     mocker.patch.object(uuid, "uuid4", autospec=True, return_value=expected_log_file_uuid)
 
     test_dict = {
-        "stored_customer_ids": {"customer_account_uuid": "14b9294a-9efb-47dd-a06e-8247e982e196"},
+        "stored_customer_ids": {
+            "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
+        },
+        "zipped_recordings_dir": "/tmp/zipped_recordings",
+        "failed_uploads_dir": "/tmp/failed_uploads",
         "recording_directory": "/tmp",
         "log_file_uuid": str(expected_log_file_uuid),
     }

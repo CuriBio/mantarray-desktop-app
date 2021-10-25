@@ -965,33 +965,34 @@ class FileWriterProcess(InfiniteProcess):
             zipped_recordings_dir = self._stored_customer_settings["zipped_recordings_dir"]
             stored_customer_ids = self._stored_customer_settings["stored_customer_ids"]
 
-            for customer_dir in os.listdir(failed_uploads_dir):
-                customer_passkey = stored_customer_ids[customer_dir]
-                customer_failed_uploads_dir = os.path.join(failed_uploads_dir, customer_dir)
-                for file_name in customer_dir:
-                    upload_thread = ErrorCatchingThread(
-                        target=uploader,
-                        args=(
-                            customer_failed_uploads_dir,
-                            file_name,
-                            zipped_recordings_dir,
-                            customer_dir,
-                            customer_passkey,
-                        ),
-                    )
-                    upload_thread.start()
-                    upload_thread.join()
-                    if upload_thread.error:
-                        self._upload_status = "upload failed"
-                        # TODO (Luci 10/20/21) not sure how to handle this re-upload error except to leave file and try again
-                    else:
-                        self._upload_status = upload_thread.result
-                        shutil.move(
-                            os.path.join(customer_failed_uploads_dir, file_name),
-                            os.path.join(zipped_recordings_dir, customer_dir),
+            if os.path.exists(failed_uploads_dir):  # for testing
+                for customer_dir in os.listdir(failed_uploads_dir):
+                    customer_passkey = stored_customer_ids[customer_dir]
+                    customer_failed_uploads_dir = os.path.join(failed_uploads_dir, customer_dir)
+                    for file_name in customer_dir:
+                        upload_thread = ErrorCatchingThread(
+                            target=uploader,
+                            args=(
+                                customer_failed_uploads_dir,
+                                file_name,
+                                zipped_recordings_dir,
+                                customer_dir,
+                                customer_passkey,
+                            ),
                         )
-                        # TODO (Luci 10/20/21) figure out how to handle if delete local files had been selected on original customer settings and how to handle the zip file
-                        # could call _delete_local_files here
+                        upload_thread.start()
+                        upload_thread.join()
+                        if upload_thread.error:
+                            self._upload_status = "upload failed"
+                            # TODO (Luci 10/20/21) not sure how to handle this re-upload error except to leave file and try again
+                        else:
+                            self._upload_status = upload_thread.result
+                            shutil.move(
+                                os.path.join(customer_failed_uploads_dir, file_name),
+                                os.path.join(zipped_recordings_dir, customer_dir),
+                            )
+                            # TODO (Luci 10/20/21) figure out how to handle if delete local files had been selected on original customer settings and how to handle the zip file
+                            # could call _delete_local_files here
 
     def _drain_all_queues(self) -> Dict[str, Any]:
         queue_items: Dict[str, Any] = dict()

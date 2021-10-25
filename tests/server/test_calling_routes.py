@@ -291,7 +291,7 @@ def test_update_settings__returns_error_message_when_customer_creds_dont_make_st
     invalid_customer_id = "invalid_id"
     invalid_password_id = "invalid_pass"
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
-    shared_values_dict["stored_customer_ids"] = {"real_id": "real_pass"}
+    shared_values_dict["stored_customer_settings"] = {"stored_customer_ids": {"real_id": "real_pass"}}
     response = test_client.get(
         f"/update_settings?customer_account_uuid={invalid_customer_id}&customer_pass_key={invalid_password_id}"
     )
