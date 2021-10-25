@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 import copy
+import datetime
 from random import randint
 from statistics import stdev
 import time
 
+from freezegun import freeze_time
 from mantarray_desktop_app import convert_bitmask_to_config_dict
 from mantarray_desktop_app import create_active_channel_per_sensor_list
 from mantarray_desktop_app import create_data_packet
@@ -545,6 +547,7 @@ def test_handle_data_packets__performance_test__magnetometer_data_only():
     assert parsed_data_dict["unread_bytes"] == bytes(0)
 
 
+@freeze_time(datetime.datetime(year=2021, month=10, day=24, hour=13, minute=5, second=23, microsecond=173814))
 def test_McCommunicationProcess__processes_start_managed_acquisition_command__when_data_not_already_streaming(
     four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
 ):
@@ -564,8 +567,6 @@ def test_McCommunicationProcess__processes_start_managed_acquisition_command__wh
         {"command": "set_sampling_period", "sampling_period": expected_sampling_period}, testing_queue
     )
 
-    spied_get_utc_now = mocker.spy(mc_comm, "_get_formatted_utc_now")
-
     expected_response = {
         "communication_type": "acquisition_manager",
         "command": "start_managed_acquisition",
@@ -583,7 +584,9 @@ def test_McCommunicationProcess__processes_start_managed_acquisition_command__wh
     command_response = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     expected_response["sampling_period"] = expected_sampling_period
     expected_response["magnetometer_config"] = simulator.get_magnetometer_config()
-    expected_response["timestamp"] = spied_get_utc_now.spy_return
+    expected_response["timestamp"] = datetime.datetime(
+        year=2021, month=10, day=24, hour=13, minute=5, second=23, microsecond=173814
+    )
     assert command_response == expected_response
 
 

@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 import copy
+import datetime
 from random import randint
 
+from freezegun import freeze_time
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import handle_data_packets
-from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
@@ -209,6 +210,7 @@ def test_handle_data_packets__parses_multiple_stim_data_packet_with_multiple_wel
     )
 
 
+@freeze_time(datetime.datetime(year=2021, month=10, day=24, hour=13, minute=7, second=23, microsecond=173814))
 def test_McCommunicationProcess__processes_start_and_stop_stimulation_commands__when_commands_are_successful(
     four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
 ):
@@ -230,7 +232,6 @@ def test_McCommunicationProcess__processes_start_and_stop_stimulation_commands__
         {well_name: False for well_name in expected_stim_info["protocol_assignments"].keys()},
     )
 
-    spied_get_utc_now = mocker.spy(mc_comm, "_get_formatted_utc_now")
     spied_reset_stim_buffers = mocker.spy(mc_process, "_reset_stim_status_buffers")
 
     for command, stim_running_statuses in (
@@ -254,7 +255,9 @@ def test_McCommunicationProcess__processes_start_and_stop_stimulation_commands__
         confirm_queue_is_eventually_of_size(output_queue, 1)
         message_to_main = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
         if command == "start_stimulation":
-            expected_response["timestamp"] = spied_get_utc_now.spy_return
+            expected_response["timestamp"] = datetime.datetime(
+                year=2021, month=10, day=24, hour=13, minute=7, second=23, microsecond=173814
+            )
             spied_reset_stim_buffers.assert_not_called()
         else:
             spied_reset_stim_buffers.assert_called_once()
@@ -371,7 +374,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     )
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
-    total_active_duration = 74000
+    total_active_duration_ms = 74
     test_well_indices = [randint(0, 11), randint(12, 23)]
     expected_stim_info = {
         "protocols": [
@@ -379,7 +382,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
                 "protocol_id": "A",
                 "stimulation_type": "C",
                 "run_until_stopped": False,
-                "subprotocols": [get_random_subprotocol(total_active_duration=total_active_duration)],
+                "subprotocols": [get_random_subprotocol(total_active_duration=total_active_duration_ms)],
             }
         ],
         "protocol_assignments": {
@@ -406,9 +409,9 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     # mock so protocol will complete in first iteration
     mocker.patch.object(
         mc_simulator,
-        "_get_ms_since_subprotocol_start",
+        "_get_us_since_subprotocol_start",
         autospec=True,
-        return_value=total_active_duration,
+        return_value=total_active_duration_ms * int(1e3),
     )
 
     # send start stimulation command
@@ -461,7 +464,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
     set_magnetometer_config(four_board_mc_comm_process_no_handshake, simulator)
 
-    total_active_duration = 76000
+    total_active_duration_ms = 76
     test_well_indices = [randint(0, 11), randint(12, 23)]
     expected_stim_info = {
         "protocols": [
@@ -470,8 +473,8 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
                 "stimulation_type": "V",
                 "run_until_stopped": False,
                 "subprotocols": [
-                    get_random_subprotocol(total_active_duration=total_active_duration),
-                    get_random_subprotocol(total_active_duration=total_active_duration),
+                    get_random_subprotocol(total_active_duration=total_active_duration_ms),
+                    get_random_subprotocol(total_active_duration=total_active_duration_ms),
                 ],
             }
         ],
@@ -506,9 +509,9 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     # mock so one status update is produced
     mocked_get_us_subprotocol = mocker.patch.object(
         mc_simulator,
-        "_get_ms_since_subprotocol_start",
+        "_get_us_since_subprotocol_start",
         autospec=True,
-        return_value=total_active_duration,
+        return_value=total_active_duration_ms * int(1e3),
     )
     spied_global_timer = mocker.spy(simulator, "_get_global_timer")
 
@@ -538,7 +541,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     )
     invoke_process_run_and_check_errors(mc_process)
     # send stimulator status packet after initial subprotocol completes
-    mocked_get_us_subprotocol.return_value = total_active_duration
+    mocked_get_us_subprotocol.return_value = total_active_duration_ms * int(1e3)
     invoke_process_run_and_check_errors(simulator)
     invoke_process_run_and_check_errors(mc_process)
     # process stim statuses and start data streaming command response
@@ -549,15 +552,27 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     # check status packet sent to file writer
     confirm_queue_is_eventually_of_size(to_fw_queue, 2)
     expected_well_statuses = (
-        [[expected_global_time_stim_start + total_active_duration - expected_global_time_data_start], [1]],
         [
-            [expected_global_time_stim_start + (total_active_duration * 2) - expected_global_time_data_start],
+            [
+                expected_global_time_stim_start
+                + total_active_duration_ms * int(1e3)
+                - expected_global_time_data_start
+            ],
+            [1],
+        ],
+        [
+            [
+                expected_global_time_stim_start
+                + (total_active_duration_ms * int(1e3) * 2)
+                - expected_global_time_data_start
+            ],
             [STIM_COMPLETE_SUBPROTOCOL_IDX],
         ],
     )
     for i, expected_well_status in enumerate(expected_well_statuses):
         msg_to_fw = to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
         assert msg_to_fw["data_type"] == "stimulation", i
+        assert msg_to_fw["is_first_packet_of_stream"] is (i == 0), i
         assert set(msg_to_fw["well_statuses"].keys()) == set(test_well_indices), i
         np.testing.assert_array_equal(
             msg_to_fw["well_statuses"][test_well_indices[0]], expected_well_status, err_msg=f"Packet {i}"
@@ -579,7 +594,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     )
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
-    total_active_duration = 74000
+    total_active_duration_ms = 74
     test_well_indices = [randint(0, 11), randint(12, 23)]
     expected_stim_info = {
         "protocols": [
@@ -587,7 +602,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
                 "protocol_id": "A",
                 "stimulation_type": "C",
                 "run_until_stopped": False,
-                "subprotocols": [get_random_subprotocol(total_active_duration=total_active_duration)],
+                "subprotocols": [get_random_subprotocol(total_active_duration=total_active_duration_ms)],
             }
         ],
         "protocol_assignments": {
@@ -629,9 +644,9 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     # mock so protocol will complete in first iteration
     mocker.patch.object(
         mc_simulator,
-        "_get_ms_since_subprotocol_start",
+        "_get_us_since_subprotocol_start",
         autospec=True,
-        return_value=total_active_duration,
+        return_value=total_active_duration_ms * int(1e3),
     )
 
     # send start stimulation command
@@ -659,11 +674,14 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     # check status packet sent to file writer
     stim_status_msg = drain_queue(to_fw_queue)[-1]
     assert stim_status_msg["data_type"] == "stimulation"
+    assert stim_status_msg["is_first_packet_of_stream"] is True
     assert set(stim_status_msg["well_statuses"].keys()) == set(test_well_indices)
     expected_well_statuses = [
         [
             expected_global_time_stim_start - expected_global_time_data_start,
-            expected_global_time_stim_start + total_active_duration - expected_global_time_data_start,
+            expected_global_time_stim_start
+            + total_active_duration_ms * int(1e3)
+            - expected_global_time_data_start,
         ],
         [0, STIM_COMPLETE_SUBPROTOCOL_IDX],
     ]

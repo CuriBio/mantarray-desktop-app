@@ -26,6 +26,7 @@ from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 import pytest
 
 from ..fixtures import fixture_generic_queue_container
+from ..fixtures_mc_simulator import create_random_stim_info
 from ..fixtures_mc_simulator import get_random_subprotocol
 from ..fixtures_server import fixture_client_and_server_manager_and_shared_values
 from ..fixtures_server import fixture_server_manager
@@ -57,6 +58,7 @@ def test_system_status__returns_correct_state_and_simulation_values(
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["system_status"] = expected_status
     shared_values_dict["in_simulation_mode"] = expected_in_simulation
+    shared_values_dict["stimulation_running"] = [False] * 24
 
     response = test_client.get("/system_status")
     assert response.status_code == 200
@@ -66,12 +68,34 @@ def test_system_status__returns_correct_state_and_simulation_values(
     assert response_json["in_simulation_mode"] == expected_in_simulation
 
 
+@pytest.mark.parametrize(
+    "test_stimulating_value,test_description",
+    [
+        (True, "returns True when stimulating"),
+        (False, "returns False when not stimulating"),
+    ],
+)
+def test_system_status__returns_correct_stimulating_value(
+    test_stimulating_value, test_description, client_and_server_manager_and_shared_values
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["stimulation_running"] = [False] * 24
+    shared_values_dict["stimulation_running"][0] = test_stimulating_value
+
+    response = test_client.get("/system_status")
+    assert response.status_code == 200
+
+    response_json = response.get_json()
+    assert response_json["is_stimulating"] is test_stimulating_value
+
+
 def test_system_status__returns_in_simulator_mode_False_as_default_value(
     client_and_server_manager_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     expected_status = CALIBRATION_NEEDED_STATE
     shared_values_dict["system_status"] = expected_status
+    shared_values_dict["stimulation_running"] = [False] * 24
 
     response = test_client.get("/system_status")
     assert response.status_code == 200
@@ -97,6 +121,7 @@ def test_system_status__returns_correct_serial_number_and_nickname_in_dict_with_
     board_idx = 0
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["system_status"] = SERVER_READY_STATE
+    shared_values_dict["stimulation_running"] = [False] * 24
 
     if expected_serial:
         shared_values_dict["mantarray_serial_number"] = {board_idx: expected_serial}
@@ -134,6 +159,7 @@ def test_system_status_handles_expected_software_version_correctly(
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["system_status"] = CALIBRATED_STATE
+    shared_values_dict["stimulation_running"] = [False] * 24
     if expected_software_version is not None:
         shared_values_dict["expected_software_version"] = expected_software_version
 
@@ -912,6 +938,20 @@ def test_set_stim_status__returns_error_code_and_message_if_called_before_protoc
     response = test_client.post(f"/set_stim_status?running={test_status}")
     assert response.status_code == 406
     assert response.status.endswith("Protocols have not been set") is True
+
+
+def test_set_stim_status__returns_error_code_and_message_if_called_while_recording(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["system_status"] = RECORDING_STATE
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = [False] * 24
+    shared_values_dict["stimulation_info"] = create_random_stim_info()
+
+    response = test_client.post("/set_stim_status?running=true")
+    assert response.status_code == 403
+    assert response.status.endswith("Cannot start stimulation while recording") is True
 
 
 def test_set_stim_status__returns_code_and_message_if_new_status_is_the_same_as_the_current_status(

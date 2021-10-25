@@ -640,7 +640,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                     )
                     prev_command["sampling_period"] = int.from_bytes(response_data[9:11], byteorder="little")
                     prev_command["magnetometer_config"] = convert_bytes_to_config_dict(response_data[11:])
-                prev_command["timestamp"] = datetime.datetime.utcnow()  # TODO
+                prev_command["timestamp"] = datetime.datetime.utcnow()
                 # Tanner (6/11/21): This helps prevent against status beacon timeouts with beacons that come just after the data stream begins but before 1 second of data is available
                 self._time_of_last_beacon_secs = perf_counter()
                 # send any buffered stim statuses
@@ -670,12 +670,12 @@ class McCommunicationProcess(InstrumentCommProcess):
                         raise StimulationProtocolUpdateFailedError()
                     prev_command["hardware_test_message"] = "Command failed"  # pragma: no cover
             elif prev_command["command"] == "start_stimulation":
-                # TODO self._base_global_time_of_data_stream = __
+                # Tanner (10/25/21): if needed, can save _base_global_time_of_data_stream here
                 if response_data[0]:
                     if not self._hardware_test_mode:
                         raise StimulationStatusUpdateFailedError("start_stimulation")
                     prev_command["hardware_test_message"] = "Command failed"  # pragma: no cover
-                prev_command["timestamp"] = datetime.datetime.utcnow()  # TODO
+                prev_command["timestamp"] = datetime.datetime.utcnow()
                 self._is_stimulating = True
                 self._has_stim_packet_been_sent = False
             elif prev_command["command"] == "stop_stimulation":
@@ -994,7 +994,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         if self._is_data_streaming and not self._is_stopping_data_stream:
             for stim_status_updates in well_statuses.values():
                 stim_status_updates[0] -= self._base_global_time_of_data_stream
-            self._dump_stim_packet(well_statuses)  # TODO make sure this is unit tested
+            self._dump_stim_packet(well_statuses)
 
     def _dump_stim_packet(self, well_statuses: NDArray[(2, Any), int]) -> None:
         to_fw_queue = self._board_queues[0][2]
@@ -1002,7 +1002,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             {
                 "data_type": "stimulation",
                 "well_statuses": well_statuses,
-                "is_first_packet_of_stream": not self._has_stim_packet_been_sent,  # TODO unit test this
+                "is_first_packet_of_stream": not self._has_stim_packet_been_sent,
             }
         )
         self._has_stim_packet_been_sent = True

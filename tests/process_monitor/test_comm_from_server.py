@@ -751,9 +751,6 @@ def test_MantarrayProcessesMonitor__processes_set_stim_status_command(
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, server_to_main_queue)
 
     invoke_process_run_and_check_errors(monitor_thread)
-    assert shared_values_dict["stimulation_running"] == [
-        (test_status if well_idx in test_well_indices else False) for well_idx in range(24)
-    ]
 
     confirm_queue_is_eventually_of_size(main_to_ic_queue, 1)
     actual = main_to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)

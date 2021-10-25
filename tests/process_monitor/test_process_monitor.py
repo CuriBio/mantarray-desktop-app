@@ -36,6 +36,7 @@ from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import ServerManager
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.server import queue_command_to_instrument_comm
 import numpy as np
 import pytest
@@ -47,6 +48,7 @@ from ..fixtures import fixture_patch_print
 from ..fixtures import fixture_test_process_manager_creator
 from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from ..fixtures_mc_simulator import create_random_stim_info
 from ..fixtures_ok_comm import fixture_patch_connection_to_board
 from ..fixtures_process_monitor import fixture_test_monitor
 from ..helpers import confirm_queue_is_eventually_empty
@@ -1329,12 +1331,16 @@ def test_MantarrayProcessesMonitor__updates_magnetometer_config_after_receiving_
     confirm_queue_is_eventually_empty(main_to_ic)
 
 
-def test_MantarrayProcessesMonitor__sets_timestamp_in_shared_values_dict_after_receiving_start_stimulation_command_response_from_instrument_comm(
+def test_MantarrayProcessesMonitor__sets_timestamp_and_stim_running_statuses_in_shared_values_dict_after_receiving_start_stimulation_command_response_from_instrument_comm(
     test_monitor, test_process_manager_creator
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+
+    test_stim_info = create_random_stim_info()
+
     shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] = [None]
+    shared_values_dict["stimulation_info"] = test_stim_info
 
     instrument_comm_to_main = (
         test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
@@ -1352,13 +1358,33 @@ def test_MantarrayProcessesMonitor__sets_timestamp_in_shared_values_dict_after_r
 
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["utc_timestamps_of_beginning_of_stimulation"][0] == expected_timestamp
+    assert shared_values_dict["stimulation_running"] == [
+        bool(
+            test_stim_info["protocol_assignments"][
+                GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
+            ]
+        )
+        for well_idx in range(24)
+    ]
 
 
-def test_MantarrayProcessesMonitor__clears_timestamp_in_shared_values_dict_after_receiving_stop_stimulation_command_response_from_instrument_comm(
+def test_MantarrayProcessesMonitor__clears_timestamp_and_updates_stim_running_statuses_shared_values_dict_after_receiving_stop_stimulation_command_response_from_instrument_comm(
     test_monitor, test_process_manager_creator
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+
+    test_stim_info = create_random_stim_info()
+
+    shared_values_dict["stimulation_info"] = test_stim_info
+    shared_values_dict["stimulation_running"] = [
+        bool(
+            test_stim_info["protocol_assignments"][
+                GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
+            ]
+        )
+        for well_idx in range(24)
+    ]
     shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] = [
         datetime.datetime(year=2021, month=10, day=19, hour=10, minute=31, second=21, microsecond=123456)
     ]
@@ -1372,6 +1398,7 @@ def test_MantarrayProcessesMonitor__clears_timestamp_in_shared_values_dict_after
 
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["utc_timestamps_of_beginning_of_stimulation"][0] is None
+    assert shared_values_dict["stimulation_running"] == [False] * 24
 
 
 def test_MantarrayProcessesMonitor__updates_stimulation_running_list_and_stimulation_start_time_timestamp_when_status_update_message_from_instrument_comm(
