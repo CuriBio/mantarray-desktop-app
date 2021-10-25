@@ -6,6 +6,10 @@ Changelog for Mantarray Desktop App
 ------------------
 
 - Added Stimulation Studio and Controls when app is launched in Beta 2 mode.
+- Added following metadata to Beta 2 H5 files:
+  - Stimulation protocol.
+  - UTC start time of stimulation.
+- Added stimulation subprotocol start times and stimulation stop time to H5 files.
 
 
 0.5.2 (2021-09-13)
