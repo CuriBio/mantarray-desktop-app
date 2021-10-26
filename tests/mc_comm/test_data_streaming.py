@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 import copy
+import datetime
 from random import randint
 from statistics import stdev
 import time
 
+from freezegun import freeze_time
 from mantarray_desktop_app import convert_bitmask_to_config_dict
 from mantarray_desktop_app import create_active_channel_per_sensor_list
 from mantarray_desktop_app import create_data_packet
@@ -19,10 +21,10 @@ from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
-from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from mantarray_desktop_app import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
@@ -43,7 +45,12 @@ from ..fixtures import fixture_patch_print
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process_no_handshake
 from ..fixtures_mc_comm import set_connection_and_register_simulator
+from ..fixtures_mc_comm import set_magnetometer_config_and_start_streaming
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
+from ..fixtures_mc_simulator import random_data_value
+from ..fixtures_mc_simulator import random_time_index
+from ..fixtures_mc_simulator import random_time_offset
+from ..fixtures_mc_simulator import random_timestamp
 from ..fixtures_mc_simulator import set_simulator_idle_ready
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
@@ -55,22 +62,6 @@ __fixtures__ = [
     fixture_patch_print,
     fixture_four_board_mc_comm_process_no_handshake,
 ]
-
-
-def random_time_index():
-    return randint(0, 0xFFFFFFFFFF)
-
-
-def random_time_offset():
-    return randint(0, 0xFFFF)
-
-
-def random_data_value():
-    return randint(-0x8000, 0x7FFF)
-
-
-def random_timestamp():
-    return randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
 
 
 TEST_NUM_WELLS = 24
@@ -128,42 +119,6 @@ def create_data_stream_body(
     return data_packet_body, offset_values, data_values
 
 
-def set_magnetometer_config_and_start_streaming(
-    mc_fixture,
-    simulator,
-    magnetometer_config,
-    sampling_period,
-):
-    mc_process = mc_fixture["mc_process"]
-    from_main_queue = mc_fixture["board_queues"][0][0]
-    to_main_queue = mc_fixture["board_queues"][0][1]
-    config_command = {
-        "communication_type": "acquisition_manager",
-        "command": "change_magnetometer_config",
-        "magnetometer_config": magnetometer_config,
-        "sampling_period": sampling_period,
-    }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(config_command, from_main_queue)
-    # send command, process command, process command response
-    invoke_process_run_and_check_errors(mc_process)
-    invoke_process_run_and_check_errors(simulator)
-    invoke_process_run_and_check_errors(mc_process)
-    confirm_queue_is_eventually_of_size(to_main_queue, 1)
-    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-
-    start_command = {
-        "communication_type": "acquisition_manager",
-        "command": "start_managed_acquisition",
-    }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
-    # send command, process command, process command response
-    invoke_process_run_and_check_errors(mc_process)
-    invoke_process_run_and_check_errors(simulator)
-    invoke_process_run_and_check_errors(mc_process)
-    confirm_queue_is_eventually_of_size(to_main_queue, 1)
-    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-
-
 def test_handle_data_packets__handles_two_full_data_packets_correctly__and_assigns_correct_data_type_to_parsed_values__when_all_channels_enabled():
     test_num_data_packets = 2
     expected_time_indices = [0xFFFFFFFFFFFFFF00, 0xFFFFFFFFFFFFFF01]
@@ -192,16 +147,12 @@ def test_handle_data_packets__handles_two_full_data_packets_correctly__and_assig
         (len(expected_data_points) // test_num_data_packets, test_num_data_packets), order="F"
     )
 
-    (
-        actual_time_indices,
-        actual_time_offsets,
-        actual_data,
-        num_data_packets_read,
-        other_packet_info,
-        unread_bytes,
-    ) = handle_data_packets(
+    parsed_data_dict = handle_data_packets(
         bytearray(test_data_packet_bytes), FULL_DATA_PACKET_CHANNEL_LIST, base_global_time
     )
+    (actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read) = parsed_data_dict[
+        "magnetometer_data"
+    ].values()
 
     assert actual_time_indices.dtype == np.uint64
     assert actual_time_offsets.dtype == np.uint16
@@ -210,8 +161,8 @@ def test_handle_data_packets__handles_two_full_data_packets_correctly__and_assig
     np.testing.assert_array_equal(actual_time_offsets, expected_time_offsets)
     np.testing.assert_array_equal(actual_data, expected_data_points)
     assert num_data_packets_read == test_num_data_packets
-    assert other_packet_info == []
-    assert unread_bytes == bytes(0)
+    assert parsed_data_dict["other_packet_info"] == []
+    assert parsed_data_dict["unread_bytes"] == bytes(0)
 
 
 def test_handle_data_packets__handles_two_full_data_packets_correctly__when_active_sensors_have_different_configs():
@@ -255,39 +206,31 @@ def test_handle_data_packets__handles_two_full_data_packets_correctly__when_acti
     )
 
     active_channels_list = create_active_channel_per_sensor_list(test_config_dict)
-    (
-        actual_time_indices,
-        actual_time_offsets,
-        actual_data,
-        num_data_packets_read,
-        other_packet_info,
-        unread_bytes,
-    ) = handle_data_packets(bytearray(test_data_packet_bytes), active_channels_list, 0)
+    parsed_data_dict = handle_data_packets(bytearray(test_data_packet_bytes), active_channels_list, 0)
+    (actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read) = parsed_data_dict[
+        "magnetometer_data"
+    ].values()
 
     np.testing.assert_array_equal(actual_time_indices, expected_time_indices)
     np.testing.assert_array_equal(actual_time_offsets, expected_time_offsets)
     np.testing.assert_array_equal(actual_data, expected_data_points)
     assert num_data_packets_read == test_num_data_packets
-    assert other_packet_info == []
-    assert unread_bytes == bytes(0)
+    assert parsed_data_dict["other_packet_info"] == []
+    assert parsed_data_dict["unread_bytes"] == bytes(0)
 
 
 def test_handle_data_packets__handles_single_packet_with_incorrect_packet_type_correctly__when_all_channels_enabled():
-    (
-        actual_time_indices,
-        actual_time_offsets,
-        actual_data,
-        num_data_packets_read,
-        other_packet_info,
-        unread_bytes,
-    ) = handle_data_packets(bytearray(TEST_OTHER_PACKET), FULL_DATA_PACKET_CHANNEL_LIST, 0)
+    parsed_data_dict = handle_data_packets(bytearray(TEST_OTHER_PACKET), FULL_DATA_PACKET_CHANNEL_LIST, 0)
+    (actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read) = parsed_data_dict[
+        "magnetometer_data"
+    ].values()
 
     assert actual_time_indices.shape[0] == 0
     assert actual_time_offsets.shape[1] == 0
     assert actual_data.shape[1] == 0
     assert num_data_packets_read == 0
-    assert other_packet_info == [TEST_OTHER_PACKET_INFO]
-    assert unread_bytes == bytes(0)
+    assert parsed_data_dict["other_packet_info"] == [TEST_OTHER_PACKET_INFO]
+    assert parsed_data_dict["unread_bytes"] == bytes(0)
 
 
 def test_handle_data_packets__handles_single_packet_with_incorrect_module_id_correctly__when_all_channels_enabled():
@@ -300,20 +243,16 @@ def test_handle_data_packets__handles_single_packet_with_incorrect_module_id_cor
         bytes(test_body_length),
     )
 
-    (
-        actual_time_indices,
-        actual_time_offsets,
-        actual_data,
-        num_data_packets_read,
-        other_packet_info,
-        unread_bytes,
-    ) = handle_data_packets(bytearray(test_data_packet), FULL_DATA_PACKET_CHANNEL_LIST, 0)
+    parsed_data_dict = handle_data_packets(bytearray(test_data_packet), FULL_DATA_PACKET_CHANNEL_LIST, 0)
+    (actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read) = parsed_data_dict[
+        "magnetometer_data"
+    ].values()
 
     assert actual_time_indices.shape[0] == 0
     assert actual_time_offsets.shape[1] == 0
     assert actual_data.shape[1] == 0
     assert num_data_packets_read == 0
-    assert other_packet_info == [
+    assert parsed_data_dict["other_packet_info"] == [
         (
             expected_timestamp,
             255,
@@ -321,7 +260,7 @@ def test_handle_data_packets__handles_single_packet_with_incorrect_module_id_cor
             bytes(test_body_length),
         )
     ]
-    assert unread_bytes == bytes(0)
+    assert parsed_data_dict["unread_bytes"] == bytes(0)
 
 
 def test_handle_data_packets__handles_interrupting_packet_followed_by_data_packet__when_all_channels_enabled():
@@ -336,21 +275,17 @@ def test_handle_data_packets__handles_interrupting_packet_followed_by_data_packe
         data_packet_body,
     )
 
-    (
-        actual_time_indices,
-        actual_time_offsets,
-        actual_data,
-        num_data_packets_read,
-        other_packet_info,
-        unread_bytes,
-    ) = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0)
+    parsed_data_dict = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0)
+    (actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read) = parsed_data_dict[
+        "magnetometer_data"
+    ].values()
 
     np.testing.assert_array_equal(actual_time_indices, expected_time_index)
     np.testing.assert_array_equal(actual_time_offsets.flatten(), expected_time_offsets)
     np.testing.assert_array_equal(actual_data.flatten(), expected_data_points)
     assert num_data_packets_read == 1
-    assert other_packet_info == [TEST_OTHER_PACKET_INFO]
-    assert unread_bytes == bytes(0)
+    assert parsed_data_dict["other_packet_info"] == [TEST_OTHER_PACKET_INFO]
+    assert parsed_data_dict["unread_bytes"] == bytes(0)
 
 
 def test_handle_data_packets__handles_single_data_packet_followed_by_interrupting_packet__when_all_channels_enabled():
@@ -364,22 +299,18 @@ def test_handle_data_packets__handles_single_data_packet_followed_by_interruptin
     )
     test_bytes = test_data_packet + TEST_OTHER_PACKET
 
-    (
-        actual_time_indices,
-        actual_time_offsets,
-        actual_data,
-        num_data_packets_read,
-        other_packet_info,
-        unread_bytes,
-    ) = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0)
+    parsed_data_dict = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0)
+    (actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read) = parsed_data_dict[
+        "magnetometer_data"
+    ].values()
 
     assert actual_time_indices.shape[0] == 1
     assert actual_time_offsets.shape[1] == 1
     assert actual_data.shape[1] == 1
     assert actual_time_indices[0] == expected_time_index
     assert num_data_packets_read == 1
-    assert other_packet_info == [TEST_OTHER_PACKET_INFO]
-    assert unread_bytes == bytes(0)
+    assert parsed_data_dict["other_packet_info"] == [TEST_OTHER_PACKET_INFO]
+    assert parsed_data_dict["unread_bytes"] == bytes(0)
 
 
 def test_handle_data_packets__handles_single_data_packet_followed_by_incomplete_packet__when_all_channels_enabled():
@@ -394,22 +325,18 @@ def test_handle_data_packets__handles_single_data_packet_followed_by_incomplete_
     test_incomplete_packet = bytes(SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES - 1)
     test_bytes = test_data_packet + test_incomplete_packet
 
-    (
-        actual_time_indices,
-        actual_data,
-        actual_time_offsets,
-        num_data_packets_read,
-        other_packet_info,
-        unread_bytes,
-    ) = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0)
+    parsed_data_dict = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0)
+    (actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read) = parsed_data_dict[
+        "magnetometer_data"
+    ].values()
 
     assert actual_time_indices.shape[0] == 1
     assert actual_time_offsets.shape[1] == 1
     assert actual_data.shape[1] == 1
     assert actual_time_indices[0] == expected_time_index
     assert num_data_packets_read == 1
-    assert other_packet_info == []
-    assert unread_bytes == test_incomplete_packet
+    assert parsed_data_dict["other_packet_info"] == []
+    assert parsed_data_dict["unread_bytes"] == test_incomplete_packet
 
 
 def test_handle_data_packets__handles_interrupting_packet_in_between_two_data_packets__when_all_channels_enabled():
@@ -435,14 +362,10 @@ def test_handle_data_packets__handles_interrupting_packet_in_between_two_data_pa
         expected_data_points.extend(test_data)
     test_bytes = test_data_packets[0] + TEST_OTHER_PACKET + test_data_packets[1]
 
-    (
-        actual_time_indices,
-        actual_time_offsets,
-        actual_data,
-        num_data_packets_read,
-        other_packet_info,
-        unread_bytes,
-    ) = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0)
+    parsed_data_dict = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0)
+    (actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read) = parsed_data_dict[
+        "magnetometer_data"
+    ].values()
 
     expected_time_offsets = np.array(expected_time_offsets).reshape(
         (len(expected_time_offsets) // test_num_data_packets, test_num_data_packets), order="F"
@@ -455,8 +378,8 @@ def test_handle_data_packets__handles_interrupting_packet_in_between_two_data_pa
     np.testing.assert_array_equal(actual_time_offsets, expected_time_offsets)
     np.testing.assert_array_equal(actual_data, expected_data_points)
     assert num_data_packets_read == 2
-    assert other_packet_info == [TEST_OTHER_PACKET_INFO]
-    assert unread_bytes == bytes(0)
+    assert parsed_data_dict["other_packet_info"] == [TEST_OTHER_PACKET_INFO]
+    assert parsed_data_dict["unread_bytes"] == bytes(0)
 
 
 def test_handle_data_packets__handles_two_interrupting_packets_in_between_two_data_packets__when_all_channels_enabled():
@@ -482,14 +405,10 @@ def test_handle_data_packets__handles_two_interrupting_packets_in_between_two_da
         expected_data_points.extend(test_data)
     test_bytes = test_data_packets[0] + TEST_OTHER_PACKET + TEST_OTHER_PACKET + test_data_packets[1]
 
-    (
-        actual_time_indices,
-        actual_time_offsets,
-        actual_data,
-        num_data_packets_read,
-        other_packet_info,
-        unread_bytes,
-    ) = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0)
+    parsed_data_dict = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0)
+    (actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read) = parsed_data_dict[
+        "magnetometer_data"
+    ].values()
 
     expected_time_offsets = np.array(expected_time_offsets).reshape(
         (len(expected_time_offsets) // test_num_data_packets, test_num_data_packets), order="F"
@@ -502,8 +421,8 @@ def test_handle_data_packets__handles_two_interrupting_packets_in_between_two_da
     np.testing.assert_array_equal(actual_time_offsets, expected_time_offsets)
     np.testing.assert_array_equal(actual_data, expected_data_points)
     assert num_data_packets_read == 2
-    assert other_packet_info == [TEST_OTHER_PACKET_INFO, TEST_OTHER_PACKET_INFO]
-    assert unread_bytes == bytes(0)
+    assert parsed_data_dict["other_packet_info"] == [TEST_OTHER_PACKET_INFO, TEST_OTHER_PACKET_INFO]
+    assert parsed_data_dict["unread_bytes"] == bytes(0)
 
 
 def test_handle_data_packets__raises_error_when_packet_from_instrument_has_incorrect_magic_word(
@@ -530,10 +449,56 @@ def test_handle_data_packets__raises_error_when_packet_from_instrument_has_incor
     assert str(bytearray(bad_packet)) in exc_info.value.args[0]
 
 
-def test_handle_data_packets__performance_test():
+def test_handle_data_packets__does_not_parse_final_packet_if_it_is_not_complete():
+    test_num_data_packets = 1
+    expected_time_index = 10000
+
+    base_global_time = randint(0, 100)
+
+    data_packet_body, expected_time_offsets, expected_data_points = create_data_stream_body(
+        expected_time_index + base_global_time
+    )
+    full_packet = create_data_packet(  # add one full packet
+        random_timestamp(),
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE,
+        data_packet_body,
+    )
+    incomplete_packet = create_data_packet(  # add one incomplete packet with arbitrary data
+        random_timestamp(),
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+        bytes(10),
+    )[:-1]
+    test_data_packet_bytes = full_packet + incomplete_packet
+
+    parsed_data_dict = handle_data_packets(
+        bytearray(test_data_packet_bytes), FULL_DATA_PACKET_CHANNEL_LIST, base_global_time
+    )
+    (actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read) = parsed_data_dict[
+        "magnetometer_data"
+    ].values()
+
+    expected_time_offsets = np.array(expected_time_offsets).reshape(
+        (len(expected_time_offsets) // test_num_data_packets, test_num_data_packets), order="F"
+    )
+    expected_data_points = np.array(expected_data_points).reshape(
+        (len(expected_data_points) // test_num_data_packets, test_num_data_packets), order="F"
+    )
+
+    np.testing.assert_array_equal(actual_time_indices, expected_time_index)
+    np.testing.assert_array_equal(actual_time_offsets, expected_time_offsets)
+    np.testing.assert_array_equal(actual_data, expected_data_points)
+    assert num_data_packets_read == test_num_data_packets
+    assert parsed_data_dict["other_packet_info"] == []
+    assert parsed_data_dict["unread_bytes"] == incomplete_packet
+
+
+def test_handle_data_packets__performance_test__magnetometer_data_only():
     # One second of data, max sampling rate, all data channels on
     # start:                                        1397497
     # added time offsets + memory views:            2190868
+    # refactor before adding stim:                  3164056
 
     num_us_of_data_to_send = MICRO_TO_BASE_CONVERSION
     max_sampling_rate_us = 1000
@@ -561,14 +526,12 @@ def test_handle_data_packets__performance_test():
     )
 
     start = time.perf_counter_ns()
-    (
-        actual_time_indices,
-        actual_time_offsets,
-        actual_data,
-        num_data_packets_read,
-        other_packet_info,
-        unread_bytes,
-    ) = handle_data_packets(bytearray(test_data_packet_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0)
+    parsed_data_dict = handle_data_packets(
+        bytearray(test_data_packet_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0
+    )
+    (actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read) = parsed_data_dict[
+        "magnetometer_data"
+    ].values()
     dur = time.perf_counter_ns() - start
     # print(f"Dur (ns): {dur}, (seconds): {dur / 1e9}")  # pylint:disable=wrong-spelling-in-comment # Tanner (5/11/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
 
@@ -580,10 +543,11 @@ def test_handle_data_packets__performance_test():
     np.testing.assert_array_equal(actual_time_offsets, expected_time_offsets)
     np.testing.assert_array_equal(actual_data, expected_data_points)
     assert num_data_packets_read == test_num_data_packets
-    assert other_packet_info == []
-    assert unread_bytes == bytes(0)
+    assert parsed_data_dict["other_packet_info"] == []
+    assert parsed_data_dict["unread_bytes"] == bytes(0)
 
 
+@freeze_time(datetime.datetime(year=2021, month=10, day=24, hour=13, minute=5, second=23, microsecond=173814))
 def test_McCommunicationProcess__processes_start_managed_acquisition_command__when_data_not_already_streaming(
     four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
 ):
@@ -603,8 +567,6 @@ def test_McCommunicationProcess__processes_start_managed_acquisition_command__wh
         {"command": "set_sampling_period", "sampling_period": expected_sampling_period}, testing_queue
     )
 
-    spied_get_utc_now = mocker.spy(mc_comm, "_get_formatted_utc_now")
-
     expected_response = {
         "communication_type": "acquisition_manager",
         "command": "start_managed_acquisition",
@@ -622,7 +584,9 @@ def test_McCommunicationProcess__processes_start_managed_acquisition_command__wh
     command_response = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     expected_response["sampling_period"] = expected_sampling_period
     expected_response["magnetometer_config"] = simulator.get_magnetometer_config()
-    expected_response["timestamp"] = spied_get_utc_now.spy_return
+    expected_response["timestamp"] = datetime.datetime(
+        year=2021, month=10, day=24, hour=13, minute=5, second=23, microsecond=173814
+    )
     assert command_response == expected_response
 
 
@@ -850,7 +814,10 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
     expected_time_indices = list(range(0, max_time_idx_us, test_sampling_period_us))
 
     simulated_data = simulator.get_interpolated_data(test_sampling_period_us)
-    expected_fw_item = {"time_indices": np.array(expected_time_indices, np.uint64)}
+    expected_fw_item = {
+        "data_type": "mangetometer",
+        "time_indices": np.array(expected_time_indices, np.uint64),
+    }
     for well_idx in range(test_num_wells):
         channel_dict = {
             "time_offsets": np.zeros((SERIAL_COMM_NUM_SENSORS_PER_WELL, test_num_packets), dtype=np.uint16),
@@ -868,7 +835,7 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
     assert actual_fw_item.keys() == expected_fw_item.keys()
     np.testing.assert_array_equal(actual_fw_item["time_indices"], expected_fw_item["time_indices"])
     for key, expected_item in expected_fw_item.items():
-        if key in ("is_first_packet_of_stream", "time_indices"):
+        if key in ("data_type", "is_first_packet_of_stream", "time_indices"):
             continue
         actual_item = actual_fw_item[key]
         assert actual_item.keys() == expected_item.keys()  # pylint: disable=no-member
@@ -964,7 +931,10 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
     expected_time_indices = list(range(0, max_time_idx_us, test_sampling_period_us))
 
     simulated_data = simulator.get_interpolated_data(test_sampling_period_us)
-    expected_fw_item = {"time_indices": np.array(expected_time_indices, np.uint64)}
+    expected_fw_item = {
+        "data_type": "mangetometer",
+        "time_indices": np.array(expected_time_indices, np.uint64),
+    }
     for well_idx in range(test_num_wells):
         config_values = list(test_config_dict[SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]].values())
         if not any(config_values):
@@ -992,7 +962,7 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
     assert actual_fw_item.keys() == expected_fw_item.keys()
     np.testing.assert_array_equal(actual_fw_item["time_indices"], expected_fw_item["time_indices"])
     for key, expected_item in expected_fw_item.items():
-        if key in ("is_first_packet_of_stream", "time_indices"):
+        if key in ("data_type", "is_first_packet_of_stream", "time_indices"):
             continue
         actual_item = actual_fw_item[key]
         assert actual_item.keys() == expected_item.keys()  # pylint: disable=no-member
@@ -1046,7 +1016,10 @@ def test_McCommunicationProcess__handles_one_second_read_with_two_interrupting_p
 
     simulated_data = simulator.get_interpolated_data(test_sampling_period_us)
     expected_sensor_axis_id = 0
-    expected_fw_item = {"time_indices": np.array(expected_time_indices, np.uint64)}
+    expected_fw_item = {
+        "data_type": "mangetometer",
+        "time_indices": np.array(expected_time_indices, np.uint64),
+    }
     for module_id in range(10, 16):
         well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
         channel_data = np.concatenate((simulated_data, simulated_data[: test_num_packets // 3]))
@@ -1088,7 +1061,7 @@ def test_McCommunicationProcess__handles_one_second_read_with_two_interrupting_p
     np.testing.assert_array_equal(actual_fw_item["time_indices"], expected_fw_item["time_indices"])
 
     for key, expected_item in expected_fw_item.items():
-        if key in ("is_first_packet_of_stream", "time_indices"):
+        if key in ("data_type", "is_first_packet_of_stream", "time_indices"):
             continue
         actual_time_offsets = actual_fw_item[key]["time_offsets"]
         actual_data = actual_fw_item[key][expected_sensor_axis_id]
@@ -1148,7 +1121,10 @@ def test_McCommunicationProcess__handles_less_than_one_second_read_when_stopping
 
     simulated_data = simulator.get_interpolated_data(test_sampling_period_us)
     expected_sensor_axis_id = 0
-    expected_fw_item = {"time_indices": np.array(expected_time_indices, np.uint64)}
+    expected_fw_item = {
+        "data_type": "mangetometer",
+        "time_indices": np.array(expected_time_indices, np.uint64),
+    }
     for module_id in range(10, 16):
         well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
         channel_dict = {
@@ -1174,7 +1150,7 @@ def test_McCommunicationProcess__handles_less_than_one_second_read_when_stopping
     assert actual_fw_item.keys() == expected_fw_item.keys()
     np.testing.assert_array_equal(actual_fw_item["time_indices"], expected_fw_item["time_indices"])
     for key, expected_item in expected_fw_item.items():
-        if key in ("is_first_packet_of_stream", "time_indices"):
+        if key in ("data_type", "is_first_packet_of_stream", "time_indices"):
             continue
         actual_time_offsets = actual_fw_item[key]["time_offsets"]
         actual_data = actual_fw_item[key][expected_sensor_axis_id]
@@ -1285,7 +1261,20 @@ def test_McCommunicationProcess__logs_performance_metrics_after_parsing_data(
         mc_comm,
         "handle_data_packets",
         autospec=True,
-        side_effect=[[[], [], [], num_packets, [], bytes(0)] for num_packets in expected_num_packets_read],
+        side_effect=[
+            {
+                "magnetometer_data": {
+                    "time_indices": [],
+                    "time_offsets": [],
+                    "data": [],
+                    "num_data_packets": num_packets,
+                },
+                "stim_data": {},
+                "other_packet_info": [],
+                "unread_bytes": bytes(0),
+            }
+            for num_packets in expected_num_packets_read
+        ],
     )
 
     # run mc_process to create metrics
@@ -1365,7 +1354,18 @@ def test_McCommunicationProcess__does_not_include_performance_metrics_in_first_l
         "handle_data_packets",
         autospec=True,
         side_effect=[
-            [[], [], [], 0, [], bytes(0)] for _ in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)
+            {
+                "magnetometer_data": {
+                    "time_indices": [],
+                    "time_offsets": [],
+                    "data": [],
+                    "num_data_packets": 0,
+                },
+                "stim_data": {},
+                "other_packet_info": [],
+                "unread_bytes": bytes(0),
+            }
+            for _ in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)
         ],
     )
 

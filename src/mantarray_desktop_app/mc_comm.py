@@ -22,6 +22,7 @@ from zlib import crc32
 
 from mantarray_file_manager import DATETIME_STR_FORMAT
 from nptyping import NDArray
+import numpy as np
 import serial
 import serial.tools.list_ports as list_ports
 from stdlib_utils import put_log_message_into_queue
@@ -44,6 +45,7 @@ from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from .constants import SERIAL_COMM_IDLE_READY_CODE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
+from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
@@ -76,6 +78,7 @@ from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from .constants import STIM_COMPLETE_SUBPROTOCOL_IDX
 from .constants import STM_VID
 from .exceptions import InstrumentDataStreamingAlreadyStartedError
 from .exceptions import InstrumentDataStreamingAlreadyStoppedError
@@ -204,6 +207,9 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._data_packet_cache = bytes(0)
         # stimulation values
         self._is_stimulating = False
+        self._stim_status_buffers: Dict[int, Any]
+        self._reset_stim_status_buffers()
+        self._has_stim_packet_been_sent = False
         # performance tracking values
         self._performance_logging_cycles = INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
         self._parses_since_last_logging: List[int] = [0] * len(self._board_queues)
@@ -284,6 +290,9 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _report_fatal_error(self, the_err: Exception) -> None:
         self._error = the_err
         super()._report_fatal_error(the_err)
+
+    def _reset_stim_status_buffers(self) -> None:
+        self._stim_status_buffers = {well_idx: [[], []] for well_idx in range(self._num_wells)}
 
     def is_registered_with_serial_comm(self, board_idx: int) -> bool:
         """Mainly for use in testing."""
@@ -405,8 +414,8 @@ class McCommunicationProcess(InstrumentCommProcess):
         if not self._is_waiting_for_reboot:
             self._process_next_communication_from_main()
             self._handle_sending_handshake()
-        if self._is_data_streaming:
-            self._handle_data_stream()
+        if self._is_data_streaming or self._is_stimulating:
+            self._handle_streams()
         else:
             self._handle_comm_from_instrument()
         self._handle_beacon_tracking()
@@ -547,6 +556,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         data_packet_bytes = board.read(size=packet_size)
         # check that the expected number of bytes are read. Read function will never return more bytes than requested, but can return less bytes than requested if not enough are present before the read timeout
         if len(data_packet_bytes) < packet_size:
+            # Tanner (10/22/21): if problems with not enough bytes being read persist, then try reading one more time before raising error
             raise SerialCommNotEnoughAdditionalBytesReadError(
                 f"Expected Size: {packet_size}, Actual Size: {len(data_packet_bytes)}, {data_packet_bytes}"  # type: ignore
             )
@@ -590,6 +600,10 @@ class McCommunicationProcess(InstrumentCommProcess):
         board_idx = 0
         if packet_type == SERIAL_COMM_STATUS_BEACON_PACKET_TYPE:
             self._process_status_beacon(packet_body)
+        elif packet_type == SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE:
+            raise NotImplementedError(
+                "Should never receive magnetometer data packets when not streaming data"
+            )
         elif packet_type == SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE:
             response_data = packet_body[SERIAL_COMM_TIMESTAMP_LENGTH_BYTES:]
             if not self._commands_awaiting_response:
@@ -626,9 +640,23 @@ class McCommunicationProcess(InstrumentCommProcess):
                     )
                     prev_command["sampling_period"] = int.from_bytes(response_data[9:11], byteorder="little")
                     prev_command["magnetometer_config"] = convert_bytes_to_config_dict(response_data[11:])
-                prev_command["timestamp"] = _get_formatted_utc_now()
+                prev_command["timestamp"] = datetime.datetime.utcnow()
                 # Tanner (6/11/21): This helps prevent against status beacon timeouts with beacons that come just after the data stream begins but before 1 second of data is available
                 self._time_of_last_beacon_secs = perf_counter()
+                # send any buffered stim statuses
+                well_statuses: Dict[int, Any] = {}
+                for well_idx in range(self._num_wells):
+                    stim_statuses = self._stim_status_buffers[well_idx]
+                    if len(stim_statuses[0]) == 0:
+                        continue
+                    well_statuses[well_idx] = np.array(
+                        [stim_statuses[0][-1:], stim_statuses[1][-1:]], dtype=np.int64
+                    )
+                    well_statuses[well_idx][0] -= self._base_global_time_of_data_stream
+
+                if well_statuses:
+                    self._dump_stim_packet(well_statuses)
+
             elif prev_command["command"] == "stop_managed_acquisition":
                 if response_data[0]:
                     if not self._hardware_test_mode:
@@ -642,25 +670,26 @@ class McCommunicationProcess(InstrumentCommProcess):
                         raise StimulationProtocolUpdateFailedError()
                     prev_command["hardware_test_message"] = "Command failed"  # pragma: no cover
             elif prev_command["command"] == "start_stimulation":
-                # TODO self._base_global_time_of_data_stream = __
+                # Tanner (10/25/21): if needed, can save _base_global_time_of_data_stream here
                 if response_data[0]:
                     if not self._hardware_test_mode:
                         raise StimulationStatusUpdateFailedError("start_stimulation")
                     prev_command["hardware_test_message"] = "Command failed"  # pragma: no cover
+                prev_command["timestamp"] = datetime.datetime.utcnow()
                 self._is_stimulating = True
+                self._has_stim_packet_been_sent = False
             elif prev_command["command"] == "stop_stimulation":
                 if response_data[0]:
                     if not self._hardware_test_mode:
                         raise StimulationStatusUpdateFailedError("stop_stimulation")
                     prev_command["hardware_test_message"] = "Command failed"  # pragma: no cover
                 self._is_stimulating = False
+                self._reset_stim_status_buffers()
 
-            del prev_command[
-                "timepoint"
-            ]  # main process does not need to know the timepoint and is not expecting this key in the dictionary returned to it
-            self._board_queues[board_idx][1].put_nowait(
-                prev_command
-            )  # Tanner (3/17/21): to be consistent with OkComm, command responses will be sent back to main after the command is acknowledged by the Mantarray
+            # main process does not need to know the timepoint and is not expecting this key in the dictionary returned to it
+            del prev_command["timepoint"]
+            # Tanner (3/17/21): to be consistent with OkComm, command responses will be sent back to main after the command is acknowledged by the Mantarray
+            self._board_queues[board_idx][1].put_nowait(prev_command)
         elif packet_type == SERIAL_COMM_PLATE_EVENT_PACKET_TYPE:
             plate_was_placed = bool(packet_body[0])
             barcode = packet_body[1:].decode("ascii") if plate_was_placed else ""
@@ -673,7 +702,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 barcode_comm["valid"] = check_barcode_is_valid(barcode)
             self._board_queues[board_idx][1].put_nowait(barcode_comm)
         elif packet_type == SERIAL_COMM_STIM_STATUS_PACKET_TYPE:
-            pass  # Tanner (10/6/21): when implementing this, make sure to test that all statuses in the packet are parsed but only the full statuses are sent to file writer
+            raise NotImplementedError("Should never receive stim status packets when not stimulating")
         else:
             raise UnrecognizedSerialCommPacketTypeError(
                 f"Packet Type ID: {packet_type} is not defined for Module ID: {module_id}"
@@ -836,13 +865,11 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise SerialCommPacketRegistrationReadEmptyError()
         self._is_registered_with_serial_comm[board_idx] = True
 
-    def _handle_data_stream(self) -> None:
+    def _handle_streams(self) -> None:
         board_idx = 0
         board = self._board_connections[board_idx]
         if board is None:
             raise NotImplementedError("board should never be None here")
-
-        num_bytes_per_second = self._packet_len * int(1e6 // self._sampling_period_us)
 
         data_read_start = perf_counter()
         data_read_bytes = board.read_all()
@@ -853,14 +880,15 @@ class McCommunicationProcess(InstrumentCommProcess):
         # If stopping data stream, make sure at least 1 byte is available.
         # Otherwise, wait for at least 1 second of data
 
-        return_cond = (
-            len(self._data_packet_cache) == 0
-            if self._is_stopping_data_stream
-            else len(self._data_packet_cache) < num_bytes_per_second
-        )
+        return_cond = len(self._data_packet_cache) == 0
+        # if streaming data and not stopping yet, need to make sure at least one second of data is present
+        if self._is_data_streaming and not self._is_stopping_data_stream:
+            num_bytes_per_second = self._packet_len * int(1e6 // self._sampling_period_us)
+            return_cond |= len(self._data_packet_cache) < num_bytes_per_second
         if return_cond:
             return
 
+        # TODO Tanner (10/22/21): add stim packet parsing to metrics once real stream is implemented
         # update performance tracking values
         self._parses_since_last_logging[board_idx] += 1
         if self._timepoint_of_prev_data_parse_secs is None:
@@ -871,42 +899,46 @@ class McCommunicationProcess(InstrumentCommProcess):
             )
 
         data_parsing_start = perf_counter()
-        (
-            time_indices,
-            time_offsets,
-            data,
-            num_data_packets_read,
-            other_packet_info_list,
-            unread_bytes,
-        ) = handle_data_packets(
+        parsed_packet_dict = handle_data_packets(
             bytearray(self._data_packet_cache),
             self._active_sensors_list,
             self._base_global_time_of_data_stream,
         )
         self._data_parsing_durations.append(_get_dur_of_data_parse_secs(data_parsing_start))
-        self._data_parsing_num_packets_produced.append(num_data_packets_read)
+        self._data_parsing_num_packets_produced.append(
+            parsed_packet_dict["magnetometer_data"]["num_data_packets"]
+        )
 
-        self._data_packet_cache = unread_bytes
-        # create dict and send to file writer if any packets were read  # Tanner (5/25/21): it is possible 0 data packets are read when stopping data stream
-        self._dump_data_packets(num_data_packets_read, time_indices, time_offsets, data)
+        self._data_packet_cache = parsed_packet_dict["unread_bytes"]
 
-        # process any interrupting packets
-        for other_packet_info in other_packet_info_list:
+        # process any other packets
+        for other_packet_info in parsed_packet_dict["other_packet_info"]:
             self._process_comm_from_instrument(
                 *other_packet_info[1:],
             )
+        # create dict and send to file writer if any packets were read
+        self._dump_data_packets(parsed_packet_dict["magnetometer_data"])
+        self._handle_stim_packets(parsed_packet_dict["stim_data"])
 
         # handle performance logging if ready
         if self._parses_since_last_logging[board_idx] >= self._performance_logging_cycles:
             self._handle_performance_logging()
             self._parses_since_last_logging[board_idx] = 0
 
-    def _dump_data_packets(
-        self, num_data_packets_read: int, time_indices: NDArray, time_offsets: NDArray, data: NDArray
-    ) -> None:
+    def _dump_data_packets(self, parsed_packet_dict: Dict[str, Any]) -> None:
+        # Tanner (10/15/21): if performance needs to be improved, consider converting some of this function to cython
+        (
+            time_indices,
+            time_offsets,
+            data,
+            num_data_packets_read,
+        ) = parsed_packet_dict.values()
+        # Tanner (5/25/21): it is possible 0 data packets are read when stopping data stream
         if num_data_packets_read == 0:
             return
+
         fw_item: Dict[Any, Any] = {
+            "data_type": "magnetometer",
             "time_indices": time_indices[:num_data_packets_read],
             "is_first_packet_of_stream": not self._has_data_packet_been_sent,
         }
@@ -929,6 +961,51 @@ class McCommunicationProcess(InstrumentCommProcess):
         to_fw_queue = self._board_queues[0][2]
         to_fw_queue.put_nowait(fw_item)
         self._has_data_packet_been_sent = True
+
+    def _handle_stim_packets(self, well_statuses: Dict[int, Any]) -> None:
+        for well_idx in range(self._num_wells):
+            stim_statuses = well_statuses.get(well_idx, [[], []])
+            num_statuses_in_buffer = len(self._stim_status_buffers[well_idx][0])
+            stim_completed_last_cycle = self._stim_status_buffers[well_idx][1][-1:] == [
+                STIM_COMPLETE_SUBPROTOCOL_IDX
+            ]
+            for i in range(2):
+                if stim_completed_last_cycle:
+                    self._stim_status_buffers[well_idx][i] = []
+                elif num_statuses_in_buffer > 1:
+                    self._stim_status_buffers[well_idx][i] = self._stim_status_buffers[well_idx][i][-1:]
+                self._stim_status_buffers[well_idx][i].extend(stim_statuses[i])
+        if not well_statuses:
+            return
+        wells_done_stimulating = [
+            well_idx
+            for well_idx, status_updates_arr in well_statuses.items()
+            if status_updates_arr[1][-1] == STIM_COMPLETE_SUBPROTOCOL_IDX
+        ]
+        if wells_done_stimulating:
+            to_main_queue = self._board_queues[0][1]
+            to_main_queue.put_nowait(
+                {
+                    "communication_type": "stimulation",
+                    "command": "status_update",
+                    "wells_done_stimulating": wells_done_stimulating,
+                }
+            )
+        if self._is_data_streaming and not self._is_stopping_data_stream:
+            for stim_status_updates in well_statuses.values():
+                stim_status_updates[0] -= self._base_global_time_of_data_stream
+            self._dump_stim_packet(well_statuses)
+
+    def _dump_stim_packet(self, well_statuses: NDArray[(2, Any), int]) -> None:
+        to_fw_queue = self._board_queues[0][2]
+        to_fw_queue.put_nowait(
+            {
+                "data_type": "stimulation",
+                "well_statuses": well_statuses,
+                "is_first_packet_of_stream": not self._has_stim_packet_been_sent,
+            }
+        )
+        self._has_stim_packet_been_sent = True
 
     def _handle_beacon_tracking(self) -> None:
         if self._time_of_last_beacon_secs is None:
@@ -979,33 +1056,16 @@ class McCommunicationProcess(InstrumentCommProcess):
         return simulator_has_error
 
     def _handle_performance_logging(self) -> None:
-        performance_metrics: Dict[str, Any] = {
-            "communication_type": "performance_metrics",
-        }
+        performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}
         mc_measurements: List[
             Union[int, float]
         ]  # Tanner (5/28/20): This type annotation and the 'ignore' on the following line are necessary for mypy to not incorrectly type this variable
         for name, mc_measurements in (  # type: ignore
-            (
-                "data_read_num_bytes",
-                self._data_read_lengths,
-            ),
-            (
-                "data_read_duration",
-                self._data_read_durations,
-            ),
-            (
-                "data_parsing_duration",
-                self._data_parsing_durations,
-            ),
-            (
-                "data_parsing_num_packets_produced",
-                self._data_parsing_num_packets_produced,
-            ),
-            (
-                "duration_between_parsing",
-                self._durations_between_parsing,
-            ),
+            ("data_read_num_bytes", self._data_read_lengths),
+            ("data_read_duration", self._data_read_durations),
+            ("data_parsing_duration", self._data_parsing_durations),
+            ("data_parsing_num_packets_produced", self._data_parsing_num_packets_produced),
+            ("duration_between_parsing", self._durations_between_parsing),
         ):
             performance_metrics[name] = {
                 "max": max(mc_measurements),

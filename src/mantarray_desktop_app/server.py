@@ -4,6 +4,7 @@
 Custom HTTP Error Codes:
 
 * 304 - Call to /set_stim_status with the current stim status (no updates will be made to status)
+* 304 - Call to /start_recording while already recording
 * 400 - Call to /start_recording with invalid or missing barcode parameter
 * 400 - Call to /set_mantarray_nickname with invalid nickname parameter
 * 400 - Call to /update_settings with unexpected argument, invalid account UUID, or a recording directory that doesn't exist
@@ -21,8 +22,9 @@ Custom HTTP Error Codes:
 * 403 - Call to /set_protocols when in Beta 1 mode
 * 403 - Call to /set_protocols while stimulation is running
 * 403 - Call to /set_stim_status when in Beta 1 mode
+* 403 - Call to /set_stim_status with running set to True while recording
 * 404 - Route not implemented
-* 406 - Call to /set_stim_status before protocol is set
+* 406 - Call to /set_stim_status before protocol is set or while recording
 * 406 - Call to /start_managed_acquisition before magnetometer configuration is set
 * 406 - Call to /start_managed_acquisition when Mantarray device does not have a serial number assigned to it
 * 406 - Call to /start_recording before customer_account_uuid and user_account_uuid are set
@@ -72,12 +74,14 @@ from mantarray_file_manager import SLEEP_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
 from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
 from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
+from mantarray_file_manager import STIMULATION_PROTOCOL_UUID
 from mantarray_file_manager import TAMPER_FLAG_UUID
 from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
 from mantarray_file_manager import USER_ACCOUNT_ID_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
+from mantarray_file_manager import UTC_BEGINNING_STIMULATION_UUID
 from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import requests
@@ -224,11 +228,10 @@ def queue_command_to_main(comm_dict: Dict[str, Any]) -> Response:
 
 def _get_timestamp_of_acquisition_sample_index_zero() -> datetime.datetime:  # pylint:disable=invalid-name # yeah, it's kind of long, but Eli (2/27/20) doesn't know a good way to shorten it
     shared_values_dict = _get_values_from_process_monitor()
+    board_idx = 0  # board index 0 hardcoded for now
     timestamp_of_sample_idx_zero: datetime.datetime = shared_values_dict[
         "utc_timestamps_of_beginning_of_data_acquisition"
-    ][
-        0
-    ]  # board index 0 hardcoded for now
+    ][board_idx]
     return timestamp_of_sample_idx_zero
 
 
@@ -262,6 +265,7 @@ def system_status() -> Response:
     status = shared_values_dict["system_status"]
     status_dict = {
         "ui_status_code": str(SYSTEM_STATUS_UUIDS[status]),
+        "is_stimulating": False if not shared_values_dict["beta_2_mode"] else _is_stimulating_on_any_well(),
         # Tanner (7/1/20): this route may be called before process_monitor adds the following values to shared_values_dict, so default values are needed
         "in_simulation_mode": shared_values_dict.get("in_simulation_mode", False),
         "mantarray_serial_number": shared_values_dict.get("mantarray_serial_number", ""),
@@ -445,6 +449,11 @@ def _is_data_streaming() -> bool:
     return current_system_status in (BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE, RECORDING_STATE)
 
 
+def _is_recording() -> bool:
+    current_system_status = _get_values_from_process_monitor()["system_status"]
+    return current_system_status == RECORDING_STATE  # type: ignore  # mypy doesn't think this is a bool
+
+
 def _is_instrument_initialized() -> bool:
     current_system_status = _get_values_from_process_monitor()["system_status"]
     return current_system_status not in (
@@ -458,6 +467,10 @@ def _get_stim_info_from_process_monitor() -> Dict[Any, Any]:
     return _get_values_from_process_monitor()["stimulation_info"]  # type: ignore
 
 
+def _is_stimulating_on_any_well() -> bool:
+    return any(_get_values_from_process_monitor()["stimulation_running"])
+
+
 @flask_app.route("/set_protocols", methods=["POST"])
 def set_protocols() -> Response:
     # pylint: disable=too-many-return-statements  # Tanner (8/9/21): lots of error codes that can be returned here
@@ -467,11 +480,12 @@ def set_protocols() -> Response:
 
     Can be invoked by: curl -d '<stimulation protocol as json>' -H 'Content-Type: application/json' -X POST http://localhost:4567/set_protocols
     """
-    shared_values_dict = _get_values_from_process_monitor()
-    if not shared_values_dict["beta_2_mode"]:
+    if not _get_values_from_process_monitor()["beta_2_mode"]:
         return Response(status="403 Route cannot be called in beta 1 mode")
-    if shared_values_dict["stimulation_running"]:
-        return Response(status="403 Cannot change protocol while stimulation is running")
+    if _is_stimulating_on_any_well():
+        return Response(status="403 Cannot change protocols while stimulation is running")
+    if _is_recording():
+        return Response(status="403 Cannot change protocols while recording")
 
     stim_info = json.loads(request.get_json()["data"])
 
@@ -592,7 +606,9 @@ def set_stim_status() -> Response:
 
     if shared_values_dict["stimulation_info"] is None:
         return Response(status="406 Protocols have not been set")
-    if status is shared_values_dict["stimulation_running"]:
+    if status and _is_recording():
+        return Response(status="403 Cannot start stimulation while recording")
+    if status is _is_stimulating_on_any_well():
         return Response(status="304 Status not updated")
 
     response = queue_command_to_main(
@@ -619,21 +635,20 @@ def start_recording() -> Response:
     board_idx = 0
 
     if "barcode" not in request.args:
-        response = Response(status="400 Request missing 'barcode' parameter")
-        return response
+        return Response(status="400 Request missing 'barcode' parameter")
     barcode = request.args["barcode"]
     error_message = check_barcode_for_errors(barcode)
     if error_message:
-        response = Response(status=f"400 {error_message}")
-        return response
+        return Response(status=f"400 {error_message}")
+
+    if _is_recording():
+        return Response(status="304 Already recording")
 
     shared_values_dict = _get_values_from_process_monitor()
     if not shared_values_dict["config_settings"]["Customer Account ID"]:
-        response = Response(status="406 Customer Account ID has not yet been set")
-        return response
+        return Response(status="406 Customer Account ID has not yet been set")
     if not shared_values_dict["config_settings"]["User Account ID"]:
-        response = Response(status="406 User Account ID has not yet been set")
-        return response
+        return Response(status="406 User Account ID has not yet been set")
 
     is_hardware_test_recording = request.args.get("is_hardware_test_recording", True)
     if isinstance(is_hardware_test_recording, str):
@@ -643,10 +658,9 @@ def start_recording() -> Response:
         )
 
     if shared_values_dict.get("is_hardware_test_recording", False) and not is_hardware_test_recording:
-        response = Response(
+        return Response(
             status="403 Cannot make standard recordings after previously making hardware test recordings. Server and board must both be restarted before making any more standard recordings"
         )
-        return response
     timestamp_of_sample_idx_zero = _get_timestamp_of_acquisition_sample_index_zero()
 
     begin_timepoint: Union[int, float]
@@ -687,6 +701,12 @@ def start_recording() -> Response:
     if shared_values_dict["beta_2_mode"]:
         instrument_metadata = shared_values_dict["instrument_metadata"][board_idx]
         magnetometer_config_dict = shared_values_dict["magnetometer_config_dict"]
+        beginning_of_stim_timestamp = shared_values_dict["utc_timestamps_of_beginning_of_stimulation"][
+            board_idx
+        ]
+        stim_info_value = (
+            None if beginning_of_stim_timestamp is None else shared_values_dict["stimulation_info"]
+        )
         comm_dict["metadata_to_copy_onto_main_file_attributes"].update(
             {
                 BOOTUP_COUNTER_UUID: instrument_metadata[BOOTUP_COUNTER_UUID],
@@ -695,8 +715,11 @@ def start_recording() -> Response:
                 PCB_SERIAL_NUMBER_UUID: instrument_metadata[PCB_SERIAL_NUMBER_UUID],
                 TISSUE_SAMPLING_PERIOD_UUID: magnetometer_config_dict["sampling_period"],
                 MAGNETOMETER_CONFIGURATION_UUID: magnetometer_config_dict["magnetometer_config"],
+                STIMULATION_PROTOCOL_UUID: stim_info_value,
+                UTC_BEGINNING_STIMULATION_UUID: beginning_of_stim_timestamp,
             }
         )
+        comm_dict["stim_running_statuses"] = shared_values_dict["stimulation_running"]
     else:
         adc_offsets: Dict[int, Dict[str, int]]
         if is_hardware_test_recording:
@@ -735,12 +758,17 @@ def start_recording() -> Response:
     to_main_queue.put_nowait(
         copy.deepcopy(comm_dict)
     )  # Eli (3/16/20): apparently when using multiprocessing.Queue you have to be careful when modifying values put into the queue because they might still be editable. So making a copy first
+
+    # fixing values here for response, not for message to main
     for this_attr_name, this_attr_value in list(
         comm_dict["metadata_to_copy_onto_main_file_attributes"].items()
     ):
         if this_attr_name == "adc_offsets":
             continue
-        if METADATA_UUID_DESCRIPTIONS[this_attr_name].startswith("UTC Timestamp"):
+        if (
+            METADATA_UUID_DESCRIPTIONS[this_attr_name].startswith("UTC Timestamp")
+            and this_attr_value is not None
+        ):
             this_attr_value = this_attr_value.strftime("%Y-%m-%dT%H:%M:%S.%f")
             comm_dict["metadata_to_copy_onto_main_file_attributes"][this_attr_name] = this_attr_value
         if isinstance(this_attr_value, UUID):
@@ -748,9 +776,7 @@ def start_recording() -> Response:
         del comm_dict["metadata_to_copy_onto_main_file_attributes"][this_attr_name]
         this_attr_name = str(this_attr_name)
         comm_dict["metadata_to_copy_onto_main_file_attributes"][this_attr_name] = this_attr_value
-
     response = Response(json.dumps(comm_dict), mimetype="application/json")
-
     return response
 
 
