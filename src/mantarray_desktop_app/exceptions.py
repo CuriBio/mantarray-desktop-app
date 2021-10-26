@@ -50,10 +50,6 @@ class LocalServerPortAlreadyInUseError(Exception):
     pass
 
 
-class InvalidDataTypeFromOkCommError(TypeError):
-    pass
-
-
 class AttemptToInitializeFIFOReadsError(Exception):
     pass
 

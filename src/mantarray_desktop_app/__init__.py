@@ -147,10 +147,12 @@ from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
 from .constants import START_BARCODE_SCAN_TRIG_BIT
 from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
+from .constants import STIM_COMPLETE_SUBPROTOCOL_IDX
 from .constants import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
 from .constants import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
 from .constants import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
 from .constants import STIM_MAX_PULSE_DURATION_MICROSECONDS
+from .constants import STIM_NO_PROTOCOL_ASSIGNED
 from .constants import StimStatuses
 from .constants import STM_VID
 from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
@@ -183,7 +185,6 @@ from .exceptions import InvalidBeta2FlagOptionError
 from .exceptions import InvalidCustomerAccountIDError
 from .exceptions import InvalidCustomerPasskeyError
 from .exceptions import InvalidDataFramePeriodError
-from .exceptions import InvalidDataTypeFromOkCommError
 from .exceptions import InvalidScriptCommandError
 from .exceptions import InvalidStopRecordingTimepointError
 from .exceptions import LocalServerPortAlreadyInUseError
@@ -230,9 +231,11 @@ from .fifo_read_producer import FIFOReadProducer
 from .fifo_read_producer import produce_data
 from .fifo_simulator import RunningFIFOSimulator
 from .file_uploader import ErrorCatchingThread
+from .file_writer import FILE_WRITER_BUFFER_SIZE_MICROSECONDS
 from .file_writer import FileWriterProcess
 from .file_writer import get_data_slice_within_timepoints
 from .file_writer import get_reference_dataset_from_file
+from .file_writer import get_stimulation_dataset_from_file
 from .file_writer import get_time_index_dataset_from_file
 from .file_writer import get_time_offset_dataset_from_file
 from .file_writer import get_tissue_dataset_from_file
@@ -302,7 +305,6 @@ if 6 < 9:  # pragma: no cover # protect this from zimports deleting the pylint d
         parse_sensor_bytes,
         handle_data_packets,
         SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY,
-        SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_CY,
         SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_CY,
     )
 
@@ -349,7 +351,6 @@ __all__ = [
     "REFERENCE_VOLTAGE",
     "MILLIVOLTS_PER_VOLT",
     "FileWriterProcess",
-    "InvalidDataTypeFromOkCommError",
     "build_file_writer_objects",
     "UnrecognizedCommandFromMainToOkCommError",
     "fifo_simulator",
@@ -564,7 +565,6 @@ __all__ = [
     "SERIAL_COMM_NUM_CHANNELS_PER_SENSOR",
     "SERIAL_COMM_NUM_SENSORS_PER_WELL",
     "SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY",
-    "SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_CY",
     "SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_CY",
     "create_active_channel_per_sensor_list",
     "get_time_offset_dataset_from_file",
@@ -607,4 +607,8 @@ __all__ = [
     "StimulationStatusUpdateFailedError",
     "StimStatuses",
     "SERIAL_COMM_STIM_STATUS_PACKET_TYPE",
+    "STIM_COMPLETE_SUBPROTOCOL_IDX",
+    "STIM_NO_PROTOCOL_ASSIGNED",
+    "FILE_WRITER_BUFFER_SIZE_MICROSECONDS",
+    "get_stimulation_dataset_from_file",
 ]

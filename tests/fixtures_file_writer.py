@@ -9,6 +9,7 @@ import socket
 import tempfile
 from typing import Any
 from typing import Dict
+from typing import Optional
 import uuid
 
 import h5py
@@ -27,6 +28,7 @@ from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
+from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
@@ -46,18 +48,23 @@ from mantarray_file_manager import SLEEP_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
 from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
 from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
+from mantarray_file_manager import STIMULATION_PROTOCOL_UUID
 from mantarray_file_manager import TAMPER_FLAG_UUID
 from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
 from mantarray_file_manager import USER_ACCOUNT_ID_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
+from mantarray_file_manager import UTC_BEGINNING_STIMULATION_UUID
 from mantarray_file_manager import WellFile
 from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
 import pytest
 from stdlib_utils import TestingQueue
+
+from .fixtures_mc_simulator import get_null_subprotocol
+from .fixtures_mc_simulator import get_random_subprotocol
 
 WELL_DEF_24 = LabwareDefinition(row_count=4, column_count=6)
 
@@ -68,6 +75,7 @@ for well_idx in range(24):
         "construct": well_idx * 2,
         "ref": well_idx * 2 + 1,
     }
+
 GENERIC_WELL_MAGNETOMETER_CONFIGURATION = {
     channel_id: channel_id
     in (SERIAL_COMM_DEFAULT_DATA_CHANNEL, SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"])
@@ -80,6 +88,31 @@ for module_id in range(1, 25):
     GENERIC_BOARD_MAGNETOMETER_CONFIGURATION[module_id] = copy.deepcopy(
         GENERIC_WELL_MAGNETOMETER_CONFIGURATION
     )
+
+
+GENERIC_STIM_PROTOCOL_ASSIGNMENTS: Dict[str, Optional[str]] = {
+    GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): None for well_idx in range(24)
+}
+GENERIC_STIM_PROTOCOL_ASSIGNMENTS["A1"] = "A"
+GENERIC_STIM_PROTOCOL_ASSIGNMENTS["B1"] = "B"
+GENERIC_STIM_INFO = {
+    "protocols": [
+        {
+            "protocol_id": "A",
+            "stimulation_type": "C",
+            "run_until_stopped": True,
+            "subprotocols": [get_random_subprotocol(), get_null_subprotocol(50000)],  # type: ignore
+        },
+        {
+            "protocol_id": "B",
+            "stimulation_type": "V",
+            "run_until_stopped": False,
+            "subprotocols": [get_random_subprotocol(), get_random_subprotocol()],  # type: ignore
+        },
+    ],
+    "protocol_assignments": GENERIC_STIM_PROTOCOL_ASSIGNMENTS,
+}
+
 GENERIC_BASE_START_RECORDING_COMMAND: Dict[str, Any] = {
     "command": "start_recording",
     "timepoint_to_begin_recording_at": 298518 * 125,
@@ -118,6 +151,12 @@ GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
     }
 )
 GENERIC_BETA_2_START_RECORDING_COMMAND = copy.deepcopy(GENERIC_BASE_START_RECORDING_COMMAND)
+GENERIC_BETA_2_START_RECORDING_COMMAND["stim_running_statuses"] = [
+    bool(
+        GENERIC_STIM_PROTOCOL_ASSIGNMENTS[GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)]
+    )
+    for well_idx in range(24)
+]
 GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"].update(
     {
         UTC_BEGINNING_RECORDING_UUID: GENERIC_BASE_START_RECORDING_COMMAND[
@@ -133,6 +172,11 @@ GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
         PCB_SERIAL_NUMBER_UUID: MantarrayMcSimulator.default_pcb_serial_number,
         MAGNETOMETER_CONFIGURATION_UUID: GENERIC_BOARD_MAGNETOMETER_CONFIGURATION,
         TISSUE_SAMPLING_PERIOD_UUID: 10000,
+        STIMULATION_PROTOCOL_UUID: GENERIC_STIM_INFO,
+        UTC_BEGINNING_STIMULATION_UUID: GENERIC_BASE_START_RECORDING_COMMAND[
+            "metadata_to_copy_onto_main_file_attributes"
+        ][UTC_BEGINNING_DATA_ACQUISTION_UUID]
+        + datetime.timedelta(seconds=5),
     }
 )
 

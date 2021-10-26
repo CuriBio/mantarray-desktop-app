@@ -54,6 +54,7 @@ from ..fixtures import GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
+from ..fixtures_mc_simulator import create_random_stim_info
 from ..fixtures_mc_simulator import get_random_subprotocol
 from ..fixtures_process_monitor import fixture_test_monitor
 from ..fixtures_server import fixture_client_and_server_manager_and_shared_values
@@ -1115,9 +1116,11 @@ def test_start_recording__returns_error_code_and_message_if_called_with_is_hardw
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
 
+    shared_values_dict["system_status"] = LIVE_VIEW_ACTIVE_STATE
     response = test_client.get("/start_recording?barcode=MA200440001&is_hardware_test_recording=True")
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
+    shared_values_dict["system_status"] = LIVE_VIEW_ACTIVE_STATE
     response = test_client.get("/start_recording?barcode=MA200440001&is_hardware_test_recording=False")
     assert response.status_code == 403
     assert (
@@ -1253,6 +1256,8 @@ def test_start_recording_command__gets_processed_in_beta_2_mode__and_creates_a_f
     test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
+
+    shared_values_dict["stimulation_info"] = create_random_stim_info()
 
     fw_process = test_process_manager.get_file_writer_process()
     to_fw_queue = test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
@@ -1397,7 +1402,7 @@ def test_set_protocols__waits_for_stim_info_in_shared_values_dict_to_be_updated_
 ):
     _, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
-    shared_values_dict["stimulation_running"] = False
+    shared_values_dict["stimulation_running"] = [False] * 24
 
     test_protocol_dict = {
         "protocols": [

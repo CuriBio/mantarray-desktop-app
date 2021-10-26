@@ -29,6 +29,7 @@ from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIMESTAMP_EPOCH
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
+from .constants import STIM_NO_PROTOCOL_ASSIGNED
 from .exceptions import SerialCommMetadataValueTooLargeError
 
 
@@ -272,7 +273,7 @@ def convert_stim_dict_to_bytes(stim_dict: Dict[str, Any]) -> bytes:
     for well_name, protocol_id in stim_dict["protocol_assignments"].items():
         module_id = convert_well_name_to_module_id(well_name)
         protocol_assignment_list[module_id - 1] = (
-            255 if protocol_id is None else protocol_ids.index(protocol_id)
+            STIM_NO_PROTOCOL_ASSIGNED if protocol_id is None else protocol_ids.index(protocol_id)
         )
     stim_bytes += bytes(protocol_assignment_list)
     return stim_bytes
@@ -324,7 +325,9 @@ def convert_stim_bytes_to_dict(stim_bytes: bytes) -> Dict[str, Any]:
     num_assignments = len(stim_bytes[curr_byte_idx:])
     for module_id in range(1, num_assignments + 1):
         well_name = convert_module_id_to_well_name(module_id) if module_id <= 24 else ""
-        protocol_id_idx = None if stim_bytes[curr_byte_idx] == 255 else stim_bytes[curr_byte_idx]
+        protocol_id_idx = (
+            None if stim_bytes[curr_byte_idx] == STIM_NO_PROTOCOL_ASSIGNED else stim_bytes[curr_byte_idx]
+        )
         stim_info_dict["protocol_assignments"][well_name] = protocol_id_idx
         curr_byte_idx += 1
     return stim_info_dict
