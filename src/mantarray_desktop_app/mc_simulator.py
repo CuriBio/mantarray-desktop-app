@@ -35,6 +35,7 @@ from stdlib_utils import InfiniteProcess
 from stdlib_utils import resource_path
 
 from .constants import DEFAULT_SAMPLING_PERIOD
+from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
@@ -82,6 +83,7 @@ from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from .constants import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from .constants import STIM_COMPLETE_SUBPROTOCOL_IDX
 from .constants import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
 from .constants import StimStatuses
@@ -577,8 +579,8 @@ class MantarrayMcSimulator(InfiniteProcess):
             command_failed = not self._is_stimulating
             response_body += bytes([command_failed])
             if not command_failed:
+                self._handle_manual_stim_stop()
                 self._is_stimulating = False
-            # TODO send stim complete packets from each well that is currently stimulating
         else:
             module_id = comm_from_pc[SERIAL_COMM_MODULE_ID_INDEX]
             raise UnrecognizedSerialCommPacketTypeError(
@@ -645,6 +647,27 @@ class MantarrayMcSimulator(InfiniteProcess):
             >= SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS * SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
         ):
             raise SerialCommTooManyMissedHandshakesError()
+
+    def _handle_manual_stim_stop(self) -> None:
+        num_status_updates = 0
+        status_update_bytes = bytes(0)
+        stop_time_index = self._get_global_timer()
+        for well_name, is_stim_running in self._stim_running_statuses.items():
+            if not is_stim_running:
+                continue
+            num_status_updates += 1
+            well_idx = GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name)
+            status_update_bytes += (
+                bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]])
+                + bytes([StimStatuses.FINISHED])
+                + stop_time_index.to_bytes(8, byteorder="little")
+                + bytes([STIM_COMPLETE_SUBPROTOCOL_IDX])
+            )
+        self._send_data_packet(
+            SERIAL_COMM_MAIN_MODULE_ID,
+            SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
+            bytes([num_status_updates]) + status_update_bytes,
+        )
 
     def _handle_test_comm(self) -> None:
         try:
@@ -775,9 +798,8 @@ class MantarrayMcSimulator(InfiniteProcess):
             else:
                 curr_subprotocol_duration_us = subprotocols[self._stim_subprotocol_indices[protocol_idx]][
                     "total_active_duration"
-                ] * int(
-                    1e3
-                )  # convert from ms to µs
+                ]
+                curr_subprotocol_duration_us *= int(1e3)  # convert from ms to µs
             dur_since_subprotocol_start = _get_us_since_subprotocol_start(start_timepoint)
             while dur_since_subprotocol_start >= curr_subprotocol_duration_us:
                 # update time index for subprotocol
@@ -830,9 +852,8 @@ class MantarrayMcSimulator(InfiniteProcess):
                 dur_since_subprotocol_start -= curr_subprotocol_duration_us
                 curr_subprotocol_duration_us = subprotocols[self._stim_subprotocol_indices[protocol_idx]][
                     "total_active_duration"
-                ] * int(
-                    1e3
-                )  # convert from ms to µs
+                ]
+                curr_subprotocol_duration_us *= int(1e3)  # convert from ms to µs
         if num_status_updates > 0:
             packet_bytes = bytes([num_status_updates]) + packet_bytes
             self._send_data_packet(

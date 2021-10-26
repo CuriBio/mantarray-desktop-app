@@ -252,15 +252,25 @@ def test_McCommunicationProcess__processes_start_and_stop_stimulation_commands__
         # run mc_process to process command response and send message back to main
         invoke_process_run_and_check_errors(mc_process)
         # confirm correct message sent to main
-        confirm_queue_is_eventually_of_size(output_queue, 1)
+        expected_size = 1 if command == "start_stimulation" else 2
+        confirm_queue_is_eventually_of_size(output_queue, expected_size)
         message_to_main = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
         if command == "start_stimulation":
+            spied_reset_stim_buffers.assert_not_called()
             expected_response["timestamp"] = datetime.datetime(
                 year=2021, month=10, day=24, hour=13, minute=7, second=23, microsecond=173814
             )
-            spied_reset_stim_buffers.assert_not_called()
         else:
             spied_reset_stim_buffers.assert_called_once()
+            # also check that stim complete message was sent to main
+            stim_status_update_msg = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+            assert stim_status_update_msg["communication_type"] == "stimulation"
+            assert stim_status_update_msg["command"] == "status_update"
+            assert set(stim_status_update_msg["wells_done_stimulating"]) == set(
+                GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name)
+                for well_name, stim_running_status in expected_stim_running_statuses[0].items()
+                if stim_running_status
+            )
         assert message_to_main == expected_response
 
 
