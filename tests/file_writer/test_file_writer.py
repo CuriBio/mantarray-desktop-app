@@ -213,12 +213,37 @@ def test_FileWriterProcess__deletes_local_files_when_true(four_board_file_writer
     mocked_delete_files.assert_called()
 
 
+def test_FileWriterProcess__correctly_handles_when_file_upload_is_successful(
+    four_board_file_writer_process, mocker
+):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    spied_rmdir = mocker.spy(os, "rmdir")
+    mocked_remove = mocker.patch.object(os, "remove", autospec=True)
+    spied_listdir = mocker.patch.object(os, "listdir", autospec=True)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        spied_listdir.return_value = [f"{tmp_dir}/test_1.h5"]
+        file_writer_process._file_directory = "tests/file_writer"
+        file_writer_process._sub_dir_name = tmp_dir
+        file_writer_process._delete_local_files()
+        spied_rmdir.assert_called_once()
+        assert len(mocked_remove.call_args_list) == 1
+
+
 def test_FileWriterProcess_setup_before_loop__calls_super(four_board_file_writer_process, mocker):
     spied_setup = mocker.spy(InfiniteProcess, "_setup_before_loop")
-
     file_writer_process = four_board_file_writer_process["fw_process"]
+    mocked_file_upload = mocker.patch.object(
+        file_writer_process, "_process_failed_uploads_on_start", autospec=True
+    )
+
     invoke_process_run_and_check_errors(file_writer_process, perform_setup_before_loop=True)
     spied_setup.assert_called_once()
+    mocked_file_upload.assert_not_called()
+
+    file_writer_process._stored_customer_settings = {"not none": "test"}
+    invoke_process_run_and_check_errors(file_writer_process, perform_setup_before_loop=True)
+    mocked_file_upload.assert_called_once()
 
 
 @pytest.mark.timeout(4)
