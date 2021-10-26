@@ -362,8 +362,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                 np.array([data_dict["time_indices"], default_channel_data], np.int64),
                 np.zeros((2, len(default_channel_data))),
             )
-            # TODO Tanner (8/5/21): not compressing data causes significant UI lag so need to get force compression working
-            force_data = pipeline.get_force()
+            force_data = pipeline.get_compressed_force()
 
             # convert arrays to lists for json conversion later
             waveform_data_points[well_idx] = {

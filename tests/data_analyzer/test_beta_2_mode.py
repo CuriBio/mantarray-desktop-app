@@ -80,7 +80,7 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
             np.array([test_data_packet["time_indices"], default_channel_data], np.int64),
             np.zeros((2, len(default_channel_data))),
         )
-        compressed_data = pipeline.get_force()
+        compressed_data = pipeline.get_compressed_force()
         waveform_data_points[well_idx] = {
             "x_data_points": compressed_data[0].tolist(),
             "y_data_points": (compressed_data[1] * MICRO_TO_BASE_CONVERSION).tolist(),

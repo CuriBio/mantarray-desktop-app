@@ -275,8 +275,7 @@ def test_McCommunicationProcess__processes_start_and_stop_stimulation_commands__
 
 
 def test_McCommunicationProcess__raises_error_if_set_protocols_command_received_while_stimulation_is_running(
-    four_board_mc_comm_process_no_handshake,
-    mantarray_mc_simulator_no_beacon,
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, patch_print
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     input_queue, output_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][:2]
@@ -309,8 +308,7 @@ def test_McCommunicationProcess__raises_error_if_set_protocols_command_received_
 
 
 def test_McCommunicationProcess__raises_error_if_set_protocols_command_fails(
-    four_board_mc_comm_process_no_handshake,
-    mantarray_mc_simulator_no_beacon,
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, patch_print
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
@@ -329,8 +327,7 @@ def test_McCommunicationProcess__raises_error_if_set_protocols_command_fails(
 
 
 def test_McCommunicationProcess__raises_error_if_start_stim_command_fails(
-    four_board_mc_comm_process_no_handshake,
-    mantarray_mc_simulator_no_beacon,
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, patch_print
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     input_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][0]
