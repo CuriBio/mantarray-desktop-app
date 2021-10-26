@@ -214,7 +214,7 @@ class FileWriterProcess(InfiniteProcess):
         fatal_error_reporter: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
             Tuple[Exception, str]
         ],
-        stored_customer_settings: Optional[Dict[str, Any]] = None,
+        stored_customer_settings: Dict[str, Any],
         file_directory: str = "",
         logging_level: int = logging.INFO,
         beta_2_mode: bool = False,
@@ -224,7 +224,7 @@ class FileWriterProcess(InfiniteProcess):
         self._from_main_queue = from_main_queue
         self._to_main_queue = to_main_queue
         self._file_directory = file_directory
-        self._stored_customer_settings: Optional[Dict[str, Any]] = stored_customer_settings
+        self._stored_customer_settings: Dict[str, Any] = stored_customer_settings
         self._open_files: Tuple[
             Dict[int, h5py._hl.files.File],
             ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
@@ -314,8 +314,7 @@ class FileWriterProcess(InfiniteProcess):
 
     def _setup_before_loop(self) -> None:
         super()._setup_before_loop()
-        if self._stored_customer_settings is not None:
-            self._process_failed_uploads_on_start()
+        self._process_failed_uploads_on_start()
 
     def _teardown_after_loop(self) -> None:
         to_main_queue = self._to_main_queue
@@ -899,11 +898,11 @@ class FileWriterProcess(InfiniteProcess):
                 )
                 upload_thread.start()
                 upload_thread.join()
-                if upload_thread.error:
+                if upload_thread.errors():
                     self._process_failed_uploads()
                     self._upload_status = "upload failed"
                 else:
-                    self._upload_status = upload_thread.result
+                    self._upload_status = upload_thread.get_upload_status()
                     if auto_delete:
                         self._delete_local_files()
 
@@ -928,24 +927,23 @@ class FileWriterProcess(InfiniteProcess):
         If none exists, creates customer directory in failed_uploads to
         place failed .zip files to process next start.
         """
-        if self._stored_customer_settings is not None:
-            failed_uploads_dir = self._stored_customer_settings["failed_uploads_dir"]
-            zipped_recordings_dir = self._stored_customer_settings["zipped_recordings_dir"]
+        failed_uploads_dir = self._stored_customer_settings["failed_uploads_dir"]
+        zipped_recordings_dir = self._stored_customer_settings["zipped_recordings_dir"]
 
-            customer_account_id = self._customer_settings["customer_account_id"]
+        customer_account_id = self._customer_settings["customer_account_id"]
 
-            customer_failed_uploads_dir = os.path.join(failed_uploads_dir, customer_account_id)
+        customer_failed_uploads_dir = os.path.join(failed_uploads_dir, customer_account_id)
 
-            if not os.path.exists(customer_failed_uploads_dir):
-                os.makedirs(customer_failed_uploads_dir)
+        if not os.path.exists(customer_failed_uploads_dir):
+            os.makedirs(customer_failed_uploads_dir)
 
-            file_name = f"{self._sub_dir_name}.zip"
-            zipped_file = os.path.join(zipped_recordings_dir, customer_account_id, file_name)
-            updated_zipped_file = os.path.join(failed_uploads_dir, customer_account_id, file_name)
+        file_name = f"{self._sub_dir_name}.zip"
+        zipped_file = os.path.join(zipped_recordings_dir, customer_account_id, file_name)
+        updated_zipped_file = os.path.join(failed_uploads_dir, customer_account_id, file_name)
 
-            # store failed zip file in failed uploads directory to check at next startup
-            if os.path.exists(zipped_file):
-                shutil.move(zipped_file, updated_zipped_file)
+        # store failed zip file in failed uploads directory to check at next startup
+        if os.path.exists(zipped_file):
+            shutil.move(zipped_file, updated_zipped_file)
 
         # TODO (Lucy 10/22/2021) this would be where to notify FE of error to display
 
@@ -960,39 +958,38 @@ class FileWriterProcess(InfiniteProcess):
         If no files to re-upload, will return.
         """
         # this path is created in electrons main process, but this check is for testing purposes
-        if self._stored_customer_settings is not None:
-            failed_uploads_dir = self._stored_customer_settings["failed_uploads_dir"]
-            zipped_recordings_dir = self._stored_customer_settings["zipped_recordings_dir"]
-            stored_customer_ids = self._stored_customer_settings["stored_customer_ids"]
+        failed_uploads_dir = self._stored_customer_settings["failed_uploads_dir"]
+        zipped_recordings_dir = self._stored_customer_settings["zipped_recordings_dir"]
+        stored_customer_ids = self._stored_customer_settings["stored_customer_ids"]
 
-            if os.path.exists(failed_uploads_dir):  # for testing
-                for customer_dir in os.listdir(failed_uploads_dir):
-                    customer_passkey = stored_customer_ids[customer_dir]
-                    customer_failed_uploads_dir = os.path.join(failed_uploads_dir, customer_dir)
-                    for file_name in customer_dir:
-                        upload_thread = ErrorCatchingThread(
-                            target=uploader,
-                            args=(
-                                customer_failed_uploads_dir,
-                                file_name,
-                                zipped_recordings_dir,
-                                customer_dir,
-                                customer_passkey,
-                            ),
+        if os.path.exists(failed_uploads_dir):  # for testing
+            for customer_dir in os.listdir(failed_uploads_dir):
+                customer_passkey = stored_customer_ids[customer_dir]
+                customer_failed_uploads_dir = os.path.join(failed_uploads_dir, customer_dir)
+                for file_name in customer_dir:
+                    upload_thread = ErrorCatchingThread(
+                        target=uploader,
+                        args=(
+                            customer_failed_uploads_dir,
+                            file_name,
+                            zipped_recordings_dir,
+                            customer_dir,
+                            customer_passkey,
+                        ),
+                    )
+                    upload_thread.start()
+                    upload_thread.join()
+                    if upload_thread.errors():
+                        self._upload_status = "upload failed"
+                        # TODO (Lucy 10/20/21) not sure how to handle this re-upload error except to leave file and try again
+                    else:
+                        self._upload_status = upload_thread.get_upload_status()
+                        shutil.move(
+                            os.path.join(customer_failed_uploads_dir, file_name),
+                            os.path.join(zipped_recordings_dir, customer_dir),
                         )
-                        upload_thread.start()
-                        upload_thread.join()
-                        if upload_thread.error:
-                            self._upload_status = "upload failed"
-                            # TODO (Lucy 10/20/21) not sure how to handle this re-upload error except to leave file and try again
-                        else:
-                            self._upload_status = upload_thread.result
-                            shutil.move(
-                                os.path.join(customer_failed_uploads_dir, file_name),
-                                os.path.join(zipped_recordings_dir, customer_dir),
-                            )
-                            # TODO (Lucy 10/20/21) figure out how to handle if delete local files had been selected on original customer settings and how to handle the zip file
-                            # could call _delete_local_files here
+                        # TODO (Lucy 10/20/21) figure out how to handle if delete local files had been selected on original customer settings and how to handle the zip file
+                        # could call _delete_local_files here
 
     def _drain_all_queues(self) -> Dict[str, Any]:
         queue_items: Dict[str, Any] = dict()

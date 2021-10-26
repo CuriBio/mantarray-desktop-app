@@ -63,6 +63,12 @@ def validate_settings(settings_dict: Dict[str, Any]) -> None:
 
 
 def validate_customer_credentials(request_args: Dict[str, Any], shared_values_dict: Dict[str, Any]) -> None:
+    """Check if new customer credentials exist in stored pairs.
+
+    Args:
+        request_args: dictionary containing the new user configuration settings.
+        shared_values_dict: dictionary containing stored customer settings.
+    """
     customer_account_uuid = request_args.get("customer_account_uuid", None)
     customer_pass_key = request_args.get("customer_pass_key", None)
     stored_customer_ids = shared_values_dict["stored_customer_settings"]["stored_customer_ids"]

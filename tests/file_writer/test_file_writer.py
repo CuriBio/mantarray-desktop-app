@@ -3,12 +3,15 @@ import copy
 import logging
 from multiprocessing import Queue
 import os
+import shutil
 from statistics import stdev
 import tempfile
 import time
 
 from freezegun import freeze_time
 import h5py
+from mantarray_desktop_app import ErrorCatchingThread
+from mantarray_desktop_app import file_uploader
 from mantarray_desktop_app import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import FileWriterProcess
 from mantarray_desktop_app import get_data_slice_within_timepoints
@@ -22,6 +25,7 @@ from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import UnrecognizedCommandFromMainToFileWriterError
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
+from mockito import when
 import numpy as np
 import pytest
 from stdlib_utils import drain_queue
@@ -158,29 +162,43 @@ def test_FileWriterProcess__correctly_handles_when_file_upload_fails_when_auto_u
     this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     spied_failed_uploads = mocker.patch.object(FileWriterProcess, "_process_failed_uploads", autospec=True)
-
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        file_writer_process._sub_directory = f"{tmp_dir}/test_dir"
-        file_writer_process._stored_customer_settings = {
-            "zipped_recordings_dir": f"{tmp_dir}/zipped_recordings",
-            "failed_uploads_dir": f"{tmp_dir}/failed_uploads",
-        }
-
     invoke_process_run_and_check_errors(file_writer_process)
 
+    when(ErrorCatchingThread).errors().thenReturn(True)
     file_writer_process._process_file_uploads()
+
     assert file_writer_process._upload_status == "upload failed"
-    spied_failed_uploads.assert_called_with(file_writer_process)
+    assert len(spied_failed_uploads.call_args_list) == 1
+
+
+def test_FileWriterProcess_process_failed_upload_moves_zip_file_to_static_dir_w_cust_id(
+    mocker, four_board_file_writer_process
+):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    spied_shutil = mocker.spy(shutil, "move")
+
+    GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_delete_local_files"] = False
+    this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
+    invoke_process_run_and_check_errors(file_writer_process)
+
+    file_writer_process._sub_directory = "test_dir"
+    file_writer_process._process_failed_uploads()
+
+    failed_uploads_dir = file_writer_process._stored_customer_settings["failed_uploads_dir"]
+    cust_account_id = file_writer_process._customer_settings["customer_account_id"]
+
+    assert os.path.exists(os.path.join(failed_uploads_dir, cust_account_id)) is True
+    spied_shutil.assert_not_called()
 
 
 def test_FileWriterProcess__deletes_local_files_when_true(four_board_file_writer_process, mocker):
     file_writer_process = four_board_file_writer_process["fw_process"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
+
     mocked_delete_files = mocker.patch.object(file_writer_process, "_delete_local_files", autospec=True)
-    file_writer_process._stored_customer_settings = {
-        "zipped_recordings_dir": "/tmp/zipped_recordings",
-        "failed_uploads_dir": "/tmp/failed_uploads",
-    }
+    file_writer_process._sub_directory = "test_dir"
 
     GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_delete_local_files"] = True
     GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_upload_on_completion"] = False
@@ -192,25 +210,39 @@ def test_FileWriterProcess__deletes_local_files_when_true(four_board_file_writer
     mocked_delete_files.assert_called()
 
 
-def test_FileWriterProcess__correctly_handles_when_file_upload_is_successful(
+def test_FileWriterProcess__correctly_handles_when_file_upload_is_successful_and_auto_delete_is_true(
     four_board_file_writer_process, mocker
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
-    spied_rmdir = mocker.spy(os, "rmdir")
-    mocked_remove = mocker.patch.object(os, "remove", autospec=True)
-    spied_listdir = mocker.patch.object(os, "listdir", autospec=True)
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    tmp_dir = four_board_file_writer_process["file_dir"]
 
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        spied_listdir.return_value = [f"{tmp_dir}/test_1.h5"]
-        file_writer_process._file_directory = "tests/file_writer"
-        file_writer_process._sub_dir_name = tmp_dir
-        file_writer_process._delete_local_files()
-        spied_rmdir.assert_called_once()
-        assert len(mocked_remove.call_args_list) == 1
+    spied_delete_files = mocker.spy(file_writer_process, "_delete_local_files")
+    mocker.patch.object(os, "listdir", return_value=["test_file"])
+    mocker.patch.object(os, "remove", autospec=True)
+    mocker.patch.object(os, "rmdir", autospec=True)
+
+    GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_delete_local_files"] = True
+    GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_upload_on_completion"] = True
+    this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
+    invoke_process_run_and_check_errors(file_writer_process)
+
+    file_writer_process._file_directory = tmp_dir
+    file_writer_process._sub_dir_name = "test_dir"
+
+    when(ErrorCatchingThread).errors().thenReturn(False)
+    when(ErrorCatchingThread).get_upload_status().thenReturn("analysis pending")
+
+    file_writer_process._process_file_uploads()
+
+    assert file_writer_process._upload_status == "analysis pending"
+    spied_delete_files.assert_called_once()
 
 
 def test_FileWriterProcess_setup_before_loop__calls_super(four_board_file_writer_process, mocker):
     spied_setup = mocker.spy(InfiniteProcess, "_setup_before_loop")
+    spied_uploader = mocker.spy(file_uploader, "uploader")
     file_writer_process = four_board_file_writer_process["fw_process"]
     mocked_file_upload = mocker.patch.object(
         file_writer_process, "_process_failed_uploads_on_start", autospec=True
@@ -218,11 +250,11 @@ def test_FileWriterProcess_setup_before_loop__calls_super(four_board_file_writer
 
     invoke_process_run_and_check_errors(file_writer_process, perform_setup_before_loop=True)
     spied_setup.assert_called_once()
-    mocked_file_upload.assert_not_called()
+    spied_uploader.assert_not_called()
 
     file_writer_process._stored_customer_settings = {"not none": "test"}
     invoke_process_run_and_check_errors(file_writer_process, perform_setup_before_loop=True)
-    mocked_file_upload.assert_called_once()
+    assert len(mocked_file_upload.call_args_list) == 2
 
 
 @pytest.mark.timeout(4)

@@ -12,8 +12,13 @@ import zipfile
 import requests
 
 
-def get_file_md5(dir_name: str) -> str:
-    with open(dir_name, "rb") as file_to_read:
+def get_file_md5(file_path: str) -> str:
+    """Generate md5 of zip file.
+
+    Args:
+        file_path: path to zip file.
+    """
+    with open(file_path, "rb") as file_to_read:
         contents = file_to_read.read()
         md5 = hashlib.md5(  # nosec B303 # Tanner (2/4/21): Bandit blacklisted this hash function for cryptographic security reasons that do not apply to the desktop app.
             contents
@@ -23,6 +28,12 @@ def get_file_md5(dir_name: str) -> str:
 
 
 def get_access_token(customer_account_id: str, password: str) -> str:
+    """Generate user specific token.
+
+    Args:
+        customer_account_id: current customer account id.
+        password: current cusotmer account password.
+    """
     get_auth_response = requests.post(
         "https://<TODO>.execute-api.us-east-1.amazonaws.com/prod-lambda-gw-stage/get_auth",
         json={"username": customer_account_id, "password": password},
@@ -34,6 +45,13 @@ def get_access_token(customer_account_id: str, password: str) -> str:
 
 
 def get_upload_details(access_token: str, file_name: str, file_md5: str) -> Dict[Any, Any]:
+    """Post to generate presigned parameters.
+
+    Args:
+        access_token: user specific token.
+        file_name: zip file name.
+        file_md5: md5 hash.
+    """
     sdk_upload_response = requests.post(
         "https://<TODO>.execute-api.us-east-1.amazonaws.com/prod-lambda-gw-stage/sdk_upload",
         json={"file_name": file_name},
@@ -45,6 +63,13 @@ def get_upload_details(access_token: str, file_name: str, file_md5: str) -> Dict
 
 
 def upload_file_to_s3(file_path: str, file_name: str, upload_details: Dict[Any, Any]) -> None:
+    """Post and upload zip file to s3 using presigned parameters.
+
+    Args:
+        file_path: path to zip file.
+        file_name: zip file name.
+        upload_details: dictionary containing presigned parameters.
+    """
     with open(file_path, "rb") as file_to_upload:
         files = {"file": (file_name, file_to_upload)}
         requests.post(
@@ -55,6 +80,13 @@ def upload_file_to_s3(file_path: str, file_name: str, upload_details: Dict[Any, 
 
 
 def create_zip_file(file_directory: str, file_name: str, zipped_recordings_dir: str) -> str:
+    """Walk through h5 files and writes to new zip file.
+
+    Args:
+        file_directory: root recording directory.
+        file_name: sub directory for h5 files to create zip file name.
+        zipped_recordings_dir: static zipped recording directory to store zip files.
+    """
     file_directory_path = os.path.join(os.path.abspath(file_directory), file_name)
     file_paths = []
 
@@ -78,6 +110,12 @@ def create_zip_file(file_directory: str, file_name: str, zipped_recordings_dir: 
 
 
 def get_sdk_status(access_token: str, upload_details: Dict[Any, Any]) -> str:
+    """Request current upload status of file.
+
+    Args:
+        access_token: user specific token.
+        upload_details: dictionary containing s3 upload id.
+    """
     upload_id = upload_details["upload_id"]
     status_response = requests.get(
         f"https://<TODO>.execute-api.us-east-1.amazonaws.com/prod-lambda-gw-stage/get_sdk_status?upload_id={upload_id}",
@@ -96,6 +134,15 @@ def uploader(
     customer_account_id: str,
     password: str,
 ) -> str:
+    """Initiate and handle file upload process.
+
+    Args:
+        file_directory: root recording directory.
+        file_name: sub directory for h5 files to create zip file name.
+        zipped_recordings_dir: static zipped recording directory to store zip files.
+        customer_account_id: current customer account id for cognito user.
+        password: current customer account password for cognito user.
+    """
     file_path = os.path.join(os.path.abspath(file_directory), file_name)
     # Failed uploads will call function with zip file, not directory of well data
     if os.path.isdir(file_path):
@@ -107,7 +154,7 @@ def uploader(
         zipped_file_path = file_path
 
     access_token = get_access_token(customer_account_id, password)
-    file_md5 = get_file_md5(zipped_file_path)
+    file_md5 = get_file_md5(file_path=zipped_file_path)
     upload_details = get_upload_details(access_token=access_token, file_name=file_name, file_md5=file_md5)
     upload_file_to_s3(file_path=zipped_file_path, file_name=file_name, upload_details=upload_details)
     upload_status: str = get_sdk_status(access_token=access_token, upload_details=upload_details)
@@ -133,3 +180,10 @@ class ErrorCatchingThread(Thread):
                 super().run()
             except Exception as e:  # pylint: disable=broad-except  # Tanner (10/8/21): deliberately trying to catch all exceptions here
                 self.error = e
+
+    # for testing
+    def errors(self) -> bool:
+        return self.errors is not None
+
+    def get_upload_status(self) -> Optional[str]:
+        return self.result

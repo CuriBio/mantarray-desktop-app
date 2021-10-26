@@ -204,6 +204,7 @@ def test_ErrorCatchingThread__correctly_returns_error_to_caller_thread(mocker):
     mocked_thread.start()
 
     assert mocked_thread.error == mocked_uploader_function.side_effect
+    assert mocked_thread.errors() is True
 
 
 def test_MantarrayProcessesMonitor__run__calls_super(mocker):
@@ -226,6 +227,7 @@ def test_MantarrayProcessesMonitor__run__calls_super(mocker):
 
     assert mocked_super_init.call_count == 1
     assert mocked_thread.result == mocked_uploader_function.return_value
+    assert mocked_thread.get_upload_status() == mocked_uploader_function.return_value
 
 
 def test_MantarrayProcessesMonitor__returns_if_no_target(mocker):

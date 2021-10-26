@@ -234,7 +234,13 @@ def fixture_four_board_file_writer_process():
             to_main,
             error_queue,
             file_directory=tmp_dir,
-            stored_customer_settings=None,
+            stored_customer_settings={
+                "stored_customer_ids": {
+                    "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
+                },
+                "zipped_recordings_dir": os.path.join(tmp_dir, "zipped_recordings"),
+                "failed_uploads_dir": os.path.join(tmp_dir, "failed_uploads"),
+            },
         )
         fw_items_dict = {
             "fw_process": fw_process,
