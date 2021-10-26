@@ -148,7 +148,7 @@ GENERIC_UPDATE_CUSTOMER_SETTINGS: Dict[str, Any] = {
         "customer_account_id": "test_customer_id",
         "customer_pass_key": "test_password",
         "auto_upload_on_completion": True,
-        "auto_delete_local_files": True,
+        "auto_delete_local_files": False,
     },
 }
 

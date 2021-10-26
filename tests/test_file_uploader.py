@@ -103,13 +103,15 @@ def test_create_zip_file__correctly_writes_h5_files_to_zipfile_at_designated_pat
     mocker.patch.object(h5py, "is_hdf5", return_value=True)
     mocked_zip_function = mocker.patch.object(zipfile, "ZipFile", autospec=True)
     mocker.patch.object(os, "walk", autospec=True)
-    # mocked_os_walk.return_value = [('/test/h5_files', ('',), ('test_1.h5',))]
+
     test_dir_path = "/tmp"
     test_file_name = "test_h5_files"
     test_zipped_path = f"{test_dir_path}/zipped_recordings/cid"
 
-    create_zip_file(test_dir_path, test_file_name, test_zipped_path)
+    zipped_file_path = create_zip_file(test_dir_path, test_file_name, test_zipped_path)
     mocked_zip_function.assert_called_once_with(f"{os.path.join(test_zipped_path, test_file_name)}.zip", "w")
+
+    assert zipped_file_path == f"{os.path.join(test_zipped_path, test_file_name)}.zip"
 
 
 def test_create_zip_file__create_zip_file_should_not_be_called_with_failed_zip_file(mocker):

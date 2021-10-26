@@ -3,7 +3,7 @@
 import base64
 import hashlib
 import os
-import threading
+from threading import Thread
 from typing import Any
 from typing import Dict
 from typing import Optional
@@ -67,14 +67,10 @@ def create_zip_file(file_directory: str, file_name: str, zipped_recordings_dir: 
             if h5py.is_hdf5(h5_file_path):
                 file_paths.append(h5_file_path)
 
-    # if not os.path.exists(os.path.join(os.path.abspath(file_directory), "zipped_recordings")):
-    #     os.makedirs(os.path.join(os.path.abspath(file_directory), "zipped_recordings"))
-
     zipped_file_path: str = os.path.join(zipped_recordings_dir, f"{file_name}.zip")
 
     # writing files to a zipfile
-    zip_file = zipfile.ZipFile(zipped_file_path, "w")
-    with zip_file:
+    with zipfile.ZipFile(zipped_file_path, "w") as zip_file:
         # writing each file one by one
         for file in file_paths:
             zip_file.write(file)
@@ -120,7 +116,7 @@ def uploader(
     return upload_status
 
 
-class ErrorCatchingThread(threading.Thread):
+class ErrorCatchingThread(Thread):
     """Catch errors to make available to caller thread."""
 
     def __init__(self, target: Any, *args: Any, **kwargs: Any) -> None:
