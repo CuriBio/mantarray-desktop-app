@@ -10,7 +10,6 @@ import time
 
 from freezegun import freeze_time
 import h5py
-from mantarray_desktop_app import ErrorCatchingThread
 from mantarray_desktop_app import file_uploader
 from mantarray_desktop_app import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import FileWriterProcess
@@ -25,7 +24,6 @@ from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import UnrecognizedCommandFromMainToFileWriterError
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
-from mockito import when
 import numpy as np
 import pytest
 from stdlib_utils import drain_queue
@@ -88,7 +86,7 @@ def test_get_data_slice_within_timepoints__raises_not_implemented_error_if_no_la
 def test_FileWriterProcess_super_is_called_during_init(mocker):
     error_queue = Queue()
     mocked_init = mocker.patch.object(InfiniteProcess, "__init__")
-    FileWriterProcess((), Queue(), Queue(), error_queue)
+    FileWriterProcess((), Queue(), Queue(), error_queue, {})
     mocked_init.assert_called_once_with(error_queue, logging_level=logging.INFO)
 
 
@@ -161,14 +159,14 @@ def test_FileWriterProcess__correctly_handles_when_file_upload_fails_when_auto_u
     GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_delete_local_files"] = False
     this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
-    spied_failed_uploads = mocker.patch.object(FileWriterProcess, "_process_failed_uploads", autospec=True)
+    spied_failed_uploads = mocker.patch.object(file_writer_process, "_process_failed_uploads", autospec=True)
     invoke_process_run_and_check_errors(file_writer_process)
 
-    when(ErrorCatchingThread).errors().thenReturn(True)
+    mocker.patch.object(file_uploader.ErrorCatchingThread, "errors", autospec=True, return_value=True)
     file_writer_process._process_file_uploads()
 
     assert file_writer_process._upload_status == "upload failed"
-    assert len(spied_failed_uploads.call_args_list) == 1
+    assert len(spied_failed_uploads.call_args_list) == 2
 
 
 def test_FileWriterProcess_process_failed_upload_moves_zip_file_to_static_dir_w_cust_id(
@@ -221,6 +219,10 @@ def test_FileWriterProcess__correctly_handles_when_file_upload_is_successful_and
     mocker.patch.object(os, "listdir", return_value=["test_file"])
     mocker.patch.object(os, "remove", autospec=True)
     mocker.patch.object(os, "rmdir", autospec=True)
+    mocker.patch.object(file_uploader.ErrorCatchingThread, "errors", autospec=True, return_value=False)
+    mocker.patch.object(
+        file_uploader.ErrorCatchingThread, "get_upload_status", autospec=True, return_value="analysis pending"
+    )
 
     GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_delete_local_files"] = True
     GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_upload_on_completion"] = True
@@ -231,13 +233,10 @@ def test_FileWriterProcess__correctly_handles_when_file_upload_is_successful_and
     file_writer_process._file_directory = tmp_dir
     file_writer_process._sub_dir_name = "test_dir"
 
-    when(ErrorCatchingThread).errors().thenReturn(False)
-    when(ErrorCatchingThread).get_upload_status().thenReturn("analysis pending")
-
     file_writer_process._process_file_uploads()
 
     assert file_writer_process._upload_status == "analysis pending"
-    spied_delete_files.assert_called_once()
+    spied_delete_files.assert_called()
 
 
 def test_FileWriterProcess_setup_before_loop__calls_super(four_board_file_writer_process, mocker):

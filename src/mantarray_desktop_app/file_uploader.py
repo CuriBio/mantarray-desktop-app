@@ -32,7 +32,7 @@ def get_access_token(customer_account_id: str, password: str) -> str:
 
     Args:
         customer_account_id: current customer account id.
-        password: current cusotmer account password.
+        password: current customer account password.
     """
     get_auth_response = requests.post(
         "https://<TODO>.execute-api.us-east-1.amazonaws.com/prod-lambda-gw-stage/get_auth",
@@ -45,7 +45,7 @@ def get_access_token(customer_account_id: str, password: str) -> str:
 
 
 def get_upload_details(access_token: str, file_name: str, file_md5: str) -> Dict[Any, Any]:
-    """Post to generate presigned parameters.
+    """Post to generate post specific parameters.
 
     Args:
         access_token: user specific token.
@@ -63,12 +63,12 @@ def get_upload_details(access_token: str, file_name: str, file_md5: str) -> Dict
 
 
 def upload_file_to_s3(file_path: str, file_name: str, upload_details: Dict[Any, Any]) -> None:
-    """Post and upload zip file to s3 using presigned parameters.
+    """Post and upload zip file to s3 using post specific parameters.
 
     Args:
         file_path: path to zip file.
         file_name: zip file name.
-        upload_details: dictionary containing presigned parameters.
+        upload_details: dictionary containing post specific parameters.
     """
     with open(file_path, "rb") as file_to_upload:
         files = {"file": (file_name, file_to_upload)}
@@ -140,8 +140,8 @@ def uploader(
         file_directory: root recording directory.
         file_name: sub directory for h5 files to create zip file name.
         zipped_recordings_dir: static zipped recording directory to store zip files.
-        customer_account_id: current customer account id for cognito user.
-        password: current customer account password for cognito user.
+        customer_account_id: current customer account id for user.
+        password: current customer account password for user.
     """
     file_path = os.path.join(os.path.abspath(file_directory), file_name)
     # Failed uploads will call function with zip file, not directory of well data
