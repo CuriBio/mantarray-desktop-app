@@ -198,7 +198,6 @@ def test_FileWriterProcess__correctly_handles_when_file_upload_is_successful_and
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
-    tmp_dir = four_board_file_writer_process["file_dir"]
 
     spied_delete_files = mocker.spy(file_writer_process, "_delete_local_files")
     mocker.patch.object(os, "listdir", return_value=["test_file"])
@@ -214,9 +213,6 @@ def test_FileWriterProcess__correctly_handles_when_file_upload_is_successful_and
     this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
-
-    file_writer_process._file_directory = tmp_dir
-    file_writer_process._sub_dir_name = "test_dir"
 
     file_writer_process._process_file_uploads()
 

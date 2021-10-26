@@ -790,6 +790,7 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
         assert da_process.is_alive() is False
 
 
+# pylint: disable=too-many-statements,too-many-locals
 @pytest.mark.slow
 @pytest.mark.timeout(INTEGRATION_TEST_TIMEOUT)
 @freeze_time(datetime.datetime(year=2021, month=5, day=24, hour=21, minute=23, second=4, microsecond=141738))
