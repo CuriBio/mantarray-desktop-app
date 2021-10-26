@@ -365,28 +365,29 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
             BACKEND_LOG_UUID
         ],
     )
-    test_dict = {
-        "stored_customer_ids": {
-            "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
-        },
-        "zipped_recordings_dir": "/tmp/zipped_recordings",
-        "failed_uploads_dir": "tmp/failed_uploads",
-        "recording_directory": "/tmp",
-    }
-    json_str = json.dumps(test_dict)
-    b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
-    command_line_args = [f"--initial-base64-settings={b64_encoded}", "--skip-mantarray-boot-up"]
-
-    # Tanner (12/30/20): Skip auto boot-up so we can set the recording directory before boot-up
-    app_info = fully_running_app_from_main_entrypoint(command_line_args)
-    wait_for_subprocesses_to_start()
-
-    test_process_manager = app_info["object_access_inside_main"]["process_manager"]
-
-    assert system_state_eventually_equals(SERVER_READY_STATE, 5) is True
-
-    # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
+
+        test_dict = {
+            "stored_customer_ids": {
+                "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
+            },
+            "zipped_recordings_dir": f"/{expected_recordings_dir}/zipped_recordings",
+            "failed_uploads_dir": f"{expected_recordings_dir}/failed_uploads",
+            "recording_directory": f"/{expected_recordings_dir}",
+        }
+        json_str = json.dumps(test_dict)
+        b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
+        command_line_args = [f"--initial-base64-settings={b64_encoded}", "--skip-mantarray-boot-up"]
+
+        # Tanner (12/30/20): Skip auto boot-up so we can set the recording directory before boot-up
+        app_info = fully_running_app_from_main_entrypoint(command_line_args)
+        wait_for_subprocesses_to_start()
+
+        test_process_manager = app_info["object_access_inside_main"]["process_manager"]
+
+        assert system_state_eventually_equals(SERVER_READY_STATE, 5) is True
+
+        # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
         # Tanner (12/29/20): Manually set recording directory through update_settings route
         response = requests.get(
             f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=filler_password&user_account_uuid=455b93eb-c78f-4494-9f73-d3291130f126&recording_directory={expected_recordings_dir}&auto_upload=true&auto_delete=false"
@@ -707,39 +708,37 @@ def test_full_datapath_in_beta_1_mode(
 @pytest.mark.slow
 @pytest.mark.timeout(INTEGRATION_TEST_TIMEOUT)
 def test_app_shutdown__in_worst_case_while_recording_is_running(
-    patched_xem_scripts_folder,
-    patched_firmware_folder,
-    fully_running_app_from_main_entrypoint,
-    mocker,
+    patched_xem_scripts_folder, patched_firmware_folder, fully_running_app_from_main_entrypoint, mocker
 ):
-    mocker.patch.object(os, "listdir", autospec=True, return_value=[])
-    test_dict = {
-        "stored_customer_ids": {
-            "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
-        },
-        "zipped_recordings_dir": "/tmp/zipped_recordings",
-        "failed_uploads_dir": "tmp/failed_uploads",
-        "recording_directory": "/tmp",
-    }
-    json_str = json.dumps(test_dict)
-    b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
-    command_line_args = [
-        f"--initial-base64-settings={b64_encoded}",
-    ]
-    spied_logger = mocker.spy(main.logger, "info")
-    app_info = fully_running_app_from_main_entrypoint(command_line_args)
-    wait_for_subprocesses_to_start()
-    test_process_manager = app_info["object_access_inside_main"]["process_manager"]
-
-    # Tanner (12/30/20): Auto boot-up is completed when system reaches calibration_needed state
-    assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
-
-    okc_process = test_process_manager.get_instrument_process()
-    fw_process = test_process_manager.get_file_writer_process()
-    da_process = test_process_manager.get_data_analyzer_process()
 
     # Tanner (12/29/20): Not making assertions on files, but still need a TemporaryDirectory to hold them
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
+        spied_logger = mocker.spy(main.logger, "info")
+
+        test_dict = {
+            "stored_customer_ids": {
+                "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
+            },
+            "zipped_recordings_dir": f"{expected_recordings_dir}/zipped_recordings",
+            "failed_uploads_dir": f"{expected_recordings_dir}/failed_uploads",
+            "recording_directory": expected_recordings_dir,
+        }
+        json_str = json.dumps(test_dict)
+        b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
+        command_line_args = [
+            "--beta-2-mode",
+            f"--initial-base64-settings={b64_encoded}",
+        ]
+
+        app_info = fully_running_app_from_main_entrypoint(command_line_args)
+        wait_for_subprocesses_to_start()
+        test_process_manager = app_info["object_access_inside_main"]["process_manager"]
+
+        assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
+
+        okc_process = test_process_manager.get_instrument_process()
+        fw_process = test_process_manager.get_file_writer_process()
+        da_process = test_process_manager.get_data_analyzer_process()
         # Tanner (12/29/20): use updated settings to set the recording directory to the TemporaryDirectory
         response = requests.get(
             f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=filler_password&user_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&recording_directory={expected_recordings_dir}&auto_upload=true&auto_delete=false"

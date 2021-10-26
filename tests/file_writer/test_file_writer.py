@@ -135,12 +135,34 @@ def test_FileWriterProcess__correctly_updates_customer_settings_and_responds_to_
     )
 
 
+def test_FileWriterProcess__correctly_handle_when_file_upload_is_false_and_delete_is_true(
+    four_board_file_writer_process, mocker
+):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
+    GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_delete_local_files"] = True
+    GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_upload_on_completion"] = False
+    this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
+
+    spied_failed_uploads = mocker.patch.object(file_writer_process, "_process_failed_uploads", autospec=True)
+    spied_delete_files = mocker.patch.object(file_writer_process, "_delete_local_files", autospec=True)
+    invoke_process_run_and_check_errors(file_writer_process)
+
+    file_writer_process._process_file_uploads()
+
+    spied_delete_files.assert_called()
+    spied_failed_uploads.assert_not_called()
+
+
 def test_FileWriterProcess__correctly_handles_when_file_upload_fails_when_auto_upload_is_true(
     four_board_file_writer_process, mocker
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
+    GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_upload_on_completion"] = True
     GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_delete_local_files"] = False
     this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
@@ -151,6 +173,11 @@ def test_FileWriterProcess__correctly_handles_when_file_upload_fails_when_auto_u
     file_writer_process._process_file_uploads()
 
     assert file_writer_process._upload_status == "upload failed"
+    assert len(spied_failed_uploads.call_args_list) == 2
+
+    # check that upload can't happen if no stored_customer_settings
+    file_writer_process._stored_customer_settings = None
+    file_writer_process._process_file_uploads()
     assert len(spied_failed_uploads.call_args_list) == 2
 
 
@@ -174,23 +201,6 @@ def test_FileWriterProcess_process_failed_upload_moves_zip_file_to_static_dir_w_
 
     assert os.path.exists(os.path.join(failed_uploads_dir, cust_account_id)) is True
     spied_shutil.assert_not_called()
-
-
-def test_FileWriterProcess__deletes_local_files_when_true(four_board_file_writer_process, mocker):
-    file_writer_process = four_board_file_writer_process["fw_process"]
-    from_main_queue = four_board_file_writer_process["from_main_queue"]
-
-    mocked_delete_files = mocker.patch.object(file_writer_process, "_delete_local_files", autospec=True)
-    file_writer_process._sub_directory = "test_dir"
-
-    GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_delete_local_files"] = True
-    GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_upload_on_completion"] = False
-    this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
-
-    invoke_process_run_and_check_errors(file_writer_process)
-    file_writer_process._process_file_uploads()
-    mocked_delete_files.assert_called()
 
 
 def test_FileWriterProcess__correctly_handles_when_file_upload_is_successful_and_auto_delete_is_true(

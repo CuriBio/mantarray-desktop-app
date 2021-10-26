@@ -17,8 +17,6 @@ from immutable_data_validation import is_uuid
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import is_frozen_as_exe
 
-from .constants import CURI_BIO_ACCOUNT_UUID
-from .constants import CURI_BIO_USER_ACCOUNT_ID
 from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from .constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
@@ -46,10 +44,7 @@ def validate_settings(settings_dict: Dict[str, Any]) -> None:
     recording_directory = settings_dict.get("recording_directory", None)
 
     if customer_account_uuid is not None:
-        if customer_account_uuid == "curi":
-            customer_account_uuid = str(CURI_BIO_ACCOUNT_UUID)
-            user_account_uuid = str(CURI_BIO_USER_ACCOUNT_ID)
-        elif not isinstance(customer_account_uuid, str):
+        if not isinstance(customer_account_uuid, str):
             raise ImproperlyFormattedCustomerAccountIDError(customer_account_uuid)
     if customer_pass_key is not None:
         if not isinstance(customer_pass_key, str):
@@ -96,9 +91,6 @@ def convert_request_args_to_config_dict(request_args: Dict[str, Any]) -> Dict[st
 
     out_dict: Dict[str, Any] = {"config_settings": {}}
     if customer_account_uuid is not None:
-        if customer_account_uuid == "curi":
-            customer_account_uuid = str(CURI_BIO_ACCOUNT_UUID)
-            user_account_uuid = str(CURI_BIO_USER_ACCOUNT_ID)
         out_dict["config_settings"]["customer_account_id"] = customer_account_uuid
     if customer_pass_key is not None:
         out_dict["config_settings"]["customer_pass_key"] = customer_pass_key
