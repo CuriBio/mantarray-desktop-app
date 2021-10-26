@@ -1108,7 +1108,7 @@ class FileWriterProcess(InfiniteProcess):
             if os.path.exists(zipped_file):
                 shutil.move(zipped_file, updated_zipped_file)
 
-            # TODO (Lucy 10/22/2021) this would be where to notify FE of error to display
+            # Lucy (10/22/2021): this would be where to notify FE of error to display
 
     def _process_failed_uploads_on_start(self) -> None:
         """Re-upload any failed files on setup_before_loop.
@@ -1145,14 +1145,14 @@ class FileWriterProcess(InfiniteProcess):
                         upload_thread.join()
                         if upload_thread.errors():
                             self._upload_status = "upload failed"
-                            # TODO (Lucy 10/20/21) not sure how to handle this re-upload error except to leave file and try again
+                            # Lucy (10/22/2021): not sure how to handle this re-upload error except to leave file and try again
                         else:
                             self._upload_status = upload_thread.get_upload_status()
                             shutil.move(
                                 os.path.join(customer_failed_uploads_dir, file_name),
                                 os.path.join(zipped_recordings_dir, customer_dir),
                             )
-                            # TODO (Lucy 10/20/21) figure out how to handle if delete local files had been selected on original customer settings and how to handle the zip file
+                            # Lucy (10/22/2021): figure out how to handle if delete local files had been selected on original customer settings and how to handle the zip file
                             # could call _delete_local_files here
 
     def _drain_all_queues(self) -> Dict[str, Any]:

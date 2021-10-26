@@ -146,42 +146,47 @@ def test_main_configures_logging(mocker):
 def test_main__logs_system_info__and_software_version_at_very_start(
     mocker,
 ):
+    with tempfile.TemporaryDirectory() as tmp:
+        spied_info_logger = mocker.spy(main.logger, "info")
+        expected_uuid = "c7d3e956-cfc3-42df-94d9-b3a19cf1529c"
+        test_dict = {
+            "log_file_uuid": expected_uuid,
+            "stored_customer_ids": {
+                "customer_account_uuid": "test_pass",
+            },
+            "zipped_recordings_dir": f"/{tmp}/zipped_recordings_dir",
+            "failed_uploads_dir": f"/{tmp}/failed_uploads_dir",
+            "recording_directory": f"/{tmp}",
+        }
+        json_str = json.dumps(test_dict)
+        b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
+        main.main(
+            [
+                f"--initial-base64-settings={b64_encoded}",
+                "--startup-test-options",
+                "no_subprocesses",
+                "no_flask",
+            ]
+        )
 
-    spied_info_logger = mocker.spy(main.logger, "info")
-    expected_uuid = "c7d3e956-cfc3-42df-94d9-b3a19cf1529c"
-    test_dict = {
-        "log_file_uuid": expected_uuid,
-        "stored_customer_ids": {
-            "customer_account_uuid": "test_pass",
-        },
-        "zipped_recordings_dir": "/tmp/zipped_recordings_dir",
-        "failed_uploads_dir": "/tmp/failed_uploads_dir",
-        "recording_directory": "/tmp",
-    }
-    json_str = json.dumps(test_dict)
-    b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
-    main.main(
-        [f"--initial-base64-settings={b64_encoded}", "--startup-test-options", "no_subprocesses", "no_flask"]
-    )
+        expected_name_hash = hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).hexdigest()
+        spied_info_logger.assert_any_call(f"Log File UUID: {expected_uuid}")
+        spied_info_logger.assert_any_call(f"SHA512 digest of Computer Name {expected_name_hash}")
+        spied_info_logger.assert_any_call(f"Mantarray Controller v{CURRENT_SOFTWARE_VERSION} started")
 
-    expected_name_hash = hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).hexdigest()
-    spied_info_logger.assert_any_call(f"Log File UUID: {expected_uuid}")
-    spied_info_logger.assert_any_call(f"SHA512 digest of Computer Name {expected_name_hash}")
-    spied_info_logger.assert_any_call(f"Mantarray Controller v{CURRENT_SOFTWARE_VERSION} started")
-
-    uname = platform.uname()
-    uname_sys = getattr(uname, "system")
-    uname_release = getattr(uname, "release")
-    uname_version = getattr(uname, "version")
-    spied_info_logger.assert_any_call(f"System: {uname_sys}")
-    spied_info_logger.assert_any_call(f"Release: {uname_release}")
-    spied_info_logger.assert_any_call(f"Version: {uname_version}")
-    spied_info_logger.assert_any_call(f"Machine: {getattr(uname, 'machine')}")
-    spied_info_logger.assert_any_call(f"Processor: {getattr(uname, 'processor')}")
-    spied_info_logger.assert_any_call(f"Win 32 Ver: {platform.win32_ver()}")
-    spied_info_logger.assert_any_call(
-        f"Platform: {platform.platform()}, Architecture: {platform.architecture()}, Interpreter is 64-bits: {sys.maxsize > 2**32}, System Alias: {platform.system_alias(uname_sys, uname_release, uname_version)}"
-    )
+        uname = platform.uname()
+        uname_sys = getattr(uname, "system")
+        uname_release = getattr(uname, "release")
+        uname_version = getattr(uname, "version")
+        spied_info_logger.assert_any_call(f"System: {uname_sys}")
+        spied_info_logger.assert_any_call(f"Release: {uname_release}")
+        spied_info_logger.assert_any_call(f"Version: {uname_version}")
+        spied_info_logger.assert_any_call(f"Machine: {getattr(uname, 'machine')}")
+        spied_info_logger.assert_any_call(f"Processor: {getattr(uname, 'processor')}")
+        spied_info_logger.assert_any_call(f"Win 32 Ver: {platform.win32_ver()}")
+        spied_info_logger.assert_any_call(
+            f"Platform: {platform.platform()}, Architecture: {platform.architecture()}, Interpreter is 64-bits: {sys.maxsize > 2**32}, System Alias: {platform.system_alias(uname_sys, uname_release, uname_version)}"
+        )
 
 
 def test_main__raises_error_if_multiprocessing_start_method_not_spawn(mocker):
@@ -422,29 +427,29 @@ def test_main__generates_log_file_uuid_if_none_passed_in_cmd_line_args(
 ):
     expected_log_file_uuid = uuid.UUID("ab2e730b-8be5-440b-81f8-b268c7fb3584")
     mocker.patch.object(uuid, "uuid4", autospec=True, return_value=expected_log_file_uuid)
+    with tempfile.TemporaryDirectory() as tmp:
+        test_dict = {
+            "stored_customer_ids": {
+                "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
+            },
+            "zipped_recordings_dir": f"/{tmp}/zipped_recordings",
+            "failed_uploads_dir": f"/{tmp}/failed_uploads",
+            "recording_directory": f"/{tmp}",
+            "log_file_uuid": str(expected_log_file_uuid),
+        }
+        json_str = json.dumps(test_dict)
+        b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
 
-    test_dict = {
-        "stored_customer_ids": {
-            "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
-        },
-        "zipped_recordings_dir": "/tmp/zipped_recordings",
-        "failed_uploads_dir": "/tmp/failed_uploads",
-        "recording_directory": "/tmp",
-        "log_file_uuid": str(expected_log_file_uuid),
-    }
-    json_str = json.dumps(test_dict)
-    b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
+        command_line_args = [
+            f"--initial-base64-settings={b64_encoded}",
+            "--startup-test-options",
+            "no_subprocesses",
+            "no_flask",
+        ]
+        app_info = fully_running_app_from_main_entrypoint(command_line_args)
 
-    command_line_args = [
-        f"--initial-base64-settings={b64_encoded}",
-        "--startup-test-options",
-        "no_subprocesses",
-        "no_flask",
-    ]
-    app_info = fully_running_app_from_main_entrypoint(command_line_args)
-
-    shared_values_dict = app_info["object_access_inside_main"]["values_to_share_to_server"]
-    assert shared_values_dict["log_file_uuid"] == str(expected_log_file_uuid)
+        shared_values_dict = app_info["object_access_inside_main"]["values_to_share_to_server"]
+        assert shared_values_dict["log_file_uuid"] == str(expected_log_file_uuid)
 
 
 def test_main__puts_server_into_error_mode_if_expected_software_version_is_incorrect(mocker):
