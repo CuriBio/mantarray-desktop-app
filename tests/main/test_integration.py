@@ -710,23 +710,21 @@ def test_full_datapath_in_beta_1_mode(
 def test_app_shutdown__in_worst_case_while_recording_is_running(
     patched_xem_scripts_folder, patched_firmware_folder, fully_running_app_from_main_entrypoint, mocker
 ):
-
+    spied_logger = mocker.spy(main.logger, "info")
     # Tanner (12/29/20): Not making assertions on files, but still need a TemporaryDirectory to hold them
-    with tempfile.TemporaryDirectory() as expected_recordings_dir:
-        spied_logger = mocker.spy(main.logger, "info")
+    with tempfile.TemporaryDirectory() as tmp_dir:
 
         test_dict = {
             "stored_customer_ids": {
                 "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
             },
-            "zipped_recordings_dir": f"{expected_recordings_dir}/zipped_recordings",
-            "failed_uploads_dir": f"{expected_recordings_dir}/failed_uploads",
-            "recording_directory": expected_recordings_dir,
+            "zipped_recordings_dir": f"{tmp_dir}/zipped_recordings",
+            "failed_uploads_dir": f"{tmp_dir}/failed_uploads",
+            "recording_directory": tmp_dir,
         }
         json_str = json.dumps(test_dict)
         b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
         command_line_args = [
-            "--beta-2-mode",
             f"--initial-base64-settings={b64_encoded}",
         ]
 
@@ -739,9 +737,12 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
         okc_process = test_process_manager.get_instrument_process()
         fw_process = test_process_manager.get_file_writer_process()
         da_process = test_process_manager.get_data_analyzer_process()
+
+        # Tanner (12/29/20): Not making assertions on files, but still need a TemporaryDirectory to hold them
         # Tanner (12/29/20): use updated settings to set the recording directory to the TemporaryDirectory
+
         response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=filler_password&user_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&recording_directory={expected_recordings_dir}&auto_upload=true&auto_delete=false"
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=filler_password&user_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&auto_upload=true&auto_delete=false"
         )
         assert response.status_code == 200
 
