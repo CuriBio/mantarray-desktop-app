@@ -9,7 +9,6 @@ from typing import Dict
 from typing import Optional
 import zipfile
 
-import h5py
 import requests
 
 
@@ -64,8 +63,8 @@ def create_zip_file(file_directory: str, file_name: str, zipped_recordings_dir: 
         for filename in files:
             # Create the full filepath by using os module and checking if h5
             h5_file_path = os.path.join(root, filename)
-            if h5py.is_hdf5(h5_file_path):
-                file_paths.append(h5_file_path)
+            # if h5py.is_hdf5(h5_file_path):
+            file_paths.append(h5_file_path)
 
     zipped_file_path: str = os.path.join(zipped_recordings_dir, f"{file_name}.zip")
 

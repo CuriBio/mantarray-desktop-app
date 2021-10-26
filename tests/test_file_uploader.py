@@ -3,9 +3,9 @@ import base64
 import hashlib
 import os
 import tempfile
+import threading
 import zipfile
 
-import h5py
 from mantarray_desktop_app import file_uploader
 from mantarray_desktop_app.file_uploader import create_zip_file
 from mantarray_desktop_app.file_uploader import ErrorCatchingThread
@@ -100,9 +100,19 @@ def test_get_sdk_status__requests_and_returns_sdk_status_correctly(mocker):
 
 
 def test_create_zip_file__correctly_writes_h5_files_to_zipfile_at_designated_path(mocker):
-    mocker.patch.object(h5py, "is_hdf5", return_value=True)
     mocked_zip_function = mocker.patch.object(zipfile, "ZipFile", autospec=True)
-    mocker.patch.object(os, "walk", autospec=True)
+    mocked_os_walk = mocker.patch.object(os, "walk", autospec=True)
+    spied_os_join = mocker.spy(os.path, "join")
+    mocked_os_walk.return_value = [
+        (
+            "/tmp/test_h5_files",
+            ("",),
+            (
+                "test_1.h5",
+                "test_2.h5",
+            ),
+        ),
+    ]
 
     test_dir_path = "/tmp"
     test_file_name = "test_h5_files"
@@ -110,7 +120,7 @@ def test_create_zip_file__correctly_writes_h5_files_to_zipfile_at_designated_pat
 
     zipped_file_path = create_zip_file(test_dir_path, test_file_name, test_zipped_path)
     mocked_zip_function.assert_called_once_with(f"{os.path.join(test_zipped_path, test_file_name)}.zip", "w")
-
+    assert len(spied_os_join.call_args_list) == 5
     assert zipped_file_path == f"{os.path.join(test_zipped_path, test_file_name)}.zip"
 
 
@@ -194,3 +204,35 @@ def test_ErrorCatchingThread__correctly_returns_error_to_caller_thread(mocker):
     mocked_thread.start()
 
     assert mocked_thread.error == mocked_uploader_function.side_effect
+
+
+def test_MantarrayProcessesMonitor__run__calls_super(mocker):
+    mocked_uploader_function = mocker.patch.object(
+        file_uploader, "uploader", autospec=True, return_value="analysis pending"
+    )
+
+    test_file_path = "/test"
+    test_sub_dir = "/sub_dir"
+    test_zip_dir = "/test/zipped_recordings"
+    test_customer_id = "username"
+    test_password = "password"
+
+    mocked_super_init = mocker.spy(threading.Thread, "run")
+    mocked_thread = ErrorCatchingThread(
+        target=mocked_uploader_function,
+        args=(test_file_path, test_sub_dir, test_zip_dir, test_customer_id, test_password),
+    )
+    mocked_thread.start()
+
+    assert mocked_super_init.call_count == 1
+    assert mocked_thread.result == mocked_uploader_function.return_value
+
+
+def test_MantarrayProcessesMonitor__returns_if_no_target(mocker):
+    mocked_super_init = mocker.spy(threading.Thread, "run")
+    mocked_thread = ErrorCatchingThread(
+        target=None,
+    )
+    mocked_thread.start()
+
+    assert mocked_super_init.call_count == 0
