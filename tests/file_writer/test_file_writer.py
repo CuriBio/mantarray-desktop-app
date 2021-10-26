@@ -148,30 +148,6 @@ def test_FileWriterProcess__correctly_updates_customer_settings_and_responds_to_
     )
 
 
-# def test_FileWriterProcess__correctly_handles_when_file_upload_is_successful(
-#     four_board_file_writer_process, mocker
-# ):
-#     file_writer_process = four_board_file_writer_process["fw_process"]
-#     from_main_queue = four_board_file_writer_process["from_main_queue"]
-#     GENERIC_UPDATE_CUSTOMER_SETTINGS["auto_delete_local_files"] = False
-
-#     this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
-#     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
-#     invoke_process_run_and_check_errors(file_writer_process)
-
-#     with tempfile.TemporaryDirectory() as tmp_dir:
-#         file_writer_process._sub_directory = f"{tmp_dir}/test_dir"
-#         file_writer_process._stored_customer_settings = {
-#             "zipped_recordings_dir": f"{tmp_dir}/zipped_recordings",
-#             "failed_uploads_dir": f"{tmp_dir}/failed_uploads",
-#         }
-#         file_writer_process.recording_directory = tmp_dir
-#         upload_status = mocker.patch.object(file_uploader, "uploader", return_value="analysis pending")
-
-#         file_writer_process._process_file_uploads()
-#         assert file_writer_process._upload_status == upload_status.return_value
-
-
 def test_FileWriterProcess__correctly_handles_when_file_upload_fails_when_auto_upload_is_true(
     four_board_file_writer_process, mocker
 ):
@@ -183,10 +159,13 @@ def test_FileWriterProcess__correctly_handles_when_file_upload_fails_when_auto_u
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     spied_failed_uploads = mocker.patch.object(FileWriterProcess, "_process_failed_uploads", autospec=True)
 
-    file_writer_process._stored_customer_settings = {
-        "zipped_recordings_dir": "/tmp/zipped_recordings",
-        "failed_uploads_dir": "/tmp/failed_uploads",
-    }
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        file_writer_process._sub_directory = f"{tmp_dir}/test_dir"
+        file_writer_process._stored_customer_settings = {
+            "zipped_recordings_dir": f"{tmp_dir}/zipped_recordings",
+            "failed_uploads_dir": f"{tmp_dir}/failed_uploads",
+        }
+
     invoke_process_run_and_check_errors(file_writer_process)
 
     file_writer_process._process_file_uploads()
