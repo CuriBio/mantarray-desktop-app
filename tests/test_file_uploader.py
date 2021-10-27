@@ -159,13 +159,12 @@ def test_uploader__runs_upload_procedure_correctly(mocker):
         test_zip_dir = "/test/zipped_recordings"
         test_customer_account_id = "cid"
         test_password = "pw"
-        zipped_file_path = f"{test_file_path}/zipped_recordings/cid/{test_file_name}.zip"
         zipped_file_name = f"{test_file_name}.zip"
-        mocked_create_zip_file.return_value = zipped_file_path
+        zipped_file_path = mocked_create_zip_file.return_value
 
         uploader(test_file_path, test_file_name, test_zip_dir, test_customer_account_id, test_password)
         mocked_create_zip_file.assert_called_once_with(
-            test_file_path, test_file_name, f"{test_zip_dir}/{test_customer_account_id}"
+            test_file_path, test_file_name, f"{os.path.join(test_zip_dir, test_customer_account_id)}"
         )
         mocked_get_access_token.assert_called_once_with(test_customer_account_id, test_password)
         mocked_get_file_md5.assert_called_once_with(zipped_file_path)

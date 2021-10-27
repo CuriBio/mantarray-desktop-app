@@ -175,13 +175,8 @@ def test_FileWriterProcess__correctly_handles_when_file_upload_fails_when_auto_u
     assert file_writer_process._upload_status == "upload failed"
     assert len(spied_failed_uploads.call_args_list) == 2
 
-    # check that upload can't happen if no stored_customer_settings
-    file_writer_process._stored_customer_settings = None
-    file_writer_process._process_file_uploads()
-    assert len(spied_failed_uploads.call_args_list) == 2
 
-
-def test_FileWriterProcess_process_failed_upload_moves_zip_file_to_static_dir_w_cust_id(
+def test_FileWriterProcess__process_failed_upload_moves_zip_file_to_static_dir_w_cust_id(
     mocker, four_board_file_writer_process
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
@@ -230,7 +225,7 @@ def test_FileWriterProcess__correctly_handles_when_file_upload_is_successful_and
     spied_delete_files.assert_called()
 
 
-def test_FileWriterProcess_setup_before_loop__calls_super(four_board_file_writer_process, mocker):
+def test_FileWriterProcess__setup_before_loop__calls_super(four_board_file_writer_process, mocker):
     spied_setup = mocker.spy(InfiniteProcess, "_setup_before_loop")
     spied_uploader = mocker.spy(file_uploader, "uploader")
     file_writer_process = four_board_file_writer_process["fw_process"]
@@ -245,6 +240,73 @@ def test_FileWriterProcess_setup_before_loop__calls_super(four_board_file_writer
     file_writer_process._stored_customer_settings = {"not none": "test"}
     invoke_process_run_and_check_errors(file_writer_process, perform_setup_before_loop=True)
     assert len(mocked_file_upload.call_args_list) == 2
+
+
+def test_FileWriterProcess__does_not_process_any_failed_uploads_if_no_stored_cust_settings(
+    four_board_file_writer_process, mocker
+):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    file_writer_process._stored_customer_settings = None
+    spied_path_join = mocker.spy(os.path, "exists")
+
+    file_writer_process._process_failed_uploads_on_start()
+    file_writer_process._process_failed_uploads()
+    spied_path_join.assert_not_called()
+
+
+def test_FileWriterProcess__does_not_process_file_upload_if_no_stored_customer_settings(
+    four_board_file_writer_process, mocker
+):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    file_writer_process._stored_customer_settings = None
+    file_writer_process._customer_settings = {
+        "auto_upload_on_completion": True,
+        "auto_delete_local_files": False,
+        "customer_account_id": "test_cid",
+        "customer_pass_key": "test_pass",
+    }
+    spied_ec_thread = mocker.patch.object(file_uploader.ErrorCatchingThread, "start", autospec=True)
+
+    file_writer_process._process_file_uploads()
+    spied_ec_thread.assert_not_called()
+
+
+def test_FileWriterProcess__successfully_process_failed_uploads_on_start_if_stored_cust_settings_with_error(
+    four_board_file_writer_process, mocker
+):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    four_board_file_writer_process["file_dir"]
+    spied_thread = mocker.spy(file_uploader.ErrorCatchingThread, "start")
+    mocker.patch.object(os.path, "exists", autospec=True, return_value=True)
+    mocker.patch.object(os, "listdir", autospec=True, return_value=["73f52be0-368c-42d8-a1fd-660d49ba5604"])
+
+    mocker.patch.object(file_uploader.ErrorCatchingThread, "errors", autospec=True, return_value=True)
+
+    file_writer_process._process_failed_uploads_on_start()
+    spied_thread.assert_called()
+    assert file_writer_process._upload_status == "upload failed"
+
+
+def test_FileWriterProcess__successfully_process_failed_uploads_on_start_if_stored_cust_settings_with_no_error(
+    four_board_file_writer_process, mocker
+):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    four_board_file_writer_process["file_dir"]
+    spied_thread = mocker.spy(file_uploader.ErrorCatchingThread, "start")
+    spied_shutil = mocker.patch.object(shutil, "move", autospec=True)
+    mocker.patch.object(os.path, "exists", autospec=True, return_value=True)
+    mocker.patch.object(os, "listdir", autospec=True, return_value=["73f52be0-368c-42d8-a1fd-660d49ba5604"])
+
+    mocker.patch.object(file_uploader.ErrorCatchingThread, "errors", autospec=True, return_value=False)
+    mocker.patch.object(
+        file_uploader.ErrorCatchingThread, "get_upload_status", autospec=True, return_value="analysis pending"
+    )
+
+    file_writer_process._process_failed_uploads_on_start()
+    spied_thread.assert_called()
+    spied_shutil.assert_called()
+
+    assert file_writer_process._upload_status == "analysis pending"
 
 
 @pytest.mark.timeout(4)

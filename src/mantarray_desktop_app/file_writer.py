@@ -1130,7 +1130,7 @@ class FileWriterProcess(InfiniteProcess):
                 for customer_dir in os.listdir(failed_uploads_dir):
                     customer_passkey = stored_customer_ids[customer_dir]
                     customer_failed_uploads_dir = os.path.join(failed_uploads_dir, customer_dir)
-                    for file_name in customer_dir:
+                    for file_name in os.listdir(customer_failed_uploads_dir):
                         upload_thread = ErrorCatchingThread(
                             target=uploader,
                             args=(
