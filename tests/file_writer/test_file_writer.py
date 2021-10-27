@@ -170,7 +170,7 @@ def test_FileWriterProcess__correctly_handles_when_file_upload_fails_when_auto_u
 
     mocker.patch.object(file_uploader.ErrorCatchingThread, "errors", autospec=True, return_value=True)
 
-    assert file_writer_process._upload_status == "upload failed"
+    assert file_writer_process._upload_status == "upload failed"  # pylint: disable=protected-access
     assert len(spied_failed_uploads.call_args_list) == 1
 
 
@@ -179,20 +179,23 @@ def test_FileWriterProcess__process_failed_upload_moves_zip_file_to_static_dir_w
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
-    spied_shutil = mocker.spy(shutil, "move")
+    spied_shutil = mocker.patch.object(shutil, "move", autospec=True)
+    mocker.patch.object(os.path, "exists", autospec=True, return_value=True)
 
     GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_delete_local_files"] = False
     this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
 
-    file_writer_process._process_failed_uploads()  # pylint: disable=protected-access
-
-    failed_uploads_dir = file_writer_process._stored_customer_settings["failed_uploads_dir"]
-    cust_account_id = file_writer_process._customer_settings["customer_account_id"]
+    failed_uploads_dir = file_writer_process._stored_customer_settings[
+        "failed_uploads_dir"
+    ]  # pylint: disable=protected-access
+    cust_account_id = file_writer_process._customer_settings[
+        "customer_account_id"
+    ]  # pylint: disable=protected-access
 
     assert os.path.exists(os.path.join(failed_uploads_dir, cust_account_id)) is True
-    spied_shutil.assert_not_called()
+    spied_shutil.assert_called_once()
 
 
 def test_FileWriterProcess__correctly_handles_when_file_upload_is_successful_and_auto_delete_is_true(
@@ -217,7 +220,7 @@ def test_FileWriterProcess__correctly_handles_when_file_upload_is_successful_and
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
 
-    assert file_writer_process._upload_status == "analysis pending"
+    assert file_writer_process._upload_status == "analysis pending"  # pylint: disable=protected-access
     spied_delete_files.assert_called_once()
 
     GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_delete_local_files"] = False
@@ -226,7 +229,7 @@ def test_FileWriterProcess__correctly_handles_when_file_upload_is_successful_and
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
 
-    assert file_writer_process._upload_status == "analysis pending"
+    assert file_writer_process._upload_status == "analysis pending"  # pylint: disable=protected-access
     spied_delete_files.assert_called_once()
 
 
@@ -259,16 +262,17 @@ def test_FileWriterProcess__does_not_process_file_upload_if_no_stored_customer_s
     four_board_file_writer_process, mocker
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
-    file_writer_process._stored_customer_settings = None
-    file_writer_process._customer_settings = {
-        "auto_upload_on_completion": True,
-        "auto_delete_local_files": False,
-        "customer_account_id": "test_cid",
-        "customer_pass_key": "test_pass",
-    }
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
+    file_writer_process._stored_customer_settings = None  # pylint: disable=protected-access
+
+    GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_upload_on_completion"] = True
+    GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_delete_local_files"] = False
+    this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     spied_ec_thread = mocker.patch.object(file_uploader.ErrorCatchingThread, "start", autospec=True)
 
-    file_writer_process._process_file_uploads()  # pylint: disable=protected-access
+    invoke_process_run_and_check_errors(file_writer_process)
 
     spied_ec_thread.assert_not_called()
 
@@ -277,7 +281,6 @@ def test_FileWriterProcess__successfully_process_failed_uploads_on_start_if_stor
     four_board_file_writer_process, mocker
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
-    four_board_file_writer_process["file_dir"]
     spied_thread = mocker.spy(file_uploader.ErrorCatchingThread, "start")
     mocker.patch.object(os.path, "exists", autospec=True, return_value=True)
     mocker.patch.object(os, "listdir", autospec=True, return_value=["73f52be0-368c-42d8-a1fd-660d49ba5604"])
@@ -287,7 +290,7 @@ def test_FileWriterProcess__successfully_process_failed_uploads_on_start_if_stor
     file_writer_process._process_failed_uploads_on_start()  # pylint: disable=protected-access
 
     spied_thread.assert_called()
-    assert file_writer_process._upload_status == "upload failed"
+    assert file_writer_process._upload_status == "upload failed"  # pylint: disable=protected-access
 
 
 def test_FileWriterProcess__successfully_process_failed_uploads_on_start_if_stored_cust_settings_with_no_error(
@@ -295,7 +298,9 @@ def test_FileWriterProcess__successfully_process_failed_uploads_on_start_if_stor
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     four_board_file_writer_process["file_dir"]
-    spied_thread = mocker.spy(file_uploader.ErrorCatchingThread, "start")
+    spied_thread = mocker.spy(
+        file_uploader.ErrorCatchingThread, "start"
+    )  # pylint: disable=pointless-statement
     spied_shutil = mocker.patch.object(shutil, "move", autospec=True)
     mocker.patch.object(os.path, "exists", autospec=True, return_value=True)
     mocker.patch.object(os, "listdir", autospec=True, return_value=["73f52be0-368c-42d8-a1fd-660d49ba5604"])
@@ -309,7 +314,7 @@ def test_FileWriterProcess__successfully_process_failed_uploads_on_start_if_stor
     spied_thread.assert_called()
     spied_shutil.assert_called()
 
-    assert file_writer_process._upload_status == "analysis pending"
+    assert file_writer_process._upload_status == "analysis pending"  # pylint: disable=protected-access
 
 
 @pytest.mark.timeout(4)
