@@ -150,8 +150,6 @@ def test_FileWriterProcess__correctly_handle_when_file_upload_is_false_and_delet
     spied_delete_files = mocker.patch.object(file_writer_process, "_delete_local_files", autospec=True)
     invoke_process_run_and_check_errors(file_writer_process)
 
-    file_writer_process._process_file_uploads()
-
     spied_delete_files.assert_called()
     spied_failed_uploads.assert_not_called()
 
@@ -159,6 +157,7 @@ def test_FileWriterProcess__correctly_handle_when_file_upload_is_false_and_delet
 def test_FileWriterProcess__correctly_handles_when_file_upload_fails_when_auto_upload_is_true(
     four_board_file_writer_process, mocker
 ):
+
     file_writer_process = four_board_file_writer_process["fw_process"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
@@ -170,10 +169,9 @@ def test_FileWriterProcess__correctly_handles_when_file_upload_fails_when_auto_u
     invoke_process_run_and_check_errors(file_writer_process)
 
     mocker.patch.object(file_uploader.ErrorCatchingThread, "errors", autospec=True, return_value=True)
-    file_writer_process._process_file_uploads()
 
     assert file_writer_process._upload_status == "upload failed"
-    assert len(spied_failed_uploads.call_args_list) == 2
+    assert len(spied_failed_uploads.call_args_list) == 1
 
 
 def test_FileWriterProcess__process_failed_upload_moves_zip_file_to_static_dir_w_cust_id(
@@ -188,8 +186,7 @@ def test_FileWriterProcess__process_failed_upload_moves_zip_file_to_static_dir_w
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
 
-    file_writer_process._sub_directory = "test_dir"
-    file_writer_process._process_failed_uploads()
+    file_writer_process._process_failed_uploads()  # pylint: disable=protected-access
 
     failed_uploads_dir = file_writer_process._stored_customer_settings["failed_uploads_dir"]
     cust_account_id = file_writer_process._customer_settings["customer_account_id"]
@@ -201,6 +198,7 @@ def test_FileWriterProcess__process_failed_upload_moves_zip_file_to_static_dir_w
 def test_FileWriterProcess__correctly_handles_when_file_upload_is_successful_and_auto_delete_is_true(
     four_board_file_writer_process, mocker
 ):
+
     file_writer_process = four_board_file_writer_process["fw_process"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
@@ -219,13 +217,22 @@ def test_FileWriterProcess__correctly_handles_when_file_upload_is_successful_and
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
 
-    file_writer_process._process_file_uploads()
+    assert file_writer_process._upload_status == "analysis pending"
+    spied_delete_files.assert_called_once()
+
+    GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_delete_local_files"] = False
+    GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_upload_on_completion"] = True
+    this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
+    invoke_process_run_and_check_errors(file_writer_process)
 
     assert file_writer_process._upload_status == "analysis pending"
-    spied_delete_files.assert_called()
+    spied_delete_files.assert_called_once()
 
 
 def test_FileWriterProcess__setup_before_loop__calls_super(four_board_file_writer_process, mocker):
+    # pylint: disable=protected-access
+
     spied_setup = mocker.spy(InfiniteProcess, "_setup_before_loop")
     spied_uploader = mocker.spy(file_uploader, "uploader")
     file_writer_process = four_board_file_writer_process["fw_process"]
@@ -237,20 +244,14 @@ def test_FileWriterProcess__setup_before_loop__calls_super(four_board_file_write
     spied_setup.assert_called_once()
     spied_uploader.assert_not_called()
 
-    file_writer_process._stored_customer_settings = {"not none": "test"}
     invoke_process_run_and_check_errors(file_writer_process, perform_setup_before_loop=True)
     assert len(mocked_file_upload.call_args_list) == 2
 
-
-def test_FileWriterProcess__does_not_process_any_failed_uploads_if_no_stored_cust_settings(
-    four_board_file_writer_process, mocker
-):
-    file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process._stored_customer_settings = None
     spied_path_join = mocker.spy(os.path, "exists")
+    invoke_process_run_and_check_errors(file_writer_process, perform_setup_before_loop=True)
+    file_writer_process._process_failed_uploads()  # pylint: disable=protected-access
 
-    file_writer_process._process_failed_uploads_on_start()
-    file_writer_process._process_failed_uploads()
     spied_path_join.assert_not_called()
 
 
@@ -267,7 +268,8 @@ def test_FileWriterProcess__does_not_process_file_upload_if_no_stored_customer_s
     }
     spied_ec_thread = mocker.patch.object(file_uploader.ErrorCatchingThread, "start", autospec=True)
 
-    file_writer_process._process_file_uploads()
+    file_writer_process._process_file_uploads()  # pylint: disable=protected-access
+
     spied_ec_thread.assert_not_called()
 
 
@@ -282,7 +284,8 @@ def test_FileWriterProcess__successfully_process_failed_uploads_on_start_if_stor
 
     mocker.patch.object(file_uploader.ErrorCatchingThread, "errors", autospec=True, return_value=True)
 
-    file_writer_process._process_failed_uploads_on_start()
+    file_writer_process._process_failed_uploads_on_start()  # pylint: disable=protected-access
+
     spied_thread.assert_called()
     assert file_writer_process._upload_status == "upload failed"
 
@@ -302,7 +305,7 @@ def test_FileWriterProcess__successfully_process_failed_uploads_on_start_if_stor
         file_uploader.ErrorCatchingThread, "get_upload_status", autospec=True, return_value="analysis pending"
     )
 
-    file_writer_process._process_failed_uploads_on_start()
+    file_writer_process._process_failed_uploads_on_start()  # pylint: disable=protected-access
     spied_thread.assert_called()
     spied_shutil.assert_called()
 

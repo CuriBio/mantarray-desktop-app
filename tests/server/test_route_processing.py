@@ -992,6 +992,31 @@ def test_update_settings__replaces_only_new_values_in_shared_values_dict(
     assert shared_values_dict["config_settings"]["customer_pass_key"] == expected_passkey
 
 
+def test_update_settings__errors_when_any_combo_of_invalid_customer_credits_gets_checked_against_stored_pairs(
+    test_process_manager_creator, test_client, test_monitor, mocker
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+
+    expected_customer_uuid = str(CURI_BIO_ACCOUNT_UUID)
+
+    shared_values_dict["stored_customer_settings"] = {
+        "stored_customer_ids": {expected_customer_uuid: "filler_password"}
+    }
+
+    response = test_client.get(
+        f"/update_settings?customer_account_uuid={expected_customer_uuid}&customer_pass_key=wrong_password"
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert response.status_code == 401
+
+    response = test_client.get(
+        "/update_settings?customer_account_uuid=wrong_customer_id&customer_pass_key=filler_password"
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert response.status_code == 401
+
+
 def test_update_settings__returns_boolean_values_for_auto_upload_delete_values(
     test_process_manager_creator, test_client, test_monitor, mocker
 ):

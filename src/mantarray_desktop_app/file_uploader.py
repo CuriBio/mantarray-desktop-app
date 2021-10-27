@@ -91,7 +91,7 @@ def create_zip_file(file_directory: str, file_name: str, zipped_recordings_dir: 
     file_paths = []
 
     # Loop errors without directories present
-    for root, directories, files in os.walk(file_directory_path):
+    for root, directories, files in os.walk(file_directory_path):  # pylint: disable=unused-variable
         for filename in files:
             # Create the full file path by using OS module and checking if h5
             h5_file_path = os.path.join(root, filename)

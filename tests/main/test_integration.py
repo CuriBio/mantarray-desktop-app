@@ -346,7 +346,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
     fully_running_app_from_main_entrypoint,
     mocker,
 ):
-    # Tanner (12/29/20): Freeze time in order to make assertions on timestamps in the metadata
+    # pylint: disable=too-many-locals,too-many-statements # Tanner (12/29/20): Freeze time in order to make assertions on timestamps in the metadata
     expected_time = datetime.datetime(
         year=2020, month=6, day=15, hour=14, minute=19, second=55, microsecond=313309
     )

@@ -22,8 +22,6 @@ from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from .constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
-from .exceptions import ImproperlyFormattedCustomerAccountIDError
-from .exceptions import ImproperlyFormattedCustomerAccountPasskeyError
 from .exceptions import ImproperlyFormattedUserAccountUUIDError
 from .exceptions import InvalidCustomerAccountIDError
 from .exceptions import InvalidCustomerPasskeyError
@@ -38,17 +36,9 @@ def validate_settings(settings_dict: Dict[str, Any]) -> None:
     Args:
         settings_dict: dictionary containing the new user configuration settings.
     """
-    customer_account_uuid = settings_dict.get("customer_account_uuid", None)
-    customer_pass_key = settings_dict.get("customer_pass_key", None)
     user_account_uuid = settings_dict.get("user_account_uuid", None)
     recording_directory = settings_dict.get("recording_directory", None)
 
-    if customer_account_uuid is not None:
-        if not isinstance(customer_account_uuid, str):
-            raise ImproperlyFormattedCustomerAccountIDError(customer_account_uuid)
-    if customer_pass_key is not None:
-        if not isinstance(customer_pass_key, str):
-            raise ImproperlyFormattedCustomerAccountPasskeyError(customer_pass_key)
     if user_account_uuid is not None:
         if not is_uuid(user_account_uuid):
             raise ImproperlyFormattedUserAccountUUIDError(user_account_uuid)
