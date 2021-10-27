@@ -2,7 +2,7 @@ const path = require("path");
 const fs = require("fs");
 const tmp = require("tmp");
 tmp.setGracefulCleanup(); // Eli (7/13/20): According to the docs, this is supposed to enforce automatic deletion of the folders at the end of running the process, but it does not appear to be working. Manual cleanup seems to be required.
-// const url_safe_base64 = require("urlsafe-base64");
+const url_safe_base64 = require("urlsafe-base64");
 // import create_store,generate_flask_command_line_args,get_current_app_version from "@/main/utils.js";
 // const {
 //   create_store,
@@ -69,35 +69,35 @@ describe("utils.js", () => {
           );
         });
 
-        // test('When the function is invoked, Then the returned --initial-base64-settings encoded settings argument is supplied only containing the recording directory (since no ID exists in the store)', () => {
-        //   const actual_args = main_utils.generate_flask_command_line_args(
-        //     store
-        //   );
-        //   const json_str = JSON.stringify({
-        //     recording_directory: path.join(tmp_dir_name, 'recordings'),
-        //     customer_account_ids: {
-        //       '73f52be0-368c-42d8-a1fd-660d49ba5604': 'filler_password',
-        //     },
-        //     zipped_recordings_dir: path.join(
-        //       tmp_dir_name,
-        //       'recordings',
-        //       'zipped_recordings_dir'
-        //     ),
-        //     failed_uploads_dir: path.join(
-        //       tmp_dir_name,
-        //       'recordings',
-        //       'failed_uploads_dir'
-        //     ),
-        //   });
+        test("When the function is invoked, Then the returned --initial-base64-settings encoded settings argument is supplied only containing the recording directory (since no ID exists in the store)", () => {
+          const actual_args = main_utils.generate_flask_command_line_args(
+            store
+          );
+          const expected_obj = {
+            recording_directory: path.join(tmp_dir_name, "recordings"),
+            stored_customer_ids: {
+              "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
+            },
+            zipped_recordings_dir: path.join(
+              tmp_dir_name,
+              "recordings",
+              "zipped_recordings"
+            ),
+            failed_uploads_dir: path.join(
+              tmp_dir_name,
+              "recordings",
+              "failed_uploads"
+            ),
+          };
 
-        //   const buf = Buffer.from(json_str, 'utf8');
-        //   const expected_encoded = url_safe_base64.encode(buf);
-        //   expect(actual_args).toStrictEqual(
-        //     expect.arrayContaining([
-        //       '--initial-base64-settings=' + expected_encoded,
-        //     ])
-        //   );
-        // });
+          const regex = "--initial-base64-settings=";
+          const base_64_string = actual_args[2].replace(regex, "");
+          const parsed_base64 = JSON.parse(
+            url_safe_base64.decode(base_64_string).toString("utf8")
+          );
+
+          expect(parsed_base64).toStrictEqual(expected_obj);
+        });
 
         test("When the function is invoked, Then subfolders are created for logs and recordings", () => {
           main_utils.generate_flask_command_line_args(store);

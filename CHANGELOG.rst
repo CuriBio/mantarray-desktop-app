@@ -210,13 +210,13 @@ Changelog for Mantarray Desktop App
 0.2.1 (2020-07-24)
 ------------------
 
-- Added validation of customer_account_id, user_account_id, and user recording
+- Added validation of Customer Account ID, User Account ID, and user recording
   directories entered in GUI.
 - Added automatic boot up of instrument, as well as option for hardware tests
   to skip automatic boot up.
 - Added hardware test mode.
 - Added UTC Timestamp of when recording began, the first Reference and Tissue data points,
-  Customer and user_account_ids, Current Software Version, Hardware Test Recording flag,
+  Customer and User Account IDs, Current Software Version, Hardware Test Recording flag,
   Reference and Tissue sampling periods, and the hardware time index of when recording began
   to recorded file metadata.
 - Added Flask route error return codes for:
@@ -224,7 +224,7 @@ Changelog for Mantarray Desktop App
   - Updating user settings with an unexpected field,
     invalid account UUID, or a recording directory that doesn't exist.
   - Attempting to create a standard recording of making a hardware test recording.
-  - Attempting to start recording before Customer and user_account_ids are set.
+  - Attempting to start recording before Customer and User Account IDs are set.
 
 - Added ability for GUI to pass default User Settings on start up.
 - Added assertion that period between data frames is expected period.
