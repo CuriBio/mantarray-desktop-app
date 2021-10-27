@@ -187,6 +187,7 @@ def test_FileWriterProcess__process_failed_upload_moves_zip_file_to_static_dir_w
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
 
+    # pylint: disable=protected-access
     failed_uploads_dir = file_writer_process._stored_customer_settings[
         "failed_uploads_dir"
     ]  # pylint: disable=protected-access
@@ -297,7 +298,6 @@ def test_FileWriterProcess__successfully_process_failed_uploads_on_start_if_stor
     four_board_file_writer_process, mocker
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
-    four_board_file_writer_process["file_dir"]
     spied_thread = mocker.spy(
         file_uploader.ErrorCatchingThread, "start"
     )  # pylint: disable=pointless-statement

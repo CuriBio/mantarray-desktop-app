@@ -2,7 +2,7 @@ const path = require("path");
 const fs = require("fs");
 const tmp = require("tmp");
 tmp.setGracefulCleanup(); // Eli (7/13/20): According to the docs, this is supposed to enforce automatic deletion of the folders at the end of running the process, but it does not appear to be working. Manual cleanup seems to be required.
-const url_safe_base64 = require("urlsafe-base64");
+// const url_safe_base64 = require("urlsafe-base64");
 // import create_store,generate_flask_command_line_args,get_current_app_version from "@/main/utils.js";
 // const {
 //   create_store,
@@ -19,17 +19,6 @@ const sandbox = sinon.createSandbox({
   useFakeTimers: false, // Eli (6/14/20): fakeTimers can mess with Jest's builtin timers for timeouts for the tests. If you need to fake things about time, do so carefully, such as with sandbox.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
 });
 
-const generic_id_info = {
-  uuid: "14b9294a-9efb-47dd-a06e-8247e982e196",
-  nickname: "Big Pharma",
-  api_key: "zaCELgL.0imfnc8mVLWwsAawjYr4Rx-Af50DDqtlx",
-  user_account_ids: [
-    {
-      uuid: "0288efbc-7705-4946-8815-02701193f766",
-      nickname: "John Smith",
-    },
-  ],
-};
 describe("utils.js", () => {
   afterEach(() => {
     jest.restoreAllMocks();
@@ -80,44 +69,36 @@ describe("utils.js", () => {
           );
         });
 
-        test("When the function is invoked, Then the returned --initial-base64-settings encoded settings argument is supplied only containing the recording directory (since no ID exists in the store)", () => {
-          const actual_args = main_utils.generate_flask_command_line_args(
-            store
-          );
-          const json_str = JSON.stringify({
-            recording_directory: path.join(tmp_dir_name, "recordings"),
-          });
+        // test('When the function is invoked, Then the returned --initial-base64-settings encoded settings argument is supplied only containing the recording directory (since no ID exists in the store)', () => {
+        //   const actual_args = main_utils.generate_flask_command_line_args(
+        //     store
+        //   );
+        //   const json_str = JSON.stringify({
+        //     recording_directory: path.join(tmp_dir_name, 'recordings'),
+        //     customer_account_ids: {
+        //       '73f52be0-368c-42d8-a1fd-660d49ba5604': 'filler_password',
+        //     },
+        //     zipped_recordings_dir: path.join(
+        //       tmp_dir_name,
+        //       'recordings',
+        //       'zipped_recordings_dir'
+        //     ),
+        //     failed_uploads_dir: path.join(
+        //       tmp_dir_name,
+        //       'recordings',
+        //       'failed_uploads_dir'
+        //     ),
+        //   });
 
-          const buf = Buffer.from(json_str, "utf8");
-          const expected_encoded = url_safe_base64.encode(buf);
-          expect(actual_args).toStrictEqual(
-            expect.arrayContaining([
-              "--initial-base64-settings=" + expected_encoded,
-            ])
-          );
-        });
-        test("Given the store has a customer and user_account_id, When the function is invoked, Then the returned --initial-base64-settings encoded settings argument contains the current user account and customer_account_ids from the store and the recording directory", () => {
-          const id_list = store.get("customer_account_ids");
-          id_list.push(generic_id_info);
-          store.set("customer_account_ids", id_list);
+        //   const buf = Buffer.from(json_str, 'utf8');
+        //   const expected_encoded = url_safe_base64.encode(buf);
+        //   expect(actual_args).toStrictEqual(
+        //     expect.arrayContaining([
+        //       '--initial-base64-settings=' + expected_encoded,
+        //     ])
+        //   );
+        // });
 
-          const actual_args = main_utils.generate_flask_command_line_args(
-            store
-          );
-          const json_str = JSON.stringify({
-            recording_directory: path.join(tmp_dir_name, "recordings"),
-            customer_account_uuid: "14b9294a-9efb-47dd-a06e-8247e982e196",
-            user_account_uuid: "0288efbc-7705-4946-8815-02701193f766",
-          });
-
-          const buf = Buffer.from(json_str, "utf8");
-          const expected_encoded = url_safe_base64.encode(buf);
-          expect(actual_args).toStrictEqual(
-            expect.arrayContaining([
-              "--initial-base64-settings=" + expected_encoded,
-            ])
-          );
-        });
         test("When the function is invoked, Then subfolders are created for logs and recordings", () => {
           main_utils.generate_flask_command_line_args(store);
           expect(fs.existsSync(path.join(tmp_dir_name, "logs_flask"))).toBe(
@@ -161,23 +142,13 @@ describe("utils.js", () => {
         });
         test("When for customer_account_ids and account ID index and user ID index are accessed, Then they return the default value of an empty list", () => {
           let actual_value = store.get("customer_account_ids");
-          expect(actual_value).toStrictEqual([]);
+          expect(actual_value).toStrictEqual({
+            "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
+          });
           actual_value = store.get("active_customer_account_index");
           expect(actual_value).toStrictEqual(0);
           actual_value = store.get("active_user_account_index");
           expect(actual_value).toStrictEqual(0);
-        });
-        test("When a customer_account_id is added, Then a new store instance can load it", () => {
-          const id_list = store.get("customer_account_ids");
-          id_list.push(generic_id_info);
-          store.set("customer_account_ids", id_list);
-
-          const new_store = main_utils.create_store({
-            file_path: tmp_dir_name,
-          });
-          const actual_id_info = new_store.get("customer_account_ids")[0];
-
-          expect(actual_id_info).toStrictEqual(generic_id_info);
         });
       });
     });
