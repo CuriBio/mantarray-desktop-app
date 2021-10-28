@@ -1108,7 +1108,7 @@ class FileWriterProcess(InfiniteProcess):
         # store failed zip file in failed uploads directory to check at next startup
         if os.path.exists(zipped_file):
             shutil.move(zipped_file, updated_zipped_file)
-        # Luci (10/22/2021): this would be where to notify FE of error to display
+        # Lucy (10/22/2021): this would be where to notify FE of error to display
 
     def _process_failed_upload_files_on_setup(self) -> None:
         """Re-upload any failed files on setup_before_loop.
@@ -1148,7 +1148,7 @@ class FileWriterProcess(InfiniteProcess):
                             "file_name": file_name,
                         }
                         self._upload_threads_container.append(thread_dict)
-                        # Luci (10/22/2021): figure out how to handle if delete local files had been selected on original customer settings and how to handle the zip file
+                        # Lucy (10/22/2021): figure out how to handle if delete local files had been selected on original customer settings and how to handle the zip file
 
     def _check_upload_statuses(self) -> None:
         """Loops through active upload threads.

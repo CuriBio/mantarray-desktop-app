@@ -611,114 +611,99 @@ def test_full_datapath_in_beta_1_mode(
     fully_running_app_from_main_entrypoint,
     test_socketio_client,
 ):
-    with tempfile.TemporaryDirectory() as expected_recordings_dir:
-        # Tanner (12/29/20): Sending in alternate recording directory through command line args
-        test_dict = {
-            "stored_customer_ids": {
-                "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
-            },
-            "zipped_recordings_dir": f"{expected_recordings_dir}/zipped_recordings",
-            "failed_uploads_dir": f"{expected_recordings_dir}/failed_uploads",
-            "recording_directory": expected_recordings_dir,
-        }
-        json_str = json.dumps(test_dict)
-        b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
-        command_line_args = [
-            f"--initial-base64-settings={b64_encoded}",
+    app_info = fully_running_app_from_main_entrypoint()
+    wait_for_subprocesses_to_start()
+    test_process_manager = app_info["object_access_inside_main"]["process_manager"]
+
+    sio, msg_list_container = test_socketio_client()
+
+    # Tanner (12/30/20): Auto boot-up is completed when system reaches calibration_needed state
+    assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
+
+    da_out = test_process_manager.queue_container().get_data_analyzer_data_out_queue()
+
+    # Tanner (12/30/20): Start calibration in order to run managed_acquisition
+    response = requests.get(f"{get_api_endpoint()}start_calibration")
+    assert response.status_code == 200
+    assert system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
+
+    # Tanner (12/30/20): start managed_acquisition in order to get data moving through data path
+    acquisition_request = f"{get_api_endpoint()}start_managed_acquisition"
+    response = requests.get(acquisition_request)
+    assert response.status_code == 200
+    assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
+
+    # Tanner (7/14/21): Wait for data metric message to be produced
+    start = time.perf_counter()
+    while time.perf_counter() - start < FIRST_METRIC_WAIT_TIME:
+        if msg_list_container["twitch_metrics"]:
+            break
+        time.sleep(0.5)
+    # Tanner (7/14/21): Check that list was populated after loop
+    assert len(msg_list_container["twitch_metrics"]) > 0
+
+    # Tanner (12/30/20): stop managed_acquisition now that we have a known min amount of data available
+    response = requests.get(f"{get_api_endpoint()}stop_managed_acquisition")
+    assert response.status_code == 200
+    assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
+    # Tanner (7/14/21): Beta 1 data packets are sent once per second, so there should be at least one data packet for every second needed to run analysis, but sometimes the final data packet doesn't get sent in time
+    assert len(msg_list_container["waveform_data"]) >= MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS - 1
+    confirm_queue_is_eventually_empty(da_out)
+
+    # Tanner (12/29/20): create expected data
+    test_well_index = 0
+    x_values = np.array(
+        [
+            ROUND_ROBIN_PERIOD * (i + 1) // TIMESTEP_CONVERSION_FACTOR
+            for i in range(math.ceil(CENTIMILLISECONDS_PER_SECOND / ROUND_ROBIN_PERIOD))
         ]
-        app_info = fully_running_app_from_main_entrypoint(command_line_args)
-        wait_for_subprocesses_to_start()
-        test_process_manager = app_info["object_access_inside_main"]["process_manager"]
-
-        sio, msg_list_container = test_socketio_client()
-
-        # Tanner (12/30/20): Auto boot-up is completed when system reaches calibration_needed state
-        assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
-
-        da_out = test_process_manager.queue_container().get_data_analyzer_data_out_queue()
-
-        # Tanner (12/30/20): Start calibration in order to run managed_acquisition
-        response = requests.get(f"{get_api_endpoint()}start_calibration")
-        assert response.status_code == 200
-        assert system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
-
-        # Tanner (12/30/20): start managed_acquisition in order to get data moving through data path
-        acquisition_request = f"{get_api_endpoint()}start_managed_acquisition"
-        response = requests.get(acquisition_request)
-        assert response.status_code == 200
-        assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
-
-        # Tanner (7/14/21): Wait for data metric message to be produced
-        start = time.perf_counter()
-        while time.perf_counter() - start < FIRST_METRIC_WAIT_TIME:
-            if msg_list_container["twitch_metrics"]:
-                break
-            time.sleep(0.5)
-        # Tanner (7/14/21): Check that list was populated after loop
-        assert len(msg_list_container["twitch_metrics"]) > 0
-
-        # Tanner (12/30/20): stop managed_acquisition now that we have a known min amount of data available
-        response = requests.get(f"{get_api_endpoint()}stop_managed_acquisition")
-        assert response.status_code == 200
-        assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
-        # Tanner (7/14/21): Beta 1 data packets are sent once per second, so there should be at least one data packet for every second needed to run analysis, but sometimes the final data packet doesn't get sent in time
-        assert len(msg_list_container["waveform_data"]) >= MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS - 1
-        confirm_queue_is_eventually_empty(da_out)
-
-        # Tanner (12/29/20): create expected data
-        test_well_index = 0
-        x_values = np.array(
-            [
-                ROUND_ROBIN_PERIOD * (i + 1) // TIMESTEP_CONVERSION_FACTOR
-                for i in range(math.ceil(CENTIMILLISECONDS_PER_SECOND / ROUND_ROBIN_PERIOD))
-            ]
-        )
-        sawtooth_points = signal.sawtooth(x_values / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5)
-        scaling_factor = test_well_index + 1
-        data_amplitude = int(FIFO_READ_PRODUCER_WELL_AMPLITUDE * scaling_factor)
-        test_data = np.array(
+    )
+    sawtooth_points = signal.sawtooth(x_values / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5)
+    scaling_factor = test_well_index + 1
+    data_amplitude = int(FIFO_READ_PRODUCER_WELL_AMPLITUDE * scaling_factor)
+    test_data = np.array(
+        (
+            x_values,
             (
-                x_values,
-                (
-                    (FIFO_READ_PRODUCER_DATA_OFFSET + data_amplitude * sawtooth_points)
-                    - RAW_TO_SIGNED_CONVERSION_VALUE
-                ),
+                (FIFO_READ_PRODUCER_DATA_OFFSET + data_amplitude * sawtooth_points)
+                - RAW_TO_SIGNED_CONVERSION_VALUE
             ),
-            dtype=np.int32,
-        )
-        test_data[1] -= min(test_data[1])
-        pl_template = PipelineTemplate(
-            noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
-            tissue_sampling_period=ROUND_ROBIN_PERIOD,
-        )
-        pipeline = pl_template.create_pipeline()
-        pipeline.load_raw_gmr_data(test_data, np.zeros(test_data.shape))
-        expected_well_data = pipeline.get_compressed_force()
+        ),
+        dtype=np.int32,
+    )
+    test_data[1] -= min(test_data[1])
+    pl_template = PipelineTemplate(
+        noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
+        tissue_sampling_period=ROUND_ROBIN_PERIOD,
+    )
+    pipeline = pl_template.create_pipeline()
+    pipeline.load_raw_gmr_data(test_data, np.zeros(test_data.shape))
+    expected_well_data = pipeline.get_compressed_force()
 
-        # Tanner (12/29/20): Assert data is as expected for two wells
-        waveform_data_points = json.loads(msg_list_container["waveform_data"][0])["waveform_data"][
-            "basic_data"
-        ]["waveform_data_points"]
-        actual_well_0_y_data = waveform_data_points["0"]["y_data_points"]
-        np.testing.assert_almost_equal(
-            actual_well_0_y_data[0],
-            expected_well_data[1][0] * MICRO_TO_BASE_CONVERSION,
-            decimal=2,
-        )
-        np.testing.assert_almost_equal(
-            actual_well_0_y_data[2],
-            expected_well_data[1][2] * MICRO_TO_BASE_CONVERSION,
-            decimal=2,
-        )
+    # Tanner (12/29/20): Assert data is as expected for two wells
+    waveform_data_points = json.loads(msg_list_container["waveform_data"][0])["waveform_data"]["basic_data"][
+        "waveform_data_points"
+    ]
+    actual_well_0_y_data = waveform_data_points["0"]["y_data_points"]
+    np.testing.assert_almost_equal(
+        actual_well_0_y_data[0],
+        expected_well_data[1][0] * MICRO_TO_BASE_CONVERSION,
+        decimal=2,
+    )
+    np.testing.assert_almost_equal(
+        actual_well_0_y_data[2],
+        expected_well_data[1][2] * MICRO_TO_BASE_CONVERSION,
+        decimal=2,
+    )
 
-        # Tanner (6/21/21): disconnect here to avoid problems with attempting to disconnect after the server stops
-        sio.disconnect()
+    # Tanner (6/21/21): disconnect here to avoid problems with attempting to disconnect after the server stops
+    sio.disconnect()
 
-        # Tanner (12/29/20): Good to do this at the end of tests to make sure they don't cause problems with other integration tests
-        remaining_queue_items = test_process_manager.hard_stop_and_join_processes()
-        # Tanner (12/31/20): Make sure that there were no errors in Data Analyzer
-        da_error_list = remaining_queue_items["data_analyzer_items"]["fatal_error_reporter"]
-        assert len(da_error_list) == 0
+    # Tanner (12/29/20): Good to do this at the end of tests to make sure they don't cause problems with other integration tests
+    remaining_queue_items = test_process_manager.hard_stop_and_join_processes()
+    # Tanner (12/31/20): Make sure that there were no errors in Data Analyzer
+    da_error_list = remaining_queue_items["data_analyzer_items"]["fatal_error_reporter"]
+    assert len(da_error_list) == 0
 
 
 @pytest.mark.slow

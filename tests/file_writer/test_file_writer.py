@@ -151,7 +151,7 @@ def test_FileWriterProcess__correctly_handle_when_file_upload_is_false_and_delet
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
 
-    file_writer_process._start_new_file_uploads()
+    file_writer_process._start_new_file_uploads()  # pylint: disable=protected-access
     spied_delete_files.assert_called()
 
 
@@ -171,7 +171,7 @@ def test_FileWriterProcess__correctly_kicks_off_upload_thread_and_appends_to_con
     mocker.patch.object(file_uploader, "ErrorCatchingThread", autospec=True)
 
     invoke_process_run_and_check_errors(file_writer_process)
-
+    # pylint: disable=protected-access
     assert (
         file_writer_process._upload_threads_container[0]["customer_account_id"] == "test_customer_id"
     )  # pylint: disable=protected-access
@@ -201,7 +201,7 @@ def test_FileWriterProcess__correctly_kicks_off_upload_thread_on_setup_and_appen
     mocker.patch.object(file_uploader, "ErrorCatchingThread", autospec=True)
 
     file_writer_process._process_failed_upload_files_on_setup()  # pylint: disable=protected-access
-
+    # pylint: disable=protected-access
     assert (
         file_writer_process._upload_threads_container[0]["customer_account_id"]
         == "73f52be0-368c-42d8-a1fd-660d49ba5604"
