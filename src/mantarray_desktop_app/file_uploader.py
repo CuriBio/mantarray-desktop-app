@@ -2,7 +2,6 @@
 """Handling upload of data files."""
 import base64
 import hashlib
-import logging
 import os
 from threading import Thread
 from typing import Any
@@ -11,8 +10,6 @@ from typing import Optional
 import zipfile
 
 import requests
-
-logger = logging.getLogger()
 
 
 def get_file_md5(file_path: str) -> str:
@@ -92,8 +89,6 @@ def create_zip_file(file_directory: str, file_name: str, zipped_recordings_dir: 
     """
     file_directory_path = os.path.join(os.path.abspath(file_directory), file_name)
     file_paths = []
-    logger.info("Lucy inside zipped fxn")
-
     # Loop errors without directories present
     for root, directories, files in os.walk(file_directory_path):  # pylint: disable=unused-variable
         for filename in files:
@@ -183,7 +178,6 @@ class ErrorCatchingThread(Thread):
                 self.result = self._target(*self._args, **self._kwargs)
                 super().run()
             except Exception as e:  # pylint: disable=broad-except  # Tanner (10/8/21): deliberately trying to catch all exceptions here
-                logger.info(f"Lucy {self.error}")
                 self.error = e
 
     # for testing

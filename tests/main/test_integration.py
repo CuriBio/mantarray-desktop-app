@@ -210,6 +210,7 @@ def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_li
             "stored_customer_ids": {
                 "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
             },
+            "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
             "zipped_recordings_dir": f"{expected_recordings_dir}/zipped_recordings",
             "failed_uploads_dir": f"{expected_recordings_dir}/failed_uploads",
             "recording_directory": expected_recordings_dir,
