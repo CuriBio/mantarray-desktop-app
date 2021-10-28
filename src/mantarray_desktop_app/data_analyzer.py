@@ -429,7 +429,15 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._data_buffer[well_idx]["construct_data"] = tissue_data
 
     def _process_stim_packet(self, stim_packet: Dict[Any, Any]) -> None:
-        pass  # pylint: disable=no-self-use,unused-argument
+        # Tanner (6/21/21): converting to json may not be necessary for outgoing data, check with frontend
+        outgoing_data_json = json.dumps(
+            {
+                well_idx: stim_status_arr.tolist()
+                for well_idx, stim_status_arr in stim_packet["well_statuses"].items()
+            }
+        )
+        outgoing_msg = {"data_type": "stimulation", "data_json": outgoing_data_json}
+        self._board_queues[0][1].put_nowait(outgoing_msg)
 
     def _handle_performance_logging(self) -> None:
         performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}
@@ -498,9 +506,8 @@ class DataAnalyzerProcess(InfiniteProcess):
     def _dump_outgoing_well_metrics(self, well_tuples: Tuple[Tuple[int, Dict[int, Any]], ...]) -> None:
         outgoing_metrics: Dict[int, Dict[str, List[Any]]] = dict()
         for well_idx, per_twitch_dict in well_tuples:
-            if (
-                not per_twitch_dict
-            ):  # Tanner (7/15/21): in Beta 1 mode, wells with no analyzable data will still be passed through analysis stream, so catching the empty metric dicts here
+            if not per_twitch_dict:
+                # Tanner (7/15/21): in Beta 1 mode, wells with no analyzable data will still be passed through analysis stream, so catching the empty metric dicts here
                 continue
             outgoing_metrics[well_idx] = {
                 str(AMPLITUDE_UUID): [],
