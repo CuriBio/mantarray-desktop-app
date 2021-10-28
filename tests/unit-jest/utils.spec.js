@@ -78,6 +78,7 @@ describe("utils.js", () => {
             stored_customer_ids: {
               "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
             },
+            user_account_id: "455b93eb-c78f-4494-9f73-d3291130f126",
             zipped_recordings_dir: path.join(
               tmp_dir_name,
               "recordings",

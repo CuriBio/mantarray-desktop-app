@@ -154,6 +154,7 @@ def test_main__logs_system_info__and_software_version_at_very_start(
             "stored_customer_ids": {
                 "customer_account_uuid": "test_pass",
             },
+            "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
             "zipped_recordings_dir": f"/{tmp}/zipped_recordings_dir",
             "failed_uploads_dir": f"/{tmp}/failed_uploads_dir",
             "recording_directory": f"/{tmp}",
@@ -393,6 +394,7 @@ def test_main__stores_values_from_command_line_arguments(mocker, fully_running_a
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         test_dict = {
             "stored_customer_ids": {"customer_account_uuid": "14b9294a-9efb-47dd-a06e-8247e982e196"},
+            "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
             "recording_directory": expected_recordings_dir,
             "zipped_recordings_dir": f"{expected_recordings_dir}/zipped_recordings",
             "failed_uploads_dir": f"{expected_recordings_dir}/failed_uploads",
@@ -432,6 +434,7 @@ def test_main__generates_log_file_uuid_if_none_passed_in_cmd_line_args(
             "stored_customer_ids": {
                 "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
             },
+            "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
             "zipped_recordings_dir": f"/{tmp}/zipped_recordings",
             "failed_uploads_dir": f"/{tmp}/failed_uploads",
             "recording_directory": f"/{tmp}",

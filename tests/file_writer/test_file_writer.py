@@ -141,20 +141,21 @@ def test_FileWriterProcess__correctly_handle_when_file_upload_is_false_and_delet
     file_writer_process = four_board_file_writer_process["fw_process"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
+    spied_delete_files = mocker.patch.object(file_writer_process, "_delete_local_files", autospec=True)
+
+    # file_writer_process._start_new_file_uploads()
+    spied_delete_files.assert_not_called()
     GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_delete_local_files"] = True
     GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_upload_on_completion"] = False
     this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
-
-    spied_failed_uploads = mocker.patch.object(file_writer_process, "_process_failed_uploads", autospec=True)
-    spied_delete_files = mocker.patch.object(file_writer_process, "_delete_local_files", autospec=True)
     invoke_process_run_and_check_errors(file_writer_process)
 
+    file_writer_process._start_new_file_uploads()
     spied_delete_files.assert_called()
-    spied_failed_uploads.assert_not_called()
 
 
-def test_FileWriterProcess__correctly_handles_when_file_upload_fails_when_auto_upload_is_true(
+def test_FileWriterProcess__correctly_kicks_off_upload_thread_and_appends_to_container_with_correct_states(
     four_board_file_writer_process, mocker
 ):
 
@@ -165,13 +166,56 @@ def test_FileWriterProcess__correctly_handles_when_file_upload_fails_when_auto_u
     GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_delete_local_files"] = False
     this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
-    spied_failed_uploads = mocker.patch.object(file_writer_process, "_process_failed_uploads", autospec=True)
+
+    mocked_check_status = mocker.patch.object(file_writer_process, "_check_upload_statuses", auto_spec=True)
+    mocker.patch.object(file_uploader, "ErrorCatchingThread", autospec=True)
+
     invoke_process_run_and_check_errors(file_writer_process)
 
-    mocker.patch.object(file_uploader.ErrorCatchingThread, "errors", autospec=True, return_value=True)
+    assert (
+        file_writer_process._upload_threads_container[0]["customer_account_id"] == "test_customer_id"
+    )  # pylint: disable=protected-access
+    assert (
+        file_writer_process._upload_threads_container[0]["failed_upload"] is False
+    )  # pylint: disable=protected-access
+    assert (
+        file_writer_process._upload_threads_container[0]["auto_delete"] is False
+    )  # pylint: disable=protected-access
+    assert (
+        file_writer_process._upload_threads_container[0]["file_name"] == ""
+    )  # pylint: disable=protected-access
+    mocked_check_status.assert_called_once()
 
-    assert file_writer_process._upload_status == "upload failed"  # pylint: disable=protected-access
-    assert len(spied_failed_uploads.call_args_list) == 1
+
+def test_FileWriterProcess__correctly_kicks_off_upload_thread_on_setup_and_appends_to_container_with_correct_states(
+    four_board_file_writer_process, mocker
+):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
+    this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
+
+    mocker.patch.object(os, "listdir", return_value=["73f52be0-368c-42d8-a1fd-660d49ba5604"])
+    mocker.patch.object(os.path, "exists", autospec=True, return_value=True)
+    mocker.patch.object(file_uploader, "ErrorCatchingThread", autospec=True)
+
+    file_writer_process._process_failed_upload_files_on_setup()  # pylint: disable=protected-access
+
+    assert (
+        file_writer_process._upload_threads_container[0]["customer_account_id"]
+        == "73f52be0-368c-42d8-a1fd-660d49ba5604"
+    )  # pylint: disable=protected-access
+    assert (
+        file_writer_process._upload_threads_container[0]["failed_upload"] is True
+    )  # pylint: disable=protected-access
+    assert (
+        file_writer_process._upload_threads_container[0]["auto_delete"] is False
+    )  # pylint: disable=protected-access
+    assert (
+        file_writer_process._upload_threads_container[0]["file_name"]
+        == "73f52be0-368c-42d8-a1fd-660d49ba5604"
+    )  # pylint: disable=protected-access
 
 
 def test_FileWriterProcess__process_failed_upload_moves_zip_file_to_static_dir_w_cust_id(
@@ -181,13 +225,13 @@ def test_FileWriterProcess__process_failed_upload_moves_zip_file_to_static_dir_w
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     spied_shutil = mocker.patch.object(shutil, "move", autospec=True)
     mocker.patch.object(os.path, "exists", autospec=True, return_value=True)
+    mocker.patch.object(file_uploader.ErrorCatchingThread, "is_alive", autospec=True, return_value=False)
 
     GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_delete_local_files"] = False
+    GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_upload_on_completion"] = True
     this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
-
-    # file_writer_process._process_failed_uploads()  # pylint: disable=protected-access
 
     # pylint: disable=protected-access
     failed_uploads_dir = file_writer_process._stored_customer_settings[
@@ -201,6 +245,69 @@ def test_FileWriterProcess__process_failed_upload_moves_zip_file_to_static_dir_w
     spied_shutil.assert_called_once()
 
 
+# def test_FileWriterProcess__files_get_handled_differently_if_new_file(mocker, four_board_file_writer_process):
+#     file_writer_process = four_board_file_writer_process["fw_process"]
+#     spied_failed_uploads = mocker.patch.object(
+#         file_writer_process, "_process_new_failed_upload_files", autospec=True
+#     )
+#     mocker.patch.object(file_uploader.ErrorCatchingThread, "errors", autospec=True, return_value=True)
+#     mocker.patch.object(file_uploader.ErrorCatchingThread, "is_alive", autospec=True, return_value=False)
+#     mocked_shutil = mocker.patch.object(shutil, "move", autospec=True)
+
+#     file_writer_process._upload_threads_container.append(
+#         {
+#             "failed_upload": True,
+#             "customer_account_id": "test_cust",
+#             "thread": "test_thread",
+#             "auto_delete": False,
+#             "file_name": "test_filename",
+#         }
+#     )  # pylint: disable=protected-access
+
+# file_writer_process._check_upload_statuses()  # pylint: disable=protected-access
+
+# spied_failed_uploads.assert_not_called()
+# assert file_writer_process._upload_status == "__upload failed"
+
+# mocker.patch.object(file_uploader.ErrorCatchingThread, "errors", autospec=True, return_value=False)
+# mocker.patch.object(
+#     file_uploader.ErrorCatchingThread, "get_upload_status", autospec=True, return_value="upload complete"
+# )
+# file_writer_process._check_upload_statuses()  # pylint: disable=protected-access
+
+# assert file_writer_process._upload_status == "__upload complete"
+# mocked_shutil.assert_called_once()
+
+
+def test_FileWriterProcess__correctly_handles_when_file_upload_is_successful_and_auto_delete_is_false(
+    four_board_file_writer_process, mocker
+):
+
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
+    spied_delete_files = mocker.spy(file_writer_process, "_delete_local_files")
+    mocker.patch.object(os, "listdir", return_value=["test_file"])
+    mocker.patch.object(os, "remove", autospec=True)
+    mocker.patch.object(os, "rmdir", autospec=True)
+    mocker.patch.object(shutil, "move", autospec=True)
+    mocker.patch.object(file_uploader.ErrorCatchingThread, "errors", autospec=True, return_value=False)
+    mocker.patch.object(file_uploader.ErrorCatchingThread, "is_alive", autospec=True, return_value=False)
+    mocker.patch.object(
+        file_uploader.ErrorCatchingThread, "get_upload_status", autospec=True, return_value="upload complete"
+    )
+
+    GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_delete_local_files"] = False
+    GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_upload_on_completion"] = True
+    this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
+    invoke_process_run_and_check_errors(file_writer_process)
+
+    assert file_writer_process._upload_status == "__upload complete"  # pylint: disable=protected-access
+    spied_delete_files.assert_not_called()
+    assert len(file_writer_process._upload_threads_container) == 0  # pylint: disable=protected-access
+
+
 def test_FileWriterProcess__correctly_handles_when_file_upload_is_successful_and_auto_delete_is_true(
     four_board_file_writer_process, mocker
 ):
@@ -212,9 +319,11 @@ def test_FileWriterProcess__correctly_handles_when_file_upload_is_successful_and
     mocker.patch.object(os, "listdir", return_value=["test_file"])
     mocker.patch.object(os, "remove", autospec=True)
     mocker.patch.object(os, "rmdir", autospec=True)
+    mocker.patch.object(shutil, "move", autospec=True)
     mocker.patch.object(file_uploader.ErrorCatchingThread, "errors", autospec=True, return_value=False)
+    mocker.patch.object(file_uploader.ErrorCatchingThread, "is_alive", autospec=True, return_value=False)
     mocker.patch.object(
-        file_uploader.ErrorCatchingThread, "get_upload_status", autospec=True, return_value="analysis pending"
+        file_uploader.ErrorCatchingThread, "get_upload_status", autospec=True, return_value="upload complete"
     )
 
     GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_delete_local_files"] = True
@@ -223,16 +332,7 @@ def test_FileWriterProcess__correctly_handles_when_file_upload_is_successful_and
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
 
-    assert file_writer_process._upload_status == "analysis pending"  # pylint: disable=protected-access
-    spied_delete_files.assert_called_once()
-
-    GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_delete_local_files"] = False
-    GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_upload_on_completion"] = True
-    this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
-    invoke_process_run_and_check_errors(file_writer_process)
-
-    assert file_writer_process._upload_status == "analysis pending"  # pylint: disable=protected-access
+    assert file_writer_process._upload_status == "__upload complete"  # pylint: disable=protected-access
     spied_delete_files.assert_called_once()
 
 
@@ -243,7 +343,7 @@ def test_FileWriterProcess__setup_before_loop__calls_super(four_board_file_write
     spied_uploader = mocker.spy(file_uploader, "uploader")
     file_writer_process = four_board_file_writer_process["fw_process"]
     mocked_file_upload = mocker.patch.object(
-        file_writer_process, "_process_failed_uploads_on_start", autospec=True
+        file_writer_process, "_process_failed_upload_files_on_setup", autospec=True
     )
 
     invoke_process_run_and_check_errors(file_writer_process, perform_setup_before_loop=True)
@@ -253,70 +353,72 @@ def test_FileWriterProcess__setup_before_loop__calls_super(four_board_file_write
     invoke_process_run_and_check_errors(file_writer_process, perform_setup_before_loop=True)
     assert len(mocked_file_upload.call_args_list) == 2
 
-    file_writer_process._stored_customer_settings = None
-    spied_path_join = mocker.spy(os.path, "exists")
-    invoke_process_run_and_check_errors(file_writer_process, perform_setup_before_loop=True)
-    file_writer_process._process_failed_uploads()  # pylint: disable=protected-access
 
-    spied_path_join.assert_not_called()
-
-
-def test_FileWriterProcess__does_not_process_file_upload_if_no_stored_customer_settings(
+def test_FileWriterProcess__successfully_process_failed_upload_files_if_stored_cust_settings_with_error(
     four_board_file_writer_process, mocker
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
-    file_writer_process._stored_customer_settings = None  # pylint: disable=protected-access
+    mocker.patch.object(os.path, "exists", autospec=True, return_value=True)
+    mocker.patch.object(os, "listdir", autospec=True, return_value=["73f52be0-368c-42d8-a1fd-660d49ba5604"])
+    mocker.patch.object(shutil, "move", autospec=True)
+
+    spied_process_failed_uploads = mocker.spy(file_writer_process, "_process_new_failed_upload_files")
+    mocker.patch.object(file_uploader.ErrorCatchingThread, "errors", autospec=True, return_value=True)
+    mocker.patch.object(file_uploader.ErrorCatchingThread, "is_alive", autospec=True, return_value=False)
 
     GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_upload_on_completion"] = True
     GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_delete_local_files"] = False
     this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
-    spied_ec_thread = mocker.patch.object(file_uploader.ErrorCatchingThread, "start", autospec=True)
-
     invoke_process_run_and_check_errors(file_writer_process)
 
-    spied_ec_thread.assert_not_called()
+    assert file_writer_process._upload_status == "__upload failed"  # pylint: disable=protected-access
+    spied_process_failed_uploads.assert_called_once()
 
 
-def test_FileWriterProcess__successfully_process_failed_uploads_on_start_if_stored_cust_settings_with_error(
+def test_FileWriterProcess__successfully_process_failed_upload_files_if_stored_cust_settings_with_no_error(
     four_board_file_writer_process, mocker
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
-    spied_thread = mocker.spy(file_uploader.ErrorCatchingThread, "start")
-    mocker.patch.object(os.path, "exists", autospec=True, return_value=True)
-    mocker.patch.object(os, "listdir", autospec=True, return_value=["73f52be0-368c-42d8-a1fd-660d49ba5604"])
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
 
-    mocker.patch.object(file_uploader.ErrorCatchingThread, "errors", autospec=True, return_value=True)
-
-    file_writer_process._process_failed_uploads_on_start()  # pylint: disable=protected-access
-
-    spied_thread.assert_called()
-    assert file_writer_process._upload_status == "upload failed"  # pylint: disable=protected-access
-
-
-def test_FileWriterProcess__successfully_process_failed_uploads_on_start_if_stored_cust_settings_with_no_error(
-    four_board_file_writer_process, mocker
-):
-    file_writer_process = four_board_file_writer_process["fw_process"]
-    spied_thread = mocker.spy(
-        file_uploader.ErrorCatchingThread, "start"
-    )  # pylint: disable=pointless-statement
-    spied_shutil = mocker.patch.object(shutil, "move", autospec=True)
     mocker.patch.object(os.path, "exists", autospec=True, return_value=True)
     mocker.patch.object(os, "listdir", autospec=True, return_value=["73f52be0-368c-42d8-a1fd-660d49ba5604"])
 
     mocker.patch.object(file_uploader.ErrorCatchingThread, "errors", autospec=True, return_value=False)
+    mocker.patch.object(file_uploader.ErrorCatchingThread, "is_alive", autospec=True, return_value=False)
+
     mocker.patch.object(
         file_uploader.ErrorCatchingThread, "get_upload_status", autospec=True, return_value="analysis pending"
     )
 
-    file_writer_process._process_failed_uploads_on_start()  # pylint: disable=protected-access
-    spied_thread.assert_called()
-    spied_shutil.assert_called()
+    GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_upload_on_completion"] = True
+    GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_delete_local_files"] = False
+    this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
+    invoke_process_run_and_check_errors(file_writer_process)
 
-    assert file_writer_process._upload_status == "analysis pending"  # pylint: disable=protected-access
+    assert file_writer_process._upload_status == "__analysis pending"  # pylint: disable=protected-access
+
+
+def test_FileWriterProcess__does_not_join_upload_thread_if_alive(four_board_file_writer_process, mocker):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    spied_join = mocker.spy(file_uploader.ErrorCatchingThread, "join")
+    mocker.patch.object(os.path, "exists", autospec=True, return_value=True)
+    mocker.patch.object(os, "listdir", autospec=True, return_value=["73f52be0-368c-42d8-a1fd-660d49ba5604"])
+
+    mocker.patch.object(file_uploader.ErrorCatchingThread, "is_alive", autospec=True, return_value=True)
+
+    GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_upload_on_completion"] = True
+    GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_delete_local_files"] = False
+    this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
+    invoke_process_run_and_check_errors(file_writer_process)
+
+    spied_join.assert_not_called()
 
 
 @pytest.mark.timeout(4)

@@ -90,7 +90,6 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         """Create/init the processes."""
         queue_container = MantarrayQueueContainer()
         self._queue_container = queue_container
-
         beta_2_mode = self._values_to_share_to_server["beta_2_mode"]
         stored_customer_settings = self._values_to_share_to_server.get("stored_customer_settings", None)
 

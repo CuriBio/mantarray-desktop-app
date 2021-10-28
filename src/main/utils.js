@@ -36,11 +36,13 @@ const create_store = function ({
       customer_account_ids: {
         "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
       },
+      user_account_id: "455b93eb-c78f-4494-9f73-d3291130f126",
       active_customer_account_index: 0,
       active_user_account_index: 0,
-      beta_2_mode: false,
+      beta_2_mode: true,
     },
   });
+  store.set("user_account_id", "455b93eb-c78f-4494-9f73-d3291130f126");
   store.set("customer_account_ids", {
     "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
   });
@@ -81,21 +83,16 @@ const generate_flask_command_line_args = function (electron_store) {
   mkdirp.sync(zipped_recordings_dir_path);
   mkdirp.sync(failed_uploads_dir_path);
 
+  const user_account_id = electron_store.get("user_account_id");
   const stored_customer_ids = electron_store.get("customer_account_ids");
   // storing upload dir paths so that they can be found on start up to try re-uploading even if file_directory path changes while FW is running
   const settings_to_supply = {
     recording_directory: recording_directory_path,
     stored_customer_ids,
+    user_account_id,
     zipped_recordings_dir: zipped_recordings_dir_path,
     failed_uploads_dir: failed_uploads_dir_path,
   };
-
-  // if (customer_account_ids.length > 0) {
-  //   const active_customer_account = customer_account_ids[0];
-  //   settings_to_supply.customer_account_uuid = active_customer_account.uuid;
-  //   settings_to_supply.user_account_uuid =
-  //     active_customer_account.user_account_ids[0].uuid;
-  // }
 
   const settings_to_supply_json_str = JSON.stringify(settings_to_supply);
   const settings_to_supply_buf = Buffer.from(
