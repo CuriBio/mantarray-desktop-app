@@ -5,6 +5,11 @@ import ElectronStore from "./electron_store.js";
 // const ElectronStore = require('./electron_store.js');
 const yaml = require("js-yaml");
 
+/**
+ * Depending on whether Electron is running, get the application version from package.json or from the Electron process itself
+ *
+ * @return {string} the semantic version
+ */
 const get_current_app_version = function () {
   // Eli (3/30/21): Do NOT use `process.env.npm_package_version` to try and do this. It works in CI using the test runner, but does not actually work when running on a standalone machine--it just evaluates to undefined.
   // adapted from https://github.com/electron/electron/issues/7085
