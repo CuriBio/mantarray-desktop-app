@@ -938,6 +938,8 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
             time.sleep(0.5)
         # Tanner (7/14/21): Check that list was populated after loop
         assert len(msg_list_container["twitch_metrics"]) > 0
+        # Tanner (10/28/21): Stim data should also have been sent by the time the first metric is sent, so test that too
+        assert len(msg_list_container["stimulation"]) > 0
 
         # Tanner (6/1/21): End recording at a known timepoint
         expected_stop_index_1 = expected_start_index_1 + int(2e6)
