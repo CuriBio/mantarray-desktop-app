@@ -7,7 +7,7 @@ Custom HTTP Error Codes:
 * 304 - Call to /start_recording while already recording
 * 400 - Call to /start_recording with invalid or missing barcode parameter
 * 400 - Call to /set_mantarray_nickname with invalid nickname parameter
-* 400 - Call to /update_settings with unexpected argument, invalid account UUID, or a recording_directory that doesn't exist
+* 400 - Call to /update_settings with unexpected argument, invalid account UUID, or a recording directory that doesn't exist
 * 400 - Call to /insert_xem_command_into_queue/set_mantarray_serial_number with invalid serial_number parameter
 * 400 - Call to /set_magnetometer_config with invalid configuration dict
 * 400 - Call to /set_magnetometer_config with invalid or missing sampling period

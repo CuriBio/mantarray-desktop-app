@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Analyzing tissue data."""
+"""Analyzing data coming from board."""
 from __future__ import annotations
 
 import datetime
