@@ -164,6 +164,12 @@ def uploader(
     while True:
         upload_status: str = get_sdk_status(access_token=access_token, upload_details=upload_details)
 
+        # for testing, had to put first to cover if max loops is already zero
+        if max_num_loops > 0:
+            num_of_loops += 1
+            if num_of_loops >= max_num_loops:
+                break
+
         if "analysis complete" in upload_status:
             break
 
@@ -171,11 +177,6 @@ def uploader(
             raise Exception(upload_status)
         else:
             sleep(5)
-
-        if max_num_loops > 0:
-            num_of_loops += 1
-            if num_of_loops >= max_num_loops:
-                break
 
     return upload_status
 

@@ -230,7 +230,8 @@ def test_uploader__uploader_sleeps_same_number_of_max_loops(mocker):
         test_file_path, test_file, test_zip_dir, test_customer_account_id, test_password, max_num_loops=3
     )
     mocked_sleep.assert_called_with(5)
-    assert len(mocked_sleep.call_args_list) == len(mocked_get_sdk_status.call_args_list)
+    assert len(mocked_sleep.call_args_list) == 2
+    assert len(mocked_get_sdk_status.call_args_list) == 3
 
 
 def test_uploader__uploader_sleeps_after_loop_getting_sdk_status(mocker):
@@ -251,10 +252,10 @@ def test_uploader__uploader_sleeps_after_loop_getting_sdk_status(mocker):
     test_password = "pw"
 
     uploader(
-        test_file_path, test_file, test_zip_dir, test_customer_account_id, test_password, max_num_loops=1
+        test_file_path, test_file, test_zip_dir, test_customer_account_id, test_password, max_num_loops=2
     )
     mocked_sleep.assert_called_once_with(5)
-    assert len(mocked_get_sdk_status.call_args_list) == 1
+    assert len(mocked_get_sdk_status.call_args_list) == 2
 
 
 def test_ErrorCatchingThread__correctly_returns_target_function(mocker):
