@@ -175,8 +175,8 @@ def uploader(
 
         if "error" in upload_status:
             raise Exception(upload_status)
-        else:
-            sleep(5)
+
+        sleep(5)
 
     return upload_status
 
