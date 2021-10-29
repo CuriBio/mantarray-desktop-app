@@ -15,6 +15,7 @@ from mantarray_desktop_app.file_uploader import get_sdk_status
 from mantarray_desktop_app.file_uploader import get_upload_details
 from mantarray_desktop_app.file_uploader import upload_file_to_s3
 from mantarray_desktop_app.file_uploader import uploader
+import pytest
 import requests
 
 
@@ -124,13 +125,13 @@ def test_create_zip_file__correctly_writes_h5_files_to_zipfile_at_designated_pat
     assert zipped_file_path == f"{os.path.join(test_zipped_path, test_file_name)}.zip"
 
 
-def test_create_zip_file__create_zip_file_should_not_be_called_with_failed_zip_file(mocker):
+def test_create_zip_file__create_zip_file_should_not_be_called_with_previously_failed_zip_file(mocker):
     mocked_create_zip_file = mocker.patch.object(file_uploader, "create_zip_file", autospec=True)
     mocker.patch.object(file_uploader, "get_file_md5", autospec=True)
     mocker.patch.object(file_uploader, "get_access_token", autospec=True)
     mocker.patch.object(file_uploader, "get_upload_details", autospec=True)
     mocker.patch.object(file_uploader, "upload_file_to_s3", autospec=True)
-    mocker.patch.object(file_uploader, "get_sdk_status", autospec=True)
+    mocker.patch.object(file_uploader, "get_sdk_status", autospec=True, return_value="analysis complete")
 
     test_file_name = "zip_file"
     test_file_path = "/test"
@@ -148,23 +149,27 @@ def test_uploader__runs_upload_procedure_correctly(mocker):
     mocked_get_access_token = mocker.patch.object(file_uploader, "get_access_token", autospec=True)
     mocked_get_upload_details = mocker.patch.object(file_uploader, "get_upload_details", autospec=True)
     mocked_upload_file = mocker.patch.object(file_uploader, "upload_file_to_s3", autospec=True)
-    mocked_get_sdk_status = mocker.patch.object(file_uploader, "get_sdk_status", autospec=True)
+    mocked_get_sdk_status = mocker.patch.object(
+        file_uploader, "get_sdk_status", autospec=True, return_value="analysis complete"
+    )
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         expected_upload_details = mocked_get_upload_details.return_value
         expected_access_token = mocked_get_access_token.return_value
         expected_md5 = mocked_get_file_md5.return_value
-        test_file_name = tmp_dir
+
+        test_dir = tmp_dir
         test_file_path = "/test"
         test_zip_dir = "/test/zipped_recordings"
         test_customer_account_id = "cid"
         test_password = "pw"
-        zipped_file_name = f"{test_file_name}.zip"
+        zipped_file_name = f"{test_dir}.zip"
         zipped_file_path = mocked_create_zip_file.return_value
 
-        uploader(test_file_path, test_file_name, test_zip_dir, test_customer_account_id, test_password)
+        uploader(test_file_path, test_dir, test_zip_dir, test_customer_account_id, test_password)
+
         mocked_create_zip_file.assert_called_once_with(
-            test_file_path, test_file_name, f"{os.path.join(test_zip_dir, test_customer_account_id)}"
+            test_file_path, test_dir, f"{os.path.join(test_zip_dir, test_customer_account_id)}"
         )
         mocked_get_access_token.assert_called_once_with(test_customer_account_id, test_password)
         mocked_get_file_md5.assert_called_once_with(zipped_file_path)
@@ -177,11 +182,87 @@ def test_uploader__runs_upload_procedure_correctly(mocker):
         mocked_get_sdk_status.assert_called_once_with(expected_access_token, expected_upload_details)
 
 
+def test_uploader__uploader_raises_error_if_get_sdk_status_returns_error_message_from_aws(mocker):
+    mocker.patch.object(file_uploader, "get_file_md5", autospec=True)
+    mocker.patch.object(file_uploader, "get_access_token", autospec=True)
+    mocker.patch.object(file_uploader, "get_upload_details", autospec=True)
+    mocker.patch.object(file_uploader, "upload_file_to_s3", autospec=True)
+    mocker.patch.object(file_uploader, "get_sdk_status", autospec=True, return_value="error in upload")
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+
+        test_dir = tmp_dir
+        test_file_path = "/test"
+        test_zip_dir = "/test/zipped_recordings"
+        test_customer_account_id = "cid"
+        test_password = "pw"
+
+        with pytest.raises(Exception) as e:
+            thread = ErrorCatchingThread(
+                target=uploader,
+                args=(test_file_path, test_dir, test_zip_dir, test_customer_account_id, test_password),
+            )
+            thread.start()
+            thread.join()
+
+            assert thread.error == e
+            assert thread.errors() is True
+
+
+def test_uploader__uploader_sleeps_same_number_of_max_loops(mocker):
+    mocker.patch.object(file_uploader, "get_file_md5", autospec=True)
+    mocker.patch.object(file_uploader, "get_access_token", autospec=True)
+    mocker.patch.object(file_uploader, "get_upload_details", autospec=True)
+    mocker.patch.object(file_uploader, "upload_file_to_s3", autospec=True)
+    mocked_get_sdk_status = mocker.patch.object(
+        file_uploader, "get_sdk_status", autospec=True, return_value="status"
+    )
+
+    mocked_sleep = mocker.patch.object(file_uploader, "sleep", autospec=True)
+
+    test_file = "test_name"
+    test_file_path = "/test"
+    test_zip_dir = "/test/zipped_recordings"
+    test_customer_account_id = "cid"
+    test_password = "pw"
+
+    uploader(
+        test_file_path, test_file, test_zip_dir, test_customer_account_id, test_password, max_num_loops=3
+    )
+    mocked_sleep.assert_called_with(5)
+    assert len(mocked_sleep.call_args_list) == len(mocked_get_sdk_status.call_args_list)
+
+
+def test_uploader__uploader_sleeps_after_loop_getting_sdk_status(mocker):
+    mocker.patch.object(file_uploader, "get_file_md5", autospec=True)
+    mocker.patch.object(file_uploader, "get_access_token", autospec=True)
+    mocker.patch.object(file_uploader, "get_upload_details", autospec=True)
+    mocker.patch.object(file_uploader, "upload_file_to_s3", autospec=True)
+    mocked_get_sdk_status = mocker.patch.object(
+        file_uploader, "get_sdk_status", autospec=True, return_value="status"
+    )
+
+    mocked_sleep = mocker.patch.object(file_uploader, "sleep", autospec=True)
+
+    test_file = "test_name"
+    test_file_path = "/test"
+    test_zip_dir = "/test/zipped_recordings"
+    test_customer_account_id = "cid"
+    test_password = "pw"
+
+    uploader(
+        test_file_path, test_file, test_zip_dir, test_customer_account_id, test_password, max_num_loops=1
+    )
+    mocked_sleep.assert_called_once_with(5)
+    assert len(mocked_get_sdk_status.call_args_list) == 1
+
+
 def test_ErrorCatchingThread__correctly_returns_target_function(mocker):
     mocked_uploader_function = mocker.patch.object(file_uploader, "uploader", return_value="mocked_return")
 
     mocked_thread = ErrorCatchingThread(target=mocked_uploader_function)
     mocked_thread.start()
+    mocked_thread.join()
 
     assert mocked_thread.result == mocked_uploader_function.return_value
 
@@ -201,12 +282,13 @@ def test_ErrorCatchingThread__correctly_returns_error_to_caller_thread(mocker):
         args=(test_file_path, test_sub_dir, test_zip_dir, test_customer_id, test_password),
     )
     mocked_thread.start()
+    mocked_thread.join()
 
     assert mocked_thread.error == mocked_uploader_function.side_effect
     assert mocked_thread.errors() is True
 
 
-def test_MantarrayProcessesMonitor__run__calls_super(mocker):
+def test_ErrorCatchingThread__run__calls_init(mocker):
     mocked_uploader_function = mocker.patch.object(
         file_uploader, "uploader", autospec=True, return_value="analysis pending"
     )
@@ -223,6 +305,7 @@ def test_MantarrayProcessesMonitor__run__calls_super(mocker):
         args=(test_file_path, test_sub_dir, test_zip_dir, test_customer_id, test_password),
     )
     mocked_thread.start()
+    mocked_thread.join()
 
     assert mocked_super_init.call_count == 1
     assert mocked_thread.result == mocked_uploader_function.return_value

@@ -4,6 +4,7 @@ import base64
 import hashlib
 import os
 from threading import Thread
+from time import sleep
 from typing import Any
 from typing import Dict
 from typing import Optional
@@ -132,6 +133,7 @@ def uploader(
     zipped_recordings_dir: str,
     customer_account_id: str,
     password: str,
+    max_num_loops: int = 0,
 ) -> str:
     """Initiate and handle file upload process.
 
@@ -141,6 +143,7 @@ def uploader(
         zipped_recordings_dir: static zipped recording directory to store zip files.
         customer_account_id: current customer account id for user.
         password: current customer account password for user.
+        max_num_loops: to break loop in testing.
     """
     file_path = os.path.join(os.path.abspath(file_directory), file_name)
     # Failed uploads will call function with zip file, not directory of well data
@@ -156,7 +159,22 @@ def uploader(
     file_md5 = get_file_md5(file_path=zipped_file_path)
     upload_details = get_upload_details(access_token=access_token, file_name=file_name, file_md5=file_md5)
     upload_file_to_s3(file_path=zipped_file_path, file_name=file_name, upload_details=upload_details)
-    upload_status: str = get_sdk_status(access_token=access_token, upload_details=upload_details)
+
+    num_of_loops = 0
+    while True:
+        upload_status: str = get_sdk_status(access_token=access_token, upload_details=upload_details)
+
+        if "analysis complete" in upload_status:
+            break
+        elif "error" in upload_status:
+            raise Exception(upload_status)
+        else:
+            sleep(5)
+
+        if max_num_loops > 0:
+            num_of_loops += 1
+            if num_of_loops >= max_num_loops:
+                break
 
     return upload_status
 
@@ -182,7 +200,7 @@ class ErrorCatchingThread(Thread):
 
     # for testing
     def errors(self) -> bool:
-        return self.errors is not None
+        return self.error is not None
 
     def get_upload_status(self) -> Optional[str]:
         return self.result
