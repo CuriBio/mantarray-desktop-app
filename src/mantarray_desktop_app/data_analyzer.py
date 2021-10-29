@@ -118,7 +118,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._active_wells: List[int] = list(range(24))
         self._pipeline_template = PipelineTemplate(
             noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
-            tissue_sampling_period=CONSTRUCT_SENSOR_SAMPLING_PERIOD,
+            tissue_sampling_period=CONSTRUCT_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND,
         )
         # Beta 1 items
         self._well_offsets: List[Optional[int]] = [None] * 24
@@ -251,7 +251,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                 self._pipeline_template = PipelineTemplate(
                     noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
                     # TODO Tanner (8/4/21): for some reason sampling periods > 16000 µs cause errors when creating filters. Need to update waveform analysis package before they will be usable
-                    tissue_sampling_period=sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND,
+                    tissue_sampling_period=sampling_period_us,
                 )
                 self.init_streams()
             else:
@@ -279,6 +279,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             if self._beta_2_mode:
                 self._process_beta_2_data(packet)
             else:
+                packet["data"][0] *= MICROSECONDS_PER_CENTIMILLISECOND
                 if not packet["is_reference_sensor"]:
                     well_idx = packet["well_index"]
                     self._data_analysis_streams[well_idx][0].emit(packet["data"])

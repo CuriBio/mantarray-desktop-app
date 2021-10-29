@@ -664,7 +664,7 @@ def test_full_datapath_in_beta_1_mode(
     data_amplitude = int(FIFO_READ_PRODUCER_WELL_AMPLITUDE * scaling_factor)
     test_data = np.array(
         (
-            x_values,
+            x_values * MICROSECONDS_PER_CENTIMILLISECOND,
             (
                 (FIFO_READ_PRODUCER_DATA_OFFSET + data_amplitude * sawtooth_points)
                 - RAW_TO_SIGNED_CONVERSION_VALUE
@@ -675,7 +675,7 @@ def test_full_datapath_in_beta_1_mode(
     test_data[1] -= min(test_data[1])
     pl_template = PipelineTemplate(
         noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
-        tissue_sampling_period=ROUND_ROBIN_PERIOD,
+        tissue_sampling_period=ROUND_ROBIN_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND,
     )
     pipeline = pl_template.create_pipeline()
     pipeline.load_raw_gmr_data(test_data, np.zeros(test_data.shape))
