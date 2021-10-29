@@ -918,11 +918,11 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][CUSTOMER_ACCOUNT_ID_UUID]
-        == shared_values_dict["config_settings"]["Customer Account ID"]
+        == shared_values_dict["config_settings"]["customer_account_id"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][USER_ACCOUNT_ID_UUID]
-        == shared_values_dict["config_settings"]["User Account ID"]
+        == shared_values_dict["config_settings"]["user_account_id"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][START_RECORDING_TIME_INDEX_UUID]
@@ -1040,11 +1040,11 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][CUSTOMER_ACCOUNT_ID_UUID]
-        == shared_values_dict["config_settings"]["Customer Account ID"]
+        == shared_values_dict["config_settings"]["customer_account_id"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][USER_ACCOUNT_ID_UUID]
-        == shared_values_dict["config_settings"]["User Account ID"]
+        == shared_values_dict["config_settings"]["user_account_id"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][START_RECORDING_TIME_INDEX_UUID]

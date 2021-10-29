@@ -17,15 +17,14 @@ from immutable_data_validation import is_uuid
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import is_frozen_as_exe
 
-from .constants import CURI_BIO_ACCOUNT_UUID
-from .constants import CURI_BIO_USER_ACCOUNT_ID
 from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from .constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
-from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
 from .exceptions import ImproperlyFormattedUserAccountUUIDError
+from .exceptions import InvalidCustomerAccountIDError
+from .exceptions import InvalidCustomerPasskeyError
 from .exceptions import RecordingFolderDoesNotExistError
 
 logger = logging.getLogger(__name__)
@@ -37,16 +36,9 @@ def validate_settings(settings_dict: Dict[str, Any]) -> None:
     Args:
         settings_dict: dictionary containing the new user configuration settings.
     """
-    customer_account_uuid = settings_dict.get("customer_account_uuid", None)
     user_account_uuid = settings_dict.get("user_account_uuid", None)
     recording_directory = settings_dict.get("recording_directory", None)
 
-    if customer_account_uuid is not None:
-        if customer_account_uuid == "curi":
-            customer_account_uuid = str(CURI_BIO_ACCOUNT_UUID)
-            user_account_uuid = str(CURI_BIO_USER_ACCOUNT_ID)
-        elif not is_uuid(customer_account_uuid):
-            raise ImproperlyFormattedCustomerAccountUUIDError(customer_account_uuid)
     if user_account_uuid is not None:
         if not is_uuid(user_account_uuid):
             raise ImproperlyFormattedUserAccountUUIDError(user_account_uuid)
@@ -55,24 +47,54 @@ def validate_settings(settings_dict: Dict[str, Any]) -> None:
             raise RecordingFolderDoesNotExistError(recording_directory)
 
 
+def validate_customer_credentials(request_args: Dict[str, Any], shared_values_dict: Dict[str, Any]) -> None:
+    """Check if new customer credentials exist in stored pairs.
+
+    Args:
+        request_args: dictionary containing the new user configuration settings.
+        shared_values_dict: dictionary containing stored customer settings.
+    """
+    customer_account_uuid = request_args.get("customer_account_uuid", None)
+    customer_pass_key = request_args.get("customer_pass_key", None)
+    stored_customer_ids = shared_values_dict["stored_customer_settings"]["stored_customer_ids"]
+
+    if customer_account_uuid is not None:
+        if customer_account_uuid in stored_customer_ids:
+            valid_creds = stored_customer_ids[customer_account_uuid] == customer_pass_key
+            if not valid_creds:
+                raise InvalidCustomerPasskeyError(customer_pass_key)
+        else:
+            raise InvalidCustomerAccountIDError(customer_account_uuid)
+
+
 def convert_request_args_to_config_dict(request_args: Dict[str, Any]) -> Dict[str, Any]:
     """Convert from request/CLI inputs to standard dictionary format.
 
     Args should be validated before being passed to this function.
     """
     customer_account_uuid = request_args.get("customer_account_uuid", None)
+    customer_pass_key = request_args.get("customer_pass_key", None)
     user_account_uuid = request_args.get("user_account_uuid", None)
     recording_directory = request_args.get("recording_directory", None)
+    auto_upload_on_completion = request_args.get("auto_upload", None)
+    auto_delete_local_files = request_args.get("auto_delete", None)
+
     out_dict: Dict[str, Any] = {"config_settings": {}}
     if customer_account_uuid is not None:
-        if customer_account_uuid == "curi":
-            customer_account_uuid = str(CURI_BIO_ACCOUNT_UUID)
-            user_account_uuid = str(CURI_BIO_USER_ACCOUNT_ID)
-        out_dict["config_settings"]["Customer Account ID"] = customer_account_uuid
+        out_dict["config_settings"]["customer_account_id"] = customer_account_uuid
+    if customer_pass_key is not None:
+        out_dict["config_settings"]["customer_pass_key"] = customer_pass_key
     if user_account_uuid is not None:
-        out_dict["config_settings"]["User Account ID"] = user_account_uuid
+        out_dict["config_settings"]["user_account_id"] = user_account_uuid
     if recording_directory is not None:
-        out_dict["config_settings"]["Recording Directory"] = recording_directory
+        out_dict["config_settings"]["recording_directory"] = recording_directory
+    if auto_upload_on_completion is not None:
+        auto_upload_bool = auto_upload_on_completion.lower() == "true"
+        out_dict["config_settings"]["auto_upload_on_completion"] = auto_upload_bool
+    if auto_delete_local_files is not None:
+        auto_delete_bool = auto_delete_local_files.lower() == "true"
+        out_dict["config_settings"]["auto_delete_local_files"] = auto_delete_bool
+
     return out_dict
 
 
@@ -81,7 +103,7 @@ def attempt_to_get_recording_directory_from_new_dict(  # pylint:disable=invalid-
 ) -> Optional[str]:
     """Attempt to get the recording directory from the dict of new values."""
     try:
-        directory = new_dict["config_settings"]["Recording Directory"]
+        directory = new_dict["config_settings"]["recording_directory"]
     except KeyError:
         return None
     if not isinstance(directory, str):

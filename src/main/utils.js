@@ -37,7 +37,10 @@ const create_store = function ({
     serialize: yaml.dump,
     deserialize: yaml.load,
     defaults: {
-      customer_account_ids: [],
+      customer_account_ids: {
+        "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
+      },
+      user_account_id: "455b93eb-c78f-4494-9f73-d3291130f126",
       active_customer_account_index: 0,
       active_user_account_index: 0,
       beta_2_mode: false,
@@ -45,7 +48,6 @@ const create_store = function ({
   });
   return store;
 };
-
 /**
  * Generate the command line arguments to pass to the local server as it is initialized. This also creates the necessary directories if they don't exist to hold the log files and recordings...although (Eli 1/15/21) unclear why the server doesn't do that itself...
  *
@@ -68,18 +70,29 @@ const generate_flask_command_line_args = function (electron_store) {
     "--expected-software-version=" + export_functions.get_current_app_version()
   );
   const recording_directory_path = path.join(electron_store_dir, "recordings");
+  const zipped_recordings_dir_path = path.join(
+    recording_directory_path,
+    "zipped_recordings"
+  );
+  const failed_uploads_dir_path = path.join(
+    recording_directory_path,
+    "failed_uploads"
+  );
   mkdirp.sync(flask_logs_full_path);
   mkdirp.sync(recording_directory_path);
+  mkdirp.sync(zipped_recordings_dir_path);
+  mkdirp.sync(failed_uploads_dir_path);
 
-  const settings_to_supply = { recording_directory: recording_directory_path };
-
-  const customer_account_ids = electron_store.get("customer_account_ids");
-  if (customer_account_ids.length > 0) {
-    const active_customer_account = customer_account_ids[0];
-    settings_to_supply.customer_account_uuid = active_customer_account.uuid;
-    settings_to_supply.user_account_uuid =
-      active_customer_account.user_account_ids[0].uuid;
-  }
+  const user_account_id = electron_store.get("user_account_id");
+  const stored_customer_ids = electron_store.get("customer_account_ids");
+  // storing upload dir paths so that they can be found on start up to try re-uploading even if file_directory path changes while FW is running
+  const settings_to_supply = {
+    recording_directory: recording_directory_path,
+    stored_customer_ids,
+    user_account_id,
+    zipped_recordings_dir: zipped_recordings_dir_path,
+    failed_uploads_dir: failed_uploads_dir_path,
+  };
 
   const settings_to_supply_json_str = JSON.stringify(settings_to_supply);
   const settings_to_supply_buf = Buffer.from(
@@ -105,4 +118,5 @@ const export_functions = {
   create_store,
   get_current_app_version,
 };
+
 export default export_functions;

@@ -153,6 +153,7 @@ def test_send_xem_scripts_command__gets_processed_in_fully_running_app(
     fully_running_app_from_main_entrypoint,
     patched_xem_scripts_folder,
 ):
+
     # Tanner (12/29/20): start up the app but skip automatic instrument boot-up process so we can manually test that xem_scripts are run
     app_info = fully_running_app_from_main_entrypoint(["--skip-mantarray-boot-up"])
     wait_for_subprocesses_to_start()
@@ -202,13 +203,16 @@ def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_li
         return_value=expected_time,
     )
     expected_timestamp = "2020_07_16_141955"
-
     # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         # Tanner (12/29/20): Sending in alternate recording directory through command line args
         test_dict = {
-            "user_account_uuid": "0288efbc-7705-4946-8815-02701193f766",
-            "customer_account_uuid": "14b9294a-9efb-47dd-a06e-8247e982e196",
+            "stored_customer_ids": {
+                "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
+            },
+            "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
+            "zipped_recordings_dir": f"{expected_recordings_dir}/zipped_recordings",
+            "failed_uploads_dir": f"{expected_recordings_dir}/failed_uploads",
             "recording_directory": expected_recordings_dir,
         }
         json_str = json.dumps(test_dict)
@@ -217,7 +221,6 @@ def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_li
             "--skip-mantarray-boot-up",
             f"--initial-base64-settings={b64_encoded}",
         ]
-
         app_info = fully_running_app_from_main_entrypoint(command_line_args)
         wait_for_subprocesses_to_start()
         test_process_manager = app_info["object_access_inside_main"]["process_manager"]
@@ -234,6 +237,11 @@ def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_li
         # Tanner (12/30/20): Boot up will go through these two states before completing
         assert system_state_eventually_equals(INSTRUMENT_INITIALIZING_STATE, 3) is True
         assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 3) is True
+
+        response = requests.get(
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=filler_password&user_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&recording_directory={expected_recordings_dir}&auto_upload=true&auto_delete=false"
+        )
+        assert response.status_code == 200
 
         # Tanner (12/30/20): Calibrate instrument in order to start managed_acquisition
         response = requests.get(f"{get_api_endpoint()}start_calibration")
@@ -339,7 +347,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
     fully_running_app_from_main_entrypoint,
     mocker,
 ):
-    # Tanner (12/29/20): Freeze time in order to make assertions on timestamps in the metadata
+    # pylint: disable=too-many-locals,too-many-statements # Tanner (12/29/20): Freeze time in order to make assertions on timestamps in the metadata
     expected_time = datetime.datetime(
         year=2020, month=6, day=15, hour=14, minute=19, second=55, microsecond=313309
     )
@@ -358,20 +366,33 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
             BACKEND_LOG_UUID
         ],
     )
-
-    # Tanner (12/30/20): Skip auto boot-up so we can set the recording directory before boot-up
-    app_info = fully_running_app_from_main_entrypoint(["--skip-mantarray-boot-up"])
-    wait_for_subprocesses_to_start()
-
-    test_process_manager = app_info["object_access_inside_main"]["process_manager"]
-
-    assert system_state_eventually_equals(SERVER_READY_STATE, 5) is True
-
-    # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
+
+        test_dict = {
+            "stored_customer_ids": {
+                "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
+            },
+            "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
+            "zipped_recordings_dir": f"/{expected_recordings_dir}/zipped_recordings",
+            "failed_uploads_dir": f"{expected_recordings_dir}/failed_uploads",
+            "recording_directory": f"/{expected_recordings_dir}",
+        }
+        json_str = json.dumps(test_dict)
+        b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
+        command_line_args = [f"--initial-base64-settings={b64_encoded}", "--skip-mantarray-boot-up"]
+
+        # Tanner (12/30/20): Skip auto boot-up so we can set the recording directory before boot-up
+        app_info = fully_running_app_from_main_entrypoint(command_line_args)
+        wait_for_subprocesses_to_start()
+
+        test_process_manager = app_info["object_access_inside_main"]["process_manager"]
+
+        assert system_state_eventually_equals(SERVER_READY_STATE, 5) is True
+
+        # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
         # Tanner (12/29/20): Manually set recording directory through update_settings route
         response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=curi&recording_directory={expected_recordings_dir}"
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=filler_password&user_account_uuid=455b93eb-c78f-4494-9f73-d3291130f126&recording_directory={expected_recordings_dir}&auto_upload=true&auto_delete=false"
         )
         assert response.status_code == 200
 
@@ -689,28 +710,42 @@ def test_full_datapath_in_beta_1_mode(
 @pytest.mark.slow
 @pytest.mark.timeout(INTEGRATION_TEST_TIMEOUT)
 def test_app_shutdown__in_worst_case_while_recording_is_running(
-    patched_xem_scripts_folder,
-    patched_firmware_folder,
-    fully_running_app_from_main_entrypoint,
-    mocker,
+    patched_xem_scripts_folder, patched_firmware_folder, fully_running_app_from_main_entrypoint, mocker
 ):
     spied_logger = mocker.spy(main.logger, "info")
-    app_info = fully_running_app_from_main_entrypoint()
-    wait_for_subprocesses_to_start()
-    test_process_manager = app_info["object_access_inside_main"]["process_manager"]
-
-    # Tanner (12/30/20): Auto boot-up is completed when system reaches calibration_needed state
-    assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
-
-    okc_process = test_process_manager.get_instrument_process()
-    fw_process = test_process_manager.get_file_writer_process()
-    da_process = test_process_manager.get_data_analyzer_process()
-
     # Tanner (12/29/20): Not making assertions on files, but still need a TemporaryDirectory to hold them
-    with tempfile.TemporaryDirectory() as expected_recordings_dir:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+
+        test_dict = {
+            "stored_customer_ids": {
+                "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
+            },
+            "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
+            "zipped_recordings_dir": f"{tmp_dir}/zipped_recordings",
+            "failed_uploads_dir": f"{tmp_dir}/failed_uploads",
+            "recording_directory": tmp_dir,
+        }
+        json_str = json.dumps(test_dict)
+        b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
+        command_line_args = [
+            f"--initial-base64-settings={b64_encoded}",
+        ]
+
+        app_info = fully_running_app_from_main_entrypoint(command_line_args)
+        wait_for_subprocesses_to_start()
+        test_process_manager = app_info["object_access_inside_main"]["process_manager"]
+
+        assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
+
+        okc_process = test_process_manager.get_instrument_process()
+        fw_process = test_process_manager.get_file_writer_process()
+        da_process = test_process_manager.get_data_analyzer_process()
+
+        # Tanner (12/29/20): Not making assertions on files, but still need a TemporaryDirectory to hold them
         # Tanner (12/29/20): use updated settings to set the recording directory to the TemporaryDirectory
+
         response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=curi&recording_directory={expected_recordings_dir}"
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=filler_password&auto_upload=true&auto_delete=false"
         )
         assert response.status_code == 200
 
@@ -820,21 +855,35 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         "protocol_assignments": test_protocol_assignments,
     }
 
-    app_info = fully_running_app_from_main_entrypoint(["--beta-2-mode"])
-    wait_for_subprocesses_to_start()
-    test_process_manager = app_info["object_access_inside_main"]["process_manager"]
-
-    sio, msg_list_container = test_socketio_client()
-
-    assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 10) is True
-
-    da_out = test_process_manager.queue_container().get_data_analyzer_data_out_queue()
-
-    # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
-        # Tanner (12/29/20): Manually set recording directory through update_settings route
+        test_dict = {
+            "stored_customer_ids": {
+                "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
+            },
+            "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
+            "zipped_recordings_dir": f"{expected_recordings_dir}/zipped_recordings",
+            "failed_uploads_dir": f"{expected_recordings_dir}/failed_uploads",
+            "recording_directory": expected_recordings_dir,
+        }
+        json_str = json.dumps(test_dict)
+        b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
+        command_line_args = [
+            "--beta-2-mode",
+            f"--initial-base64-settings={b64_encoded}",
+        ]
+
+        app_info = fully_running_app_from_main_entrypoint(command_line_args)
+        wait_for_subprocesses_to_start()
+        test_process_manager = app_info["object_access_inside_main"]["process_manager"]
+
+        sio, msg_list_container = test_socketio_client()
+
+        assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 10) is True
+
+        da_out = test_process_manager.queue_container().get_data_analyzer_data_out_queue()
+
         response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=curi&recording_directory={expected_recordings_dir}"
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=filler_password&auto_upload=true&auto_delete=false"
         )
         assert response.status_code == 200
 

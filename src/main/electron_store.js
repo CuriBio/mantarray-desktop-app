@@ -1,7 +1,6 @@
 const path = require("path");
 const electron = require("electron");
 const Conf = require("conf");
-
 export default class ElectronStore extends Conf {
   constructor(options) {
     options = {

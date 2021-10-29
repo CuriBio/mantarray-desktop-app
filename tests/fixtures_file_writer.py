@@ -186,6 +186,15 @@ GENERIC_STOP_RECORDING_COMMAND: Dict[str, Any] = {
     "timepoint_to_stop_recording_at": 302412 * 125,
 }
 
+GENERIC_UPDATE_CUSTOMER_SETTINGS: Dict[str, Any] = {
+    "command": "update_customer_settings",
+    "config_settings": {
+        "customer_account_id": "test_customer_id",
+        "customer_pass_key": "test_password",
+        "auto_upload_on_completion": True,
+        "auto_delete_local_files": False,
+    },
+}
 
 GENERIC_NUMPY_ARRAY_FOR_TISSUE_DATA_PACKET = np.zeros((2, 50), dtype=np.int32)
 for i in range(50):
@@ -263,7 +272,20 @@ def fixture_four_board_file_writer_process():
         error_queue,
     ) = generate_fw_from_main_to_main_board_and_error_queues()
     with tempfile.TemporaryDirectory() as tmp_dir:
-        fw_process = FileWriterProcess(board_queues, from_main, to_main, error_queue, file_directory=tmp_dir)
+        fw_process = FileWriterProcess(
+            board_queues,
+            from_main,
+            to_main,
+            error_queue,
+            file_directory=tmp_dir,
+            stored_customer_settings={
+                "stored_customer_ids": {
+                    "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
+                },
+                "zipped_recordings_dir": os.path.join(tmp_dir, "zipped_recordings"),
+                "failed_uploads_dir": os.path.join(tmp_dir, "failed_uploads"),
+            },
+        )
         fw_items_dict = {
             "fw_process": fw_process,
             "board_queues": board_queues,
@@ -288,7 +310,20 @@ def fixture_runnable_four_board_file_writer_process():
         error_queue,
     ) = generate_fw_from_main_to_main_board_and_error_queues(queue_type=MPQueue)
     with tempfile.TemporaryDirectory() as tmp_dir:
-        fw_process = FileWriterProcess(board_queues, from_main, to_main, error_queue, file_directory=tmp_dir)
+        fw_process = FileWriterProcess(
+            board_queues,
+            from_main,
+            to_main,
+            error_queue,
+            file_directory=tmp_dir,
+            stored_customer_settings={
+                "stored_customer_ids": {
+                    "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
+                },
+                "zipped_recordings_dir": os.path.join(tmp_dir, "zipped_recordings"),
+                "failed_uploads_dir": os.path.join(tmp_dir, "failed_uploads"),
+            },
+        )
         fw_items_dict = {
             "fw_process": fw_process,
             "board_queues": board_queues,

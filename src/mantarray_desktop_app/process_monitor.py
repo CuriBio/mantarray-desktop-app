@@ -163,8 +163,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._process_manager.shutdown_server()
             else:
                 raise NotImplementedError(f"Unrecognized shutdown command from Server: {command}")
-        elif communication_type == "update_shared_values_dictionary":
+        elif communication_type == "update_customer_settings":
             new_values = communication["content"]
+
             new_recording_directory: Optional[str] = attempt_to_get_recording_directory_from_new_dict(
                 new_values
             )
@@ -180,6 +181,15 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     }
                 )
                 process_manager.set_file_directory(new_recording_directory)
+
+            if "customer_account_id" in new_values["config_settings"]:
+                to_file_writer_queue = (
+                    process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
+                )
+                to_file_writer_queue.put_nowait(
+                    {"command": "update_customer_settings", "config_settings": new_values["config_settings"]}
+                )
+
             update_shared_dict(shared_values_dict, new_values)
         elif communication_type == "set_magnetometer_config":
             self._update_magnetometer_config_dict(communication["magnetometer_config_dict"])

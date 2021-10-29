@@ -7,9 +7,9 @@ from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import create_magnetometer_config_dict
-from mantarray_desktop_app import ImproperlyFormattedCustomerAccountUUIDError
 from mantarray_desktop_app import ImproperlyFormattedUserAccountUUIDError
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
+from mantarray_desktop_app import InvalidCustomerAccountIDError
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import RECORDING_STATE
@@ -324,27 +324,18 @@ def test_start_managed_acquisition__returns_error_code_and_message_if_mantarray_
     assert response.status.endswith("Mantarray has not been assigned a Serial Number") is True
 
 
-@pytest.mark.parametrize(
-    "test_uuid,test_description",
-    [
-        (
-            "",
-            "returns error_message when uuid is empty",
-        ),
-        (
-            "e140e2b-397a-427b-81f3-4f889c5181a9",
-            "returns error_message when uuid is missing one char",
-        ),
-    ],
-)
-def test_update_settings__returns_error_message_for_invalid_customer_account_uuid(
-    test_uuid,
-    test_description,
-    test_client,
+def test_update_settings__returns_error_message_when_customer_creds_dont_make_stored_pairs(
+    client_and_server_manager_and_shared_values,
 ):
-    response = test_client.get(f"/update_settings?customer_account_uuid={test_uuid}")
-    assert response.status_code == 400
-    assert response.status.endswith(f"{repr(ImproperlyFormattedCustomerAccountUUIDError(test_uuid))}") is True
+    invalid_customer_id = "invalid_id"
+    invalid_password_id = "invalid_pass"
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["stored_customer_settings"] = {"stored_customer_ids": {"real_id": "real_pass"}}
+    response = test_client.get(
+        f"/update_settings?customer_account_uuid={invalid_customer_id}&customer_pass_key={invalid_password_id}"
+    )
+    assert response.status_code == 401
+    assert response.status.endswith(f"{repr(InvalidCustomerAccountIDError(invalid_customer_id))}") is True
 
 
 def test_update_settings__returns_error_message_when_recording_directory_does_not_exist(
@@ -414,11 +405,11 @@ def test_start_recording__returns_error_code_and_message_if_user_account_id_not_
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
-    shared_values_dict["config_settings"]["User Account ID"] = ""
+    shared_values_dict["config_settings"]["user_account_id"] = ""
 
     response = test_client.get("/start_recording?barcode=MA200440001")
     assert response.status_code == 406
-    assert response.status.endswith("User Account ID has not yet been set") is True
+    assert response.status.endswith("user_account_id has not yet been set") is True
 
 
 def test_start_recording__returns_error_code_and_message_if_customer_account_id_not_set(
@@ -426,11 +417,11 @@ def test_start_recording__returns_error_code_and_message_if_customer_account_id_
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
-    shared_values_dict["config_settings"]["Customer Account ID"] = ""
+    shared_values_dict["config_settings"]["customer_account_id"] = ""
 
     response = test_client.get("/start_recording?barcode=MA200440001")
     assert response.status_code == 406
-    assert response.status.endswith("Customer Account ID has not yet been set") is True
+    assert response.status.endswith("customer_account_id has not yet been set") is True
 
 
 def test_start_recording__returns_error_code_and_message_if_barcode_is_not_given(

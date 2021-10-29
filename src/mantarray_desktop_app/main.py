@@ -45,10 +45,7 @@ from .server import get_server_address_components
 from .server import get_the_server_manager
 from .server import ServerManagerNotInitializedError
 from .server import socketio
-from .utils import convert_request_args_to_config_dict
 from .utils import redact_sensitive_info_from_path
-from .utils import update_shared_dict
-from .utils import validate_settings
 
 
 logger = logging.getLogger(__name__)
@@ -74,7 +71,7 @@ def _create_process_manager(shared_values_dict: Dict[str, Any]) -> MantarrayProc
     base_path = os.path.join(get_current_file_abs_directory(), os.pardir, os.pardir)
     relative_path = "recordings"
     try:
-        file_dir = shared_values_dict["config_settings"]["Recording Directory"]
+        file_dir = shared_values_dict["config_settings"]["recording_directory"]
     except KeyError:
         file_dir = resource_path(relative_path, base_path=base_path)
 
@@ -108,6 +105,9 @@ def main(
     """Parse command line arguments and run."""
     if object_access_for_testing is None:
         object_access_for_testing = dict()
+
+    logger.info(command_line_args)
+
     log_level = logging.INFO
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -138,7 +138,7 @@ def main(
     parser.add_argument(
         "--initial-base64-settings",
         type=str,
-        help="allow initial configuration of user settings",
+        help="allow initial configuration of customer settings",
     )
     parser.add_argument(
         "--expected-software-version",
@@ -204,7 +204,7 @@ def main(
     logger.info(msg)
     parsed_args_dict = copy.deepcopy(vars(parsed_args))
     # Tanner (1/14/21): parsed_args_dict is only used to log the command line args at the moment, so initial_base64_settings can be deleted and log_file_dir can just be replaced here without affecting anything that actually needs the original value
-    del parsed_args_dict["initial_base64_settings"]
+
     parsed_args_dict["log_file_dir"] = scrubbed_path_to_log_folder
     msg = f"Command Line Args: {parsed_args_dict}".replace(
         r"\\",
@@ -225,7 +225,15 @@ def main(
         # Eli (7/15/20): Moved this ahead of the exit for debug_test_post_build so that it could be easily unit tested. The equals signs are adding padding..apparently a quirk in python https://stackoverflow.com/questions/2941995/python-ignore-incorrect-padding-error-when-base64-decoding
         decoded_settings: bytes = base64.urlsafe_b64decode(str(parsed_args.initial_base64_settings) + "===")
         settings_dict = json.loads(decoded_settings)
-        validate_settings(settings_dict)
+        shared_values_dict["config_settings"] = {
+            "recording_directory": settings_dict["recording_directory"],
+            "user_account_id": settings_dict["user_account_id"],
+        }
+        shared_values_dict["stored_customer_settings"] = {
+            "stored_customer_ids": settings_dict["stored_customer_ids"],
+            "zipped_recordings_dir": settings_dict["zipped_recordings_dir"],
+            "failed_uploads_dir": settings_dict["failed_uploads_dir"],
+        }
 
     if parsed_args.expected_software_version:
         if not parsed_args.skip_software_version_verification:
@@ -263,8 +271,6 @@ def main(
     if is_port_in_use(_server_port_number):
         raise LocalServerPortAlreadyInUseError(_server_port_number)
 
-    if settings_dict:
-        update_shared_dict(shared_values_dict, convert_request_args_to_config_dict(settings_dict))
     _log_system_info()
     logger.info("Spawning subprocesses")
 

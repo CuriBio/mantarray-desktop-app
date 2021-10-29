@@ -13,7 +13,6 @@ from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
-from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
@@ -935,22 +934,22 @@ def test_update_settings__stores_values_in_shared_values_dict__and_recordings_fo
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-
     spied_utils_logger = mocker.spy(utils.logger, "info")
-
-    expected_customer_uuid = "2dc06596-9cea-46a2-9ddd-a0d8a0f13584"
+    expected_customer_uuid = str(CURI_BIO_ACCOUNT_UUID)
     expected_user_uuid = "21875600-ca08-44c4-b1ea-0877b3c63ca7"
-
+    shared_values_dict["stored_customer_settings"] = {
+        "stored_customer_ids": {expected_customer_uuid: "filler_password"}
+    }
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         response = test_client.get(
-            f"/update_settings?customer_account_uuid={expected_customer_uuid}&user_account_uuid={expected_user_uuid}&recording_directory={expected_recordings_dir}"
+            f"/update_settings?customer_account_uuid={expected_customer_uuid}&customer_pass_key=filler_password&user_account_uuid={expected_user_uuid}&recording_directory={expected_recordings_dir}"
         )
         assert response.status_code == 200
         invoke_process_run_and_check_errors(monitor_thread)
 
-        assert shared_values_dict["config_settings"]["Customer Account ID"] == expected_customer_uuid
-        assert shared_values_dict["config_settings"]["Recording Directory"] == expected_recordings_dir
-        assert shared_values_dict["config_settings"]["User Account ID"] == expected_user_uuid
+        assert shared_values_dict["config_settings"]["customer_account_id"] == expected_customer_uuid
+        assert shared_values_dict["config_settings"]["recording_directory"] == expected_recordings_dir
+        assert shared_values_dict["config_settings"]["user_account_id"] == expected_user_uuid
         assert test_process_manager.get_file_directory() == expected_recordings_dir
 
         scrubbed_recordings_dir = redact_sensitive_info_from_path(expected_recordings_dir)
@@ -959,57 +958,102 @@ def test_update_settings__stores_values_in_shared_values_dict__and_recordings_fo
     queue_from_main_to_file_writer = (
         test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
     )
-    confirm_queue_is_eventually_of_size(queue_from_main_to_file_writer, 1)
+    confirm_queue_is_eventually_of_size(queue_from_main_to_file_writer, 2)
 
     # clean up the message that goes to file writer to update the recording directory
     drain_queue(queue_from_main_to_file_writer)
 
 
-def test_update_settings__replaces_curi_with_default_account_uuids(
-    test_process_manager_creator, test_client, test_monitor
-):
-    test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-
-    response = test_client.get("/update_settings?customer_account_uuid=curi")
-    assert response.status_code == 200
-
-    invoke_process_run_and_check_errors(monitor_thread)
-
-    assert shared_values_dict["config_settings"]["Customer Account ID"] == str(CURI_BIO_ACCOUNT_UUID)
-    assert shared_values_dict["config_settings"]["User Account ID"] == str(CURI_BIO_USER_ACCOUNT_ID)
-
-
 def test_update_settings__replaces_only_new_values_in_shared_values_dict(
-    test_process_manager_creator, test_client, test_monitor
+    test_process_manager_creator, test_client, test_monitor, mocker
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+    mocker.patch.object(utils, "validate_customer_credentials", autospec=True)
+
+    expected_customer_uuid = str(CURI_BIO_ACCOUNT_UUID)
+    expected_passkey = "filler_password"
+
+    shared_values_dict["stored_customer_settings"] = {
+        "stored_customer_ids": {expected_customer_uuid: "filler_password"}
+    }
+    shared_values_dict["config_settings"] = {
+        "customer_account_id": "2dc06596-9cea-46a2-9ddd-a0d8a0f13584",
+        "customer_pass_key": "other_password",
+    }
+
+    response = test_client.get(
+        f"/update_settings?customer_account_uuid={expected_customer_uuid}&customer_pass_key=filler_password"
+    )
+    assert response.status_code == 200
+    invoke_process_run_and_check_errors(monitor_thread)
+
+    assert shared_values_dict["config_settings"]["customer_account_id"] == expected_customer_uuid
+    assert shared_values_dict["config_settings"]["customer_pass_key"] == expected_passkey
+
+
+def test_update_settings__errors_when_any_combo_of_invalid_customer_credits_gets_checked_against_stored_pairs(
+    test_process_manager_creator, test_client, test_monitor, mocker
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
-    expected_customer_uuid = "b357cab5-adba-4cc3-a805-93b0b57a6d72"
-    expected_user_uuid = "05dab94c-88dc-4505-ae4f-be6fa4a6f5f0"
+    expected_customer_uuid = str(CURI_BIO_ACCOUNT_UUID)
 
-    shared_values_dict["config_settings"] = {
-        "Customer Account ID": "2dc06596-9cea-46a2-9ddd-a0d8a0f13584",
-        "User Account ID": expected_user_uuid,
+    shared_values_dict["stored_customer_settings"] = {
+        "stored_customer_ids": {expected_customer_uuid: "filler_password"}
     }
-    response = test_client.get(f"/update_settings?customer_account_uuid={expected_customer_uuid}")
+
+    response = test_client.get(
+        f"/update_settings?customer_account_uuid={expected_customer_uuid}&customer_pass_key=wrong_password"
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert response.status_code == 401
+
+    response = test_client.get(
+        "/update_settings?customer_account_uuid=wrong_customer_id&customer_pass_key=filler_password"
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert response.status_code == 401
+
+
+def test_update_settings__returns_boolean_values_for_auto_upload_delete_values(
+    test_process_manager_creator, test_client, test_monitor, mocker
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+    expected_customer_uuid = str(CURI_BIO_ACCOUNT_UUID)
+
+    shared_values_dict["stored_customer_settings"] = {
+        "stored_customer_ids": {expected_customer_uuid: "filler_password"}
+    }
+    shared_values_dict["config_settings"] = {
+        "auto_upload_on_completion": True,
+        "auto_delete_local_files": False,
+    }
+
+    response = test_client.get("/update_settings?auto_upload=false&auto_delete=true")
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
-    assert shared_values_dict["config_settings"]["Customer Account ID"] == expected_customer_uuid
-    assert shared_values_dict["config_settings"]["User Account ID"] == expected_user_uuid
+
+    assert shared_values_dict["config_settings"]["auto_upload_on_completion"] is False
+    assert shared_values_dict["config_settings"]["auto_delete_local_files"] is True
 
 
 def test_single_update_settings_command_with_recording_dir__gets_processed_by_FileWriter(
-    test_process_manager_creator, test_client, test_monitor
+    test_process_manager_creator, test_client, test_monitor, mocker
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    monitor_thread, *_ = test_monitor(test_process_manager)
-
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     fw_process = test_process_manager.get_file_writer_process()
     to_fw_queue = test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
     from_fw_queue = test_process_manager.queue_container().get_communication_queue_from_file_writer_to_main()
 
+    expected_customer_uuid = str(CURI_BIO_ACCOUNT_UUID)
+
+    shared_values_dict["stored_customer_settings"] = {
+        "stored_customer_ids": {expected_customer_uuid: "filler_password"}
+    }
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         response = test_client.get(f"/update_settings?recording_directory={expected_recordings_dir}")
         assert response.status_code == 200

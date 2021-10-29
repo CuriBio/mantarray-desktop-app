@@ -62,11 +62,20 @@ CURI_BIO_USER_ACCOUNT_ID = uuid.UUID("455b93eb-c78f-4494-9f73-d3291130f126")
 
 DEFAULT_USER_CONFIG = immutabledict(
     {
-        "Customer Account ID": "",
-        "User Account ID": "",
+        "customer_account_id": "",
+        "user_account_id": "",
     }
 )
-VALID_CONFIG_SETTINGS = frozenset(["customer_account_uuid", "user_account_uuid", "recording_directory"])
+VALID_CONFIG_SETTINGS = frozenset(
+    [
+        "customer_account_uuid",
+        "user_account_uuid",
+        "customer_pass_key",
+        "recording_directory",
+        "auto_upload",
+        "auto_delete",
+    ]
+)
 
 DATA_FRAME_PERIOD = 20  # in centimilliseconds
 ROUND_ROBIN_PERIOD = DATA_FRAME_PERIOD * DATA_FRAMES_PER_ROUND_ROBIN
