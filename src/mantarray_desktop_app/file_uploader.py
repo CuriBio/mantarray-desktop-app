@@ -166,7 +166,8 @@ def uploader(
 
         if "analysis complete" in upload_status:
             break
-        elif "error" in upload_status:
+
+        if "error" in upload_status:
             raise Exception(upload_status)
         else:
             sleep(5)
