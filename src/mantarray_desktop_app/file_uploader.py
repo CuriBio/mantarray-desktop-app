@@ -91,7 +91,7 @@ def create_zip_file(file_directory: str, file_name: str, zipped_recordings_dir: 
     file_directory_path = os.path.join(os.path.abspath(file_directory), file_name)
     file_paths = []
     # Loop errors without directories present
-    for root, directories, files in os.walk(file_directory_path):  # pylint: disable=unused-variable
+    for root, _, files in os.walk(file_directory_path):
         for filename in files:
             # Create the full file path by using OS module and checking if h5
             h5_file_path = os.path.join(root, filename)
@@ -170,7 +170,7 @@ def uploader(
             if num_of_loops >= max_num_loops:
                 break
 
-        if "analysis complete" in upload_status:
+        if "analysis successfully inserted into database" in upload_status:
             break
 
         if "error" in upload_status:

@@ -131,7 +131,12 @@ def test_create_zip_file__create_zip_file_should_not_be_called_with_previously_f
     mocker.patch.object(file_uploader, "get_access_token", autospec=True)
     mocker.patch.object(file_uploader, "get_upload_details", autospec=True)
     mocker.patch.object(file_uploader, "upload_file_to_s3", autospec=True)
-    mocker.patch.object(file_uploader, "get_sdk_status", autospec=True, return_value="analysis complete")
+    mocker.patch.object(
+        file_uploader,
+        "get_sdk_status",
+        autospec=True,
+        return_value="analysis successfully inserted into database",
+    )
 
     test_file_name = "zip_file"
     test_file_path = "/test"
@@ -150,7 +155,10 @@ def test_uploader__runs_upload_procedure_correctly(mocker):
     mocked_get_upload_details = mocker.patch.object(file_uploader, "get_upload_details", autospec=True)
     mocked_upload_file = mocker.patch.object(file_uploader, "upload_file_to_s3", autospec=True)
     mocked_get_sdk_status = mocker.patch.object(
-        file_uploader, "get_sdk_status", autospec=True, return_value="analysis complete"
+        file_uploader,
+        "get_sdk_status",
+        autospec=True,
+        return_value="analysis successfully inserted into database",
     )
 
     with tempfile.TemporaryDirectory() as tmp_dir:
