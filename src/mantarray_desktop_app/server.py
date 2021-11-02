@@ -356,8 +356,8 @@ def boot_up() -> Response:
 def update_settings() -> Response:
     """Update the user settings.
 
-    Can be invoked by: curl http://localhost:4567/update_settings?customer_account_uuid=<UUID>&user_account_uuid=<UUID>&recording_directory=recording_dir
-        curl http://localhost:4567/update_settings?customer_account_uuid=<string>&customer_pass_key=<string>&auto_upload=<bool>&auto_delete=<bool>
+    Can be invoked by: curl http://localhost:4567/update_settings?customer_account_uuid=<UUID>&user_account_uuid=<UUID>&recording_directory=<recording_dir>
+                       curl http://localhost:4567/update_settings?customer_account_uuid=<string>&customer_pass_key=<string>&auto_upload=<bool>&auto_delete=<bool>
     """
     for arg in request.args:
         if arg not in VALID_CONFIG_SETTINGS:

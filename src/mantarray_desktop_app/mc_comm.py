@@ -913,9 +913,7 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         # process any other packets
         for other_packet_info in parsed_packet_dict["other_packet_info"]:
-            self._process_comm_from_instrument(
-                *other_packet_info[1:],
-            )
+            self._process_comm_from_instrument(*other_packet_info[1:])
         # create dict and send to file writer if any packets were read
         self._dump_data_packets(parsed_packet_dict["magnetometer_data"])
         self._handle_stim_packets(parsed_packet_dict["stim_data"])
@@ -991,6 +989,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                     "wells_done_stimulating": wells_done_stimulating,
                 }
             )
+            # TODO Should move all stim status tracking out of process monitor and put it here. Then, if all wells are done stimulating need to set self._is_stimulating to False.
         if self._is_data_streaming and not self._is_stopping_data_stream:
             for stim_status_updates in well_statuses.values():
                 stim_status_updates[0] -= self._base_global_time_of_data_stream
