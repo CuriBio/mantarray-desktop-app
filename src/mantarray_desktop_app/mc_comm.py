@@ -14,8 +14,10 @@ from time import sleep
 from typing import Any
 from typing import Deque
 from typing import Dict
+from typing import FrozenSet
 from typing import List
 from typing import Optional
+from typing import Set
 from typing import Tuple
 from typing import Union
 from zlib import crc32
@@ -29,6 +31,7 @@ from stdlib_utils import put_log_message_into_queue
 
 from .constants import DEFAULT_MAGNETOMETER_CONFIG
 from .constants import DEFAULT_SAMPLING_PERIOD
+from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
@@ -206,7 +209,8 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._has_data_packet_been_sent = False
         self._data_packet_cache = bytes(0)
         # stimulation values
-        self._is_stimulating = False
+        self._wells_assigned_a_protocol: FrozenSet[int] = frozenset()
+        self._wells_actively_stimulating: Set[int] = set()
         self._stim_status_buffers: Dict[int, Any]
         self._reset_stim_status_buffers()
         self._has_stim_packet_been_sent = False
@@ -219,6 +223,17 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._data_read_lengths: List[int] = list()
         self._data_parsing_durations: List[float] = list()
         self._data_parsing_num_packets_produced: List[int] = list()
+
+    @property
+    def _is_stimulating(self) -> bool:
+        return len(self._wells_actively_stimulating) > 0
+
+    @_is_stimulating.setter
+    def _is_stimulating(self, value: bool) -> None:
+        if value:
+            self._wells_actively_stimulating = set(well for well in self._wells_assigned_a_protocol)
+        else:
+            self._wells_actively_stimulating = set()
 
     def _setup_before_loop(self) -> None:
         super()._setup_before_loop()
@@ -492,6 +507,13 @@ class McCommunicationProcess(InstrumentCommProcess):
                 bytes_to_send = convert_stim_dict_to_bytes(comm_from_main["stim_info"])
                 if self._is_stimulating and not self._hardware_test_mode:
                     raise StimulationProtocolUpdateWhileStimulatingError()
+                if not self._hardware_test_mode:  # pragma: no cover
+                    protocol_assignments = comm_from_main["stim_info"]["protocol_assignments"]
+                    self._wells_assigned_a_protocol = frozenset(
+                        GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name)
+                        for well_name, protocol_id in protocol_assignments.items()
+                        if protocol_id is not None
+                    )
             elif comm_from_main["command"] == "start_stimulation":
                 packet_type = SERIAL_COMM_START_STIM_PACKET_TYPE
             elif comm_from_main["command"] == "stop_stimulation":
@@ -647,7 +669,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 well_statuses: Dict[int, Any] = {}
                 for well_idx in range(self._num_wells):
                     stim_statuses = self._stim_status_buffers[well_idx]
-                    if len(stim_statuses[0]) == 0:
+                    if len(stim_statuses[0]) == 0 or stim_statuses[1][-1] == STIM_COMPLETE_SUBPROTOCOL_IDX:
                         continue
                     well_statuses[well_idx] = np.array(
                         [stim_statuses[0][-1:], stim_statuses[1][-1:]], dtype=np.int64
@@ -963,15 +985,8 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _handle_stim_packets(self, well_statuses: Dict[int, Any]) -> None:
         for well_idx in range(self._num_wells):
             stim_statuses = well_statuses.get(well_idx, [[], []])
-            num_statuses_in_buffer = len(self._stim_status_buffers[well_idx][0])
-            stim_completed_last_cycle = self._stim_status_buffers[well_idx][1][-1:] == [
-                STIM_COMPLETE_SUBPROTOCOL_IDX
-            ]
             for i in range(2):
-                if stim_completed_last_cycle:
-                    self._stim_status_buffers[well_idx][i] = []
-                elif num_statuses_in_buffer > 1:
-                    self._stim_status_buffers[well_idx][i] = self._stim_status_buffers[well_idx][i][-1:]
+                self._stim_status_buffers[well_idx][i] = self._stim_status_buffers[well_idx][i][-1:]
                 self._stim_status_buffers[well_idx][i].extend(stim_statuses[i])
         if not well_statuses:
             return
@@ -981,6 +996,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             if status_updates_arr[1][-1] == STIM_COMPLETE_SUBPROTOCOL_IDX
         ]
         if wells_done_stimulating:
+            self._wells_actively_stimulating -= set(wells_done_stimulating)
             to_main_queue = self._board_queues[0][1]
             to_main_queue.put_nowait(
                 {
@@ -989,7 +1005,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                     "wells_done_stimulating": wells_done_stimulating,
                 }
             )
-            # TODO Should move all stim status tracking out of process monitor and put it here. Then, if all wells are done stimulating need to set self._is_stimulating to False.
+
         if self._is_data_streaming and not self._is_stopping_data_stream:
             for stim_status_updates in well_statuses.values():
                 stim_status_updates[0] -= self._base_global_time_of_data_stream

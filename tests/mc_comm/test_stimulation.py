@@ -420,6 +420,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
         autospec=True,
         return_value=total_active_duration_ms * int(1e3),
     )
+    invoke_process_run_and_check_errors(simulator)
 
     # send start stimulation command
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -661,7 +662,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
         {"communication_type": "stimulation", "command": "start_stimulation"}, input_queue
     )
     invoke_process_run_and_check_errors(mc_process)
-    # process command, send back response and initial stimulator status packet
+    # process command, send back response and both stim status packet
     invoke_process_run_and_check_errors(simulator)
     # process command response and both stim packets
     invoke_process_run_and_check_errors(mc_process)
@@ -698,3 +699,79 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     np.testing.assert_array_equal(
         stim_status_msg["well_statuses"][test_well_indices[1]], expected_well_statuses
     )
+
+
+def test_McCommunicationProcess__protocols_can_be_updated_and_stimulation_can_be_restarted_after_initial_run_completes(
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    input_queue, to_main_queue, _ = four_board_mc_comm_process_no_handshake["board_queues"][0]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+
+    total_active_duration_ms = 1400
+    test_well_indices = [randint(0, 11), randint(12, 23)]
+    test_stim_info = {
+        "protocols": [
+            {
+                "protocol_id": "A",
+                "stimulation_type": "C",
+                "run_until_stopped": False,
+                "subprotocols": [get_random_subprotocol(total_active_duration=total_active_duration_ms)],
+            }
+        ],
+        "protocol_assignments": {
+            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): (
+                "A" if well_idx in test_well_indices else None
+            )
+            for well_idx in range(24)
+        },
+    }
+    set_stimulation_protocols(four_board_mc_comm_process_no_handshake, simulator, test_stim_info)
+
+    # mock so protocol will complete in first iteration
+    mocker.patch.object(
+        mc_simulator,
+        "_get_us_since_subprotocol_start",
+        autospec=True,
+        return_value=total_active_duration_ms * int(1e3),
+    )
+
+    # send start stimulation command
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"communication_type": "stimulation", "command": "start_stimulation"}, input_queue
+    )
+    invoke_process_run_and_check_errors(mc_process)
+    # process command, send back response and both stim status packet
+    invoke_process_run_and_check_errors(simulator)
+    # process command response and both stim packets
+    invoke_process_run_and_check_errors(mc_process, num_iterations=2)
+    assert simulator.in_waiting == 0
+    # remove message to main
+    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+
+    # confirm stimulation complete message sent to main
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+    msg_to_main = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert set(msg_to_main["wells_done_stimulating"]) == set(test_well_indices)
+
+    # update protocols
+    set_stimulation_protocols(four_board_mc_comm_process_no_handshake, simulator, create_random_stim_info())
+    # restart stimulation
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"communication_type": "stimulation", "command": "start_stimulation"}, input_queue
+    )
+    invoke_process_run_and_check_errors(mc_process)
+    # process command, send back response and both stim status packet
+    invoke_process_run_and_check_errors(simulator)
+    # process command response and both stim packets
+    invoke_process_run_and_check_errors(mc_process)
+    # confirm start stim response send to main
+
+    start_stim_response = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert start_stim_response["communication_type"] == "stimulation"
+    assert start_stim_response["command"] == "start_stimulation"

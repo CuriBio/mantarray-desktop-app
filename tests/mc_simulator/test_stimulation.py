@@ -936,7 +936,18 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_finished_status_correc
     spied_global_timer = mocker.spy(simulator, "_get_global_timer")
 
     test_duration_ms = 63
-    test_well_idx = randint(0, 23)
+    test_well_idx_to_stop = randint(0, 11)
+    test_well_name_to_stop = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_idx_to_stop)
+    test_well_idx_to_continue = randint(12, 23)
+    test_well_name_to_continue = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(
+        test_well_idx_to_continue
+    )
+
+    test_protocol_assignments = {
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): None for well_idx in range(24)
+    }
+    test_protocol_assignments[test_well_name_to_stop] = "A"
+    test_protocol_assignments[test_well_name_to_continue] = "B"
 
     test_stim_info = create_converted_stim_info(
         {
@@ -948,14 +959,17 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_finished_status_correc
                     "subprotocols": [
                         get_random_subprotocol(total_active_duration=test_duration_ms),
                     ],
-                }
+                },
+                {
+                    "protocol_id": "B",
+                    "stimulation_type": "C",
+                    "run_until_stopped": False,
+                    "subprotocols": [
+                        get_random_subprotocol(total_active_duration=test_duration_ms * 2),
+                    ],
+                },
             ],
-            "protocol_assignments": {
-                GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "A"
-                if well_idx == test_well_idx
-                else None
-                for well_idx in range(24)
-            },
+            "protocol_assignments": test_protocol_assignments,
         }
     )
     set_stim_info_and_start_stimulating(mantarray_mc_simulator_no_beacon, test_stim_info)
@@ -966,6 +980,9 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_finished_status_correc
         autospec=True,
         side_effect=[
             test_duration_ms * int(1e3) - 1,
+            test_duration_ms * int(1e3) - 1,
+            test_duration_ms * int(1e3),
+            test_duration_ms * int(1e3),
             test_duration_ms * int(1e3),
             test_duration_ms * int(1e3),
         ],
@@ -978,7 +995,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_finished_status_correc
 
     additional_bytes = (
         bytes([1])  # number of status updates in this packet
-        + bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
+        + bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[test_well_idx_to_stop]])
         + bytes([StimStatuses.FINISHED])
         + (spied_global_timer.spy_return + test_duration_ms * int(1e3)).to_bytes(8, byteorder="little")
         + bytes([STIM_COMPLETE_SUBPROTOCOL_IDX])
