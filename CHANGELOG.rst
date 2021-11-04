@@ -2,14 +2,23 @@ Changelog for Mantarray Desktop App
 ===================================
 
 
-0.6.0 (unreleased)
+0.6.0 (2021-11-05)
 ------------------
 
+- Added requirement to enter customer credentials before starting a recording.
+- Added automatic upload of recorded files to cloud analysis with option to automatically
+  delete the files after they are successfully analyzed.
 - Added Stimulation Studio and Controls when app is launched in Beta 2 mode.
+
+  - *Note*: Beta 2 force values/metrics are currently in arbitrary units for Live View and Heat Map.
+
 - Added following metadata to Beta 2 H5 files:
+
   - Stimulation protocol.
   - UTC start time of stimulation.
+
 - Added stimulation subprotocol start times and stimulation stop time to H5 files.
+- Fixed issue with heatmap not updating when recording.
 
 
 0.5.2 (2021-09-13)
