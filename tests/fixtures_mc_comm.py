@@ -83,7 +83,10 @@ def set_magnetometer_config_and_start_streaming(
     sampling_period=DEFAULT_SAMPLING_PERIOD,
 ):
     set_magnetometer_config(mc_fixture, simulator, magnetometer_config, sampling_period)
+    start_data_stream(mc_fixture, simulator)
 
+
+def start_data_stream(mc_fixture, simulator):
     mc_process = mc_fixture["mc_process"]
     from_main_queue = mc_fixture["board_queues"][0][0]
     to_main_queue = mc_fixture["board_queues"][0][1]
@@ -93,6 +96,24 @@ def set_magnetometer_config_and_start_streaming(
         "command": "start_managed_acquisition",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
+    # send command, process command, process command response
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+
+
+def stop_data_stream(mc_fixture, simulator):
+    mc_process = mc_fixture["mc_process"]
+    from_main_queue = mc_fixture["board_queues"][0][0]
+    to_main_queue = mc_fixture["board_queues"][0][1]
+
+    stop_command = {
+        "communication_type": "acquisition_manager",
+        "command": "stop_managed_acquisition",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
     # send command, process command, process command response
     invoke_process_run_and_check_errors(mc_process)
     invoke_process_run_and_check_errors(simulator)

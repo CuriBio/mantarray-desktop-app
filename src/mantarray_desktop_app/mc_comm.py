@@ -651,6 +651,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 prev_command["eeprom_contents"] = response_data
             elif prev_command["command"] == "start_managed_acquisition":
                 self._is_data_streaming = True
+                self._has_stim_packet_been_sent = False
                 self._has_data_packet_been_sent = False
                 if response_data[0]:
                     if not self._hardware_test_mode:
@@ -699,7 +700,6 @@ class McCommunicationProcess(InstrumentCommProcess):
                     prev_command["hardware_test_message"] = "Command failed"  # pragma: no cover
                 prev_command["timestamp"] = datetime.datetime.utcnow()
                 self._is_stimulating = True
-                self._has_stim_packet_been_sent = False
             elif prev_command["command"] == "stop_stimulation":
                 if response_data[0]:
                     if not self._hardware_test_mode:
