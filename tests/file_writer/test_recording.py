@@ -1736,18 +1736,30 @@ def test_FileWriterProcess__upload_thread_gets_added_to_container_after_all_file
         four_board_file_writer_process=four_board_file_writer_process,
         update_customer_settings_command=GENERIC_UPDATE_CUSTOMER_SETTINGS,
     )
-    file_writer_process = file_writer_process_ready_for_upload["file_writer_process"]
+    file_writer_process = file_writer_process_ready_for_upload["fw_process"]
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=7)
 
-    assert file_writer_process._customer_settings == GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]
-    assert file_writer_process._is_finalizing_files_after_recording() is False
-    assert len(file_writer_process._open_files[0].keys()) == 0
-    assert len(file_writer_process._upload_threads_container) == 1
-    assert file_writer_process._upload_threads_container[0]["failed_upload"] is False
-    assert file_writer_process._upload_threads_container[0]["customer_account_id"] == "test_customer_id"
-    assert file_writer_process._upload_threads_container[0]["auto_delete"] is False
-    assert file_writer_process._upload_threads_container[0]["file_name"] == "MA200440001__2020_02_09_190935"
+    assert (
+        file_writer_process._customer_settings == GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]
+    )  # pylint: disable=protected-access
+    assert (
+        file_writer_process._is_finalizing_files_after_recording() is False
+    )  # pylint: disable=protected-access
+    assert len(file_writer_process._open_files[0].keys()) == 0  # pylint: disable=protected-access
+    assert len(file_writer_process._upload_threads_container) == 1  # pylint: disable=protected-access
+    assert (
+        file_writer_process._upload_threads_container[0]["failed_upload"] is False
+    )  # pylint: disable=protected-access
+    assert (
+        file_writer_process._upload_threads_container[0]["customer_account_id"] == "test_customer_id"
+    )  # pylint: disable=protected-access
+    assert (
+        file_writer_process._upload_threads_container[0]["auto_delete"] is False
+    )  # pylint: disable=protected-access
+    assert (
+        file_writer_process._upload_threads_container[0]["file_name"] == "MA200440001__2020_02_09_190935"
+    )  # pylint: disable=protected-access
 
 
 def test_FileWriterProcess__upload_status_gets_added_to_main_queue(four_board_file_writer_process, mocker):
@@ -1755,14 +1767,18 @@ def test_FileWriterProcess__upload_status_gets_added_to_main_queue(four_board_fi
         four_board_file_writer_process=four_board_file_writer_process,
         update_customer_settings_command=GENERIC_UPDATE_CUSTOMER_SETTINGS,
     )
-    file_writer_process = file_writer_process_ready_for_upload["file_writer_process"]
+    file_writer_process = file_writer_process_ready_for_upload["fw_process"]
     to_main_queue = file_writer_process_ready_for_upload["to_main_queue"]
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=9)
 
-    assert file_writer_process._customer_settings == GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]
-    assert file_writer_process._is_finalizing_files_after_recording() is False
-    assert len(file_writer_process._open_files[0].keys()) == 0
+    assert (
+        file_writer_process._customer_settings == GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]
+    )  # pylint: disable=protected-access
+    assert (
+        file_writer_process._is_finalizing_files_after_recording() is False
+    )  # pylint: disable=protected-access
+    assert len(file_writer_process._open_files[0].keys()) == 0  # pylint: disable=protected-access
 
     assert to_main_queue[-1]["communication_type"] == "update_upload_status"
 
@@ -1777,11 +1793,11 @@ def test_FileWriterProcess__no_upload_threads_are_triggered_when_customer_settin
         four_board_file_writer_process=four_board_file_writer_process,
         update_customer_settings_command=update_customer_settings_command,
     )
-    file_writer_process = file_writer_process_ready_for_upload["file_writer_process"]
+    file_writer_process = file_writer_process_ready_for_upload["fw_process"]
     to_main_queue = file_writer_process_ready_for_upload["to_main_queue"]
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=7)
-    assert len(file_writer_process._upload_threads_container) == 0
+    assert len(file_writer_process._upload_threads_container) == 0  # pylint: disable=protected-access
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=9)
     assert to_main_queue[-1]["communication_type"] == "file_finalized"
@@ -1797,7 +1813,7 @@ def test_FileWriterProcess__no_message_gets_added_to_main_queue_when_auto_upload
         four_board_file_writer_process=four_board_file_writer_process,
         update_customer_settings_command=update_customer_settings_command,
     )
-    file_writer_process = file_writer_process_ready_for_upload["file_writer_process"]
+    file_writer_process = file_writer_process_ready_for_upload["fw_process"]
     to_main_queue = file_writer_process_ready_for_upload["to_main_queue"]
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=7)
@@ -1815,7 +1831,7 @@ def test_FileWriterProcess__status_successfully_gets_added_to_main_queue_when_au
         four_board_file_writer_process=four_board_file_writer_process,
         update_customer_settings_command=update_customer_settings_command,
     )
-    file_writer_process = file_writer_process_ready_for_upload["file_writer_process"]
+    file_writer_process = file_writer_process_ready_for_upload["fw_process"]
     to_main_queue = file_writer_process_ready_for_upload["to_main_queue"]
     mocker.patch.object(file_uploader.ErrorCatchingThread, "errors", autospe=True, return_value=False)
 
@@ -1823,3 +1839,4 @@ def test_FileWriterProcess__status_successfully_gets_added_to_main_queue_when_au
 
     assert to_main_queue[-1]["communication_type"] == "update_upload_status"
     assert "error" not in to_main_queue[-1]["content"]["data_json"]
+    assert len(file_writer_process._upload_threads_container) == 0  # pylint: disable=protected-access

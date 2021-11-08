@@ -355,11 +355,8 @@ def fixture_running_four_board_file_writer_process(runnable_four_board_file_writ
 def file_writer_process_with_closed_h5_files_for_upload(
     four_board_file_writer_process, update_customer_settings_command
 ):
-    file_writer_process = four_board_file_writer_process["fw_process"]
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
-    to_main_queue = four_board_file_writer_process["to_main_queue"]
-    file_dir = four_board_file_writer_process["file_dir"]
 
     this_command = copy.deepcopy(update_customer_settings_command)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
@@ -438,10 +435,4 @@ def file_writer_process_with_closed_h5_files_for_upload(
         board_queues[0][0],
     )
 
-    return {
-        "file_writer_process": file_writer_process,
-        "board_queues": board_queues,
-        "from_main_queue": from_main_queue,
-        "to_main_queue": to_main_queue,
-        "file_dir": file_dir,
-    }
+    return four_board_file_writer_process

@@ -131,7 +131,7 @@ def download_analysis_from_s3(presigned_url: str, file_name: str) -> None:
     """Get analysis from s3 and download to local directory.
 
     Args:
-        presigned_url: presigned url to get s3 analysis.
+        presigned_url: URL to get s3 analysis.
         file_name: file name to write to locally.
     """
     file = requests.get(presigned_url)
@@ -218,8 +218,6 @@ class ErrorCatchingThread(Thread):
         return self.error is not None
 
     def get_error(self) -> Any:
-        if self.error is not None:
-            # Lucy (11/8/21) prevents json.dumps() from erroring when sending status to main queue
+        if self.error is not None:  # for testing
+            # Lucy (11/8/21) prevents error when sending status to main queue by making it exception a string
             return getattr(self.error, "message", str(self.error))
-        else:
-            return self.error

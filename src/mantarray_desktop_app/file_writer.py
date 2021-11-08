@@ -1081,6 +1081,7 @@ class FileWriterProcess(InfiniteProcess):
         # Remove directory and all .h5 files
         for file in os.listdir(file_folder_dir):
             os.remove(os.path.join(file_folder_dir, file))
+
         os.rmdir(file_folder_dir)
 
     def _process_new_failed_upload_files(self, sub_dir: str) -> None:
