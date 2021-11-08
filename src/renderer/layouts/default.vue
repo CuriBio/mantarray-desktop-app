@@ -125,9 +125,18 @@ export default {
       current_year: "2021", // new Date().getFullYear(),
       confirmation_request: false,
       beta_2_mode: process.env.SPECTRON || undefined,
+      log_dir_name: undefined,
     };
   },
   created: function () {
+    ipcRenderer.on("logs_flask_dir_response", (e, log_dir_name) => {
+      this.$store.commit("settings/set_log_path", log_dir_name);
+      this.log_dir_name = log_dir_name;
+    });
+    if (this.log_dir_name === undefined) {
+      ipcRenderer.send("logs_flask_dir_request");
+    }
+
     // init store values needed in pages here since this side bar is only created once
     this.$store.commit("data/set_heatmap_values", {
       "Twitch Force": { data: [...Array(24)].map((e) => Array(0)) },
