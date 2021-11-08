@@ -1670,6 +1670,7 @@ def test_FileWriterProcess__upload_thread_gets_added_to_container_after_all_file
         update_customer_settings_command=GENERIC_UPDATE_CUSTOMER_SETTINGS,
     )
     file_writer_process = file_writer_process_ready_for_upload["fw_process"]
+    to_main_queue = file_writer_process_ready_for_upload["to_main_queue"]
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=7)
     # pylint: disable=protected-access
@@ -1693,17 +1694,6 @@ def test_FileWriterProcess__upload_thread_gets_added_to_container_after_all_file
     assert (
         file_writer_process._upload_threads_container[0]["file_name"] == "MA200440001__2020_02_09_190935"
     )  # pylint: disable=protected-access
-
-
-def test_FileWriterProcess__upload_status_gets_added_to_main_queue_when_thread_joins(
-    four_board_file_writer_process, mocker
-):
-    file_writer_process_ready_for_upload = file_writer_process_with_closed_h5_files_for_upload(
-        four_board_file_writer_process=four_board_file_writer_process,
-        update_customer_settings_command=GENERIC_UPDATE_CUSTOMER_SETTINGS,
-    )
-    file_writer_process = file_writer_process_ready_for_upload["fw_process"]
-    to_main_queue = file_writer_process_ready_for_upload["to_main_queue"]
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=9)
 
