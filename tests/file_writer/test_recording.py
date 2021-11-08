@@ -13,7 +13,6 @@ from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
-from mantarray_desktop_app import DATA_FRAME_PERIOD
 from mantarray_desktop_app import file_uploader
 from mantarray_desktop_app import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
 from mantarray_desktop_app import FILE_WRITER_BUFFER_SIZE_MICROSECONDS
@@ -92,9 +91,7 @@ from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_NUM_CHANNELS_ENABLED
 from ..fixtures_file_writer import GENERIC_NUM_SENSORS_ENABLED
-from ..fixtures_file_writer import GENERIC_REFERENCE_SENSOR_DATA_PACKET
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
-from ..fixtures_file_writer import GENERIC_TISSUE_DATA_PACKET
 from ..fixtures_file_writer import GENERIC_UPDATE_CUSTOMER_SETTINGS
 from ..fixtures_file_writer import open_the_generic_h5_file
 from ..fixtures_file_writer import WELL_DEF_24
@@ -611,58 +608,22 @@ def test_FileWriterProcess__stop_recording__sets_stop_recording_timestamp_to_tim
 def test_FileWriterProcess__closes_the_files_and_adds_crc32_checksum_and_sends_communication_to_main_when_all_data_has_been_added_after_recording_stopped(
     four_board_file_writer_process, mocker
 ):
-    file_writer_process = four_board_file_writer_process["fw_process"]
-    board_queues = four_board_file_writer_process["board_queues"]
-    from_main_queue = four_board_file_writer_process["from_main_queue"]
-    to_main_queue = four_board_file_writer_process["to_main_queue"]
-    file_dir = four_board_file_writer_process["file_dir"]
+
+    update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
+    update_customer_settings_command["config_settings"]["auto_delete_local_files"] = False
+    update_customer_settings_command["config_settings"]["auto_upload_on_completion"] = False
+    file_writer_process_ready_for_upload = file_writer_process_with_closed_h5_files_for_upload(
+        four_board_file_writer_process=four_board_file_writer_process,
+        update_customer_settings_command=update_customer_settings_command,
+    )
+
+    file_writer_process = file_writer_process_ready_for_upload["fw_process"]
+    to_main_queue = file_writer_process_ready_for_upload["to_main_queue"]
+    file_dir = file_writer_process_ready_for_upload["file_dir"]
 
     spied_h5_close = mocker.spy(
         h5py._hl.files.File,  # pylint:disable=protected-access # this is the only known (Eli 2/27/20) way to access the appropriate type definition
         "close",
-    )
-
-    start_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
-    start_command["active_well_indices"] = [4, 5]
-    num_data_points = 10
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
-
-    data = np.zeros((2, num_data_points), dtype=np.int32)
-
-    for this_idx in range(num_data_points):
-        data[0, this_idx] = (
-            start_command["timepoint_to_begin_recording_at"] + this_idx * REFERENCE_SENSOR_SAMPLING_PERIOD
-        )
-        data[1, this_idx] = this_idx * 2
-
-    this_data_packet = copy.deepcopy(GENERIC_REFERENCE_SENSOR_DATA_PACKET)
-    this_data_packet["data"] = data
-    queue_to_file_writer_from_board_0 = board_queues[0][0]
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_data_packet,
-        queue_to_file_writer_from_board_0,
-    )
-
-    # tissue data
-    data = np.zeros((2, num_data_points), dtype=np.int32)
-
-    for this_idx in range(num_data_points):
-        data[0, this_idx] = (
-            start_command["timepoint_to_begin_recording_at"]
-            + this_idx * CONSTRUCT_SENSOR_SAMPLING_PERIOD
-            + DATA_FRAME_PERIOD
-        )
-        data[1, this_idx] = this_idx * 2
-
-    this_data_packet = copy.deepcopy(GENERIC_TISSUE_DATA_PACKET)
-    this_data_packet["data"] = data
-
-    board_queues[0][0].put_nowait(this_data_packet)
-    data_packet_for_5 = copy.deepcopy(this_data_packet)
-    data_packet_for_5["well_index"] = 5
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        data_packet_for_5,
-        board_queues[0][0],
     )
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=3)
@@ -679,37 +640,6 @@ def test_FileWriterProcess__closes_the_files_and_adds_crc32_checksum_and_sends_c
     assert actual_data[3] == 6
     assert actual_data[9] == 18
 
-    stop_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
-
-    # reference data
-    reference_data_packet_after_stop = copy.deepcopy(GENERIC_REFERENCE_SENSOR_DATA_PACKET)
-    data_after_stop = np.zeros((2, num_data_points), dtype=np.int32)
-    for this_idx in range(num_data_points):
-        data_after_stop[0, this_idx] = (
-            stop_command["timepoint_to_stop_recording_at"] + (this_idx - 5) * REFERENCE_SENSOR_SAMPLING_PERIOD
-        )
-        data_after_stop[1, this_idx] = this_idx * 5
-    reference_data_packet_after_stop["data"] = data_after_stop
-
-    board_queues[0][0].put_nowait(reference_data_packet_after_stop)
-
-    # tissue data
-    tissue_data_packet_after_stop = copy.deepcopy(GENERIC_TISSUE_DATA_PACKET)
-    data_after_stop = np.zeros((2, num_data_points), dtype=np.int32)
-    for this_idx in range(num_data_points):
-        data_after_stop[0, this_idx] = (
-            stop_command["timepoint_to_stop_recording_at"] + this_idx * CONSTRUCT_SENSOR_SAMPLING_PERIOD
-        )
-    tissue_data_packet_after_stop["data"] = data_after_stop
-    board_queues[0][0].put_nowait(tissue_data_packet_after_stop)
-    data_packet_for_5 = copy.deepcopy(tissue_data_packet_after_stop)
-    data_packet_for_5["well_index"] = 5
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        data_packet_for_5,
-        board_queues[0][0],
-    )
-
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=3)
 
     assert spied_h5_close.call_count == 2
@@ -719,6 +649,9 @@ def test_FileWriterProcess__closes_the_files_and_adds_crc32_checksum_and_sends_c
     to_main_queue.get(
         timeout=QUEUE_CHECK_TIMEOUT_SECONDS
     )  # pop off the initial receipt of start command message
+    to_main_queue.get(
+        timeout=QUEUE_CHECK_TIMEOUT_SECONDS
+    )  # pop off the initial receipt of stop command message
     to_main_queue.get(
         timeout=QUEUE_CHECK_TIMEOUT_SECONDS
     )  # pop off the initial receipt of stop command message
@@ -1739,7 +1672,7 @@ def test_FileWriterProcess__upload_thread_gets_added_to_container_after_all_file
     file_writer_process = file_writer_process_ready_for_upload["fw_process"]
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=7)
-
+    # pylint: disable=protected-access
     assert (
         file_writer_process._customer_settings == GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]
     )  # pylint: disable=protected-access
@@ -1762,7 +1695,9 @@ def test_FileWriterProcess__upload_thread_gets_added_to_container_after_all_file
     )  # pylint: disable=protected-access
 
 
-def test_FileWriterProcess__upload_status_gets_added_to_main_queue(four_board_file_writer_process, mocker):
+def test_FileWriterProcess__upload_status_gets_added_to_main_queue_when_thread_joins(
+    four_board_file_writer_process, mocker
+):
     file_writer_process_ready_for_upload = file_writer_process_with_closed_h5_files_for_upload(
         four_board_file_writer_process=four_board_file_writer_process,
         update_customer_settings_command=GENERIC_UPDATE_CUSTOMER_SETTINGS,
@@ -1772,6 +1707,7 @@ def test_FileWriterProcess__upload_status_gets_added_to_main_queue(four_board_fi
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=9)
 
+    # pylint: disable=protected-access
     assert (
         file_writer_process._customer_settings == GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]
     )  # pylint: disable=protected-access
@@ -1783,7 +1719,7 @@ def test_FileWriterProcess__upload_status_gets_added_to_main_queue(four_board_fi
     assert to_main_queue[-1]["communication_type"] == "update_upload_status"
 
 
-def test_FileWriterProcess__no_upload_threads_are_triggered_when_customer_settings_are_false(
+def test_FileWriterProcess__no_upload_threads_are_triggered_when_both_auto_settings_are_false(
     four_board_file_writer_process,
 ):
     update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
@@ -1794,16 +1730,12 @@ def test_FileWriterProcess__no_upload_threads_are_triggered_when_customer_settin
         update_customer_settings_command=update_customer_settings_command,
     )
     file_writer_process = file_writer_process_ready_for_upload["fw_process"]
-    to_main_queue = file_writer_process_ready_for_upload["to_main_queue"]
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=7)
     assert len(file_writer_process._upload_threads_container) == 0  # pylint: disable=protected-access
 
-    invoke_process_run_and_check_errors(file_writer_process, num_iterations=9)
-    assert to_main_queue[-1]["communication_type"] == "file_finalized"
 
-
-def test_FileWriterProcess__no_message_gets_added_to_main_queue_when_auto_upload_is_false(
+def test_FileWriterProcess__no_message_gets_added_to_main_queue_when_auto_upload_is_false_but_auto_delete_is_true(
     four_board_file_writer_process,
 ):
     update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
@@ -1821,7 +1753,7 @@ def test_FileWriterProcess__no_message_gets_added_to_main_queue_when_auto_upload
     assert to_main_queue[-1]["communication_type"] == "file_finalized"
 
 
-def test_FileWriterProcess__status_successfully_gets_added_to_main_queue_when_auto_upload_and_delete_are_true(
+def test_FileWriterProcess__status_successfully_gets_added_to_main_queue_when_auto_upload_and_delete_are_true_without_error(
     four_board_file_writer_process, mocker
 ):
     update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
