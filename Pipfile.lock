@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "689fcdaa15bb22bda6219e8cb1aba31e1badfd0babdf381d246c58e8d1a0ddb0"
+            "sha256": "11c4a2499bd5370e0df15c7d1818957ab583ef958c50f29e0f1a1e04903add65"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -215,11 +215,11 @@
         },
         "jsonschema": {
             "hashes": [
-                "sha256:2b563117f3659a7f433dffe1371c88f52115b79133493f376f15724b9caa7efa",
-                "sha256:e2d3601321ac74d38214e2853300ae740cd07e53d919a15862b8c71f9d840574"
+                "sha256:2a0f162822a64d95287990481b45d82f096e99721c86534f48201b64ebca6e8c",
+                "sha256:390713469ae64b8a58698bb3cbc3859abe6925b565a973f87323ef21b09a27a8"
             ],
             "markers": "python_version >= '3.7'",
-            "version": "==4.2.0"
+            "version": "==4.2.1"
         },
         "labware-domain-models": {
             "hashes": [
@@ -230,30 +230,28 @@
             "version": "==0.3.1"
         },
         "mantarray-file-manager": {
-            "editable": true,
-            "git": "https://github.com/CuriBio/mantarray-file-manager.git",
             "hashes": [
-                "sha256:421e5ca7ee44e9ef5428bd13aad1c9a472a7184c796e8ec186de7717a1fa9be7",
-                "sha256:b24985851381061bc15889749715cea7754280516df2d6ca03546358583cab2c"
+                "sha256:5b98442ff8bbfe491f2e1475ef9bd8d5d419ab42b1fb9031255ac2aca52e011b",
+                "sha256:dd1e80435479aa867b247fa3926a4dddb3284013e0227126116e3db81e84e36d"
             ],
-            "ref": "0deedaeb2776abe30080329c3bb7fac7a0a61ecb"
+            "index": "pypi",
+            "version": "==1.0.1"
         },
         "mantarray-waveform-analysis": {
-            "editable": true,
-            "git": "https://github.com/CuriBio/mantarray-waveform-analysis.git",
             "hashes": [
-                "sha256:4dcc582767c0c29f196cbe024f22b46addc9ff2de1919d1723b3540e74b2dbd9",
-                "sha256:68a5ab4435d9190d9b634d3ba583773277b6cf902a8c43d44ede0969d1d00088",
-                "sha256:8f8820c030d657922c9cc4e616f5ccb744437b0971671435838d4b48d4f7cd28",
-                "sha256:998808e99a1a8a7e71f04b5b18402aae415a1445579ba44f36003ed0103b2589",
-                "sha256:aad15acbe5dbd42f626bbacbe1efc60ec5715e731ccbc42946fcafe7ca1f3bdb",
-                "sha256:b47999cdd42c34d54b88d250e69019e6eae92392f1ec9d034db70f33e848b506",
-                "sha256:b72760b611f2238249093f6d55c0c0fa69313d21476c0abbb7da72b88adfd5fc",
-                "sha256:b87ef2f3d67451e080bdf710a283a28438e24d4f2d1d3cd628df33a5fac39b86",
-                "sha256:c5ebdae26eddec0c6117461ffb34b56bf9f4d62e2f17950a8aeefd0fe6d1b423",
-                "sha256:c87d6ab50d73551036973dc54106a9f19a5a310fd583460753de6fb4ffa37018"
+                "sha256:20585db400deab269c3da07bb13acdb2416eff699f44d626b5423f11bca327ad",
+                "sha256:2f1574cca7b2968721443314403f8383794acee4753d5dc52d4465cacc4f9253",
+                "sha256:37e07fa91b2a1eab659ed104b37006fb859c60f8fd8a90e289771a0ddf5beba8",
+                "sha256:622ee7f1ed0f47efc7ed3a1de0c353ef94bec17b617d3236efcd1a162595ed85",
+                "sha256:6f1cc311cbd530b8701a7d16babb3d9ab9867caef588dd1893b5c47939a795d7",
+                "sha256:748a99673be98145050f2367b5bd8e9397a5da7994fff6a039bac1b60fdefbbd",
+                "sha256:7747c9de6114b36ef631771b83fcc5d20bde04ffb4901b9e3aad66fe5ad444c5",
+                "sha256:7c11dbf48fb35c315c4dd9c9cca4ce903e5dce1fa2c8301a629db36536aacbb3",
+                "sha256:8ec22971193a26fba8568756a647a5e1c47378df01070c1f0e7599c471ce0c4e",
+                "sha256:b073ed8f717f1eabf3497f91d0610aec384cc1e81a7f10bebd26c05a3e5cc3bf"
             ],
-            "ref": "68d3a52bea29f0668287b515780d200648c1f761"
+            "index": "pypi",
+            "version": "==1.2.0"
         },
         "markupsafe": {
             "hashes": [
@@ -491,11 +489,11 @@
         },
         "toolz": {
             "hashes": [
-                "sha256:1bc473acbf1a1db4e72a1ce587be347450e8f08324908b8a266b486f408f04d5",
-                "sha256:c7a47921f07822fe534fb1c01c9931ab335a4390c782bd28c6bcc7c2f71f3fbf"
+                "sha256:6b312d5e15138552f1bda8a4e66c30e236c831b612b2bf0005f8a1df10a4bc33",
+                "sha256:a5700ce83414c64514d82d60bcda8aabfde092d1c1a8663f9200c07fdcc6da8f"
             ],
             "markers": "python_version >= '3.5'",
-            "version": "==0.11.1"
+            "version": "==0.11.2"
         },
         "tornado": {
             "hashes": [
@@ -555,7 +553,7 @@
                 "sha256:56f6dc65d86c2e5b8f04f22acedd33af2c233edc1082fe4d24fd3996bd19d0fe",
                 "sha256:f9395cad9a30cb9864fa0c0d18a84daead1eb8807774f4e09f588f89b7dc77d8"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3' and python_version < '4.0'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3' and python_version < '4'",
             "version": "==1.5.0"
         },
         "werkzeug": {
@@ -828,11 +826,11 @@
         },
         "identify": {
             "hashes": [
-                "sha256:b9ffbeb7ed87e96ce017c66b80ca04fda3adbceb5c74e54fc7d99281d27d0859",
-                "sha256:ffab539d9121b386ffdea84628ff3eefda15f520f392ce11b393b0a909632cdf"
+                "sha256:4de55a93e0ba72bf917c840b3794eb1055a67272a1732351c557c88ec42011b1",
+                "sha256:595283a1c3a078ac5774ad4dc4d1bdd0c1602f60bcf11ae673b64cb2b1945762"
             ],
             "markers": "python_full_version >= '3.6.1'",
-            "version": "==2.3.3"
+            "version": "==2.3.4"
         },
         "idna": {
             "hashes": [
