@@ -205,7 +205,7 @@ def test_uploader__uploader_raises_error_if_get_sdk_status_returns_error_message
         file_uploader, "get_sdk_status", autospec=True, return_value="error in upload"
     )
     mocker.patch.object(file_uploader, "download_analysis_from_s3", autospec=True)
-
+    mocker.patch.object(os.path, "exists", autospec=True, return_Value=True)
     with tempfile.TemporaryDirectory() as tmp_dir:
 
         test_dir = tmp_dir

@@ -1665,9 +1665,12 @@ def test_FileWriterProcess__deletes_recorded_stim_data_after_stop_time(
 def test_FileWriterProcess__upload_thread_gets_added_to_container_after_all_files_get_finalized(
     four_board_file_writer_process,
 ):
+    update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
+    update_customer_settings_command["config_settings"]["auto_delete_local_files"] = False
+    update_customer_settings_command["config_settings"]["auto_upload_on_completion"] = True
     file_writer_process_ready_for_upload = file_writer_process_with_closed_h5_files_for_upload(
         four_board_file_writer_process=four_board_file_writer_process,
-        update_customer_settings_command=GENERIC_UPDATE_CUSTOMER_SETTINGS,
+        update_customer_settings_command=update_customer_settings_command,
     )
     file_writer_process = file_writer_process_ready_for_upload["fw_process"]
     to_main_queue = file_writer_process_ready_for_upload["to_main_queue"]
@@ -1739,7 +1742,6 @@ def test_FileWriterProcess__no_message_gets_added_to_main_queue_when_auto_upload
     to_main_queue = file_writer_process_ready_for_upload["to_main_queue"]
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=7)
-
     assert to_main_queue[-1]["communication_type"] == "file_finalized"
 
 
