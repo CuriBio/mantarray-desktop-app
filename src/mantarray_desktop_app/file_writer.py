@@ -280,7 +280,6 @@ class FileWriterProcess(InfiniteProcess):
         self._recording_durations: List[float] = list()
         self._customer_settings: Dict[str, Any] = dict()
         self._sub_dir_name: str = ""
-        self._upload_status: Optional[str] = ""
         self._upload_threads_container: List[Dict[str, Any]] = list()
 
     def start(self) -> None:
@@ -373,8 +372,6 @@ class FileWriterProcess(InfiniteProcess):
         self._process_next_incoming_packet()
         self._update_buffers()
         self._finalize_completed_files()
-        if "customer_account_id" in self._customer_settings:
-            self._start_new_file_uploads()
         self._check_upload_statuses()
         self._iterations_since_last_logging += 1
         if self._iterations_since_last_logging >= FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES:
@@ -712,8 +709,10 @@ class FileWriterProcess(InfiniteProcess):
                     "file_path": this_filename,
                 }
             )
-
             del self._open_files[0][this_well_idx]
+
+            if not self._is_finalizing_files_after_recording() and self._customer_settings:
+                self._start_new_file_upload()
 
     def _process_next_incoming_packet(self) -> None:
         """Process the next incoming packet for that board.
@@ -1032,7 +1031,7 @@ class FileWriterProcess(InfiniteProcess):
             self.get_logging_level(),
         )
 
-    def _start_new_file_uploads(self) -> None:
+    def _start_new_file_upload(self) -> None:
         """Upload file recordings to the cloud.
 
         Processes upload thread and if successful, the upload status
@@ -1106,7 +1105,6 @@ class FileWriterProcess(InfiniteProcess):
         # store failed zip file in failed uploads directory to check at next startup
         if os.path.exists(zipped_file):
             shutil.move(zipped_file, updated_zipped_file)
-        # Lucy (10/22/2021): this would be where to notify FE of error to display
 
     def _process_failed_upload_files_on_setup(self) -> None:
         """Re-upload any failed files on setup_before_loop.
@@ -1164,13 +1162,14 @@ class FileWriterProcess(InfiniteProcess):
 
                 if not thread.is_alive():
                     thread.join()
+                    upload_status = dict()
+                    upload_status["file_name"] = file_name.split(".zip")[0]
 
                     if thread.errors():
-                        self._upload_status = f"{file_name}__upload failed"
+                        upload_status["error"] = thread.get_error()
                         if not failed_upload:
                             self._process_new_failed_upload_files(sub_dir=file_name)
                     else:
-                        self._upload_status = f"{file_name}__{thread.get_upload_status()}"
                         if failed_upload:
                             shutil.move(
                                 os.path.join(
@@ -1187,6 +1186,13 @@ class FileWriterProcess(InfiniteProcess):
                             self._delete_local_files(sub_dir=file_name)
 
                     self._upload_threads_container.remove(thread_dict)
+                    outgoing_msg = {"data_type": "upload_status", "data_json": json.dumps(upload_status)}
+                    self._to_main_queue.put_nowait(
+                        {
+                            "communication_type": "update_upload_status",
+                            "content": outgoing_msg,
+                        }
+                    )
 
     def _drain_all_queues(self) -> Dict[str, Any]:
         queue_items: Dict[str, Any] = dict()

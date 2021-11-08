@@ -115,6 +115,12 @@ class MantarrayProcessesMonitor(InfiniteThread):
             r"\\",
             "\\",  # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
         )
+
+        if communication["communication_type"] == "update_upload_status":
+            outgoing_status_json = communication["content"]
+            data_to_server_queue = self._process_manager.queue_container().get_data_queue_to_server()
+            data_to_server_queue.put_nowait(outgoing_status_json)
+
         # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
         with self._lock:
             logger.info(msg)

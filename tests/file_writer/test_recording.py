@@ -14,6 +14,7 @@ from mantarray_desktop_app import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import DATA_FRAME_PERIOD
+from mantarray_desktop_app import file_uploader
 from mantarray_desktop_app import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
 from mantarray_desktop_app import FILE_WRITER_BUFFER_SIZE_MICROSECONDS
 from mantarray_desktop_app import get_reference_dataset_from_file
@@ -83,6 +84,7 @@ from stdlib_utils import validate_file_head_crc32
 
 from ..fixtures import fixture_patch_print
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from ..fixtures_file_writer import file_writer_process_with_closed_h5_files_for_upload
 from ..fixtures_file_writer import fixture_four_board_file_writer_process
 from ..fixtures_file_writer import fixture_runnable_four_board_file_writer_process
 from ..fixtures_file_writer import fixture_running_four_board_file_writer_process
@@ -93,6 +95,7 @@ from ..fixtures_file_writer import GENERIC_NUM_SENSORS_ENABLED
 from ..fixtures_file_writer import GENERIC_REFERENCE_SENSOR_DATA_PACKET
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_TISSUE_DATA_PACKET
+from ..fixtures_file_writer import GENERIC_UPDATE_CUSTOMER_SETTINGS
 from ..fixtures_file_writer import open_the_generic_h5_file
 from ..fixtures_file_writer import WELL_DEF_24
 from ..helpers import confirm_queue_is_eventually_empty
@@ -1724,3 +1727,99 @@ def test_FileWriterProcess__deletes_recorded_stim_data_after_stop_time(
         )
 
         this_file.close()
+
+
+def test_FileWriterProcess__upload_thread_gets_added_to_container_after_all_files_get_finalized(
+    four_board_file_writer_process,
+):
+    file_writer_process_ready_for_upload = file_writer_process_with_closed_h5_files_for_upload(
+        four_board_file_writer_process=four_board_file_writer_process,
+        update_customer_settings_command=GENERIC_UPDATE_CUSTOMER_SETTINGS,
+    )
+    file_writer_process = file_writer_process_ready_for_upload["file_writer_process"]
+
+    invoke_process_run_and_check_errors(file_writer_process, num_iterations=7)
+
+    assert file_writer_process._customer_settings == GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]
+    assert file_writer_process._is_finalizing_files_after_recording() is False
+    assert len(file_writer_process._open_files[0].keys()) == 0
+    assert len(file_writer_process._upload_threads_container) == 1
+    assert file_writer_process._upload_threads_container[0]["failed_upload"] is False
+    assert file_writer_process._upload_threads_container[0]["customer_account_id"] == "test_customer_id"
+    assert file_writer_process._upload_threads_container[0]["auto_delete"] is False
+    assert file_writer_process._upload_threads_container[0]["file_name"] == "MA200440001__2020_02_09_190935"
+
+
+def test_FileWriterProcess__upload_status_gets_added_to_main_queue(four_board_file_writer_process, mocker):
+    file_writer_process_ready_for_upload = file_writer_process_with_closed_h5_files_for_upload(
+        four_board_file_writer_process=four_board_file_writer_process,
+        update_customer_settings_command=GENERIC_UPDATE_CUSTOMER_SETTINGS,
+    )
+    file_writer_process = file_writer_process_ready_for_upload["file_writer_process"]
+    to_main_queue = file_writer_process_ready_for_upload["to_main_queue"]
+
+    invoke_process_run_and_check_errors(file_writer_process, num_iterations=9)
+
+    assert file_writer_process._customer_settings == GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]
+    assert file_writer_process._is_finalizing_files_after_recording() is False
+    assert len(file_writer_process._open_files[0].keys()) == 0
+
+    assert to_main_queue[-1]["communication_type"] == "update_upload_status"
+
+
+def test_FileWriterProcess__no_upload_threads_are_triggered_when_customer_settings_are_false(
+    four_board_file_writer_process,
+):
+    update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
+    update_customer_settings_command["config_settings"]["auto_delete_local_files"] = False
+    update_customer_settings_command["config_settings"]["auto_upload_on_completion"] = False
+    file_writer_process_ready_for_upload = file_writer_process_with_closed_h5_files_for_upload(
+        four_board_file_writer_process=four_board_file_writer_process,
+        update_customer_settings_command=update_customer_settings_command,
+    )
+    file_writer_process = file_writer_process_ready_for_upload["file_writer_process"]
+    to_main_queue = file_writer_process_ready_for_upload["to_main_queue"]
+
+    invoke_process_run_and_check_errors(file_writer_process, num_iterations=7)
+    assert len(file_writer_process._upload_threads_container) == 0
+
+    invoke_process_run_and_check_errors(file_writer_process, num_iterations=9)
+    assert to_main_queue[-1]["communication_type"] == "file_finalized"
+
+
+def test_FileWriterProcess__no_message_gets_added_to_main_queue_when_auto_upload_is_false(
+    four_board_file_writer_process,
+):
+    update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
+    update_customer_settings_command["config_settings"]["auto_delete_local_files"] = True
+    update_customer_settings_command["config_settings"]["auto_upload_on_completion"] = False
+    file_writer_process_ready_for_upload = file_writer_process_with_closed_h5_files_for_upload(
+        four_board_file_writer_process=four_board_file_writer_process,
+        update_customer_settings_command=update_customer_settings_command,
+    )
+    file_writer_process = file_writer_process_ready_for_upload["file_writer_process"]
+    to_main_queue = file_writer_process_ready_for_upload["to_main_queue"]
+
+    invoke_process_run_and_check_errors(file_writer_process, num_iterations=7)
+
+    assert to_main_queue[-1]["communication_type"] == "file_finalized"
+
+
+def test_FileWriterProcess__status_successfully_gets_added_to_main_queue_when_auto_upload_and_delete_are_true(
+    four_board_file_writer_process, mocker
+):
+    update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
+    update_customer_settings_command["config_settings"]["auto_delete_local_files"] = True
+    update_customer_settings_command["config_settings"]["auto_upload_on_completion"] = True
+    file_writer_process_ready_for_upload = file_writer_process_with_closed_h5_files_for_upload(
+        four_board_file_writer_process=four_board_file_writer_process,
+        update_customer_settings_command=update_customer_settings_command,
+    )
+    file_writer_process = file_writer_process_ready_for_upload["file_writer_process"]
+    to_main_queue = file_writer_process_ready_for_upload["to_main_queue"]
+    mocker.patch.object(file_uploader.ErrorCatchingThread, "errors", autospe=True, return_value=False)
+
+    invoke_process_run_and_check_errors(file_writer_process, num_iterations=9)
+
+    assert to_main_queue[-1]["communication_type"] == "update_upload_status"
+    assert "error" not in to_main_queue[-1]["content"]["data_json"]

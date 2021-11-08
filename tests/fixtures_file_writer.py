@@ -19,6 +19,7 @@ from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
+from mantarray_desktop_app import DATA_FRAME_PERIOD
 from mantarray_desktop_app import FileWriterProcess
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
@@ -65,6 +66,8 @@ from stdlib_utils import TestingQueue
 
 from .fixtures_mc_simulator import get_null_subprotocol
 from .fixtures_mc_simulator import get_random_subprotocol
+from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
+
 
 WELL_DEF_24 = LabwareDefinition(row_count=4, column_count=6)
 
@@ -347,3 +350,98 @@ def fixture_running_four_board_file_writer_process(runnable_four_board_file_writ
 
     fw_process.stop()
     fw_process.join()
+
+
+def file_writer_process_with_closed_h5_files_for_upload(
+    four_board_file_writer_process, update_customer_settings_command
+):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    board_queues = four_board_file_writer_process["board_queues"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
+    file_dir = four_board_file_writer_process["file_dir"]
+
+    this_command = copy.deepcopy(update_customer_settings_command)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
+
+    start_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
+    start_command["active_well_indices"] = [4, 5]
+    num_data_points = 10
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
+
+    data = np.zeros((2, num_data_points), dtype=np.int32)
+
+    for this_idx in range(num_data_points):
+        data[0, this_idx] = (
+            start_command["timepoint_to_begin_recording_at"] + this_idx * REFERENCE_SENSOR_SAMPLING_PERIOD
+        )
+        data[1, this_idx] = this_idx * 2
+
+    this_data_packet = copy.deepcopy(GENERIC_REFERENCE_SENSOR_DATA_PACKET)
+    this_data_packet["data"] = data
+    queue_to_file_writer_from_board_0 = board_queues[0][0]
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        this_data_packet,
+        queue_to_file_writer_from_board_0,
+    )
+
+    # tissue data
+    data = np.zeros((2, num_data_points), dtype=np.int32)
+
+    for this_idx in range(num_data_points):
+        data[0, this_idx] = (
+            start_command["timepoint_to_begin_recording_at"]
+            + this_idx * CONSTRUCT_SENSOR_SAMPLING_PERIOD
+            + DATA_FRAME_PERIOD
+        )
+        data[1, this_idx] = this_idx * 2
+
+    this_data_packet = copy.deepcopy(GENERIC_TISSUE_DATA_PACKET)
+    this_data_packet["data"] = data
+
+    board_queues[0][0].put_nowait(this_data_packet)
+    data_packet_for_5 = copy.deepcopy(this_data_packet)
+    data_packet_for_5["well_index"] = 5
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        data_packet_for_5,
+        board_queues[0][0],
+    )
+
+    stop_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
+
+    # reference data
+    reference_data_packet_after_stop = copy.deepcopy(GENERIC_REFERENCE_SENSOR_DATA_PACKET)
+    data_after_stop = np.zeros((2, num_data_points), dtype=np.int32)
+    for this_idx in range(num_data_points):
+        data_after_stop[0, this_idx] = (
+            stop_command["timepoint_to_stop_recording_at"] + (this_idx - 5) * REFERENCE_SENSOR_SAMPLING_PERIOD
+        )
+        data_after_stop[1, this_idx] = this_idx * 5
+    reference_data_packet_after_stop["data"] = data_after_stop
+
+    board_queues[0][0].put_nowait(reference_data_packet_after_stop)
+
+    # tissue data
+    tissue_data_packet_after_stop = copy.deepcopy(GENERIC_TISSUE_DATA_PACKET)
+    data_after_stop = np.zeros((2, num_data_points), dtype=np.int32)
+    for this_idx in range(num_data_points):
+        data_after_stop[0, this_idx] = (
+            stop_command["timepoint_to_stop_recording_at"] + this_idx * CONSTRUCT_SENSOR_SAMPLING_PERIOD
+        )
+    tissue_data_packet_after_stop["data"] = data_after_stop
+    board_queues[0][0].put_nowait(tissue_data_packet_after_stop)
+    data_packet_for_5 = copy.deepcopy(tissue_data_packet_after_stop)
+    data_packet_for_5["well_index"] = 5
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        data_packet_for_5,
+        board_queues[0][0],
+    )
+
+    return {
+        "file_writer_process": file_writer_process,
+        "board_queues": board_queues,
+        "from_main_queue": from_main_queue,
+        "to_main_queue": to_main_queue,
+        "file_dir": file_dir,
+    }
