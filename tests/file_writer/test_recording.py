@@ -1692,9 +1692,8 @@ def test_FileWriterProcess__upload_thread_gets_added_to_container_after_all_file
     board_idx = 0
     list_to_main_queue = drain_queue(to_main_queue)
 
-    assert (
-        file_writer_process._is_finalizing_files_after_recording() is False
-    )  # pylint: disable=protected-access
+    # pylint: disable=protected-access
+    assert file_writer_process._is_finalizing_files_after_recording() is False
     assert file_writer_process._board_has_open_files(board_idx) is False  # pylint: disable=protected-access
     assert len(list_to_main_queue) == 5
     assert list_to_main_queue[-1]["communication_type"] == "update_upload_status"
