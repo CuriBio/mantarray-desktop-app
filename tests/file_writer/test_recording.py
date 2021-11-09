@@ -1663,7 +1663,7 @@ def test_FileWriterProcess__deletes_recorded_stim_data_after_stop_time(
 
 
 def test_FileWriterProcess__upload_thread_gets_added_to_container_after_all_files_get_finalized(
-    four_board_file_writer_process,
+    four_board_file_writer_process, mocker
 ):
     update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
     update_customer_settings_command["config_settings"]["auto_delete_local_files"] = False
@@ -1674,6 +1674,7 @@ def test_FileWriterProcess__upload_thread_gets_added_to_container_after_all_file
     )
     file_writer_process = file_writer_process_ready_for_upload["fw_process"]
     to_main_queue = file_writer_process_ready_for_upload["to_main_queue"]
+    mocker.patch.object(file_uploader.ErrorCatchingThread, "errors", autospe=True, return_value=True)
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=7)
     # pylint: disable=protected-access
@@ -1710,29 +1711,20 @@ def test_FileWriterProcess__upload_thread_gets_added_to_container_after_all_file
     assert len(file_writer_process._open_files[0].keys()) == 0  # pylint: disable=protected-access
 
     assert to_main_queue[-1]["communication_type"] == "update_upload_status"
-
-
-def test_FileWriterProcess__no_upload_threads_are_triggered_when_both_auto_settings_are_false(
-    four_board_file_writer_process,
-):
-    update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
-    update_customer_settings_command["config_settings"]["auto_delete_local_files"] = False
-    update_customer_settings_command["config_settings"]["auto_upload_on_completion"] = False
-    file_writer_process_ready_for_upload = file_writer_process_with_closed_h5_files_for_upload(
-        four_board_file_writer_process=four_board_file_writer_process,
-        update_customer_settings_command=update_customer_settings_command,
+    assert (
+        json.loads(to_main_queue[-1]["content"]["data_json"])["file_name"] == "MA200440001__2020_02_09_190935"
     )
-    file_writer_process = file_writer_process_ready_for_upload["fw_process"]
-
-    invoke_process_run_and_check_errors(file_writer_process, num_iterations=7)
-    assert len(file_writer_process._upload_threads_container) == 0  # pylint: disable=protected-access
 
 
-def test_FileWriterProcess__no_message_gets_added_to_main_queue_when_auto_upload_is_false_but_auto_delete_is_true(
-    four_board_file_writer_process,
+@pytest.mark.parametrize(
+    "auto_delete",
+    [True, False],
+)
+def test_FileWriterProcess__no_upload_threads_are_started_when_auto_upload_is_false_and_auto_delete_is_true_or_false(
+    four_board_file_writer_process, auto_delete
 ):
     update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
-    update_customer_settings_command["config_settings"]["auto_delete_local_files"] = True
+    update_customer_settings_command["config_settings"]["auto_delete_local_files"] = auto_delete
     update_customer_settings_command["config_settings"]["auto_upload_on_completion"] = False
     file_writer_process_ready_for_upload = file_writer_process_with_closed_h5_files_for_upload(
         four_board_file_writer_process=four_board_file_writer_process,
@@ -1742,6 +1734,7 @@ def test_FileWriterProcess__no_message_gets_added_to_main_queue_when_auto_upload
     to_main_queue = file_writer_process_ready_for_upload["to_main_queue"]
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=7)
+    assert len(file_writer_process._upload_threads_container) == 0  # pylint: disable=protected-access
     assert to_main_queue[-1]["communication_type"] == "file_finalized"
 
 
