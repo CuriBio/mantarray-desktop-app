@@ -1675,8 +1675,11 @@ def test_FileWriterProcess__upload_thread_gets_added_to_container_after_all_file
     file_writer_process = file_writer_process_ready_for_upload["fw_process"]
     to_main_queue = file_writer_process_ready_for_upload["to_main_queue"]
     mocker.patch.object(file_uploader.ErrorCatchingThread, "errors", autospe=True, return_value=True)
+    mocker.patch.object(
+        file_uploader.ErrorCatchingThread, "get_error", autospe=True, return_value="mocked_error"
+    )
 
-    invoke_process_run_and_check_errors(file_writer_process, num_iterations=7)
+    invoke_process_run_and_check_errors(file_writer_process, num_iterations=6)
     # pylint: disable=protected-access
     assert (
         file_writer_process._customer_settings == GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]
@@ -1699,18 +1702,10 @@ def test_FileWriterProcess__upload_thread_gets_added_to_container_after_all_file
         file_writer_process._upload_threads_container[0]["file_name"] == "MA200440001__2020_02_09_190935"
     )  # pylint: disable=protected-access
 
-    invoke_process_run_and_check_errors(file_writer_process, num_iterations=9)
-
-    # pylint: disable=protected-access
-    assert (
-        file_writer_process._customer_settings == GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]
-    )  # pylint: disable=protected-access
-    assert (
-        file_writer_process._is_finalizing_files_after_recording() is False
-    )  # pylint: disable=protected-access
-    assert len(file_writer_process._open_files[0].keys()) == 0  # pylint: disable=protected-access
+    invoke_process_run_and_check_errors(file_writer_process, num_iterations=8)
 
     assert to_main_queue[-1]["communication_type"] == "update_upload_status"
+    # pylint: disable=protected-access
     assert (
         json.loads(to_main_queue[-1]["content"]["data_json"])["file_name"] == "MA200440001__2020_02_09_190935"
     )
@@ -1734,6 +1729,7 @@ def test_FileWriterProcess__no_upload_threads_are_started_when_auto_upload_is_fa
     to_main_queue = file_writer_process_ready_for_upload["to_main_queue"]
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=7)
+
     assert len(file_writer_process._upload_threads_container) == 0  # pylint: disable=protected-access
     assert to_main_queue[-1]["communication_type"] == "file_finalized"
 
@@ -1752,7 +1748,7 @@ def test_FileWriterProcess__status_successfully_gets_added_to_main_queue_when_au
     to_main_queue = file_writer_process_ready_for_upload["to_main_queue"]
     mocker.patch.object(file_uploader.ErrorCatchingThread, "errors", autospe=True, return_value=False)
 
-    invoke_process_run_and_check_errors(file_writer_process, num_iterations=9)
+    invoke_process_run_and_check_errors(file_writer_process, num_iterations=8)
 
     assert to_main_queue[-1]["communication_type"] == "update_upload_status"
     assert "error" not in to_main_queue[-1]["content"]["data_json"]
