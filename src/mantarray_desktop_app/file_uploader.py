@@ -127,6 +127,21 @@ def get_sdk_status(access_token: str, upload_details: Dict[Any, Any]) -> str:
     return upload_status
 
 
+def download_analysis_from_s3(presigned_url: str, file_name: str) -> None:
+    """Get analysis from s3 and download to local directory.
+
+    Args:
+        presigned_url: URL to get s3 analysis.
+        file_name: file name to write to locally.
+    """
+    file = requests.get(presigned_url)
+    no_ext_file_name = file_name.split(".zip")[0]
+    xlsx_file_path = os.path.join(os.path.expanduser("~"), "downloads", f"{no_ext_file_name}.xlsx")
+
+    with open(xlsx_file_path, "wb") as content:
+        content.write(file.content)
+
+
 def uploader(
     file_directory: str,
     file_name: str,
@@ -134,7 +149,7 @@ def uploader(
     customer_account_id: str,
     password: str,
     max_num_loops: int = 0,
-) -> str:
+) -> None:
     """Initiate and handle file upload process.
 
     Args:
@@ -149,6 +164,8 @@ def uploader(
     # Failed uploads will call function with zip file, not directory of well data
     if os.path.isdir(file_path):
         # store zipped files under customer specific and static zipped directory
+        if not os.path.exists(os.path.join(zipped_recordings_dir, customer_account_id)):
+            os.makedirs(os.path.join(zipped_recordings_dir, customer_account_id))
         customer_zipped_recordings_dir = os.path.join(zipped_recordings_dir, customer_account_id)
         zipped_file_path = create_zip_file(file_directory, file_name, customer_zipped_recordings_dir)
         file_name = f"{file_name}.zip"
@@ -163,22 +180,20 @@ def uploader(
     num_of_loops = 0
     while True:
         upload_status: str = get_sdk_status(access_token=access_token, upload_details=upload_details)
-
         # for testing, had to put first to cover if max loops is already zero
         if max_num_loops > 0:
             num_of_loops += 1
             if num_of_loops >= max_num_loops:
                 break
 
-        if "analysis successfully inserted into database" in upload_status:
+        if "https" in upload_status:
             break
 
         if "error" in upload_status:
             raise Exception(upload_status)
 
         sleep(5)
-
-    return upload_status
+    download_analysis_from_s3(upload_status, file_name)
 
 
 class ErrorCatchingThread(Thread):
@@ -186,7 +201,6 @@ class ErrorCatchingThread(Thread):
 
     def __init__(self, target: Any, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.result: Optional[str] = None
         self.error: Optional[Exception] = None
         self._target: Any = target
         self._args: Optional[Any]
@@ -195,7 +209,6 @@ class ErrorCatchingThread(Thread):
     def run(self) -> None:
         if self._target is not None:
             try:
-                self.result = self._target(*self._args, **self._kwargs)
                 super().run()
             except Exception as e:  # pylint: disable=broad-except  # Tanner (10/8/21): deliberately trying to catch all exceptions here
                 self.error = e
@@ -204,5 +217,8 @@ class ErrorCatchingThread(Thread):
     def errors(self) -> bool:
         return self.error is not None
 
-    def get_upload_status(self) -> Optional[str]:
-        return self.result
+    def get_error(self) -> Any:
+        if self.error is not None:  # for testing
+            # Lucy (11/8/21) prevents error when sending status to main queue by making it exception a string
+            return getattr(self.error, "message", str(self.error))
+        return self.error
