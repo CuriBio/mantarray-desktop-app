@@ -118,7 +118,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._active_wells: List[int] = list(range(24))
         self._pipeline_template = PipelineTemplate(
             noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
-            tissue_sampling_period=CONSTRUCT_SENSOR_SAMPLING_PERIOD,
+            tissue_sampling_period=CONSTRUCT_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND,
         )
         # Beta 1 items
         self._well_offsets: List[Optional[int]] = [None] * 24
@@ -251,7 +251,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                 self._pipeline_template = PipelineTemplate(
                     noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
                     # TODO Tanner (8/4/21): for some reason sampling periods > 16000 µs cause errors when creating filters. Need to update waveform analysis package before they will be usable
-                    tissue_sampling_period=sampling_period_us // MICROSECONDS_PER_CENTIMILLISECOND,
+                    tissue_sampling_period=sampling_period_us,
                 )
                 self.init_streams()
             else:
@@ -279,6 +279,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             if self._beta_2_mode:
                 self._process_beta_2_data(packet)
             else:
+                packet["data"][0] *= MICROSECONDS_PER_CENTIMILLISECOND
                 if not packet["is_reference_sensor"]:
                     well_idx = packet["well_index"]
                     self._data_analysis_streams[well_idx][0].emit(packet["data"])
@@ -362,8 +363,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                 np.array([data_dict["time_indices"], default_channel_data], np.int64),
                 np.zeros((2, len(default_channel_data))),
             )
-            # TODO Tanner (8/5/21): not compressing data causes significant UI lag so need to get force compression working
-            force_data = pipeline.get_force()
+            force_data = pipeline.get_compressed_force()
 
             # convert arrays to lists for json conversion later
             waveform_data_points[well_idx] = {
@@ -430,7 +430,15 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._data_buffer[well_idx]["construct_data"] = tissue_data
 
     def _process_stim_packet(self, stim_packet: Dict[Any, Any]) -> None:
-        pass  # pylint: disable=no-self-use,unused-argument
+        # Tanner (6/21/21): converting to json may not be necessary for outgoing data, check with frontend
+        outgoing_data_json = json.dumps(
+            {
+                well_idx: stim_status_arr.tolist()
+                for well_idx, stim_status_arr in stim_packet["well_statuses"].items()
+            }
+        )
+        outgoing_msg = {"data_type": "stimulation", "data_json": outgoing_data_json}
+        self._board_queues[0][1].put_nowait(outgoing_msg)
 
     def _handle_performance_logging(self) -> None:
         performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}
@@ -499,9 +507,8 @@ class DataAnalyzerProcess(InfiniteProcess):
     def _dump_outgoing_well_metrics(self, well_tuples: Tuple[Tuple[int, Dict[int, Any]], ...]) -> None:
         outgoing_metrics: Dict[int, Dict[str, List[Any]]] = dict()
         for well_idx, per_twitch_dict in well_tuples:
-            if (
-                not per_twitch_dict
-            ):  # Tanner (7/15/21): in Beta 1 mode, wells with no analyzable data will still be passed through analysis stream, so catching the empty metric dicts here
+            if not per_twitch_dict:
+                # Tanner (7/15/21): in Beta 1 mode, wells with no analyzable data will still be passed through analysis stream, so catching the empty metric dicts here
                 continue
             outgoing_metrics[well_idx] = {
                 str(AMPLITUDE_UUID): [],

@@ -2,14 +2,25 @@ Changelog for Mantarray Desktop App
 ===================================
 
 
-0.6.0 (unreleased)
+0.6.0 (2021-11-09)
 ------------------
 
+- Added requirement to enter customer credentials before starting a recording.
+- Added automatic upload of recorded files to cloud analysis with option to have
+  the files deleted after they are successfully analyzed.
 - Added Stimulation Studio and Controls when app is launched in Beta 2 mode.
+
+  - *Note*: Beta 2 force values/metrics are currently in arbitrary units for Live View and Heat Map.
+
 - Added following metadata to Beta 2 H5 files:
+
   - Stimulation protocol.
   - UTC start time of stimulation.
+
 - Added stimulation subprotocol start times and stimulation stop time to H5 files.
+- Added ability to enter decimal values in Y-axis zoom and Heat Map range.
+- Updated error message and fixed path to log folder.
+- Fixed issue with Heat Map not updating when recording.
 
 
 0.5.2 (2021-09-13)
@@ -24,12 +35,12 @@ Changelog for Mantarray Desktop App
 ------------------
 
 - Added ``/set_protocol`` and ``/set_stim_status`` routes.
-- Added autoscale feature to heatmap.
+- Added autoscale feature to Heat Map.
 - Fixed +/- buttons of y-axis zoom not updating the window correctly.
 - Fixed issue with only well A1's data being trimmed to the desired recording window. This issue caused all files for other wells to contain more data than desired, but no data was ever lost.
   all files for other wells to contain more data than recorded, but no desired data was ever lost.
 - Fixed Beta 1 data being inverted in waveform display.
-- Updated minor styling features of heatmap.
+- Updated minor styling features of Heat Map.
 
 
 0.5.0 (2021-08-02)

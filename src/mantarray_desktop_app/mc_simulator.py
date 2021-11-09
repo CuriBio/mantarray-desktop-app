@@ -228,6 +228,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._timepoints_of_subprotocols_start: List[Optional[int]]
         self._stim_time_indices: List[int]
         self._stim_subprotocol_indices: List[int]
+        self._reset_stim_running_statuses()
         self._handle_boot_up_config()
 
     def start(self) -> None:
@@ -260,6 +261,9 @@ class MantarrayMcSimulator(InfiniteProcess):
 
     @_is_stimulating.setter
     def _is_stimulating(self, value: bool) -> None:
+        # do nothing if already set to given value
+        if value is self._is_stimulating:
+            return
         if value:
             start_timepoint = _perf_counter_us()
             self._timepoints_of_subprotocols_start = [start_timepoint] * len(self._stim_info["protocols"])
@@ -804,7 +808,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             while dur_since_subprotocol_start >= curr_subprotocol_duration_us:
                 # update time index for subprotocol
                 self._stim_time_indices[protocol_idx] += curr_subprotocol_duration_us
-                # move onto next subprotocol in protocol
+                # move on to next subprotocol in protocol
                 self._stim_subprotocol_indices[protocol_idx] = (
                     self._stim_subprotocol_indices[protocol_idx] + 1
                 ) % len(subprotocols)
@@ -861,6 +865,8 @@ class MantarrayMcSimulator(InfiniteProcess):
                 SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
                 packet_bytes,
             )
+        # if all timepoints are None, stimulation has ended
+        self._is_stimulating = any(self._timepoints_of_subprotocols_start)
 
     def _get_stim_status_value(self, protocol_idx: int) -> int:
         subprotocol_idx = self._stim_subprotocol_indices[protocol_idx]

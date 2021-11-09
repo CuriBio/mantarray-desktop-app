@@ -48,6 +48,11 @@ const create_store = function ({
   });
   return store;
 };
+const get_flask_logs_full_path = function (electron_store) {
+  const electron_store_dir = path.dirname(electron_store.path);
+  const flask_logs_subfolder = "logs_flask";
+  return path.join(electron_store_dir, flask_logs_subfolder);
+};
 /**
  * Generate the command line arguments to pass to the local server as it is initialized. This also creates the necessary directories if they don't exist to hold the log files and recordings...although (Eli 1/15/21) unclear why the server doesn't do that itself...
  *
@@ -57,14 +62,10 @@ const create_store = function ({
  */
 const generate_flask_command_line_args = function (electron_store) {
   const electron_store_dir = path.dirname(electron_store.path);
-  const args = [];
-  const flask_logs_subfolder = "logs_flask";
-  const flask_logs_full_path = path.join(
-    electron_store_dir,
-    flask_logs_subfolder
-  );
+  const flask_logs_full_path = get_flask_logs_full_path(electron_store);
   console.log("node env: " + process.env.NODE_ENV); // allow-log
   // Eli (7/15/20): Having quotation marks around the path does not appear to be necessary even with spaces in the path, since it's being passed programatically and not directly through the shell
+  const args = [];
   args.push("--log-file-dir=" + flask_logs_full_path + "");
   args.push(
     "--expected-software-version=" + export_functions.get_current_app_version()
@@ -114,6 +115,7 @@ const generate_flask_command_line_args = function (electron_store) {
 
 // Eli (1/15/21): making spying/mocking with Jest easier. https://medium.com/@DavideRama/mock-spy-exported-functions-within-a-single-module-in-jest-cdf2b61af642
 const export_functions = {
+  get_flask_logs_full_path,
   generate_flask_command_line_args,
   create_store,
   get_current_app_version,

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Docstring."""
+"""Handling communication between subprocesses and main process."""
 from __future__ import annotations
 
 import copy

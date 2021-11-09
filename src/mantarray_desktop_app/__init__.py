@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Docstring."""
+"""Mantarray Desktop App."""
 
 from . import fifo_read_producer
 from . import fifo_simulator

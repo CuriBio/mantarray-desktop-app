@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Docstring."""
+"""Container for all multiprocessing/threading queues."""
 from __future__ import annotations
 
 from multiprocessing import Queue
