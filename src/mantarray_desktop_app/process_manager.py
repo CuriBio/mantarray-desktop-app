@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Docstring."""
+"""Managing subprocesses."""
 from __future__ import annotations
 
 import copy

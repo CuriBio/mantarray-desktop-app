@@ -19,6 +19,7 @@ from ..fixtures_file_writer import GENERIC_BOARD_MAGNETOMETER_CONFIGURATION
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..parsed_channel_data_packets import SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS
+from ..parsed_channel_data_packets import SIMPLE_STIM_DATA_PACKET_FROM_ALL_WELLS
 
 
 __fixtures__ = [
@@ -80,7 +81,7 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
             np.array([test_data_packet["time_indices"], default_channel_data], np.int64),
             np.zeros((2, len(default_channel_data))),
         )
-        compressed_data = pipeline.get_force()
+        compressed_data = pipeline.get_compressed_force()
         waveform_data_points[well_idx] = {
             "x_data_points": compressed_data[0].tolist(),
             "y_data_points": (compressed_data[1] * MICRO_TO_BASE_CONVERSION).tolist(),
@@ -182,15 +183,26 @@ def test_DataAnalyzerProcess__does_not_process_data_packets_after_receiving_stop
     drain_queue(to_main_queue)
 
 
-def test_DataAnalyzerProcess__processes_incoming_stim_packet(four_board_analyzer_process_beta_2_mode, mocker):
-    # TODO Tanner (10/20/21): add to this test when ready to add stim handling
+def test_DataAnalyzerProcess__formats_and_passes_incoming_stim_packet_through_to_main(
+    four_board_analyzer_process_beta_2_mode, mocker
+):
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
     incoming_data_queue = four_board_analyzer_process_beta_2_mode["board_queues"][0][0]
+    outgoing_data_queue = four_board_analyzer_process_beta_2_mode["board_queues"][0][1]
 
-    # can probably remove this spy and assertion once actual handling is implemented
-    spied_process_stim_packet = mocker.spy(da_process, "_process_stim_packet")
-
-    test_stim_packet = {"data_type": "stimulation"}
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_stim_packet, incoming_data_queue)
+    test_stim_packet = copy.deepcopy(SIMPLE_STIM_DATA_PACKET_FROM_ALL_WELLS)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(test_stim_packet), incoming_data_queue
+    )
     invoke_process_run_and_check_errors(da_process)
-    spied_process_stim_packet.assert_called_once_with(test_stim_packet)
+
+    confirm_queue_is_eventually_of_size(outgoing_data_queue, 1)
+    outgoing_msg = outgoing_data_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+
+    expected_stim_data = {
+        well_idx: stim_status_arr.tolist()
+        for well_idx, stim_status_arr in test_stim_packet["well_statuses"].items()
+    }
+
+    assert outgoing_msg["data_type"] == "stimulation"
+    assert outgoing_msg["data_json"] == json.dumps(expected_stim_data)
