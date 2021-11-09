@@ -83,7 +83,7 @@ from stdlib_utils import validate_file_head_crc32
 
 from ..fixtures import fixture_patch_print
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
-from ..fixtures_file_writer import file_writer_process_with_closed_h5_files_for_upload
+from ..fixtures_file_writer import create_closed_h5_files_for_upload
 from ..fixtures_file_writer import fixture_four_board_file_writer_process
 from ..fixtures_file_writer import fixture_runnable_four_board_file_writer_process
 from ..fixtures_file_writer import fixture_running_four_board_file_writer_process
@@ -612,7 +612,7 @@ def test_FileWriterProcess__closes_the_files_and_adds_crc32_checksum_and_sends_c
     update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
     update_customer_settings_command["config_settings"]["auto_delete_local_files"] = False
     update_customer_settings_command["config_settings"]["auto_upload_on_completion"] = False
-    file_writer_process_ready_for_upload = file_writer_process_with_closed_h5_files_for_upload(
+    file_writer_process_ready_for_upload = create_closed_h5_files_for_upload(
         four_board_file_writer_process=four_board_file_writer_process,
         update_customer_settings_command=update_customer_settings_command,
     )
@@ -648,10 +648,10 @@ def test_FileWriterProcess__closes_the_files_and_adds_crc32_checksum_and_sends_c
 
     to_main_queue.get(
         timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pop off the initial receipt of start command message
+    )  # pop off the initial receipt of update customer settings command
     to_main_queue.get(
         timeout=QUEUE_CHECK_TIMEOUT_SECONDS
-    )  # pop off the initial receipt of stop command message
+    )  # pop off the initial receipt of start command message
     to_main_queue.get(
         timeout=QUEUE_CHECK_TIMEOUT_SECONDS
     )  # pop off the initial receipt of stop command message
@@ -1668,46 +1668,39 @@ def test_FileWriterProcess__upload_thread_gets_added_to_container_after_all_file
     update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
     update_customer_settings_command["config_settings"]["auto_delete_local_files"] = False
     update_customer_settings_command["config_settings"]["auto_upload_on_completion"] = True
-    file_writer_process_ready_for_upload = file_writer_process_with_closed_h5_files_for_upload(
+    file_writer_process_ready_for_upload = create_closed_h5_files_for_upload(
         four_board_file_writer_process=four_board_file_writer_process,
         update_customer_settings_command=update_customer_settings_command,
     )
     file_writer_process = file_writer_process_ready_for_upload["fw_process"]
     to_main_queue = file_writer_process_ready_for_upload["to_main_queue"]
-    mocker.patch.object(file_uploader.ErrorCatchingThread, "errors", autospe=True, return_value=True)
-    mocker.patch.object(
-        file_uploader.ErrorCatchingThread, "get_error", autospe=True, return_value="mocked_error"
+
+    mocker.patch.object(file_uploader.ErrorCatchingThread, "start", autospec=True)
+    mocker.patch.object(file_uploader.ErrorCatchingThread, "join")
+    mocker.patch.object(file_uploader.ErrorCatchingThread, "errors", autospec=True, return_value=True)
+    mocked_thread_err = mocker.patch.object(
+        file_uploader.ErrorCatchingThread, "get_error", autospec=True, return_value="mocked_error"
     )
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=6)
-    # pylint: disable=protected-access
-    assert (
-        file_writer_process._customer_settings == GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]
-    )  # pylint: disable=protected-access
+
+    customer_settings_response_to_main = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert customer_settings_response_to_main["communication_type"] == "command_receipt"
+    assert customer_settings_response_to_main["command"] == "update_customer_settings"
+
+    sub_dir_name = file_writer_process.get_sub_dir_name()  # pylint: disable=protected-access
+    board_idx = 0
+    list_to_main_queue = drain_queue(to_main_queue)
+
     assert (
         file_writer_process._is_finalizing_files_after_recording() is False
     )  # pylint: disable=protected-access
-    assert len(file_writer_process._open_files[0].keys()) == 0  # pylint: disable=protected-access
-    assert len(file_writer_process._upload_threads_container) == 1  # pylint: disable=protected-access
+    assert file_writer_process._board_has_open_files(board_idx) is False  # pylint: disable=protected-access
+    assert len(list_to_main_queue) == 5
+    assert list_to_main_queue[-1]["communication_type"] == "update_upload_status"
+    assert json.loads(list_to_main_queue[-1]["content"]["data_json"])["file_name"] == sub_dir_name
     assert (
-        file_writer_process._upload_threads_container[0]["failed_upload"] is False
-    )  # pylint: disable=protected-access
-    assert (
-        file_writer_process._upload_threads_container[0]["customer_account_id"] == "test_customer_id"
-    )  # pylint: disable=protected-access
-    assert (
-        file_writer_process._upload_threads_container[0]["auto_delete"] is False
-    )  # pylint: disable=protected-access
-    assert (
-        file_writer_process._upload_threads_container[0]["file_name"] == "MA200440001__2020_02_09_190935"
-    )  # pylint: disable=protected-access
-
-    invoke_process_run_and_check_errors(file_writer_process, num_iterations=8)
-
-    assert to_main_queue[-1]["communication_type"] == "update_upload_status"
-    # pylint: disable=protected-access
-    assert (
-        json.loads(to_main_queue[-1]["content"]["data_json"])["file_name"] == "MA200440001__2020_02_09_190935"
+        json.loads(list_to_main_queue[-1]["content"]["data_json"])["error"] == mocked_thread_err.return_value
     )
 
 
@@ -1721,17 +1714,18 @@ def test_FileWriterProcess__no_upload_threads_are_started_when_auto_upload_is_fa
     update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
     update_customer_settings_command["config_settings"]["auto_delete_local_files"] = auto_delete
     update_customer_settings_command["config_settings"]["auto_upload_on_completion"] = False
-    file_writer_process_ready_for_upload = file_writer_process_with_closed_h5_files_for_upload(
+    file_writer_process_ready_for_upload = create_closed_h5_files_for_upload(
         four_board_file_writer_process=four_board_file_writer_process,
         update_customer_settings_command=update_customer_settings_command,
     )
     file_writer_process = file_writer_process_ready_for_upload["fw_process"]
     to_main_queue = file_writer_process_ready_for_upload["to_main_queue"]
 
-    invoke_process_run_and_check_errors(file_writer_process, num_iterations=7)
+    invoke_process_run_and_check_errors(file_writer_process, num_iterations=6)
+    list_to_main_queue = drain_queue(to_main_queue)
 
-    assert len(file_writer_process._upload_threads_container) == 0  # pylint: disable=protected-access
-    assert to_main_queue[-1]["communication_type"] == "file_finalized"
+    assert len(file_writer_process.get_upload_threads_container()) == 0  # pylint: disable=protected-access
+    assert list_to_main_queue[-1]["communication_type"] == "file_finalized"
 
 
 def test_FileWriterProcess__status_successfully_gets_added_to_main_queue_when_auto_upload_and_delete_are_true_without_error(
@@ -1740,16 +1734,21 @@ def test_FileWriterProcess__status_successfully_gets_added_to_main_queue_when_au
     update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
     update_customer_settings_command["config_settings"]["auto_delete_local_files"] = True
     update_customer_settings_command["config_settings"]["auto_upload_on_completion"] = True
-    file_writer_process_ready_for_upload = file_writer_process_with_closed_h5_files_for_upload(
+    file_writer_process_ready_for_upload = create_closed_h5_files_for_upload(
         four_board_file_writer_process=four_board_file_writer_process,
         update_customer_settings_command=update_customer_settings_command,
     )
     file_writer_process = file_writer_process_ready_for_upload["fw_process"]
     to_main_queue = file_writer_process_ready_for_upload["to_main_queue"]
-    mocker.patch.object(file_uploader.ErrorCatchingThread, "errors", autospe=True, return_value=False)
 
-    invoke_process_run_and_check_errors(file_writer_process, num_iterations=8)
+    mocker.patch.object(file_uploader.ErrorCatchingThread, "errors", autospec=True, return_value=False)
+    mocker.patch.object(file_uploader.ErrorCatchingThread, "start", autospec=True)
+    mocker.patch.object(file_uploader.ErrorCatchingThread, "join")
 
-    assert to_main_queue[-1]["communication_type"] == "update_upload_status"
-    assert "error" not in to_main_queue[-1]["content"]["data_json"]
-    assert len(file_writer_process._upload_threads_container) == 0  # pylint: disable=protected-access
+    invoke_process_run_and_check_errors(file_writer_process, num_iterations=6)
+    list_to_main_queue = drain_queue(to_main_queue)
+
+    assert len(list_to_main_queue) == 6
+    assert list_to_main_queue[-1]["communication_type"] == "update_upload_status"
+    assert "error" not in json.loads(list_to_main_queue[-1]["content"]["data_json"])
+    assert len(file_writer_process.get_upload_threads_container()) == 0  # pylint: disable=protected-access

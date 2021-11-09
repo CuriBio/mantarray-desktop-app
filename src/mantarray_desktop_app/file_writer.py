@@ -196,19 +196,29 @@ def _find_earliest_valid_stim_status_index(  # pylint: disable=invalid-name
 
 # pylint: disable=too-many-instance-attributes
 class FileWriterProcess(InfiniteProcess):
-    """Process that writes data to disk.
+    """Process that writes data to disk and uploads H5 files to the cloud.
 
     Args:
         board_queues: A tuple (the max number of board connections should be predefined, so not a mutable list) of tuples of 2 queues. The first queue is for incoming data for that board that should be saved to disk. The second queue is for outgoing data for that board that has been saved to disk.
-        from_main_queue: a queue of communication from the main process
-        to_main_queue: a queue to put general communication back to main (including file names of finished files into so the uploader can begin uploading)
-        fatal_error_reporter: a queue to report fatal errors back to the main process
+        from_main_queue: A queue of communication from the main process.
+        to_main_queue: A queue to put general communication back to main (including file names of finished files into so the uploader can begin uploading).
+        fatal_error_reporter: A queue to report fatal errors back to the main process.
+        stored_customer_settings: A dictionary containing stored customer account credentials and static file directorys (failed_uploads and zipped_recordings) from the Electron store.
+        file_directory: A static directory for recordings created in Electron.
 
     Attributes:
         _open_files: Holding all files currently open and being written to. A tuple (for each board) holding a dict keyed by well index that contains the H5 file object
         _start_recording_timestamps: Each index for each board. Will be None if board is not actively recording to file. Otherwise a tuple of the timestamp for index 0 in the SPI, and an int of how many centimilliseconds later recording was requested to begin at
         _stop_recording_timestamps: Each index for each board. Will be None if board has not received request to stop recording. Otherwise an int of how many centimilliseconds after SPI index 0 the recording was requested to stop at
         _tissue_data_finalized_for_recording: Each index for each board. A dict where they key is the well index. When start recording begins, dict is cleared, and all active well indices for recording are inserted as False. They become True after a stop_recording has been initiated and all data up to the stop point has successfully been written to file.
+        _end_of_data_stream_reached: A boolean for each board board queue on whether data is still getting streamed or not, set to False.
+        _start_recording_timestamps: A list containing a start timestamp for the beginning of a recording for each board queue, default for each board is None.
+        _stop_recording_timestamps: A list containing a stop timestamp for the end of a recording for each board queue, default for each board is None.
+        _tissue_data_finalized_for_recording: tuple containing boolean for each active well determining if recording tissue data is finalized for each board queue. If true for both tissue and reference data, the h5 file is ready to be closed. Default state is set to false.
+        _reference_data_finalized_for_recording: A tuple containing boolean for each active well determining if recording reference data is finalized for each board queue. If true for both tissue and reference data, the h5 file is ready to be closed. Default state is set to false.
+        _customer_settings: A dictionary of the current customer credentials, auto upload and auto delete settings that get stored from the update customer settings command from the main queue.
+        _sub_dir_name: The directory where the H5 files are written to inside the recording directory.
+        _upload_threads_container: A list that contains active upload threads that get looped through every interation.
     """
 
     def __init__(
@@ -325,6 +335,12 @@ class FileWriterProcess(InfiniteProcess):
 
     def get_stim_data_buffers(self, board_idx: int) -> Dict[int, Tuple[Deque[int], Deque[int]]]:
         return self._stim_data_buffers[board_idx]
+
+    def get_upload_threads_container(self) -> List[Dict[str, Any]]:
+        return self._upload_threads_container
+
+    def get_sub_dir_name(self) -> str:
+        return self._sub_dir_name
 
     def set_beta_2_mode(self) -> None:
         """For use in unit tests."""

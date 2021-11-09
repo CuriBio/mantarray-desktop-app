@@ -352,9 +352,7 @@ def fixture_running_four_board_file_writer_process(runnable_four_board_file_writ
     fw_process.join()
 
 
-def file_writer_process_with_closed_h5_files_for_upload(
-    four_board_file_writer_process, update_customer_settings_command
-):
+def create_closed_h5_files_for_upload(four_board_file_writer_process, update_customer_settings_command):
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
