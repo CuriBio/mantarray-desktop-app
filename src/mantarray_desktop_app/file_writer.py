@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Controlling communication with the OpalKelly FPGA Boards."""
+"""Recording data to file and uploading to cloud analysis."""
 from __future__ import annotations
 
 from collections import deque
@@ -324,36 +324,57 @@ class FileWriterProcess(InfiniteProcess):
         for this_file in self._open_files[0].values():
             this_file.close()
 
-    def get_file_directory(self) -> str:
-        return self._file_directory
-
     def get_stop_recording_timestamps(self) -> List[Optional[int]]:
         return self._stop_recording_timestamps
 
     def get_file_latest_timepoint(self, well_idx: int) -> int:
         return self._latest_data_timepoints[0][well_idx]
 
-    def get_stim_data_buffers(self, board_idx: int) -> Dict[int, Tuple[Deque[int], Deque[int]]]:
-        return self._stim_data_buffers[board_idx]
-
-    def get_upload_threads_container(self) -> List[Dict[str, Any]]:
-        return self._upload_threads_container
-
-    def get_sub_dir_name(self) -> str:
-        return self._sub_dir_name
-
-    def set_beta_2_mode(self) -> None:
-        """For use in unit tests."""
-        self._beta_2_mode = True
-
-    def is_recording(self) -> bool:
-        return self._is_recording
-
     def _board_has_open_files(self, board_idx: int) -> bool:
         return len(self._open_files[board_idx].keys()) > 0
 
     def _is_finalizing_files_after_recording(self) -> bool:
         return self._board_has_open_files(0) and not self._is_recording
+
+    def get_file_directory(self) -> str:
+        """Mainly for use in unit tests.
+
+        This will not return the correct value after updating the file
+        directory of a running process.
+        """
+        return self._file_directory
+
+    def get_customer_settings(self) -> Dict[str, Any]:
+        """Mainly for use in unit tests.
+
+        This will not return the correct value after updating the
+        customer settings of a running process.
+        """
+        return self._customer_settings
+
+    def is_recording(self) -> bool:
+        """Mainly for use in unit tests.
+
+        This will not return the correct value after updating it for a
+        of a running process.
+        """
+        return self._is_recording
+
+    def set_beta_2_mode(self) -> None:
+        """For use in unit tests."""
+        self._beta_2_mode = True
+
+    def get_upload_threads_container(self) -> List[Dict[str, Any]]:
+        """For use in unit tests."""
+        return self._upload_threads_container
+
+    def get_stim_data_buffers(self, board_idx: int) -> Dict[int, Tuple[Deque[int], Deque[int]]]:
+        """For use in unit tests."""
+        return self._stim_data_buffers[board_idx]
+
+    def get_sub_dir_name(self) -> str:
+        """For use in unit tests."""
+        return self._sub_dir_name
 
     def _setup_before_loop(self) -> None:
         super()._setup_before_loop()
@@ -438,7 +459,7 @@ class FileWriterProcess(InfiniteProcess):
             to_main.put_nowait(
                 {"communication_type": "command_receipt", "command": "stop_managed_acquisition"}
             )
-            # TODO Tanner (5/25/21): Consider finalizing all open files here. If they are somehow still open here, they will never close as no more data is coming in
+            # TODO Tanner (5/25/21): Set all finalization statuses to true here since no more data will be coming in
         elif command == "update_directory":
             self._file_directory = communication["new_directory"]
             to_main.put_nowait(
@@ -450,7 +471,6 @@ class FileWriterProcess(InfiniteProcess):
             )
         elif command == "update_customer_settings":
             self._customer_settings = communication["config_settings"]
-
             to_main.put_nowait(
                 {
                     "communication_type": "command_receipt",
@@ -648,10 +668,12 @@ class FileWriterProcess(InfiniteProcess):
     def _process_stop_recording_command(self, communication: Dict[str, Any]) -> None:
         self._is_recording = False
 
+        board_idx = 0
+
         stop_recording_timepoint = communication["timepoint_to_stop_recording_at"]
-        self.get_stop_recording_timestamps()[0] = stop_recording_timepoint
-        for this_well_idx in self._open_files[0].keys():
-            this_file = self._open_files[0][this_well_idx]
+        self.get_stop_recording_timestamps()[board_idx] = stop_recording_timepoint
+        for this_well_idx in self._open_files[board_idx].keys():
+            this_file = self._open_files[board_idx][this_well_idx]
             if self._beta_2_mode:
                 # find num points needed to remove from magnetometer datasets
                 time_index_dataset = get_time_index_dataset_from_file(this_file)
@@ -696,16 +718,24 @@ class FileWriterProcess(InfiniteProcess):
                     get_tissue_dataset_from_file(this_file),
                     get_reference_dataset_from_file(this_file),
                 ]
+                # update finalization status
                 for dataset in datasets:
                     last_index_of_valid_data = _find_last_valid_data_index(
                         latest_timepoint,
                         dataset.shape[0] - 1,
                         stop_recording_timepoint,
                     )
-                    index_to_slice_to = last_index_of_valid_data + 1
-                    new_data = dataset[:index_to_slice_to]
+                    new_data = dataset[: last_index_of_valid_data + 1]
                     dataset.resize(new_data.shape)
-            # TODO Tanner (5/19/21): consider finalizing any files here that are ready
+                finalization_status = bool(  # need to convert from numpy._bool to regular bool
+                    latest_timepoint >= stop_recording_timepoint
+                )
+                self._tissue_data_finalized_for_recording[board_idx][this_well_idx] = finalization_status
+                self._reference_data_finalized_for_recording[board_idx][this_well_idx] = (
+                    self._beta_2_mode or finalization_status
+                )
+        # finalize here instead of waiting for next packet
+        self._finalize_completed_files()
 
     def _finalize_completed_files(self) -> None:
         """Finalize H5 files.
@@ -736,6 +766,7 @@ class FileWriterProcess(InfiniteProcess):
             )
             del self._open_files[0][this_well_idx]
 
+            # after all files are finalized, upload them if necessary
             if not self._is_finalizing_files_after_recording() and self._customer_settings:
                 self._start_new_file_upload()
 
@@ -1065,7 +1096,6 @@ class FileWriterProcess(InfiniteProcess):
         directory to process later.
         """
         if self._stored_customer_settings is not None:
-
             auto_upload = self._customer_settings["auto_upload_on_completion"]
             auto_delete = self._customer_settings["auto_delete_local_files"]
             customer_account_id = self._customer_settings["customer_account_id"]
@@ -1092,7 +1122,6 @@ class FileWriterProcess(InfiniteProcess):
                     "file_name": self._sub_dir_name,
                 }
                 self._upload_threads_container.append(thread_dict)
-
             elif auto_delete:
                 self._delete_local_files(sub_dir=self._sub_dir_name)
 
@@ -1106,7 +1135,6 @@ class FileWriterProcess(InfiniteProcess):
         # Remove directory and all .h5 files
         for file in os.listdir(file_folder_dir):
             os.remove(os.path.join(file_folder_dir, file))
-
         os.rmdir(file_folder_dir)
 
     def _process_new_failed_upload_files(self, sub_dir: str) -> None:
@@ -1140,12 +1168,13 @@ class FileWriterProcess(InfiniteProcess):
         zipped_recordings directory, but will not move on error.
         """
         if self._stored_customer_settings is not None:
-            # this path is created in electrons main process, but this check is for testing purposes
             failed_uploads_dir = self._stored_customer_settings["failed_uploads_dir"]
             zipped_recordings_dir = self._stored_customer_settings["zipped_recordings_dir"]
             stored_customer_ids = self._stored_customer_settings["stored_customer_ids"]
 
-            if os.path.exists(failed_uploads_dir):  # for testing
+            if os.path.exists(
+                failed_uploads_dir
+            ):  # TODO Tanner (11/9/21): should log if folder for failed uploads not found
                 for customer_dir in os.listdir(failed_uploads_dir):
                     customer_passkey = stored_customer_ids[customer_dir]
                     customer_failed_uploads_dir = os.path.join(failed_uploads_dir, customer_dir)
@@ -1181,7 +1210,7 @@ class FileWriterProcess(InfiniteProcess):
         if self._stored_customer_settings is not None:
             for thread_dict in self._upload_threads_container:
                 thread = thread_dict["thread"]
-                failed_upload = thread_dict["failed_upload"]
+                previously_failed_upload = thread_dict["failed_upload"]
                 customer_account_id = thread_dict["customer_account_id"]
                 auto_delete = thread_dict["auto_delete"]
                 file_name = thread_dict["file_name"]
@@ -1193,10 +1222,10 @@ class FileWriterProcess(InfiniteProcess):
 
                     if thread.errors():
                         upload_status["error"] = thread.get_error()
-                        if not failed_upload:
+                        if not previously_failed_upload:
                             self._process_new_failed_upload_files(sub_dir=file_name)
                     else:
-                        if failed_upload:
+                        if previously_failed_upload:
                             shutil.move(
                                 os.path.join(
                                     self._stored_customer_settings["failed_uploads_dir"],

@@ -19,7 +19,6 @@ from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
-from mantarray_desktop_app import DATA_FRAME_PERIOD
 from mantarray_desktop_app import FileWriterProcess
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
@@ -62,21 +61,26 @@ from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
 import pytest
+from stdlib_utils import drain_queue
+from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import TestingQueue
 
 from .fixtures import GENERIC_STORED_CUSTOMER_IDS
+from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .fixtures_mc_simulator import get_null_subprotocol
 from .fixtures_mc_simulator import get_random_subprotocol
+from .helpers import confirm_queue_is_eventually_empty
+from .helpers import confirm_queue_is_eventually_of_size
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 WELL_DEF_24 = LabwareDefinition(row_count=4, column_count=6)
 
 
 GENERIC_ADC_OFFSET_VALUES: Dict[int, Dict[str, int]] = dict()
-for well_idx in range(24):
-    GENERIC_ADC_OFFSET_VALUES[well_idx] = {
-        "construct": well_idx * 2,
-        "ref": well_idx * 2 + 1,
+for this_well_idx in range(24):
+    GENERIC_ADC_OFFSET_VALUES[this_well_idx] = {
+        "construct": this_well_idx * 2,
+        "ref": this_well_idx * 2 + 1,
     }
 
 GENERIC_WELL_MAGNETOMETER_CONFIGURATION = {
@@ -221,9 +225,10 @@ GENERIC_REFERENCE_SENSOR_DATA_PACKET = {
 
 
 def open_the_generic_h5_file(
-    file_dir: str, well_name: str = "A2", beta_version: int = 1
+    file_dir: str, well_name: str = "A2", beta_version: int = 1, timestamp_str: Optional[str] = None
 ) -> h5py._hl.files.File:  # pylint: disable=protected-access # this is the only type definition Eli (2/24/20) could find for a File
-    timestamp_str = "2020_02_09_190935" if beta_version == 1 else "2020_02_09_190359"
+    if timestamp_str is None:
+        timestamp_str = "2020_02_09_190935" if beta_version == 1 else "2020_02_09_190359"
     barcode = GENERIC_BASE_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
@@ -348,85 +353,67 @@ def fixture_running_four_board_file_writer_process(runnable_four_board_file_writ
     fw_process.join()
 
 
-def create_closed_h5_files_for_upload(four_board_file_writer_process, update_customer_settings_command):
+def create_and_close_beta_1_h5_files(
+    four_board_file_writer_process,
+    update_customer_settings_command,
+    num_data_points=10,
+    active_well_indices=None,
+):
+    if not active_well_indices:
+        active_well_indices = [0]
+    fw_process = four_board_file_writer_process["fw_process"]
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
 
+    # store new customer settings
     this_command = copy.deepcopy(update_customer_settings_command)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
+    invoke_process_run_and_check_errors(fw_process)
+    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # remove update settings command receipt
 
+    # start recording
     start_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
-    start_command["active_well_indices"] = [4, 5]
-    num_data_points = 10
+    start_command["timepoint_to_begin_recording_at"] = 0
+    start_command["active_well_indices"] = active_well_indices
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
+    invoke_process_run_and_check_errors(fw_process)
+    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # remove start recording command receipt
 
-    data = np.zeros((2, num_data_points), dtype=np.int32)
-
-    for this_idx in range(num_data_points):
-        data[0, this_idx] = (
-            start_command["timepoint_to_begin_recording_at"] + this_idx * REFERENCE_SENSOR_SAMPLING_PERIOD
-        )
-        data[1, this_idx] = this_idx * 2
-
-    this_data_packet = copy.deepcopy(GENERIC_REFERENCE_SENSOR_DATA_PACKET)
-    this_data_packet["data"] = data
-    queue_to_file_writer_from_board_0 = board_queues[0][0]
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_data_packet,
-        queue_to_file_writer_from_board_0,
+    # create data
+    tissue_data = np.array([np.arange(num_data_points), np.arange(num_data_points) * 2], dtype=np.int32)
+    ref_data = np.array([np.arange(num_data_points), np.arange(num_data_points) * 2], dtype=np.int32)
+    # load tissue data
+    for well_idx in active_well_indices:
+        this_tissue_data_packet = copy.deepcopy(GENERIC_TISSUE_DATA_PACKET)
+        this_tissue_data_packet["data"] = tissue_data
+        this_tissue_data_packet["well_index"] = well_idx
+        board_queues[0][0].put_nowait(this_tissue_data_packet)
+    confirm_queue_is_eventually_of_size(board_queues[0][0], len(active_well_indices))
+    invoke_process_run_and_check_errors(fw_process, num_iterations=len(active_well_indices))
+    confirm_queue_is_eventually_empty(board_queues[0][0])
+    # load ref data
+    this_ref_data_packet = copy.deepcopy(GENERIC_REFERENCE_SENSOR_DATA_PACKET)
+    this_ref_data_packet["data"] = ref_data
+    this_ref_data_packet[
+        "reference_for_wells"
+    ] = set(  # Tanner (11/9/21): linking this to each active well to simplify function. This is not how real Beta 1 ref data will parsed
+        active_well_indices
     )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_ref_data_packet, board_queues[0][0])
+    invoke_process_run_and_check_errors(fw_process)
 
-    # tissue data
-    data = np.zeros((2, num_data_points), dtype=np.int32)
-
-    for this_idx in range(num_data_points):
-        data[0, this_idx] = (
-            start_command["timepoint_to_begin_recording_at"]
-            + this_idx * CONSTRUCT_SENSOR_SAMPLING_PERIOD
-            + DATA_FRAME_PERIOD
-        )
-        data[1, this_idx] = this_idx * 2
-
-    this_data_packet = copy.deepcopy(GENERIC_TISSUE_DATA_PACKET)
-    this_data_packet["data"] = data
-
-    board_queues[0][0].put_nowait(this_data_packet)
-    data_packet_for_5 = copy.deepcopy(this_data_packet)
-    data_packet_for_5["well_index"] = 5
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        data_packet_for_5,
-        board_queues[0][0],
-    )
-
+    # stop recording
     stop_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    stop_command["timepoint_to_stop_recording_at"] = tissue_data[0, -1]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
+    invoke_process_run_and_check_errors(fw_process)
+    # confirm each finalization message and stop recording receipt are sent
+    confirm_queue_is_eventually_of_size(to_main_queue, len(active_well_indices) + 1)
+    finalization_messages = drain_queue(to_main_queue)[:-1]
 
-    # reference data
-    reference_data_packet_after_stop = copy.deepcopy(GENERIC_REFERENCE_SENSOR_DATA_PACKET)
-    data_after_stop = np.zeros((2, num_data_points), dtype=np.int32)
-    for this_idx in range(num_data_points):
-        data_after_stop[0, this_idx] = (
-            stop_command["timepoint_to_stop_recording_at"] + (this_idx - 5) * REFERENCE_SENSOR_SAMPLING_PERIOD
-        )
-        data_after_stop[1, this_idx] = this_idx * 5
-    reference_data_packet_after_stop["data"] = data_after_stop
+    # drain output queue to avoid BrokenPipeErrors
+    drain_queue(board_queues[0][1])
 
-    board_queues[0][0].put_nowait(reference_data_packet_after_stop)
-
-    # tissue data
-    tissue_data_packet_after_stop = copy.deepcopy(GENERIC_TISSUE_DATA_PACKET)
-    data_after_stop = np.zeros((2, num_data_points), dtype=np.int32)
-    for this_idx in range(num_data_points):
-        data_after_stop[0, this_idx] = (
-            stop_command["timepoint_to_stop_recording_at"] + this_idx * CONSTRUCT_SENSOR_SAMPLING_PERIOD
-        )
-    tissue_data_packet_after_stop["data"] = data_after_stop
-    board_queues[0][0].put_nowait(tissue_data_packet_after_stop)
-    data_packet_for_5 = copy.deepcopy(tissue_data_packet_after_stop)
-    data_packet_for_5["well_index"] = 5
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        data_packet_for_5,
-        board_queues[0][0],
-    )
-
-    return four_board_file_writer_process
+    # tests may want to make assertions on these messages, so returning them
+    return finalization_messages
