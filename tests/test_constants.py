@@ -71,6 +71,7 @@ from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from mantarray_desktop_app import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from mantarray_desktop_app import SERIAL_COMM_BAUD_RATE
+from mantarray_desktop_app import SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_BOOT_UP_CODE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
@@ -79,7 +80,9 @@ from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_SUCCESS_BYTE
 from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from mantarray_desktop_app import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_FATAL_ERROR_CODE
+from mantarray_desktop_app import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
@@ -461,6 +464,9 @@ def test_serial_comm():
     assert SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE == 20
     assert SERIAL_COMM_START_STIM_PACKET_TYPE == 21
     assert SERIAL_COMM_STOP_STIM_PACKET_TYPE == 22
+    assert SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE == 70
+    assert SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE == 71
+    assert SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE == 72
     assert SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE == 255
 
     assert SERIAL_COMM_REBOOT_COMMAND_BYTE == 0

@@ -41,12 +41,15 @@ from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MICROSECONDS_PER_MILLISECOND
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
+from .constants import SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_BOOT_UP_CODE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from .constants import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
+from .constants import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_FATAL_ERROR_CODE
+from .constants import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
@@ -229,6 +232,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._stim_time_indices: List[int]
         self._stim_subprotocol_indices: List[int]
         self._reset_stim_running_statuses()
+        self._firmware_update_type: Optional[int]
         self._handle_boot_up_config()
 
     def start(self) -> None:
@@ -322,6 +326,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._sampling_period_us = 0
         self._stim_info = {}
         self._is_stimulating = False
+        self._firmware_update_type = None
         if reboot:
             drain_queue(self._input_queue)
             # only boot up time automatically after a reboot
@@ -513,7 +518,10 @@ class MantarrayMcSimulator(InfiniteProcess):
             SERIAL_COMM_TIMESTAMP_BYTES_INDEX : SERIAL_COMM_TIMESTAMP_BYTES_INDEX
             + SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
         ]
+
         response_body = timestamp_from_pc_bytes
+        response_packet_type = SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+
         packet_type = comm_from_pc[SERIAL_COMM_PACKET_TYPE_INDEX]
         if packet_type == SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE:
             command_byte = comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX]
@@ -585,6 +593,23 @@ class MantarrayMcSimulator(InfiniteProcess):
             if not command_failed:
                 self._handle_manual_stim_stop()
                 self._is_stimulating = False
+        elif packet_type == SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE:
+            firmware_type = comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX]
+            self._firmware_update_type = firmware_type
+            command_failed = firmware_type not in (0, 1)
+            response_body += bytes([command_failed])
+            response_packet_type = SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
+        elif packet_type == SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE:
+            response_body += bytes([0])  # have command always succeed for now
+            response_packet_type = SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
+        elif packet_type == SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE:
+            if self._firmware_update_type is None:
+                # Tanner (11/10/21): currently unsure how real board would handle receiving this packet before the previous two firmware packet types
+                raise NotImplementedError("self._firmware_update_type should never be None here")
+            response_body += bytes([self._firmware_update_type])
+            response_body += bytes([0, 0, 0])  # simulator will always have firmware version 0.0.0
+            response_packet_type = SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
+            self._firmware_update_type = None
         else:
             module_id = comm_from_pc[SERIAL_COMM_MODULE_ID_INDEX]
             raise UnrecognizedSerialCommPacketTypeError(
@@ -592,7 +617,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             )
         self._send_data_packet(
             SERIAL_COMM_MAIN_MODULE_ID,
-            SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+            response_packet_type,
             response_body,
         )
         # update status code (if an update is necessary) after sending command response
@@ -674,6 +699,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         )
 
     def _handle_test_comm(self) -> None:
+        # pylint: disable=too-many-nested-blocks  # Tanner (11/10/21): unsure why this error is appearing all of a sudden
         try:
             test_comm = self._testing_queue.get_nowait()
         except queue.Empty:

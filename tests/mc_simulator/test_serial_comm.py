@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import random
 from random import randint
+from zlib import crc32
 
 from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import convert_to_status_code_bytes
@@ -11,6 +12,7 @@ from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
+from mantarray_desktop_app import SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_BOOT_UP_CODE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
@@ -18,7 +20,9 @@ from mantarray_desktop_app import SERIAL_COMM_COMMAND_FAILURE_BYTE
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_SUCCESS_BYTE
 from mantarray_desktop_app import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_FATAL_ERROR_CODE
+from mantarray_desktop_app import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
@@ -28,6 +32,7 @@ from mantarray_desktop_app import SERIAL_COMM_IDLE_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
+from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
@@ -883,3 +888,145 @@ def test_MantarrayMcSimulator__processes_change_magnetometer_config_command__whe
     assert updated_magnetometer_config == MantarrayMcSimulator.default_24_well_magnetometer_config
 
     simulator.hard_stop()  # prevent BrokenPipeErrors
+
+
+# TODO update tests below once firmware update flow chart is created
+
+
+@pytest.mark.parametrize("firmware_type", [0, 1, 2])
+def test_MantarrayMcSimulator__processes_begin_firmware_update_command(
+    mantarray_mc_simulator_no_beacon, firmware_type
+):
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+    begin_firmware_update_command = create_data_packet(
+        expected_pc_timestamp,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE,
+        bytes([firmware_type])
+        + randint(1, 0xFFFFFFFF).to_bytes(4, byteorder="little"),  # arbitrary non-zero value
+    )
+    simulator.write(begin_firmware_update_command)
+    # process command and return response
+    invoke_process_run_and_check_errors(simulator)
+    # assert command response is correct
+    command_response = simulator.read(
+        size=get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1)
+    )
+    expected_success_value = int(firmware_type not in (0, 1))
+    assert_serial_packet_is_expected(
+        command_response,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE,
+        additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp) + bytes([expected_success_value]),
+    )
+
+
+def test_MantarrayMcSimulator__processes_successful_firmware_update_packet(
+    mantarray_mc_simulator_no_beacon,
+):
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    expected_firmware_len = randint(
+        SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES,
+        SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES * 2 - 2,  # subtract 2 for packet number bytes
+    )
+    begin_firmware_update_command = create_data_packet(
+        randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE),
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE,
+        bytes([randint(0, 1)]) + expected_firmware_len.to_bytes(4, byteorder="little"),
+    )
+    simulator.write(begin_firmware_update_command)
+    # process command and return response
+    invoke_process_run_and_check_errors(simulator)
+    simulator.read_all()
+
+    # send two firmware update packets
+    packet_body_sizes = (
+        SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES,
+        expected_firmware_len - SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES,
+    )
+    for packet_idx, packet_body_size in enumerate(packet_body_sizes):
+        expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+        firmware_update_packet = create_data_packet(
+            expected_pc_timestamp,
+            SERIAL_COMM_MAIN_MODULE_ID,
+            SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE,
+            bytes([packet_idx])
+            + bytes([randint(0, 255) for _ in range(packet_body_size)]),  # arbitrary bytes
+        )
+        simulator.write(firmware_update_packet)
+        invoke_process_run_and_check_errors(simulator)
+        # assert command response is correct
+        command_response = simulator.read(
+            size=get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1)
+        )
+        assert_serial_packet_is_expected(
+            command_response,
+            SERIAL_COMM_MAIN_MODULE_ID,
+            SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE,
+            additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp) + bytes([0]),
+            error_msg=f"packet {packet_idx}",
+        )
+
+
+@pytest.mark.parametrize("firmware_type", [0, 1])
+def test_MantarrayMcSimulator__processes_end_firmware_update_command(
+    mantarray_mc_simulator_no_beacon, firmware_type
+):
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    expected_firmware_len = SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES - 1
+    expected_firmware_bytes = bytes([randint(0, 255) for _ in range(expected_firmware_len)])
+
+    # first need to start firmware update
+    begin_firmware_update_command = create_data_packet(
+        randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE),
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE,
+        bytes([firmware_type]) + expected_firmware_len.to_bytes(4, byteorder="little"),
+    )
+    simulator.write(begin_firmware_update_command)
+    invoke_process_run_and_check_errors(simulator)
+    simulator.read_all()
+    # send firmware bytes
+    simulator.write(
+        create_data_packet(
+            randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE),
+            SERIAL_COMM_MAIN_MODULE_ID,
+            SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE,
+            bytes([0]) + expected_firmware_bytes,
+        )
+    )
+    invoke_process_run_and_check_errors(simulator)
+    simulator.read_all()
+
+    firmware_crc32_checksum = crc32(expected_firmware_bytes)
+
+    # end firmware update
+    expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+    end_firmware_update_command = create_data_packet(
+        expected_pc_timestamp,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE,
+        firmware_crc32_checksum.to_bytes(4, byteorder="little"),
+    )
+    simulator.write(end_firmware_update_command)
+    # process command and return response
+    invoke_process_run_and_check_errors(simulator)
+    # assert command response is correct
+    command_response = simulator.read(
+        size=get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 4)
+    )
+    assert_serial_packet_is_expected(
+        command_response,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE,
+        additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp)
+        + bytes([firmware_type, 0, 0, 0]),  # simulator will always have firmware version 0.0.0
+    )
