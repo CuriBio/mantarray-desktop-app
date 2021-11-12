@@ -470,9 +470,16 @@ class FileWriterProcess(InfiniteProcess):
         attrs_to_copy = communication["metadata_to_copy_onto_main_file_attributes"]
         barcode = attrs_to_copy[PLATE_BARCODE_UUID]
         sample_idx_zero_timestamp = attrs_to_copy[UTC_BEGINNING_DATA_ACQUISTION_UUID]
+    
+        time_index_to_begin_recording_at = communication[
+            "timepoint_to_begin_recording_at"  # TODO Tanner (11/12/21): change time point to time index where necessary
+        ]
+        if not self._beta_2_mode:
+            # Tanner (11/12/21): FE will send this value in µs so need to convert to cms for Beta 1 data
+            time_index_to_begin_recording_at /= MICROSECONDS_PER_CENTIMILLISECOND
         self._start_recording_timestamps[board_idx] = (
             sample_idx_zero_timestamp,
-            communication["timepoint_to_begin_recording_at"],
+            time_index_to_begin_recording_at,
         )
         timedelta_to_recording_start = datetime.timedelta(
             seconds=communication["timepoint_to_begin_recording_at"]
