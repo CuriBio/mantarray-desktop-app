@@ -472,7 +472,9 @@ class FileWriterProcess(InfiniteProcess):
         sample_idx_zero_timestamp = attrs_to_copy[UTC_BEGINNING_DATA_ACQUISTION_UUID]
         self._start_recording_timestamps[board_idx] = (
             sample_idx_zero_timestamp,
-            communication["timepoint_to_begin_recording_at"],
+            communication[
+                "timepoint_to_begin_recording_at"  # TODO Tanner (11/12/21): change timepoint to time_index where necessary
+            ],
         )
         timedelta_to_recording_start = datetime.timedelta(
             seconds=communication["timepoint_to_begin_recording_at"]
