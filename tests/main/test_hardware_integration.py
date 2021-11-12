@@ -72,7 +72,7 @@ RANDOM_STIM_INFO_2 = create_random_stim_info()  # type: ignore
 
 COMMAND_RESPONSE_SEQUENCE = [
     # First two commands come in different orders with live board and simulator
-    ("get_metadata", "get_metadata"),
+    ("get_metadata", "get_metadata"),  # first with real board
     ("change_magnetometer_config_1", "magnetometer_config_1"),
     # MAGNETOMETERS  # at of last test, data stream having issues
     ("start_managed_acquisition", "start_md_1"),
@@ -240,11 +240,12 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
         try:
             while not response_found:
                 # check for error
-                try:
-                    error = error_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-                    assert False, get_formatted_stack_trace(error[0])
-                except queue.Empty:
-                    pass
+                if not error_queue.empty():
+                    try:
+                        error = error_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+                        assert False, get_formatted_stack_trace(error[0])
+                    except queue.Empty:
+                        assert False, "Error queue reported not empty but no error found in queue"
                 # check for message to main
                 try:
                     msg_to_main = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -260,6 +261,9 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
                     # if message is some other form of expected message, just print it
                     print("###", msg_to_main)  # allow-print
                 elif comm_type == expected_response["communication_type"]:
+                    if msg_to_main.get("command", "") == "status_update":
+                        print("###", msg_to_main)
+                        continue
                     if "timestamp" in msg_to_main:
                         del msg_to_main["timestamp"]
                     # if message is the response, make sure it is as expected
@@ -312,7 +316,7 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
 
     # test keys of dict going to file writer. tests on the actual data will be done in the full integration test
     test_num_wells = 24
-    expected_fw_item = {"time_indices": None}
+    expected_fw_item = {"time_indices": None, "data_type": "magnetometer"}
     for well_idx in range(test_num_wells):
         module_config_values = list(
             DEFAULT_MAGNETOMETER_CONFIG[SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]].values()
@@ -338,9 +342,12 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
     expected_fw_item["is_first_packet_of_stream"] = None
 
     for actual_item in data_sent_to_fw:
+        if actual_item["data_type"] =="stimulation":
+            print("### Ignoring stim packet:", actual_item)
+            continue
         assert actual_item.keys() == expected_fw_item.keys()
         for key, expected_item in expected_fw_item.items():
-            if key in ("is_first_packet_of_stream", "time_indices"):
+            if key in ("is_first_packet_of_stream", "time_indices", "data_type"):
                 continue
             item = actual_item[key]
             assert item.keys() == expected_item.keys()  # pylint: disable=no-member
