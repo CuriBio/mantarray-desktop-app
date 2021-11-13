@@ -36,7 +36,7 @@ def get_access_token(customer_account_id: str, password: str) -> str:
         password: current customer account password.
     """
     get_auth_response = requests.post(
-        "https://<TODO>.execute-api.us-east-1.amazonaws.com/prod-lambda-gw-stage/get_auth",
+        "https://nrrl8ojy7f.execute-api.us-east-1.amazonaws.com/iac-324-lambda-gw-stage/get_auth",
         json={"username": customer_account_id, "password": password},
     )
 
@@ -54,7 +54,7 @@ def get_upload_details(access_token: str, file_name: str, file_md5: str) -> Dict
         file_md5: md5 hash.
     """
     sdk_upload_response = requests.post(
-        "https://<TODO>.execute-api.us-east-1.amazonaws.com/prod-lambda-gw-stage/sdk_upload",
+        "https://nrrl8ojy7f.execute-api.us-east-1.amazonaws.com/iac-324-lambda-gw-stage/sdk_upload",
         json={"file_name": file_name},
         headers={"Authorization": f"Bearer {access_token}", "Content-MD5": file_md5},
     )
@@ -118,7 +118,7 @@ def get_sdk_status(access_token: str, upload_details: Dict[Any, Any]) -> str:
     """
     upload_id = upload_details["upload_id"]
     status_response = requests.get(
-        f"https://<TODO>.execute-api.us-east-1.amazonaws.com/prod-lambda-gw-stage/get_sdk_status?upload_id={upload_id}",
+        f"https://nrrl8ojy7f.execute-api.us-east-1.amazonaws.com/iac-324-lambda-gw-stage/get_sdk_status?upload_id={upload_id}",
         headers={"Authorization": f"Bearer {access_token}"},
     )
 
