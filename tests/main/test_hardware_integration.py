@@ -47,24 +47,24 @@ RANDOM_STIM_INFO_1 = {
     "protocols": [
         {
             "protocol_id": "A",
-            "run_until_stopped": True,
+            "run_until_stopped": False,
             "stimulation_type": "C",
             "subprotocols": [
                 {
-                    "phase_one_duration": 20000,
+                    "phase_one_duration": 10000,
                     "phase_one_charge": 50000,
                     "interphase_interval": 10000,
-                    "phase_two_duration": 20000,
+                    "phase_two_duration": 10000,
                     "phase_two_charge": -50000,
-                    "repeat_delay_interval": 116666,
-                    "total_active_duration": 1000,
+                    "repeat_delay_interval": 50000,
+                    "total_active_duration": 5000,
                 },
-                get_null_subprotocol(1000),  # type: ignore
+                # get_null_subprotocol(1000),  # type: ignore
             ],
         }
     ],
     "protocol_assignments": {
-        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): ("A" if well_idx == 0 else None)
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): ("A" if well_idx in (0, 3, 20, 23) else None)
         for well_idx in range(24)
     },
 }
@@ -75,11 +75,11 @@ COMMAND_RESPONSE_SEQUENCE = [
     ("get_metadata", "get_metadata"),  # first with real board
     ("change_magnetometer_config_1", "magnetometer_config_1"),
     # MAGNETOMETERS  # at of last test, data stream having issues
-    ("start_managed_acquisition", "start_md_1"),
-    ("start_managed_acquisition", "start_md_2"),
-    ("stop_managed_acquisition", "stop_md_1"),
-    ("stop_managed_acquisition", "stop_md_2"),
-    ("change_magnetometer_config_2", "magnetometer_config_2"),
+    # ("start_managed_acquisition", "start_md_1"),
+    # ("start_managed_acquisition", "start_md_2"),
+    # ("stop_managed_acquisition", "stop_md_1"),
+    # ("stop_managed_acquisition", "stop_md_2"),
+    # ("change_magnetometer_config_2", "magnetometer_config_2"),
     # STIMULATORS
     ("start_stimulation", "start_stim_1"),
     ("stop_stimulation", "stop_stim_1"),
@@ -276,9 +276,9 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
                         print("Sleeping so data can be produced and parsed...")  # allow-print
                         time.sleep(2)
                         print("End sleep...")  # allow-print
-                    # if response_key == "start_stim_2_1":
-                    #     print("Sleeping for a while...")
-                    #     time.sleep(1000)
+                    if response_key == "start_stim_2_1":
+                        print("Sleeping to let stim complete") #for a while...")
+                        time.sleep(20)
                     response_found = True
                 elif msg_to_main.get("command", None) == "set_time" or comm_type == "barcode_comm":
                     # this branch not needed for real board
