@@ -73,6 +73,7 @@ from mantarray_desktop_app import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from mantarray_desktop_app import SERIAL_COMM_BAUD_RATE
 from mantarray_desktop_app import SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_BOOT_UP_CODE
+from mantarray_desktop_app import SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_FAILURE_BYTE
@@ -98,6 +99,7 @@ from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_METADATA_BYTES_LENGTH
+from mantarray_desktop_app import SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_INDEX
@@ -467,6 +469,8 @@ def test_serial_comm():
     assert SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE == 70
     assert SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE == 71
     assert SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE == 72
+    assert SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE == 73
+    assert SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE == 74
     assert SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE == 255
 
     assert SERIAL_COMM_REBOOT_COMMAND_BYTE == 0

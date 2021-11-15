@@ -14,6 +14,7 @@ from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_BOOT_UP_CODE
+from mantarray_desktop_app import SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_FAILURE_BYTE
@@ -34,6 +35,7 @@ from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
+from mantarray_desktop_app import SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
@@ -975,8 +977,9 @@ def test_MantarrayMcSimulator__processes_successful_firmware_update_packet(
 
 
 @pytest.mark.parametrize("firmware_type", [0, 1])
+@pytest.mark.parametrize("is_checksum_correct", [True, False])
 def test_MantarrayMcSimulator__processes_end_firmware_update_command(
-    mantarray_mc_simulator_no_beacon, firmware_type
+    mantarray_mc_simulator_no_beacon, firmware_type, is_checksum_correct
 ):
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
@@ -1007,6 +1010,8 @@ def test_MantarrayMcSimulator__processes_end_firmware_update_command(
     simulator.read_all()
 
     firmware_crc32_checksum = crc32(expected_firmware_bytes)
+    if not is_checksum_correct:
+        firmware_crc32_checksum -= 1
 
     # end firmware update
     expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
@@ -1018,15 +1023,89 @@ def test_MantarrayMcSimulator__processes_end_firmware_update_command(
     )
     simulator.write(end_firmware_update_command)
     # process command and return response
+    assert simulator.is_rebooting() is False
     invoke_process_run_and_check_errors(simulator)
+    # make sure simulator is rebooting if checksum is correct
+    assert simulator.is_rebooting() is is_checksum_correct
     # assert command response is correct
     command_response = simulator.read(
-        size=get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 4)
+        size=get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1)
     )
     assert_serial_packet_is_expected(
         command_response,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE,
-        additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp)
-        + bytes([firmware_type, 0, 0, 0]),  # simulator will always have firmware version 0.0.0
+        additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp) + bytes([not is_checksum_correct]),
+    )
+
+
+@pytest.mark.parametrize(
+    "firmware_type,packet_type",
+    [
+        (0, SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE),
+        (1, SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE),
+    ],
+)
+def test_MantarrayMcSimulator__sends_firmware_update_complete_message_after_reboot(
+    mantarray_mc_simulator_no_beacon, firmware_type, packet_type, mocker
+):
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    expected_firmware_len = SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES - 1
+    expected_firmware_bytes = bytes([randint(0, 255) for _ in range(expected_firmware_len)])
+
+    # first need to start firmware update
+    begin_firmware_update_command = create_data_packet(
+        randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE),
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE,
+        bytes([firmware_type]) + expected_firmware_len.to_bytes(4, byteorder="little"),
+    )
+    simulator.write(begin_firmware_update_command)
+    invoke_process_run_and_check_errors(simulator)
+    simulator.read_all()
+    # send firmware bytes
+    simulator.write(
+        create_data_packet(
+            randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE),
+            SERIAL_COMM_MAIN_MODULE_ID,
+            SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE,
+            bytes([0]) + expected_firmware_bytes,
+        )
+    )
+    invoke_process_run_and_check_errors(simulator)
+    simulator.read_all()
+    # end of firmware update
+    expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+    end_firmware_update_command = create_data_packet(
+        expected_pc_timestamp,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE,
+        crc32(expected_firmware_bytes).to_bytes(4, byteorder="little"),
+    )
+    simulator.write(end_firmware_update_command)
+    invoke_process_run_and_check_errors(simulator)
+    simulator.read_all()
+
+    assert simulator.is_rebooting() is True
+    assert simulator.in_waiting == 0
+
+    # mock so reboot completes on next iteration
+    mocker.patch.object(
+        mc_simulator,
+        "_get_secs_since_reboot_command",
+        autospec=True,
+        return_value=AVERAGE_MC_REBOOT_DURATION_SECONDS,
+    )
+    # complete reboot and send firmware update complete packet
+    invoke_process_run_and_check_errors(simulator)
+    assert simulator.is_rebooting() is False
+
+    command_response = simulator.read(size=get_full_packet_size_from_packet_body_size(3))
+    assert_serial_packet_is_expected(
+        command_response,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        packet_type,
+        additional_bytes=bytes([0, 0, 0]),  # simulator will always return firmware version 0.0.0
     )
