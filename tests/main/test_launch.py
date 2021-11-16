@@ -432,7 +432,7 @@ def test_main__generates_log_file_uuid_if_none_passed_in_cmd_line_args(
     with tempfile.TemporaryDirectory() as tmp:
         test_dict = {
             "stored_customer_ids": {
-                "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
+                "73f52be0-368c-42d8-a1fd-660d49ba5604": "Filler_password123",
             },
             "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
             "zipped_recordings_dir": f"/{tmp}/zipped_recordings",

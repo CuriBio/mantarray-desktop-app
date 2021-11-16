@@ -38,7 +38,7 @@ const create_store = function ({
     deserialize: yaml.load,
     defaults: {
       customer_account_ids: {
-        "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
+        "73f52be0-368c-42d8-a1fd-660d49ba5604": "Filler_password123",
       },
       user_account_id: "455b93eb-c78f-4494-9f73-d3291130f126",
       active_customer_account_index: 0,

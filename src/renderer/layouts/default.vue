@@ -75,7 +75,8 @@
       </span>
     </div>
     <div class="div__top-bar-above-waveforms">
-      <div class="div__recording-time-container">
+      <div class="div__recording-status-container">
+        <UploadFilesWidget />
         <RecordingTime />
       </div>
     </div>
@@ -94,6 +95,7 @@ import {
   SimulationMode,
   RecordingTime,
   StimulationStudioControls,
+  UploadFilesWidget,
 } from "@curi-bio/mantarray-frontend-components";
 import { ipcRenderer } from "electron";
 
@@ -117,6 +119,7 @@ export default {
     SimulationMode,
     RecordingTime,
     StimulationStudioControls,
+    UploadFilesWidget,
   },
   data: function () {
     return {
@@ -192,11 +195,13 @@ body {
   height: 45px;
   width: calc(100vw - 289px);
 }
-.div__recording-time-container {
+.div__recording-status-container {
   float: right;
   position: relative;
   height: 45px;
-  width: 215px;
+  width: 650px;
+  display: flex;
+  justify-content: space-between;
 }
 
 .div__sidebar {

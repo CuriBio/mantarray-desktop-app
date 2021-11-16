@@ -208,7 +208,7 @@ def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_li
         # Tanner (12/29/20): Sending in alternate recording directory through command line args
         test_dict = {
             "stored_customer_ids": {
-                "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
+                "73f52be0-368c-42d8-a1fd-660d49ba5604": "Filler_password123",
             },
             "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
             "zipped_recordings_dir": f"{expected_recordings_dir}/zipped_recordings",
@@ -239,7 +239,7 @@ def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_li
         assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 3) is True
 
         response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=filler_password&user_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&recording_directory={expected_recordings_dir}&auto_upload=true&auto_delete=false"
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&user_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&recording_directory={expected_recordings_dir}&auto_upload=true&auto_delete=false"
         )
         assert response.status_code == 200
 
@@ -370,7 +370,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
 
         test_dict = {
             "stored_customer_ids": {
-                "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
+                "73f52be0-368c-42d8-a1fd-660d49ba5604": "Filler_password123",
             },
             "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
             "zipped_recordings_dir": f"/{expected_recordings_dir}/zipped_recordings",
@@ -392,7 +392,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
         # Tanner (12/29/20): Manually set recording directory through update_settings route
         response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=filler_password&user_account_uuid=455b93eb-c78f-4494-9f73-d3291130f126&recording_directory={expected_recordings_dir}&auto_upload=true&auto_delete=false"
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&user_account_uuid=455b93eb-c78f-4494-9f73-d3291130f126&recording_directory={expected_recordings_dir}&auto_upload=true&auto_delete=false"
         )
         assert response.status_code == 200
 
@@ -718,7 +718,7 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
 
         test_dict = {
             "stored_customer_ids": {
-                "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
+                "73f52be0-368c-42d8-a1fd-660d49ba5604": "Filler_password123",
             },
             "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
             "zipped_recordings_dir": f"{tmp_dir}/zipped_recordings",
@@ -745,7 +745,7 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
         # Tanner (12/29/20): use updated settings to set the recording directory to the TemporaryDirectory
 
         response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=filler_password&auto_upload=true&auto_delete=false"
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&auto_upload=true&auto_delete=false"
         )
         assert response.status_code == 200
 
@@ -858,7 +858,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         test_dict = {
             "stored_customer_ids": {
-                "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
+                "73f52be0-368c-42d8-a1fd-660d49ba5604": "Filler_password123",
             },
             "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
             "zipped_recordings_dir": f"{expected_recordings_dir}/zipped_recordings",
@@ -883,7 +883,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         da_out = test_process_manager.queue_container().get_data_analyzer_data_out_queue()
 
         response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=filler_password&auto_upload=true&auto_delete=false"
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&auto_upload=true&auto_delete=false"
         )
         assert response.status_code == 200
 

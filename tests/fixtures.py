@@ -138,7 +138,7 @@ def fixture_test_process_manager_creator(mocker):
                 file_directory=tmp_dir,
                 values_to_share_to_server={
                     "beta_2_mode": beta_2_mode,
-                    "stored_customer_ids": {str(CURI_BIO_ACCOUNT_UUID): "filler_password"},
+                    "stored_customer_ids": {str(CURI_BIO_ACCOUNT_UUID): "Filler_password123"},
                 },
             )
             if use_testing_queues:

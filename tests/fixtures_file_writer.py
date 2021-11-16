@@ -283,7 +283,7 @@ def fixture_four_board_file_writer_process():
             file_directory=tmp_dir,
             stored_customer_settings={
                 "stored_customer_ids": {
-                    "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
+                    "73f52be0-368c-42d8-a1fd-660d49ba5604": "Filler_password123",
                 },
                 "zipped_recordings_dir": os.path.join(tmp_dir, "zipped_recordings"),
                 "failed_uploads_dir": os.path.join(tmp_dir, "failed_uploads"),
@@ -321,7 +321,7 @@ def fixture_runnable_four_board_file_writer_process():
             file_directory=tmp_dir,
             stored_customer_settings={
                 "stored_customer_ids": {
-                    "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
+                    "73f52be0-368c-42d8-a1fd-660d49ba5604": "Filler_password123",
                 },
                 "zipped_recordings_dir": os.path.join(tmp_dir, "zipped_recordings"),
                 "failed_uploads_dir": os.path.join(tmp_dir, "failed_uploads"),

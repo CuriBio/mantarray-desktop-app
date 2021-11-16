@@ -938,11 +938,11 @@ def test_update_settings__stores_values_in_shared_values_dict__and_recordings_fo
     expected_customer_uuid = str(CURI_BIO_ACCOUNT_UUID)
     expected_user_uuid = "21875600-ca08-44c4-b1ea-0877b3c63ca7"
     shared_values_dict["stored_customer_settings"] = {
-        "stored_customer_ids": {expected_customer_uuid: "filler_password"}
+        "stored_customer_ids": {expected_customer_uuid: "Filler_password123"}
     }
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         response = test_client.get(
-            f"/update_settings?customer_account_uuid={expected_customer_uuid}&customer_pass_key=filler_password&user_account_uuid={expected_user_uuid}&recording_directory={expected_recordings_dir}"
+            f"/update_settings?customer_account_uuid={expected_customer_uuid}&customer_pass_key=Filler_password123&user_account_uuid={expected_user_uuid}&recording_directory={expected_recordings_dir}"
         )
         assert response.status_code == 200
         invoke_process_run_and_check_errors(monitor_thread)
@@ -972,10 +972,10 @@ def test_update_settings__replaces_only_new_values_in_shared_values_dict(
     mocker.patch.object(utils, "validate_customer_credentials", autospec=True)
 
     expected_customer_uuid = str(CURI_BIO_ACCOUNT_UUID)
-    expected_passkey = "filler_password"
+    expected_passkey = "Filler_password123"
 
     shared_values_dict["stored_customer_settings"] = {
-        "stored_customer_ids": {expected_customer_uuid: "filler_password"}
+        "stored_customer_ids": {expected_customer_uuid: "Filler_password123"}
     }
     shared_values_dict["config_settings"] = {
         "customer_account_id": "2dc06596-9cea-46a2-9ddd-a0d8a0f13584",
@@ -983,7 +983,7 @@ def test_update_settings__replaces_only_new_values_in_shared_values_dict(
     }
 
     response = test_client.get(
-        f"/update_settings?customer_account_uuid={expected_customer_uuid}&customer_pass_key=filler_password"
+        f"/update_settings?customer_account_uuid={expected_customer_uuid}&customer_pass_key=Filler_password123"
     )
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
@@ -1001,7 +1001,7 @@ def test_update_settings__errors_when_any_combo_of_invalid_customer_credits_gets
     expected_customer_uuid = str(CURI_BIO_ACCOUNT_UUID)
 
     shared_values_dict["stored_customer_settings"] = {
-        "stored_customer_ids": {expected_customer_uuid: "filler_password"}
+        "stored_customer_ids": {expected_customer_uuid: "Filler_password123"}
     }
 
     response = test_client.get(
@@ -1011,7 +1011,7 @@ def test_update_settings__errors_when_any_combo_of_invalid_customer_credits_gets
     assert response.status_code == 401
 
     response = test_client.get(
-        "/update_settings?customer_account_uuid=wrong_customer_id&customer_pass_key=filler_password"
+        "/update_settings?customer_account_uuid=wrong_customer_id&customer_pass_key=Filler_password123"
     )
     invoke_process_run_and_check_errors(monitor_thread)
     assert response.status_code == 401
@@ -1025,7 +1025,7 @@ def test_update_settings__returns_boolean_values_for_auto_upload_delete_values(
     expected_customer_uuid = str(CURI_BIO_ACCOUNT_UUID)
 
     shared_values_dict["stored_customer_settings"] = {
-        "stored_customer_ids": {expected_customer_uuid: "filler_password"}
+        "stored_customer_ids": {expected_customer_uuid: "Filler_password123"}
     }
     shared_values_dict["config_settings"] = {
         "auto_upload_on_completion": True,
@@ -1052,7 +1052,7 @@ def test_single_update_settings_command_with_recording_dir__gets_processed_by_Fi
     expected_customer_uuid = str(CURI_BIO_ACCOUNT_UUID)
 
     shared_values_dict["stored_customer_settings"] = {
-        "stored_customer_ids": {expected_customer_uuid: "filler_password"}
+        "stored_customer_ids": {expected_customer_uuid: "Filler_password123"}
     }
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         response = test_client.get(f"/update_settings?recording_directory={expected_recordings_dir}")
