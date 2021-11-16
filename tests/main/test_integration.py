@@ -583,7 +583,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                     # Tanner (1/12/21): The barcode used for testing (which is passed to start_recording route) is different than the simulator's barcode (the one that is 'scanned' in this test), so this should result to False
                     assert bool(this_file_attrs[str(BARCODE_IS_FROM_SCANNER_UUID)]) is False
 
-        expected_timestamp = expected_timestamp[:-1] + "7"
+        # expected_timestamp = expected_timestamp[:-1] + "7"
         # Tanner (12/30/20): test second recording (only make sure it contains waveform data)
         for row_idx in range(4):
             for col_idx in range(6):
@@ -598,7 +598,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                     assert str(START_RECORDING_TIME_INDEX_UUID) in this_file.attrs
                     start_index_2 = this_file.attrs[str(START_RECORDING_TIME_INDEX_UUID)]
                     assert (  # Tanner (1/13/21): Here we are testing that the 'finalizing' state of File Writer is working correctly by asserting that the second set of recorded files start at the right time index
-                        start_index_2 == expected_start_index_2
+                        start_index_2 == expected_start_index_2 / MICROSECONDS_PER_CENTIMILLISECOND
                     )
                     assert str(UTC_FIRST_TISSUE_DATA_POINT_UUID) in this_file.attrs
                     assert str(UTC_FIRST_REF_DATA_POINT_UUID) in this_file.attrs
