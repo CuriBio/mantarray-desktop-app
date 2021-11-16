@@ -419,7 +419,8 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         expected_barcode_1 = GENERIC_BETA_1_START_RECORDING_COMMAND[
             "metadata_to_copy_onto_main_file_attributes"
         ][PLATE_BARCODE_UUID]
-        start_recording_time_index_1 = 960
+        start_recording_time_index_1 = 9600
+        converted_start_recording_time_index_1 = 9600 / MICROSECONDS_PER_CENTIMILLISECOND
         # Tanner (12/30/20): Start recording with barcode1 to create first set of files. Don't start recording at time index 0 since that data frame is discarded due to bit file issues
         response = requests.get(
             f"{get_api_endpoint()}start_recording?barcode={expected_barcode_1}&time_index={start_recording_time_index_1}&is_hardware_test_recording=False"
@@ -494,7 +495,8 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                         "%Y-%m-%d %H:%M:%S.%f"
                     )
                     assert (
-                        this_file_attrs[str(START_RECORDING_TIME_INDEX_UUID)] == start_recording_time_index_1
+                        this_file_attrs[str(START_RECORDING_TIME_INDEX_UUID)]
+                        == converted_start_recording_time_index_1
                     )
                     assert this_file.attrs[str(UTC_BEGINNING_RECORDING_UUID)] == expected_time.strftime(
                         "%Y-%m-%d %H:%M:%S.%f"
@@ -503,7 +505,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                         expected_time
                         + datetime.timedelta(
                             seconds=(
-                                start_recording_time_index_1
+                                converted_start_recording_time_index_1
                                 + WELL_24_INDEX_TO_ADC_AND_CH_INDEX[well_idx][1] * DATA_FRAME_PERIOD
                             )
                             / CENTIMILLISECONDS_PER_SECOND
@@ -512,7 +514,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                     assert this_file_attrs[str(UTC_FIRST_REF_DATA_POINT_UUID)] == (
                         expected_time
                         + datetime.timedelta(
-                            seconds=(start_recording_time_index_1 + DATA_FRAME_PERIOD)
+                            seconds=(converted_start_recording_time_index_1 + DATA_FRAME_PERIOD)
                             / CENTIMILLISECONDS_PER_SECOND
                         )
                     ).strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -588,8 +590,8 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                 with h5py.File(
                     os.path.join(
                         expected_recordings_dir,
-                        f"{expected_barcode_2}__2020_06_15_141957",
-                        f"{expected_barcode_2}__2020_06_15_141957__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
+                        f"{expected_barcode_2}__{expected_timestamp}",
+                        f"{expected_barcode_2}__{expected_timestamp}__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
                     ),
                     "r",
                 ) as this_file:

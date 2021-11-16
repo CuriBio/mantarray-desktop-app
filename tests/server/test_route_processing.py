@@ -16,6 +16,7 @@ from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
+from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import ok_comm
 from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import produce_data
@@ -1105,7 +1106,7 @@ def test_stop_recording_command__is_received_by_file_writer__with_given_time_ind
     )
     shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [expected_acquisition_timestamp]
 
-    expected_time_index = 1000
+    expected_time_index = 9600
     comm_to_fw_queue = (
         test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
     )
@@ -1129,7 +1130,9 @@ def test_stop_recording_command__is_received_by_file_writer__with_given_time_ind
     communication = file_writer_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "stop_recording"
 
-    assert communication["timepoint_to_stop_recording_at"] == expected_time_index
+    assert communication["timepoint_to_stop_recording_at"] == (
+        expected_time_index / MICROSECONDS_PER_CENTIMILLISECOND
+    )
 
 
 def test_start_recording__returns_error_code_and_message_if_called_with_is_hardware_test_mode_false_when_previously_true(
@@ -1175,7 +1178,7 @@ def test_start_recording_command__gets_processed_with_given_time_index_parameter
     to_fw_queue = test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
     fw_error_queue = test_process_manager.queue_container().get_file_writer_error_queue()
 
-    expected_time_index = 10000000
+    expected_time_index = 9600
     timestamp_str = (
         GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
             UTC_BEGINNING_DATA_ACQUISTION_UUID
