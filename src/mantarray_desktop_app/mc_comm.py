@@ -36,11 +36,15 @@ from .constants import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BAUD_RATE
+from .constants import SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
+from .constants import SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from .constants import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
+from .constants import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_FATAL_ERROR_CODE
+from .constants import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
@@ -50,7 +54,9 @@ from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
 from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
+from .constants import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
+from .constants import SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE
 from .constants import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
@@ -198,6 +204,12 @@ class McCommunicationProcess(InstrumentCommProcess):
             float
         ] = None  # Tanner (4/1/21): This value will be None until this process receives a response to a reboot command. It will be set back to None after receiving a status beacon upon reboot completion
         self._hardware_test_mode = hardware_test_mode
+        # firmware updating values
+        self._is_updating_firmware = False
+        self._firmware_update_type = ""
+        self._firmware_file_contents: Optional[bytes] = None
+        self._firmware_packet_idx: Optional[int] = None
+        self._firmware_checksum: Optional[int] = None
         # data streaming values
         self._base_global_time_of_data_stream = 0
         self._magnetometer_config: Dict[int, Dict[Any, Any]] = dict()
@@ -426,21 +438,28 @@ class McCommunicationProcess(InstrumentCommProcess):
             if self._check_simulator_error():
                 self.stop()
                 return
-        if not self._is_waiting_for_reboot:
-            self._process_next_communication_from_main()
-            self._handle_sending_handshake()
+
+        if not self._is_updating_firmware:
+            if not self._is_waiting_for_reboot:
+                self._process_next_communication_from_main()
+                self._handle_sending_handshake()
+        else:
+            self._handle_firmware_update()
+
         if self._is_data_streaming or self._is_stimulating:
             self._handle_streams()
         else:
             self._handle_comm_from_instrument()
-        self._handle_beacon_tracking()
+
+        if not self._is_updating_firmware:
+            self._handle_beacon_tracking()
         self._handle_command_tracking()
 
         if self._is_waiting_for_reboot:
             self._check_reboot_status()
 
         # process can be soft stopped if no commands in queue from main and no command responses needed from instrument
-        self._process_can_be_soft_stopped = (
+        self._process_can_be_soft_stopped = (  # TODO prevent soft stop if rebooting or updating firmware
             not bool(self._commands_awaiting_response)
             and self._board_queues[0][
                 0
@@ -524,6 +543,16 @@ class McCommunicationProcess(InstrumentCommProcess):
                 )
         elif communication_type == "metadata_comm":
             bytes_to_send = bytes([SERIAL_COMM_GET_METADATA_COMMAND_BYTE])
+        elif communication_type == "firmware_update":
+            packet_type = SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
+            self._firmware_update_type = comm_from_main["firmware_type"]
+            bytes_to_send = bytes([self._firmware_update_type == "channel"])
+            with open(comm_from_main["file_path"], "rb") as firmware_file:
+                self._firmware_file_contents = firmware_file.read()
+            bytes_to_send += len(self._firmware_file_contents).to_bytes(4, byteorder="little")
+            self._is_updating_firmware = True
+            self._firmware_checksum = crc32(self._firmware_file_contents)
+            self._firmware_packet_idx = 0
         else:
             raise UnrecognizedCommandFromMainToMcCommError(
                 f"Invalid communication_type: {communication_type}"
@@ -535,8 +564,52 @@ class McCommunicationProcess(InstrumentCommProcess):
             packet_type,
             bytes_to_send,
         )
-        comm_from_main["timepoint"] = perf_counter()
-        self._commands_awaiting_response.append(comm_from_main)
+        self._add_command_to_track(comm_from_main)
+
+    def _add_command_to_track(self, command_dict: Dict[str, Any]) -> None:
+        command_dict["timepoint"] = perf_counter()
+        self._commands_awaiting_response.append(command_dict)
+
+    def _handle_firmware_update(self) -> None:
+        board_idx = 0
+        if self._firmware_file_contents is None:
+            # at this point, just waiting for instrument to complete the update
+            return
+
+        # making mypy happy
+        if self._firmware_checksum is None:
+            raise NotImplementedError("_firmware_checksum should never be None here")
+        if self._firmware_packet_idx is None:
+            raise NotImplementedError("_firmware_packet_idx should never be None here")
+
+        command_dict: Dict[str, Any]
+        if len(self._firmware_file_contents) == 0:
+            packet_type = SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
+            bytes_to_send = self._firmware_checksum.to_bytes(4, byteorder="little")
+            command_dict = {
+                "communication_type": "firmware_update",
+                "command": "end_of_firmware_update",
+            }
+            self._firmware_packet_idx = None
+            self._firmware_file_contents = None
+            self._firmware_checksum = None
+        else:
+            packet_type = SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
+            bytes_to_send = (
+                bytes([self._firmware_packet_idx])
+                + self._firmware_file_contents[: SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES - 1]
+            )
+            command_dict = {
+                "communication_type": "firmware_update",
+                "command": "send_firmware_data",
+                "packet_index": self._firmware_packet_idx,
+            }
+            self._firmware_packet_idx += 1
+            self._firmware_file_contents = self._firmware_file_contents[
+                SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES - 1 :
+            ]
+        self._send_data_packet(board_idx, SERIAL_COMM_MAIN_MODULE_ID, packet_type, bytes_to_send)
+        self._add_command_to_track(command_dict)
 
     def _handle_sending_handshake(self) -> None:
         board_idx = 0
@@ -556,9 +629,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             SERIAL_COMM_MAIN_MODULE_ID,
             SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
         )
-        self._commands_awaiting_response.append(
-            {"command": "handshake", "timepoint": self._time_of_last_handshake_secs}
-        )
+        self._add_command_to_track({"command": "handshake"})
 
     def _handle_comm_from_instrument(self) -> None:
         board_idx = 0
@@ -626,7 +697,12 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise NotImplementedError(
                 "Should never receive magnetometer data packets when not streaming data"
             )
-        elif packet_type == SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE:
+        elif packet_type in (
+            SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+            SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE,
+            SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE,
+            SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE,
+        ):
             response_data = packet_body[SERIAL_COMM_TIMESTAMP_LENGTH_BYTES:]
             if not self._commands_awaiting_response:
                 raise SerialCommUntrackedCommandResponseError(
@@ -707,6 +783,15 @@ class McCommunicationProcess(InstrumentCommProcess):
                     prev_command["hardware_test_message"] = "Command failed"  # pragma: no cover
                 self._is_stimulating = False
                 self._reset_stim_status_buffers()
+            elif prev_command["command"] in (
+                "start_firmware_update",
+                "send_firmware_data",
+                "end_of_firmware_update",
+            ):
+                if response_data[0]:
+                    raise Exception(
+                        prev_command["command"]
+                    )  # TODO (should probably add packet idx to error message as well)
 
             # main process does not need to know the timepoint and is not expecting this key in the dictionary returned to it
             del prev_command["timepoint"]
@@ -725,6 +810,19 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._board_queues[board_idx][1].put_nowait(barcode_comm)
         elif packet_type == SERIAL_COMM_STIM_STATUS_PACKET_TYPE:
             raise NotImplementedError("Should never receive stim status packets when not stimulating")
+        elif packet_type in (
+            SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE,
+            SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE,
+        ):
+            self._board_queues[board_idx][1].put_nowait(
+                {
+                    "communication_type": "firmware_update",
+                    "command": "update_completed",
+                    "firmware_type": self._firmware_update_type,
+                }
+            )
+            self._firmware_update_type = ""
+            self._is_updating_firmware = False
         else:
             raise UnrecognizedSerialCommPacketTypeError(
                 f"Packet Type ID: {packet_type} is not defined for Module ID: {module_id}"

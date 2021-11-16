@@ -643,10 +643,6 @@ class MantarrayMcSimulator(InfiniteProcess):
             response_body += bytes([checksum_failure])
             if not checksum_failure:
                 self._reboot_time_secs = perf_counter()
-        # elif TODO:
-        # response_body += bytes([self._firmware_update_type])
-        # response_body += bytes([0, 0, 0])  # simulator will always have firmware version 0.0.0
-        # self._firmware_update_type = None
         else:
             module_id = comm_from_pc[SERIAL_COMM_MODULE_ID_INDEX]
             raise UnrecognizedSerialCommPacketTypeError(
