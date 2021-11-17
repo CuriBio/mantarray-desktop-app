@@ -7,8 +7,10 @@ from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 import pytest
+from pytest import approx
 from stdlib_utils import invoke_process_run_and_check_errors
 
 from ..fixtures import fixture_patch_print
@@ -18,6 +20,7 @@ from ..fixtures_mc_comm import fixture_four_board_mc_comm_process_no_handshake
 from ..fixtures_mc_comm import set_connection_and_register_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import set_simulator_idle_ready
+from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
@@ -117,6 +120,25 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
     # make sure handshake still hasn't been sent
     invoke_process_run_and_check_errors(mc_process)
     spied_send_handshake.assert_not_called()
+    # make sure status beacon timeout is ignored
+    mocked_get_secs_since_beacon = mocker.patch.object(
+        mc_comm,
+        "_get_secs_since_last_beacon",
+        autospec=True,
+        return_value=SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS,
+    )
+    invoke_process_run_and_check_errors(mc_process)
+
+    # make sure command from main is ignored
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {
+            "communication_type": "metadata_comm",
+            "command": "get_metadata",
+        },
+        from_main_queue,
+    )
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(from_main_queue, 1)
 
     # complete reboot and send firmware update complete packet
     mocker.patch.object(
@@ -126,6 +148,10 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
         autospec=True,
     )
     invoke_process_run_and_check_errors(simulator)
+
+    mocked_get_secs_since_beacon.return_value = 0
+    spied_perf_counter = mocker.spy(mc_comm, "perf_counter")
+
     # process firmware update complete packet
     invoke_process_run_and_check_errors(mc_process)
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
@@ -135,7 +161,21 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
         "command": "update_completed",
         "firmware_type": firmware_type,
     }
-
+    # make sure status beacon tracking timepoint was updated  # Tanner (11/16/21): using large abs here in case perf_counter is called again in this same iteration
+    assert mc_process._time_of_last_beacon_secs == approx(  # pylint: disable=protected-access
+        spied_perf_counter.spy_return, abs=1
+    )
     # make sure handshakes are now sent
     invoke_process_run_and_check_errors(mc_process)
     spied_send_handshake.assert_called_once()
+    # make sure command from main get processed
+    confirm_queue_is_eventually_empty(from_main_queue)
+
+
+# TODO
+# error raised by begin firmware
+# error raised by firmware update
+# error raised by end firmware
+# error raised by CRC mismatch
+# error raised by main timeout
+# error raised by channel timeout

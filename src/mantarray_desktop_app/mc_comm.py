@@ -451,8 +451,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         else:
             self._handle_comm_from_instrument()
 
-        if not self._is_updating_firmware:
-            self._handle_beacon_tracking()
+        self._handle_beacon_tracking()
         self._handle_command_tracking()
 
         if self._is_waiting_for_reboot:
@@ -823,6 +822,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             )
             self._firmware_update_type = ""
             self._is_updating_firmware = False
+            self._time_of_last_beacon_secs = perf_counter()
         else:
             raise UnrecognizedSerialCommPacketTypeError(
                 f"Packet Type ID: {packet_type} is not defined for Module ID: {module_id}"
@@ -863,11 +863,10 @@ class McCommunicationProcess(InstrumentCommProcess):
                     SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
                     bytes([SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE]),
                 )
-                self._commands_awaiting_response.append(
+                self._add_command_to_track(
                     {
                         "communication_type": "to_instrument",
                         "command": "dump_eeprom",
-                        "timepoint": perf_counter(),
                     }
                 )
                 self._is_instrument_in_error_state = True
@@ -881,11 +880,10 @@ class McCommunicationProcess(InstrumentCommProcess):
                 bytes([SERIAL_COMM_SET_TIME_COMMAND_BYTE])
                 + convert_to_timestamp_bytes(get_serial_comm_timestamp()),
             )
-            self._commands_awaiting_response.append(
+            self._add_command_to_track(
                 {
                     "communication_type": "to_instrument",
                     "command": "set_time",
-                    "timepoint": perf_counter(),
                 }
             )
         elif status_code == SERIAL_COMM_IDLE_READY_CODE:
@@ -902,7 +900,8 @@ class McCommunicationProcess(InstrumentCommProcess):
                     SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
                     bytes_to_send,
                 )
-                self._commands_awaiting_response.append(
+
+                self._add_command_to_track(
                     {
                         "communication_type": "default_magnetometer_config",
                         "command": "change_magnetometer_config",
@@ -910,7 +909,6 @@ class McCommunicationProcess(InstrumentCommProcess):
                             "magnetometer_config": initial_config_copy,
                             "sampling_period": DEFAULT_SAMPLING_PERIOD,
                         },
-                        "timepoint": perf_counter(),
                     }
                 )
                 self._auto_set_magnetometer_config = False
@@ -933,11 +931,10 @@ class McCommunicationProcess(InstrumentCommProcess):
                         bytes([SERIAL_COMM_GET_METADATA_COMMAND_BYTE])
                         + convert_to_timestamp_bytes(get_serial_comm_timestamp()),
                     )
-                    self._commands_awaiting_response.append(
+                    self._add_command_to_track(
                         {
                             "communication_type": "metadata_comm",
                             "command": "get_metadata",
-                            "timepoint": perf_counter(),
                         }
                     )
                 self._auto_get_metadata = False
@@ -1127,6 +1124,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         if (
             secs_since_last_beacon_received >= SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
             and not self._is_waiting_for_reboot
+            and not self._is_updating_firmware
         ):
             raise SerialCommStatusBeaconTimeoutError()
 
