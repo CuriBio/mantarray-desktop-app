@@ -1,13 +1,22 @@
 # -*- coding: utf-8 -*-
 import copy
 import math
+from random import choice
 from random import randint
+from zlib import crc32
 
+from mantarray_desktop_app import FirmwareUpdateCommandFailedError
+from mantarray_desktop_app import FirmwareUpdateTimeoutError
+from mantarray_desktop_app import MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS
+from mantarray_desktop_app import MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS
 from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import mc_simulator
+from mantarray_desktop_app import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
+from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
+from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 import pytest
 from pytest import approx
@@ -85,6 +94,8 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
     # mock so that handshake is ready to be sent
     mocked_get_secs_since_handshake.return_value = SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 
+    spied_send_packet = mocker.spy(mc_process, "_send_data_packet")
+
     # send firmware bytes to instrument
     num_iterations_to_send_firmware = math.ceil(
         test_firmware_len / (SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES - 1)
@@ -94,6 +105,7 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
         invoke_process_run_and_check_errors(mc_process)
         invoke_process_run_and_check_errors(simulator)
         invoke_process_run_and_check_errors(mc_process)
+        assert spied_send_packet.call_count == packet_idx + 1
         # confirm message sent to main
         confirm_queue_is_eventually_of_size(to_main_queue, 1)
         msg_to_main = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -172,10 +184,189 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
     confirm_queue_is_eventually_empty(from_main_queue)
 
 
-# TODO
-# error raised by begin firmware
-# error raised by firmware update
-# error raised by end firmware
-# error raised by CRC mismatch
-# error raised by main timeout
-# error raised by channel timeout
+def test_McCommunicationProcess__raises_error_if_begin_firmware_update_command_fails(
+    patch_print, four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    from_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][0]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+
+    test_file_path = "test/file/path"
+    mocked_open = mocker.patch("builtins.open", autospec=True)
+    mocked_read = mocked_open.return_value.__enter__().read
+    mocked_read.return_value = bytes(1000)
+
+    # set simulator firmware update status
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "set_firmware_update_type", "firmware_type": choice(["main", "channel"])}, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator)
+
+    # start firmware update
+    update_firmware_command = {
+        "communication_type": "firmware_update",
+        "command": "start_firmware_update",
+        "firmware_type": choice(["main", "channel"]),
+        "file_path": test_file_path,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(update_firmware_command, from_main_queue)
+    # send begin firmware update command and make sure error is raised
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
+    with pytest.raises(FirmwareUpdateCommandFailedError, match="start_firmware_update"):
+        invoke_process_run_and_check_errors(mc_process)
+
+
+def test_McCommunicationProcess__raises_error_if_firmware_update_packet_fails(
+    patch_print, four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    from_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][0]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+
+    test_file_path = "test/file/path"
+    mocked_open = mocker.patch("builtins.open", autospec=True)
+    mocked_read = mocked_open.return_value.__enter__().read
+    mocked_read.return_value = bytes(1000)
+
+    # start firmware update
+    update_firmware_command = {
+        "communication_type": "firmware_update",
+        "command": "start_firmware_update",
+        "firmware_type": choice(["main", "channel"]),
+        "file_path": test_file_path,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(update_firmware_command, from_main_queue)
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
+    invoke_process_run_and_check_errors(mc_process)
+
+    # send first firmware update packet
+    invoke_process_run_and_check_errors(mc_process)
+    # flip succeeded byte to failed byte
+    invoke_process_run_and_check_errors(simulator)
+    response = simulator.read_all()
+    response = bytearray(response)
+    response[SERIAL_COMM_ADDITIONAL_BYTES_INDEX + SERIAL_COMM_TIMESTAMP_LENGTH_BYTES] = 1
+    response[-SERIAL_COMM_CHECKSUM_LENGTH_BYTES:] = crc32(
+        response[:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
+    ).to_bytes(4, byteorder="little")
+    # add modified response to read
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "add_read_bytes", "read_bytes": bytes(response)}, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator)
+    with pytest.raises(FirmwareUpdateCommandFailedError, match="send_firmware_data, packet index: 0"):
+        invoke_process_run_and_check_errors(mc_process)
+
+
+def test_McCommunicationProcess__raises_error_if_end_firmware_update_command_fails(
+    patch_print, four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    from_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][0]
+
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+
+    test_file_path = "test/file/path"
+    mocked_open = mocker.patch("builtins.open", autospec=True)
+    mocked_read = mocked_open.return_value.__enter__().read
+    mocked_read.return_value = bytes(1000)
+
+    # start firmware update
+    update_firmware_command = {
+        "communication_type": "firmware_update",
+        "command": "start_firmware_update",
+        "firmware_type": choice(["main", "channel"]),
+        "file_path": test_file_path,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(update_firmware_command, from_main_queue)
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
+    invoke_process_run_and_check_errors(mc_process)
+    # send firmware update packet
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
+    invoke_process_run_and_check_errors(mc_process)
+
+    # mock so checksum is incorrect and failure response is produced
+    mocker.patch.object(
+        mc_simulator, "crc32", autospec=True, return_value=1.5  # arbitrary value not equal to any integers
+    )
+
+    # send end of firmware packet and make sure error is raised
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
+    with pytest.raises(FirmwareUpdateCommandFailedError, match="end_of_firmware_update"):
+        invoke_process_run_and_check_errors(mc_process)
+
+
+@pytest.mark.parametrize(
+    "firmware_type,timeout_value",
+    [
+        ("channel", MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS),
+        ("main", MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS),
+    ],
+)
+def test_McCommunicationProcess__raises_error_if_firmware_update_timeout_occurs(
+    patch_print,
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+    firmware_type,
+    timeout_value,
+    mocker,
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    from_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][0]
+
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+
+    test_file_path = "test/file/path"
+    mocked_open = mocker.patch("builtins.open", autospec=True)
+    mocked_read = mocked_open.return_value.__enter__().read
+    mocked_read.return_value = bytes(1000)
+
+    # mock so timeout occurs after end of firmware response received
+    mocker.patch.object(mc_comm, "_get_firmware_update_dur_secs", autospec=True, return_value=timeout_value)
+
+    # start firmware update
+    update_firmware_command = {
+        "communication_type": "firmware_update",
+        "command": "start_firmware_update",
+        "firmware_type": firmware_type,
+        "file_path": test_file_path,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(update_firmware_command, from_main_queue)
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
+    invoke_process_run_and_check_errors(mc_process)
+    # firmware update packet
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
+    invoke_process_run_and_check_errors(mc_process)
+    # end of firmware packet
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
+    # Tanner (11/17/21): currently the error will be raised on the same iteration that the end of firmware update response is received
+    with pytest.raises(FirmwareUpdateTimeoutError, match=firmware_type):
+        invoke_process_run_and_check_errors(mc_process)

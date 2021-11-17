@@ -1654,8 +1654,9 @@ def test_FileWriterProcess__stop_recording__immediately_finalizes_any_beta_1_fil
     mocked_upload = mocker.patch.object(file_writer_process, "_start_new_file_upload", autospec=True)
 
     update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
-    update_customer_settings_command["config_settings"]["auto_delete_local_files"] = False
-    update_customer_settings_command["config_settings"]["auto_upload_on_completion"] = True
+    update_customer_settings_command["config_settings"].update(
+        {"auto_delete_local_files": False, "auto_upload_on_completion": True}
+    )
     create_and_close_beta_1_h5_files(
         four_board_file_writer_process,
         update_customer_settings_command,

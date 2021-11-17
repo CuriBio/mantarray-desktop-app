@@ -62,6 +62,7 @@ from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
 from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
+from .constants import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
@@ -130,8 +131,8 @@ def _get_secs_since_last_status_beacon(last_time: float) -> float:
     return perf_counter() - last_time
 
 
-def _get_secs_since_reboot_command(last_time: float) -> float:
-    return perf_counter() - last_time
+def _get_secs_since_reboot_command(command_time: float) -> float:
+    return perf_counter() - command_time
 
 
 def _get_secs_since_boot_up(start_time: float) -> float:
@@ -185,7 +186,7 @@ class MantarrayMcSimulator(InfiniteProcess):
     ] = immutabledict(
         create_magnetometer_config_dict(24)
     )
-    global_timer_offset_secs = 2.5
+    global_timer_offset_secs = 2.5  # TODO Tanner (11/17/21): figure out if this should be removed
 
     def __init__(
         self,
@@ -236,6 +237,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._stim_subprotocol_indices: List[int]
         self._reset_stim_running_statuses()
         self._firmware_update_type: Optional[int] = None
+        self._firmware_update_idx: Optional[int] = None
         self._firmware_update_bytes: Optional[bytes]
         self._handle_boot_up_config()
 
@@ -338,6 +340,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._stim_info = {}
         self._is_stimulating = False
         self._firmware_update_type = None
+        self._firmware_update_idx = None
         self._firmware_update_bytes = None
         if reboot:
             drain_queue(self._input_queue)
@@ -612,20 +615,31 @@ class MantarrayMcSimulator(InfiniteProcess):
                 self._is_stimulating = False
         elif packet_type == SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE:
             firmware_type = comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX]
+            command_failed = firmware_type not in (0, 1) or self._firmware_update_type is not None
+            self._firmware_update_idx = 0
             self._firmware_update_type = firmware_type
             self._firmware_update_bytes = bytes(0)
-            command_failed = firmware_type not in (0, 1)
-            response_body += bytes([command_failed])
             response_packet_type = SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
+            response_body += bytes([command_failed])
         elif packet_type == SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE:
             if self._firmware_update_bytes is None:
                 # Tanner (11/10/21): currently unsure how real board would handle receiving this packet before the previous two firmware packet types
                 raise NotImplementedError("_firmware_update_bytes should never be None here")
-            self._firmware_update_bytes += comm_from_pc[
+            if self._firmware_update_idx is None:
+                # Tanner (11/10/21): currently unsure how real board would handle receiving this packet before the previous two firmware packet types
+                raise NotImplementedError("_firmware_update_idx should never be None here")
+            packet_idx = comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX]
+            new_firmware_bytes = comm_from_pc[
                 SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 1 : -SERIAL_COMM_CHECKSUM_LENGTH_BYTES
             ]
-            response_body += bytes([0])  # have command always succeed for now
+            command_failed = (
+                len(new_firmware_bytes) > SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES - 1
+                or packet_idx != self._firmware_update_idx
+            )
             response_packet_type = SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
+            response_body += bytes([command_failed])
+            self._firmware_update_bytes += new_firmware_bytes
+            self._firmware_update_idx += 1
         elif packet_type == SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE:
             if self._firmware_update_type is None:
                 # Tanner (11/10/21): currently unsure how real board would handle receiving this packet before the previous two firmware packet types
@@ -788,6 +802,8 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._stim_info = test_comm["stim_info"]
         elif command == "set_stim_status":
             self._is_stimulating = test_comm["status"]
+        elif command == "set_firmware_update_type":
+            self._firmware_update_type = test_comm["firmware_type"]
         else:
             raise UnrecognizedSimulatorTestCommandError(command)
 

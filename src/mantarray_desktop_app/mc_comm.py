@@ -33,6 +33,8 @@ from .constants import DEFAULT_MAGNETOMETER_CONFIG
 from .constants import DEFAULT_SAMPLING_PERIOD
 from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
+from .constants import MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS
+from .constants import MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BAUD_RATE
@@ -89,6 +91,8 @@ from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import STIM_COMPLETE_SUBPROTOCOL_IDX
 from .constants import STM_VID
+from .exceptions import FirmwareUpdateCommandFailedError
+from .exceptions import FirmwareUpdateTimeoutError
 from .exceptions import InstrumentDataStreamingAlreadyStartedError
 from .exceptions import InstrumentDataStreamingAlreadyStoppedError
 from .exceptions import InstrumentFatalError
@@ -160,6 +164,10 @@ def _get_secs_since_reboot_start(reboot_start_time: float) -> float:
     return perf_counter() - reboot_start_time
 
 
+def _get_firmware_update_dur_secs(command_time: float) -> float:
+    return perf_counter() - command_time
+
+
 def _get_secs_since_last_data_parse(last_parse_time: float) -> float:
     return perf_counter() - last_parse_time
 
@@ -210,6 +218,9 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._firmware_file_contents: Optional[bytes] = None
         self._firmware_packet_idx: Optional[int] = None
         self._firmware_checksum: Optional[int] = None
+        self._time_of_firmware_update_start: Optional[
+            float
+        ] = None  # Tanner (11/17/21): This value will only be a float when from the moment the end of firmware packet is received to the moment the firmware update complete packet is received
         # data streaming values
         self._base_global_time_of_data_stream = 0
         self._magnetometer_config: Dict[int, Dict[Any, Any]] = dict()
@@ -427,24 +438,21 @@ class McCommunicationProcess(InstrumentCommProcess):
         During instrument reboot, should only check for incoming data make sure no commands are awaiting a response.
 
         1. Before doing anything, simulator errors must be checked for. If they go unchecked before performing comm with the simulator, and error may be raised in this process that masks the simulator's error which is actually the root of the problem.
-        2. Process next communication from main. This process's next highest priority is to be responsive to the main process and should check for messages from main first. These messages will let this process know when to send commands to the instrument.
+        2. Process next communication from main. This process's next highest priority is to be responsive to the main process and should check for messages from main first. These messages will let this process know when to send commands to the instrument. Ignore messages from main if conducting a firmware update
         3. Send handshake to instrument when necessary. Third highest priority is to let the instrument know that this process and the rest of the software are alive and responsive.
         4. Process packets coming from the instrument. This is the highest priority task after sending data to it.
         5. Make sure the beacon is not overdue, unless instrument is rebooting. If the beacon is overdue, it's reasonable to assume something caused the instrument to stop working. This task should happen after handling of sending/receiving data from the instrument and main process.
         6. Make sure commands are not overdue. This task should happen after the instrument has been determined to be working properly.
-        7. If rebooting, make sure that the reboot has not taken longer than the max allowed reboot time.
+        7. If rebooting or waiting for firmware update to complete, make sure that the reboot has not taken longer than the max allowed reboot time.
         """
         if self._in_simulation_mode:
             if self._check_simulator_error():
                 self.stop()
                 return
 
-        if not self._is_updating_firmware:
-            if not self._is_waiting_for_reboot:
-                self._process_next_communication_from_main()
-                self._handle_sending_handshake()
-        else:
-            self._handle_firmware_update()
+        if not self._is_updating_firmware and not self._is_waiting_for_reboot:
+            self._process_next_communication_from_main()
+            self._handle_sending_handshake()
 
         if self._is_data_streaming or self._is_stimulating:
             self._handle_streams()
@@ -456,6 +464,8 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         if self._is_waiting_for_reboot:
             self._check_reboot_status()
+        elif self._is_updating_firmware:
+            self._check_firmware_update_status()
 
         # process can be soft stopped if no commands in queue from main and no command responses needed from instrument
         self._process_can_be_soft_stopped = (  # TODO prevent soft stop if rebooting or updating firmware
@@ -549,9 +559,9 @@ class McCommunicationProcess(InstrumentCommProcess):
             with open(comm_from_main["file_path"], "rb") as firmware_file:
                 self._firmware_file_contents = firmware_file.read()
             bytes_to_send += len(self._firmware_file_contents).to_bytes(4, byteorder="little")
+            self._firmware_packet_idx = 0
             self._is_updating_firmware = True
             self._firmware_checksum = crc32(self._firmware_file_contents)
-            self._firmware_packet_idx = 0
         else:
             raise UnrecognizedCommandFromMainToMcCommError(
                 f"Invalid communication_type: {communication_type}"
@@ -571,15 +581,13 @@ class McCommunicationProcess(InstrumentCommProcess):
 
     def _handle_firmware_update(self) -> None:
         board_idx = 0
-        if self._firmware_file_contents is None:
-            # at this point, just waiting for instrument to complete the update
-            return
-
         # making mypy happy
         if self._firmware_checksum is None:
             raise NotImplementedError("_firmware_checksum should never be None here")
         if self._firmware_packet_idx is None:
             raise NotImplementedError("_firmware_packet_idx should never be None here")
+        if self._firmware_file_contents is None:
+            raise NotImplementedError("_firmware_file_contents should never be None here")
 
         command_dict: Dict[str, Any]
         if len(self._firmware_file_contents) == 0:
@@ -589,10 +597,11 @@ class McCommunicationProcess(InstrumentCommProcess):
                 "communication_type": "firmware_update",
                 "command": "end_of_firmware_update",
             }
-            self._firmware_packet_idx = None
             self._firmware_file_contents = None
             self._firmware_checksum = None
         else:
+            if self._firmware_file_contents is None:  # making mypy happy
+                raise NotImplementedError("_firmware_file_contents should never be None here")
             packet_type = SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
             bytes_to_send = (
                 bytes([self._firmware_packet_idx])
@@ -603,7 +612,6 @@ class McCommunicationProcess(InstrumentCommProcess):
                 "command": "send_firmware_data",
                 "packet_index": self._firmware_packet_idx,
             }
-            self._firmware_packet_idx += 1
             self._firmware_file_contents = self._firmware_file_contents[
                 SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES - 1 :
             ]
@@ -684,7 +692,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         packet_type: int,
         packet_body: bytes,
     ) -> None:
-        # pylint: disable=too-many-branches
+        # pylint: disable=too-many-branches, too-many-statements
         if packet_type == SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE:
             returned_packet = SERIAL_COMM_MAGIC_WORD_BYTES + packet_body
             raise SerialCommIncorrectChecksumFromPCError(returned_packet)
@@ -788,9 +796,20 @@ class McCommunicationProcess(InstrumentCommProcess):
                 "end_of_firmware_update",
             ):
                 if response_data[0]:
-                    raise Exception(
-                        prev_command["command"]
-                    )  # TODO (should probably add packet idx to error message as well)
+                    error_msg = prev_command["command"]
+                    if error_msg == "send_firmware_data":
+                        error_msg += f", packet index: {self._firmware_packet_idx}"
+                    raise FirmwareUpdateCommandFailedError(error_msg)
+                if prev_command["command"] == "end_of_firmware_update":
+                    # Tanner (11/16/21): reset here instead of with the other firmware update values so that the error message above can include the packet index
+                    self._firmware_packet_idx = None
+                    self._time_of_firmware_update_start = perf_counter()
+                else:
+                    if prev_command["command"] == "send_firmware_data":
+                        if self._firmware_packet_idx is None:  # making mypy happy
+                            raise NotImplementedError("_firmware_file_contents should never be None here")
+                        self._firmware_packet_idx += 1
+                    self._handle_firmware_update()
 
             # main process does not need to know the timepoint and is not expecting this key in the dictionary returned to it
             del prev_command["timepoint"]
@@ -822,6 +841,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             )
             self._firmware_update_type = ""
             self._is_updating_firmware = False
+            self._time_of_firmware_update_start = None
             self._time_of_last_beacon_secs = perf_counter()
         else:
             raise UnrecognizedSerialCommPacketTypeError(
@@ -1142,6 +1162,18 @@ class McCommunicationProcess(InstrumentCommProcess):
         reboot_dur_secs = _get_secs_since_reboot_start(self._time_of_reboot_start)
         if reboot_dur_secs >= MAX_MC_REBOOT_DURATION_SECONDS:
             raise InstrumentRebootTimeoutError()
+
+    def _check_firmware_update_status(self) -> None:
+        if self._time_of_firmware_update_start is None:
+            return
+        update_dur_secs = _get_firmware_update_dur_secs(self._time_of_firmware_update_start)
+        timeout_dur = (
+            MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS
+            if self._firmware_update_type == "main"
+            else MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS
+        )
+        if update_dur_secs >= timeout_dur:
+            raise FirmwareUpdateTimeoutError(self._firmware_update_type)
 
     def _log_status_code(self, status_code: int, comm_type: str) -> None:
         log_msg = f"{comm_type} received from instrument. Status Code: {status_code}"

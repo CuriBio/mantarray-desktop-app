@@ -246,6 +246,14 @@ class StimulationStatusUpdateFailedError(Exception):
     pass
 
 
+class FirmwareUpdateCommandFailedError(Exception):
+    pass
+
+
+class FirmwareUpdateTimeoutError(Exception):
+    pass
+
+
 class MantarrayInstrumentError(Exception):
     """Errors occurring on the Mantarray instrument itself."""
 

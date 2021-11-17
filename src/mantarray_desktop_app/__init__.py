@@ -63,6 +63,8 @@ from .constants import FIRMWARE_VERSION_WIRE_OUT_ADDRESS
 from .constants import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
+from .constants import MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS
+from .constants import MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import MAX_POSSIBLE_CONNECTED_BOARDS
 from .constants import MICRO_TO_BASE_CONVERSION
@@ -174,6 +176,8 @@ from .exceptions import AttemptToInitializeFIFOReadsError
 from .exceptions import BarcodeNotClearedError
 from .exceptions import BarcodeScannerNotRespondingError
 from .exceptions import FirmwareFileNameDoesNotMatchWireOutVersionError
+from .exceptions import FirmwareUpdateCommandFailedError
+from .exceptions import FirmwareUpdateTimeoutError
 from .exceptions import FirstManagedReadLessThanOneRoundRobinError
 from .exceptions import ImproperlyFormattedCustomerAccountIDError
 from .exceptions import ImproperlyFormattedCustomerAccountPasskeyError
@@ -621,4 +625,8 @@ __all__ = [
     "SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE",
     "SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE",
     "SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE",
+    "FirmwareUpdateCommandFailedError",
+    "FirmwareUpdateTimeoutError",
+    "MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS",
+    "MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS",
 ]
