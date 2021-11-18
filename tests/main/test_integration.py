@@ -108,6 +108,7 @@ from stdlib_utils import confirm_port_available
 from ..fixtures import fixture_fully_running_app_from_main_entrypoint
 from ..fixtures import fixture_patched_firmware_folder
 from ..fixtures import fixture_patched_xem_scripts_folder
+from ..fixtures import GENERIC_STORED_CUSTOMER_IDS
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BOARD_MAGNETOMETER_CONFIGURATION
@@ -207,9 +208,7 @@ def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_li
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         # Tanner (12/29/20): Sending in alternate recording directory through command line args
         test_dict = {
-            "stored_customer_ids": {
-                "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
-            },
+            "stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS,
             "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
             "zipped_recordings_dir": f"{expected_recordings_dir}/zipped_recordings",
             "failed_uploads_dir": f"{expected_recordings_dir}/failed_uploads",
@@ -239,7 +238,7 @@ def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_li
         assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 3) is True
 
         response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=filler_password&user_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&recording_directory={expected_recordings_dir}&auto_upload=true&auto_delete=false"
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&user_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&recording_directory={expected_recordings_dir}&auto_upload=true&auto_delete=false"
         )
         assert response.status_code == 200
 
@@ -369,9 +368,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
 
         test_dict = {
-            "stored_customer_ids": {
-                "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
-            },
+            "stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS,
             "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
             "zipped_recordings_dir": f"/{expected_recordings_dir}/zipped_recordings",
             "failed_uploads_dir": f"{expected_recordings_dir}/failed_uploads",
@@ -392,7 +389,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
         # Tanner (12/29/20): Manually set recording directory through update_settings route
         response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=filler_password&user_account_uuid=455b93eb-c78f-4494-9f73-d3291130f126&recording_directory={expected_recordings_dir}&auto_upload=true&auto_delete=false"
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&user_account_uuid=455b93eb-c78f-4494-9f73-d3291130f126&recording_directory={expected_recordings_dir}&auto_upload=true&auto_delete=false"
         )
         assert response.status_code == 200
 
@@ -419,7 +416,8 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         expected_barcode_1 = GENERIC_BETA_1_START_RECORDING_COMMAND[
             "metadata_to_copy_onto_main_file_attributes"
         ][PLATE_BARCODE_UUID]
-        start_recording_time_index_1 = 960
+        start_recording_time_index_1 = 9600
+        converted_start_recording_time_index_1 = 9600 / MICROSECONDS_PER_CENTIMILLISECOND
         # Tanner (12/30/20): Start recording with barcode1 to create first set of files. Don't start recording at time index 0 since that data frame is discarded due to bit file issues
         response = requests.get(
             f"{get_api_endpoint()}start_recording?barcode={expected_barcode_1}&time_index={start_recording_time_index_1}&is_hardware_test_recording=False"
@@ -494,7 +492,8 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                         "%Y-%m-%d %H:%M:%S.%f"
                     )
                     assert (
-                        this_file_attrs[str(START_RECORDING_TIME_INDEX_UUID)] == start_recording_time_index_1
+                        this_file_attrs[str(START_RECORDING_TIME_INDEX_UUID)]
+                        == converted_start_recording_time_index_1
                     )
                     assert this_file.attrs[str(UTC_BEGINNING_RECORDING_UUID)] == expected_time.strftime(
                         "%Y-%m-%d %H:%M:%S.%f"
@@ -503,7 +502,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                         expected_time
                         + datetime.timedelta(
                             seconds=(
-                                start_recording_time_index_1
+                                converted_start_recording_time_index_1
                                 + WELL_24_INDEX_TO_ADC_AND_CH_INDEX[well_idx][1] * DATA_FRAME_PERIOD
                             )
                             / CENTIMILLISECONDS_PER_SECOND
@@ -512,7 +511,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                     assert this_file_attrs[str(UTC_FIRST_REF_DATA_POINT_UUID)] == (
                         expected_time
                         + datetime.timedelta(
-                            seconds=(start_recording_time_index_1 + DATA_FRAME_PERIOD)
+                            seconds=(converted_start_recording_time_index_1 + DATA_FRAME_PERIOD)
                             / CENTIMILLISECONDS_PER_SECOND
                         )
                     ).strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -581,22 +580,22 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                     # Tanner (1/12/21): The barcode used for testing (which is passed to start_recording route) is different than the simulator's barcode (the one that is 'scanned' in this test), so this should result to False
                     assert bool(this_file_attrs[str(BARCODE_IS_FROM_SCANNER_UUID)]) is False
 
-        expected_timestamp = expected_timestamp[:-1] + "7"
+        # expected_timestamp = expected_timestamp[:-1] + "7"
         # Tanner (12/30/20): test second recording (only make sure it contains waveform data)
         for row_idx in range(4):
             for col_idx in range(6):
                 with h5py.File(
                     os.path.join(
                         expected_recordings_dir,
-                        f"{expected_barcode_2}__2020_06_15_141957",
-                        f"{expected_barcode_2}__2020_06_15_141957__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
+                        f"{expected_barcode_2}__{expected_timestamp}",
+                        f"{expected_barcode_2}__{expected_timestamp}__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
                     ),
                     "r",
                 ) as this_file:
                     assert str(START_RECORDING_TIME_INDEX_UUID) in this_file.attrs
                     start_index_2 = this_file.attrs[str(START_RECORDING_TIME_INDEX_UUID)]
                     assert (  # Tanner (1/13/21): Here we are testing that the 'finalizing' state of File Writer is working correctly by asserting that the second set of recorded files start at the right time index
-                        start_index_2 == expected_start_index_2
+                        start_index_2 == expected_start_index_2 / MICROSECONDS_PER_CENTIMILLISECOND
                     )
                     assert str(UTC_FIRST_TISSUE_DATA_POINT_UUID) in this_file.attrs
                     assert str(UTC_FIRST_REF_DATA_POINT_UUID) in this_file.attrs
@@ -717,9 +716,7 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
     with tempfile.TemporaryDirectory() as tmp_dir:
 
         test_dict = {
-            "stored_customer_ids": {
-                "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
-            },
+            "stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS,
             "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
             "zipped_recordings_dir": f"{tmp_dir}/zipped_recordings",
             "failed_uploads_dir": f"{tmp_dir}/failed_uploads",
@@ -745,7 +742,7 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
         # Tanner (12/29/20): use updated settings to set the recording directory to the TemporaryDirectory
 
         response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=filler_password&auto_upload=true&auto_delete=false"
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&auto_upload=true&auto_delete=false"
         )
         assert response.status_code == 200
 
@@ -857,9 +854,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
 
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         test_dict = {
-            "stored_customer_ids": {
-                "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
-            },
+            "stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS,
             "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
             "zipped_recordings_dir": f"{expected_recordings_dir}/zipped_recordings",
             "failed_uploads_dir": f"{expected_recordings_dir}/failed_uploads",
@@ -883,7 +878,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         da_out = test_process_manager.queue_container().get_data_analyzer_data_out_queue()
 
         response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=filler_password&auto_upload=true&auto_delete=false"
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&auto_upload=true&auto_delete=false"
         )
         assert response.status_code == 200
 

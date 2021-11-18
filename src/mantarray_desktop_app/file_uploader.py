@@ -219,6 +219,6 @@ class ErrorCatchingThread(Thread):
 
     def get_error(self) -> Any:
         if self.error is not None:  # for testing
-            # Lucy (11/8/21) prevents error when sending status to main queue by making it exception a string
+            # Lucy (11/8/21) prevents error when sending status to main queue by making exception a string
             return getattr(self.error, "message", str(self.error))
         return self.error

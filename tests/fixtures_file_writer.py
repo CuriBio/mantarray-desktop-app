@@ -64,10 +64,10 @@ import numpy as np
 import pytest
 from stdlib_utils import TestingQueue
 
+from .fixtures import GENERIC_STORED_CUSTOMER_IDS
 from .fixtures_mc_simulator import get_null_subprotocol
 from .fixtures_mc_simulator import get_random_subprotocol
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
-
 
 WELL_DEF_24 = LabwareDefinition(row_count=4, column_count=6)
 
@@ -282,9 +282,7 @@ def fixture_four_board_file_writer_process():
             error_queue,
             file_directory=tmp_dir,
             stored_customer_settings={
-                "stored_customer_ids": {
-                    "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
-                },
+                "stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS,
                 "zipped_recordings_dir": os.path.join(tmp_dir, "zipped_recordings"),
                 "failed_uploads_dir": os.path.join(tmp_dir, "failed_uploads"),
             },
@@ -320,9 +318,7 @@ def fixture_runnable_four_board_file_writer_process():
             error_queue,
             file_directory=tmp_dir,
             stored_customer_settings={
-                "stored_customer_ids": {
-                    "73f52be0-368c-42d8-a1fd-660d49ba5604": "filler_password",
-                },
+                "stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS,
                 "zipped_recordings_dir": os.path.join(tmp_dir, "zipped_recordings"),
                 "failed_uploads_dir": os.path.join(tmp_dir, "failed_uploads"),
             },

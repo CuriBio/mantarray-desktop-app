@@ -98,6 +98,7 @@ from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
 from .constants import MICRO_TO_BASE_CONVERSION
+from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MICROSECONDS_PER_MILLISECOND
 from .constants import RECORDING_STATE
 from .constants import REFERENCE_VOLTAGE
@@ -640,11 +641,11 @@ def start_recording() -> Response:
     """Tell the FileWriter to begin recording data to disk.
 
     Can be invoked by: curl http://localhost:4567/start_recording
-    curl http://localhost:4567/start_recording?active_well_indices=2,5,9&barcode=MA200440001&time_index=960&is_hardware_test_recording=True
+    curl http://localhost:4567/start_recording?active_well_indices=2,5,9&barcode=MA200440001&time_index=9600&is_hardware_test_recording=True
 
     Args:
         active_well_indices: [Optional, default=all 24] CSV of well indices to record from
-        time_index: [Optional, int] centimilliseconds since acquisition began to start the recording at. Defaults to when this command is received
+        time_index: [Optional, int] microseconds since acquisition began to start the recording at. Defaults to when this command is received
     """
     board_idx = 0
 
@@ -680,13 +681,15 @@ def start_recording() -> Response:
         )
     timestamp_of_sample_idx_zero = _get_timestamp_of_acquisition_sample_index_zero()
 
-    begin_timepoint: Union[int, float]
+    begin_time_index: Union[int, float]
     timestamp_of_begin_recording = datetime.datetime.utcnow()
     if "time_index" in request.args:
-        begin_timepoint = int(request.args["time_index"])
+        begin_time_index = int(request.args["time_index"])
+        if not shared_values_dict["beta_2_mode"]:
+            begin_time_index /= MICROSECONDS_PER_CENTIMILLISECOND
     else:
         time_since_index_0 = timestamp_of_begin_recording - timestamp_of_sample_idx_zero
-        begin_timepoint = time_since_index_0.total_seconds() * (
+        begin_time_index = time_since_index_0.total_seconds() * (
             MICRO_TO_BASE_CONVERSION if shared_values_dict["beta_2_mode"] else CENTIMILLISECONDS_PER_SECOND
         )
 
@@ -701,7 +704,7 @@ def start_recording() -> Response:
             COMPUTER_NAME_HASH_UUID: shared_values_dict["computer_name_hash"],
             HARDWARE_TEST_RECORDING_UUID: is_hardware_test_recording,
             UTC_BEGINNING_DATA_ACQUISTION_UUID: timestamp_of_sample_idx_zero,
-            START_RECORDING_TIME_INDEX_UUID: begin_timepoint,
+            START_RECORDING_TIME_INDEX_UUID: begin_time_index,
             UTC_BEGINNING_RECORDING_UUID: timestamp_of_begin_recording,
             CUSTOMER_ACCOUNT_ID_UUID: shared_values_dict["config_settings"]["customer_account_id"],
             USER_ACCOUNT_ID_UUID: shared_values_dict["config_settings"]["user_account_id"],
@@ -713,7 +716,7 @@ def start_recording() -> Response:
             PLATE_BARCODE_UUID: barcode,
             BARCODE_IS_FROM_SCANNER_UUID: are_barcodes_matching,
         },
-        "timepoint_to_begin_recording_at": begin_timepoint,
+        "timepoint_to_begin_recording_at": begin_time_index,
     }
     if shared_values_dict["beta_2_mode"]:
         instrument_metadata = shared_values_dict["instrument_metadata"][board_idx]
@@ -801,30 +804,32 @@ def start_recording() -> Response:
 def stop_recording() -> Response:
     """Tell the FileWriter to stop recording data to disk.
 
-    Supplies a specific timepoint that FileWriter should stop at, since there is a lag between what the user sees and what's actively streaming into FileWriter.
+    Supplies a specific time index that FileWriter should stop at, since there is a lag between what the user sees and what's actively streaming into FileWriter.
 
     Can be invoked by: curl http://localhost:4567/stop_recording
 
     Args:
-        time_index: [Optional, int] centimilliseconds since acquisition began to end the recording at. defaults to when this command is received
+        time_index: [Optional, int] microseconds since acquisition began to end the recording at. defaults to when this command is received
     """
     shared_values_dict = _get_values_from_process_monitor()
 
     timestamp_of_sample_idx_zero = _get_timestamp_of_acquisition_sample_index_zero()
 
-    stop_timepoint: Union[int, float]
+    stop_time_index: Union[int, float]
     if "time_index" in request.args:
-        stop_timepoint = int(request.args["time_index"])
+        stop_time_index = int(request.args["time_index"])
+        if not shared_values_dict["beta_2_mode"]:
+            stop_time_index /= MICROSECONDS_PER_CENTIMILLISECOND
     else:
         time_since_index_0 = datetime.datetime.utcnow() - timestamp_of_sample_idx_zero
-        stop_timepoint = time_since_index_0.total_seconds() * (
+        stop_time_index = time_since_index_0.total_seconds() * (
             MICRO_TO_BASE_CONVERSION if shared_values_dict["beta_2_mode"] else CENTIMILLISECONDS_PER_SECOND
         )
 
     comm_dict: Dict[str, Any] = {
         "communication_type": "recording",
         "command": "stop_recording",
-        "timepoint_to_stop_recording_at": stop_timepoint,
+        "timepoint_to_stop_recording_at": stop_time_index,
     }
     response = queue_command_to_main(comm_dict)
     return response

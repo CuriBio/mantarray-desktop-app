@@ -1,5 +1,5 @@
 import { EventEmitter } from "events";
-import { BrowserWindow, app, screen, ipcMain } from "electron";
+import { BrowserWindow, app, screen, ipcMain, globalShortcut } from "electron";
 import main_utils from "./utils.js"; // Eli (1/15/21): helping to be able to spy on functions within utils. https://stackoverflow.com/questions/49457451/jest-spyon-a-function-not-class-or-object-type
 const isProduction = process.env.NODE_ENV === "production";
 

@@ -7,6 +7,7 @@ from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
+from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import server
@@ -747,7 +748,7 @@ def test_start_recording_command__populates_queue__with_given_time_index_paramet
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     put_generic_beta_1_start_recording_info_in_dict(test_process_manager.get_values_to_share_to_server())
 
-    expected_time_index = 1000
+    expected_time_index = 9600
     barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
@@ -760,11 +761,13 @@ def test_start_recording_command__populates_queue__with_given_time_index_paramet
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
-    assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][START_RECORDING_TIME_INDEX_UUID]
-        == expected_time_index
+    assert communication["metadata_to_copy_onto_main_file_attributes"][START_RECORDING_TIME_INDEX_UUID] == (
+        expected_time_index / MICROSECONDS_PER_CENTIMILLISECOND
     )
-    assert communication["timepoint_to_begin_recording_at"] == expected_time_index
+    assert (
+        communication["timepoint_to_begin_recording_at"]
+        == expected_time_index / MICROSECONDS_PER_CENTIMILLISECOND
+    )
 
 
 def test_start_recording_command__populates_queue__with_correctly_parsed_set_of_well_indices(
@@ -777,7 +780,7 @@ def test_start_recording_command__populates_queue__with_correctly_parsed_set_of_
         PLATE_BARCODE_UUID
     ]
     response = test_client.get(
-        f"/start_recording?barcode={expected_barcode}&active_well_indices=0,5,8&is_hardware_test_recording=False"
+        f"/start_recording?barcode={expected_barcode}&active_well_indices=0,5,8&is_hardware_test_recording=false"
     )
     assert response.status_code == 200
 

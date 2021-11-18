@@ -25,7 +25,6 @@ from mantarray_desktop_app import OkCommunicationProcess
 from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import queue_container
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
-from mantarray_desktop_app.constants import CURI_BIO_ACCOUNT_UUID
 import pytest
 import requests
 from stdlib_utils import confirm_port_available
@@ -39,6 +38,9 @@ from stdlib_utils import TestingQueue
 PATH_TO_CURRENT_FILE = get_current_file_abs_directory()
 QUEUE_CHECK_TIMEOUT_SECONDS = 1.3  # for is_queue_eventually_of_size, is_queue_eventually_not_empty, is_queue_eventually_empty, put_object_into_queue_and_raise_error_if_eventually_still_empty, etc. # Eli (10/28/20) issue encountered where even 0.5 seconds was insufficient, so raising to 1 second # Eli (12/10/20) issue encountered where 1.1 second was not enough, so now 1.2 seconds # Eli (12/15/20): issue in test_ServerManager_start__puts_error_into_queue_if_flask_run_raises_error in Windows Github where 1.2 was not enough, so now 1.3
 GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS = 20
+GENERIC_STORED_CUSTOMER_IDS = {
+    "73f52be0-368c-42d8-a1fd-660d49ba5604": "Filler_password123",
+}
 
 
 def generate_board_and_error_queues(num_boards: int = 4, queue_type=MPQueue):
@@ -138,7 +140,7 @@ def fixture_test_process_manager_creator(mocker):
                 file_directory=tmp_dir,
                 values_to_share_to_server={
                     "beta_2_mode": beta_2_mode,
-                    "stored_customer_ids": {str(CURI_BIO_ACCOUNT_UUID): "filler_password"},
+                    "stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS,
                 },
             )
             if use_testing_queues:
