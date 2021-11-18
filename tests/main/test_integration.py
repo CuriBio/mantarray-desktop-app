@@ -108,6 +108,7 @@ from stdlib_utils import confirm_port_available
 from ..fixtures import fixture_fully_running_app_from_main_entrypoint
 from ..fixtures import fixture_patched_firmware_folder
 from ..fixtures import fixture_patched_xem_scripts_folder
+from ..fixtures import GENERIC_STORED_CUSTOMER_IDS
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BOARD_MAGNETOMETER_CONFIGURATION
@@ -207,9 +208,7 @@ def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_li
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         # Tanner (12/29/20): Sending in alternate recording directory through command line args
         test_dict = {
-            "stored_customer_ids": {
-                "73f52be0-368c-42d8-a1fd-660d49ba5604": "Filler_password123",
-            },
+            "stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS,
             "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
             "zipped_recordings_dir": f"{expected_recordings_dir}/zipped_recordings",
             "failed_uploads_dir": f"{expected_recordings_dir}/failed_uploads",
@@ -369,9 +368,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
 
         test_dict = {
-            "stored_customer_ids": {
-                "73f52be0-368c-42d8-a1fd-660d49ba5604": "Filler_password123",
-            },
+            "stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS,
             "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
             "zipped_recordings_dir": f"/{expected_recordings_dir}/zipped_recordings",
             "failed_uploads_dir": f"{expected_recordings_dir}/failed_uploads",
@@ -719,9 +716,7 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
     with tempfile.TemporaryDirectory() as tmp_dir:
 
         test_dict = {
-            "stored_customer_ids": {
-                "73f52be0-368c-42d8-a1fd-660d49ba5604": "Filler_password123",
-            },
+            "stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS,
             "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
             "zipped_recordings_dir": f"{tmp_dir}/zipped_recordings",
             "failed_uploads_dir": f"{tmp_dir}/failed_uploads",
@@ -859,9 +854,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
 
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         test_dict = {
-            "stored_customer_ids": {
-                "73f52be0-368c-42d8-a1fd-660d49ba5604": "Filler_password123",
-            },
+            "stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS,
             "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
             "zipped_recordings_dir": f"{expected_recordings_dir}/zipped_recordings",
             "failed_uploads_dir": f"{expected_recordings_dir}/failed_uploads",

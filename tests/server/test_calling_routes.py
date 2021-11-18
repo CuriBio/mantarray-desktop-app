@@ -26,6 +26,7 @@ from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 import pytest
 
 from ..fixtures import fixture_generic_queue_container
+from ..fixtures import GENERIC_STORED_CUSTOMER_IDS
 from ..fixtures_mc_simulator import create_random_stim_info
 from ..fixtures_mc_simulator import get_random_subprotocol
 from ..fixtures_server import fixture_client_and_server_manager_and_shared_values
@@ -330,7 +331,7 @@ def test_update_settings__returns_error_message_when_customer_creds_dont_make_st
     invalid_customer_id = "invalid_id"
     invalid_password_id = "invalid_pass"
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
-    shared_values_dict["stored_customer_settings"] = {"stored_customer_ids": {"real_id": "real_pass"}}
+    shared_values_dict["stored_customer_settings"] = {"stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS}
     response = test_client.get(
         f"/update_settings?customer_account_uuid={invalid_customer_id}&customer_pass_key={invalid_password_id}"
     )
