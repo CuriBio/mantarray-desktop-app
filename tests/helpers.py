@@ -155,25 +155,38 @@ def assert_serial_packet_is_expected(
     packet_type: int,
     additional_bytes: bytes = bytes(0),
     timestamp: Optional[int] = None,
+    error_msg: Optional[str] = None,
 ) -> None:
-    assert full_packet[SERIAL_COMM_MODULE_ID_INDEX] == module_id
-    assert full_packet[SERIAL_COMM_PACKET_TYPE_INDEX] == packet_type
-    packet_body = full_packet[SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
-    if packet_body != additional_bytes:
-        expected_len = len(additional_bytes)
-        actual_len = len(packet_body)
-        if expected_len != actual_len:
-            error_msg = f"Expected len: {expected_len}, Actual len: {actual_len}"
-            assert packet_body == additional_bytes, error_msg
-        else:
-            assert packet_body == additional_bytes
-    if timestamp is not None:
-        actual_timestamp_bytes = full_packet[
-            SERIAL_COMM_TIMESTAMP_BYTES_INDEX : SERIAL_COMM_TIMESTAMP_BYTES_INDEX
-            + SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
-        ]
-        actual_timestamp = int.from_bytes(actual_timestamp_bytes, byteorder="little")
-        assert actual_timestamp == timestamp
+    try:
+        assert full_packet[SERIAL_COMM_MODULE_ID_INDEX] == module_id
+        assert full_packet[SERIAL_COMM_PACKET_TYPE_INDEX] == packet_type
+        packet_body = full_packet[SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
+        if packet_body != additional_bytes:
+            expected_len = len(additional_bytes)
+            actual_len = len(packet_body)
+            if expected_len != actual_len:
+                error_info = f"Expected len: {expected_len}, Actual len: {actual_len}"
+                assert packet_body == additional_bytes, error_info
+            else:
+                assert packet_body == additional_bytes
+        if timestamp is not None:
+            actual_timestamp_bytes = full_packet[
+                SERIAL_COMM_TIMESTAMP_BYTES_INDEX : SERIAL_COMM_TIMESTAMP_BYTES_INDEX
+                + SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+            ]
+            actual_timestamp = int.from_bytes(actual_timestamp_bytes, byteorder="little")
+            assert actual_timestamp == timestamp
+    except AssertionError as e:
+        if error_msg is not None:
+            formatted_error_msg = f"\n  Error Message: {error_msg}"
+            if "\n" in e.args[0]:
+                error_lines = e.args[0].split("\n")
+                error_lines[-2] += formatted_error_msg
+                error_str = "\n".join(error_lines)
+            else:
+                error_str = e.args[0] + formatted_error_msg
+            e.args = (error_str,)
+        raise e
 
 
 def get_full_packet_size_from_packet_body_size(packet_body_size: int) -> int:

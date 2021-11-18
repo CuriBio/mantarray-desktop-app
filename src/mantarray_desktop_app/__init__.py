@@ -63,6 +63,8 @@ from .constants import FIRMWARE_VERSION_WIRE_OUT_ADDRESS
 from .constants import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
+from .constants import MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS
+from .constants import MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import MAX_POSSIBLE_CONNECTED_BOARDS
 from .constants import MICRO_TO_BASE_CONVERSION
@@ -84,7 +86,9 @@ from .constants import ROUND_ROBIN_PERIOD
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BAUD_RATE
+from .constants import SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_BOOT_UP_CODE
+from .constants import SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_COMMAND_FAILURE_BYTE
@@ -92,7 +96,9 @@ from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from .constants import SERIAL_COMM_COMMAND_SUCCESS_BYTE
 from .constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from .constants import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
+from .constants import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_FATAL_ERROR_CODE
+from .constants import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
@@ -103,10 +109,11 @@ from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
 from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
-from .constants import SERIAL_COMM_MAX_DATA_LENGTH_BYTES
+from .constants import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
+from .constants import SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE
 from .constants import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
@@ -169,6 +176,8 @@ from .exceptions import AttemptToInitializeFIFOReadsError
 from .exceptions import BarcodeNotClearedError
 from .exceptions import BarcodeScannerNotRespondingError
 from .exceptions import FirmwareFileNameDoesNotMatchWireOutVersionError
+from .exceptions import FirmwareUpdateCommandFailedError
+from .exceptions import FirmwareUpdateTimeoutError
 from .exceptions import FirstManagedReadLessThanOneRoundRobinError
 from .exceptions import ImproperlyFormattedCustomerAccountIDError
 from .exceptions import ImproperlyFormattedCustomerAccountPasskeyError
@@ -522,7 +531,7 @@ __all__ = [
     "SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS",
     "SerialCommHandshakeTimeoutError",
     "convert_to_status_code_bytes",
-    "SERIAL_COMM_MAX_DATA_LENGTH_BYTES",
+    "SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES",
     "SERIAL_COMM_SET_TIME_COMMAND_BYTE",
     "convert_to_timestamp_bytes",
     "get_serial_comm_timestamp",
@@ -611,4 +620,13 @@ __all__ = [
     "STIM_NO_PROTOCOL_ASSIGNED",
     "FILE_WRITER_BUFFER_SIZE_MICROSECONDS",
     "get_stimulation_dataset_from_file",
+    "SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE",
+    "SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE",
+    "SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE",
+    "SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE",
+    "SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE",
+    "FirmwareUpdateCommandFailedError",
+    "FirmwareUpdateTimeoutError",
+    "MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS",
+    "MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS",
 ]

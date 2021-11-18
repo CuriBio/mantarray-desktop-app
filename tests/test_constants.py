@@ -51,6 +51,8 @@ from mantarray_desktop_app import FIRMWARE_VERSION_WIRE_OUT_ADDRESS
 from mantarray_desktop_app import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
+from mantarray_desktop_app import MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS
+from mantarray_desktop_app import MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS
 from mantarray_desktop_app import MAX_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app import MAX_POSSIBLE_CONNECTED_BOARDS
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
@@ -71,7 +73,9 @@ from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from mantarray_desktop_app import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from mantarray_desktop_app import SERIAL_COMM_BAUD_RATE
+from mantarray_desktop_app import SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_BOOT_UP_CODE
+from mantarray_desktop_app import SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_FAILURE_BYTE
@@ -79,7 +83,9 @@ from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_SUCCESS_BYTE
 from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from mantarray_desktop_app import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_FATAL_ERROR_CODE
+from mantarray_desktop_app import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
@@ -91,10 +97,11 @@ from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY
 from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
-from mantarray_desktop_app import SERIAL_COMM_MAX_DATA_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_METADATA_BYTES_LENGTH
+from mantarray_desktop_app import SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_INDEX
@@ -402,6 +409,8 @@ def test_serial_comm():
     assert SERIAL_COMM_BAUD_RATE == int(5e6)
 
     assert MAX_MC_REBOOT_DURATION_SECONDS == 5
+    assert MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS == 20
+    assert MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS == 120
 
     assert SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES == 3
 
@@ -423,13 +432,11 @@ def test_serial_comm():
     assert SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES == 2
     assert SERIAL_COMM_CHECKSUM_LENGTH_BYTES == 4
     assert SERIAL_COMM_STATUS_CODE_LENGTH_BYTES == 4
-    assert SERIAL_COMM_MAX_PACKET_LENGTH_BYTES == 2 ** 16
-    assert SERIAL_COMM_MAX_DATA_LENGTH_BYTES == (
+    assert SERIAL_COMM_MAX_PACKET_LENGTH_BYTES == 65000
+    assert SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES == (
         SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
+        - len(SERIAL_COMM_MAGIC_WORD_BYTES)
         - SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
-        - SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
-        - SERIAL_COMM_CHECKSUM_LENGTH_BYTES
-        - 10
     )
     assert SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES == (
         SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
@@ -463,6 +470,11 @@ def test_serial_comm():
     assert SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE == 20
     assert SERIAL_COMM_START_STIM_PACKET_TYPE == 21
     assert SERIAL_COMM_STOP_STIM_PACKET_TYPE == 22
+    assert SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE == 70
+    assert SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE == 71
+    assert SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE == 72
+    assert SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE == 73
+    assert SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE == 74
     assert SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE == 255
 
     assert SERIAL_COMM_REBOOT_COMMAND_BYTE == 0
