@@ -218,7 +218,7 @@ RESPONSES = {
 
 @pytest.mark.live_test
 def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_mode):
-    # pylint: disable=too-many-locals  # Tanner (6/4/21): a lot of local variables needed for this test
+    # pylint: disable=too-many-locals,too-many-branches  # Tanner (6/4/21): a lot of local variables and branches needed for this test
     mc_process, board_queues, error_queue = four_board_mc_comm_process_hardware_test_mode.values()
     input_queue = board_queues[0][0]
     output_queue = board_queues[0][1]
