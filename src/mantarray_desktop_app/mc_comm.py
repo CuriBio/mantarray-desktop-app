@@ -535,13 +535,12 @@ class McCommunicationProcess(InstrumentCommProcess):
                 bytes_to_send = convert_stim_dict_to_bytes(comm_from_main["stim_info"])
                 if self._is_stimulating and not self._hardware_test_mode:
                     raise StimulationProtocolUpdateWhileStimulatingError()
-                if not self._hardware_test_mode:  # pragma: no cover
-                    protocol_assignments = comm_from_main["stim_info"]["protocol_assignments"]
-                    self._wells_assigned_a_protocol = frozenset(
-                        GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name)
-                        for well_name, protocol_id in protocol_assignments.items()
-                        if protocol_id is not None
-                    )
+                protocol_assignments = comm_from_main["stim_info"]["protocol_assignments"]
+                self._wells_assigned_a_protocol = frozenset(
+                    GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name)
+                    for well_name, protocol_id in protocol_assignments.items()
+                    if protocol_id is not None
+                )
             elif comm_from_main["command"] == "start_stimulation":
                 packet_type = SERIAL_COMM_START_STIM_PACKET_TYPE
             elif comm_from_main["command"] == "stop_stimulation":
