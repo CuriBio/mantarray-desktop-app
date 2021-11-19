@@ -84,7 +84,6 @@ cpdef int parse_little_endian_int24(unsigned char[3] data_bytes):
 
 
 # Beta 2
-from libc.stdint cimport int16_t
 from libc.stdint cimport int64_t
 from libc.stdint cimport uint8_t
 from libc.stdint cimport uint16_t
@@ -140,7 +139,7 @@ cdef packed struct Packet:
 
 cdef packed struct SensorData:
     uint16_t time_offset
-    int16_t data_points[NUM_CHANNELS_PER_SENSOR]
+    uint16_t data_points[NUM_CHANNELS_PER_SENSOR]
 
 
 cdef packed struct MagnetometerData:
@@ -171,7 +170,7 @@ cpdef dict handle_data_packets(
     cdef int num_data_channels = sum(active_channels_list)
     cdef int data_packet_len = (
         sizeof(uint64_t)  # time_index
-        + num_data_channels * sizeof(int16_t)  # data point
+        + num_data_channels * sizeof(uint16_t)  # data point
         + num_time_offsets * SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES_C_INT
     )
     cdef unsigned char [:] data_packet_bytes = bytearray(num_bytes)
@@ -259,11 +258,11 @@ cpdef dict handle_data_packets(
     # arrays for storing parsed data
     time_indices = np.empty(num_data_packets, dtype=np.uint64, order="C")
     time_offsets = np.empty((num_time_offsets, num_data_packets), dtype=np.uint16, order="C")
-    data = np.empty((num_data_channels, num_data_packets), dtype=np.int16, order="C")
+    data = np.empty((num_data_channels, num_data_packets), dtype=np.uint16, order="C")
     # get memory views of numpy arrays for faster operations
     cdef uint64_t [::1] time_indices_view = time_indices
     cdef uint16_t [:, ::1] time_offsets_view = time_offsets
-    cdef int16_t [:, ::1] data_view = data
+    cdef uint16_t [:, ::1] data_view = data
 
     if num_data_packets > 0:
         _parse_magetometer_data(
@@ -299,7 +298,7 @@ cdef _parse_magetometer_data(
     int num_data_packets,
     uint64_t [::1] time_indices_view,
     uint16_t [:, ::1] time_offsets_view,
-    int16_t [:, ::1] data_view,
+    uint16_t [:, ::1] data_view,
 ):
     data_packet_bytes = data_packet_bytes.copy()  # make sure data is C contiguous
     cdef int data_packet_len = len(data_packet_bytes) // num_data_packets

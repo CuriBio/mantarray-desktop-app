@@ -59,9 +59,10 @@ def test_MantarrayMcSimulator__get_interpolated_data_returns_correct_value(
     )
     expected_data = interpolator(
         np.arange(0, MICRO_TO_BASE_CONVERSION, test_sampling_period, dtype=np.uint64)
-    ).astype(np.int16)
+    ).astype(np.uint16)
 
     actual_data = simulator.get_interpolated_data(test_sampling_period)
+    assert actual_data.dtype == np.uint16
     np.testing.assert_array_equal(actual_data, expected_data)
 
 

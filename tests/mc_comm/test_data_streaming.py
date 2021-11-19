@@ -109,7 +109,7 @@ def create_data_stream_body(
             data_packet_body += offset.to_bytes(SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES, byteorder="little")
             # create data point
             data_value = random_data_value()
-            data_value_bytes = data_value.to_bytes(2, byteorder="little", signed=True)
+            data_value_bytes = data_value.to_bytes(2, byteorder="little")
             for axis_idx in range(SERIAL_COMM_NUM_CHANNELS_PER_SENSOR):
                 # add data points
                 channel_id = sensor_base_idx + axis_idx
@@ -150,13 +150,13 @@ def test_handle_data_packets__handles_two_full_data_packets_correctly__and_assig
     parsed_data_dict = handle_data_packets(
         bytearray(test_data_packet_bytes), FULL_DATA_PACKET_CHANNEL_LIST, base_global_time
     )
-    (actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read) = parsed_data_dict[
+    actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read = parsed_data_dict[
         "magnetometer_data"
     ].values()
 
     assert actual_time_indices.dtype == np.uint64
     assert actual_time_offsets.dtype == np.uint16
-    assert actual_data.dtype == np.int16
+    assert actual_data.dtype == np.uint16
     np.testing.assert_array_equal(actual_time_indices, expected_time_indices)
     np.testing.assert_array_equal(actual_time_offsets, expected_time_offsets)
     np.testing.assert_array_equal(actual_data, expected_data_points)
@@ -207,7 +207,7 @@ def test_handle_data_packets__handles_two_full_data_packets_correctly__when_acti
 
     active_channels_list = create_active_channel_per_sensor_list(test_config_dict)
     parsed_data_dict = handle_data_packets(bytearray(test_data_packet_bytes), active_channels_list, 0)
-    (actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read) = parsed_data_dict[
+    actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read = parsed_data_dict[
         "magnetometer_data"
     ].values()
 
@@ -221,7 +221,7 @@ def test_handle_data_packets__handles_two_full_data_packets_correctly__when_acti
 
 def test_handle_data_packets__handles_single_packet_with_incorrect_packet_type_correctly__when_all_channels_enabled():
     parsed_data_dict = handle_data_packets(bytearray(TEST_OTHER_PACKET), FULL_DATA_PACKET_CHANNEL_LIST, 0)
-    (actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read) = parsed_data_dict[
+    actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read = parsed_data_dict[
         "magnetometer_data"
     ].values()
 
@@ -244,7 +244,7 @@ def test_handle_data_packets__handles_single_packet_with_incorrect_module_id_cor
     )
 
     parsed_data_dict = handle_data_packets(bytearray(test_data_packet), FULL_DATA_PACKET_CHANNEL_LIST, 0)
-    (actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read) = parsed_data_dict[
+    actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read = parsed_data_dict[
         "magnetometer_data"
     ].values()
 
@@ -276,7 +276,7 @@ def test_handle_data_packets__handles_interrupting_packet_followed_by_data_packe
     )
 
     parsed_data_dict = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0)
-    (actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read) = parsed_data_dict[
+    actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read = parsed_data_dict[
         "magnetometer_data"
     ].values()
 
@@ -300,7 +300,7 @@ def test_handle_data_packets__handles_single_data_packet_followed_by_interruptin
     test_bytes = test_data_packet + TEST_OTHER_PACKET
 
     parsed_data_dict = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0)
-    (actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read) = parsed_data_dict[
+    actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read = parsed_data_dict[
         "magnetometer_data"
     ].values()
 
@@ -326,7 +326,7 @@ def test_handle_data_packets__handles_single_data_packet_followed_by_incomplete_
     test_bytes = test_data_packet + test_incomplete_packet
 
     parsed_data_dict = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0)
-    (actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read) = parsed_data_dict[
+    actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read = parsed_data_dict[
         "magnetometer_data"
     ].values()
 
@@ -363,7 +363,7 @@ def test_handle_data_packets__handles_interrupting_packet_in_between_two_data_pa
     test_bytes = test_data_packets[0] + TEST_OTHER_PACKET + test_data_packets[1]
 
     parsed_data_dict = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0)
-    (actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read) = parsed_data_dict[
+    actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read = parsed_data_dict[
         "magnetometer_data"
     ].values()
 
@@ -406,7 +406,7 @@ def test_handle_data_packets__handles_two_interrupting_packets_in_between_two_da
     test_bytes = test_data_packets[0] + TEST_OTHER_PACKET + TEST_OTHER_PACKET + test_data_packets[1]
 
     parsed_data_dict = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0)
-    (actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read) = parsed_data_dict[
+    actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read = parsed_data_dict[
         "magnetometer_data"
     ].values()
 
@@ -475,7 +475,7 @@ def test_handle_data_packets__does_not_parse_final_packet_if_it_is_not_complete(
     parsed_data_dict = handle_data_packets(
         bytearray(test_data_packet_bytes), FULL_DATA_PACKET_CHANNEL_LIST, base_global_time
     )
-    (actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read) = parsed_data_dict[
+    actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read = parsed_data_dict[
         "magnetometer_data"
     ].values()
 
@@ -529,7 +529,7 @@ def test_handle_data_packets__performance_test__magnetometer_data_only():
     parsed_data_dict = handle_data_packets(
         bytearray(test_data_packet_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0
     )
-    (actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read) = parsed_data_dict[
+    actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read = parsed_data_dict[
         "magnetometer_data"
     ].values()
     dur = time.perf_counter_ns() - start
@@ -823,7 +823,7 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
             "time_offsets": np.zeros((SERIAL_COMM_NUM_SENSORS_PER_WELL, test_num_packets), dtype=np.uint16),
         }
         for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS):
-            channel_dict[channel_id] = simulated_data * np.int16(well_idx + 1)
+            channel_dict[channel_id] = simulated_data * np.uint16(well_idx + 1)
         expected_fw_item[well_idx] = channel_dict
     # not actually using the value here in any assertions, just need the key present
     expected_fw_item["is_first_packet_of_stream"] = None
@@ -841,7 +841,7 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
         assert actual_item.keys() == expected_item.keys()  # pylint: disable=no-member
         for sub_key, expected_data in expected_item.items():  # pylint: disable=no-member
             actual_data = actual_item[sub_key]
-            expected_dtype = np.uint16 if sub_key == "time_offsets" else np.int16
+            expected_dtype = np.uint16
             assert actual_data.dtype == expected_dtype
             np.testing.assert_array_equal(
                 actual_data, expected_data, err_msg=f"Failure at '{key}' key, sub key '{sub_key}'"
@@ -950,7 +950,7 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
         for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS):
             if not config_values[channel_id]:
                 continue
-            channel_dict[channel_id] = simulated_data * np.int16(well_idx + 1)
+            channel_dict[channel_id] = simulated_data * np.uint16(well_idx + 1)
         expected_fw_item[well_idx] = channel_dict
     # not actually using the value here in any assertions, just need the key present
     expected_fw_item["is_first_packet_of_stream"] = None
@@ -1025,7 +1025,7 @@ def test_McCommunicationProcess__handles_one_second_read_with_two_interrupting_p
         channel_data = np.concatenate((simulated_data, simulated_data[: test_num_packets // 3]))
         channel_dict = {
             "time_offsets": np.zeros((test_num_channels_per_sensor, test_num_packets), dtype=np.uint16),
-            expected_sensor_axis_id: channel_data * np.int16(well_idx + 1),
+            expected_sensor_axis_id: channel_data * np.uint16(well_idx + 1),
         }
         expected_fw_item[well_idx] = channel_dict
     # not actually using the value here in any assertions, just need the key present
@@ -1129,7 +1129,7 @@ def test_McCommunicationProcess__handles_less_than_one_second_read_when_stopping
         well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
         channel_dict = {
             "time_offsets": np.zeros((test_num_channels_per_sensor, test_num_packets), dtype=np.uint16),
-            expected_sensor_axis_id: simulated_data[:test_num_packets] * np.int16(well_idx + 1),
+            expected_sensor_axis_id: simulated_data[:test_num_packets] * np.uint16(well_idx + 1),
         }
         expected_fw_item[well_idx] = channel_dict
     # not actually using the value here in any assertions, just need the key present

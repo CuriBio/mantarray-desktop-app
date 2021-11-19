@@ -44,7 +44,7 @@ def random_time_offset():
 
 
 def random_data_value():
-    return randint(-0x8000, 0x7FFF)
+    return randint(0, 0xFFFF)
 
 
 def random_timestamp():
