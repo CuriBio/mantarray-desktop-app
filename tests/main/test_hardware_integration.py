@@ -18,7 +18,6 @@ from stdlib_utils import get_formatted_stack_trace
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_hardware_integration import fixture_four_board_mc_comm_process_hardware_test_mode
 from ..fixtures_mc_simulator import create_random_stim_info
-from ..fixtures_mc_simulator import get_null_subprotocol
 from ..helpers import random_bool
 
 __fixtures__ = [
@@ -64,7 +63,9 @@ RANDOM_STIM_INFO_1 = {
         }
     ],
     "protocol_assignments": {
-        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): ("A" if well_idx in (0, 3, 20, 23) else None)
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): (
+            "A" if well_idx in (0, 3, 20, 23) else None
+        )
         for well_idx in range(24)
     },
 }
@@ -262,7 +263,7 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
                     print("###", msg_to_main)  # allow-print
                 elif comm_type == expected_response["communication_type"]:
                     if msg_to_main.get("command", "") == "status_update":
-                        print("###", msg_to_main)
+                        print("###", msg_to_main)  # allow-print
                         continue
                     if "timestamp" in msg_to_main:
                         del msg_to_main["timestamp"]
@@ -277,7 +278,7 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
                         time.sleep(2)
                         print("End sleep...")  # allow-print
                     if response_key == "start_stim_2_1":
-                        print("Sleeping to let stim complete") #for a while...")
+                        print("Sleeping to let stim complete")  # allow-print
                         time.sleep(20)
                     response_found = True
                 elif msg_to_main.get("command", None) == "set_time" or comm_type == "barcode_comm":
@@ -342,8 +343,8 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
     expected_fw_item["is_first_packet_of_stream"] = None
 
     for actual_item in data_sent_to_fw:
-        if actual_item["data_type"] =="stimulation":
-            print("### Ignoring stim packet:", actual_item)
+        if actual_item["data_type"] == "stimulation":
+            print("### Ignoring stim packet:", actual_item)  # allow-print
             continue
         assert actual_item.keys() == expected_fw_item.keys()
         for key, expected_item in expected_fw_item.items():
