@@ -134,7 +134,7 @@ const start_python_subprocess = () => {
     console.log("sending command line args: " + command_line_args); // allow-log
     const options = {
       mode: "text",
-      pythonPath: "python", // process.platform === "win32" ? "python3" : "python",
+      pythonPath: process.platform === "win32" ? "python" : "python3",
       // pythonOptions: ['-u'], // get print results in real-time
       scriptPath: "src",
       args: command_line_args,
