@@ -673,6 +673,7 @@ def test_full_datapath_in_beta_1_mode(
     )
     test_data[1] -= min(test_data[1])
     pl_template = PipelineTemplate(
+        is_beta_1_data=True,
         noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
         tissue_sampling_period=ROUND_ROBIN_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND,
     )

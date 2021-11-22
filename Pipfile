@@ -36,7 +36,7 @@ immutable-data-validation = "==0.2.1"
 labware-domain-models = "==0.3.1"
 jsonschema = "==4.1.0"  # Tanner (11/8/21): latest version is having issues in compiled executable
 mantarray-file-manager = "==1.0.1"
-mantarray-waveform-analysis = "==1.2.0"
+mantarray-waveform-analysis = {ref = "beta-2-analysis-updates", git = "https://github.com/CuriBio/mantarray-waveform-analysis.git", editable = true}
 nptyping = "==1.4.0"
 numpy = "==1.20.2"
 pyserial = "==3.5"

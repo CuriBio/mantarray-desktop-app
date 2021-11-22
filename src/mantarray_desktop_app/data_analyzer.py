@@ -117,6 +117,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._data_analysis_stream_zipper: Optional[Stream] = None
         self._active_wells: List[int] = list(range(24))
         self._pipeline_template = PipelineTemplate(
+            is_beta_1_data=not self._beta_2_mode,
             noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
             tissue_sampling_period=CONSTRUCT_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND,
         )
@@ -141,6 +142,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         super().start()
 
     def get_pipeline_template(self) -> PipelineTemplate:
+        """Mainly for use in unit tests."""
         return self._pipeline_template
 
     def get_calibration_settings(self) -> Union[None, Dict[Any, Any]]:
@@ -249,8 +251,9 @@ class DataAnalyzerProcess(InfiniteProcess):
                     MICRO_TO_BASE_CONVERSION / sampling_period_us
                 )
                 self._pipeline_template = PipelineTemplate(
+                    is_beta_1_data=not self._beta_2_mode,
                     noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
-                    # TODO Tanner (8/4/21): for some reason sampling periods > 16000 µs cause errors when creating filters. Need to update waveform analysis package before they will be usable
+                    # Tanner (8/4/21): for some reason sampling periods > 16000 µs cause errors when creating filters.
                     tissue_sampling_period=sampling_period_us,
                 )
                 self.init_streams()
