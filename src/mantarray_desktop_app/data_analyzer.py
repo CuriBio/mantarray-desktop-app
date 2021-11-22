@@ -122,7 +122,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             tissue_sampling_period=CONSTRUCT_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND,
         )
         # Beta 1 items
-        self._well_offsets: List[Optional[int]] = [None] * 24
+        self._well_offsets: List[Union[int, float, None]] = [None] * 24
         self._calibration_settings: Union[None, Dict[Any, Any]] = None
         # Beta 2 items
         self._beta_2_buffer_size: Optional[int] = None
@@ -367,6 +367,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                 np.zeros((2, len(default_channel_data))),
             )
             force_data = pipeline.get_compressed_force()
+            self._normalize_beta_2_data_for_well(well_idx, force_data)
 
             # convert arrays to lists for json conversion later
             waveform_data_points[well_idx] = {
@@ -385,6 +386,11 @@ class DataAnalyzerProcess(InfiniteProcess):
             "num_data_points": len(data_dict["time_indices"]),
         }
         return outgoing_data
+
+    def _normalize_beta_2_data_for_well(self, well_idx: int, tissue_data: NDArray[(2, Any), float]) -> None:
+        if self._well_offsets[well_idx] is None:
+            self._well_offsets[well_idx] = min(tissue_data[1])
+        tissue_data[1] -= self._well_offsets[well_idx]
 
     def _create_outgoing_beta_1_data(self) -> Dict[str, Any]:
         outgoing_data_creation_start = perf_counter()
