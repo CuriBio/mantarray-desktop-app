@@ -139,7 +139,7 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         else GENERIC_BETA_2_START_RECORDING_COMMAND
     )
     data_shape = (0,) if test_beta_version == 1 else (GENERIC_NUM_CHANNELS_ENABLED, 0)
-    data_type = np.int32 if test_beta_version == 1 else np.int16
+    data_type = np.int32 if test_beta_version == 1 else np.uint16
     simulator_class = RunningFIFOSimulator if test_beta_version == 1 else MantarrayMcSimulator
     file_version = (
         CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
@@ -872,7 +872,7 @@ def test_FileWriterProcess__records_all_requested_beta_2_magnetometer_data_in_bu
     expected_time_indices = np.arange(
         expected_start_timepoint, expected_start_timepoint + expected_total_num_data_points, dtype=np.uint64
     )
-    base_data = np.ones(num_data_points_per_packet, dtype=np.int16)
+    base_data = np.ones(num_data_points_per_packet, dtype=np.uint16)
     base_time_offsets = np.ones((GENERIC_NUM_SENSORS_ENABLED, num_data_points_per_packet), dtype=np.uint16)
     for i in range(expected_num_packets_recorded):
         curr_idx = i * num_data_points_per_packet
@@ -926,16 +926,16 @@ def test_FileWriterProcess__records_all_requested_beta_2_magnetometer_data_in_bu
         ), f"Incorrect offset shape for well {well_idx}"
         np.testing.assert_array_equal(
             time_offset_dataset,
-            np.ones(expected_time_offsets_shape, dtype=np.int16) * well_idx,
+            np.ones(expected_time_offsets_shape, dtype=np.uint16) * well_idx,
             err_msg=f"Incorrect offsets for well {well_idx}",
         )
 
         tissue_dataset = get_tissue_dataset_from_file(this_file)
-        assert tissue_dataset.dtype == "int16", f"Incorrect tissue dtype for well {well_idx}"
+        assert tissue_dataset.dtype == "uint16", f"Incorrect tissue dtype for well {well_idx}"
         assert tissue_dataset.shape == expected_data_shape, f"Incorrect tissue shape for well {well_idx}"
         np.testing.assert_array_equal(
             tissue_dataset,
-            np.ones(expected_data_shape, dtype=np.int16) * well_idx,
+            np.ones(expected_data_shape, dtype=np.uint16) * well_idx,
             err_msg=f"Incorrect data for well {well_idx}",
         )
 
@@ -1295,7 +1295,7 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
     expected_remaining_packets_recorded = 3
     num_data_points_per_packet = 4
     expected_total_num_data_points = expected_remaining_packets_recorded * num_data_points_per_packet
-    base_data = np.zeros(num_data_points_per_packet, dtype=np.int16)
+    base_data = np.zeros(num_data_points_per_packet, dtype=np.uint16)
     base_time_offsets = np.zeros((GENERIC_NUM_SENSORS_ENABLED, num_data_points_per_packet), dtype=np.uint16)
     expected_time_indices = np.arange(expected_total_num_data_points, dtype=np.uint64)
     # add packets whose data will remain in the file
@@ -1389,16 +1389,16 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
         ), f"Incorrect offset shape for well {well_idx}"
         np.testing.assert_array_equal(
             time_offset_dataset,
-            np.ones(expected_time_offsets_shape, dtype=np.int16) * well_idx,
+            np.ones(expected_time_offsets_shape, dtype=np.uint16) * well_idx,
             err_msg=f"Incorrect offsets for well {well_idx}",
         )
 
         tissue_dataset = get_tissue_dataset_from_file(this_file)
-        assert tissue_dataset.dtype == "int16", f"Incorrect tissue dtype for well {well_idx}"
+        assert tissue_dataset.dtype == "uint16", f"Incorrect tissue dtype for well {well_idx}"
         assert tissue_dataset.shape == expected_data_shape, f"Incorrect tissue shape for well {well_idx}"
         np.testing.assert_array_equal(
             tissue_dataset,
-            np.ones(expected_data_shape, dtype=np.int16) * well_idx,
+            np.ones(expected_data_shape, dtype=np.uint16) * well_idx,
             err_msg=f"Incorrect tissue data for well {well_idx}",
         )
 
@@ -1505,8 +1505,8 @@ def test_FileWriterProcess__raises_error_if_stop_recording_command_received_with
         "is_first_packet_of_stream": False,
         test_well_index: {
             "time_offsets": np.array([[0], [0]], dtype=np.uint16),
-            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: np.array([0], dtype=np.int16),
-            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: np.array([0], dtype=np.int16),
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: np.array([0], dtype=np.uint16),
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: np.array([0], dtype=np.uint16),
         },
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(

@@ -218,7 +218,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._timepoint_of_last_data_packet_us: Optional[int] = None
         self._time_index_us = 0
         self._simulated_data_index = 0
-        self._simulated_data: NDArray[np.int16] = np.array([], dtype=np.int16)
+        self._simulated_data: NDArray[np.uint16] = np.array([], dtype=np.uint16)
         self._metadata_dict: Dict[bytes, bytes] = dict()
         self._reset_metadata_dict()
         self._setup_data_interpolator()
@@ -397,10 +397,10 @@ class MantarrayMcSimulator(InfiniteProcess):
         """Mainly for use in unit tests."""
         return self._magnetometer_config
 
-    def get_interpolated_data(self, sampling_period_us: int) -> NDArray[np.int16]:
+    def get_interpolated_data(self, sampling_period_us: int) -> NDArray[np.uint16]:
         """Return one second (one twitch) of interpolated data."""
         data_indices = np.arange(0, MICRO_TO_BASE_CONVERSION, sampling_period_us)
-        return self._interpolator(data_indices).astype(np.int16)
+        return self._interpolator(data_indices).astype(np.uint16)
 
     def get_stim_info(self) -> Dict[str, Any]:
         """Mainly for use in unit tests."""
@@ -852,7 +852,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                 offset = bytes(SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES)  # use 0 for offset in simulated data
                 data_packet_body += offset
                 # create data points
-                data_value = self._simulated_data[self._simulated_data_index] * np.int16(
+                data_value = self._simulated_data[self._simulated_data_index] * np.uint16(
                     SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id] + 1
                 )
                 data_value_bytes = data_value.tobytes()

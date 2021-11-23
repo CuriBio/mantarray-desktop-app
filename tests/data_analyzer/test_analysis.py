@@ -336,7 +336,7 @@ def test_DataAnalyzerProcess__sends_beta_2_metrics_of_all_wells_to_main_when_rea
         # Tanner (7/14/21): time offsets are currently unused in data analyzer so not modifying them here
         first_channel = list(test_packet_1[well_idx].keys())[1]
         y_data = test_y_data if well_idx <= 10 else dummy_y_data
-        test_packet_1[well_idx][first_channel] = np.array(y_data[:-50], dtype=np.int16)
+        test_packet_1[well_idx][first_channel] = np.array(y_data[:-50], dtype=np.uint16)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet_1, board_queues[0][0])
     invoke_process_run_and_check_errors(da_process)
     confirm_queue_is_eventually_empty(board_queues[0][1])
@@ -348,7 +348,7 @@ def test_DataAnalyzerProcess__sends_beta_2_metrics_of_all_wells_to_main_when_rea
         # Tanner (7/14/21): time offsets are currently unused in data analyzer so not modifying them here
         first_channel = list(test_packet_2[well_idx].keys())[1]
         y_data = test_y_data if well_idx <= 10 else dummy_y_data
-        test_packet_2[well_idx][first_channel] = np.array(y_data[-50:], dtype=np.int16)
+        test_packet_2[well_idx][first_channel] = np.array(y_data[-50:], dtype=np.uint16)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet_2, board_queues[0][0])
     invoke_process_run_and_check_errors(da_process)
     confirm_queue_is_eventually_of_size(board_queues[0][1], 1)
@@ -477,7 +477,7 @@ def test_DataAnalyzerProcess__only_dumps_new_twitch_metrics__with_beta_2_data(
         # Tanner (7/14/21): time offsets are currently unused in data analyzer so not modifying them here
         first_channel = list(test_packet_1[well_idx].keys())[1]
         test_packet_1[well_idx][first_channel] = np.array(
-            test_y_data[:-num_data_points_per_second], dtype=np.int16
+            test_y_data[:-num_data_points_per_second], dtype=np.uint16
         )
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet_1, board_queues[0][0])
     invoke_process_run_and_check_errors(da_process)
@@ -499,7 +499,7 @@ def test_DataAnalyzerProcess__only_dumps_new_twitch_metrics__with_beta_2_data(
         # Tanner (7/14/21): time offsets are currently unused in data analyzer so not modifying them here
         first_channel = list(test_packet_2[well_idx].keys())[1]
         test_packet_2[well_idx][first_channel] = np.array(
-            test_y_data[-num_data_points_per_second:], dtype=np.int16
+            test_y_data[-num_data_points_per_second:], dtype=np.uint16
         )
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet_2, board_queues[0][0])
     invoke_process_run_and_check_errors(da_process)
@@ -558,7 +558,7 @@ def test_DataAnalyzerProcess__data_analysis_stream_is_reconfigured_in_beta_2_mod
     for well_idx in range(24):
         # Tanner (7/14/21): time offsets are currently unused in data analyzer so not modifying them here
         first_channel = list(test_packet_1[well_idx].keys())[1]
-        test_packet_1[well_idx][first_channel] = np.array(test_y_data, dtype=np.int16)
+        test_packet_1[well_idx][first_channel] = np.array(test_y_data, dtype=np.uint16)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet_1, board_queues[0][0])
     invoke_process_run_and_check_errors(da_process)
     confirm_queue_is_eventually_of_size(board_queues[0][1], 1)
@@ -588,7 +588,7 @@ def test_DataAnalyzerProcess__data_analysis_stream_is_reconfigured_in_beta_2_mod
     for well_idx in range(24):
         # Tanner (7/14/21): time offsets are currently unused in data analyzer so not modifying them here
         first_channel = list(test_packet_2[well_idx].keys())[1]
-        test_packet_2[well_idx][first_channel] = np.array(test_y_data, dtype=np.int16)
+        test_packet_2[well_idx][first_channel] = np.array(test_y_data, dtype=np.uint16)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet_2, board_queues[0][0])
     invoke_process_run_and_check_errors(da_process)
     confirm_queue_is_eventually_of_size(board_queues[0][1], 1)

@@ -84,7 +84,9 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
         compressed_data = pipeline.get_compressed_force()
         waveform_data_points[well_idx] = {
             "x_data_points": compressed_data[0].tolist(),
-            "y_data_points": (compressed_data[1] * MICRO_TO_BASE_CONVERSION).tolist(),
+            "y_data_points": (
+                (compressed_data[1] - min(compressed_data[1])) * MICRO_TO_BASE_CONVERSION
+            ).tolist(),
         }
     expected_outgoing_dict = {
         "waveform_data": {"basic_data": {"waveform_data_points": waveform_data_points}},

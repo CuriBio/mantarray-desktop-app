@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "99b71e6adfc72c036b155f067a61e64b06403b0a4448aa524689e8d34fbeed22"
+            "sha256": "552e3d4c035fb242d7675ecdcba3cfab2fc4ac0e49f579d90691d2d901d164b0"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -230,20 +230,9 @@
             "version": "==1.0.1"
         },
         "mantarray-waveform-analysis": {
-            "hashes": [
-                "sha256:20585db400deab269c3da07bb13acdb2416eff699f44d626b5423f11bca327ad",
-                "sha256:2f1574cca7b2968721443314403f8383794acee4753d5dc52d4465cacc4f9253",
-                "sha256:37e07fa91b2a1eab659ed104b37006fb859c60f8fd8a90e289771a0ddf5beba8",
-                "sha256:622ee7f1ed0f47efc7ed3a1de0c353ef94bec17b617d3236efcd1a162595ed85",
-                "sha256:6f1cc311cbd530b8701a7d16babb3d9ab9867caef588dd1893b5c47939a795d7",
-                "sha256:748a99673be98145050f2367b5bd8e9397a5da7994fff6a039bac1b60fdefbbd",
-                "sha256:7747c9de6114b36ef631771b83fcc5d20bde04ffb4901b9e3aad66fe5ad444c5",
-                "sha256:7c11dbf48fb35c315c4dd9c9cca4ce903e5dce1fa2c8301a629db36536aacbb3",
-                "sha256:8ec22971193a26fba8568756a647a5e1c47378df01070c1f0e7599c471ce0c4e",
-                "sha256:b073ed8f717f1eabf3497f91d0610aec384cc1e81a7f10bebd26c05a3e5cc3bf"
-            ],
-            "index": "pypi",
-            "version": "==1.2.0"
+            "editable": true,
+            "git": "https://github.com/CuriBio/mantarray-waveform-analysis.git",
+            "ref": "337dd9728e21610feb42796cc02cdfae8209fac9"
         },
         "markupsafe": {
             "hashes": [
@@ -538,7 +527,7 @@
                 "sha256:56f6dc65d86c2e5b8f04f22acedd33af2c233edc1082fe4d24fd3996bd19d0fe",
                 "sha256:f9395cad9a30cb9864fa0c0d18a84daead1eb8807774f4e09f588f89b7dc77d8"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3' and python_version < '4'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3' and python_version < '4.0'",
             "version": "==1.5.0"
         },
         "werkzeug": {
@@ -838,7 +827,7 @@
                 "sha256:6f62d78e2f89b4500b080fe3a81690850cd254227f27f75c3a0c491a1f351ba7",
                 "sha256:e8443a5e7a020e9d7f97f1d7d9cd17c88bcb3bc7e218bf9cf5095fe550be2951"
             ],
-            "markers": "python_version < '4.0' and python_full_version >= '3.6.1'",
+            "markers": "python_version < '4' and python_full_version >= '3.6.1'",
             "version": "==5.10.1"
         },
         "jinja2": {
@@ -884,14 +873,6 @@
             ],
             "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4, 3.5'",
             "version": "==1.6.0"
-        },
-        "macholib": {
-            "hashes": [
-                "sha256:1542c41da3600509f91c165cb897e7e54c0e74008bd8da5da7ebbee519d593d2",
-                "sha256:885613dd02d3e26dbd2b541eb4cc4ce611b841f827c0958ab98656e478b9e6f6"
-            ],
-            "markers": "sys_platform == 'darwin'",
-            "version": "==1.15.2"
         },
         "markupsafe": {
             "hashes": [
@@ -1302,7 +1283,7 @@
                 "sha256:4987c65554f7a2dbf30c18fd48778ef124af6fab771a377103da0585e2336ece",
                 "sha256:c4fdf4019605b6e5423637e01bc9fe4daef873709a7973e195ceba0a62bbc844"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4.0'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4'",
             "version": "==1.26.7"
         },
         "virtualenv": {

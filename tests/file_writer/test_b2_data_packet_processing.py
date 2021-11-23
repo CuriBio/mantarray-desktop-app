@@ -55,7 +55,7 @@ def create_simple_2d_array(start_timepoint, num_data_points, dtype, step=1):
 
 
 def create_simple_magnetometer_well_dict(start_timepoint, num_data_points):
-    test_value_arr = create_simple_1d_array(start_timepoint, num_data_points, np.int16)
+    test_value_arr = create_simple_1d_array(start_timepoint, num_data_points, np.uint16)
     return {
         "time_offsets": create_simple_2d_array(start_timepoint, num_data_points, np.uint16) * 2,
         SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: test_value_arr * 3,

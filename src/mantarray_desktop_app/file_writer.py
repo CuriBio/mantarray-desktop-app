@@ -607,7 +607,7 @@ class FileWriterProcess(InfiniteProcess):
                 num_channels_enabled = sum(attrs_to_copy[MAGNETOMETER_CONFIGURATION_UUID][module_id].values())
                 data_shape = (num_channels_enabled, 0)
                 maxshape = (num_channels_enabled, max_data_len)
-                data_dtype = "int16"
+                data_dtype = "uint16"
                 # beta 2 files must also store time indices and time offsets
                 this_file.create_dataset(
                     TIME_INDICES,

@@ -535,6 +535,7 @@ def test_DataAnalyzerProcess__create_outgoing_data__normalizes_and_flips_raw_dat
     )
 
     pt = PipelineTemplate(
+        is_beta_1_data=True,
         noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
         tissue_sampling_period=ROUND_ROBIN_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND,
     )

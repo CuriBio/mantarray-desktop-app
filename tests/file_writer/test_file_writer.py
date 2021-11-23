@@ -640,7 +640,7 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_2_files_after_stop_recordi
     # fill files with data
     test_num_data_points = 50
     start_timepoint = GENERIC_BETA_2_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
-    test_data = np.zeros(test_num_data_points, dtype=np.int16)
+    test_data = np.zeros(test_num_data_points, dtype=np.uint16)
     data_packet = {
         "data_type": "magnetometer",
         "time_indices": np.arange(start_timepoint, start_timepoint + test_num_data_points, dtype=np.uint64),
@@ -803,8 +803,8 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_2_f
     for well_idx in range(24):
         channel_dict = {
             "time_offsets": np.zeros((GENERIC_NUM_SENSORS_ENABLED, num_data_points), dtype=np.uint16),
-            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: np.zeros(num_data_points, dtype=np.int16),
-            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: np.zeros(num_data_points, dtype=np.int16),
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: np.zeros(num_data_points, dtype=np.uint16),
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: np.zeros(num_data_points, dtype=np.uint16),
         }
         data_packet[well_idx] = channel_dict
     board_queues[0][0].put_nowait(data_packet)
