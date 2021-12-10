@@ -17,6 +17,7 @@ Custom HTTP Error Codes:
 * 403 - Call to /start_recording with is_hardware_test_recording=False after calling route with is_hardware_test_recording=True (default value)
 * 403 - Call to any /insert_xem_command_into_queue/* route when in Beta 2 mode
 * 403 - Call to /boot_up when in Beta 2 mode
+* 403 - Call to /start_calibration when not in calibration_needed or calibrated state
 * 403 - Call to /set_magnetometer_config when in Beta 1 mode
 * 403 - Call to /set_magnetometer_config while data is streaming in Beta 2 mode
 * 403 - Call to /set_magnetometer_config before instrument finishes initializing in Beta 2 mode
@@ -91,6 +92,8 @@ from stdlib_utils import is_port_in_use
 from stdlib_utils import put_log_message_into_queue
 
 from .constants import BUFFERING_STATE
+from .constants import CALIBRATED_STATE
+from .constants import CALIBRATION_NEEDED_STATE
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import DEFAULT_SERVER_PORT_NUMBER
@@ -322,15 +325,16 @@ def set_mantarray_nickname() -> Response:
 def start_calibration() -> Response:
     """Start the calibration procedure on the Mantarray.
 
-    Can be invoked by:
-
-    `curl http://localhost:4567/start_calibration`
+    Can be invoked by:  curl http://localhost:4567/start_calibration
     """
-    comm_dict = {
-        "communication_type": "xem_scripts",
-        "script_type": "start_calibration",
-    }
+    shared_values_dict = _get_values_from_process_monitor()
+    if shared_values_dict["system_status"] not in (CALIBRATION_NEEDED_STATE, CALIBRATED_STATE):
+        return Response(status="403 Route cannot be called unless in calibration_needed or calibrated state")
 
+    if shared_values_dict["beta_2_mode"]:
+        comm_dict = {"communication_type": "calibration", "command": "run_calibration"}
+    else:
+        comm_dict = {"communication_type": "xem_scripts", "script_type": "start_calibration"}
     response = queue_command_to_main(comm_dict)
 
     return response

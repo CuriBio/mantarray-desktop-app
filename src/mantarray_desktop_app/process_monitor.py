@@ -217,11 +217,14 @@ class MantarrayProcessesMonitor(InfiniteThread):
         elif communication_type == "xem_scripts":
             # Tanner (12/28/20): start_calibration is the only xem_scripts command that will come from server (called directly from /start_calibration). This comm type will be removed/replaced in beta 2 so not adding handling for unrecognized command.
             if shared_values_dict["beta_2_mode"]:
+                # TODO raise NotImplementedError("XEM scripts cannot be run when in Beta 2 mode")
                 # Tanner (4/23/20): Mantarray Beta 2 does not have a calibrating state, so keeping this command for now but switching straight to calibrated state to ease the transition away from users running calibration
                 shared_values_dict["system_status"] = CALIBRATED_STATE
             else:
                 shared_values_dict["system_status"] = CALIBRATING_STATE
                 self._put_communication_into_instrument_comm_queue(communication)
+        elif communication_type == "calibration":
+            pass
         elif communication_type == "recording":
             command = communication["command"]
             main_to_fw_queue = (

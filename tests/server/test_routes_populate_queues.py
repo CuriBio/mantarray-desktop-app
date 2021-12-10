@@ -3,6 +3,7 @@ import datetime
 import json
 
 from freezegun import freeze_time
+from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
@@ -1290,3 +1291,30 @@ def test_set_protocols__populates_queue_to_process_monitor_with_new_protocol(
     assert communication["communication_type"] == "stimulation"
     assert communication["command"] == "set_protocols"
     assert communication["stim_info"] == test_protocol_dict
+
+
+@pytest.mark.parametrize(
+    "test_beta_2_mode,test_comm_dict",
+    [
+        (True, {"communication_type": "calibration", "command": "run_calibration"}),
+        (False, {"communication_type": "xem_scripts", "script_type": "start_calibration"}),
+    ],
+)
+def test_start_calibration__populates_queue_to_process_monitor_with_correct_comm(
+    client_and_server_manager_and_shared_values, test_beta_2_mode, test_comm_dict
+):
+    (
+        test_client,
+        (server_manager, _),
+        shared_values_dict,
+    ) = client_and_server_manager_and_shared_values
+    shared_values_dict["system_status"] = CALIBRATION_NEEDED_STATE
+    shared_values_dict["beta_2_mode"] = test_beta_2_mode
+
+    response = test_client.get("/start_calibration")
+    assert response.status_code == 200
+
+    comm_queue = server_manager.get_queue_to_main()
+    confirm_queue_is_eventually_of_size(comm_queue, 1)
+    communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication == test_comm_dict
