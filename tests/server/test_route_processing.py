@@ -140,6 +140,8 @@ def test_send_single_start_calibration_command__gets_processed_and_sets_system_s
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+
     ok_process = test_process_manager.get_instrument_process()
     set_connection_to_beta_1_board(ok_process, initialize_board=False)
     comm_to_ok_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)

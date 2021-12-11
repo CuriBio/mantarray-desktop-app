@@ -495,13 +495,12 @@ class FileWriterProcess(InfiniteProcess):
             "timepoint_to_begin_recording_at"  # TODO Tanner (11/12/21): change time point to time index where necessary
         ]
         if not self._beta_2_mode:
+            # TODO Tanner (make sure this is working as expected):
             # Tanner (11/12/21): FE will send this value in µs so need to convert to cms for Beta 1 data
             time_index_to_begin_recording /= MICROSECONDS_PER_CENTIMILLISECOND
         self._start_recording_timestamps[board_idx] = (
             sample_idx_zero_timestamp,
-            communication[
-                "timepoint_to_begin_recording_at"  # TODO Tanner (11/12/21): change timepoint to time_index where necessary
-            ],
+            communication["timepoint_to_begin_recording_at"],
         )
         timedelta_to_recording_start = datetime.timedelta(
             seconds=communication["timepoint_to_begin_recording_at"]

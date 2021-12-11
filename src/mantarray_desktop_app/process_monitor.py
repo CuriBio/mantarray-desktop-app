@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import datetime
 import logging
 import queue
 import threading
@@ -36,6 +37,7 @@ from .constants import CALIBRATION_NEEDED_STATE
 from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
+from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import RECORDING_STATE
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERVER_INITIALIZING_STATE
@@ -47,6 +49,7 @@ from .exceptions import UnrecognizedMantarrayNamingCommandError
 from .exceptions import UnrecognizedRecordingCommandError
 from .process_manager import MantarrayProcessesManager
 from .server import ServerManager
+from .utils import _create_start_recording_command
 from .utils import _trim_barcode
 from .utils import attempt_to_get_recording_directory_from_new_dict
 from .utils import get_redacted_string
@@ -217,14 +220,36 @@ class MantarrayProcessesMonitor(InfiniteThread):
         elif communication_type == "xem_scripts":
             # Tanner (12/28/20): start_calibration is the only xem_scripts command that will come from server (called directly from /start_calibration). This comm type will be removed/replaced in beta 2 so not adding handling for unrecognized command.
             if shared_values_dict["beta_2_mode"]:
-                # TODO raise NotImplementedError("XEM scripts cannot be run when in Beta 2 mode")
-                # Tanner (4/23/20): Mantarray Beta 2 does not have a calibrating state, so keeping this command for now but switching straight to calibrated state to ease the transition away from users running calibration
-                shared_values_dict["system_status"] = CALIBRATED_STATE
-            else:
-                shared_values_dict["system_status"] = CALIBRATING_STATE
-                self._put_communication_into_instrument_comm_queue(communication)
+                raise NotImplementedError("XEM scripts cannot be run when in Beta 2 mode")
+            shared_values_dict["system_status"] = CALIBRATING_STATE
+            self._put_communication_into_instrument_comm_queue(communication)
         elif communication_type == "calibration":
-            pass
+            # Tanner (12/10/21): run_calibration is currently the only calibration command
+            shared_values_dict["system_status"] = CALIBRATING_STATE
+            self._put_communication_into_instrument_comm_queue(
+                {"communication_type": "acquisition_manager", "command": "start_managed_acquisition"}
+            )
+
+            # Tanner (12/10/21): set this manually here since a start_managed_acquisition command response has not been received yet
+            shared_values_dict_copy = copy.deepcopy(shared_values_dict)
+            shared_values_dict_copy["utc_timestamps_of_beginning_of_data_acquisition"] = [
+                datetime.datetime.utcnow()
+            ]
+
+            main_to_fw_queue = (
+                self._process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
+            )
+            main_to_fw_queue.put_nowait(
+                _create_start_recording_command(shared_values_dict_copy, is_calibration_recording=True)
+            )
+            main_to_fw_queue.put_nowait(
+                {
+                    "communication_type": "recording",
+                    "command": "stop_recording",
+                    "timepoint_to_stop_recording_at": 30 * MICRO_TO_BASE_CONVERSION,
+                }
+            )
+
         elif communication_type == "recording":
             command = communication["command"]
             main_to_fw_queue = (
