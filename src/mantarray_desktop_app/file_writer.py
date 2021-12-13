@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import deque
 import datetime
+import glob
 import json
 import logging
 from multiprocessing import Queue
@@ -526,11 +527,20 @@ class FileWriterProcess(InfiniteProcess):
                 raise NotImplementedError("Cannot make a calibration recording in Beta 1 mode")
             file_folder_dir = self.calibration_file_directory
             file_prefix = f"Calibration__{recording_start_timestamp_str}"
+            # delete all existing calibration files
+            for file in os.listdir(file_folder_dir):
+                os.remove(os.path.join(file_folder_dir, file))
         else:
+            # create folder
             self._sub_dir_name = f"{barcode}__{recording_start_timestamp_str}"
             file_folder_dir = os.path.join(os.path.abspath(self._file_directory), self._sub_dir_name)
             os.makedirs(file_folder_dir)
             file_prefix = self._sub_dir_name
+            # copy calibration files into new recording folder
+            calibration_file_paths = glob.glob(os.path.join(self.calibration_file_directory, "*.h5"))
+            # TODO raise error here if all 24 calibration files aren't present
+            for file_path in calibration_file_paths:
+                shutil.copy(file_path, file_folder_dir)
         communication["abs_path_to_file_folder"] = file_folder_dir
 
         os.makedirs(file_folder_dir)

@@ -134,7 +134,7 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
     # set up expected values
     if test_beta_version == 2:
         file_writer_process.set_beta_2_mode()
-    start_recording_command = (
+    start_recording_command = copy.deepcopy(
         GENERIC_BETA_1_START_RECORDING_COMMAND
         if test_beta_version == 1
         else GENERIC_BETA_2_START_RECORDING_COMMAND
@@ -503,31 +503,76 @@ def test_FileWriterProcess__beta_2_mode__creates_calibration_files_in_correct_fo
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = file_writer_process.calibration_file_directory
 
-    file_timestamp_str = "2020_02_09_190359"
-    this_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
-    this_command["is_calibration_recording"] = True
-    this_command["stim_running_statuses"][0] = False
+    for start_time_index, timestamp_str in (
+        (0, "2020_02_09_190322"),
+        (int(10e6), "2020_02_09_190332"),
+    ):
+        this_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+        this_command["is_calibration_recording"] = True
+        this_command["stim_running_statuses"][0] = False
+        # Tanner (12/13/21): only using different start time indices so each recording will have a different timestamp string
+        this_command["timepoint_to_begin_recording_at"] = start_time_index
 
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
-    invoke_process_run_and_check_errors(file_writer_process)
+        put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
+        invoke_process_run_and_check_errors(file_writer_process)
 
-    # test created files
-    actual_set_of_files = set(os.listdir(file_dir))
-    expected_set_of_files = {
-        f"Calibration__{file_timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5"
-        for well_idx in range(24)
-    }
-    assert actual_set_of_files == expected_set_of_files
+        # test created files
+        actual_set_of_files = set(os.listdir(file_dir))
+        expected_set_of_files = {
+            f"Calibration__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5"
+            for well_idx in range(24)
+        }
+        assert actual_set_of_files == expected_set_of_files, timestamp_str
+        for well_idx in range(24):
+            well_name = WELL_DEF_24.get_well_name_from_well_index(well_idx)
+            this_file = h5py.File(
+                os.path.join(
+                    file_dir,
+                    f"Calibration__{timestamp_str}__{well_name}.h5",
+                ),
+                "r",
+            )
+            assert (
+                bool(this_file.attrs[str(IS_CALIBRATION_FILE_UUID)]) is True
+            ), f"timestamp: {timestamp_str}, well_idx: {well_idx}"
+
+
+def test_FileWriterProcess__beta_2_mode__copies_calibration_files_to_new_recording_folder__when_receiving_communication_to_start_recording(
+    four_board_file_writer_process, mocker
+):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    file_writer_process.set_beta_2_mode()
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    file_dir = four_board_file_writer_process["file_dir"]
+
+    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    timestamp_str = "2020_02_09_190359"
+    expected_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
+        PLATE_BARCODE_UUID
+    ]
+
+    # populate calibration folder with recording files for each well
     for well_idx in range(24):
         well_name = WELL_DEF_24.get_well_name_from_well_index(well_idx)
-        this_file = h5py.File(
-            os.path.join(
-                file_dir,
-                f"Calibration__{file_timestamp_str}__{well_name}.h5",
-            ),
-            "r",
+        file_path = os.path.join(
+            file_writer_process.calibration_file_directory, f"Calibration__{timestamp_str}__{well_name}.h5"
         )
-        assert bool(this_file.attrs[str(IS_CALIBRATION_FILE_UUID)]) is True, well_idx
+        # create and close file
+        with open(file_path, "w"):
+            pass
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
+    invoke_process_run_and_check_errors(file_writer_process)
+
+    actual_set_of_files = set(os.listdir(os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}")))
+    assert len(actual_set_of_files) == 24 * 2
+
+    expected_set_of_files = set()
+    for well_idx in range(24):
+        well_name = WELL_DEF_24.get_well_name_from_well_index(well_idx)
+        expected_set_of_files.add(f"{expected_barcode}__{timestamp_str}__{well_name}.h5")
+        expected_set_of_files.add(f"Calibration__{timestamp_str}__{well_name}.h5")
+    assert actual_set_of_files == expected_set_of_files
 
 
 def test_FileWriterProcess__start_recording__sets_stop_recording_timestamp_to_none__and_tissue_and_reference_finalization_status_to_false__and_is_recording_to_true(
