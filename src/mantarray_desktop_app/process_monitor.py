@@ -42,6 +42,7 @@ from .constants import RECORDING_STATE
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
+from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .exceptions import IncorrectMagnetometerConfigFromInstrumentError
 from .exceptions import IncorrectSamplingPeriodFromInstrumentError
 from .exceptions import UnrecognizedCommandFromServerToMainError
@@ -112,18 +113,35 @@ class MantarrayProcessesMonitor(InfiniteThread):
         except queue.Empty:
             return
 
+        communication_type = communication["communication_type"]
+        if communication_type == "update_upload_status":
+            outgoing_status_json = communication["content"]
+            data_to_server_queue = self._process_manager.queue_container().get_data_queue_to_server()
+            data_to_server_queue.put_nowait(outgoing_status_json)
+        elif communication_type == "file_finalized":
+            if (
+                self._values_to_share_to_server["system_status"] == CALIBRATING_STATE
+                and communication.get("message", None) == "all_finals_finalized"
+            ):
+                self._values_to_share_to_server["system_status"] = CALIBRATED_STATE
+                # stop managed acquisition
+                main_to_ic_queue = (
+                    self._process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+                )
+                main_to_fw_queue = (
+                    self._process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
+                )
+                # need to send stop command to the process the furthest downstream the data path first then move upstream
+                main_to_fw_queue.put_nowait(STOP_MANAGED_ACQUISITION_COMMUNICATION)
+                main_to_ic_queue.put_nowait(STOP_MANAGED_ACQUISITION_COMMUNICATION)
+
+        # Tanner (12/13/21): redact file path after handling comm in case the actual file path is needed
         if "file_path" in communication:
             communication["file_path"] = redact_sensitive_info_from_path(communication["file_path"])
         msg = f"Communication from the File Writer: {communication}".replace(
             r"\\",
             "\\",  # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
         )
-
-        if communication["communication_type"] == "update_upload_status":
-            outgoing_status_json = communication["content"]
-            data_to_server_queue = self._process_manager.queue_container().get_data_queue_to_server()
-            data_to_server_queue.put_nowait(outgoing_status_json)
-
         # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
         with self._lock:
             logger.info(msg)

@@ -412,8 +412,8 @@ def create_and_close_beta_1_h5_files(
     stop_command["timepoint_to_stop_recording_at"] = tissue_data[0, -1]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
-    # confirm each finalization message and stop recording receipt are sent
-    confirm_queue_is_eventually_of_size(to_main_queue, len(active_well_indices) + 1)
+    # confirm each finalization message, all files finalized, and stop recording receipt are sent
+    confirm_queue_is_eventually_of_size(to_main_queue, len(active_well_indices) + 2)
     finalization_messages = drain_queue(to_main_queue)[:-1]
 
     # drain output queue to avoid BrokenPipeErrors

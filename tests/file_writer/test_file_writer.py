@@ -794,11 +794,11 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_1_f
 def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_2_files_after_stop_recording(
     four_board_file_writer_process, mocker
 ):
-
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         GENERIC_BETA_2_START_RECORDING_COMMAND, from_main_queue
@@ -856,6 +856,11 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_2_f
     invoke_process_run_and_check_errors(fw_process)
     confirm_queue_is_eventually_empty(from_main_queue)
     assert fw_process.get_file_directory() == expected_new_dir
+    # also confirm message sent to indicate all files have been finalized
+    assert drain_queue(to_main_queue)[-2] == {
+        "communication_type": "file_finalized",
+        "message": "all_finals_finalized",
+    }
 
     # Tanner (3/8/21): Prevent BrokenPipeErrors
     drain_queue(board_queues[0][1])

@@ -14,6 +14,7 @@ from mantarray_desktop_app import BARCODE_UNREADABLE_UUID
 from mantarray_desktop_app import BARCODE_VALID_UUID
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
+from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
@@ -368,18 +369,14 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         ("error", "stack_trace"), ok_comm_error_queue
     )
-    instrument_to_main = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_ok_comm_item, instrument_to_main)
-    file_writer_to_main = (
-        test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
-    )
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        expected_file_writer_item, file_writer_to_main
-    )
-    data_analyzer_to_main = (
+    to_instrument_comm = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_ok_comm_item, to_instrument_comm)
+    to_file_writer = test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_file_writer_item, to_file_writer)
+    to_data_analyzer = (
         test_process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
     )
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_da_item, data_analyzer_to_main)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_da_item, to_data_analyzer)
     server_to_main = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_server_item, server_to_main)
 
@@ -607,6 +604,42 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_calibrated_after_calib
     invoke_process_run_and_check_errors(monitor_thread, num_iterations=51)
 
     assert shared_values_dict["system_status"] == CALIBRATED_STATE
+
+
+def test_MantarrayProcessesMonitor__after_beta_2_calibration_files_are_finalized__sets_system_status_to_calibrated_and_stops_managed_acquisition(
+    test_monitor, test_process_manager_creator, mocker
+):
+    board_idx = 0
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+    shared_values_dict["system_status"] = CALIBRATING_STATE
+
+    from_file_writer_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_file_writer_to_main()
+    )
+    to_instrument_comm_queue = (
+        test_process_manager.queue_container().get_communication_to_instrument_comm_queue(board_idx)
+    )
+    to_file_writer_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
+    )
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"communication_type": "file_finalized", "message": "all_finals_finalized"}, from_file_writer_queue
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert shared_values_dict["system_status"] == CALIBRATED_STATE
+
+    confirm_queue_is_eventually_of_size(to_instrument_comm_queue, 1)
+    assert (
+        to_instrument_comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+        == STOP_MANAGED_ACQUISITION_COMMUNICATION
+    )
+    confirm_queue_is_eventually_of_size(to_file_writer_queue, 1)
+    assert (
+        to_file_writer_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+        == STOP_MANAGED_ACQUISITION_COMMUNICATION
+    )
 
 
 def test_MantarrayProcessesMonitor__sets_system_status_to_calibrated_after_managed_acquisition_stops__and_resets_data_dump_buffer_size(

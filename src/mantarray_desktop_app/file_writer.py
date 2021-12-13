@@ -536,11 +536,12 @@ class FileWriterProcess(InfiniteProcess):
             file_folder_dir = os.path.join(os.path.abspath(self._file_directory), self._sub_dir_name)
             os.makedirs(file_folder_dir)
             file_prefix = self._sub_dir_name
-            # copy calibration files into new recording folder
-            calibration_file_paths = glob.glob(os.path.join(self.calibration_file_directory, "*.h5"))
-            # TODO raise error here if all 24 calibration files aren't present
-            for file_path in calibration_file_paths:
-                shutil.copy(file_path, file_folder_dir)
+            # copy beta 2 calibration files into new recording folder
+            if self._beta_2_mode:
+                calibration_file_paths = glob.glob(os.path.join(self.calibration_file_directory, "*.h5"))
+                # TODO raise error here if all 24 calibration files aren't present
+                for file_path in calibration_file_paths:
+                    shutil.copy(file_path, file_folder_dir)
         communication["abs_path_to_file_folder"] = file_folder_dir
 
         os.makedirs(file_folder_dir)
@@ -774,6 +775,9 @@ class FileWriterProcess(InfiniteProcess):
         It's possible that this could be optimized in the future by only being called when the finalization status of something has changed.
         """
         tissue_status, reference_status = self.get_recording_finalization_statuses()
+        # return if no files open
+        if len(self._open_files[0]) == 0:
+            return
         for this_well_idx in list(
             self._open_files[0].keys()
         ):  # make a copy of the keys since they may be deleted during the run
@@ -797,6 +801,14 @@ class FileWriterProcess(InfiniteProcess):
             # after all files are finalized, upload them if necessary
             if not self._is_finalizing_files_after_recording() and self._customer_settings:
                 self._start_new_file_upload()
+        # if no files open anymore, then send message to main indicating that all files have been finalized
+        if len(self._open_files[0]) == 0:
+            self._to_main_queue.put_nowait(
+                {
+                    "communication_type": "file_finalized",
+                    "message": "all_finals_finalized",
+                }
+            )
 
     def _process_next_incoming_packet(self) -> None:
         """Process the next incoming packet for that board.
