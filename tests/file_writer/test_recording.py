@@ -21,6 +21,7 @@ from mantarray_desktop_app import get_time_index_dataset_from_file
 from mantarray_desktop_app import get_time_offset_dataset_from_file
 from mantarray_desktop_app import get_tissue_dataset_from_file
 from mantarray_desktop_app import InvalidStopRecordingTimepointError
+from mantarray_desktop_app import IS_CALIBRATION_FILE_UUID
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
@@ -268,6 +269,7 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
             assert str(ADC_TISSUE_OFFSET_UUID) not in this_file.attrs
             assert str(ADC_REF_OFFSET_UUID) not in this_file.attrs
             # check that beta 2 value are present
+            assert bool(this_file.attrs[str(IS_CALIBRATION_FILE_UUID)]) is False
             well_config = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
                 MAGNETOMETER_CONFIGURATION_UUID
             ][SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]]
@@ -490,6 +492,42 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_
             if this_command["stim_running_statuses"][well_idx]
             else str(NOT_APPLICABLE_H5_METADATA)
         ), well_idx
+
+
+@pytest.mark.timeout(4)
+def test_FileWriterProcess__beta_2_mode__creates_calibration_files_in_correct_folder__when_receiving_communication_to_start_recording(
+    four_board_file_writer_process, mocker
+):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    file_writer_process.set_beta_2_mode()
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    file_dir = file_writer_process.calibration_file_directory
+
+    file_timestamp_str = "2020_02_09_190359"
+    this_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    this_command["is_calibration_recording"] = True
+    this_command["stim_running_statuses"][0] = False
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
+    invoke_process_run_and_check_errors(file_writer_process)
+
+    # test created files
+    actual_set_of_files = set(os.listdir(file_dir))
+    expected_set_of_files = {
+        f"Calibration__{file_timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5"
+        for well_idx in range(24)
+    }
+    assert actual_set_of_files == expected_set_of_files
+    for well_idx in range(24):
+        well_name = WELL_DEF_24.get_well_name_from_well_index(well_idx)
+        this_file = h5py.File(
+            os.path.join(
+                file_dir,
+                f"Calibration__{file_timestamp_str}__{well_name}.h5",
+            ),
+            "r",
+        )
+        assert bool(this_file.attrs[str(IS_CALIBRATION_FILE_UUID)]) is True, well_idx
 
 
 def test_FileWriterProcess__start_recording__sets_stop_recording_timestamp_to_none__and_tissue_and_reference_finalization_status_to_false__and_is_recording_to_true(
@@ -1506,7 +1544,7 @@ def test_FileWriterProcess__raises_error_if_stop_recording_command_received_with
         test_well_index: {
             "time_offsets": np.array([[0], [0]], dtype=np.uint16),
             SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: np.array([0], dtype=np.uint16),
-            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: np.array([0], dtype=np.uint16),
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: np.array([0], dtype=np.int16),
         },
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(

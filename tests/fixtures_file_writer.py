@@ -124,6 +124,7 @@ GENERIC_BASE_START_RECORDING_COMMAND: Dict[str, Any] = {
     "communication_type": "recording",
     "command": "start_recording",
     "timepoint_to_begin_recording_at": 298518 * 125,
+    "is_calibration_recording": False,
     "is_hardware_test_recording": False,
     "metadata_to_copy_onto_main_file_attributes": {
         HARDWARE_TEST_RECORDING_UUID: False,

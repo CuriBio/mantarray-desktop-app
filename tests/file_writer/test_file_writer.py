@@ -10,6 +10,7 @@ import time
 from freezegun import freeze_time
 import h5py
 from mantarray_desktop_app import file_uploader
+from mantarray_desktop_app import file_writer
 from mantarray_desktop_app import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import FileWriterProcess
 from mantarray_desktop_app import get_data_slice_within_timepoints
@@ -85,6 +86,18 @@ def test_FileWriterProcess_super_is_called_during_init(mocker):
     mocked_init = mocker.patch.object(InfiniteProcess, "__init__")
     FileWriterProcess((), Queue(), Queue(), error_queue, {})
     mocked_init.assert_called_once_with(error_queue, logging_level=logging.INFO)
+
+
+def test_FileWriterProcess__creates_temp_dir_for_calibration_files_in_beta_2_mode_and_stores_dir_name(mocker):
+    spied_temp_dir = mocker.spy(file_writer.tempfile, "TemporaryDirectory")
+
+    fw_process_beta_1 = FileWriterProcess((), Queue(), Queue(), Queue(), {}, beta_2_mode=False)
+    assert "calibration_file_directory" not in vars(fw_process_beta_1)
+    spied_temp_dir.assert_not_called()
+
+    fw_process_beta_2 = FileWriterProcess((), Queue(), Queue(), Queue(), {}, beta_2_mode=True)
+    spied_temp_dir.assert_called_once()
+    assert fw_process_beta_2.calibration_file_directory == spied_temp_dir.spy_return.name
 
 
 def test_FileWriterProcess_soft_stop_not_allowed_if_incoming_data_still_in_queue_for_board_0(

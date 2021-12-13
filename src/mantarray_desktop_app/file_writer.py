@@ -12,6 +12,7 @@ import os
 import queue
 import shutil
 from statistics import stdev
+import tempfile
 import time
 from typing import Any
 from typing import Deque
@@ -66,6 +67,7 @@ from .constants import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
 from .constants import FILE_WRITER_BUFFER_SIZE_MICROSECONDS
 from .constants import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import GENERIC_24_WELL_DEFINITION
+from .constants import IS_CALIBRATION_FILE_UUID
 from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
@@ -259,6 +261,9 @@ class FileWriterProcess(InfiniteProcess):
             [None] * len(self._board_queues)
         )
         self._stop_recording_timestamps: List[Optional[int]] = list([None] * len(self._board_queues))
+        # set calibration recording values if in Beta 2 mode
+        if beta_2_mode:
+            self.set_beta_2_mode()
         # magnetometer data recording values
         self._data_packet_buffers: Tuple[
             Deque[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
@@ -361,8 +366,10 @@ class FileWriterProcess(InfiniteProcess):
         return self._is_recording
 
     def set_beta_2_mode(self) -> None:
-        """For use in unit tests."""
         self._beta_2_mode = True
+        if self._beta_2_mode:
+            self._calibration_folder = tempfile.TemporaryDirectory()  # pylint: disable=consider-using-with
+            self.calibration_file_directory = self._calibration_folder.name
 
     def get_upload_threads_container(self) -> List[Dict[str, Any]]:
         """For use in unit tests."""
@@ -400,6 +407,7 @@ class FileWriterProcess(InfiniteProcess):
                 self.get_logging_level(),
             )
             self.close_all_files()
+        # TODO destroy self._calibration_folder
 
         super()._teardown_after_loop()
 
@@ -483,7 +491,7 @@ class FileWriterProcess(InfiniteProcess):
             self._process_can_be_soft_stopped = False
 
     def _process_start_recording_command(self, communication: Dict[str, Any]) -> None:
-        # pylint: disable=too-many-locals  # Tanner (5/17/21): many variables are needed to create files with all the necessary metadata
+        # pylint: disable=too-many-locals, too-many-statements# Tanner (5/17/21): many variables and statements are needed to create files with all the necessary metadata
         self._is_recording = True
         board_idx = 0
 
@@ -511,9 +519,18 @@ class FileWriterProcess(InfiniteProcess):
             attrs_to_copy[UTC_BEGINNING_DATA_ACQUISTION_UUID] + timedelta_to_recording_start
         )
         recording_start_timestamp_str = (recording_start_timestamp).strftime("%Y_%m_%d_%H%M%S")
-        self._sub_dir_name = f"{barcode}__{recording_start_timestamp_str}"
 
-        file_folder_dir = os.path.join(os.path.abspath(self._file_directory), self._sub_dir_name)
+        is_calibration_recording = communication["is_calibration_recording"]
+        if is_calibration_recording:
+            if not self._beta_2_mode:
+                raise NotImplementedError("Cannot make a calibration recording in Beta 1 mode")
+            file_folder_dir = self.calibration_file_directory
+            file_prefix = f"Calibration__{recording_start_timestamp_str}"
+        else:
+            self._sub_dir_name = f"{barcode}__{recording_start_timestamp_str}"
+            file_folder_dir = os.path.join(os.path.abspath(self._file_directory), self._sub_dir_name)
+            os.makedirs(file_folder_dir)
+            file_prefix = self._sub_dir_name
         communication["abs_path_to_file_folder"] = file_folder_dir
 
         os.makedirs(file_folder_dir)
@@ -535,9 +552,8 @@ class FileWriterProcess(InfiniteProcess):
         for this_well_idx in communication["active_well_indices"]:
             well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(this_well_idx)
             file_path = os.path.join(
-                self._file_directory,
-                self._sub_dir_name,
-                f"{self._sub_dir_name}__{well_name}.h5",
+                file_folder_dir,
+                f"{file_prefix}__{well_name}.h5",
             )
             file_version = (
                 CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
@@ -559,6 +575,8 @@ class FileWriterProcess(InfiniteProcess):
                 this_file.attrs[str(TISSUE_SAMPLING_PERIOD_UUID)] = (
                     CONSTRUCT_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
                 )
+            else:
+                this_file.attrs[str(IS_CALIBRATION_FILE_UUID)] = is_calibration_recording
             this_file.attrs[str(TOTAL_WELL_COUNT_UUID)] = 24
             this_file.attrs[str(IS_FILE_ORIGINAL_UNTRIMMED_UUID)] = True
             this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_START_UUID)] = 0
