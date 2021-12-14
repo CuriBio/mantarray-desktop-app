@@ -79,7 +79,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v2.4.1
         with:
-          node-version: ${{ matrix.node }}
+          node-version: ${{ maxtrix.node-version }}
+
       - name: Display Language Dependency Versions
         run: |
           python --version
@@ -157,7 +158,11 @@ jobs:
         run: pipenv run pip freeze
 
       - name: Install NPM Dependencies
-        run: pipenv run npm ci --cache .npm_cache/
+        with:
+          node-version: ${{ matrix.node-version }}
+        run: |
+          node
+          pipenv run npm ci --cache .npm_cache/
 
       - name: Download the firmware files from AWS S3
         env:

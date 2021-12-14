@@ -516,6 +516,7 @@ class FileWriterProcess(InfiniteProcess):
 
         file_folder_dir = os.path.join(os.path.abspath(self._file_directory), self._sub_dir_name)
         communication["abs_path_to_file_folder"] = file_folder_dir
+
         os.makedirs(file_folder_dir)
 
         stim_protocols = None
@@ -1099,7 +1100,8 @@ class FileWriterProcess(InfiniteProcess):
             auto_upload = self._customer_settings["auto_upload_on_completion"]
             auto_delete = self._customer_settings["auto_delete_local_files"]
             customer_account_id = self._customer_settings["customer_account_id"]
-            password = self._customer_settings["customer_pass_key"]
+            customer_password = self._customer_settings["customer_pass_key"]
+            customer_username = self._customer_settings["customer_username"]
             zipped_recordings_dir = self._stored_customer_settings["zipped_recordings_dir"]
 
             if auto_upload:
@@ -1110,13 +1112,15 @@ class FileWriterProcess(InfiniteProcess):
                         self._sub_dir_name,
                         zipped_recordings_dir,
                         customer_account_id,
-                        password,
+                        customer_password,
+                        customer_username,
                     ),
                 )
                 upload_thread.start()
                 thread_dict = {
                     "failed_upload": False,
                     "customer_account_id": customer_account_id,
+                    "customer_username": customer_username,
                     "thread": upload_thread,
                     "auto_delete": auto_delete,
                     "file_name": self._sub_dir_name,
@@ -1132,10 +1136,12 @@ class FileWriterProcess(InfiniteProcess):
         """
         file_folder_dir = os.path.join(os.path.abspath(self._file_directory), sub_dir)
 
-        # Remove directory and all .h5 files
+        # Remove recording directory and all .h5 files
         for file in os.listdir(file_folder_dir):
             os.remove(os.path.join(file_folder_dir, file))
+
         os.rmdir(file_folder_dir)
+        # TODO Lucy (12/11/2021): remove zip file
 
     def _process_new_failed_upload_files(self, sub_dir: str) -> None:
         """Call when a file upload errors.
@@ -1146,15 +1152,21 @@ class FileWriterProcess(InfiniteProcess):
         failed_uploads_dir = self._stored_customer_settings["failed_uploads_dir"]
         zipped_recordings_dir = self._stored_customer_settings["zipped_recordings_dir"]
         customer_account_id = self._customer_settings["customer_account_id"]
+        customer_username = self._customer_settings["customer_username"]
 
         customer_failed_uploads_dir = os.path.join(failed_uploads_dir, customer_account_id)
-
         if not os.path.exists(customer_failed_uploads_dir):
             os.makedirs(customer_failed_uploads_dir)
 
+        user_failed_uploads_dir = os.path.join(customer_failed_uploads_dir, customer_username)
+        if not os.path.exists(user_failed_uploads_dir):
+            os.makedirs(user_failed_uploads_dir)
+
         file_name = f"{sub_dir}.zip"
-        zipped_file = os.path.join(zipped_recordings_dir, customer_account_id, file_name)
-        updated_zipped_file = os.path.join(failed_uploads_dir, customer_account_id, file_name)
+        zipped_file = os.path.join(zipped_recordings_dir, customer_account_id, customer_username, file_name)
+        updated_zipped_file = os.path.join(
+            failed_uploads_dir, customer_account_id, customer_username, file_name
+        )
 
         # store failed zip file in failed uploads directory to check at next startup
         if os.path.exists(zipped_file):
@@ -1176,30 +1188,34 @@ class FileWriterProcess(InfiniteProcess):
                 failed_uploads_dir
             ):  # TODO Tanner (11/9/21): should log if folder for failed uploads not found
                 for customer_dir in os.listdir(failed_uploads_dir):
-                    customer_passkey = stored_customer_ids[customer_dir]
                     customer_failed_uploads_dir = os.path.join(failed_uploads_dir, customer_dir)
+                    customer_passkey = stored_customer_ids[customer_dir]["password"]
+                    for user_dir in os.listdir(customer_failed_uploads_dir):
+                        user_failed_uploads_dir = os.path.join(customer_failed_uploads_dir, user_dir)
 
-                    for file_name in os.listdir(customer_failed_uploads_dir):
-                        upload_thread = ErrorCatchingThread(
-                            target=uploader,
-                            args=(
-                                customer_failed_uploads_dir,
-                                file_name,
-                                zipped_recordings_dir,
-                                customer_dir,
-                                customer_passkey,
-                            ),
-                        )
-                        upload_thread.start()
-                        thread_dict = {
-                            "failed_upload": True,
-                            "customer_account_id": customer_dir,
-                            "thread": upload_thread,
-                            "auto_delete": False,
-                            "file_name": file_name,
-                        }
-                        self._upload_threads_container.append(thread_dict)
-                        # Lucy (10/22/2021): figure out how to handle if delete local files had been selected on original customer settings and how to handle the zip file
+                        for file_name in os.listdir(user_failed_uploads_dir):
+                            upload_thread = ErrorCatchingThread(
+                                target=uploader,
+                                args=(
+                                    user_failed_uploads_dir,
+                                    file_name,
+                                    zipped_recordings_dir,
+                                    customer_dir,
+                                    customer_passkey,
+                                    user_dir,
+                                ),
+                            )
+                            upload_thread.start()
+                            thread_dict = {
+                                "failed_upload": True,
+                                "customer_account_id": customer_dir,
+                                "customer_username": user_dir,
+                                "thread": upload_thread,
+                                "auto_delete": False,
+                                "file_name": file_name,
+                            }
+                            self._upload_threads_container.append(thread_dict)
+                            # Lucy (10/22/2021): figure out how to handle if delete local files had been selected on original customer settings and how to handle the zip file
 
     def _check_upload_statuses(self) -> None:
         """Loops through active upload threads.
@@ -1212,6 +1228,7 @@ class FileWriterProcess(InfiniteProcess):
                 thread = thread_dict["thread"]
                 previously_failed_upload = thread_dict["failed_upload"]
                 customer_account_id = thread_dict["customer_account_id"]
+                customer_username = thread_dict["customer_username"]
                 auto_delete = thread_dict["auto_delete"]
                 file_name = thread_dict["file_name"]
 
@@ -1230,11 +1247,13 @@ class FileWriterProcess(InfiniteProcess):
                                 os.path.join(
                                     self._stored_customer_settings["failed_uploads_dir"],
                                     customer_account_id,
+                                    customer_username,
                                     file_name,
                                 ),
                                 os.path.join(
                                     self._stored_customer_settings["zipped_recordings_dir"],
                                     customer_account_id,
+                                    customer_username,
                                 ),
                             )
                         elif auto_delete:

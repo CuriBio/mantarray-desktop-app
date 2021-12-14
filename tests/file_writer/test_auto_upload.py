@@ -64,6 +64,7 @@ def test_FileWriterProcess__exits_status_function_correctly_when_previously_fail
     thread_dict = {
         "failed_upload": True,
         "customer_account_id": "test_customer_id",
+        "customer_username": "test_user",
         "thread": mocked_thread.name,
         "auto_delete": False,
         "file_name": "test_filename",
@@ -89,7 +90,7 @@ def test_FileWriterProcess__exits_status_function_correctly_when_newly_failed_fi
     invoke_process_run_and_check_errors(file_writer_process)
 
     mocked_shutil = mocker.patch.object(shutil, "move", autospec=True)
-    mocker.patch.object(os.path, "exists", autospec=True, return_value=paths_exist)
+    mocked_test = mocker.patch.object(os.path, "exists", autospec=True, return_value=paths_exist)
     mocked_makedirs = mocker.patch.object(os, "makedirs", autospec=True)
 
     mocked_thread = mocker.patch.object(file_uploader, "ErrorCatchingThread", autospec=True)
@@ -101,6 +102,7 @@ def test_FileWriterProcess__exits_status_function_correctly_when_newly_failed_fi
     thread_dict = {
         "failed_upload": False,
         "customer_account_id": "test_customer_id",
+        "customer_username": "test_user",
         "thread": mocked_thread.name,
         "auto_delete": False,
         "file_name": "test_filename",
@@ -110,7 +112,7 @@ def test_FileWriterProcess__exits_status_function_correctly_when_newly_failed_fi
     file_writer_process._check_upload_statuses()  # pylint: disable=protected-access
 
     assert mocked_shutil.call_count == int(paths_exist)
-    assert mocked_makedirs.call_count == int(not paths_exist)
+    assert (mocked_makedirs.call_count == mocked_test.call_count - 1) == (not paths_exist)
     assert len(file_writer_process.get_upload_threads_container()) == 0
 
 
@@ -140,6 +142,7 @@ def test_FileWriterProcess__exits_status_function_correctly_when_newly_failed_fi
     thread_dict = {
         "failed_upload": False,
         "customer_account_id": "test_customer_id",
+        "customer_username": "test_user",
         "thread": mocked_thread.name,
         "auto_delete": auto_delete,
         "file_name": "test_filename",

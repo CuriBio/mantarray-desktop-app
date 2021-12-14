@@ -38,7 +38,10 @@ const create_store = function ({
     deserialize: yaml.load,
     defaults: {
       customer_account_ids: {
-        "73f52be0-368c-42d8-a1fd-660d49ba5604": "Filler_password123",
+        "73f52be0-368c-42d8-a1fd-660d49ba5604": {
+          password: "Filler_password123",
+          usernames: ["test_user"],
+        },
       },
       user_account_id: "455b93eb-c78f-4494-9f73-d3291130f126",
       active_customer_account_index: 0,
@@ -48,6 +51,7 @@ const create_store = function ({
   });
   return store;
 };
+
 const get_flask_logs_full_path = function (electron_store) {
   const electron_store_dir = path.dirname(electron_store.path);
   const flask_logs_subfolder = "logs_flask";
