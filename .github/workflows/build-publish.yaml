@@ -45,7 +45,6 @@ jobs:
           Get-DisplayResolution
           Set-DisplayResolution -Width 1920 -Height 1080 -Force
           Get-DisplayResolution
-
       - name: Checkout
         uses: actions/checkout@v2
 
@@ -54,23 +53,19 @@ jobs:
         run: |
           git fetch --tags
           echo "::set-output name=TAG::$(git tag -l ${{ github.event.inputs.release_tag }})"
-
       - name: Init git config
         run: |
           git config user.name "GitHub Actions"
           git config user.email noreply@github.com
-
       - name: Create release tag
         if: steps.check-tag.outputs.TAG == ''
         run: |
           git tag -a ${{github.event.inputs.release_tag}} -m "release ${{ github.event.inputs.release_tag }}"
           git push origin ${{github.event.inputs.release_tag}}
-
       - name: Checkout tag
         run: |
           git fetch --tags
           git checkout tags/${{github.event.inputs.release_tag}}
-
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
@@ -79,7 +74,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v2.4.1
         with:
-          node-version: ${{ maxtrix.node-version }}
+          node-version: ${{ matrix.node-version }}
 
       - name: Display Language Dependency Versions
         run: |
@@ -87,7 +82,6 @@ jobs:
           pip --version
           node --version
           npm --version
-
       - name: Cache node modules # https://docs.github.com/en/free-pro-team@latest/actions/guides/caching-dependencies-to-speed-up-workflows
         uses: actions/cache@v2.1.6
         env:
@@ -97,7 +91,6 @@ jobs:
           key: ${{ matrix.os }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ matrix.os }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-
-
       - name: Cache Python modules
         uses: actions/cache@v2.1.6
         env:
@@ -107,7 +100,6 @@ jobs:
           key: ${{ matrix.os }}-${{ matrix.python-version }}-build-${{ env.cache-name }}-${{ hashFiles('**/Pipfile.lock') }}
           restore-keys: |
             ${{ matrix.os }}-${{ matrix.python-version }}-build-${{ env.cache-name }}-
-
       - name: Display Chrome version (Windows)
         if: runner.os == 'Windows'
         run: (Get-Item (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe').'(Default)').VersionInfo
@@ -130,7 +122,6 @@ jobs:
         run: |
           echo ${{steps.software-version.outputs.prop}}
           echo ${{steps.product-name.outputs.prop}}
-
       - name: Install pipenv # no known reason for this specific version of pipenv, just pinning it for good practice
         run: pip install pipenv==2020.11.15
 
@@ -141,7 +132,6 @@ jobs:
         run: |
           pipenv --python ${{ matrix.python-version }}
           pipenv run pip freeze
-
       - name: Install Python Dependencies
         env:
           PIPENV_CACHE_DIR: ./.pipenv_cache
@@ -175,7 +165,6 @@ jobs:
           pipenv run python .github/workflows/vcn.py download
           .\vcn --version
           pipenv run python .github/workflows/vcn.py login
-
       - name: Run Python Tests with randomly generated seed
         if: github.event.inputs.randomlyseed == ''
         timeout-minutes: 40
@@ -197,7 +186,6 @@ jobs:
           echo $env:build_number
           ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHTIMESTAMPDURINGBUILD',"$(Get-Date -Format 'yyMMddHHmmss')--$env:build_number") | Set-Content -Path src\mantarray_desktop_app\constants.py
           ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHVERSIONDURINGBUILD',"${{steps.software-version.outputs.prop}}") | Set-Content -Path src\mantarray_desktop_app\constants.py
-
       - name: Compile the Python Executable
         run: pipenv run pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=dist-python --workpath=build-python
 
@@ -217,7 +205,6 @@ jobs:
         run: |
           pipenv run python .github/workflows/vcn.py notarize "dist-python/mantarray-flask/mantarray-flask.exe"
           pipenv run python .github/workflows/vcn.py authenticate "dist-python/mantarray-flask/mantarray-flask.exe"
-
       - name: Build Full Electron App
         run: pipenv run npm run build-${{github.event.inputs.release_channel}}
 
@@ -231,10 +218,9 @@ jobs:
           pipenv run python .github/workflows/vcn.py notarize "dist/win-unpacked/Mantarray Controller.exe"
           pipenv run python .github/workflows/vcn.py authenticate "dist/${{steps.product-name.outputs.prop}}-Setup-${{steps.software-version.outputs.prop}}.exe"
           pipenv run python .github/workflows/vcn.py authenticate "dist/win-unpacked/Mantarray Controller.exe"
-
       - name: S3 Publisher
         if: matrix.IS_DEPLOYMENT_CONFIG == true
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_GIT_PUBLISH_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_GIT_PUBLISH_SECRET_KEY }}
-        run: pipenv run node s3_publish.js --file="${{steps.product-name.outputs.prop}}-Setup-${{github.event.inputs.release_channel}}-${{steps.software-version.outputs.prop}}.exe" --buildDir=./dist/ --channel=${{github.event.inputs.release_channel}}
+        run: pipenv run node s3_publish.js --file="${{steps.product-name.outputs.prop}}-Setup-${{github.event.inputs.release_channel}}-${{steps.software-version.outputs.prop}}.exe" --buildDir=./dist/ --channel=${{github.event.inputs.release_channel}}# Based on https://github.com/prettier/prettier/blob/master/.github/workflows/dev-test.yml

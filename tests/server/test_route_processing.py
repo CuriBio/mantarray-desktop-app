@@ -1004,13 +1004,19 @@ def test_update_settings__errors_when_any_combo_of_invalid_customer_credits_gets
     shared_values_dict["stored_customer_settings"] = {"stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS}
 
     response = test_client.get(
-        f"/update_settings?customer_account_uuid={expected_customer_uuid}&customer_pass_key=wrong_password"
+        f"/update_settings?customer_account_uuid={expected_customer_uuid}&customer_pass_key=wrong_password&customer_username=test_user"
     )
     invoke_process_run_and_check_errors(monitor_thread)
     assert response.status_code == 401
 
     response = test_client.get(
-        "/update_settings?customer_account_uuid=wrong_customer_id&customer_pass_key=Filler_password123"
+        "/update_settings?customer_account_uuid=wrong_customer_id&customer_pass_key=Filler_password123&customer_username=test_user"
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert response.status_code == 401
+
+    response = test_client.get(
+        f"/update_settings?customer_account_uuid={expected_customer_uuid}&customer_pass_key=Filler_password123&customer_username=wrong_user"
     )
     invoke_process_run_and_check_errors(monitor_thread)
     assert response.status_code == 401
