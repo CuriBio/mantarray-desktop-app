@@ -158,11 +158,7 @@ jobs:
         run: pipenv run pip freeze
 
       - name: Install NPM Dependencies
-        with:
-          node-version: ${{ matrix.node-version }}
-        run: |
-          node
-          pipenv run npm ci --cache .npm_cache/
+        run: pipenv run npm ci --cache .npm_cache/
 
       - name: Download the firmware files from AWS S3
         env:
