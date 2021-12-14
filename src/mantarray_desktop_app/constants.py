@@ -71,6 +71,7 @@ VALID_CONFIG_SETTINGS = frozenset(
         "customer_account_uuid",
         "user_account_uuid",
         "customer_pass_key",
+        "customer_username",
         "recording_directory",
         "auto_upload",
         "auto_delete",

@@ -42,6 +42,10 @@ class UnrecognizedCommandFromMainToDataAnalyzerError(Exception):
     pass
 
 
+class InvalidCustomerUsernameError(Exception):
+    pass
+
+
 class UnrecognizedDataFrameFormatNameError(Exception):
     pass
 
