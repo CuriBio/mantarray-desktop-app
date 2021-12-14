@@ -76,7 +76,10 @@ describe("utils.js", () => {
           const expected_obj = {
             recording_directory: path.join(tmp_dir_name, "recordings"),
             stored_customer_ids: {
-              "73f52be0-368c-42d8-a1fd-660d49ba5604": "Filler_password123",
+              "73f52be0-368c-42d8-a1fd-660d49ba5604": {
+                password: "Filler_password123",
+                usernames: ["test_user"],
+              },
             },
             user_account_id: "455b93eb-c78f-4494-9f73-d3291130f126",
             zipped_recordings_dir: path.join(
@@ -144,7 +147,10 @@ describe("utils.js", () => {
         test("When for customer_account_ids and account ID index and user ID index are accessed, Then they return the default value of an empty list", () => {
           let actual_value = store.get("customer_account_ids");
           expect(actual_value).toStrictEqual({
-            "73f52be0-368c-42d8-a1fd-660d49ba5604": "Filler_password123",
+            "73f52be0-368c-42d8-a1fd-660d49ba5604": {
+              password: "Filler_password123",
+              usernames: ["test_user"],
+            },
           });
           actual_value = store.get("active_customer_account_index");
           expect(actual_value).toStrictEqual(0);
