@@ -64,6 +64,7 @@ def validate_customer_credentials(request_args: Dict[str, Any], shared_values_di
         if customer_account_uuid in stored_customer_ids:
             valid_creds = stored_customer_ids[customer_account_uuid]["password"] == customer_pass_key
             valid_username = customer_username in stored_customer_ids[customer_account_uuid]["usernames"]
+
             if not valid_creds:
                 raise InvalidCustomerPasskeyError(customer_pass_key)
             if not valid_username:
