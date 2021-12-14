@@ -265,6 +265,7 @@ class FileWriterProcess(InfiniteProcess):
         # set calibration recording values if in Beta 2 mode
         if beta_2_mode:
             self.set_beta_2_mode()
+        self._is_recording_calibration = False
         # magnetometer data recording values
         self._data_packet_buffers: Tuple[
             Deque[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
@@ -408,7 +409,9 @@ class FileWriterProcess(InfiniteProcess):
                 self.get_logging_level(),
             )
             self.close_all_files()
-        # TODO destroy self._calibration_folder
+        # clean up temporary calibration recording folder
+        if self._beta_2_mode:
+            self._calibration_folder.cleanup()
 
         super()._teardown_after_loop()
 
@@ -494,6 +497,8 @@ class FileWriterProcess(InfiniteProcess):
     def _process_start_recording_command(self, communication: Dict[str, Any]) -> None:
         # pylint: disable=too-many-locals, too-many-statements# Tanner (5/17/21): many variables and statements are needed to create files with all the necessary metadata
         self._is_recording = True
+        self._is_recording_calibration = communication["is_calibration_recording"]
+
         board_idx = 0
 
         attrs_to_copy = communication["metadata_to_copy_onto_main_file_attributes"]
@@ -519,10 +524,9 @@ class FileWriterProcess(InfiniteProcess):
         recording_start_timestamp = (
             attrs_to_copy[UTC_BEGINNING_DATA_ACQUISTION_UUID] + timedelta_to_recording_start
         )
-        recording_start_timestamp_str = (recording_start_timestamp).strftime("%Y_%m_%d_%H%M%S")
+        recording_start_timestamp_str = recording_start_timestamp.strftime("%Y_%m_%d_%H%M%S")
 
-        is_calibration_recording = communication["is_calibration_recording"]
-        if is_calibration_recording:
+        if self._is_recording_calibration:
             if not self._beta_2_mode:
                 raise NotImplementedError("Cannot make a calibration recording in Beta 1 mode")
             file_folder_dir = self.calibration_file_directory
@@ -587,7 +591,7 @@ class FileWriterProcess(InfiniteProcess):
                     CONSTRUCT_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
                 )
             else:
-                this_file.attrs[str(IS_CALIBRATION_FILE_UUID)] = is_calibration_recording
+                this_file.attrs[str(IS_CALIBRATION_FILE_UUID)] = self._is_recording_calibration
             this_file.attrs[str(TOTAL_WELL_COUNT_UUID)] = 24
             this_file.attrs[str(IS_FILE_ORIGINAL_UNTRIMMED_UUID)] = True
             this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_START_UUID)] = 0
@@ -698,9 +702,12 @@ class FileWriterProcess(InfiniteProcess):
         self._is_recording = False
 
         board_idx = 0
-
         stop_recording_timepoint = communication["timepoint_to_stop_recording_at"]
         self.get_stop_recording_timestamps()[board_idx] = stop_recording_timepoint
+        # no further action needed if this is stopping a calibration recording
+        if communication.get("is_calibration_recording", False):
+            return
+
         for this_well_idx in self._open_files[board_idx].keys():
             this_file = self._open_files[board_idx][this_well_idx]
             if self._beta_2_mode:
@@ -803,6 +810,7 @@ class FileWriterProcess(InfiniteProcess):
                 self._start_new_file_upload()
         # if no files open anymore, then send message to main indicating that all files have been finalized
         if len(self._open_files[0]) == 0:
+            self._is_recording_calibration = False
             self._to_main_queue.put_nowait(
                 {
                     "communication_type": "file_finalized",
@@ -852,7 +860,8 @@ class FileWriterProcess(InfiniteProcess):
             self._data_packet_buffers[board_idx].clear()
         if not (self._beta_2_mode and self._end_of_data_stream_reached[board_idx]):
             self._data_packet_buffers[board_idx].append(data_packet)
-            output_queue.put_nowait(data_packet)
+            if not self._is_recording_calibration:  # TODO unit test
+                output_queue.put_nowait(data_packet)
 
         # Tanner (5/17/21): This code was not previously guarded by this if statement. If issues start occurring with recorded data or performance metrics, check here first
         if self._is_recording or self._board_has_open_files(board_idx):

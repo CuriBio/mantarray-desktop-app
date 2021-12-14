@@ -630,16 +630,13 @@ def test_MantarrayProcessesMonitor__after_beta_2_calibration_files_are_finalized
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["system_status"] == CALIBRATED_STATE
 
+    expected_comm = dict(STOP_MANAGED_ACQUISITION_COMMUNICATION)
+    expected_comm["is_calibration_recording"] = True
+
     confirm_queue_is_eventually_of_size(to_instrument_comm_queue, 1)
-    assert (
-        to_instrument_comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-        == STOP_MANAGED_ACQUISITION_COMMUNICATION
-    )
+    assert to_instrument_comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_comm
     confirm_queue_is_eventually_of_size(to_file_writer_queue, 1)
-    assert (
-        to_file_writer_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-        == STOP_MANAGED_ACQUISITION_COMMUNICATION
-    )
+    assert to_file_writer_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_comm
 
 
 def test_MantarrayProcessesMonitor__sets_system_status_to_calibrated_after_managed_acquisition_stops__and_resets_data_dump_buffer_size(

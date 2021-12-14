@@ -100,6 +100,7 @@ from .exceptions import ServerManagerSingletonAlreadySetError
 from .ok_comm import check_mantarray_serial_number
 from .queue_container import MantarrayQueueContainer
 from .utils import _create_start_recording_command
+from .utils import _get_timestamp_of_acquisition_sample_index_zero
 from .utils import check_barcode_for_errors
 from .utils import convert_request_args_to_config_dict
 from .utils import get_current_software_version
@@ -203,15 +204,6 @@ def queue_command_to_main(comm_dict: Dict[str, Any]) -> Response:
     response = Response(json.dumps(comm_dict), mimetype="application/json")
 
     return response
-
-
-def _get_timestamp_of_acquisition_sample_index_zero() -> datetime.datetime:  # pylint:disable=invalid-name # yeah, it's kind of long, but Eli (2/27/20) doesn't know a good way to shorten it
-    shared_values_dict = _get_values_from_process_monitor()
-    board_idx = 0  # board index 0 hardcoded for now
-    timestamp_of_sample_idx_zero: datetime.datetime = shared_values_dict[
-        "utc_timestamps_of_beginning_of_data_acquisition"
-    ][board_idx]
-    return timestamp_of_sample_idx_zero
 
 
 @flask_app.route("/system_status", methods=["GET"])
@@ -700,7 +692,7 @@ def stop_recording() -> Response:
     """
     shared_values_dict = _get_values_from_process_monitor()
 
-    timestamp_of_sample_idx_zero = _get_timestamp_of_acquisition_sample_index_zero()
+    timestamp_of_sample_idx_zero = _get_timestamp_of_acquisition_sample_index_zero(shared_values_dict)
 
     stop_time_index: Union[int, float]
     if "time_index" in request.args:

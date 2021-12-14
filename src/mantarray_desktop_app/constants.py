@@ -17,6 +17,7 @@ import uuid
 
 from immutabledict import immutabledict
 from labware_domain_models import LabwareDefinition
+from mantarray_file_manager import METADATA_UUID_DESCRIPTIONS
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
@@ -387,6 +388,12 @@ SERIAL_COMM_MODULE_ID_TO_WELL_IDX = immutabledict(
     {module_id: well_idx for well_idx, module_id in SERIAL_COMM_WELL_IDX_TO_MODULE_ID.items()}
 )
 
+# Calibration
+CALIBRATION_RECORDING_DUR_SECONDS = 30
+
 
 # TODO move this to mantarray_file_manager or sdk_refactor
 IS_CALIBRATION_FILE_UUID = uuid.UUID("9a6f90eb-fe34-423b-bfed-fb441d6d9e5f")
+METADATA_UUID_DESCRIPTIONS = dict(METADATA_UUID_DESCRIPTIONS)
+METADATA_UUID_DESCRIPTIONS[IS_CALIBRATION_FILE_UUID] = "Is this file a calibration (empty plate) recording"
+METADATA_UUID_DESCRIPTIONS = immutabledict(METADATA_UUID_DESCRIPTIONS)

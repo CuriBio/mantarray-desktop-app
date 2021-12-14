@@ -526,6 +526,18 @@ def test_FileWriterProcess_teardown_after_loop__calls_close_all_files__when_stil
     spied_close_all_files.assert_called_once()
 
 
+def test_FileWriterProcess_teardown_after_loop__beta_2_mode__destroys_temp_dir_for_calibration_recordings(
+    four_board_file_writer_process, mocker
+):
+    fw_process = four_board_file_writer_process["fw_process"]
+    fw_process.set_beta_2_mode()
+    spied_cleanup = mocker.spy(fw_process._calibration_folder, "cleanup")  # pylint: disable=protected-access
+
+    fw_process.soft_stop()
+    fw_process.run(perform_setup_before_loop=False, num_iterations=1)
+    spied_cleanup.assert_called_once()
+
+
 @pytest.mark.parametrize(
     "test_start_recording_command,test_description",
     [

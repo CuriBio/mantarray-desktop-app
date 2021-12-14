@@ -34,6 +34,7 @@ from .constants import BUFFERING_STATE
 from .constants import CALIBRATED_STATE
 from .constants import CALIBRATING_STATE
 from .constants import CALIBRATION_NEEDED_STATE
+from .constants import CALIBRATION_RECORDING_DUR_SECONDS
 from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
@@ -132,8 +133,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     self._process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
                 )
                 # need to send stop command to the process the furthest downstream the data path first then move upstream
-                main_to_fw_queue.put_nowait(STOP_MANAGED_ACQUISITION_COMMUNICATION)
-                main_to_ic_queue.put_nowait(STOP_MANAGED_ACQUISITION_COMMUNICATION)
+                stop_managed_acquisition_comm = dict(STOP_MANAGED_ACQUISITION_COMMUNICATION)
+                stop_managed_acquisition_comm["is_calibration_recording"] = True
+                main_to_fw_queue.put_nowait(stop_managed_acquisition_comm)
+                main_to_ic_queue.put_nowait(stop_managed_acquisition_comm)
 
         # Tanner (12/13/21): redact file path after handling comm in case the actual file path is needed
         if "file_path" in communication:
@@ -264,7 +267,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 {
                     "communication_type": "recording",
                     "command": "stop_recording",
-                    "timepoint_to_stop_recording_at": 30 * MICRO_TO_BASE_CONVERSION,
+                    "timepoint_to_stop_recording_at": CALIBRATION_RECORDING_DUR_SECONDS
+                    * MICRO_TO_BASE_CONVERSION,
+                    "is_calibration_recording": True,
                 }
             )
 
@@ -446,8 +451,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     communication["timestamp"]
                 ]
             elif command == "stop_managed_acquisition":
-                self._values_to_share_to_server["system_status"] = CALIBRATED_STATE
-                self._data_dump_buffer_size = 0
+                if not communication.get("is_calibration_recording", False):
+                    self._values_to_share_to_server["system_status"] = CALIBRATED_STATE
+                    self._data_dump_buffer_size = 0
         elif communication_type == "stimulation":
             if command == "start_stimulation":
                 self._values_to_share_to_server["utc_timestamps_of_beginning_of_stimulation"] = [

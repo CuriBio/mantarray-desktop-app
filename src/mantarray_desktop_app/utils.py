@@ -393,9 +393,7 @@ def _create_start_recording_command(
 ) -> Dict[str, Any]:
     board_idx = 0  # board index 0 hardcoded for now
 
-    timestamp_of_sample_idx_zero: datetime.datetime = shared_values_dict[
-        "utc_timestamps_of_beginning_of_data_acquisition"
-    ][board_idx]
+    timestamp_of_sample_idx_zero = _get_timestamp_of_acquisition_sample_index_zero(shared_values_dict)
 
     begin_time_index: Union[int, float]
     timestamp_of_begin_recording = datetime.datetime.utcnow()
@@ -494,3 +492,13 @@ def _check_scanned_barcode_vs_user_value(barcode: str, shared_values_dict: Dict[
         return False
     result: bool = shared_values_dict["barcodes"][board_idx]["plate_barcode"] == barcode
     return result
+
+
+def _get_timestamp_of_acquisition_sample_index_zero(  # pylint:disable=invalid-name # yeah, it's kind of long, but Eli (2/27/20) doesn't know a good way to shorten it
+    shared_values_dict: Dict[str, Any]
+) -> datetime.datetime:
+    board_idx = 0  # board index 0 hardcoded for now
+    timestamp_of_sample_idx_zero: datetime.datetime = shared_values_dict[
+        "utc_timestamps_of_beginning_of_data_acquisition"
+    ][board_idx]
+    return timestamp_of_sample_idx_zero

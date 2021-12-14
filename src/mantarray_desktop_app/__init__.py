@@ -34,6 +34,7 @@ from .constants import BUFFERING_STATE
 from .constants import CALIBRATED_STATE
 from .constants import CALIBRATING_STATE
 from .constants import CALIBRATION_NEEDED_STATE
+from .constants import CALIBRATION_RECORDING_DUR_SECONDS
 from .constants import CHANNEL_INDEX_TO_24_WELL_INDEX
 from .constants import CLEAR_BARCODE_TRIG_BIT
 from .constants import CLEARED_BARCODE_VALUE
@@ -631,4 +632,5 @@ __all__ = [
     "MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS",
     "MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS",
     "IS_CALIBRATION_FILE_UUID",
+    "CALIBRATION_RECORDING_DUR_SECONDS",
 ]

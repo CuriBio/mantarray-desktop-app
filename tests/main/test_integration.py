@@ -39,6 +39,7 @@ from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
+from mantarray_desktop_app import process_monitor
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
@@ -50,6 +51,7 @@ from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import system_state_eventually_equals
 from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
+from mantarray_desktop_app import utils
 from mantarray_desktop_app import wait_for_subprocesses_to_start
 from mantarray_desktop_app import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
@@ -129,7 +131,7 @@ __fixtures__ = [
 LIVE_VIEW_ACTIVE_WAIT_TIME = 150
 CALIBRATED_WAIT_TIME = 10
 STOP_MANAGED_ACQUISITION_WAIT_TIME = 40
-INTEGRATION_TEST_TIMEOUT = 720
+INTEGRATION_TEST_TIMEOUT = 300
 FIRST_METRIC_WAIT_TIME = 20
 
 
@@ -238,7 +240,7 @@ def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_li
         assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 3) is True
 
         response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&customer_username=test_user&user_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&recording_directory={expected_recordings_dir}&auto_upload=true&auto_delete=false"
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&customer_username=test_user&user_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&recording_directory={expected_recordings_dir}&auto_upload=false&auto_delete=false"
         )
         assert response.status_code == 200
 
@@ -355,6 +357,11 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         "_get_timestamp_of_acquisition_sample_index_zero",
         return_value=expected_time,
     )
+    mocker.patch.object(
+        utils,
+        "_get_timestamp_of_acquisition_sample_index_zero",
+        return_value=expected_time,
+    )
     expected_timestamp = "2020_06_15_141955"
     # Tanner (12/29/20): Patching uuid4 so we get an expected UUID for the Log Files
     mocker.patch.object(
@@ -366,7 +373,6 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         ],
     )
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
-
         test_dict = {
             "stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS,
             "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
@@ -389,7 +395,11 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
         # Tanner (12/29/20): Manually set recording directory through update_settings route
         response = requests.get(
+<<<<<<< HEAD
             f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&customer_username=test_user&user_account_uuid=455b93eb-c78f-4494-9f73-d3291130f126&recording_directory={expected_recordings_dir}&auto_upload=true&auto_delete=false"
+=======
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&user_account_uuid=455b93eb-c78f-4494-9f73-d3291130f126&recording_directory={expected_recordings_dir}&auto_upload=false&auto_delete=false"
+>>>>>>> got integration tests passing
         )
         assert response.status_code == 200
 
@@ -743,7 +753,11 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
         # Tanner (12/29/20): use updated settings to set the recording directory to the TemporaryDirectory
 
         response = requests.get(
+<<<<<<< HEAD
             f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&customer_username=test_user&auto_upload=true&auto_delete=false"
+=======
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&auto_upload=false&auto_delete=false"
+>>>>>>> got integration tests passing
         )
         assert response.status_code == 200
 
@@ -801,12 +815,20 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
 ):
     # pylint: disable=too-many-statements,too-many-locals  # Tanner (6/1/21): This is a long integration test, it needs extra statements and local variables
 
+    # mock this value so that only 2 seconds of recorded data is are needed to complete calibration
+    mocker.patch.object(process_monitor, "CALIBRATION_RECORDING_DUR_SECONDS", 2)
+
     # Tanner (12/29/20): Freeze time in order to make assertions on timestamps in the metadata
     expected_time = datetime.datetime(
         year=2021, month=5, day=24, hour=21, minute=23, second=4, microsecond=141738
     )
     mocker.patch.object(
         server,
+        "_get_timestamp_of_acquisition_sample_index_zero",
+        return_value=expected_time,
+    )
+    mocker.patch.object(
+        utils,
         "_get_timestamp_of_acquisition_sample_index_zero",
         return_value=expected_time,
     )
@@ -879,7 +901,11 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         da_out = test_process_manager.queue_container().get_data_analyzer_data_out_queue()
 
         response = requests.get(
+<<<<<<< HEAD
             f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&customer_username=test_user&auto_upload=true&auto_delete=false"
+=======
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&auto_upload=false&auto_delete=false"
+>>>>>>> got integration tests passing
         )
         assert response.status_code == 200
 
@@ -1005,7 +1031,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         test_process_manager.hard_stop_and_join_processes()
 
         expected_timestamp_1 = "2021_05_24_212304"
-        actual_set_of_files = set(
+        actual_set_of_files_1 = set(
             os.listdir(
                 os.path.join(
                     expected_recordings_dir,
@@ -1013,7 +1039,9 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                 )
             )
         )
-        assert len(actual_set_of_files) == 24
+        assert len(actual_set_of_files_1) == 48
+        assert len([file_name for file_name in actual_set_of_files_1 if "Calibration" in file_name]) == 24
+        assert len([file_name for file_name in actual_set_of_files_1 if "Calibration" not in file_name]) == 24
 
         # test first recording for all data and metadata
         num_recorded_data_points_1 = (
@@ -1144,6 +1172,17 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                     assert actual_stim_data.shape[1] == 0, well_idx
 
         expected_timestamp_2 = "2021_05_24_212305"
+        actual_set_of_files_2 = set(
+            os.listdir(
+                os.path.join(
+                    expected_recordings_dir,
+                    f"{expected_barcode_2}__{expected_timestamp_2}",
+                )
+            )
+        )
+        assert len(actual_set_of_files_2) == 48
+        assert len([file_name for file_name in actual_set_of_files_2 if "Calibration" in file_name]) == 24
+        assert len([file_name for file_name in actual_set_of_files_2 if "Calibration" not in file_name]) == 24
         # Tanner (12/30/20): test second recording (only make sure it contains waveform data)
         num_recorded_data_points_2 = (
             expected_stop_index_2 - expected_start_index_2

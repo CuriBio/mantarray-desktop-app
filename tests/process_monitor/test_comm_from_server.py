@@ -7,6 +7,7 @@ from uuid import UUID
 from freezegun import freeze_time
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
+from mantarray_desktop_app import CALIBRATION_RECORDING_DUR_SECONDS
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
@@ -272,7 +273,8 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     expected_stop_recording_command = {
         "communication_type": "recording",
         "command": "stop_recording",
-        "timepoint_to_stop_recording_at": 30 * MICRO_TO_BASE_CONVERSION,
+        "timepoint_to_stop_recording_at": CALIBRATION_RECORDING_DUR_SECONDS * MICRO_TO_BASE_CONVERSION,
+        "is_calibration_recording": True,
     }
     assert main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_stop_recording_command
 
