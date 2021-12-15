@@ -39,6 +39,7 @@ from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_NUM_CHANNELS_ENABLED
 from ..fixtures_file_writer import GENERIC_NUM_SENSORS_ENABLED
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
+from ..fixtures_file_writer import populate_calibration_folder
 from ..fixtures_file_writer import WELL_DEF_24
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
@@ -124,7 +125,6 @@ def test_FileWriterProcess_soft_stop_not_allowed_if_incoming_data_still_in_queue
 
 
 def test_FileWriterProcess__setup_before_loop__calls_super(four_board_file_writer_process, mocker):
-
     spied_setup = mocker.spy(InfiniteProcess, "_setup_before_loop")
     spied_uploader = mocker.spy(file_uploader, "uploader")
     file_writer_process = four_board_file_writer_process["fw_process"]
@@ -184,8 +184,8 @@ def test_FileWriterProcess_soft_stop_not_allowed_if_command_from_main_still_in_q
 @pytest.mark.parametrize(
     "test_start_recording_command,test_description",
     [
-        (GENERIC_BETA_1_START_RECORDING_COMMAND, "closes correctly with beta 1 files"),
-        (GENERIC_BETA_2_START_RECORDING_COMMAND, "closes correctly with beta 2 files"),
+        (copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND), "closes correctly with beta 1 files"),
+        (copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND), "closes correctly with beta 2 files"),
     ],
 )
 def test_FileWriterProcess__close_all_files(
@@ -196,6 +196,7 @@ def test_FileWriterProcess__close_all_files(
 
     if test_start_recording_command == GENERIC_BETA_2_START_RECORDING_COMMAND:
         file_writer_process.set_beta_2_mode()
+        populate_calibration_folder(file_writer_process)
 
     this_command = copy.deepcopy(test_start_recording_command)
     this_command["active_well_indices"] = [3, 18]
@@ -411,6 +412,7 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_correctly(
         num_points_per_packet = data_packet["data"].shape[1]
     else:
         file_writer_process.set_beta_2_mode()
+        populate_calibration_folder(file_writer_process)
         start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
         data_packet = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
         num_points_per_packet = data_packet["time_indices"].shape[0]
@@ -502,8 +504,8 @@ def test_FileWriterProcess_teardown_after_loop__does_not_call_close_all_files__w
 @pytest.mark.parametrize(
     "test_start_recording_command,test_description",
     [
-        (GENERIC_BETA_1_START_RECORDING_COMMAND, "calls close with beta 1 files"),
-        (GENERIC_BETA_2_START_RECORDING_COMMAND, "calls close with beta 2 files"),
+        (copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND), "calls close with beta 1 files"),
+        (copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND), "calls close with beta 2 files"),
     ],
 )
 def test_FileWriterProcess_teardown_after_loop__calls_close_all_files__when_still_recording(
@@ -514,6 +516,7 @@ def test_FileWriterProcess_teardown_after_loop__calls_close_all_files__when_stil
 
     if test_start_recording_command == GENERIC_BETA_2_START_RECORDING_COMMAND:
         fw_process.set_beta_2_mode()
+        populate_calibration_folder(fw_process)
 
     spied_close_all_files = mocker.spy(fw_process, "close_all_files")
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -541,8 +544,8 @@ def test_FileWriterProcess_teardown_after_loop__beta_2_mode__destroys_temp_dir_f
 @pytest.mark.parametrize(
     "test_start_recording_command,test_description",
     [
-        (GENERIC_BETA_1_START_RECORDING_COMMAND, "calls close with beta 1 files"),
-        (GENERIC_BETA_2_START_RECORDING_COMMAND, "calls close with beta 2 files"),
+        (copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND), "calls close with beta 1 files"),
+        (copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND), "calls close with beta 2 files"),
     ],
 )
 def test_FileWriterProcess_hard_stop__calls_close_all_files__when_still_recording(
@@ -553,6 +556,7 @@ def test_FileWriterProcess_hard_stop__calls_close_all_files__when_still_recordin
 
     if test_start_recording_command == GENERIC_BETA_2_START_RECORDING_COMMAND:
         fw_process.set_beta_2_mode()
+        populate_calibration_folder(fw_process)
 
     spied_close_all_files = mocker.spy(fw_process, "close_all_files")
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -585,7 +589,7 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_1_files_after_stop_recordi
     spied_close_all_files = mocker.spy(fw_process, "close_all_files")
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        GENERIC_BETA_1_START_RECORDING_COMMAND, from_main_queue
+        copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND), from_main_queue
     )
     invoke_process_run_and_check_errors(fw_process)
 
@@ -651,6 +655,7 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_2_files_after_stop_recordi
 
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
+    populate_calibration_folder(fw_process)
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     tmp_dir = four_board_file_writer_process["file_dir"]
@@ -658,7 +663,7 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_2_files_after_stop_recordi
     spied_close_all_files = mocker.spy(fw_process, "close_all_files")
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        GENERIC_BETA_2_START_RECORDING_COMMAND, from_main_queue
+        copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND), from_main_queue
     )
     invoke_process_run_and_check_errors(fw_process)
 
@@ -728,7 +733,7 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_1_f
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        GENERIC_BETA_1_START_RECORDING_COMMAND, from_main_queue
+        copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND), from_main_queue
     )
     invoke_process_run_and_check_errors(fw_process)
 
@@ -808,12 +813,13 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_2_f
 ):
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
+    populate_calibration_folder(fw_process)
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     to_main_queue = four_board_file_writer_process["to_main_queue"]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        GENERIC_BETA_2_START_RECORDING_COMMAND, from_main_queue
+        copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND), from_main_queue
     )
     invoke_process_run_and_check_errors(fw_process)
 
@@ -883,12 +889,16 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_2_f
 @pytest.mark.parametrize(
     "test_start_recording_command,test_description",
     [
-        (GENERIC_BETA_1_START_RECORDING_COMMAND, "tears down correctly with beta 1 files"),
-        (GENERIC_BETA_2_START_RECORDING_COMMAND, "tears down correctly with beta 2 files"),
+        (copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND), "tears down correctly with beta 1 files"),
+        (copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND), "tears down correctly with beta 2 files"),
     ],
 )
 def test_FileWriterProcess_teardown_after_loop__can_teardown_process_while_recording__and_log_stop_recording_message(
-    test_start_recording_command, test_description, running_four_board_file_writer_process, mocker
+    test_start_recording_command,
+    test_description,
+    running_four_board_file_writer_process,
+    mocker,
+    patch_print,
 ):
     fw_process = running_four_board_file_writer_process["fw_process"]
     to_main_queue = running_four_board_file_writer_process["to_main_queue"]

@@ -272,7 +272,6 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     "is_calibration_recording": True,
                 }
             )
-
         elif communication_type == "recording":
             command = communication["command"]
             main_to_fw_queue = (

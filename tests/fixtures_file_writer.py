@@ -421,3 +421,12 @@ def create_and_close_beta_1_h5_files(
 
     # tests may want to make assertions on these messages, so returning them
     return finalization_messages
+
+
+def populate_calibration_folder(fw_process):
+    for well_idx in range(24):
+        well_name = WELL_DEF_24.get_well_name_from_well_index(well_idx)
+        file_path = os.path.join(fw_process.calibration_file_directory, f"Calibration__{well_name}.h5")
+        # create and close file
+        with open(file_path, "w"):
+            pass

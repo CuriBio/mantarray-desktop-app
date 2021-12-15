@@ -351,8 +351,7 @@ def test_McCommunicationProcess__raises_error_if_start_stim_command_fails(
 
 
 def test_McCommunicationProcess__raises_error_if_stop_stim_command_fails(
-    four_board_mc_comm_process_no_handshake,
-    mantarray_mc_simulator_no_beacon,
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, patch_print
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     input_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][0]

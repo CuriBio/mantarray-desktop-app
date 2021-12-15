@@ -25,6 +25,7 @@ from ..fixtures_file_writer import GENERIC_NUM_CHANNELS_ENABLED
 from ..fixtures_file_writer import GENERIC_NUM_SENSORS_ENABLED
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from ..fixtures_file_writer import open_the_generic_h5_file
+from ..fixtures_file_writer import populate_calibration_folder
 from ..helpers import assert_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
@@ -178,6 +179,7 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_if_the_
 ):
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
+    populate_calibration_folder(fw_process)
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
@@ -225,6 +227,7 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_if_the_
 ):
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
+    populate_calibration_folder(fw_process)
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
@@ -276,6 +279,7 @@ def test_FileWriterProcess_process_magnetometer_data_packet__does_not_write_data
 ):
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
+    populate_calibration_folder(fw_process)
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
@@ -312,6 +316,7 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_for_two
 ):
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
+    populate_calibration_folder(fw_process)
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
@@ -374,6 +379,7 @@ def test_FileWriterProcess_process_magnetometer_data_packet__does_not_add_a_data
 ):
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
+    populate_calibration_folder(fw_process)
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
@@ -439,6 +445,7 @@ def test_FileWriterProcess_process_magnetometer_data_packet__adds_a_data_packet_
 ):
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
+    populate_calibration_folder(fw_process)
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
@@ -514,6 +521,7 @@ def test_FileWriterProcess_process_magnetometer_data_packet__updates_dict_of_tim
 ):
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
+    populate_calibration_folder(fw_process)
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
@@ -574,6 +582,7 @@ def test_FileWriterProcess_process_stim_data_packet__writes_data_if_the_whole_da
 ):
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
+    populate_calibration_folder(fw_process)
     board_idx = 0
     board_queues = four_board_file_writer_process["board_queues"][board_idx]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
@@ -606,6 +615,7 @@ def test_FileWriterProcess_process_stim_data_packet__writes_data_if_the_timestam
 ):
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
+    populate_calibration_folder(fw_process)
     board_idx = 0
     board_queues = four_board_file_writer_process["board_queues"][board_idx]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
@@ -638,6 +648,7 @@ def test_FileWriterProcess_process_stim_data_packet__writes_only_final_data_poin
 ):
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
+    populate_calibration_folder(fw_process)
     board_idx = 0
     board_queues = four_board_file_writer_process["board_queues"][board_idx]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
@@ -668,6 +679,7 @@ def test_FileWriterProcess_process_stim_data_packet__writes_data_for_two_packets
 ):
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
+    populate_calibration_folder(fw_process)
     board_idx = 0
     board_queues = four_board_file_writer_process["board_queues"][board_idx]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
@@ -703,6 +715,7 @@ def test_FileWriterProcess_process_stim_data_packet__does_not_add_a_data_packet_
 ):
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
+    populate_calibration_folder(fw_process)
     board_idx = 0
     board_queues = four_board_file_writer_process["board_queues"][board_idx]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
@@ -756,6 +769,7 @@ def test_FileWriterProcess_process_stim_data_packet__adds_a_data_packet_ending_o
 ):
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
+    populate_calibration_folder(fw_process)
     board_idx = 0
     board_queues = four_board_file_writer_process["board_queues"][board_idx]
     from_main_queue = four_board_file_writer_process["from_main_queue"]

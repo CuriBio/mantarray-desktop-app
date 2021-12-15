@@ -257,7 +257,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_data_analyzer(
 
 
 def test_MantarrayProcessesMonitor__pulls_outgoing_data_from_data_analyzer_and_makes_it_available_to_server(
-    mocker, test_process_manager_creator, test_monitor
+    test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
@@ -268,16 +268,40 @@ def test_MantarrayProcessesMonitor__pulls_outgoing_data_from_data_analyzer_and_m
 
     # add dummy data here. In this test, the item is never actually looked at, so it can be any string value
     expected_json_data = json.dumps({"well": 0, "data": [1, 2, 3, 4, 5]})
-    da_data_out_queue.put_nowait(expected_json_data)
-    confirm_queue_is_eventually_of_size(
-        da_data_out_queue, 1, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_json_data, da_data_out_queue)
 
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(da_data_out_queue)
     confirm_queue_is_eventually_of_size(pm_data_out_queue, 1)
     actual = pm_data_out_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_json_data
+
+
+def test_MantarrayProcessesMonitor__passes_update_upload_status_data_to_server(
+    test_process_manager_creator, test_monitor
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
+
+    fw_data_out_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_file_writer_to_main()
+    )
+    pm_data_out_queue = test_process_manager.queue_container().get_data_queue_to_server()
+
+    expected_content = {"key": "value"}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {
+            "communication_type": "update_upload_status",
+            "content": expected_content,
+        },
+        fw_data_out_queue,
+    )
+
+    invoke_process_run_and_check_errors(monitor_thread)
+    confirm_queue_is_eventually_empty(fw_data_out_queue)
+    confirm_queue_is_eventually_of_size(pm_data_out_queue, 1)
+    actual = pm_data_out_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert actual == expected_content
 
 
 def test_MantarrayProcessesMonitor__logs_errors_from_instrument_comm_process(

@@ -56,6 +56,7 @@ from ..fixtures import GENERIC_STORED_CUSTOMER_IDS
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
+from ..fixtures_file_writer import populate_calibration_folder
 from ..fixtures_mc_simulator import create_random_stim_info
 from ..fixtures_mc_simulator import get_random_subprotocol
 from ..fixtures_process_monitor import fixture_test_monitor
@@ -1287,6 +1288,7 @@ def test_start_recording_command__gets_processed_in_beta_2_mode__and_creates_a_f
     shared_values_dict["stimulation_info"] = create_random_stim_info()
 
     fw_process = test_process_manager.get_file_writer_process()
+    populate_calibration_folder(fw_process)
     to_fw_queue = test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
     fw_error_queue = test_process_manager.queue_container().get_file_writer_error_queue()
 
@@ -1316,6 +1318,7 @@ def test_start_recording_command__gets_processed_in_beta_2_mode__and_creates_a_f
 
     file_dir = fw_process.get_file_directory()
     actual_files = os.listdir(os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}"))
+    actual_files = [file_path for file_path in actual_files if "Calibration" not in file_path]
     assert actual_files == [f"{expected_barcode}__{timestamp_str}__D1.h5"]
 
 

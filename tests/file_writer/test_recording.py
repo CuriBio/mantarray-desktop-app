@@ -95,6 +95,7 @@ from ..fixtures_file_writer import GENERIC_NUM_SENSORS_ENABLED
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_UPDATE_CUSTOMER_SETTINGS
 from ..fixtures_file_writer import open_the_generic_h5_file
+from ..fixtures_file_writer import populate_calibration_folder
 from ..fixtures_file_writer import WELL_DEF_24
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
@@ -135,6 +136,7 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
     # set up expected values
     if test_beta_version == 2:
         file_writer_process.set_beta_2_mode()
+        populate_calibration_folder(file_writer_process)
     start_recording_command = copy.deepcopy(
         GENERIC_BETA_1_START_RECORDING_COMMAND
         if test_beta_version == 1
@@ -157,6 +159,7 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
     invoke_process_run_and_check_errors(file_writer_process)
 
     actual_set_of_files = set(os.listdir(os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}")))
+    actual_set_of_files = {file_path for file_path in actual_set_of_files if expected_barcode in file_path}
     assert len(actual_set_of_files) == 24
 
     expected_set_of_files = set()
@@ -356,6 +359,7 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_magnetometer
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
+    populate_calibration_folder(file_writer_process)
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     to_main_queue = four_board_file_writer_process["to_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
@@ -387,6 +391,7 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_magnetometer
 
     # test created files
     actual_set_of_files = set(os.listdir(os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}")))
+    actual_set_of_files = {file_path for file_path in actual_set_of_files if expected_barcode in file_path}
     expected_set_of_files = {
         f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5"
         for well_idx in active_well_indices
@@ -436,6 +441,7 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
+    populate_calibration_folder(file_writer_process)
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
@@ -470,6 +476,7 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_
 
     # test created files
     actual_set_of_files = set(os.listdir(os.path.join(file_dir, f"{expected_barcode}__{file_timestamp_str}")))
+    actual_set_of_files = {file_path for file_path in actual_set_of_files if expected_barcode in file_path}
     expected_set_of_files = {
         f"{expected_barcode}__{file_timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5"
         for well_idx in range(24)
@@ -536,6 +543,9 @@ def test_FileWriterProcess__beta_2_mode__creates_calibration_files_in_correct_fo
             assert (
                 bool(this_file.attrs[str(IS_CALIBRATION_FILE_UUID)]) is True
             ), f"timestamp: {timestamp_str}, well_idx: {well_idx}"
+            # need to close h5 file objects created in this test function and by FileWriter otherwise errors will be raised on windows
+            this_file.close()
+        file_writer_process.close_all_files()
 
 
 def test_FileWriterProcess__beta_2_mode__copies_calibration_files_to_new_recording_folder__when_receiving_communication_to_start_recording(
@@ -577,7 +587,7 @@ def test_FileWriterProcess__beta_2_mode__copies_calibration_files_to_new_recordi
 
 
 def test_FileWriterProcess__beta_2_mode__raises_error_if_calibration_files_are_missing__when_receiving_communication_to_start_recording(
-    four_board_file_writer_process, mocker
+    four_board_file_writer_process, mocker, patch_print
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
@@ -596,13 +606,14 @@ def test_FileWriterProcess__beta_2_mode__raises_error_if_calibration_files_are_m
         with open(file_path, "w"):
             pass
 
-    expected_missing_wells = {
+    expected_missing_wells = [
         WELL_DEF_24.get_well_name_from_well_index(well_idx) for well_idx in range(15, 24)
-    }
+    ]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
-    with pytest.raises(CalibrationFilesMissingError, match=f"Missing wells: {expected_missing_wells}"):
+    with pytest.raises(CalibrationFilesMissingError) as exc_info:
         invoke_process_run_and_check_errors(file_writer_process)
+    assert f"Missing wells: {sorted(expected_missing_wells)}" == str(exc_info.value)
 
 
 def test_FileWriterProcess__start_recording__sets_stop_recording_timestamp_to_none__and_tissue_and_reference_finalization_status_to_false__and_is_recording_to_true(
@@ -971,6 +982,7 @@ def test_FileWriterProcess__records_all_requested_beta_2_magnetometer_data_in_bu
     # pylint: disable=too-many-locals  # Tanner (5/30/21): many variables needed for this test
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
+    populate_calibration_folder(file_writer_process)
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
     data_packet_buffer = file_writer_process._data_packet_buffers[0]  # pylint: disable=protected-access
@@ -1237,6 +1249,7 @@ def test_FileWriterProcess__records_all_relevant_stim_statuses_in_buffer_when_st
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
+    populate_calibration_folder(file_writer_process)
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
     # dummy packets that will be ignored
@@ -1393,6 +1406,7 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
     # pylint: disable=too-many-locals  # Tanner (5/19/21): many variables needed for this test
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
+    populate_calibration_folder(file_writer_process)
     instrument_board_queues = four_board_file_writer_process["board_queues"]
     comm_from_main_queue = four_board_file_writer_process["from_main_queue"]
 
@@ -1601,6 +1615,7 @@ def test_FileWriterProcess__raises_error_if_stop_recording_command_received_with
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
+    populate_calibration_folder(file_writer_process)
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
@@ -1647,6 +1662,7 @@ def test_FileWriterProcess__deletes_recorded_stim_data_after_stop_time(
     # pylint: disable=too-many-locals  # Tanner (10/21/21): many variables needed for this test
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
+    populate_calibration_folder(file_writer_process)
     board_idx = 0
     instrument_board_queues = four_board_file_writer_process["board_queues"][board_idx]
     comm_from_main_queue = four_board_file_writer_process["from_main_queue"]

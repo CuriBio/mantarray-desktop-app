@@ -370,9 +370,8 @@ class FileWriterProcess(InfiniteProcess):
 
     def set_beta_2_mode(self) -> None:
         self._beta_2_mode = True
-        if self._beta_2_mode:
-            self._calibration_folder = tempfile.TemporaryDirectory()  # pylint: disable=consider-using-with
-            self.calibration_file_directory = self._calibration_folder.name
+        self._calibration_folder = tempfile.TemporaryDirectory()  # pylint: disable=consider-using-with
+        self.calibration_file_directory = self._calibration_folder.name
 
     def get_upload_threads_container(self) -> List[Dict[str, Any]]:
         """For use in unit tests."""
@@ -472,6 +471,7 @@ class FileWriterProcess(InfiniteProcess):
             to_main.put_nowait(
                 {"communication_type": "command_receipt", "command": "stop_managed_acquisition"}
             )
+            self._is_recording_calibration = False
             # TODO Tanner (5/25/21): Set all finalization statuses to true here since no more data will be coming in
         elif command == "update_directory":
             self._file_directory = communication["new_directory"]
@@ -506,11 +506,6 @@ class FileWriterProcess(InfiniteProcess):
         barcode = attrs_to_copy[PLATE_BARCODE_UUID]
         sample_idx_zero_timestamp = attrs_to_copy[UTC_BEGINNING_DATA_ACQUISTION_UUID]
 
-        time_index_to_begin_recording = communication["timepoint_to_begin_recording_at"]
-        if not self._beta_2_mode:
-            # TODO Tanner make sure this is working as expected
-            # Tanner (11/12/21): FE will send this value in µs so need to convert to cms for Beta 1 data
-            time_index_to_begin_recording /= MICROSECONDS_PER_CENTIMILLISECOND
         self._start_recording_timestamps[board_idx] = (
             sample_idx_zero_timestamp,
             communication["timepoint_to_begin_recording_at"],
@@ -548,12 +543,11 @@ class FileWriterProcess(InfiniteProcess):
                     for well_idx in range(self._num_wells)
                 }
                 if well_names_found != all_well_names:
-                    raise CalibrationFilesMissingError(f"Missing wells: {all_well_names - well_names_found}")
+                    missing_well_names = sorted(all_well_names - well_names_found)
+                    raise CalibrationFilesMissingError(f"Missing wells: {missing_well_names}")
                 for file_path in calibration_file_paths:
                     shutil.copy(file_path, file_folder_dir)
         communication["abs_path_to_file_folder"] = file_folder_dir
-
-        os.makedirs(file_folder_dir)
 
         stim_protocols = None
         labeled_protocol_dict = {}
@@ -815,7 +809,6 @@ class FileWriterProcess(InfiniteProcess):
                 self._start_new_file_upload()
         # if no files open anymore, then send message to main indicating that all files have been finalized
         if len(self._open_files[0]) == 0:
-            self._is_recording_calibration = False
             self._to_main_queue.put_nowait(
                 {
                     "communication_type": "file_finalized",
