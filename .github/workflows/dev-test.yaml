@@ -313,7 +313,7 @@ jobs:
 
       - name: Archive Dist Folder
         if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v2.2.4
         with:
           name: dist--${{ matrix.os }}--${{ matrix.node-version }}--${{ matrix.python-version }}
           path: "dist/**/*"
