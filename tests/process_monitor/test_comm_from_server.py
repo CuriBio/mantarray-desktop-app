@@ -23,10 +23,12 @@ from mantarray_desktop_app import UnrecognizedMantarrayNamingCommandError
 from mantarray_desktop_app import UnrecognizedRecordingCommandError
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
+from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import NOT_APPLICABLE_H5_METADATA
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
 from mantarray_file_manager import STIMULATION_PROTOCOL_UUID
+from mantarray_file_manager import USER_ACCOUNT_ID_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
 from mantarray_file_manager import UTC_BEGINNING_STIMULATION_UUID
@@ -222,8 +224,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     monitor_thread, svd, *_ = test_monitor(test_process_manager)
 
     put_generic_beta_2_start_recording_info_in_dict(svd)
-    # Tanner (12/10/21): deleting since this won't actually be set by the time this route is called
+    # Tanner (12/10/21): deleting since these may not actually be set by the time this route is called
     del svd["utc_timestamps_of_beginning_of_data_acquisition"]
+    del svd["config_settings"]["customer_account_id"]
+    del svd["config_settings"]["user_account_id"]
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -265,6 +269,8 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
             ][UTC_BEGINNING_RECORDING_UUID],
             UTC_BEGINNING_STIMULATION_UUID: None,
             STIMULATION_PROTOCOL_UUID: None,
+            CUSTOMER_ACCOUNT_ID_UUID: NOT_APPLICABLE_H5_METADATA,
+            USER_ACCOUNT_ID_UUID: NOT_APPLICABLE_H5_METADATA,
         }
     )
     assert main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_start_recording_command
