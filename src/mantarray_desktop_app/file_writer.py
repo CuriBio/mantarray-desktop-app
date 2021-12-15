@@ -74,6 +74,7 @@ from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from .constants import ROUND_ROBIN_PERIOD
 from .constants import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
+from .exceptions import CalibrationFilesMissingError
 from .exceptions import InvalidStopRecordingTimepointError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
 from .file_uploader import ErrorCatchingThread
@@ -495,7 +496,7 @@ class FileWriterProcess(InfiniteProcess):
             self._process_can_be_soft_stopped = False
 
     def _process_start_recording_command(self, communication: Dict[str, Any]) -> None:
-        # pylint: disable=too-many-locals, too-many-statements# Tanner (5/17/21): many variables and statements are needed to create files with all the necessary metadata
+        # pylint: disable=too-many-locals, too-many-statements, too-many-branches  # Tanner (5/17/21): many variables and statements are needed to create files with all the necessary metadata
         self._is_recording = True
         self._is_recording_calibration = communication["is_calibration_recording"]
 
@@ -505,11 +506,9 @@ class FileWriterProcess(InfiniteProcess):
         barcode = attrs_to_copy[PLATE_BARCODE_UUID]
         sample_idx_zero_timestamp = attrs_to_copy[UTC_BEGINNING_DATA_ACQUISTION_UUID]
 
-        time_index_to_begin_recording = communication[
-            "timepoint_to_begin_recording_at"  # TODO Tanner (11/12/21): change time point to time index where necessary
-        ]
+        time_index_to_begin_recording = communication["timepoint_to_begin_recording_at"]
         if not self._beta_2_mode:
-            # TODO Tanner (make sure this is working as expected):
+            # TODO Tanner make sure this is working as expected
             # Tanner (11/12/21): FE will send this value in µs so need to convert to cms for Beta 1 data
             time_index_to_begin_recording /= MICROSECONDS_PER_CENTIMILLISECOND
         self._start_recording_timestamps[board_idx] = (
@@ -543,7 +542,13 @@ class FileWriterProcess(InfiniteProcess):
             # copy beta 2 calibration files into new recording folder
             if self._beta_2_mode:
                 calibration_file_paths = glob.glob(os.path.join(self.calibration_file_directory, "*.h5"))
-                # TODO raise error here if all 24 calibration files aren't present
+                well_names_found = {file_path.split(".h5")[0][-2:] for file_path in calibration_file_paths}
+                all_well_names = {
+                    GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
+                    for well_idx in range(self._num_wells)
+                }
+                if well_names_found != all_well_names:
+                    raise CalibrationFilesMissingError(f"Missing wells: {all_well_names - well_names_found}")
                 for file_path in calibration_file_paths:
                     shutil.copy(file_path, file_folder_dir)
         communication["abs_path_to_file_folder"] = file_folder_dir
@@ -860,7 +865,7 @@ class FileWriterProcess(InfiniteProcess):
             self._data_packet_buffers[board_idx].clear()
         if not (self._beta_2_mode and self._end_of_data_stream_reached[board_idx]):
             self._data_packet_buffers[board_idx].append(data_packet)
-            if not self._is_recording_calibration:  # TODO unit test
+            if not self._is_recording_calibration:
                 output_queue.put_nowait(data_packet)
 
         # Tanner (5/17/21): This code was not previously guarded by this if statement. If issues start occurring with recorded data or performance metrics, check here first

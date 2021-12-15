@@ -223,7 +223,6 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
     put_generic_beta_2_start_recording_info_in_dict(svd)
     # Tanner (12/10/21): deleting since this won't actually be set by the time this route is called
-    # TODO figure out if another other values need to be set by process_monitor or ignored
     del svd["utc_timestamps_of_beginning_of_data_acquisition"]
 
     server_to_main_queue = (

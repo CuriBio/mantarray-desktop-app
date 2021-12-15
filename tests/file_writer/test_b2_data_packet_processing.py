@@ -146,6 +146,33 @@ def test_FileWriterProcess__does_not_pass_magnetometer_data_packet_through_to_ou
     confirm_queue_is_eventually_empty(board_queues[1])
 
 
+@pytest.mark.timeout(4)
+def test_FileWriterProcess__does_not_pass_magnetometer_data_packet_through_to_output_queue_when_making_calibration_recording(
+    four_board_file_writer_process,
+):
+    fw_process = four_board_file_writer_process["fw_process"]
+    fw_process.set_beta_2_mode()
+    board_queues = four_board_file_writer_process["board_queues"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
+    # start calibration
+    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command["is_calibration_recording"] = True
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
+    invoke_process_run_and_check_errors(fw_process)
+    # send magnetometer data packet
+    test_data_packet = create_simple_data_packet(
+        start_recording_command["timepoint_to_begin_recording_at"],
+        0,
+        start_recording_command["active_well_indices"],
+        10,
+    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, board_queues[0][0])
+    # make sure packet was not passed through
+    invoke_process_run_and_check_errors(fw_process)
+    confirm_queue_is_eventually_empty(board_queues[0][1])
+
+
 def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_if_the_whole_data_chunk_is_at_the_timestamp_idx__and_sets_timestamp_metadata_for_tissue_since_this_is_first_piece_of_data(
     four_board_file_writer_process,
 ):

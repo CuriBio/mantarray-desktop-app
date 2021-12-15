@@ -4,6 +4,7 @@ import json
 import os
 
 import h5py
+from mantarray_desktop_app import CalibrationFilesMissingError
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import create_magnetometer_config_dict
@@ -573,6 +574,35 @@ def test_FileWriterProcess__beta_2_mode__copies_calibration_files_to_new_recordi
         expected_set_of_files.add(f"{expected_barcode}__{timestamp_str}__{well_name}.h5")
         expected_set_of_files.add(f"Calibration__{timestamp_str}__{well_name}.h5")
     assert actual_set_of_files == expected_set_of_files
+
+
+def test_FileWriterProcess__beta_2_mode__raises_error_if_calibration_files_are_missing__when_receiving_communication_to_start_recording(
+    four_board_file_writer_process, mocker
+):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    file_writer_process.set_beta_2_mode()
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
+    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    timestamp_str = "2020_02_09_190359"
+
+    # populate calibration folder with recording files for some wells
+    for well_idx in range(15):
+        well_name = WELL_DEF_24.get_well_name_from_well_index(well_idx)
+        file_path = os.path.join(
+            file_writer_process.calibration_file_directory, f"Calibration__{timestamp_str}__{well_name}.h5"
+        )
+        # create and close file
+        with open(file_path, "w"):
+            pass
+
+    expected_missing_wells = {
+        WELL_DEF_24.get_well_name_from_well_index(well_idx) for well_idx in range(15, 24)
+    }
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
+    with pytest.raises(CalibrationFilesMissingError, match=f"Missing wells: {expected_missing_wells}"):
+        invoke_process_run_and_check_errors(file_writer_process)
 
 
 def test_FileWriterProcess__start_recording__sets_stop_recording_timestamp_to_none__and_tissue_and_reference_finalization_status_to_false__and_is_recording_to_true(

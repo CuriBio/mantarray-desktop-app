@@ -177,6 +177,7 @@ from .exceptions import AttemptToAddCyclesWhileSPIRunningError
 from .exceptions import AttemptToInitializeFIFOReadsError
 from .exceptions import BarcodeNotClearedError
 from .exceptions import BarcodeScannerNotRespondingError
+from .exceptions import CalibrationFilesMissingError
 from .exceptions import FirmwareFileNameDoesNotMatchWireOutVersionError
 from .exceptions import FirmwareUpdateCommandFailedError
 from .exceptions import FirmwareUpdateTimeoutError
@@ -633,4 +634,5 @@ __all__ = [
     "MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS",
     "IS_CALIBRATION_FILE_UUID",
     "CALIBRATION_RECORDING_DUR_SECONDS",
+    "CalibrationFilesMissingError",
 ]

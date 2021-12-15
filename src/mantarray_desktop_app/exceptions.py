@@ -122,6 +122,10 @@ class InvalidStopRecordingTimepointError(Exception):
     pass
 
 
+class CalibrationFilesMissingError(Exception):
+    pass
+
+
 class FirmwareFileNameDoesNotMatchWireOutVersionError(Exception):
     pass
 
