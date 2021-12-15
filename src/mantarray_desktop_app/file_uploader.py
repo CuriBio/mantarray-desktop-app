@@ -45,17 +45,22 @@ def get_access_token(customer_account_id: str, password: str) -> str:
     return access_token
 
 
-def get_upload_details(access_token: str, file_name: str, file_md5: str) -> Dict[Any, Any]:
+def get_upload_details(
+    access_token: str, file_name: str, customer_account_id: str, username: str, file_md5: str
+) -> Dict[Any, Any]:
     """Post to generate post specific parameters.
 
     Args:
         access_token: user specific token.
         file_name: zip file name.
+        customer_account_id: current customer account id for file to upload.
+        username: current customer username for file to upload.
         file_md5: md5 hash.
     """
+    object_key = f"{customer_account_id}/{username}/{file_name}"
     sdk_upload_response = requests.post(
         "https://<TODO>.execute-api.us-east-1.amazonaws.com/prod-lambda-gw-stage/sdk_upload",
-        json={"file_name": file_name},
+        json={"file_name": object_key},
         headers={"Authorization": f"Bearer {access_token}", "Content-MD5": file_md5},
     )
 
@@ -148,6 +153,7 @@ def uploader(
     zipped_recordings_dir: str,
     customer_account_id: str,
     password: str,
+    username: str,
     max_num_loops: int = 0,
 ) -> None:
     """Initiate and handle file upload process.
@@ -158,23 +164,36 @@ def uploader(
         zipped_recordings_dir: static zipped recording directory to store zip files.
         customer_account_id: current customer account id for user.
         password: current customer account password for user.
+        username: current username assigned for user.
         max_num_loops: to break loop in testing.
     """
     file_path = os.path.join(os.path.abspath(file_directory), file_name)
     # Failed uploads will call function with zip file, not directory of well data
     if os.path.isdir(file_path):
         # store zipped files under customer specific and static zipped directory
-        if not os.path.exists(os.path.join(zipped_recordings_dir, customer_account_id)):
-            os.makedirs(os.path.join(zipped_recordings_dir, customer_account_id))
-        customer_zipped_recordings_dir = os.path.join(zipped_recordings_dir, customer_account_id)
-        zipped_file_path = create_zip_file(file_directory, file_name, customer_zipped_recordings_dir)
+        customer_zipped_dir = os.path.join(zipped_recordings_dir, customer_account_id)
+        user_zipped_dir = os.path.join(customer_zipped_dir, username)
+
+        if not os.path.exists(customer_zipped_dir):
+            os.makedirs(customer_zipped_dir)
+
+        if not os.path.exists(user_zipped_dir):
+            os.makedirs(user_zipped_dir)
+
+        zipped_file_path = create_zip_file(file_directory, file_name, user_zipped_dir)
         file_name = f"{file_name}.zip"
     else:
         zipped_file_path = file_path
 
     access_token = get_access_token(customer_account_id, password)
     file_md5 = get_file_md5(file_path=zipped_file_path)
-    upload_details = get_upload_details(access_token=access_token, file_name=file_name, file_md5=file_md5)
+    upload_details = get_upload_details(
+        access_token=access_token,
+        file_name=file_name,
+        customer_account_id=customer_account_id,
+        username=username,
+        file_md5=file_md5,
+    )
     upload_file_to_s3(file_path=zipped_file_path, file_name=file_name, upload_details=upload_details)
 
     num_of_loops = 0
@@ -193,6 +212,7 @@ def uploader(
             raise Exception(upload_status)
 
         sleep(5)
+
     download_analysis_from_s3(upload_status, file_name)
 
 

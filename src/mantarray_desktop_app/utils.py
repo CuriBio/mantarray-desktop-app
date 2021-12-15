@@ -25,6 +25,7 @@ from .constants import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from .exceptions import ImproperlyFormattedUserAccountUUIDError
 from .exceptions import InvalidCustomerAccountIDError
 from .exceptions import InvalidCustomerPasskeyError
+from .exceptions import InvalidCustomerUsernameError
 from .exceptions import RecordingFolderDoesNotExistError
 
 logger = logging.getLogger(__name__)
@@ -56,13 +57,18 @@ def validate_customer_credentials(request_args: Dict[str, Any], shared_values_di
     """
     customer_account_uuid = request_args.get("customer_account_uuid", None)
     customer_pass_key = request_args.get("customer_pass_key", None)
+    customer_username = request_args.get("customer_username", None)
     stored_customer_ids = shared_values_dict["stored_customer_settings"]["stored_customer_ids"]
 
     if customer_account_uuid is not None:
         if customer_account_uuid in stored_customer_ids:
-            valid_creds = stored_customer_ids[customer_account_uuid] == customer_pass_key
+            valid_creds = stored_customer_ids[customer_account_uuid]["password"] == customer_pass_key
+            valid_username = customer_username in stored_customer_ids[customer_account_uuid]["usernames"]
+
             if not valid_creds:
                 raise InvalidCustomerPasskeyError(customer_pass_key)
+            if not valid_username:
+                raise InvalidCustomerUsernameError(customer_username)
         else:
             raise InvalidCustomerAccountIDError(customer_account_uuid)
 
@@ -74,6 +80,7 @@ def convert_request_args_to_config_dict(request_args: Dict[str, Any]) -> Dict[st
     """
     customer_account_uuid = request_args.get("customer_account_uuid", None)
     customer_pass_key = request_args.get("customer_pass_key", None)
+    customer_username = request_args.get("customer_username", None)
     user_account_uuid = request_args.get("user_account_uuid", None)
     recording_directory = request_args.get("recording_directory", None)
     auto_upload_on_completion = request_args.get("auto_upload", None)
@@ -84,6 +91,8 @@ def convert_request_args_to_config_dict(request_args: Dict[str, Any]) -> Dict[st
         out_dict["config_settings"]["customer_account_id"] = customer_account_uuid
     if customer_pass_key is not None:
         out_dict["config_settings"]["customer_pass_key"] = customer_pass_key
+    if customer_username is not None:
+        out_dict["config_settings"]["customer_username"] = customer_username
     if user_account_uuid is not None:
         out_dict["config_settings"]["user_account_id"] = user_account_uuid
     if recording_directory is not None:

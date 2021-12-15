@@ -18,6 +18,13 @@ from mantarray_desktop_app.file_uploader import uploader
 import pytest
 import requests
 
+TEST_FILENAME = "test_filename"
+TEST_FILEPATH = "/test"
+TEST_ZIPDIR = os.path.join("test", "zipped_recordings")
+TEST_CUSTOMER_ACCOUNT_ID = "cid"
+TEST_PASSWORD = "pw"
+TEST_USERNAME = "test_user"
+
 
 def test_get_file_md5__creates_and_returns_file_md5_value_correctly(mocker):
     mocked_open = mocker.patch("builtins.open", autospec=True)
@@ -25,10 +32,9 @@ def test_get_file_md5__creates_and_returns_file_md5_value_correctly(mocker):
     mocked_b64encode = mocker.patch.object(base64, "b64encode", autospec=True)
 
     expected_md5 = mocked_b64encode.return_value.decode()
-    test_file_name = "test_file_name"
 
-    actual = get_file_md5(test_file_name)
-    mocked_open.assert_called_once_with(test_file_name, "rb")
+    actual = get_file_md5(TEST_FILENAME)
+    mocked_open.assert_called_once_with(TEST_FILENAME, "rb")
     mocked_md5.assert_called_once_with(mocked_open.return_value.__enter__().read())
     mocked_b64encode.assert_called_once_with(mocked_md5.return_value.digest())
     assert actual == expected_md5
@@ -38,13 +44,11 @@ def test_get_access_token__requests_and_returns_access_token_correctly(mocker):
     mocked_post = mocker.patch.object(requests, "post", autospec=True)
 
     expected_access_token = mocked_post.return_value.json()["access_token"]
-    test_customer_id = "cid"
-    test_password = "pw"
 
-    actual = get_access_token(test_customer_id, test_password)
+    actual = get_access_token(TEST_CUSTOMER_ACCOUNT_ID, TEST_PASSWORD)
     mocked_post.assert_called_once_with(
         "https://<TODO>.execute-api.us-east-1.amazonaws.com/prod-lambda-gw-stage/get_auth",
-        json={"username": test_customer_id, "password": test_password},
+        json={"username": TEST_CUSTOMER_ACCOUNT_ID, "password": TEST_PASSWORD},
     )
     assert actual == expected_access_token
 
@@ -54,13 +58,15 @@ def test_get_upload_details__requests_and_returns_upload_details_correctly(mocke
 
     expected_upload_details = mocked_post.return_value.json()
     test_access_token = "token"
-    test_file_name = "fname"
     test_file_md5 = "hash"
+    object_key = f"{TEST_CUSTOMER_ACCOUNT_ID}/{TEST_USERNAME}/{TEST_FILENAME}"
 
-    actual = get_upload_details(test_access_token, test_file_name, test_file_md5)
+    actual = get_upload_details(
+        test_access_token, TEST_FILENAME, TEST_CUSTOMER_ACCOUNT_ID, TEST_USERNAME, test_file_md5
+    )
     mocked_post.assert_called_once_with(
         "https://<TODO>.execute-api.us-east-1.amazonaws.com/prod-lambda-gw-stage/sdk_upload",
-        json={"file_name": test_file_name},
+        json={"file_name": object_key},
         headers={"Authorization": f"Bearer {test_access_token}", "Content-MD5": test_file_md5},
     )
     assert actual == expected_upload_details
@@ -71,17 +77,15 @@ def test_upload_file_to_s3__uploads_file_correctly(mocker):
     mocked_post = mocker.patch.object(requests, "post", autospec=True)
 
     expected_open_file = mocked_open.return_value.__enter__()
-    test_file_name = "fname"
-    test_file_path = "/tmp/fname"
     test_url = "website.com"
     test_data = {"key": "val"}
     test_upload_details = {"presigned_params": {"url": test_url, "fields": test_data}}
 
-    upload_file_to_s3(test_file_path, test_file_name, test_upload_details)
+    upload_file_to_s3(TEST_FILEPATH, TEST_FILENAME, test_upload_details)
 
-    mocked_open.assert_called_once_with(test_file_path, "rb")
+    mocked_open.assert_called_once_with(TEST_FILEPATH, "rb")
     mocked_post.assert_called_once_with(
-        test_url, data=test_data, files={"file": (test_file_name, expected_open_file)}
+        test_url, data=test_data, files={"file": (TEST_FILENAME, expected_open_file)}
     )
 
 
@@ -115,14 +119,12 @@ def test_create_zip_file__correctly_writes_h5_files_to_zipfile_at_designated_pat
         ),
     ]
 
-    test_dir_path = "/tmp"
-    test_file_name = "test_h5_files"
-    test_zipped_path = f"{test_dir_path}/zipped_recordings/cid"
+    test_zipped_path = f"{TEST_FILEPATH}/zipped_recordings/cid"
 
-    zipped_file_path = create_zip_file(test_dir_path, test_file_name, test_zipped_path)
-    mocked_zip_function.assert_called_once_with(f"{os.path.join(test_zipped_path, test_file_name)}.zip", "w")
+    zipped_file_path = create_zip_file(TEST_FILEPATH, TEST_FILENAME, test_zipped_path)
+    mocked_zip_function.assert_called_once_with(f"{os.path.join(test_zipped_path, TEST_FILENAME)}.zip", "w")
     assert len(spied_os_join.call_args_list) == 5
-    assert zipped_file_path == f"{os.path.join(test_zipped_path, test_file_name)}.zip"
+    assert zipped_file_path == f"{os.path.join(test_zipped_path, TEST_FILENAME)}.zip"
 
 
 def test_create_zip_file__create_zip_file_should_not_be_called_with_previously_failed_zip_file(mocker):
@@ -139,13 +141,9 @@ def test_create_zip_file__create_zip_file_should_not_be_called_with_previously_f
         return_value="https",
     )
 
-    test_file_name = "zip_file"
-    test_file_path = "/test"
-    test_zip_dir = os.path.join("test", "zipped_recordings")
-    test_customer_account_id = "cid"
-    test_password = "pw"
-
-    uploader(test_file_path, test_file_name, test_zip_dir, test_customer_account_id, test_password)
+    uploader(
+        TEST_FILEPATH, TEST_FILENAME, TEST_ZIPDIR, TEST_CUSTOMER_ACCOUNT_ID, TEST_PASSWORD, TEST_USERNAME
+    )
     mocked_create_zip_file.assert_not_called()
 
 
@@ -170,22 +168,18 @@ def test_uploader__runs_upload_procedure_correctly(mocker):
         mocker.patch.object(os.path, "exists", autospec=True, return_value=True)
 
         test_dir = tmp_dir
-        test_file_path = "/test"
-        test_zip_dir = os.path.join("test", "zipped_recordings")
-        test_customer_account_id = "cid"
-        test_password = "pw"
         zipped_file_name = f"{test_dir}.zip"
         zipped_file_path = mocked_create_zip_file.return_value
 
-        uploader(test_file_path, test_dir, test_zip_dir, test_customer_account_id, test_password)
+        uploader(TEST_FILEPATH, test_dir, TEST_ZIPDIR, TEST_CUSTOMER_ACCOUNT_ID, TEST_PASSWORD, TEST_USERNAME)
 
         mocked_create_zip_file.assert_called_once_with(
-            test_file_path, test_dir, f"{os.path.join(test_zip_dir, test_customer_account_id)}"
+            TEST_FILEPATH, test_dir, f"{os.path.join(TEST_ZIPDIR, TEST_CUSTOMER_ACCOUNT_ID, TEST_USERNAME)}"
         )
-        mocked_get_access_token.assert_called_once_with(test_customer_account_id, test_password)
+        mocked_get_access_token.assert_called_once_with(TEST_CUSTOMER_ACCOUNT_ID, TEST_PASSWORD)
         mocked_get_file_md5.assert_called_once_with(zipped_file_path)
         mocked_get_upload_details.assert_called_once_with(
-            expected_access_token, zipped_file_name, expected_md5
+            expected_access_token, zipped_file_name, TEST_CUSTOMER_ACCOUNT_ID, TEST_USERNAME, expected_md5
         )
         mocked_upload_file.assert_called_once_with(
             zipped_file_path, zipped_file_name, expected_upload_details
@@ -209,15 +203,18 @@ def test_uploader__uploader_raises_error_if_get_sdk_status_returns_error_message
     with tempfile.TemporaryDirectory() as tmp_dir:
 
         test_dir = tmp_dir
-        test_file_path = "/test"
-        test_zip_dir = os.path.join("test", "zipped_recordings")
-        test_customer_account_id = "cid"
-        test_password = "pw"
 
         with pytest.raises(Exception) as e:
             thread = ErrorCatchingThread(
                 target=uploader,
-                args=(test_file_path, test_dir, test_zip_dir, test_customer_account_id, test_password),
+                args=(
+                    TEST_FILEPATH,
+                    test_dir,
+                    TEST_ZIPDIR,
+                    TEST_CUSTOMER_ACCOUNT_ID,
+                    TEST_PASSWORD,
+                    TEST_USERNAME,
+                ),
             )
             thread.start()
             thread.join()
@@ -236,17 +233,16 @@ def test_uploader__uploader_sleeps_same_number_of_max_loops(mocker):
         file_uploader, "get_sdk_status", autospec=True, return_value="status"
     )
     mocker.patch.object(file_uploader, "download_analysis_from_s3", autospec=True)
-
     mocked_sleep = mocker.patch.object(file_uploader, "sleep", autospec=True)
 
-    test_file = "test_name"
-    test_file_path = "/test"
-    test_zip_dir = os.path.join("test", "zipped_recordings")
-    test_customer_account_id = "cid"
-    test_password = "pw"
-
     uploader(
-        test_file_path, test_file, test_zip_dir, test_customer_account_id, test_password, max_num_loops=3
+        TEST_FILEPATH,
+        TEST_FILENAME,
+        TEST_ZIPDIR,
+        TEST_CUSTOMER_ACCOUNT_ID,
+        TEST_PASSWORD,
+        TEST_USERNAME,
+        max_num_loops=3,
     )
     mocked_sleep.assert_called_with(5)
     assert len(mocked_sleep.call_args_list) == 2
@@ -262,17 +258,16 @@ def test_uploader__uploader_sleeps_after_loop_getting_sdk_status(mocker):
         file_uploader, "get_sdk_status", autospec=True, return_value="status"
     )
     mocker.patch.object(file_uploader, "download_analysis_from_s3", autospec=True)
-
     mocked_sleep = mocker.patch.object(file_uploader, "sleep", autospec=True)
 
-    test_file = "test_name"
-    test_file_path = "/test"
-    test_zip_dir = os.path.join("test", "zipped_recordings")
-    test_customer_account_id = "cid"
-    test_password = "pw"
-
     uploader(
-        test_file_path, test_file, test_zip_dir, test_customer_account_id, test_password, max_num_loops=2
+        TEST_FILEPATH,
+        TEST_FILENAME,
+        TEST_ZIPDIR,
+        TEST_CUSTOMER_ACCOUNT_ID,
+        TEST_PASSWORD,
+        TEST_USERNAME,
+        max_num_loops=2,
     )
     mocked_sleep.assert_called_once_with(5)
     assert len(mocked_get_sdk_status.call_args_list) == 2
@@ -293,15 +288,18 @@ def test_ErrorCatchingThread__correctly_returns_error_to_caller_thread(mocker):
     mocked_uploader_function = mocker.patch.object(file_uploader, "uploader", autospec=True)
     mocked_uploader_function.side_effect = Exception("mocked error")
 
-    test_file_path = "/test"
     test_sub_dir = "/sub_dir"
-    test_zip_dir = os.path.join("test", "zipped_recordings")
-    test_customer_id = "username"
-    test_password = "password"
 
     mocked_thread = ErrorCatchingThread(
         target=mocked_uploader_function,
-        args=(test_file_path, test_sub_dir, test_zip_dir, test_customer_id, test_password),
+        args=(
+            TEST_FILEPATH,
+            test_sub_dir,
+            TEST_ZIPDIR,
+            TEST_CUSTOMER_ACCOUNT_ID,
+            TEST_PASSWORD,
+            TEST_USERNAME,
+        ),
     )
     mocked_thread.start()
     mocked_thread.join()
@@ -314,16 +312,19 @@ def test_ErrorCatchingThread__correctly_returns_error_to_caller_thread(mocker):
 def test_ErrorCatchingThread__run__calls_init(mocker):
     mocked_uploader_function = mocker.patch.object(file_uploader, "uploader", autospec=True)
 
-    test_file_path = "/test"
     test_sub_dir = "/sub_dir"
-    test_zip_dir = os.path.join("test", "zipped_recordings")
-    test_customer_id = "username"
-    test_password = "password"
 
     mocked_super_init = mocker.spy(threading.Thread, "run")
     mocked_thread = ErrorCatchingThread(
         target=mocked_uploader_function,
-        args=(test_file_path, test_sub_dir, test_zip_dir, test_customer_id, test_password),
+        args=(
+            TEST_FILEPATH,
+            test_sub_dir,
+            TEST_ZIPDIR,
+            TEST_CUSTOMER_ACCOUNT_ID,
+            TEST_PASSWORD,
+            TEST_USERNAME,
+        ),
     )
     mocked_thread.start()
     mocked_thread.join()
@@ -358,13 +359,16 @@ def test_download_analysis_from_s3__writes_to_downloads_directory_after_successf
         mocker.patch.object(os, "makedirs", autospec=True)
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            test_file_path = "/test"
             test_sub_dir = temp_dir
-            test_zip_dir = os.path.join("test", "zipped_recordings")
-            test_customer_id = "username"
-            test_password = "password"
 
-            uploader(test_file_path, test_sub_dir, test_zip_dir, test_customer_id, test_password)
+            uploader(
+                TEST_FILEPATH,
+                test_sub_dir,
+                TEST_ZIPDIR,
+                TEST_CUSTOMER_ACCOUNT_ID,
+                TEST_PASSWORD,
+                TEST_USERNAME,
+            )
 
             mocked_open.assert_called_once_with(f"{test_sub_dir}.xlsx", "wb")
             mocked_open.return_value.__enter__().write.assert_called_once_with(
