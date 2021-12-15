@@ -34,6 +34,7 @@ from .constants import BUFFERING_STATE
 from .constants import CALIBRATED_STATE
 from .constants import CALIBRATING_STATE
 from .constants import CALIBRATION_NEEDED_STATE
+from .constants import CALIBRATION_RECORDING_DUR_SECONDS
 from .constants import CHANNEL_INDEX_TO_24_WELL_INDEX
 from .constants import CLEAR_BARCODE_TRIG_BIT
 from .constants import CLEARED_BARCODE_VALUE
@@ -62,6 +63,7 @@ from .constants import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import FIRMWARE_VERSION_WIRE_OUT_ADDRESS
 from .constants import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import INSTRUMENT_INITIALIZING_STATE
+from .constants import IS_CALIBRATION_FILE_UUID
 from .constants import LIVE_VIEW_ACTIVE_STATE
 from .constants import MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS
 from .constants import MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS
@@ -175,6 +177,7 @@ from .exceptions import AttemptToAddCyclesWhileSPIRunningError
 from .exceptions import AttemptToInitializeFIFOReadsError
 from .exceptions import BarcodeNotClearedError
 from .exceptions import BarcodeScannerNotRespondingError
+from .exceptions import CalibrationFilesMissingError
 from .exceptions import FirmwareFileNameDoesNotMatchWireOutVersionError
 from .exceptions import FirmwareUpdateCommandFailedError
 from .exceptions import FirmwareUpdateTimeoutError
@@ -629,4 +632,7 @@ __all__ = [
     "FirmwareUpdateTimeoutError",
     "MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS",
     "MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS",
+    "IS_CALIBRATION_FILE_UUID",
+    "CALIBRATION_RECORDING_DUR_SECONDS",
+    "CalibrationFilesMissingError",
 ]

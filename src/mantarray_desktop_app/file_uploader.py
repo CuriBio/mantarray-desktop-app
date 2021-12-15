@@ -36,7 +36,7 @@ def get_access_token(customer_account_id: str, password: str) -> str:
         password: current customer account password.
     """
     get_auth_response = requests.post(
-        "https://<TODO>.execute-api.us-east-1.amazonaws.com/prod-lambda-gw-stage/get_auth",
+        "https://api.curibio-test.com/get_auth",  # Tanner (12/9/21): using test stage for now
         json={"username": customer_account_id, "password": password},
     )
 
@@ -59,7 +59,7 @@ def get_upload_details(
     """
     object_key = f"{customer_account_id}/{username}/{file_name}"
     sdk_upload_response = requests.post(
-        "https://<TODO>.execute-api.us-east-1.amazonaws.com/prod-lambda-gw-stage/sdk_upload",
+        "https://api.curibio-test.com/sdk_upload",  # Tanner (12/9/21): using test stage for now
         json={"file_name": object_key},
         headers={"Authorization": f"Bearer {access_token}", "Content-MD5": file_md5},
     )
@@ -98,9 +98,8 @@ def create_zip_file(file_directory: str, file_name: str, zipped_recordings_dir: 
     # Loop errors without directories present
     for root, _, files in os.walk(file_directory_path):
         for filename in files:
-            # Create the full file path by using OS module and checking if h5
+            # Create the full file path by using OS module
             h5_file_path = os.path.join(root, filename)
-            # if h5py.is_hdf5(h5_file_path):
             file_paths.append(h5_file_path)
 
     zipped_file_path: str = os.path.join(zipped_recordings_dir, f"{file_name}.zip")
@@ -123,7 +122,7 @@ def get_sdk_status(access_token: str, upload_details: Dict[Any, Any]) -> str:
     """
     upload_id = upload_details["upload_id"]
     status_response = requests.get(
-        f"https://<TODO>.execute-api.us-east-1.amazonaws.com/prod-lambda-gw-stage/get_sdk_status?upload_id={upload_id}",
+        f"https://api.curibio-test.com/get_sdk_status?upload_id={upload_id}",  # Tanner (12/9/21): using test stage for now
         headers={"Authorization": f"Bearer {access_token}"},
     )
 

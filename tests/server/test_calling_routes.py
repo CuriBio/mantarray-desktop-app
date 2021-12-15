@@ -239,12 +239,38 @@ def test_set_mantarray_nickname__returns_error_code_and_message_if_nickname_is_t
     assert response.status.endswith("Nickname exceeds 32 bytes") is True
 
 
-def test_send_single_start_calibration_command__returns_200(
+@pytest.mark.parametrize(
+    "test_system_status",
+    [
+        SERVER_INITIALIZING_STATE,
+        SERVER_READY_STATE,
+        INSTRUMENT_INITIALIZING_STATE,
+        CALIBRATION_NEEDED_STATE,
+        CALIBRATING_STATE,
+        CALIBRATED_STATE,
+        BUFFERING_STATE,
+        LIVE_VIEW_ACTIVE_STATE,
+        RECORDING_STATE,
+    ],
+)
+def test_send_single_start_calibration_command__returns_correct_response(
+    test_system_status,
     client_and_server_manager_and_shared_values,
 ):
-    test_client, _, _ = client_and_server_manager_and_shared_values
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["system_status"] = test_system_status
+
+    expected_status_code = 200 if test_system_status in (CALIBRATION_NEEDED_STATE, CALIBRATED_STATE) else 403
+
     response = test_client.get("/start_calibration")
-    assert response.status_code == 200
+    assert response.status_code == expected_status_code
+    if expected_status_code == 403:
+        assert (
+            response.status.endswith(
+                "Route cannot be called unless in calibration_needed or calibrated state"
+            )
+            is True
+        )
 
 
 def test_dev_begin_hardware_script__returns_correct_response(test_client):

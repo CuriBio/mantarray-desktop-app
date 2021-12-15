@@ -17,6 +17,7 @@ Custom HTTP Error Codes:
 * 403 - Call to /start_recording with is_hardware_test_recording=False after calling route with is_hardware_test_recording=True (default value)
 * 403 - Call to any /insert_xem_command_into_queue/* route when in Beta 2 mode
 * 403 - Call to /boot_up when in Beta 2 mode
+* 403 - Call to /start_calibration when not in calibration_needed or calibrated state
 * 403 - Call to /set_magnetometer_config when in Beta 1 mode
 * 403 - Call to /set_magnetometer_config while data is streaming in Beta 2 mode
 * 403 - Call to /set_magnetometer_config before instrument finishes initializing in Beta 2 mode
@@ -56,34 +57,8 @@ from flask import Response
 from flask_cors import CORS
 from flask_socketio import SocketIO
 from immutabledict import immutabledict
-from mantarray_file_manager import ADC_GAIN_SETTING_UUID
-from mantarray_file_manager import BACKEND_LOG_UUID
-from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
-from mantarray_file_manager import BOOTUP_COUNTER_UUID
-from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
-from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
-from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
-from mantarray_file_manager import MAGNETOMETER_CONFIGURATION_UUID
-from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
-from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
 from mantarray_file_manager import METADATA_UUID_DESCRIPTIONS
-from mantarray_file_manager import PCB_SERIAL_NUMBER_UUID
-from mantarray_file_manager import PLATE_BARCODE_UUID
-from mantarray_file_manager import REFERENCE_VOLTAGE_UUID
-from mantarray_file_manager import SLEEP_FIRMWARE_VERSION_UUID
-from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
-from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
-from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
-from mantarray_file_manager import STIMULATION_PROTOCOL_UUID
-from mantarray_file_manager import TAMPER_FLAG_UUID
-from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
-from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
-from mantarray_file_manager import USER_ACCOUNT_ID_UUID
-from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
-from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
-from mantarray_file_manager import UTC_BEGINNING_STIMULATION_UUID
-from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import requests
 from stdlib_utils import drain_queue
@@ -91,8 +66,8 @@ from stdlib_utils import is_port_in_use
 from stdlib_utils import put_log_message_into_queue
 
 from .constants import BUFFERING_STATE
-from .constants import COMPILED_EXE_BUILD_TIMESTAMP
-from .constants import CURRENT_SOFTWARE_VERSION
+from .constants import CALIBRATED_STATE
+from .constants import CALIBRATION_NEEDED_STATE
 from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import INSTRUMENT_INITIALIZING_STATE
@@ -101,7 +76,6 @@ from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MICROSECONDS_PER_MILLISECOND
 from .constants import RECORDING_STATE
-from .constants import REFERENCE_VOLTAGE
 from .constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
@@ -125,6 +99,8 @@ from .exceptions import ServerManagerNotInitializedError
 from .exceptions import ServerManagerSingletonAlreadySetError
 from .ok_comm import check_mantarray_serial_number
 from .queue_container import MantarrayQueueContainer
+from .utils import _create_start_recording_command
+from .utils import _get_timestamp_of_acquisition_sample_index_zero
 from .utils import check_barcode_for_errors
 from .utils import convert_request_args_to_config_dict
 from .utils import get_current_software_version
@@ -230,25 +206,6 @@ def queue_command_to_main(comm_dict: Dict[str, Any]) -> Response:
     return response
 
 
-def _get_timestamp_of_acquisition_sample_index_zero() -> datetime.datetime:  # pylint:disable=invalid-name # yeah, it's kind of long, but Eli (2/27/20) doesn't know a good way to shorten it
-    shared_values_dict = _get_values_from_process_monitor()
-    board_idx = 0  # board index 0 hardcoded for now
-    timestamp_of_sample_idx_zero: datetime.datetime = shared_values_dict[
-        "utc_timestamps_of_beginning_of_data_acquisition"
-    ][board_idx]
-    return timestamp_of_sample_idx_zero
-
-
-def _check_scanned_barcode_vs_user_value(barcode: str) -> bool:
-    board_idx = 0  # board index 0 hardcoded for now
-    shared_values_dict = _get_values_from_process_monitor()
-    if "barcodes" not in shared_values_dict:
-        # Tanner (1/11/21): Guard against edge case where start_recording route is called before a scanned barcode is stored since this can take up to 15 seconds
-        return False
-    result: bool = shared_values_dict["barcodes"][board_idx]["plate_barcode"] == barcode
-    return result
-
-
 @flask_app.route("/system_status", methods=["GET"])
 def system_status() -> Response:
     """Get the system status and other information.
@@ -322,15 +279,16 @@ def set_mantarray_nickname() -> Response:
 def start_calibration() -> Response:
     """Start the calibration procedure on the Mantarray.
 
-    Can be invoked by:
-
-    `curl http://localhost:4567/start_calibration`
+    Can be invoked by:  curl http://localhost:4567/start_calibration
     """
-    comm_dict = {
-        "communication_type": "xem_scripts",
-        "script_type": "start_calibration",
-    }
+    shared_values_dict = _get_values_from_process_monitor()
+    if shared_values_dict["system_status"] not in (CALIBRATION_NEEDED_STATE, CALIBRATED_STATE):
+        return Response(status="403 Route cannot be called unless in calibration_needed or calibrated state")
 
+    if shared_values_dict["beta_2_mode"]:
+        comm_dict = {"communication_type": "calibration", "command": "run_calibration"}
+    else:
+        comm_dict = {"communication_type": "xem_scripts", "script_type": "start_calibration"}
     response = queue_command_to_main(comm_dict)
 
     return response
@@ -644,8 +602,6 @@ def start_recording() -> Response:
         active_well_indices: [Optional, default=all 24] CSV of well indices to record from
         time_index: [Optional, int] microseconds since acquisition began to start the recording at. Defaults to when this command is received
     """
-    board_idx = 0
-
     if "barcode" not in request.args:
         return Response(status="400 Request missing 'barcode' parameter")
     barcode = request.args["barcode"]
@@ -667,109 +623,35 @@ def start_recording() -> Response:
 
     is_hardware_test_recording = request.args.get("is_hardware_test_recording", True)
     if isinstance(is_hardware_test_recording, str):
-        is_hardware_test_recording = is_hardware_test_recording not in (
-            "False",
-            "false",
-        )
+        is_hardware_test_recording = is_hardware_test_recording.lower() == "true"
 
     if shared_values_dict.get("is_hardware_test_recording", False) and not is_hardware_test_recording:
         return Response(
             status="403 Cannot make standard recordings after previously making hardware test recordings. Server and board must both be restarted before making any more standard recordings"
         )
-    timestamp_of_sample_idx_zero = _get_timestamp_of_acquisition_sample_index_zero()
-
-    begin_time_index: Union[int, float]
-    timestamp_of_begin_recording = datetime.datetime.utcnow()
-    if "time_index" in request.args:
-        begin_time_index = int(request.args["time_index"])
-        if not shared_values_dict["beta_2_mode"]:
-            begin_time_index /= MICROSECONDS_PER_CENTIMILLISECOND
-    else:
-        time_since_index_0 = timestamp_of_begin_recording - timestamp_of_sample_idx_zero
-        begin_time_index = time_since_index_0.total_seconds() * (
-            MICRO_TO_BASE_CONVERSION if shared_values_dict["beta_2_mode"] else CENTIMILLISECONDS_PER_SECOND
-        )
-
-    are_barcodes_matching = _check_scanned_barcode_vs_user_value(barcode)
-
-    comm_dict: Dict[str, Any] = {
-        "communication_type": "recording",
-        "command": "start_recording",
-        "is_hardware_test_recording": is_hardware_test_recording,
-        "metadata_to_copy_onto_main_file_attributes": {
-            BACKEND_LOG_UUID: shared_values_dict["log_file_uuid"],
-            COMPUTER_NAME_HASH_UUID: shared_values_dict["computer_name_hash"],
-            HARDWARE_TEST_RECORDING_UUID: is_hardware_test_recording,
-            UTC_BEGINNING_DATA_ACQUISTION_UUID: timestamp_of_sample_idx_zero,
-            START_RECORDING_TIME_INDEX_UUID: begin_time_index,
-            UTC_BEGINNING_RECORDING_UUID: timestamp_of_begin_recording,
-            CUSTOMER_ACCOUNT_ID_UUID: shared_values_dict["config_settings"]["customer_account_id"],
-            USER_ACCOUNT_ID_UUID: shared_values_dict["config_settings"]["user_account_id"],
-            SOFTWARE_BUILD_NUMBER_UUID: COMPILED_EXE_BUILD_TIMESTAMP,
-            SOFTWARE_RELEASE_VERSION_UUID: CURRENT_SOFTWARE_VERSION,
-            MAIN_FIRMWARE_VERSION_UUID: shared_values_dict["main_firmware_version"][board_idx],
-            MANTARRAY_SERIAL_NUMBER_UUID: shared_values_dict["mantarray_serial_number"][board_idx],
-            MANTARRAY_NICKNAME_UUID: shared_values_dict["mantarray_nickname"][board_idx],
-            PLATE_BARCODE_UUID: barcode,
-            BARCODE_IS_FROM_SCANNER_UUID: are_barcodes_matching,
-        },
-        "timepoint_to_begin_recording_at": begin_time_index,
-    }
-    if shared_values_dict["beta_2_mode"]:
-        instrument_metadata = shared_values_dict["instrument_metadata"][board_idx]
-        magnetometer_config_dict = shared_values_dict["magnetometer_config_dict"]
-        beginning_of_stim_timestamp = shared_values_dict["utc_timestamps_of_beginning_of_stimulation"][
-            board_idx
-        ]
-        stim_info_value = (
-            None if beginning_of_stim_timestamp is None else shared_values_dict["stimulation_info"]
-        )
-        comm_dict["metadata_to_copy_onto_main_file_attributes"].update(
-            {
-                BOOTUP_COUNTER_UUID: instrument_metadata[BOOTUP_COUNTER_UUID],
-                TOTAL_WORKING_HOURS_UUID: instrument_metadata[TOTAL_WORKING_HOURS_UUID],
-                TAMPER_FLAG_UUID: instrument_metadata[TAMPER_FLAG_UUID],
-                PCB_SERIAL_NUMBER_UUID: instrument_metadata[PCB_SERIAL_NUMBER_UUID],
-                TISSUE_SAMPLING_PERIOD_UUID: magnetometer_config_dict["sampling_period"],
-                MAGNETOMETER_CONFIGURATION_UUID: magnetometer_config_dict["magnetometer_config"],
-                STIMULATION_PROTOCOL_UUID: stim_info_value,
-                UTC_BEGINNING_STIMULATION_UUID: beginning_of_stim_timestamp,
-            }
-        )
-        comm_dict["stim_running_statuses"] = shared_values_dict["stimulation_running"]
-    else:
-        adc_offsets: Dict[int, Dict[str, int]]
-        if is_hardware_test_recording:
-            adc_offsets = dict()
-            for well_idx in range(24):
-                adc_offsets[well_idx] = {
-                    "construct": 0,
-                    "ref": 0,
-                }
-        else:
-            adc_offsets = shared_values_dict["adc_offsets"]
-        comm_dict["metadata_to_copy_onto_main_file_attributes"].update(
-            {
-                SLEEP_FIRMWARE_VERSION_UUID: shared_values_dict["sleep_firmware_version"][board_idx],
-                XEM_SERIAL_NUMBER_UUID: shared_values_dict["xem_serial_number"][board_idx],
-                REFERENCE_VOLTAGE_UUID: REFERENCE_VOLTAGE,
-                ADC_GAIN_SETTING_UUID: shared_values_dict["adc_gain"],
-                "adc_offsets": adc_offsets,
-            }
-        )
 
     # Tanner (6/11/21): Using magnetometer config to implicitly specify the active well indices in beta 2 mode
     if shared_values_dict["beta_2_mode"]:
         magnetometer_config = shared_values_dict["magnetometer_config_dict"]["magnetometer_config"]
-        comm_dict["active_well_indices"] = [
+        active_well_indices = [
             SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
             for module_id, module_config in magnetometer_config.items()
             if any(module_config.values())
         ]
     elif "active_well_indices" in request.args:
-        comm_dict["active_well_indices"] = [int(x) for x in request.args["active_well_indices"].split(",")]
+        active_well_indices = [int(x) for x in request.args["active_well_indices"].split(",")]
     else:
-        comm_dict["active_well_indices"] = list(range(24))
+        active_well_indices = list(range(24))
+
+    time_index_str = request.args.get("time_index", None)
+
+    comm_dict = _create_start_recording_command(
+        shared_values_dict,
+        time_index=time_index_str,
+        active_well_indices=active_well_indices,
+        barcode=barcode,
+        is_hardware_test_recording=is_hardware_test_recording,
+    )
 
     to_main_queue = get_server_to_main_queue()
     to_main_queue.put_nowait(
@@ -810,7 +692,7 @@ def stop_recording() -> Response:
     """
     shared_values_dict = _get_values_from_process_monitor()
 
-    timestamp_of_sample_idx_zero = _get_timestamp_of_acquisition_sample_index_zero()
+    timestamp_of_sample_idx_zero = _get_timestamp_of_acquisition_sample_index_zero(shared_values_dict)
 
     stop_time_index: Union[int, float]
     if "time_index" in request.args:

@@ -6,11 +6,12 @@ from uuid import UUID
 
 from freezegun import freeze_time
 from mantarray_desktop_app import BUFFERING_STATE
-from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
+from mantarray_desktop_app import CALIBRATION_RECORDING_DUR_SECONDS
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
+from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import process_monitor
 from mantarray_desktop_app import RECORDING_STATE
@@ -21,6 +22,14 @@ from mantarray_desktop_app import UnrecognizedCommandFromServerToMainError
 from mantarray_desktop_app import UnrecognizedMantarrayNamingCommandError
 from mantarray_desktop_app import UnrecognizedRecordingCommandError
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
+from mantarray_file_manager import NOT_APPLICABLE_H5_METADATA
+from mantarray_file_manager import PLATE_BARCODE_UUID
+from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
+from mantarray_file_manager import STIMULATION_PROTOCOL_UUID
+from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
+from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
+from mantarray_file_manager import UTC_BEGINNING_STIMULATION_UUID
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
@@ -29,8 +38,10 @@ from ..fixtures import fixture_patch_subprocess_joins
 from ..fixtures import fixture_test_process_manager_creator
 from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_ok_comm import fixture_patch_connection_to_board
 from ..fixtures_process_monitor import fixture_test_monitor
+from ..fixtures_server import put_generic_beta_2_start_recording_info_in_dict
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -199,30 +210,72 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     assert actual_comm == expected_comm
 
 
-def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_start_calibration_by_updating_shared_values_dictionary_directly_to_calibrated__when_in_beta_2_mode(
+@freeze_time(
+    GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+        UTC_BEGINNING_RECORDING_UUID
+    ]
+)
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_run_calibration_command_when_in_beta_2_mode(
     test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, svd, *_ = test_monitor(test_process_manager)
-    svd["beta_2_mode"] = True
+
+    put_generic_beta_2_start_recording_info_in_dict(svd)
+    # Tanner (12/10/21): deleting since this won't actually be set by the time this route is called
+    del svd["utc_timestamps_of_beginning_of_data_acquisition"]
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
-    expected_comm = {
-        "communication_type": "xem_scripts",
-        "script_type": "start_calibration",
-    }
+    main_to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+    main_to_fw_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
+    )
+
+    expected_comm = {"communication_type": "calibration", "command": "run_calibration"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_comm, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
+    assert svd["system_status"] == CALIBRATING_STATE
 
-    assert svd["system_status"] == CALIBRATED_STATE
-
-    main_to_instrument_comm = (
-        test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+    confirm_queue_is_eventually_of_size(main_to_ic_queue, 1)
+    assert (
+        main_to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == START_MANAGED_ACQUISITION_COMMUNICATION
     )
-    confirm_queue_is_eventually_empty(main_to_instrument_comm)
+
+    confirm_queue_is_eventually_of_size(main_to_fw_queue, 2)
+
+    expected_start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    expected_start_recording_command.update(
+        {
+            "active_well_indices": list(range(24)),
+            "is_calibration_recording": True,
+            "timepoint_to_begin_recording_at": 0,
+            "stim_running_statuses": [False] * 24,
+        }
+    )
+    expected_start_recording_command["metadata_to_copy_onto_main_file_attributes"].update(
+        {
+            START_RECORDING_TIME_INDEX_UUID: 0,
+            PLATE_BARCODE_UUID: NOT_APPLICABLE_H5_METADATA,
+            BARCODE_IS_FROM_SCANNER_UUID: NOT_APPLICABLE_H5_METADATA,
+            UTC_BEGINNING_DATA_ACQUISTION_UUID: GENERIC_BETA_2_START_RECORDING_COMMAND[
+                "metadata_to_copy_onto_main_file_attributes"
+            ][UTC_BEGINNING_RECORDING_UUID],
+            UTC_BEGINNING_STIMULATION_UUID: None,
+            STIMULATION_PROTOCOL_UUID: None,
+        }
+    )
+    assert main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_start_recording_command
+
+    expected_stop_recording_command = {
+        "communication_type": "recording",
+        "command": "stop_recording",
+        "timepoint_to_stop_recording_at": CALIBRATION_RECORDING_DUR_SECONDS * MICRO_TO_BASE_CONVERSION,
+        "is_calibration_recording": True,
+    }
+    assert main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_stop_recording_command
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_boot_up_by_calling_process_manager_bootup(

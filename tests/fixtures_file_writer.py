@@ -121,8 +121,11 @@ GENERIC_STIM_INFO = {
 }
 
 GENERIC_BASE_START_RECORDING_COMMAND: Dict[str, Any] = {
+    "communication_type": "recording",
     "command": "start_recording",
     "timepoint_to_begin_recording_at": 298518 * 125,
+    "is_calibration_recording": False,
+    "is_hardware_test_recording": False,
     "metadata_to_copy_onto_main_file_attributes": {
         HARDWARE_TEST_RECORDING_UUID: False,
         UTC_BEGINNING_DATA_ACQUISTION_UUID: datetime.datetime(
@@ -409,8 +412,8 @@ def create_and_close_beta_1_h5_files(
     stop_command["timepoint_to_stop_recording_at"] = tissue_data[0, -1]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
-    # confirm each finalization message and stop recording receipt are sent
-    confirm_queue_is_eventually_of_size(to_main_queue, len(active_well_indices) + 1)
+    # confirm each finalization message, all files finalized, and stop recording receipt are sent
+    confirm_queue_is_eventually_of_size(to_main_queue, len(active_well_indices) + 2)
     finalization_messages = drain_queue(to_main_queue)[:-1]
 
     # drain output queue to avoid BrokenPipeErrors
@@ -418,3 +421,12 @@ def create_and_close_beta_1_h5_files(
 
     # tests may want to make assertions on these messages, so returning them
     return finalization_messages
+
+
+def populate_calibration_folder(fw_process):
+    for well_idx in range(24):
+        well_name = WELL_DEF_24.get_well_name_from_well_index(well_idx)
+        file_path = os.path.join(fw_process.calibration_file_directory, f"Calibration__{well_name}.h5")
+        # create and close file
+        with open(file_path, "w"):
+            pass

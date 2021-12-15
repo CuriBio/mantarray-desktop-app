@@ -17,6 +17,7 @@ import uuid
 
 from immutabledict import immutabledict
 from labware_domain_models import LabwareDefinition
+from mantarray_file_manager import METADATA_UUID_DESCRIPTIONS
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
@@ -220,11 +221,6 @@ STOP_MANAGED_ACQUISITION_COMMUNICATION = immutabledict(
     }
 )
 
-# TODO Tanner (5/22/21): Add Beta 2 states. Also remove Beta 1 specific states once phased out
-#   "instrument_initializing" state could correspond to boot up status code
-#   "configuration_needed" state means that magnetometer config and sampling period need to be set
-#   should change "calibrated" state to something better like idle/ready to stream
-#   "buffering" state should be kept
 SERVER_INITIALIZING_STATE = "server_initializing"
 SERVER_READY_STATE = "server_ready"
 INSTRUMENT_INITIALIZING_STATE = "instrument_initializing"
@@ -391,3 +387,13 @@ SERIAL_COMM_WELL_IDX_TO_MODULE_ID = immutabledict(
 SERIAL_COMM_MODULE_ID_TO_WELL_IDX = immutabledict(
     {module_id: well_idx for well_idx, module_id in SERIAL_COMM_WELL_IDX_TO_MODULE_ID.items()}
 )
+
+# Calibration
+CALIBRATION_RECORDING_DUR_SECONDS = 30
+
+
+# TODO move this to mantarray_file_manager or sdk_refactor
+IS_CALIBRATION_FILE_UUID = uuid.UUID("9a6f90eb-fe34-423b-bfed-fb441d6d9e5f")
+METADATA_UUID_DESCRIPTIONS = dict(METADATA_UUID_DESCRIPTIONS)
+METADATA_UUID_DESCRIPTIONS[IS_CALIBRATION_FILE_UUID] = "Is this file a calibration (empty plate) recording"
+METADATA_UUID_DESCRIPTIONS = immutabledict(METADATA_UUID_DESCRIPTIONS)
