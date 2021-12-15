@@ -131,33 +131,33 @@ repos:
           # ignore D213 because mutually exclusive with D212 https://stackoverflow.com/questions/45990301/pep257-d212-and-d213-conflicts
           - --ignore=D100,D101,D102,D103,D104,D105,D106,D107,D203,D407,D408,D409,D406,D413,D213
 
-  - repo: https://github.com/NanoSurface-Biomedical/pre-commit-pylint
-    rev: "d805cc60bb5290c2f1ca869d5f1d5e2be720f3fa" # pick a git hash / tag to point to
-    hooks:
-      - id: pylint-pass-with-displayed-warnings
-        name: pylint-src
-        args:
-          - --codes-to-allow=W0511
-          - src
-          - --rcfile=src/pylintrc
-          - --ignore-patterns=.*~.*
-          - --jobs 0
-        files: 'src/.*\.py$'
-        exclude: '.*\~.*'
-        verbose: true
-      - id: pylint-pass-with-displayed-warnings
-        name: pylint-tests
-        args:
-          - --codes-to-allow=W0511
-          - tests
-          - --rcfile=tests/pylintrc
-          - --ignore-patterns=.*~.*
-          - --jobs 0
-        files: 'tests/.*\.py$'
-        exclude: '.*\~.*'
-        verbose: true
-      - id: python-check-no-print-statments
-      - id: vuejs-check-no-console-log-statments
+  # - repo: https://github.com/NanoSurface-Biomedical/pre-commit-pylint
+  #   rev: "d805cc60bb5290c2f1ca869d5f1d5e2be720f3fa" # pick a git hash / tag to point to
+  #   hooks:
+  #     - id: pylint-pass-with-displayed-warnings
+  #       name: pylint-src
+  #       args:
+  #         - --codes-to-allow=W0511
+  #         - src
+  #         - --rcfile=src/pylintrc
+  #         - --ignore-patterns=.*~.*
+  #         - --jobs 0
+  #       files: 'src/.*\.py$'
+  #       exclude: '.*\~.*'
+  #       verbose: true
+  #     - id: pylint-pass-with-displayed-warnings
+  #       name: pylint-tests
+  #       args:
+  #         - --codes-to-allow=W0511
+  #         - tests
+  #         - --rcfile=tests/pylintrc
+  #         - --ignore-patterns=.*~.*
+  #         - --jobs 0
+  #       files: 'tests/.*\.py$'
+  #       exclude: '.*\~.*'
+  #       verbose: true
+  #     - id: python-check-no-print-statments
+  #     - id: vuejs-check-no-console-log-statments
 
   - repo: https://github.com/pre-commit/mirrors-eslint
     rev: v7.23.0
