@@ -784,6 +784,7 @@ class FileWriterProcess(InfiniteProcess):
         # return if no files open
         if len(self._open_files[0]) == 0:
             return
+
         for this_well_idx in list(
             self._open_files[0].keys()
         ):  # make a copy of the keys since they may be deleted during the run
@@ -803,10 +804,6 @@ class FileWriterProcess(InfiniteProcess):
                 }
             )
             del self._open_files[0][this_well_idx]
-
-            # after all files are finalized, upload them if necessary
-            if not self._is_finalizing_files_after_recording() and self._customer_settings:
-                self._start_new_file_upload()
         # if no files open anymore, then send message to main indicating that all files have been finalized
         if len(self._open_files[0]) == 0:
             self._to_main_queue.put_nowait(
@@ -815,6 +812,9 @@ class FileWriterProcess(InfiniteProcess):
                     "message": "all_finals_finalized",
                 }
             )
+            # after all files are finalized, upload them if necessary
+            if not self._is_recording_calibration and self._customer_settings:
+                self._start_new_file_upload()
 
     def _process_next_incoming_packet(self) -> None:
         """Process the next incoming packet for that board.

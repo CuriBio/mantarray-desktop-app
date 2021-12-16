@@ -44,6 +44,27 @@ def test_FileWriterProcess__updates_customer_settings_and_responds_to_main_queue
     }
 
 
+def test_FileWriterProcess__does_not_start_upload_thread_after_all_calibration_files_finalized(
+    four_board_file_writer_process, mocker
+):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+
+    mocker.patch.object(
+        file_writer_process,
+        "get_recording_finalization_statuses",
+        autospec=True,
+        return_value=(({0: True},), ({0: True},)),
+    )
+    spied_start_upload = mocker.spy(file_writer_process, "_start_new_file_upload")
+
+    file_writer_process._open_files[0][0] = mocker.MagicMock()  # pylint: disable=protected-access
+    file_writer_process._customer_settings = {"key": "val"}
+    file_writer_process._is_recording_calibration = True  # pylint: disable=protected-access
+
+    file_writer_process._finalize_completed_files()  # pylint: disable=protected-access
+    spied_start_upload.assert_not_called()
+
+
 @pytest.mark.parametrize(
     "move_called, thread_error",
     [(True, False), (False, True)],
