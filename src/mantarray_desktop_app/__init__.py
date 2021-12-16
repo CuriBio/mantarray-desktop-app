@@ -184,7 +184,7 @@ from .exceptions import FirmwareUpdateTimeoutError
 from .exceptions import FirstManagedReadLessThanOneRoundRobinError
 from .exceptions import ImproperlyFormattedCustomerAccountIDError
 from .exceptions import ImproperlyFormattedCustomerAccountPasskeyError
-from .exceptions import ImproperlyFormattedUserAccountUUIDError
+from .exceptions import ImproperlyFormattedUserAccountIDError
 from .exceptions import IncorrectMagnetometerConfigFromInstrumentError
 from .exceptions import IncorrectSamplingPeriodFromInstrumentError
 from .exceptions import InstrumentCommIncorrectHeaderError
@@ -430,7 +430,7 @@ __all__ = [
     "MantarrayFrontPanel",
     "ImproperlyFormattedCustomerAccountIDError",
     "ImproperlyFormattedCustomerAccountPasskeyError",
-    "ImproperlyFormattedUserAccountUUIDError",
+    "ImproperlyFormattedUserAccountIDError",
     "RecordingFolderDoesNotExistError",
     "VALID_CONFIG_SETTINGS",
     "FIRMWARE_VERSION_WIRE_OUT_ADDRESS",

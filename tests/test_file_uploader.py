@@ -23,7 +23,7 @@ TEST_FILEPATH = "/test"
 TEST_ZIPDIR = os.path.join("test", "zipped_recordings")
 TEST_CUSTOMER_ACCOUNT_ID = "cid"
 TEST_PASSWORD = "pw"
-TEST_USERNAME = "test_user"
+TEST_USER_ACCOUNT_ID = "test_user"
 
 
 def test_get_file_md5__creates_and_returns_file_md5_value_correctly(mocker):
@@ -59,10 +59,10 @@ def test_get_upload_details__requests_and_returns_upload_details_correctly(mocke
     expected_upload_details = mocked_post.return_value.json()
     test_access_token = "token"
     test_file_md5 = "hash"
-    object_key = f"{TEST_CUSTOMER_ACCOUNT_ID}/{TEST_USERNAME}/{TEST_FILENAME}"
+    object_key = f"{TEST_CUSTOMER_ACCOUNT_ID}/{TEST_USER_ACCOUNT_ID}/{TEST_FILENAME}"
 
     actual = get_upload_details(
-        test_access_token, TEST_FILENAME, TEST_CUSTOMER_ACCOUNT_ID, TEST_USERNAME, test_file_md5
+        test_access_token, TEST_FILENAME, TEST_CUSTOMER_ACCOUNT_ID, TEST_USER_ACCOUNT_ID, test_file_md5
     )
     mocked_post.assert_called_once_with(
         "https://api.curibio-test.com/sdk_upload",
@@ -142,7 +142,12 @@ def test_create_zip_file__create_zip_file_should_not_be_called_with_previously_f
     )
 
     uploader(
-        TEST_FILEPATH, TEST_FILENAME, TEST_ZIPDIR, TEST_CUSTOMER_ACCOUNT_ID, TEST_PASSWORD, TEST_USERNAME
+        TEST_FILEPATH,
+        TEST_FILENAME,
+        TEST_ZIPDIR,
+        TEST_CUSTOMER_ACCOUNT_ID,
+        TEST_PASSWORD,
+        TEST_USER_ACCOUNT_ID,
     )
     mocked_create_zip_file.assert_not_called()
 
@@ -171,15 +176,28 @@ def test_uploader__runs_upload_procedure_correctly(mocker):
         zipped_file_name = f"{test_dir}.zip"
         zipped_file_path = mocked_create_zip_file.return_value
 
-        uploader(TEST_FILEPATH, test_dir, TEST_ZIPDIR, TEST_CUSTOMER_ACCOUNT_ID, TEST_PASSWORD, TEST_USERNAME)
+        uploader(
+            TEST_FILEPATH,
+            test_dir,
+            TEST_ZIPDIR,
+            TEST_CUSTOMER_ACCOUNT_ID,
+            TEST_PASSWORD,
+            TEST_USER_ACCOUNT_ID,
+        )
 
         mocked_create_zip_file.assert_called_once_with(
-            TEST_FILEPATH, test_dir, f"{os.path.join(TEST_ZIPDIR, TEST_CUSTOMER_ACCOUNT_ID, TEST_USERNAME)}"
+            TEST_FILEPATH,
+            test_dir,
+            f"{os.path.join(TEST_ZIPDIR, TEST_CUSTOMER_ACCOUNT_ID, TEST_USER_ACCOUNT_ID)}",
         )
         mocked_get_access_token.assert_called_once_with(TEST_CUSTOMER_ACCOUNT_ID, TEST_PASSWORD)
         mocked_get_file_md5.assert_called_once_with(zipped_file_path)
         mocked_get_upload_details.assert_called_once_with(
-            expected_access_token, zipped_file_name, TEST_CUSTOMER_ACCOUNT_ID, TEST_USERNAME, expected_md5
+            expected_access_token,
+            zipped_file_name,
+            TEST_CUSTOMER_ACCOUNT_ID,
+            TEST_USER_ACCOUNT_ID,
+            expected_md5,
         )
         mocked_upload_file.assert_called_once_with(
             zipped_file_path, zipped_file_name, expected_upload_details
@@ -213,7 +231,7 @@ def test_uploader__uploader_raises_error_if_get_sdk_status_returns_error_message
                     TEST_ZIPDIR,
                     TEST_CUSTOMER_ACCOUNT_ID,
                     TEST_PASSWORD,
-                    TEST_USERNAME,
+                    TEST_USER_ACCOUNT_ID,
                 ),
             )
             thread.start()
@@ -241,7 +259,7 @@ def test_uploader__uploader_sleeps_same_number_of_max_loops(mocker):
         TEST_ZIPDIR,
         TEST_CUSTOMER_ACCOUNT_ID,
         TEST_PASSWORD,
-        TEST_USERNAME,
+        TEST_USER_ACCOUNT_ID,
         max_num_loops=3,
     )
     mocked_sleep.assert_called_with(5)
@@ -266,7 +284,7 @@ def test_uploader__uploader_sleeps_after_loop_getting_sdk_status(mocker):
         TEST_ZIPDIR,
         TEST_CUSTOMER_ACCOUNT_ID,
         TEST_PASSWORD,
-        TEST_USERNAME,
+        TEST_USER_ACCOUNT_ID,
         max_num_loops=2,
     )
     mocked_sleep.assert_called_once_with(5)
@@ -298,7 +316,7 @@ def test_ErrorCatchingThread__correctly_returns_error_to_caller_thread(mocker):
             TEST_ZIPDIR,
             TEST_CUSTOMER_ACCOUNT_ID,
             TEST_PASSWORD,
-            TEST_USERNAME,
+            TEST_USER_ACCOUNT_ID,
         ),
     )
     mocked_thread.start()
@@ -323,7 +341,7 @@ def test_ErrorCatchingThread__run__calls_init(mocker):
             TEST_ZIPDIR,
             TEST_CUSTOMER_ACCOUNT_ID,
             TEST_PASSWORD,
-            TEST_USERNAME,
+            TEST_USER_ACCOUNT_ID,
         ),
     )
     mocked_thread.start()
@@ -367,7 +385,7 @@ def test_download_analysis_from_s3__writes_to_downloads_directory_after_successf
                 TEST_ZIPDIR,
                 TEST_CUSTOMER_ACCOUNT_ID,
                 TEST_PASSWORD,
-                TEST_USERNAME,
+                TEST_USER_ACCOUNT_ID,
             )
 
             mocked_open.assert_called_once_with(f"{test_sub_dir}.xlsx", "wb")

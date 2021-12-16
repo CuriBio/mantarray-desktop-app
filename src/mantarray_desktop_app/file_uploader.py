@@ -46,7 +46,11 @@ def get_access_token(customer_account_id: str, password: str) -> str:
 
 
 def get_upload_details(
-    access_token: str, file_name: str, customer_account_id: str, username: str, file_md5: str
+    access_token: str,
+    file_name: str,
+    customer_account_id: str,
+    user_account_id: str,
+    file_md5: str,
 ) -> Dict[Any, Any]:
     """Post to generate post specific parameters.
 
@@ -54,10 +58,10 @@ def get_upload_details(
         access_token: user specific token.
         file_name: zip file name.
         customer_account_id: current customer account id for file to upload.
-        username: current customer username for file to upload.
+        user_account_id: current customer user_account_id for file to upload.
         file_md5: md5 hash.
     """
-    object_key = f"{customer_account_id}/{username}/{file_name}"
+    object_key = f"{customer_account_id}/{user_account_id}/{file_name}"
     sdk_upload_response = requests.post(
         "https://api.curibio-test.com/sdk_upload",  # Tanner (12/9/21): using test stage for now
         json={"file_name": object_key},
@@ -152,7 +156,7 @@ def uploader(
     zipped_recordings_dir: str,
     customer_account_id: str,
     password: str,
-    username: str,
+    user_account_id: str,
     max_num_loops: int = 0,
 ) -> None:
     """Initiate and handle file upload process.
@@ -163,7 +167,7 @@ def uploader(
         zipped_recordings_dir: static zipped recording directory to store zip files.
         customer_account_id: current customer account id for user.
         password: current customer account password for user.
-        username: current username assigned for user.
+        user_account_id: current user_account_id assigned for user.
         max_num_loops: to break loop in testing.
     """
     file_path = os.path.join(os.path.abspath(file_directory), file_name)
@@ -171,7 +175,7 @@ def uploader(
     if os.path.isdir(file_path):
         # store zipped files under customer specific and static zipped directory
         customer_zipped_dir = os.path.join(zipped_recordings_dir, customer_account_id)
-        user_zipped_dir = os.path.join(customer_zipped_dir, username)
+        user_zipped_dir = os.path.join(customer_zipped_dir, user_account_id)
 
         if not os.path.exists(customer_zipped_dir):
             os.makedirs(customer_zipped_dir)
@@ -190,7 +194,7 @@ def uploader(
         access_token=access_token,
         file_name=file_name,
         customer_account_id=customer_account_id,
-        username=username,
+        user_account_id=user_account_id,
         file_md5=file_md5,
     )
     upload_file_to_s3(file_path=zipped_file_path, file_name=file_name, upload_details=upload_details)

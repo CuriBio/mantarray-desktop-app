@@ -70,9 +70,9 @@ DEFAULT_USER_CONFIG = immutabledict(
 VALID_CONFIG_SETTINGS = frozenset(
     [
         "customer_account_uuid",
-        "user_account_uuid",
+        "user_account_id",
         "customer_pass_key",
-        "customer_username",
+        "user_account_id",
         "recording_directory",
         "auto_upload",
         "auto_delete",

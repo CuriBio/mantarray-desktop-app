@@ -40,10 +40,9 @@ const create_store = function ({
       customer_account_ids: {
         "73f52be0-368c-42d8-a1fd-660d49ba5604": {
           password: "Filler_password123",
-          usernames: ["test_user"],
+          user_account_ids: ["test_user"],
         },
       },
-      user_account_id: "455b93eb-c78f-4494-9f73-d3291130f126",
       active_customer_account_index: 0,
       active_user_account_index: 0,
       beta_2_mode: false,

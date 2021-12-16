@@ -1147,7 +1147,7 @@ class FileWriterProcess(InfiniteProcess):
             auto_delete = self._customer_settings["auto_delete_local_files"]
             customer_account_id = self._customer_settings["customer_account_id"]
             customer_password = self._customer_settings["customer_pass_key"]
-            customer_username = self._customer_settings["customer_username"]
+            user_account_id = self._customer_settings["user_account_id"]
             zipped_recordings_dir = self._stored_customer_settings["zipped_recordings_dir"]
 
             if auto_upload:
@@ -1159,14 +1159,14 @@ class FileWriterProcess(InfiniteProcess):
                         zipped_recordings_dir,
                         customer_account_id,
                         customer_password,
-                        customer_username,
+                        user_account_id,
                     ),
                 )
                 upload_thread.start()
                 thread_dict = {
                     "failed_upload": False,
                     "customer_account_id": customer_account_id,
-                    "customer_username": customer_username,
+                    "user_account_id": user_account_id,
                     "thread": upload_thread,
                     "auto_delete": auto_delete,
                     "file_name": self._sub_dir_name,
@@ -1198,20 +1198,20 @@ class FileWriterProcess(InfiniteProcess):
         failed_uploads_dir = self._stored_customer_settings["failed_uploads_dir"]
         zipped_recordings_dir = self._stored_customer_settings["zipped_recordings_dir"]
         customer_account_id = self._customer_settings["customer_account_id"]
-        customer_username = self._customer_settings["customer_username"]
+        user_account_id = self._customer_settings["user_account_id"]
 
         customer_failed_uploads_dir = os.path.join(failed_uploads_dir, customer_account_id)
         if not os.path.exists(customer_failed_uploads_dir):
             os.makedirs(customer_failed_uploads_dir)
 
-        user_failed_uploads_dir = os.path.join(customer_failed_uploads_dir, customer_username)
+        user_failed_uploads_dir = os.path.join(customer_failed_uploads_dir, user_account_id)
         if not os.path.exists(user_failed_uploads_dir):
             os.makedirs(user_failed_uploads_dir)
 
         file_name = f"{sub_dir}.zip"
-        zipped_file = os.path.join(zipped_recordings_dir, customer_account_id, customer_username, file_name)
+        zipped_file = os.path.join(zipped_recordings_dir, customer_account_id, user_account_id, file_name)
         updated_zipped_file = os.path.join(
-            failed_uploads_dir, customer_account_id, customer_username, file_name
+            failed_uploads_dir, customer_account_id, user_account_id, file_name
         )
 
         # store failed zip file in failed uploads directory to check at next startup
@@ -1255,7 +1255,7 @@ class FileWriterProcess(InfiniteProcess):
                             thread_dict = {
                                 "failed_upload": True,
                                 "customer_account_id": customer_dir,
-                                "customer_username": user_dir,
+                                "user_account_id": user_dir,
                                 "thread": upload_thread,
                                 "auto_delete": False,
                                 "file_name": file_name,
@@ -1274,7 +1274,7 @@ class FileWriterProcess(InfiniteProcess):
                 thread = thread_dict["thread"]
                 previously_failed_upload = thread_dict["failed_upload"]
                 customer_account_id = thread_dict["customer_account_id"]
-                customer_username = thread_dict["customer_username"]
+                user_account_id = thread_dict["user_account_id"]
                 auto_delete = thread_dict["auto_delete"]
                 file_name = thread_dict["file_name"]
 
@@ -1293,13 +1293,13 @@ class FileWriterProcess(InfiniteProcess):
                                 os.path.join(
                                     self._stored_customer_settings["failed_uploads_dir"],
                                     customer_account_id,
-                                    customer_username,
+                                    user_account_id,
                                     file_name,
                                 ),
                                 os.path.join(
                                     self._stored_customer_settings["zipped_recordings_dir"],
                                     customer_account_id,
-                                    customer_username,
+                                    user_account_id,
                                 ),
                             )
                         elif auto_delete:

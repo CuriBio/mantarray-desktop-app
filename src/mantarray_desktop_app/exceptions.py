@@ -42,10 +42,6 @@ class UnrecognizedCommandFromMainToDataAnalyzerError(Exception):
     pass
 
 
-class InvalidCustomerUsernameError(Exception):
-    pass
-
-
 class UnrecognizedDataFrameFormatNameError(Exception):
     pass
 
@@ -106,7 +102,7 @@ class ImproperlyFormattedCustomerAccountIDError(Exception):
     pass
 
 
-class ImproperlyFormattedUserAccountUUIDError(Exception):
+class ImproperlyFormattedUserAccountIDError(Exception):
     pass
 
 

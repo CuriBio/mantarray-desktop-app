@@ -7,7 +7,6 @@ from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import create_magnetometer_config_dict
-from mantarray_desktop_app import ImproperlyFormattedUserAccountUUIDError
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import InvalidCustomerAccountIDError
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
@@ -381,27 +380,6 @@ def test_update_settings__returns_error_message_when_unexpected_argument_is_give
     response = test_client.get(f"/update_settings?{test_arg}=True")
     assert response.status_code == 400
     assert response.status.endswith(f"Invalid argument given: {test_arg}") is True
-
-
-@pytest.mark.parametrize(
-    "test_uuid,test_description",
-    [
-        (
-            "",
-            "returns error_message when uuid is empty",
-        ),
-        (
-            "11e140e2b-397a-427b-81f3-4f889c5181a9",
-            "returns error_message when uuid is missing one char",
-        ),
-    ],
-)
-def test_update_settings__returns_error_message_for_invalid_user_account_uuid(
-    test_uuid, test_description, test_client
-):
-    response = test_client.get(f"/update_settings?user_account_uuid={test_uuid}")
-    assert response.status_code == 400
-    assert response.status.endswith(f"{repr(ImproperlyFormattedUserAccountUUIDError(test_uuid))}") is True
 
 
 def test_route_error_message_is_logged(mocker, test_client):
