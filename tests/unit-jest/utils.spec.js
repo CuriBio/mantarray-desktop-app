@@ -81,7 +81,6 @@ describe("utils.js", () => {
                 user_account_ids: ["test_user"],
               },
             },
-            user_account_id: "455b93eb-c78f-4494-9f73-d3291130f126",
             zipped_recordings_dir: path.join(
               tmp_dir_name,
               "recordings",
