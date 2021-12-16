@@ -49,7 +49,6 @@ const create_store = function ({
       beta_2_mode: false,
     },
   });
-  store.set("beta_2_mode", true);
   return store;
 };
 
