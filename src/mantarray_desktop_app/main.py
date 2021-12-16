@@ -227,7 +227,6 @@ def main(
         settings_dict = json.loads(decoded_settings)
         shared_values_dict["config_settings"] = {
             "recording_directory": settings_dict["recording_directory"],
-            "user_account_id": settings_dict["user_account_id"],
         }
         shared_values_dict["stored_customer_settings"] = {
             "stored_customer_ids": settings_dict["stored_customer_ids"],

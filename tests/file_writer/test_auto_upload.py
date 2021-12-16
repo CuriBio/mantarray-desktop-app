@@ -64,7 +64,7 @@ def test_FileWriterProcess__exits_status_function_correctly_when_previously_fail
     thread_dict = {
         "failed_upload": True,
         "customer_account_id": "test_customer_id",
-        "customer_username": "test_user",
+        "user_account_id": "test_user",
         "thread": mocked_thread.name,
         "auto_delete": False,
         "file_name": "test_filename",
@@ -102,7 +102,7 @@ def test_FileWriterProcess__exits_status_function_correctly_when_newly_failed_fi
     thread_dict = {
         "failed_upload": False,
         "customer_account_id": "test_customer_id",
-        "customer_username": "test_user",
+        "user_account_id": "test_user",
         "thread": mocked_thread.name,
         "auto_delete": False,
         "file_name": "test_filename",
@@ -142,7 +142,7 @@ def test_FileWriterProcess__exits_status_function_correctly_when_newly_failed_fi
     thread_dict = {
         "failed_upload": False,
         "customer_account_id": "test_customer_id",
-        "customer_username": "test_user",
+        "user_account_id": "test_user",
         "thread": mocked_thread.name,
         "auto_delete": auto_delete,
         "file_name": "test_filename",

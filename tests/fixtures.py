@@ -41,7 +41,7 @@ GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS = 20
 GENERIC_STORED_CUSTOMER_IDS = {
     "73f52be0-368c-42d8-a1fd-660d49ba5604": {
         "password": "Filler_password123",
-        "usernames": ["test_user"],
+        "user_account_ids": ["test_user"],
     }
 }
 

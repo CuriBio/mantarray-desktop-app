@@ -162,6 +162,7 @@ export default {
 
     ipcRenderer.on("beta_2_mode_response", (e, beta_2_mode) => {
       this.beta_2_mode = beta_2_mode;
+      this.$store.commit("settings/set_beta_2_mode", beta_2_mode);
     });
     if (this.beta_2_mode === undefined) {
       ipcRenderer.send("beta_2_mode_request");

@@ -17,7 +17,6 @@ from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
-from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
@@ -211,7 +210,6 @@ def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_li
         # Tanner (12/29/20): Sending in alternate recording directory through command line args
         test_dict = {
             "stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS,
-            "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
             "zipped_recordings_dir": f"{expected_recordings_dir}/zipped_recordings",
             "failed_uploads_dir": f"{expected_recordings_dir}/failed_uploads",
             "recording_directory": expected_recordings_dir,
@@ -240,7 +238,7 @@ def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_li
         assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 3) is True
 
         response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&customer_username=test_user&user_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&recording_directory={expected_recordings_dir}&auto_upload=false&auto_delete=false"
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&user_account_id=test_user&recording_directory={expected_recordings_dir}&auto_upload=false&auto_delete=false"
         )
         assert response.status_code == 200
 
@@ -375,7 +373,6 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         test_dict = {
             "stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS,
-            "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
             "zipped_recordings_dir": f"/{expected_recordings_dir}/zipped_recordings",
             "failed_uploads_dir": f"{expected_recordings_dir}/failed_uploads",
             "recording_directory": f"/{expected_recordings_dir}",
@@ -395,7 +392,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
         # Tanner (12/29/20): Manually set recording directory through update_settings route
         response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&customer_username=test_user&user_account_uuid=455b93eb-c78f-4494-9f73-d3291130f126&recording_directory={expected_recordings_dir}&auto_upload=false&auto_delete=false"
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&user_account_id=test_user&recording_directory={expected_recordings_dir}&auto_upload=false&auto_delete=false"
         )
         assert response.status_code == 200
 
@@ -521,7 +518,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                             / CENTIMILLISECONDS_PER_SECOND
                         )
                     ).strftime("%Y-%m-%d %H:%M:%S.%f")
-                    assert this_file_attrs[str(USER_ACCOUNT_ID_UUID)] == str(CURI_BIO_USER_ACCOUNT_ID)
+                    assert this_file_attrs[str(USER_ACCOUNT_ID_UUID)] == "test_user"
                     assert this_file_attrs[str(CUSTOMER_ACCOUNT_ID_UUID)] == str(CURI_BIO_ACCOUNT_UUID)
                     assert this_file_attrs[str(ADC_GAIN_SETTING_UUID)] == 16
                     assert (
@@ -724,7 +721,6 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
 
         test_dict = {
             "stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS,
-            "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
             "zipped_recordings_dir": f"{tmp_dir}/zipped_recordings",
             "failed_uploads_dir": f"{tmp_dir}/failed_uploads",
             "recording_directory": tmp_dir,
@@ -749,7 +745,7 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
         # Tanner (12/29/20): use updated settings to set the recording directory to the TemporaryDirectory
 
         response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&customer_username=test_user&auto_upload=false&auto_delete=false"
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&user_account_id=test_user&auto_upload=false&auto_delete=false"
         )
         assert response.status_code == 200
 
@@ -870,7 +866,6 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         test_dict = {
             "stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS,
-            "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
             "zipped_recordings_dir": f"{expected_recordings_dir}/zipped_recordings",
             "failed_uploads_dir": f"{expected_recordings_dir}/failed_uploads",
             "recording_directory": expected_recordings_dir,
@@ -893,7 +888,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         da_out = test_process_manager.queue_container().get_data_analyzer_data_out_queue()
 
         response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&customer_username=test_user&auto_upload=false&auto_delete=false"
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&user_account_id=test_user&auto_upload=false&auto_delete=false"
         )
         assert response.status_code == 200
 
@@ -1065,7 +1060,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                 assert this_file_attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == (
                     expected_time + datetime.timedelta(seconds=expected_start_index_1)
                 ).strftime("%Y-%m-%d %H:%M:%S.%f")
-                assert this_file_attrs[str(USER_ACCOUNT_ID_UUID)] == str(CURI_BIO_USER_ACCOUNT_ID)
+                assert this_file_attrs[str(USER_ACCOUNT_ID_UUID)] == "test_user"
                 assert this_file_attrs[str(CUSTOMER_ACCOUNT_ID_UUID)] == str(CURI_BIO_ACCOUNT_UUID)
                 assert (
                     this_file_attrs[str(MAIN_FIRMWARE_VERSION_UUID)]

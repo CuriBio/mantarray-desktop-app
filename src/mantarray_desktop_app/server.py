@@ -89,10 +89,9 @@ from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SUBPROCESS_POLL_DELAY_SECONDS
 from .constants import SYSTEM_STATUS_UUIDS
 from .constants import VALID_CONFIG_SETTINGS
-from .exceptions import ImproperlyFormattedUserAccountUUIDError
+from .exceptions import ImproperlyFormattedUserAccountIDError
 from .exceptions import InvalidCustomerAccountIDError
 from .exceptions import InvalidCustomerPasskeyError
-from .exceptions import InvalidCustomerUsernameError
 from .exceptions import LocalServerPortAlreadyInUseError
 from .exceptions import RecordingFolderDoesNotExistError
 from .exceptions import ServerManagerNotInitializedError
@@ -314,8 +313,8 @@ def boot_up() -> Response:
 def update_settings() -> Response:
     """Update the customer/user settings.
 
-    Can be invoked by: curl http://localhost:4567/update_settings?customer_account_uuid=<UUID>&user_account_uuid=<UUID>&recording_directory=<recording_dir>
-                       curl http://localhost:4567/update_settings?customer_account_uuid=<string>&customer_pass_key=<string>&customer_username=<string>&auto_upload=<bool>&auto_delete=<bool>
+    Can be invoked by: curl http://localhost:4567/update_settings?customer_account_uuid=<UUID>&user_account_id=<UUID>&recording_directory=<recording_dir>
+                       curl http://localhost:4567/update_settings?customer_account_uuid=<string>&customer_pass_key=<string>&user_account_id=<string>&auto_upload=<bool>&auto_delete=<bool>
     """
     for arg in request.args:
         if arg not in VALID_CONFIG_SETTINGS:
@@ -324,17 +323,18 @@ def update_settings() -> Response:
 
     try:
         validate_settings(request.args)
-    except (
-        ImproperlyFormattedUserAccountUUIDError,
-        RecordingFolderDoesNotExistError,
-    ) as e:
+    except (RecordingFolderDoesNotExistError,) as e:
         response = Response(status=f"400 {repr(e)}")
         return response
 
     try:
         shared_values_dict = _get_values_from_process_monitor()
         validate_customer_credentials(request.args, shared_values_dict)
-    except (InvalidCustomerAccountIDError, InvalidCustomerPasskeyError, InvalidCustomerUsernameError) as e:
+    except (
+        InvalidCustomerAccountIDError,
+        InvalidCustomerPasskeyError,
+        ImproperlyFormattedUserAccountIDError,
+    ) as e:
         response = Response(status=f"401 {repr(e)}")
         return response
 
