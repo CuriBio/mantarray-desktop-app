@@ -405,6 +405,17 @@ def _create_start_recording_command(
     if isinstance(barcode, str):
         are_barcodes_matching = _check_scanned_barcode_vs_user_value(barcode, shared_values_dict)
 
+    if is_calibration_recording:
+        customer_account_id = shared_values_dict["config_settings"].get(
+            "customer_account_id", NOT_APPLICABLE_H5_METADATA
+        )
+        user_account_id = shared_values_dict["config_settings"].get(
+            "user_account_id", NOT_APPLICABLE_H5_METADATA
+        )
+    else:
+        customer_account_id = shared_values_dict["config_settings"]["customer_account_id"]
+        user_account_id = shared_values_dict["config_settings"]["user_account_id"]
+
     comm_dict: Dict[str, Any] = {
         "communication_type": "recording",
         "command": "start_recording",
@@ -418,8 +429,8 @@ def _create_start_recording_command(
             UTC_BEGINNING_DATA_ACQUISTION_UUID: timestamp_of_sample_idx_zero,
             START_RECORDING_TIME_INDEX_UUID: begin_time_index,
             UTC_BEGINNING_RECORDING_UUID: timestamp_of_begin_recording,
-            CUSTOMER_ACCOUNT_ID_UUID: shared_values_dict["config_settings"]["customer_account_id"],
-            USER_ACCOUNT_ID_UUID: shared_values_dict["config_settings"]["user_account_id"],
+            CUSTOMER_ACCOUNT_ID_UUID: customer_account_id,
+            USER_ACCOUNT_ID_UUID: user_account_id,
             SOFTWARE_BUILD_NUMBER_UUID: COMPILED_EXE_BUILD_TIMESTAMP,
             SOFTWARE_RELEASE_VERSION_UUID: CURRENT_SOFTWARE_VERSION,
             MAIN_FIRMWARE_VERSION_UUID: shared_values_dict["main_firmware_version"][board_idx],
