@@ -22,6 +22,11 @@ on:
         description: "Cloud API endpoint"
         required: true
         default: "test"
+        type: choice
+        options:
+          - test
+          - modl
+          - prod
 jobs:
   test:
     strategy:

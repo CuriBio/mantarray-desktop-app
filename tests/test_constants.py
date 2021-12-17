@@ -163,7 +163,6 @@ from mantarray_desktop_app import VALID_SCRIPTING_COMMANDS
 from mantarray_desktop_app import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
 import mantarray_file_manager.constants
 import numpy as np
-import pytest
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 
 
@@ -318,11 +317,6 @@ def test_CURRENT_SOFTWARE_VERSION():
 
 def test_CLOUD_API_ENDPOINT_USER_OPTION():
     assert CLOUD_API_ENDPOINT_USER_OPTION == "REPLACETHISWITHENDPOINTDURINGBUILD"
-
-
-@pytest.mark.only_run_in_ci
-def test_CLOUD_API_ENDPOINT_USER_OPTION__in_ci():
-    assert CLOUD_API_ENDPOINT_USER_OPTION in CLOUD_API_ENDPOINT_VALID_OPTIONS.keys()
 
 
 def test_CLOUD_API_ENDPOINT_VALID_OPTIONS():
