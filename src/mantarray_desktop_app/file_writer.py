@@ -176,6 +176,24 @@ def _find_last_valid_data_index(
     return latest_index
 
 
+def _find_earliest_valid_stim_status_index(  # pylint: disable=invalid-name
+    time_index_buffer: Deque[int],  # pylint: disable=unsubscriptable-object
+    earliest_magnetometer_time_idx: int,
+) -> int:
+    idx = len(time_index_buffer) - 1
+    while idx > 0 and time_index_buffer[idx] > earliest_magnetometer_time_idx:
+        idx -= 1
+    return idx
+
+
+def _finalize_file(this_file: h5py.File) -> None:
+    # the file name cannot be accessed after the file has been closed
+    this_filename = this_file.filename
+    this_file.close()
+    with open(this_filename, "rb+") as file_buffer:
+        compute_crc32_and_write_to_file_head(file_buffer)
+
+
 def _drain_board_queues(
     board: Tuple[
         Queue[Any],  # pylint: disable=unsubscriptable-object
@@ -186,16 +204,6 @@ def _drain_board_queues(
     board_dict["instrument_comm_to_file_writer"] = drain_queue(board[0])
     board_dict["file_writer_to_data_analyzer"] = drain_queue(board[1])
     return board_dict
-
-
-def _find_earliest_valid_stim_status_index(  # pylint: disable=invalid-name
-    time_index_buffer: Deque[int],  # pylint: disable=unsubscriptable-object
-    earliest_magnetometer_time_idx: int,
-) -> int:
-    idx = len(time_index_buffer) - 1
-    while idx > 0 and time_index_buffer[idx] > earliest_magnetometer_time_idx:
-        idx -= 1
-    return idx
 
 
 # pylint: disable=too-many-instance-attributes
@@ -255,7 +263,7 @@ class FileWriterProcess(InfiniteProcess):
         self._stored_customer_settings = stored_customer_settings
         self._is_recording = False
         self._open_files: Tuple[
-            Dict[int, h5py._hl.files.File],
+            Dict[int, h5py.File],
             ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
         ] = tuple(dict() for _ in range(len(self._board_queues)))
         self._end_of_data_stream_reached: List[Optional[bool]] = [False] * len(self._board_queues)
@@ -792,15 +800,13 @@ class FileWriterProcess(InfiniteProcess):
             if not (tissue_status[0][this_well_idx] and reference_status[0][this_well_idx]):
                 continue
             this_file = self._open_files[0][this_well_idx]
-            # the file name cannot be accessed after the file has been closed
-            this_filename = this_file.filename
-            this_file.close()
-            with open(this_filename, "rb+") as file_buffer:
-                compute_crc32_and_write_to_file_head(file_buffer)
+            # grab filename before closing h5 file otherwise it will error
+            file_name = this_file.filename
+            _finalize_file(this_file)
             self._to_main_queue.put_nowait(
                 {
                     "communication_type": "file_finalized",
-                    "file_path": this_filename,
+                    "file_path": file_name,
                 }
             )
             del self._open_files[0][this_well_idx]
