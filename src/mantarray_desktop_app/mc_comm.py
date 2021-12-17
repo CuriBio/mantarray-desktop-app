@@ -131,6 +131,7 @@ from .serial_comm_utils import parse_metadata_bytes
 from .serial_comm_utils import validate_checksum
 from .utils import check_barcode_is_valid
 from .utils import create_active_channel_per_sensor_list
+from .utils import set_this_process_high_priority
 from .utils import sort_nested_dict
 
 
@@ -272,14 +273,15 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         board_idx = 0
         board = self._board_connections[board_idx]
-        if isinstance(
-            board, MantarrayMcSimulator
-        ):  # pragma: no cover  # Tanner (3/16/21): it's impossible to connect to any serial port in CI, so _setup_before_loop will always be called with a simulator and this if statement will always be true in pytest
+        if isinstance(board, MantarrayMcSimulator):
             # Tanner (3/16/21): Current assumption is that a live mantarray will be running by the time we connect to it, so starting simulator here and waiting for it to complete start up
             board.start()
             while not board.is_start_up_complete():
                 # sleep so as to not relentlessly ping the simulator
                 sleep(0.1)
+        else:
+            # if connected to a real board, then make sure this process has a high priority
+            set_this_process_high_priority()
         self._auto_set_magnetometer_config = True
         self._auto_get_metadata = True
 
