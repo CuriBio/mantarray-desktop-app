@@ -12,6 +12,8 @@ import zipfile
 
 import requests
 
+from .constants import CLOUD_API_ENDPOINT
+
 
 def get_file_md5(file_path: str) -> str:
     """Generate md5 of zip file.
@@ -36,7 +38,7 @@ def get_access_token(customer_account_id: str, password: str) -> str:
         password: current customer account password.
     """
     get_auth_response = requests.post(
-        "https://api.curibio-test.com/get_auth",  # Tanner (12/9/21): using test stage for now
+        f"https://{CLOUD_API_ENDPOINT}/get_auth",
         json={"username": customer_account_id, "password": password},
     )
 
@@ -63,7 +65,7 @@ def get_upload_details(
     """
     object_key = f"{customer_account_id}/{user_account_id}/{file_name}"
     sdk_upload_response = requests.post(
-        "https://api.curibio-test.com/sdk_upload",  # Tanner (12/9/21): using test stage for now
+        f"https://{CLOUD_API_ENDPOINT}/sdk_upload",
         json={"file_name": object_key},
         headers={"Authorization": f"Bearer {access_token}", "Content-MD5": file_md5},
     )
@@ -126,7 +128,7 @@ def get_sdk_status(access_token: str, upload_details: Dict[Any, Any]) -> str:
     """
     upload_id = upload_details["upload_id"]
     status_response = requests.get(
-        f"https://api.curibio-test.com/get_sdk_status?upload_id={upload_id}",  # Tanner (12/9/21): using test stage for now
+        f"https://{CLOUD_API_ENDPOINT}/get_sdk_status?upload_id={upload_id}",
         headers={"Authorization": f"Bearer {access_token}"},
     )
 

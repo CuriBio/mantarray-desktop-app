@@ -38,6 +38,9 @@ from .constants import CALIBRATION_RECORDING_DUR_SECONDS
 from .constants import CHANNEL_INDEX_TO_24_WELL_INDEX
 from .constants import CLEAR_BARCODE_TRIG_BIT
 from .constants import CLEARED_BARCODE_VALUE
+from .constants import CLOUD_API_ENDPOINT
+from .constants import CLOUD_API_ENDPOINT_USER_OPTION
+from .constants import CLOUD_API_ENDPOINT_VALID_OPTIONS
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from .constants import CONSTRUCT_SENSORS_PER_REF_SENSOR
@@ -635,4 +638,7 @@ __all__ = [
     "IS_CALIBRATION_FILE_UUID",
     "CALIBRATION_RECORDING_DUR_SECONDS",
     "CalibrationFilesMissingError",
+    "CLOUD_API_ENDPOINT_USER_OPTION",
+    "CLOUD_API_ENDPOINT_VALID_OPTIONS",
+    "CLOUD_API_ENDPOINT",
 ]

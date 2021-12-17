@@ -18,6 +18,10 @@ on:
         description: "Pytest Randomly Seed"
         required: false
         default: ""
+      api_endpoint:
+        description: "Cloud API endpoint"
+        required: true
+        default: "test"
 jobs:
   test:
     strategy:
@@ -186,6 +190,7 @@ jobs:
           echo $env:build_number
           ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHTIMESTAMPDURINGBUILD',"$(Get-Date -Format 'yyMMddHHmmss')--$env:build_number") | Set-Content -Path src\mantarray_desktop_app\constants.py
           ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHVERSIONDURINGBUILD',"${{steps.software-version.outputs.prop}}") | Set-Content -Path src\mantarray_desktop_app\constants.py
+          ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHENDPOINTDURINGBUILD',"${{github.event.inputs.api_endpoint}}") | Set-Content -Path src\mantarray_desktop_app\constants.py
       - name: Compile the Python Executable
         run: pipenv run pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=dist-python --workpath=build-python
 

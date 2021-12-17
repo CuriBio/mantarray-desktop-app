@@ -6,6 +6,7 @@ import tempfile
 import threading
 import zipfile
 
+from mantarray_desktop_app import CLOUD_API_ENDPOINT
 from mantarray_desktop_app import file_uploader
 from mantarray_desktop_app.file_uploader import create_zip_file
 from mantarray_desktop_app.file_uploader import ErrorCatchingThread
@@ -47,7 +48,7 @@ def test_get_access_token__requests_and_returns_access_token_correctly(mocker):
 
     actual = get_access_token(TEST_CUSTOMER_ACCOUNT_ID, TEST_PASSWORD)
     mocked_post.assert_called_once_with(
-        "https://api.curibio-test.com/get_auth",
+        f"https://{CLOUD_API_ENDPOINT}/get_auth",
         json={"username": TEST_CUSTOMER_ACCOUNT_ID, "password": TEST_PASSWORD},
     )
     assert actual == expected_access_token
@@ -65,7 +66,7 @@ def test_get_upload_details__requests_and_returns_upload_details_correctly(mocke
         test_access_token, TEST_FILENAME, TEST_CUSTOMER_ACCOUNT_ID, TEST_USER_ACCOUNT_ID, test_file_md5
     )
     mocked_post.assert_called_once_with(
-        "https://api.curibio-test.com/sdk_upload",
+        f"https://{CLOUD_API_ENDPOINT}/sdk_upload",
         json={"file_name": object_key},
         headers={"Authorization": f"Bearer {test_access_token}", "Content-MD5": test_file_md5},
     )
@@ -98,7 +99,7 @@ def test_get_sdk_status__requests_and_returns_sdk_status_correctly(mocker):
 
     actual = get_sdk_status(test_access_token, test_upload_details)
     mocked_post.assert_called_once_with(
-        "https://api.curibio-test.com/get_sdk_status?upload_id=test_id",
+        f"https://{CLOUD_API_ENDPOINT}/get_sdk_status?upload_id=test_id",
         headers={"Authorization": f"Bearer {test_access_token}"},
     )
     assert actual == expected_sdk_status
