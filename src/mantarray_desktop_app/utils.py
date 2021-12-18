@@ -518,7 +518,7 @@ def _get_timestamp_of_acquisition_sample_index_zero(  # pylint:disable=invalid-n
 #     win32process.SetPriorityClass(handle, win32process.REALTIME_PRIORITY_CLASS)
 
 
-def set_this_process_high_priority() -> None:
+def set_this_process_high_priority() -> None:  # pragma: no cover
     p = psutil.Process(os.getpid())
     try:
         nice_value = psutil.HIGH_PRIORITY_CLASS

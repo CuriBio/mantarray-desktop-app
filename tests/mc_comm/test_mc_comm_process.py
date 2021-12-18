@@ -113,6 +113,8 @@ def test_McCommunicationProcess_setup_before_loop__does_not_set_process_priority
     mocker, mantarray_mc_simulator
 ):
     simulator = mantarray_mc_simulator["simulator"]
+    mocker.patch.object(simulator, "start", autospec=True)
+    mocker.patch.object(simulator, "is_start_up_complete", autospec=True, return_value=True)
 
     # mock this so the process priority isn't changed during unit tests
     mocked_set_priority = mocker.patch.object(mc_comm, "set_this_process_high_priority", autospec=True)
@@ -121,7 +123,7 @@ def test_McCommunicationProcess_setup_before_loop__does_not_set_process_priority
     mc_process = McCommunicationProcess(board_queues, error_queue, suppress_setup_communication_to_main=True)
     mc_process.set_board_connection(0, simulator)
 
-    invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
+    mc_process._setup_before_loop()
     mocked_set_priority.assert_not_called()
 
 
