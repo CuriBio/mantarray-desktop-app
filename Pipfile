@@ -21,7 +21,7 @@ pytest-pylint = "==0.18.0"
 pytest-randomly = "==3.5.0"
 pytest-timeout = "==1.4.2"
 pywin32-ctypes = "==0.2.0" # Eli (3/1/21): this must be explicitly specified when using a Linux dev environment so that it will be included in a Windows build environment
-sphinx = "==4.2.0"
+sphinx = "==4.3.2"
 websocket-client = "==1.1.0"
 
 [packages]
