@@ -2,25 +2,34 @@ Changelog for Mantarray Desktop App
 ===================================
 
 
-0.6.0 (2021-11-09)
+0.6.0 (2021-12-17)
 ------------------
 
 - Added requirement to enter customer credentials before starting a recording.
-- Added automatic upload of recorded files to cloud analysis with option to have
-  the files deleted after they are successfully analyzed.
+- Added option to automatically upload recorded files to cloud analysis.
 - Added Stimulation Studio and Controls when app is launched in Beta 2 mode.
 
   - *Note*: Beta 2 force values/metrics are currently in arbitrary units for Live View and Heat Map.
 
+- Added stimulation subprotocol markers in Live View.
+- Added stimulation subprotocol start times and stimulation stop time to H5 files.
 - Added following metadata to Beta 2 H5 files:
 
   - Stimulation protocol.
   - UTC start time of stimulation.
+  - Flag indicating whether or not the recording is a calibration (empty plate) recording.
 
-- Added stimulation subprotocol start times and stimulation stop time to H5 files.
 - Added ability to enter decimal values in Y-axis zoom and Heat Map range.
+- Added Beta 2 calibration procedure with warning to remove plate from instrument before
+  procedure begins.
+- Added additional warnings when user attempts to close app while:
+
+  - Stimulation is active.
+  - Calibration procedure is running.
+
 - Updated error message and fixed path to log folder.
 - Fixed issue with Heat Map not updating when recording.
+- Fixed issue with page settings not being retained between switching pages
 
 
 0.5.2 (2021-09-13)

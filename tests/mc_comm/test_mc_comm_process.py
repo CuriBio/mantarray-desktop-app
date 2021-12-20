@@ -90,6 +90,9 @@ def test_McCommunicationProcess_setup_before_loop__connects_to_boards__and_sends
 def test_McCommunicationProcess_setup_before_loop__does_not_send_message_to_main_when_setup_comm_is_suppressed(
     mocker,
 ):
+    # mock this so the process priority isn't changed during unit tests
+    mocker.patch.object(mc_comm, "set_this_process_high_priority", autospec=True)
+
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
     mc_process = McCommunicationProcess(board_queues, error_queue, suppress_setup_communication_to_main=True)
     mocked_create_connections = mocker.patch.object(
@@ -104,6 +107,38 @@ def test_McCommunicationProcess_setup_before_loop__does_not_send_message_to_main
     for item in to_main_queue_items:
         if "message" in item:
             assert "Microcontroller Communication Process initiated" not in item["message"]
+
+
+def test_McCommunicationProcess_setup_before_loop__does_not_set_process_priority_when_connected_to_a_simulator(
+    mocker, mantarray_mc_simulator
+):
+    simulator = mantarray_mc_simulator["simulator"]
+    mocker.patch.object(simulator, "start", autospec=True)
+    mocker.patch.object(simulator, "is_start_up_complete", autospec=True, return_value=True)
+
+    # mock this so the process priority isn't changed during unit tests
+    mocked_set_priority = mocker.patch.object(mc_comm, "set_this_process_high_priority", autospec=True)
+
+    board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
+    mc_process = McCommunicationProcess(board_queues, error_queue, suppress_setup_communication_to_main=True)
+    mc_process.set_board_connection(0, simulator)
+
+    mc_process._setup_before_loop()
+    mocked_set_priority.assert_not_called()
+
+
+def test_McCommunicationProcess_setup_before_loop__sets_process_priority_when_not_connected_to_a_simulator(
+    mocker,
+):
+    # mock this so the process priority isn't changed during unit tests
+    mocked_set_priority = mocker.patch.object(mc_comm, "set_this_process_high_priority", autospec=True)
+
+    board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
+    mc_process = McCommunicationProcess(board_queues, error_queue, suppress_setup_communication_to_main=True)
+    mocker.patch.object(mc_process, "create_connections_to_all_available_boards", autospec=True)
+
+    invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
+    mocked_set_priority.assert_called_once()
 
 
 def test_McCommunicationProcess_hard_stop__clears_all_queues_and_returns_lists_of_values(

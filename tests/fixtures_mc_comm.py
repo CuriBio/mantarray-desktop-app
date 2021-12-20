@@ -123,7 +123,10 @@ def stop_data_stream(mc_fixture, simulator):
 
 
 @pytest.fixture(scope="function", name="four_board_mc_comm_process")
-def fixture_four_board_mc_comm_process():
+def fixture_four_board_mc_comm_process(mocker):
+    # mock this so the process priority isn't changed during unit tests
+    mocker.patch.object(mc_comm, "set_this_process_high_priority", autospec=True)
+
     # Tests using this fixture should be responsible for cleaning up the queues
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4, queue_type=TestingQueue)
     mc_process = McCommunicationProcess(board_queues, error_queue)
@@ -137,7 +140,10 @@ def fixture_four_board_mc_comm_process():
 
 
 @pytest.fixture(scope="function", name="runnable_four_board_mc_comm_process")
-def fixture_runnable_four_board_mc_comm_process():
+def fixture_runnable_four_board_mc_comm_process(mocker):
+    # mock this so the process priority isn't changed during unit tests
+    mocker.patch.object(mc_comm, "set_this_process_high_priority", autospec=True)
+
     # Tests using this fixture should be responsible for cleaning up the queues
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
     mc_process = McCommunicationProcess(board_queues, error_queue)
@@ -159,7 +165,10 @@ class McCommunicationProcessNoHandshakes(McCommunicationProcess):
 
 
 @pytest.fixture(scope="function", name="four_board_mc_comm_process_no_handshake")
-def fixture_four_board_mc_comm_process_no_handshake():
+def fixture_four_board_mc_comm_process_no_handshake(mocker):
+    # mock this so the process priority isn't changed during unit tests
+    mocker.patch.object(mc_comm, "set_this_process_high_priority", autospec=True)
+
     # Tests using this fixture should be responsible for cleaning up the queues
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4, queue_type=TestingQueue)
     mc_process = McCommunicationProcessNoHandshakes(board_queues, error_queue)

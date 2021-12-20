@@ -44,6 +44,7 @@ from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
 from mantarray_file_manager import UTC_BEGINNING_STIMULATION_UUID
 from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
+import psutil
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import is_frozen_as_exe
 
@@ -504,3 +505,23 @@ def _get_timestamp_of_acquisition_sample_index_zero(  # pylint:disable=invalid-n
         "utc_timestamps_of_beginning_of_data_acquisition"
     ][board_idx]
     return timestamp_of_sample_idx_zero
+
+
+# def set_windows_process_realtime_priority():
+#     try:
+#         import win32api, win32process, win32con
+#     except:
+#         return
+
+#     pid = win32api.GetCurrentProcessId()
+#     handle = win32api.OpenProcess(win32con.PROCESS_ALL_ACCESS, True, pid)
+#     win32process.SetPriorityClass(handle, win32process.REALTIME_PRIORITY_CLASS)
+
+
+def set_this_process_high_priority() -> None:  # pragma: no cover
+    p = psutil.Process(os.getpid())
+    try:
+        nice_value = psutil.HIGH_PRIORITY_CLASS
+    except AttributeError:
+        nice_value = -10
+    p.nice(nice_value)
