@@ -46,7 +46,7 @@ RANDOM_STIM_INFO_1 = {
     "protocols": [
         {
             "protocol_id": "A",
-            "run_until_stopped": False,
+            "run_until_stopped": True,
             "stimulation_type": "C",
             "subprotocols": [
                 {
@@ -74,13 +74,13 @@ RANDOM_STIM_INFO_2 = create_random_stim_info()  # type: ignore
 COMMAND_RESPONSE_SEQUENCE = [
     # First two commands come in different orders with live board and simulator
     ("get_metadata", "get_metadata"),  # first with real board
-    ("change_magnetometer_config_1", "magnetometer_config_1"),
-    # MAGNETOMETERS  # at of last test, data stream having issues
-    # ("start_managed_acquisition", "start_md_1"),
-    # ("start_managed_acquisition", "start_md_2"),
-    # ("stop_managed_acquisition", "stop_md_1"),
-    # ("stop_managed_acquisition", "stop_md_2"),
-    # ("change_magnetometer_config_2", "magnetometer_config_2"),
+    ("change_magnetometer_config_1", "magnetometer_config_1"),  # first with simulator
+    # MAGNETOMETERS
+    ("start_managed_acquisition", "start_md_1"),
+    ("start_managed_acquisition", "start_md_2"),
+    ("stop_managed_acquisition", "stop_md_1"),
+    ("stop_managed_acquisition", "stop_md_2"),
+    ("change_magnetometer_config_2", "magnetometer_config_2"),
     # STIMULATORS
     ("start_stimulation", "start_stim_1"),
     ("stop_stimulation", "stop_stim_1"),
