@@ -287,7 +287,9 @@ def test_DataAnalyzerProcess__sends_beta_1_metrics_of_all_wells_to_main_when_rea
         assert list(actual_well_metric_dict.keys()) == [str(AMPLITUDE_UUID), str(TWITCH_FREQUENCY_UUID)]
         for metric_id, metric_list in actual_well_metric_dict.items():
             # Tanner (7/13/21): to guard against future changes to mantarray-waveform-analysis breaking this test, only asserting that the correct number of data points are present
-            assert len(metric_list) == 5, f"Well: {well_idx}, Metric ID: {metric_id}"
+            assert (
+                len(metric_list) == MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS - 2
+            ), f"Well: {well_idx}, Metric ID: {metric_id}"
 
 
 def test_DataAnalyzerProcess__sends_beta_2_metrics_of_all_wells_to_main_when_ready(
@@ -365,7 +367,9 @@ def test_DataAnalyzerProcess__sends_beta_2_metrics_of_all_wells_to_main_when_rea
         assert list(actual_well_metric_dict.keys()) == [str(AMPLITUDE_UUID), str(TWITCH_FREQUENCY_UUID)]
         for metric_id, metric_list in actual_well_metric_dict.items():
             # Tanner (7/13/21): to guard against future changes to mantarray-waveform-analysis breaking this test, only asserting that the correct number of data points are present
-            assert len(metric_list) == 5, f"Well: {well_idx}, Metric ID: {metric_id}"
+            assert (
+                len(metric_list) == MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS - 2
+            ), f"Well: {well_idx}, Metric ID: {metric_id}"
 
 
 def test_DataAnalyzerProcess__only_dumps_new_twitch_metrics__with_beta_1_data(
@@ -409,7 +413,9 @@ def test_DataAnalyzerProcess__only_dumps_new_twitch_metrics__with_beta_1_data(
         assert list(actual_well_metric_dict.keys()) == [str(AMPLITUDE_UUID), str(TWITCH_FREQUENCY_UUID)]
         for metric_id, metric_list in actual_well_metric_dict.items():
             # Tanner (7/13/21): to guard against future changes to mantarray-waveform-analysis breaking this test, only asserting that the correct number of data points are present
-            assert len(metric_list) == 5, f"Well: {well_idx}, Metric ID: {metric_id}"
+            assert (
+                len(metric_list) == MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS - 2
+            ), f"Well: {well_idx}, Metric ID: {metric_id}"
 
     # send remaining data (1 second / 1 new twitch)
     for well_idx in range(24):
@@ -490,7 +496,9 @@ def test_DataAnalyzerProcess__only_dumps_new_twitch_metrics__with_beta_2_data(
         assert list(actual_well_metric_dict.keys()) == [str(AMPLITUDE_UUID), str(TWITCH_FREQUENCY_UUID)]
         for metric_id, metric_list in actual_well_metric_dict.items():
             # Tanner (7/13/21): to guard against future changes to mantarray-waveform-analysis breaking this test, only asserting that the correct number of data points are present
-            assert len(metric_list) == 5, f"Well: {well_idx}, Metric ID: {metric_id}"
+            assert (
+                len(metric_list) == MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS - 2
+            ), f"Well: {well_idx}, Metric ID: {metric_id}"
 
     # send remaining data (1 second / 1 new twitch)
     test_packet_2 = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
@@ -569,7 +577,9 @@ def test_DataAnalyzerProcess__data_analysis_stream_is_reconfigured_in_beta_2_mod
         actual_well_metric_dict = outgoing_metrics[str(well_idx)]
         assert list(actual_well_metric_dict.keys()) == [str(AMPLITUDE_UUID), str(TWITCH_FREQUENCY_UUID)]
         for metric_id, metric_list in actual_well_metric_dict.items():
-            assert len(metric_list) == 5, f"Well: {well_idx}, Metric ID: {metric_id}"
+            assert (
+                len(metric_list) == MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS - 2
+            ), f"Well: {well_idx}, Metric ID: {metric_id}"
 
     # change magnetometer config so that only wells 20-23 are enabled
     test_config = create_magnetometer_config_dict(24)
@@ -603,4 +613,6 @@ def test_DataAnalyzerProcess__data_analysis_stream_is_reconfigured_in_beta_2_mod
         actual_well_metric_dict = outgoing_metrics[str(well_idx)]
         assert list(actual_well_metric_dict.keys()) == [str(AMPLITUDE_UUID), str(TWITCH_FREQUENCY_UUID)]
         for metric_id, metric_list in actual_well_metric_dict.items():
-            assert len(metric_list) == 5, f"Well: {well_idx}, Metric ID: {metric_id}"
+            assert (
+                len(metric_list) == MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS - 2
+            ), f"Well: {well_idx}, Metric ID: {metric_id}"

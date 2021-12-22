@@ -407,7 +407,7 @@ def test_DataAnalyzerProcess__is_buffer_full_returns_correct_value(
     for well_idx in range(24):
         data_buffer[well_idx]["construct_data"] = test_data
         data_buffer[well_idx]["ref_data"] = test_data
-    actual = p._is_buffer_full()  # pylint:disable=protected-access
+    actual = p.is_buffer_full()
     assert actual is expected_status
 
 
