@@ -1142,7 +1142,7 @@ def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_
     ok_process.soft_stop()
     confirm_parallelism_is_stopped(
         ok_process,
-        timeout_seconds=5,
+        timeout_seconds=10,
     )
 
     # drain the queue to avoid broken pipe errors
