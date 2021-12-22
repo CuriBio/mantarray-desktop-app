@@ -310,9 +310,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 )
                 sleep(1)
             # flush and log remaining serial data
-            remaining_serial_data = bytes(0)
-            while board.in_waiting > 0:
-                remaining_serial_data += board.read(size=SERIAL_COMM_MAX_PACKET_LENGTH_BYTES)
+            remaining_serial_data = board.read_all()
             serial_data_flush_msg = f"Remaining Serial Data {str(remaining_serial_data)}"
             put_log_message_into_queue(
                 logging.INFO,
@@ -763,7 +761,6 @@ class McCommunicationProcess(InstrumentCommProcess):
 
                 if well_statuses:
                     self._dump_stim_packet(well_statuses)
-
             elif prev_command["command"] == "stop_managed_acquisition":
                 if response_data[0]:
                     if not self._hardware_test_mode:
