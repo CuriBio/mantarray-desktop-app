@@ -21,6 +21,7 @@ from mantarray_desktop_app import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import DATA_FRAME_PERIOD
+from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import FIFO_READ_PRODUCER_DATA_OFFSET
 from mantarray_desktop_app import FIFO_READ_PRODUCER_SAWTOOTH_PERIOD
 from mantarray_desktop_app import FIFO_READ_PRODUCER_WELL_AMPLITUDE
@@ -38,6 +39,7 @@ from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
+from mantarray_desktop_app import NUM_INITIAL_PACKETS_TO_DROP
 from mantarray_desktop_app import process_monitor
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
 from mantarray_desktop_app import RECORDING_STATE
@@ -803,7 +805,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
 ):
     # pylint: disable=too-many-statements,too-many-locals  # Tanner (6/1/21): This is a long integration test, it needs extra statements and local variables
 
-    # mock this value so that only 2 seconds of recorded data is are needed to complete calibration
+    # mock this value so that only 2 seconds of recorded data are needed to complete calibration
     mocker.patch.object(process_monitor, "CALIBRATION_RECORDING_DUR_SECONDS", 2)
 
     # Tanner (12/29/20): Freeze time in order to make assertions on timestamps in the metadata
@@ -927,7 +929,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         expected_barcode_1 = GENERIC_BETA_2_START_RECORDING_COMMAND[
             "metadata_to_copy_onto_main_file_attributes"
         ][PLATE_BARCODE_UUID]
-        expected_start_index_1 = 0
+        expected_start_index_1 = NUM_INITIAL_PACKETS_TO_DROP * DEFAULT_SAMPLING_PERIOD
         response = requests.get(
             f"{get_api_endpoint()}start_recording?barcode={expected_barcode_1}&time_index={expected_start_index_1}&is_hardware_test_recording=False"
         )
@@ -979,7 +981,9 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         # Tanner (6/1/21): Use new barcode for second set of recordings, change last char of default barcode from '1' to '2'
         expected_barcode_2 = expected_barcode_1[:-1] + "2"
         # Tanner (5/25/21): Start at a different timepoint to create a different timestamp in the names of the second set of files
-        expected_start_index_2 = MICRO_TO_BASE_CONVERSION
+        expected_start_index_2 = (
+            MICRO_TO_BASE_CONVERSION + NUM_INITIAL_PACKETS_TO_DROP * DEFAULT_SAMPLING_PERIOD
+        )
 
         # Tanner (6/1/21): Start recording with second barcode to create second set of files
         response = requests.get(
@@ -1058,7 +1062,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                     "%Y-%m-%d %H:%M:%S.%f"
                 )
                 assert this_file_attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == (
-                    expected_time + datetime.timedelta(seconds=expected_start_index_1)
+                    expected_time + datetime.timedelta(microseconds=expected_start_index_1)
                 ).strftime("%Y-%m-%d %H:%M:%S.%f")
                 assert this_file_attrs[str(USER_ACCOUNT_ID_UUID)] == "test_user"
                 assert this_file_attrs[str(CUSTOMER_ACCOUNT_ID_UUID)] == str(CURI_BIO_ACCOUNT_UUID)
