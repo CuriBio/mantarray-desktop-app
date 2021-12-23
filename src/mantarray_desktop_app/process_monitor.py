@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Docstring."""
+"""Handling communication between subprocesses and main process."""
 from __future__ import annotations
 
 import copy
+import datetime
 import logging
 import queue
 import threading
@@ -33,18 +34,24 @@ from .constants import BUFFERING_STATE
 from .constants import CALIBRATED_STATE
 from .constants import CALIBRATING_STATE
 from .constants import CALIBRATION_NEEDED_STATE
+from .constants import CALIBRATION_RECORDING_DUR_SECONDS
+from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
+from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import RECORDING_STATE
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
+from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .exceptions import IncorrectMagnetometerConfigFromInstrumentError
+from .exceptions import IncorrectSamplingPeriodFromInstrumentError
 from .exceptions import UnrecognizedCommandFromServerToMainError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
 from .exceptions import UnrecognizedRecordingCommandError
 from .process_manager import MantarrayProcessesManager
 from .server import ServerManager
+from .utils import _create_start_recording_command
 from .utils import _trim_barcode
 from .utils import attempt_to_get_recording_directory_from_new_dict
 from .utils import get_redacted_string
@@ -107,6 +114,31 @@ class MantarrayProcessesMonitor(InfiniteThread):
         except queue.Empty:
             return
 
+        communication_type = communication["communication_type"]
+        if communication_type == "update_upload_status":
+            outgoing_status_json = communication["content"]
+            data_to_server_queue = self._process_manager.queue_container().get_data_queue_to_server()
+            data_to_server_queue.put_nowait(outgoing_status_json)
+        elif communication_type == "file_finalized":
+            if (
+                self._values_to_share_to_server["system_status"] == CALIBRATING_STATE
+                and communication.get("message", None) == "all_finals_finalized"
+            ):
+                self._values_to_share_to_server["system_status"] = CALIBRATED_STATE
+                # stop managed acquisition
+                main_to_ic_queue = (
+                    self._process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+                )
+                main_to_fw_queue = (
+                    self._process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
+                )
+                # need to send stop command to the process the furthest downstream the data path first then move upstream
+                stop_managed_acquisition_comm = dict(STOP_MANAGED_ACQUISITION_COMMUNICATION)
+                stop_managed_acquisition_comm["is_calibration_recording"] = True
+                main_to_fw_queue.put_nowait(stop_managed_acquisition_comm)
+                main_to_ic_queue.put_nowait(stop_managed_acquisition_comm)
+
+        # Tanner (12/13/21): redact file path after handling comm in case the actual file path is needed
         if "file_path" in communication:
             communication["file_path"] = redact_sensitive_info_from_path(communication["file_path"])
         msg = f"Communication from the File Writer: {communication}".replace(
@@ -160,9 +192,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
             elif command == "shutdown_server":
                 self._process_manager.shutdown_server()
             else:
-                raise NotImplementedError("Unrecognized shutdown command")
-        elif communication_type == "update_shared_values_dictionary":
+                raise NotImplementedError(f"Unrecognized shutdown command from Server: {command}")
+        elif communication_type == "update_customer_settings":
             new_values = communication["content"]
+
             new_recording_directory: Optional[str] = attempt_to_get_recording_directory_from_new_dict(
                 new_values
             )
@@ -178,27 +211,67 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     }
                 )
                 process_manager.set_file_directory(new_recording_directory)
+
+            if "customer_account_id" in new_values["config_settings"]:
+                to_file_writer_queue = (
+                    process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
+                )
+                to_file_writer_queue.put_nowait(
+                    {"command": "update_customer_settings", "config_settings": new_values["config_settings"]}
+                )
+
             update_shared_dict(shared_values_dict, new_values)
         elif communication_type == "set_magnetometer_config":
             self._update_magnetometer_config_dict(communication["magnetometer_config_dict"])
         elif communication_type == "stimulation":
             command = communication["command"]
             if command == "set_stim_status":
-                self._values_to_share_to_server["stimulation_running"] = communication["status"]
-            elif command == "set_protocol":
-                self._values_to_share_to_server["stimulation_protocols"] = communication["protocols"]
+                self._put_communication_into_instrument_comm_queue(
+                    {
+                        "communication_type": communication_type,
+                        "command": "start_stimulation" if communication["status"] else "stop_stimulation",
+                    }
+                )
+            elif command == "set_protocols":
+                self._values_to_share_to_server["stimulation_info"] = communication["stim_info"]
+                self._put_communication_into_instrument_comm_queue(communication)
             else:
                 # Tanner (8/9/21): could make this a custom error if needed
-                raise NotImplementedError(f"Unrecognized stimulation command: '{command}'")
-            self._put_communication_into_instrument_comm_queue(communication)
+                raise NotImplementedError(f"Unrecognized stimulation command from Server: {command}")
         elif communication_type == "xem_scripts":
             # Tanner (12/28/20): start_calibration is the only xem_scripts command that will come from server (called directly from /start_calibration). This comm type will be removed/replaced in beta 2 so not adding handling for unrecognized command.
             if shared_values_dict["beta_2_mode"]:
-                # Tanner (4/23/20): Mantarray Beta 2 does not have a calibrating state, so keeping this command for now but switching straight to calibrated state to ease the transition away from users running calibration
-                shared_values_dict["system_status"] = CALIBRATED_STATE
-            else:
-                shared_values_dict["system_status"] = CALIBRATING_STATE
-                self._put_communication_into_instrument_comm_queue(communication)
+                raise NotImplementedError("XEM scripts cannot be run when in Beta 2 mode")
+            shared_values_dict["system_status"] = CALIBRATING_STATE
+            self._put_communication_into_instrument_comm_queue(communication)
+        elif communication_type == "calibration":
+            # Tanner (12/10/21): run_calibration is currently the only calibration command
+            shared_values_dict["system_status"] = CALIBRATING_STATE
+            self._put_communication_into_instrument_comm_queue(
+                {"communication_type": "acquisition_manager", "command": "start_managed_acquisition"}
+            )
+
+            # Tanner (12/10/21): set this manually here since a start_managed_acquisition command response has not been received yet
+            shared_values_dict_copy = copy.deepcopy(shared_values_dict)
+            shared_values_dict_copy["utc_timestamps_of_beginning_of_data_acquisition"] = [
+                datetime.datetime.utcnow()
+            ]
+
+            main_to_fw_queue = (
+                self._process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
+            )
+            main_to_fw_queue.put_nowait(
+                _create_start_recording_command(shared_values_dict_copy, is_calibration_recording=True)
+            )
+            main_to_fw_queue.put_nowait(
+                {
+                    "communication_type": "recording",
+                    "command": "stop_recording",
+                    "timepoint_to_stop_recording_at": CALIBRATION_RECORDING_DUR_SECONDS
+                    * MICRO_TO_BASE_CONVERSION,
+                    "is_calibration_recording": True,
+                }
+            )
         elif communication_type == "recording":
             command = communication["command"]
             main_to_fw_queue = (
@@ -322,7 +395,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         data_to_server_queue.put_nowait(outgoing_data_json)
 
     def _check_and_handle_instrument_comm_to_main_queue(self) -> None:
-        # pylint: disable=too-many-branches  # Tanner (5/22/21): many branches needed here
+        # pylint: disable=too-many-branches,too-many-statements  # TODO Tanner (10/25/21): refactor this into smaller methods
         process_manager = self._process_manager
         instrument_comm_to_main = (
             process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
@@ -356,24 +429,54 @@ class MantarrayProcessesMonitor(InfiniteThread):
             logger.info(msg)
         communication_type = communication["communication_type"]
 
-        if "command" in communication:
-            command = communication["command"]
+        command = communication.get("command", None)
 
         if communication_type in "acquisition_manager":
             if command == "start_managed_acquisition":
-                # TODO Tanner (5/22/21): Should add a way to check the sampling period as well
-                if (
-                    self._values_to_share_to_server["beta_2_mode"]
-                    and self._values_to_share_to_server["magnetometer_config_dict"]["magnetometer_config"]
-                    != communication["magnetometer_config"]
-                ):
-                    raise IncorrectMagnetometerConfigFromInstrumentError()
+                if self._values_to_share_to_server["beta_2_mode"]:
+                    if (
+                        self._values_to_share_to_server["magnetometer_config_dict"]["sampling_period"]
+                        != communication["sampling_period"]
+                    ):
+                        raise IncorrectSamplingPeriodFromInstrumentError(communication["sampling_period"])
+                    if (
+                        self._values_to_share_to_server["magnetometer_config_dict"]["magnetometer_config"]
+                        != communication["magnetometer_config"]
+                    ):
+                        raise IncorrectMagnetometerConfigFromInstrumentError(
+                            communication["magnetometer_config"]
+                        )
                 self._values_to_share_to_server["utc_timestamps_of_beginning_of_data_acquisition"] = [
                     communication["timestamp"]
                 ]
             elif command == "stop_managed_acquisition":
-                self._values_to_share_to_server["system_status"] = CALIBRATED_STATE
-                self._data_dump_buffer_size = 0
+                if not communication.get("is_calibration_recording", False):
+                    self._values_to_share_to_server["system_status"] = CALIBRATED_STATE
+                    self._data_dump_buffer_size = 0
+        elif communication_type == "stimulation":
+            if command == "start_stimulation":
+                self._values_to_share_to_server["utc_timestamps_of_beginning_of_stimulation"] = [
+                    communication["timestamp"]
+                ]
+                stim_running_list = [False] * 24
+                protocol_assignments = self._values_to_share_to_server["stimulation_info"][
+                    "protocol_assignments"
+                ]
+                for well_name, assignment in protocol_assignments.items():
+                    if not assignment:
+                        continue
+                    well_idx = GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name)
+                    stim_running_list[well_idx] = True
+                self._values_to_share_to_server["stimulation_running"] = stim_running_list
+            elif command == "stop_stimulation":
+                self._values_to_share_to_server["utc_timestamps_of_beginning_of_stimulation"] = [None]
+                self._values_to_share_to_server["stimulation_running"] = [False] * 24
+            elif command == "status_update":
+                # ignore stim status updates if stim was already stopped manually
+                for well_idx in communication["wells_done_stimulating"]:
+                    self._values_to_share_to_server["stimulation_running"][well_idx] = False
+                if not any(self._values_to_share_to_server["stimulation_running"]):
+                    self._values_to_share_to_server["utc_timestamps_of_beginning_of_stimulation"] = [None]
         elif communication_type == "board_connection_status_change":
             board_idx = communication["board_index"]
             self._values_to_share_to_server["in_simulation_mode"] = not communication["is_connected"]

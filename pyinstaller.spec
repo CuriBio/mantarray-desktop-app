@@ -50,6 +50,10 @@ a = Analysis(  # type: ignore # noqa: F821     the 'Analysis' object is special 
             os.path.join("src", "drivers", "FrontPanelUSB-DriverOnly-5.2.2.exe"),
             os.path.join("src", "drivers"),
         ),
+        (
+            os.path.join("src", "simulated_data", "*.csv"),
+            os.path.join("src", "simulated_data"),
+        ),
     ],
     hiddenimports=[
         "xem_wrapper._windows._ok",

@@ -7,6 +7,7 @@ from mantarray_desktop_app import get_api_endpoint
 from mantarray_desktop_app import get_server_port_number
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import RunningFIFOSimulator
+from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import ServerManager
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
@@ -38,7 +39,8 @@ def fixture_server_manager(generic_queue_container):
 
     sm = ServerManager(to_main_queue, generic_queue_container)
     shared_values_dict = sm._values_from_process_monitor  # pylint:disable=protected-access
-    # Tanner (4/23/21): Many routes require this value to be in the shared values dictionary. It is normally set during app start up, so manually setting here
+    # Tanner (4/23/21): Many routes require these values to be in the shared values dictionary. They are normally set during app start up, so manually setting here
+    shared_values_dict["system_status"] = SERVER_READY_STATE
     shared_values_dict["beta_2_mode"] = False
 
     yield sm, to_main_queue
@@ -70,6 +72,7 @@ def fixture_client_and_server_manager_and_shared_values(server_manager, test_cli
 
 
 def put_generic_beta_1_start_recording_info_in_dict(shared_values_dict):
+    shared_values_dict["system_status"] = SERVER_READY_STATE
     shared_values_dict["beta_2_mode"] = False
 
     board_idx = 0
@@ -78,8 +81,8 @@ def put_generic_beta_1_start_recording_info_in_dict(shared_values_dict):
     ]
     shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [timestamp]
     shared_values_dict["config_settings"] = {
-        "Customer Account ID": CURI_BIO_ACCOUNT_UUID,
-        "User Account ID": CURI_BIO_USER_ACCOUNT_ID,
+        "customer_account_id": CURI_BIO_ACCOUNT_UUID,
+        "user_account_id": CURI_BIO_USER_ACCOUNT_ID,
     }
     shared_values_dict["adc_gain"] = 32
     shared_values_dict["adc_offsets"] = dict()
@@ -111,6 +114,7 @@ def put_generic_beta_1_start_recording_info_in_dict(shared_values_dict):
 
 
 def put_generic_beta_2_start_recording_info_in_dict(shared_values_dict):
+    shared_values_dict["system_status"] = SERVER_READY_STATE
     shared_values_dict["beta_2_mode"] = True
 
     board_idx = 0
@@ -119,8 +123,8 @@ def put_generic_beta_2_start_recording_info_in_dict(shared_values_dict):
     ]
     shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [timestamp]
     shared_values_dict["config_settings"] = {
-        "Customer Account ID": CURI_BIO_ACCOUNT_UUID,
-        "User Account ID": CURI_BIO_USER_ACCOUNT_ID,
+        "customer_account_id": CURI_BIO_ACCOUNT_UUID,
+        "user_account_id": CURI_BIO_USER_ACCOUNT_ID,
     }
     shared_values_dict["main_firmware_version"] = {board_idx: MantarrayMcSimulator.default_firmware_version}
     shared_values_dict["mantarray_serial_number"] = {
@@ -150,13 +154,14 @@ def put_generic_beta_2_start_recording_info_in_dict(shared_values_dict):
     }
     shared_values_dict["instrument_metadata"] = {board_idx: MantarrayMcSimulator.default_metadata_values}
 
+    shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] = [None]
+    shared_values_dict["stimulation_running"] = [False] * 24
+    shared_values_dict["stimulation_info"] = None
+
 
 @pytest.fixture(scope="function", name="test_socketio_client")
 def fixture_test_socketio_client():
-    msg_list_container = {
-        "waveform_data": list(),
-        "twitch_metrics": list(),
-    }
+    msg_list_container = {"waveform_data": list(), "twitch_metrics": list(), "stimulation": list()}
 
     sio = python_socketio.Client()
 
@@ -167,6 +172,10 @@ def fixture_test_socketio_client():
     @sio.on("twitch_metrics")
     def twitch_metrics_handler(data):
         msg_list_container["twitch_metrics"].append(data)
+
+    @sio.on("stimulation")
+    def stimulation_handler(data):
+        msg_list_container["stimulation"].append(data)
 
     def _connect_client_to_server():
         confirm_port_in_use(get_server_port_number(), timeout=4)  # wait for server to boot up

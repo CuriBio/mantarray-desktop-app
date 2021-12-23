@@ -255,7 +255,7 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_2_dat
     )
     # mock actual pipeline functions to speed up test
     mocker.patch.object(Pipeline, "load_raw_magnetic_data", autospec=True)
-    mocker.patch.object(Pipeline, "get_force", autospec=True, return_value=np.zeros((2, 2)))
+    mocker.patch.object(Pipeline, "get_compressed_force", autospec=True, return_value=np.zeros((2, 2)))
     mocker.patch.object(Pipeline, "get_force_data_metrics", autospec=True, return_value=({1: {}}, {}))
 
     # set magnetometer configuration

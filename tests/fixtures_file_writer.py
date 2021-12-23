@@ -9,6 +9,7 @@ import socket
 import tempfile
 from typing import Any
 from typing import Dict
+from typing import Optional
 import uuid
 
 import h5py
@@ -27,6 +28,7 @@ from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
+from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
@@ -46,28 +48,41 @@ from mantarray_file_manager import SLEEP_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
 from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
 from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
+from mantarray_file_manager import STIMULATION_PROTOCOL_UUID
 from mantarray_file_manager import TAMPER_FLAG_UUID
 from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
 from mantarray_file_manager import USER_ACCOUNT_ID_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
+from mantarray_file_manager import UTC_BEGINNING_STIMULATION_UUID
 from mantarray_file_manager import WellFile
 from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
 import pytest
+from stdlib_utils import drain_queue
+from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import TestingQueue
+
+from .fixtures import GENERIC_STORED_CUSTOMER_IDS
+from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from .fixtures_mc_simulator import get_null_subprotocol
+from .fixtures_mc_simulator import get_random_subprotocol
+from .helpers import confirm_queue_is_eventually_empty
+from .helpers import confirm_queue_is_eventually_of_size
+from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 WELL_DEF_24 = LabwareDefinition(row_count=4, column_count=6)
 
 
 GENERIC_ADC_OFFSET_VALUES: Dict[int, Dict[str, int]] = dict()
-for well_idx in range(24):
-    GENERIC_ADC_OFFSET_VALUES[well_idx] = {
-        "construct": well_idx * 2,
-        "ref": well_idx * 2 + 1,
+for this_well_idx in range(24):
+    GENERIC_ADC_OFFSET_VALUES[this_well_idx] = {
+        "construct": this_well_idx * 2,
+        "ref": this_well_idx * 2 + 1,
     }
+
 GENERIC_WELL_MAGNETOMETER_CONFIGURATION = {
     channel_id: channel_id
     in (SERIAL_COMM_DEFAULT_DATA_CHANNEL, SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"])
@@ -80,9 +95,37 @@ for module_id in range(1, 25):
     GENERIC_BOARD_MAGNETOMETER_CONFIGURATION[module_id] = copy.deepcopy(
         GENERIC_WELL_MAGNETOMETER_CONFIGURATION
     )
+
+
+GENERIC_STIM_PROTOCOL_ASSIGNMENTS: Dict[str, Optional[str]] = {
+    GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): None for well_idx in range(24)
+}
+GENERIC_STIM_PROTOCOL_ASSIGNMENTS["A1"] = "A"
+GENERIC_STIM_PROTOCOL_ASSIGNMENTS["B1"] = "B"
+GENERIC_STIM_INFO = {
+    "protocols": [
+        {
+            "protocol_id": "A",
+            "stimulation_type": "C",
+            "run_until_stopped": True,
+            "subprotocols": [get_random_subprotocol(), get_null_subprotocol(50000)],  # type: ignore
+        },
+        {
+            "protocol_id": "B",
+            "stimulation_type": "V",
+            "run_until_stopped": False,
+            "subprotocols": [get_random_subprotocol(), get_random_subprotocol()],  # type: ignore
+        },
+    ],
+    "protocol_assignments": GENERIC_STIM_PROTOCOL_ASSIGNMENTS,
+}
+
 GENERIC_BASE_START_RECORDING_COMMAND: Dict[str, Any] = {
+    "communication_type": "recording",
     "command": "start_recording",
     "timepoint_to_begin_recording_at": 298518 * 125,
+    "is_calibration_recording": False,
+    "is_hardware_test_recording": False,
     "metadata_to_copy_onto_main_file_attributes": {
         HARDWARE_TEST_RECORDING_UUID: False,
         UTC_BEGINNING_DATA_ACQUISTION_UUID: datetime.datetime(
@@ -118,6 +161,12 @@ GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
     }
 )
 GENERIC_BETA_2_START_RECORDING_COMMAND = copy.deepcopy(GENERIC_BASE_START_RECORDING_COMMAND)
+GENERIC_BETA_2_START_RECORDING_COMMAND["stim_running_statuses"] = [
+    bool(
+        GENERIC_STIM_PROTOCOL_ASSIGNMENTS[GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)]
+    )
+    for well_idx in range(24)
+]
 GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"].update(
     {
         UTC_BEGINNING_RECORDING_UUID: GENERIC_BASE_START_RECORDING_COMMAND[
@@ -133,6 +182,11 @@ GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
         PCB_SERIAL_NUMBER_UUID: MantarrayMcSimulator.default_pcb_serial_number,
         MAGNETOMETER_CONFIGURATION_UUID: GENERIC_BOARD_MAGNETOMETER_CONFIGURATION,
         TISSUE_SAMPLING_PERIOD_UUID: 10000,
+        STIMULATION_PROTOCOL_UUID: GENERIC_STIM_INFO,
+        UTC_BEGINNING_STIMULATION_UUID: GENERIC_BASE_START_RECORDING_COMMAND[
+            "metadata_to_copy_onto_main_file_attributes"
+        ][UTC_BEGINNING_DATA_ACQUISTION_UUID]
+        + datetime.timedelta(seconds=5),
     }
 )
 
@@ -142,6 +196,16 @@ GENERIC_STOP_RECORDING_COMMAND: Dict[str, Any] = {
     "timepoint_to_stop_recording_at": 302412 * 125,
 }
 
+GENERIC_UPDATE_CUSTOMER_SETTINGS: Dict[str, Any] = {
+    "command": "update_customer_settings",
+    "config_settings": {
+        "customer_account_id": "test_customer_id",
+        "customer_pass_key": "test_password",
+        "user_account_id": "test_user",
+        "auto_upload_on_completion": True,
+        "auto_delete_local_files": False,
+    },
+}
 
 GENERIC_NUMPY_ARRAY_FOR_TISSUE_DATA_PACKET = np.zeros((2, 50), dtype=np.int32)
 for i in range(50):
@@ -165,9 +229,10 @@ GENERIC_REFERENCE_SENSOR_DATA_PACKET = {
 
 
 def open_the_generic_h5_file(
-    file_dir: str, well_name: str = "A2", beta_version: int = 1
+    file_dir: str, well_name: str = "A2", beta_version: int = 1, timestamp_str: Optional[str] = None
 ) -> h5py._hl.files.File:  # pylint: disable=protected-access # this is the only type definition Eli (2/24/20) could find for a File
-    timestamp_str = "2020_02_09_190935" if beta_version == 1 else "2020_02_09_190359"
+    if timestamp_str is None:
+        timestamp_str = "2020_02_09_190935" if beta_version == 1 else "2020_02_09_190359"
     barcode = GENERIC_BASE_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
@@ -219,7 +284,18 @@ def fixture_four_board_file_writer_process():
         error_queue,
     ) = generate_fw_from_main_to_main_board_and_error_queues()
     with tempfile.TemporaryDirectory() as tmp_dir:
-        fw_process = FileWriterProcess(board_queues, from_main, to_main, error_queue, file_directory=tmp_dir)
+        fw_process = FileWriterProcess(
+            board_queues,
+            from_main,
+            to_main,
+            error_queue,
+            file_directory=tmp_dir,
+            stored_customer_settings={
+                "stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS,
+                "zipped_recordings_dir": os.path.join(tmp_dir, "zipped_recordings"),
+                "failed_uploads_dir": os.path.join(tmp_dir, "failed_uploads"),
+            },
+        )
         fw_items_dict = {
             "fw_process": fw_process,
             "board_queues": board_queues,
@@ -244,7 +320,18 @@ def fixture_runnable_four_board_file_writer_process():
         error_queue,
     ) = generate_fw_from_main_to_main_board_and_error_queues(queue_type=MPQueue)
     with tempfile.TemporaryDirectory() as tmp_dir:
-        fw_process = FileWriterProcess(board_queues, from_main, to_main, error_queue, file_directory=tmp_dir)
+        fw_process = FileWriterProcess(
+            board_queues,
+            from_main,
+            to_main,
+            error_queue,
+            file_directory=tmp_dir,
+            stored_customer_settings={
+                "stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS,
+                "zipped_recordings_dir": os.path.join(tmp_dir, "zipped_recordings"),
+                "failed_uploads_dir": os.path.join(tmp_dir, "failed_uploads"),
+            },
+        )
         fw_items_dict = {
             "fw_process": fw_process,
             "board_queues": board_queues,
@@ -268,3 +355,78 @@ def fixture_running_four_board_file_writer_process(runnable_four_board_file_writ
 
     fw_process.stop()
     fw_process.join()
+
+
+def create_and_close_beta_1_h5_files(
+    four_board_file_writer_process,
+    update_customer_settings_command,
+    num_data_points=10,
+    active_well_indices=None,
+):
+    if not active_well_indices:
+        active_well_indices = [0]
+    fw_process = four_board_file_writer_process["fw_process"]
+    board_queues = four_board_file_writer_process["board_queues"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
+
+    # store new customer settings
+    this_command = copy.deepcopy(update_customer_settings_command)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
+    invoke_process_run_and_check_errors(fw_process)
+    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # remove update settings command receipt
+
+    # start recording
+    start_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
+    start_command["timepoint_to_begin_recording_at"] = 0
+    start_command["active_well_indices"] = active_well_indices
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
+    invoke_process_run_and_check_errors(fw_process)
+    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # remove start recording command receipt
+
+    # create data
+    tissue_data = np.array([np.arange(num_data_points), np.arange(num_data_points) * 2], dtype=np.int32)
+    ref_data = np.array([np.arange(num_data_points), np.arange(num_data_points) * 2], dtype=np.int32)
+    # load tissue data
+    for well_idx in active_well_indices:
+        this_tissue_data_packet = copy.deepcopy(GENERIC_TISSUE_DATA_PACKET)
+        this_tissue_data_packet["data"] = tissue_data
+        this_tissue_data_packet["well_index"] = well_idx
+        board_queues[0][0].put_nowait(this_tissue_data_packet)
+    confirm_queue_is_eventually_of_size(board_queues[0][0], len(active_well_indices))
+    invoke_process_run_and_check_errors(fw_process, num_iterations=len(active_well_indices))
+    confirm_queue_is_eventually_empty(board_queues[0][0])
+    # load ref data
+    this_ref_data_packet = copy.deepcopy(GENERIC_REFERENCE_SENSOR_DATA_PACKET)
+    this_ref_data_packet["data"] = ref_data
+    this_ref_data_packet[
+        "reference_for_wells"
+    ] = set(  # Tanner (11/9/21): linking this to each active well to simplify function. This is not how real Beta 1 ref data will parsed
+        active_well_indices
+    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_ref_data_packet, board_queues[0][0])
+    invoke_process_run_and_check_errors(fw_process)
+
+    # stop recording
+    stop_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    stop_command["timepoint_to_stop_recording_at"] = tissue_data[0, -1]
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
+    invoke_process_run_and_check_errors(fw_process)
+    # confirm each finalization message, all files finalized, and stop recording receipt are sent
+    confirm_queue_is_eventually_of_size(to_main_queue, len(active_well_indices) + 2)
+    finalization_messages = drain_queue(to_main_queue)[:-1]
+
+    # drain output queue to avoid BrokenPipeErrors
+    drain_queue(board_queues[0][1])
+
+    # tests may want to make assertions on these messages, so returning them
+    return finalization_messages
+
+
+def populate_calibration_folder(fw_process):
+    for well_idx in range(24):
+        well_name = WELL_DEF_24.get_well_name_from_well_index(well_idx)
+        file_path = os.path.join(fw_process.calibration_file_directory, f"Calibration__{well_name}.h5")
+        # create and close file
+        with open(file_path, "w"):
+            pass

@@ -59,9 +59,10 @@ def test_MantarrayMcSimulator__get_interpolated_data_returns_correct_value(
     )
     expected_data = interpolator(
         np.arange(0, MICRO_TO_BASE_CONVERSION, test_sampling_period, dtype=np.uint64)
-    ).astype(np.int16)
+    ).astype(np.uint16)
 
     actual_data = simulator.get_interpolated_data(test_sampling_period)
+    assert actual_data.dtype == np.uint16
     np.testing.assert_array_equal(actual_data, expected_data)
 
 
@@ -83,6 +84,8 @@ def test_MantarrayMcSimulator__sends_correct_time_index_and_data_points_in_first
         autospec=True,
         side_effect=test_counter_us,
     )
+
+    spied_get_global_timer = mocker.spy(simulator, "_get_global_timer")
 
     # set up arbitrary magnetometer configuration
     num_wells = simulator.get_num_wells()
@@ -142,7 +145,7 @@ def test_MantarrayMcSimulator__sends_correct_time_index_and_data_points_in_first
         time_index = int.from_bytes(
             data_packet[idx : idx + SERIAL_COMM_TIME_INDEX_LENGTH_BYTES], byteorder="little"
         )
-        expected_time_index = packet_num * test_sampling_period
+        expected_time_index = spied_get_global_timer.spy_return + packet_num * test_sampling_period
         assert time_index == expected_time_index, f"Incorrect time index in packet {packet_num + 1}"
 
         idx += SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
@@ -187,6 +190,9 @@ def test_MantarrayMcSimulator__returns_correctly_formatted_data_packet_with_well
         autospec=True,
         side_effect=test_counter_us,
     )
+
+    spied_get_global_timer = mocker.spy(simulator, "_get_global_timer")
+
     # set up arbitrary magnetometer configuration
     magnetometer_config_dict = simulator.get_magnetometer_config()
     magnetometer_config_dict[1] = {
@@ -248,7 +254,7 @@ def test_MantarrayMcSimulator__returns_correctly_formatted_data_packet_with_well
     time_index = int.from_bytes(
         data_packet[idx : idx + SERIAL_COMM_TIME_INDEX_LENGTH_BYTES], byteorder="little"
     )
-    assert time_index == 0
+    assert time_index == spied_get_global_timer.spy_return
     idx += SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
     # test offsets and data points
     expected_waveform = simulator.get_interpolated_data(test_sampling_period)

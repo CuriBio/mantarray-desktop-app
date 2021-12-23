@@ -22,6 +22,14 @@ class UnrecognizedCommandFromMainToOkCommError(Exception):
     pass
 
 
+class InvalidCustomerAccountIDError(Exception):
+    pass
+
+
+class InvalidCustomerPasskeyError(Exception):
+    pass
+
+
 class UnrecognizedCommandFromMainToFileWriterError(Exception):
     pass
 
@@ -39,10 +47,6 @@ class UnrecognizedDataFrameFormatNameError(Exception):
 
 
 class LocalServerPortAlreadyInUseError(Exception):
-    pass
-
-
-class InvalidDataTypeFromOkCommError(TypeError):
     pass
 
 
@@ -94,11 +98,15 @@ class UnrecognizedSimulatorTestCommandError(Exception):
     pass
 
 
-class ImproperlyFormattedCustomerAccountUUIDError(Exception):
+class ImproperlyFormattedCustomerAccountIDError(Exception):
     pass
 
 
-class ImproperlyFormattedUserAccountUUIDError(Exception):
+class ImproperlyFormattedUserAccountIDError(Exception):
+    pass
+
+
+class ImproperlyFormattedCustomerAccountPasskeyError(Exception):
     pass
 
 
@@ -107,6 +115,10 @@ class RecordingFolderDoesNotExistError(Exception):
 
 
 class InvalidStopRecordingTimepointError(Exception):
+    pass
+
+
+class CalibrationFilesMissingError(Exception):
     pass
 
 
@@ -142,7 +154,7 @@ class UnrecognizedSerialCommPacketTypeError(Exception):
     pass
 
 
-class SerialCommPacketRegistrationTimoutError(Exception):
+class SerialCommPacketRegistrationTimeoutError(Exception):
     pass
 
 
@@ -214,11 +226,35 @@ class IncorrectMagnetometerConfigFromInstrumentError(Exception):
     pass
 
 
+class IncorrectSamplingPeriodFromInstrumentError(Exception):
+    pass
+
+
 class InstrumentDataStreamingAlreadyStartedError(Exception):
     pass
 
 
 class InstrumentDataStreamingAlreadyStoppedError(Exception):
+    pass
+
+
+class StimulationProtocolUpdateWhileStimulatingError(Exception):
+    pass
+
+
+class StimulationProtocolUpdateFailedError(Exception):
+    pass
+
+
+class StimulationStatusUpdateFailedError(Exception):
+    pass
+
+
+class FirmwareUpdateCommandFailedError(Exception):
+    pass
+
+
+class FirmwareUpdateTimeoutError(Exception):
     pass
 
 

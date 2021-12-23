@@ -1,10 +1,11 @@
 import { EventEmitter } from "events";
-import { BrowserWindow, app, screen, ipcMain } from "electron";
+import { BrowserWindow, app, screen, ipcMain, globalShortcut } from "electron";
 import main_utils from "./utils.js"; // Eli (1/15/21): helping to be able to spy on functions within utils. https://stackoverflow.com/questions/49457451/jest-spyon-a-function-not-class-or-object-type
 const isProduction = process.env.NODE_ENV === "production";
 
 const create_store = main_utils.create_store;
 let store = create_store();
+const get_flask_logs_full_path = main_utils.get_flask_logs_full_path;
 
 export default class BrowserWinHandler {
   /**
@@ -90,6 +91,9 @@ export default class BrowserWinHandler {
 
     ipcMain.once("beta_2_mode_request", (event) => {
       event.reply("beta_2_mode_response", store.get("beta_2_mode"));
+    });
+    ipcMain.once("logs_flask_dir_request", (event) => {
+      event.reply("logs_flask_dir_response", get_flask_logs_full_path(store));
     });
   }
 

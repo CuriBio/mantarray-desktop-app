@@ -8,7 +8,6 @@ from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 import numpy as np
-import pytest
 from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -20,6 +19,7 @@ from ..fixtures_file_writer import GENERIC_BOARD_MAGNETOMETER_CONFIGURATION
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..parsed_channel_data_packets import SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS
+from ..parsed_channel_data_packets import SIMPLE_STIM_DATA_PACKET_FROM_ALL_WELLS
 
 
 __fixtures__ = [
@@ -28,7 +28,6 @@ __fixtures__ = [
 
 
 @freeze_time("2021-06-15 16:39:10.120589")
-@pytest.mark.slow
 def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_retrieves_a_data_packet_from_file_writer__and_sends_data_available_message_to_main(
     four_board_analyzer_process_beta_2_mode, mocker
 ):
@@ -82,10 +81,12 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
             np.array([test_data_packet["time_indices"], default_channel_data], np.int64),
             np.zeros((2, len(default_channel_data))),
         )
-        compressed_data = pipeline.get_force()
+        compressed_data = pipeline.get_compressed_force()
         waveform_data_points[well_idx] = {
             "x_data_points": compressed_data[0].tolist(),
-            "y_data_points": (compressed_data[1] * MICRO_TO_BASE_CONVERSION).tolist(),
+            "y_data_points": (
+                (compressed_data[1] - min(compressed_data[1])) * MICRO_TO_BASE_CONVERSION
+            ).tolist(),
         }
     expected_outgoing_dict = {
         "waveform_data": {"basic_data": {"waveform_data_points": waveform_data_points}},
@@ -109,7 +110,6 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
     assert outgoing_msg == expected_msg
 
 
-@pytest.mark.slow
 def test_DataAnalyzerProcess__does_not_process_data_packets_after_receiving_stop_managed_acquisition_command_until_receiving_first_packet_of_new_stream(
     four_board_analyzer_process_beta_2_mode, mocker
 ):
@@ -123,7 +123,6 @@ def test_DataAnalyzerProcess__does_not_process_data_packets_after_receiving_stop
         da_process, "_process_beta_2_data", autospec=True, return_value={}
     )
 
-    # da_process.init_streams()
     invoke_process_run_and_check_errors(da_process, perform_setup_before_loop=True)
     # set config arbitrary sampling period
     test_sampling_period = 10000
@@ -184,3 +183,28 @@ def test_DataAnalyzerProcess__does_not_process_data_packets_after_receiving_stop
 
     # prevent BrokenPipeErrors
     drain_queue(to_main_queue)
+
+
+def test_DataAnalyzerProcess__formats_and_passes_incoming_stim_packet_through_to_main(
+    four_board_analyzer_process_beta_2_mode, mocker
+):
+    da_process = four_board_analyzer_process_beta_2_mode["da_process"]
+    incoming_data_queue = four_board_analyzer_process_beta_2_mode["board_queues"][0][0]
+    outgoing_data_queue = four_board_analyzer_process_beta_2_mode["board_queues"][0][1]
+
+    test_stim_packet = copy.deepcopy(SIMPLE_STIM_DATA_PACKET_FROM_ALL_WELLS)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(test_stim_packet), incoming_data_queue
+    )
+    invoke_process_run_and_check_errors(da_process)
+
+    confirm_queue_is_eventually_of_size(outgoing_data_queue, 1)
+    outgoing_msg = outgoing_data_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+
+    expected_stim_data = {
+        well_idx: stim_status_arr.tolist()
+        for well_idx, stim_status_arr in test_stim_packet["well_statuses"].items()
+    }
+
+    assert outgoing_msg["data_type"] == "stimulation"
+    assert outgoing_msg["data_json"] == json.dumps(expected_stim_data)

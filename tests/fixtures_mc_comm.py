@@ -3,6 +3,8 @@
 
 import time
 
+from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
+from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import McCommunicationProcess
 from mantarray_desktop_app import STM_VID
@@ -14,7 +16,9 @@ from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import TestingQueue
 
 from .fixtures import generate_board_and_error_queues
+from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .fixtures_mc_simulator import MantarrayMcSimulatorNoBeacons
+from .helpers import confirm_queue_is_eventually_of_size
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 
@@ -47,8 +51,82 @@ def set_connection_and_register_simulator(
     drain_queue(output_queue)
 
 
+def set_magnetometer_config(
+    mc_fixture,
+    simulator,
+    magnetometer_config=DEFAULT_MAGNETOMETER_CONFIG,
+    sampling_period=DEFAULT_SAMPLING_PERIOD,
+):
+    mc_process = mc_fixture["mc_process"]
+    from_main_queue = mc_fixture["board_queues"][0][0]
+    to_main_queue = mc_fixture["board_queues"][0][1]
+
+    config_command = {
+        "communication_type": "acquisition_manager",
+        "command": "change_magnetometer_config",
+        "magnetometer_config": magnetometer_config,
+        "sampling_period": sampling_period,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(config_command, from_main_queue)
+    # send command, process command, process command response
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+
+
+def set_magnetometer_config_and_start_streaming(
+    mc_fixture,
+    simulator,
+    magnetometer_config=DEFAULT_MAGNETOMETER_CONFIG,
+    sampling_period=DEFAULT_SAMPLING_PERIOD,
+):
+    set_magnetometer_config(mc_fixture, simulator, magnetometer_config, sampling_period)
+    start_data_stream(mc_fixture, simulator)
+
+
+def start_data_stream(mc_fixture, simulator):
+    mc_process = mc_fixture["mc_process"]
+    from_main_queue = mc_fixture["board_queues"][0][0]
+    to_main_queue = mc_fixture["board_queues"][0][1]
+
+    start_command = {
+        "communication_type": "acquisition_manager",
+        "command": "start_managed_acquisition",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
+    # send command, process command, process command response
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+
+
+def stop_data_stream(mc_fixture, simulator):
+    mc_process = mc_fixture["mc_process"]
+    from_main_queue = mc_fixture["board_queues"][0][0]
+    to_main_queue = mc_fixture["board_queues"][0][1]
+
+    stop_command = {
+        "communication_type": "acquisition_manager",
+        "command": "stop_managed_acquisition",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
+    # send command, process command, process command response
+    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(simulator)
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+
+
 @pytest.fixture(scope="function", name="four_board_mc_comm_process")
-def fixture_four_board_mc_comm_process():
+def fixture_four_board_mc_comm_process(mocker):
+    # mock this so the process priority isn't changed during unit tests
+    mocker.patch.object(mc_comm, "set_this_process_high_priority", autospec=True)
+
     # Tests using this fixture should be responsible for cleaning up the queues
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4, queue_type=TestingQueue)
     mc_process = McCommunicationProcess(board_queues, error_queue)
@@ -62,7 +140,10 @@ def fixture_four_board_mc_comm_process():
 
 
 @pytest.fixture(scope="function", name="runnable_four_board_mc_comm_process")
-def fixture_runnable_four_board_mc_comm_process():
+def fixture_runnable_four_board_mc_comm_process(mocker):
+    # mock this so the process priority isn't changed during unit tests
+    mocker.patch.object(mc_comm, "set_this_process_high_priority", autospec=True)
+
     # Tests using this fixture should be responsible for cleaning up the queues
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
     mc_process = McCommunicationProcess(board_queues, error_queue)
@@ -84,7 +165,10 @@ class McCommunicationProcessNoHandshakes(McCommunicationProcess):
 
 
 @pytest.fixture(scope="function", name="four_board_mc_comm_process_no_handshake")
-def fixture_four_board_mc_comm_process_no_handshake():
+def fixture_four_board_mc_comm_process_no_handshake(mocker):
+    # mock this so the process priority isn't changed during unit tests
+    mocker.patch.object(mc_comm, "set_this_process_high_priority", autospec=True)
+
     # Tests using this fixture should be responsible for cleaning up the queues
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4, queue_type=TestingQueue)
     mc_process = McCommunicationProcessNoHandshakes(board_queues, error_queue)

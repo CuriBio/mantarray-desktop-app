@@ -91,7 +91,15 @@ ndarray
 NaN
 nan
 idx
+idxs
 µN
 µs
 stim
+stimulator
 durations
+subprotocol
+subprotocols
+UI
+FE
+multiprocessing
+len

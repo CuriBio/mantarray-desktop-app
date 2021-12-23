@@ -3,16 +3,18 @@ import datetime
 import json
 
 from freezegun import freeze_time
+from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
+from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import server
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
-from mantarray_desktop_app import STIM_MAX_PULSE_DURATION_MICROSECONDS
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
@@ -31,12 +33,14 @@ from mantarray_file_manager import SLEEP_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
 from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
 from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
+from mantarray_file_manager import STIMULATION_PROTOCOL_UUID
 from mantarray_file_manager import TAMPER_FLAG_UUID
 from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
 from mantarray_file_manager import USER_ACCOUNT_ID_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
+from mantarray_file_manager import UTC_BEGINNING_STIMULATION_UUID
 from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import pytest
@@ -47,6 +51,8 @@ from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
+from ..fixtures_mc_simulator import get_null_subprotocol
+from ..fixtures_mc_simulator import get_random_subprotocol
 from ..fixtures_process_monitor import fixture_test_monitor
 from ..fixtures_server import fixture_client_and_server_manager_and_shared_values
 from ..fixtures_server import fixture_server_manager
@@ -56,6 +62,7 @@ from ..fixtures_server import put_generic_beta_2_start_recording_info_in_dict
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import is_queue_eventually_not_empty
 from ..helpers import is_queue_eventually_of_size
+from ..helpers import random_bool
 
 __fixtures__ = [
     fixture_client_and_server_manager_and_shared_values,
@@ -742,7 +749,7 @@ def test_start_recording_command__populates_queue__with_given_time_index_paramet
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     put_generic_beta_1_start_recording_info_in_dict(test_process_manager.get_values_to_share_to_server())
 
-    expected_time_index = 1000
+    expected_time_index = 9600
     barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
@@ -755,11 +762,13 @@ def test_start_recording_command__populates_queue__with_given_time_index_paramet
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
-    assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][START_RECORDING_TIME_INDEX_UUID]
-        == expected_time_index
+    assert communication["metadata_to_copy_onto_main_file_attributes"][START_RECORDING_TIME_INDEX_UUID] == (
+        expected_time_index / MICROSECONDS_PER_CENTIMILLISECOND
     )
-    assert communication["timepoint_to_begin_recording_at"] == expected_time_index
+    assert (
+        communication["timepoint_to_begin_recording_at"]
+        == expected_time_index / MICROSECONDS_PER_CENTIMILLISECOND
+    )
 
 
 def test_start_recording_command__populates_queue__with_correctly_parsed_set_of_well_indices(
@@ -772,7 +781,7 @@ def test_start_recording_command__populates_queue__with_correctly_parsed_set_of_
         PLATE_BARCODE_UUID
     ]
     response = test_client.get(
-        f"/start_recording?barcode={expected_barcode}&active_well_indices=0,5,8&is_hardware_test_recording=False"
+        f"/start_recording?barcode={expected_barcode}&active_well_indices=0,5,8&is_hardware_test_recording=false"
     )
     assert response.status_code == 200
 
@@ -913,11 +922,11 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][CUSTOMER_ACCOUNT_ID_UUID]
-        == shared_values_dict["config_settings"]["Customer Account ID"]
+        == shared_values_dict["config_settings"]["customer_account_id"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][USER_ACCOUNT_ID_UUID]
-        == shared_values_dict["config_settings"]["User Account ID"]
+        == shared_values_dict["config_settings"]["user_account_id"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][START_RECORDING_TIME_INDEX_UUID]
@@ -1035,11 +1044,11 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][CUSTOMER_ACCOUNT_ID_UUID]
-        == shared_values_dict["config_settings"]["Customer Account ID"]
+        == shared_values_dict["config_settings"]["customer_account_id"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][USER_ACCOUNT_ID_UUID]
-        == shared_values_dict["config_settings"]["User Account ID"]
+        == shared_values_dict["config_settings"]["user_account_id"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][START_RECORDING_TIME_INDEX_UUID]
@@ -1123,6 +1132,62 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     assert response_json["command"] == "start_recording"
 
 
+@pytest.mark.parametrize(
+    "test_stim_start_timestamp,test_stim_info,expected_stim_info,test_description",
+    [
+        (None, None, None, "sets metadata value to None when protocols not set and stim not running"),
+        (
+            None,
+            {"test": "info"},
+            None,
+            "sets metadata value to None when protocols set and stim not running",
+        ),
+        (
+            datetime.datetime(year=2021, month=10, day=19, hour=12, minute=42, second=22, microsecond=332597),
+            {"test": "info"},
+            {"test": "info"},
+            "sets metadata value to stim info dict when protocols set and stim running",
+        ),
+    ],
+)
+def test_start_recording_command__beta_2_mode__populates_queue_with_stim_metadata_correctly(
+    test_stim_start_timestamp,
+    test_stim_info,
+    expected_stim_info,
+    test_description,
+    test_process_manager_creator,
+    test_client,
+):
+    test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
+    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+    put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
+
+    expected_stim_running_list = [random_bool() for _ in range(24)]
+    shared_values_dict["stimulation_running"] = expected_stim_running_list
+    shared_values_dict["stimulation_info"] = test_stim_info
+    shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] = [test_stim_start_timestamp]
+
+    test_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+        PLATE_BARCODE_UUID
+    ]
+    response = test_client.get(f"/start_recording?barcode={test_barcode}&is_hardware_test_recording=false")
+    assert response.status_code == 200
+
+    comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    confirm_queue_is_eventually_of_size(comm_queue, 1)
+    communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["command"] == "start_recording"
+    assert communication["stim_running_statuses"] == expected_stim_running_list
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][UTC_BEGINNING_STIMULATION_UUID]
+        == test_stim_start_timestamp
+    )
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][STIMULATION_PROTOCOL_UUID]
+        == expected_stim_info
+    )
+
+
 def test_shutdown__sends_hard_stop_command__waits_for_subprocesses_to_stop__then_shutdown_server_command_to_process_monitor(
     client_and_server_manager_and_shared_values, mocker
 ):
@@ -1173,10 +1238,10 @@ def test_set_stim_status__populates_queue_to_process_monitor_with_new_stim_statu
         shared_values_dict,
     ) = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
-    shared_values_dict["stimulation_protocols"] = [None] * 24
+    shared_values_dict["stimulation_info"] = {"protocols": [None] * 4, "protocol_assignments": {}}
 
     expected_status_bool = test_status in ("true", "True")
-    shared_values_dict["stimulation_running"] = not expected_status_bool
+    shared_values_dict["stimulation_running"] = [not expected_status_bool] * 24
 
     response = test_client.post(f"/set_stim_status?running={test_status}")
     assert response.status_code == 200
@@ -1189,8 +1254,8 @@ def test_set_stim_status__populates_queue_to_process_monitor_with_new_stim_statu
     assert communication["status"] is expected_status_bool
 
 
-def test_set_protocol__populates_queue_to_process_monitor_with_new_protocol(
-    client_and_server_manager_and_shared_values,
+def test_set_protocols__populates_queue_to_process_monitor_with_new_protocol(
+    client_and_server_manager_and_shared_values, mocker
 ):
     (
         test_client,
@@ -1198,35 +1263,58 @@ def test_set_protocol__populates_queue_to_process_monitor_with_new_protocol(
         shared_values_dict,
     ) = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
-    shared_values_dict["stimulation_running"] = False
+    shared_values_dict["stimulation_running"] = [False] * 24
 
     test_protocol_dict = {
         "protocols": [
             {
                 "stimulation_type": "C",
-                "well_number": "B1",
-                "total_protocol_duration": -1,
-                "pulses": [
-                    {
-                        "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
-                        "phase_one_charge": 0,
-                        "interpulse_interval": 0,
-                        "phase_two_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
-                        "phase_two_charge": 0,
-                        "repeat_delay_interval": 0,
-                        "total_active_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS * 20,
-                    }
-                ],
+                "protocol_id": "X",
+                "run_until_stopped": True,
+                "subprotocols": [get_null_subprotocol(5000), get_random_subprotocol()],
             }
-        ]
-        * 24
+        ],
+        "protocol_assignments": {
+            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "X" for well_idx in range(24)
+        },
     }
-    response = test_client.post("/set_protocol", json=json.dumps(test_protocol_dict))
+    mocker.patch.object(
+        server, "_get_stim_info_from_process_monitor", autospec=True, return_value=test_protocol_dict
+    )
+
+    response = test_client.post("/set_protocols", json={"data": json.dumps(test_protocol_dict)})
     assert response.status_code == 200
 
     comm_queue = server_manager.get_queue_to_main()
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "stimulation"
-    assert communication["command"] == "set_protocol"
-    assert communication["protocols"] == test_protocol_dict["protocols"]
+    assert communication["command"] == "set_protocols"
+    assert communication["stim_info"] == test_protocol_dict
+
+
+@pytest.mark.parametrize(
+    "test_beta_2_mode,test_comm_dict",
+    [
+        (True, {"communication_type": "calibration", "command": "run_calibration"}),
+        (False, {"communication_type": "xem_scripts", "script_type": "start_calibration"}),
+    ],
+)
+def test_start_calibration__populates_queue_to_process_monitor_with_correct_comm(
+    client_and_server_manager_and_shared_values, test_beta_2_mode, test_comm_dict
+):
+    (
+        test_client,
+        (server_manager, _),
+        shared_values_dict,
+    ) = client_and_server_manager_and_shared_values
+    shared_values_dict["system_status"] = CALIBRATION_NEEDED_STATE
+    shared_values_dict["beta_2_mode"] = test_beta_2_mode
+
+    response = test_client.get("/start_calibration")
+    assert response.status_code == 200
+
+    comm_queue = server_manager.get_queue_to_main()
+    confirm_queue_is_eventually_of_size(comm_queue, 1)
+    communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication == test_comm_dict

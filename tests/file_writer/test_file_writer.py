@@ -9,13 +9,14 @@ import time
 
 from freezegun import freeze_time
 import h5py
+from mantarray_desktop_app import file_uploader
+from mantarray_desktop_app import file_writer
 from mantarray_desktop_app import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import FileWriterProcess
 from mantarray_desktop_app import get_data_slice_within_timepoints
 from mantarray_desktop_app import get_time_index_dataset_from_file
 from mantarray_desktop_app import get_time_offset_dataset_from_file
 from mantarray_desktop_app import get_tissue_dataset_from_file
-from mantarray_desktop_app import InvalidDataTypeFromOkCommError
 from mantarray_desktop_app import MantarrayH5FileCreator
 from mantarray_desktop_app import REF_INDEX_TO_24_WELL_INDEX
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
@@ -38,6 +39,7 @@ from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_NUM_CHANNELS_ENABLED
 from ..fixtures_file_writer import GENERIC_NUM_SENSORS_ENABLED
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
+from ..fixtures_file_writer import populate_calibration_folder
 from ..fixtures_file_writer import WELL_DEF_24
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
@@ -83,16 +85,20 @@ def test_get_data_slice_within_timepoints__raises_not_implemented_error_if_no_la
 def test_FileWriterProcess_super_is_called_during_init(mocker):
     error_queue = Queue()
     mocked_init = mocker.patch.object(InfiniteProcess, "__init__")
-    FileWriterProcess((), Queue(), Queue(), error_queue)
+    FileWriterProcess((), Queue(), Queue(), error_queue, {})
     mocked_init.assert_called_once_with(error_queue, logging_level=logging.INFO)
 
 
-def test_FileWriterProcess_setup_before_loop__calls_super(four_board_file_writer_process, mocker):
-    spied_setup = mocker.spy(InfiniteProcess, "_setup_before_loop")
+def test_FileWriterProcess__creates_temp_dir_for_calibration_files_in_beta_2_mode_and_stores_dir_name(mocker):
+    spied_temp_dir = mocker.spy(file_writer.tempfile, "TemporaryDirectory")
 
-    fw_process = four_board_file_writer_process["fw_process"]
-    invoke_process_run_and_check_errors(fw_process, perform_setup_before_loop=True)
-    spied_setup.assert_called_once()
+    fw_process_beta_1 = FileWriterProcess((), Queue(), Queue(), Queue(), {}, beta_2_mode=False)
+    assert "calibration_file_directory" not in vars(fw_process_beta_1)
+    spied_temp_dir.assert_not_called()
+
+    fw_process_beta_2 = FileWriterProcess((), Queue(), Queue(), Queue(), {}, beta_2_mode=True)
+    spied_temp_dir.assert_called_once()
+    assert fw_process_beta_2.calibration_file_directory == spied_temp_dir.spy_return.name
 
 
 def test_FileWriterProcess_soft_stop_not_allowed_if_incoming_data_still_in_queue_for_board_0(
@@ -118,25 +124,26 @@ def test_FileWriterProcess_soft_stop_not_allowed_if_incoming_data_still_in_queue
     drain_queue(board_queues[0][0])
 
 
-def test_FileWriterProcess__raises_error_if_not_a_dict_is_passed_through_the_queue_for_board_0_from_instrument_comm(
-    four_board_file_writer_process, mocker, patch_print
-):
-
+def test_FileWriterProcess__setup_before_loop__calls_super(four_board_file_writer_process, mocker):
+    spied_setup = mocker.spy(InfiniteProcess, "_setup_before_loop")
+    spied_uploader = mocker.spy(file_uploader, "uploader")
     file_writer_process = four_board_file_writer_process["fw_process"]
-    board_queues = four_board_file_writer_process["board_queues"]
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        "a string is not a dictionary",
-        board_queues[0][0],
+    mocked_file_upload = mocker.patch.object(
+        file_writer_process, "_process_failed_upload_files_on_setup", autospec=True
     )
-    with pytest.raises(InvalidDataTypeFromOkCommError, match="a string is not a dictionary"):
-        invoke_process_run_and_check_errors(file_writer_process)
+
+    invoke_process_run_and_check_errors(file_writer_process, perform_setup_before_loop=True)
+    spied_setup.assert_called_once()
+    spied_uploader.assert_not_called()
+
+    invoke_process_run_and_check_errors(file_writer_process, perform_setup_before_loop=True)
+    assert len(mocked_file_upload.call_args_list) == 2
 
 
 @pytest.mark.timeout(4)
 def test_FileWriterProcess__raises_error_if_unrecognized_command_from_main(
     four_board_file_writer_process, mocker, patch_print
 ):
-
     file_writer_process = four_board_file_writer_process["fw_process"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     error_queue = four_board_file_writer_process["error_queue"]
@@ -177,8 +184,8 @@ def test_FileWriterProcess_soft_stop_not_allowed_if_command_from_main_still_in_q
 @pytest.mark.parametrize(
     "test_start_recording_command,test_description",
     [
-        (GENERIC_BETA_1_START_RECORDING_COMMAND, "closes correctly with beta 1 files"),
-        (GENERIC_BETA_2_START_RECORDING_COMMAND, "closes correctly with beta 2 files"),
+        (copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND), "closes correctly with beta 1 files"),
+        (copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND), "closes correctly with beta 2 files"),
     ],
 )
 def test_FileWriterProcess__close_all_files(
@@ -189,6 +196,7 @@ def test_FileWriterProcess__close_all_files(
 
     if test_start_recording_command == GENERIC_BETA_2_START_RECORDING_COMMAND:
         file_writer_process.set_beta_2_mode()
+        populate_calibration_folder(file_writer_process)
 
     this_command = copy.deepcopy(test_start_recording_command)
     this_command["active_well_indices"] = [3, 18]
@@ -404,6 +412,7 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_correctly(
         num_points_per_packet = data_packet["data"].shape[1]
     else:
         file_writer_process.set_beta_2_mode()
+        populate_calibration_folder(file_writer_process)
         start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
         data_packet = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
         num_points_per_packet = data_packet["time_indices"].shape[0]
@@ -495,8 +504,8 @@ def test_FileWriterProcess_teardown_after_loop__does_not_call_close_all_files__w
 @pytest.mark.parametrize(
     "test_start_recording_command,test_description",
     [
-        (GENERIC_BETA_1_START_RECORDING_COMMAND, "calls close with beta 1 files"),
-        (GENERIC_BETA_2_START_RECORDING_COMMAND, "calls close with beta 2 files"),
+        (copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND), "calls close with beta 1 files"),
+        (copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND), "calls close with beta 2 files"),
     ],
 )
 def test_FileWriterProcess_teardown_after_loop__calls_close_all_files__when_still_recording(
@@ -507,6 +516,7 @@ def test_FileWriterProcess_teardown_after_loop__calls_close_all_files__when_stil
 
     if test_start_recording_command == GENERIC_BETA_2_START_RECORDING_COMMAND:
         fw_process.set_beta_2_mode()
+        populate_calibration_folder(fw_process)
 
     spied_close_all_files = mocker.spy(fw_process, "close_all_files")
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -519,11 +529,23 @@ def test_FileWriterProcess_teardown_after_loop__calls_close_all_files__when_stil
     spied_close_all_files.assert_called_once()
 
 
+def test_FileWriterProcess_teardown_after_loop__beta_2_mode__destroys_temp_dir_for_calibration_recordings(
+    four_board_file_writer_process, mocker
+):
+    fw_process = four_board_file_writer_process["fw_process"]
+    fw_process.set_beta_2_mode()
+    spied_cleanup = mocker.spy(fw_process._calibration_folder, "cleanup")  # pylint: disable=protected-access
+
+    fw_process.soft_stop()
+    fw_process.run(perform_setup_before_loop=False, num_iterations=1)
+    spied_cleanup.assert_called_once()
+
+
 @pytest.mark.parametrize(
     "test_start_recording_command,test_description",
     [
-        (GENERIC_BETA_1_START_RECORDING_COMMAND, "calls close with beta 1 files"),
-        (GENERIC_BETA_2_START_RECORDING_COMMAND, "calls close with beta 2 files"),
+        (copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND), "calls close with beta 1 files"),
+        (copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND), "calls close with beta 2 files"),
     ],
 )
 def test_FileWriterProcess_hard_stop__calls_close_all_files__when_still_recording(
@@ -534,6 +556,7 @@ def test_FileWriterProcess_hard_stop__calls_close_all_files__when_still_recordin
 
     if test_start_recording_command == GENERIC_BETA_2_START_RECORDING_COMMAND:
         fw_process.set_beta_2_mode()
+        populate_calibration_folder(fw_process)
 
     spied_close_all_files = mocker.spy(fw_process, "close_all_files")
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -566,7 +589,7 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_1_files_after_stop_recordi
     spied_close_all_files = mocker.spy(fw_process, "close_all_files")
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        GENERIC_BETA_1_START_RECORDING_COMMAND, from_main_queue
+        copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND), from_main_queue
     )
     invoke_process_run_and_check_errors(fw_process)
 
@@ -632,6 +655,7 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_2_files_after_stop_recordi
 
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
+    populate_calibration_folder(fw_process)
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     tmp_dir = four_board_file_writer_process["file_dir"]
@@ -639,15 +663,16 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_2_files_after_stop_recordi
     spied_close_all_files = mocker.spy(fw_process, "close_all_files")
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        GENERIC_BETA_2_START_RECORDING_COMMAND, from_main_queue
+        copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND), from_main_queue
     )
     invoke_process_run_and_check_errors(fw_process)
 
     # fill files with data
     test_num_data_points = 50
     start_timepoint = GENERIC_BETA_2_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
-    test_data = np.zeros(test_num_data_points, dtype=np.int16)
+    test_data = np.zeros(test_num_data_points, dtype=np.uint16)
     data_packet = {
+        "data_type": "magnetometer",
         "time_indices": np.arange(start_timepoint, start_timepoint + test_num_data_points, dtype=np.uint64),
         "is_first_packet_of_stream": False,
     }
@@ -708,7 +733,7 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_1_f
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        GENERIC_BETA_1_START_RECORDING_COMMAND, from_main_queue
+        copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND), from_main_queue
     )
     invoke_process_run_and_check_errors(fw_process)
 
@@ -788,11 +813,13 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_2_f
 ):
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
+    populate_calibration_folder(fw_process)
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        GENERIC_BETA_2_START_RECORDING_COMMAND, from_main_queue
+        copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND), from_main_queue
     )
     invoke_process_run_and_check_errors(fw_process)
 
@@ -800,14 +827,15 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_2_f
     num_data_points = 100
     start_timepoint = GENERIC_BETA_2_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
     data_packet = {
+        "data_type": "magnetometer",
         "time_indices": np.arange(start_timepoint, start_timepoint + num_data_points, dtype=np.uint64),
         "is_first_packet_of_stream": False,
     }
     for well_idx in range(24):
         channel_dict = {
             "time_offsets": np.zeros((GENERIC_NUM_SENSORS_ENABLED, num_data_points), dtype=np.uint16),
-            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: np.zeros(num_data_points, dtype=np.int16),
-            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: np.zeros(num_data_points, dtype=np.int16),
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: np.zeros(num_data_points, dtype=np.uint16),
+            SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: np.zeros(num_data_points, dtype=np.uint16),
         }
         data_packet[well_idx] = channel_dict
     board_queues[0][0].put_nowait(data_packet)
@@ -846,6 +874,11 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_2_f
     invoke_process_run_and_check_errors(fw_process)
     confirm_queue_is_eventually_empty(from_main_queue)
     assert fw_process.get_file_directory() == expected_new_dir
+    # also confirm message sent to indicate all files have been finalized
+    assert drain_queue(to_main_queue)[-2] == {
+        "communication_type": "file_finalized",
+        "message": "all_finals_finalized",
+    }
 
     # Tanner (3/8/21): Prevent BrokenPipeErrors
     drain_queue(board_queues[0][1])
@@ -856,12 +889,16 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_2_f
 @pytest.mark.parametrize(
     "test_start_recording_command,test_description",
     [
-        (GENERIC_BETA_1_START_RECORDING_COMMAND, "tears down correctly with beta 1 files"),
-        (GENERIC_BETA_2_START_RECORDING_COMMAND, "tears down correctly with beta 2 files"),
+        (copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND), "tears down correctly with beta 1 files"),
+        (copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND), "tears down correctly with beta 2 files"),
     ],
 )
 def test_FileWriterProcess_teardown_after_loop__can_teardown_process_while_recording__and_log_stop_recording_message(
-    test_start_recording_command, test_description, running_four_board_file_writer_process, mocker
+    test_start_recording_command,
+    test_description,
+    running_four_board_file_writer_process,
+    mocker,
+    patch_print,
 ):
     fw_process = running_four_board_file_writer_process["fw_process"]
     to_main_queue = running_four_board_file_writer_process["to_main_queue"]

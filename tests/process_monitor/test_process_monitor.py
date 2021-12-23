@@ -14,12 +14,14 @@ from mantarray_desktop_app import BARCODE_UNREADABLE_UUID
 from mantarray_desktop_app import BARCODE_VALID_UUID
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
+from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
 from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import IncorrectMagnetometerConfigFromInstrumentError
+from mantarray_desktop_app import IncorrectSamplingPeriodFromInstrumentError
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import MantarrayMcSimulator
@@ -35,6 +37,7 @@ from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import ServerManager
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.server import queue_command_to_instrument_comm
 import numpy as np
 import pytest
@@ -46,6 +49,7 @@ from ..fixtures import fixture_patch_print
 from ..fixtures import fixture_test_process_manager_creator
 from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from ..fixtures_mc_simulator import create_random_stim_info
 from ..fixtures_ok_comm import fixture_patch_connection_to_board
 from ..fixtures_process_monitor import fixture_test_monitor
 from ..helpers import confirm_queue_is_eventually_empty
@@ -253,7 +257,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_data_analyzer(
 
 
 def test_MantarrayProcessesMonitor__pulls_outgoing_data_from_data_analyzer_and_makes_it_available_to_server(
-    mocker, test_process_manager_creator, test_monitor
+    test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
@@ -264,16 +268,40 @@ def test_MantarrayProcessesMonitor__pulls_outgoing_data_from_data_analyzer_and_m
 
     # add dummy data here. In this test, the item is never actually looked at, so it can be any string value
     expected_json_data = json.dumps({"well": 0, "data": [1, 2, 3, 4, 5]})
-    da_data_out_queue.put_nowait(expected_json_data)
-    confirm_queue_is_eventually_of_size(
-        da_data_out_queue, 1, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_json_data, da_data_out_queue)
 
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(da_data_out_queue)
     confirm_queue_is_eventually_of_size(pm_data_out_queue, 1)
     actual = pm_data_out_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_json_data
+
+
+def test_MantarrayProcessesMonitor__passes_update_upload_status_data_to_server(
+    test_process_manager_creator, test_monitor
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
+
+    fw_data_out_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_file_writer_to_main()
+    )
+    pm_data_out_queue = test_process_manager.queue_container().get_data_queue_to_server()
+
+    expected_content = {"key": "value"}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {
+            "communication_type": "update_upload_status",
+            "content": expected_content,
+        },
+        fw_data_out_queue,
+    )
+
+    invoke_process_run_and_check_errors(monitor_thread)
+    confirm_queue_is_eventually_empty(fw_data_out_queue)
+    confirm_queue_is_eventually_of_size(pm_data_out_queue, 1)
+    actual = pm_data_out_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert actual == expected_content
 
 
 def test_MantarrayProcessesMonitor__logs_errors_from_instrument_comm_process(
@@ -365,18 +393,14 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         ("error", "stack_trace"), ok_comm_error_queue
     )
-    instrument_to_main = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_ok_comm_item, instrument_to_main)
-    file_writer_to_main = (
-        test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
-    )
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        expected_file_writer_item, file_writer_to_main
-    )
-    data_analyzer_to_main = (
+    to_instrument_comm = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_ok_comm_item, to_instrument_comm)
+    to_file_writer = test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_file_writer_item, to_file_writer)
+    to_data_analyzer = (
         test_process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
     )
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_da_item, data_analyzer_to_main)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_da_item, to_data_analyzer)
     server_to_main = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_server_item, server_to_main)
 
@@ -604,6 +628,39 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_calibrated_after_calib
     invoke_process_run_and_check_errors(monitor_thread, num_iterations=51)
 
     assert shared_values_dict["system_status"] == CALIBRATED_STATE
+
+
+def test_MantarrayProcessesMonitor__after_beta_2_calibration_files_are_finalized__sets_system_status_to_calibrated_and_stops_managed_acquisition(
+    test_monitor, test_process_manager_creator, mocker
+):
+    board_idx = 0
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+    shared_values_dict["system_status"] = CALIBRATING_STATE
+
+    from_file_writer_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_file_writer_to_main()
+    )
+    to_instrument_comm_queue = (
+        test_process_manager.queue_container().get_communication_to_instrument_comm_queue(board_idx)
+    )
+    to_file_writer_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
+    )
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"communication_type": "file_finalized", "message": "all_finals_finalized"}, from_file_writer_queue
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert shared_values_dict["system_status"] == CALIBRATED_STATE
+
+    expected_comm = dict(STOP_MANAGED_ACQUISITION_COMMUNICATION)
+    expected_comm["is_calibration_recording"] = True
+
+    confirm_queue_is_eventually_of_size(to_instrument_comm_queue, 1)
+    assert to_instrument_comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_comm
+    confirm_queue_is_eventually_of_size(to_file_writer_queue, 1)
+    assert to_file_writer_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_comm
 
 
 def test_MantarrayProcessesMonitor__sets_system_status_to_calibrated_after_managed_acquisition_stops__and_resets_data_dump_buffer_size(
@@ -1208,8 +1265,10 @@ def test_MantarrayProcessesMonitor__raises_error_if_config_dict_in_start_data_st
 
     test_num_wells = 24
     expected_config_dict = create_magnetometer_config_dict(test_num_wells)
+    expected_sampling_period = 15000
     shared_values_dict["magnetometer_config_dict"] = {
-        "magnetometer_config": copy.deepcopy(expected_config_dict)
+        "magnetometer_config": copy.deepcopy(expected_config_dict),
+        "sampling_period": expected_sampling_period,
     }
     shared_values_dict["beta_2_mode"] = True
 
@@ -1220,11 +1279,44 @@ def test_MantarrayProcessesMonitor__raises_error_if_config_dict_in_start_data_st
             "communication_type": "acquisition_manager",
             "command": "start_managed_acquisition",
             "magnetometer_config": expected_config_dict,
+            "sampling_period": expected_sampling_period,
             "timestamp": None,
         },
         ic_to_main_queue,
     )
-    with pytest.raises(IncorrectMagnetometerConfigFromInstrumentError):
+    with pytest.raises(IncorrectMagnetometerConfigFromInstrumentError, match=str(expected_config_dict)):
+        invoke_process_run_and_check_errors(monitor_thread)
+
+
+def test_MantarrayProcessesMonitor__raises_error_if_sampling_period_in_start_data_stream_command_response_from_instrument_does_not_match_expected_value(
+    test_process_manager_creator, test_monitor, patch_print
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+    queues = test_process_manager.queue_container()
+    ic_to_main_queue = queues.get_communication_queue_from_instrument_comm_to_main(0)
+
+    test_num_wells = 24
+    expected_config_dict = create_magnetometer_config_dict(test_num_wells)
+    expected_sampling_period = 16000
+    shared_values_dict["magnetometer_config_dict"] = {
+        "magnetometer_config": copy.deepcopy(expected_config_dict),
+        "sampling_period": expected_sampling_period,
+    }
+    shared_values_dict["beta_2_mode"] = True
+
+    bad_sampling_period = expected_sampling_period - 1
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {
+            "communication_type": "acquisition_manager",
+            "command": "start_managed_acquisition",
+            "magnetometer_config": expected_config_dict,
+            "sampling_period": bad_sampling_period,
+            "timestamp": None,
+        },
+        ic_to_main_queue,
+    )
+    with pytest.raises(IncorrectSamplingPeriodFromInstrumentError, match=str(bad_sampling_period)):
         invoke_process_run_and_check_errors(monitor_thread)
 
 
@@ -1291,3 +1383,118 @@ def test_MantarrayProcessesMonitor__updates_magnetometer_config_after_receiving_
     assert comm_to_da == expected_comm_to_da
     # make sure update was not sent back to mc_comm
     confirm_queue_is_eventually_empty(main_to_ic)
+
+
+def test_MantarrayProcessesMonitor__sets_timestamp_and_stim_running_statuses_in_shared_values_dict_after_receiving_start_stimulation_command_response_from_instrument_comm(
+    test_monitor, test_process_manager_creator
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+
+    test_stim_info = create_random_stim_info()
+
+    shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] = [None]
+    shared_values_dict["stimulation_info"] = test_stim_info
+
+    instrument_comm_to_main = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
+    )
+
+    expected_timestamp = datetime.datetime(
+        year=2021, month=10, day=19, hour=10, minute=23, second=40, microsecond=123456
+    )
+    command_response = {
+        "communication_type": "stimulation",
+        "command": "start_stimulation",
+        "timestamp": expected_timestamp,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(command_response, instrument_comm_to_main)
+
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert shared_values_dict["utc_timestamps_of_beginning_of_stimulation"][0] == expected_timestamp
+    assert shared_values_dict["stimulation_running"] == [
+        bool(
+            test_stim_info["protocol_assignments"][
+                GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
+            ]
+        )
+        for well_idx in range(24)
+    ]
+
+
+def test_MantarrayProcessesMonitor__clears_timestamp_and_updates_stim_running_statuses_shared_values_dict_after_receiving_stop_stimulation_command_response_from_instrument_comm(
+    test_monitor, test_process_manager_creator
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+
+    test_stim_info = create_random_stim_info()
+
+    shared_values_dict["stimulation_info"] = test_stim_info
+    shared_values_dict["stimulation_running"] = [
+        bool(
+            test_stim_info["protocol_assignments"][
+                GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
+            ]
+        )
+        for well_idx in range(24)
+    ]
+    shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] = [
+        datetime.datetime(year=2021, month=10, day=19, hour=10, minute=31, second=21, microsecond=123456)
+    ]
+
+    instrument_comm_to_main = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
+    )
+
+    command_response = {"communication_type": "stimulation", "command": "stop_stimulation"}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(command_response, instrument_comm_to_main)
+
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert shared_values_dict["utc_timestamps_of_beginning_of_stimulation"][0] is None
+    assert shared_values_dict["stimulation_running"] == [False] * 24
+
+
+def test_MantarrayProcessesMonitor__updates_stimulation_running_list_and_stimulation_start_time_timestamp_when_status_update_message_from_instrument_comm(
+    test_monitor, test_process_manager_creator
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+
+    test_wells_running = {0, 5, 10, 15}
+    shared_values_dict["stimulation_running"] = [well_idx in test_wells_running for well_idx in range(24)]
+    test_timestamp = datetime.datetime(
+        year=2021, month=10, day=19, hour=12, minute=8, second=5, microsecond=123456
+    )
+    shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] = [test_timestamp]
+
+    instrument_comm_to_main = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
+    )
+
+    # stop the first set of wells
+    test_wells_to_stop_1 = {0, 10}
+    msg_from_ic_1 = {
+        "communication_type": "stimulation",
+        "command": "status_update",
+        "wells_done_stimulating": list(test_wells_to_stop_1),
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(msg_from_ic_1, instrument_comm_to_main)
+    invoke_process_run_and_check_errors(monitor_thread)
+    # make sure that statuses were update correctly and the start timestamp was not cleared
+    expected_updated_statuses_1 = [
+        well_idx in (test_wells_running - test_wells_to_stop_1) for well_idx in range(24)
+    ]
+    assert shared_values_dict["stimulation_running"] == expected_updated_statuses_1
+    assert shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] == [test_timestamp]
+
+    # stop remaining wells
+    msg_from_ic_2 = {
+        "communication_type": "stimulation",
+        "command": "status_update",
+        "wells_done_stimulating": list(test_wells_running - test_wells_to_stop_1),
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(msg_from_ic_2, instrument_comm_to_main)
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert shared_values_dict["stimulation_running"] == [False] * 24
+    assert shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] == [None]

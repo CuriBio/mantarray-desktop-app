@@ -4,12 +4,10 @@ import hashlib
 import json
 import logging
 import multiprocessing
-import os
 import platform
 import socket
 import sys
 import tempfile
-import threading
 import time
 from unittest.mock import ANY
 import uuid
@@ -20,8 +18,6 @@ from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import get_api_endpoint
 from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import get_server_port_number
-from mantarray_desktop_app import ImproperlyFormattedCustomerAccountUUIDError
-from mantarray_desktop_app import ImproperlyFormattedUserAccountUUIDError
 from mantarray_desktop_app import InvalidBeta2FlagOptionError
 from mantarray_desktop_app import LocalServerPortAlreadyInUseError
 from mantarray_desktop_app import main
@@ -40,6 +36,7 @@ from ..fixtures import fixture_fully_running_app_from_main_entrypoint
 from ..fixtures import fixture_patched_firmware_folder
 from ..fixtures import fixture_patched_xem_scripts_folder
 from ..fixtures import GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
+from ..fixtures import GENERIC_STORED_CUSTOMER_IDS
 
 
 __fixtures__ = [
@@ -77,30 +74,6 @@ def test_main__stores_and_logs_port_number_from_command_line_arguments(
     spied_info_logger.assert_any_call(f"Using server port number: {expected_port_number}")
 
 
-def test_main__handles_base64_command_line_argument_with_padding_issue__and_redacts_initial_base64_settings_from_log_messages(
-    mocker,
-):
-    # Tanner (12/31/20): Need to mock this since the recording folder passed in --initial-base64-settings does not exist
-    mocker.patch.object(os.path, "isdir", autospec=True, return_value=True)
-
-    expected_command_line_args = [
-        "--debug-test-post-build",
-        "--initial-base64-settings=eyJyZWNvcmRpbmdfZGlyZWN0b3J5IjoiL2hvbWUvdWJ1bnR1Ly5jb25maWcvTWFudGFycmF5Q29udHJvbGxlci9yZWNvcmRpbmdzIn0",
-    ]
-    spied_info_logger = mocker.spy(main.logger, "info")
-    main.main(expected_command_line_args)
-
-    for call_args in spied_info_logger.call_args_list:
-        if "Command Line Args:" in call_args[0][0]:
-            break
-    else:
-        assert False, "Command Line Args not found in any log message"
-    for i, call_args in enumerate(spied_info_logger.call_args_list):
-        assert (
-            "initial_base64_settings" not in call_args[0][0]
-        ), f"Error: initial_base64_settings found in call #{i}"
-
-
 def test_main__redacts_log_file_dir_from_log_message_of_command_line_args(mocker):
     with tempfile.TemporaryDirectory() as expected_log_file_dir:
         spied_info_logger = mocker.spy(main.logger, "info")
@@ -121,15 +94,10 @@ def test_main__redacts_log_file_dir_from_log_message_of_command_line_args(mocker
 
 
 def test_main__logs_command_line_arguments(mocker):
-    test_command_line_args = ["--debug-test-post-build", "--log-level-debug"]
+
     spied_info_logger = mocker.spy(main.logger, "info")
-    main_thread = threading.Thread(
-        target=main.main,
-        args=[test_command_line_args],
-        name="thread_for_main_function_in_test",
-    )
-    main_thread.start()
-    main_thread.join()
+
+    main.main(["--debug-test-post-build", "--log-level-debug"])
 
     expected_cmd_line_args_dict = {
         "debug_test_post_build": True,
@@ -137,6 +105,7 @@ def test_main__logs_command_line_arguments(mocker):
         "skip_mantarray_boot_up": False,
         "port_number": None,
         "log_file_dir": None,
+        "initial_base64_settings": None,
         "expected_software_version": None,
         "no_load_firmware": False,
         "skip_software_version_verification": False,
@@ -178,63 +147,46 @@ def test_main_configures_logging(mocker):
 def test_main__logs_system_info__and_software_version_at_very_start(
     mocker,
 ):
-    spied_info_logger = mocker.spy(main.logger, "info")
-    expected_uuid = "c7d3e956-cfc3-42df-94d9-b3a19cf1529c"
-    test_dict = {
-        "log_file_uuid": expected_uuid,
-    }
-    json_str = json.dumps(test_dict)
-    b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
-    main.main(
-        [f"--initial-base64-settings={b64_encoded}", "--startup-test-options", "no_subprocesses", "no_flask"]
-    )
+    with tempfile.TemporaryDirectory() as tmp:
+        spied_info_logger = mocker.spy(main.logger, "info")
+        expected_uuid = "c7d3e956-cfc3-42df-94d9-b3a19cf1529c"
+        test_dict = {
+            "log_file_uuid": expected_uuid,
+            "stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS,
+            "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
+            "zipped_recordings_dir": f"/{tmp}/zipped_recordings_dir",
+            "failed_uploads_dir": f"/{tmp}/failed_uploads_dir",
+            "recording_directory": f"/{tmp}",
+        }
+        json_str = json.dumps(test_dict)
+        b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
+        main.main(
+            [
+                f"--initial-base64-settings={b64_encoded}",
+                "--startup-test-options",
+                "no_subprocesses",
+                "no_flask",
+            ]
+        )
 
-    expected_name_hash = hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).hexdigest()
-    spied_info_logger.assert_any_call(f"Log File UUID: {expected_uuid}")
-    spied_info_logger.assert_any_call(f"SHA512 digest of Computer Name {expected_name_hash}")
-    spied_info_logger.assert_any_call(f"Mantarray Controller v{CURRENT_SOFTWARE_VERSION} started")
+        expected_name_hash = hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).hexdigest()
+        spied_info_logger.assert_any_call(f"Log File UUID: {expected_uuid}")
+        spied_info_logger.assert_any_call(f"SHA512 digest of Computer Name {expected_name_hash}")
+        spied_info_logger.assert_any_call(f"Mantarray Controller v{CURRENT_SOFTWARE_VERSION} started")
 
-    uname = platform.uname()
-    uname_sys = getattr(uname, "system")
-    uname_release = getattr(uname, "release")
-    uname_version = getattr(uname, "version")
-    spied_info_logger.assert_any_call(f"System: {uname_sys}")
-    spied_info_logger.assert_any_call(f"Release: {uname_release}")
-    spied_info_logger.assert_any_call(f"Version: {uname_version}")
-    spied_info_logger.assert_any_call(f"Machine: {getattr(uname, 'machine')}")
-    spied_info_logger.assert_any_call(f"Processor: {getattr(uname, 'processor')}")
-    spied_info_logger.assert_any_call(f"Win 32 Ver: {platform.win32_ver()}")
-    spied_info_logger.assert_any_call(
-        f"Platform: {platform.platform()}, Architecture: {platform.architecture()}, Interpreter is 64-bits: {sys.maxsize > 2**32}, System Alias: {platform.system_alias(uname_sys, uname_release, uname_version)}"
-    )
-
-
-def test_main__raises_error_when_invalid_customer_account_uuid_is_passed_in_cmd_line_args(
-    mocker,
-):
-    invalid_uuid = "14b9294a-9efb-47dd"
-    test_dict = {
-        "customer_account_uuid": invalid_uuid,
-    }
-    json_str = json.dumps(test_dict)
-    b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
-    command_line_args = [f"--initial-base64-settings={b64_encoded}"]
-    with pytest.raises(ImproperlyFormattedCustomerAccountUUIDError, match=invalid_uuid):
-        main.main(command_line_args)
-
-
-def test_main__raises_error_when_invalid_user_account_uuid_is_passed_in_cmd_line_args(
-    mocker,
-):
-    invalid_uuid = "not a uuid"
-    test_dict = {
-        "user_account_uuid": invalid_uuid,
-    }
-    json_str = json.dumps(test_dict)
-    b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
-    command_line_args = [f"--initial-base64-settings={b64_encoded}"]
-    with pytest.raises(ImproperlyFormattedUserAccountUUIDError, match=invalid_uuid):
-        main.main(command_line_args)
+        uname = platform.uname()
+        uname_sys = getattr(uname, "system")
+        uname_release = getattr(uname, "release")
+        uname_version = getattr(uname, "version")
+        spied_info_logger.assert_any_call(f"System: {uname_sys}")
+        spied_info_logger.assert_any_call(f"Release: {uname_release}")
+        spied_info_logger.assert_any_call(f"Version: {uname_version}")
+        spied_info_logger.assert_any_call(f"Machine: {getattr(uname, 'machine')}")
+        spied_info_logger.assert_any_call(f"Processor: {getattr(uname, 'processor')}")
+        spied_info_logger.assert_any_call(f"Win 32 Ver: {platform.win32_ver()}")
+        spied_info_logger.assert_any_call(
+            f"Platform: {platform.platform()}, Architecture: {platform.architecture()}, Interpreter is 64-bits: {sys.maxsize > 2**32}, System Alias: {platform.system_alias(uname_sys, uname_release, uname_version)}"
+        )
 
 
 def test_main__raises_error_if_multiprocessing_start_method_not_spawn(mocker):
@@ -440,9 +392,11 @@ def test_main__stores_and_logs_directory_for_log_files_from_command_line_argumen
 def test_main__stores_values_from_command_line_arguments(mocker, fully_running_app_from_main_entrypoint):
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         test_dict = {
-            "customer_account_uuid": "14b9294a-9efb-47dd-a06e-8247e982e196",
-            "user_account_uuid": "0288efbc-7705-4946-8815-02701193f766",
+            "stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS,
+            "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
             "recording_directory": expected_recordings_dir,
+            "zipped_recordings_dir": f"{expected_recordings_dir}/zipped_recordings",
+            "failed_uploads_dir": f"{expected_recordings_dir}/failed_uploads",
             "log_file_uuid": "91dbb151-0867-44da-a595-bd303f91927d",
         }
         json_str = json.dumps(test_dict)
@@ -459,10 +413,10 @@ def test_main__stores_values_from_command_line_arguments(mocker, fully_running_a
         shared_values_dict = app_info["object_access_inside_main"]["values_to_share_to_server"]
         assert shared_values_dict["beta_2_mode"] is False
         actual_config_settings = shared_values_dict["config_settings"]
-        assert actual_config_settings["Customer Account ID"] == "14b9294a-9efb-47dd-a06e-8247e982e196"
-        assert actual_config_settings["Recording Directory"] == expected_recordings_dir
-        assert actual_config_settings["User Account ID"] == "0288efbc-7705-4946-8815-02701193f766"
+
+        assert actual_config_settings["recording_directory"] == expected_recordings_dir
         assert shared_values_dict["log_file_uuid"] == "91dbb151-0867-44da-a595-bd303f91927d"
+        assert "stored_customer_ids" in shared_values_dict["stored_customer_settings"]
         assert (
             shared_values_dict["computer_name_hash"]
             == hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).hexdigest()
@@ -474,24 +428,28 @@ def test_main__generates_log_file_uuid_if_none_passed_in_cmd_line_args(
 ):
     expected_log_file_uuid = uuid.UUID("ab2e730b-8be5-440b-81f8-b268c7fb3584")
     mocker.patch.object(uuid, "uuid4", autospec=True, return_value=expected_log_file_uuid)
+    with tempfile.TemporaryDirectory() as tmp:
+        test_dict = {
+            "stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS,
+            "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
+            "zipped_recordings_dir": f"/{tmp}/zipped_recordings",
+            "failed_uploads_dir": f"/{tmp}/failed_uploads",
+            "recording_directory": f"/{tmp}",
+            "log_file_uuid": str(expected_log_file_uuid),
+        }
+        json_str = json.dumps(test_dict)
+        b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
 
-    test_dict = {
-        "customer_account_uuid": "14b9294a-9efb-47dd-a06e-8247e982e196",
-        "user_account_uuid": "0288efbc-7705-4946-8815-02701193f766",
-    }
-    json_str = json.dumps(test_dict)
-    b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
+        command_line_args = [
+            f"--initial-base64-settings={b64_encoded}",
+            "--startup-test-options",
+            "no_subprocesses",
+            "no_flask",
+        ]
+        app_info = fully_running_app_from_main_entrypoint(command_line_args)
 
-    command_line_args = [
-        f"--initial-base64-settings={b64_encoded}",
-        "--startup-test-options",
-        "no_subprocesses",
-        "no_flask",
-    ]
-    app_info = fully_running_app_from_main_entrypoint(command_line_args)
-
-    shared_values_dict = app_info["object_access_inside_main"]["values_to_share_to_server"]
-    assert shared_values_dict["log_file_uuid"] == expected_log_file_uuid
+        shared_values_dict = app_info["object_access_inside_main"]["values_to_share_to_server"]
+        assert shared_values_dict["log_file_uuid"] == str(expected_log_file_uuid)
 
 
 def test_main__puts_server_into_error_mode_if_expected_software_version_is_incorrect(mocker):
@@ -530,8 +488,9 @@ def test_main__full_launch_script_runs_as_expected(fully_running_app_from_main_e
     )
 
     shared_values_dict = app_info["object_access_inside_main"]["values_to_share_to_server"]
-    assert shared_values_dict["stimulation_running"] is False
-    assert shared_values_dict["stimulation_protocols"] is None
+    assert shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] == [None]
+    assert shared_values_dict["stimulation_running"] == [False] * 24
+    assert shared_values_dict["stimulation_info"] is None
 
     # assert log messages were called in correct order
     expected_info_calls = iter(

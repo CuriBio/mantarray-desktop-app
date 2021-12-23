@@ -12,6 +12,7 @@ from mantarray_desktop_app import FIFO_READ_PRODUCER_DATA_OFFSET
 from mantarray_desktop_app import FIFO_READ_PRODUCER_SAWTOOTH_PERIOD
 from mantarray_desktop_app import FIFO_READ_PRODUCER_WELL_AMPLITUDE
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
+from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
 from mantarray_desktop_app import REF_INDEX_TO_24_WELL_INDEX
@@ -320,13 +321,13 @@ def test_DataAnalyzerProcess__correctly_pairs_ascending_order_ref_sensor_data_in
     invoke_process_run_and_check_errors(p)
 
     data_buffer = p._data_buffer  # pylint:disable=protected-access
-    expected_ref_data_0 = np.array([[125, 1125, 2125], [6, 54, 102]], dtype=np.int32)
+    expected_ref_data_0 = np.array([[1250, 11250, 21250], [6, 54, 102]], dtype=np.int32)
     np.testing.assert_equal(data_buffer[0]["ref_data"], expected_ref_data_0)
-    expected_ref_data_1 = np.array([[375, 1375, 2375], [18, 66, 114]], dtype=np.int32)
+    expected_ref_data_1 = np.array([[3750, 13750, 23750], [18, 66, 114]], dtype=np.int32)
     np.testing.assert_equal(data_buffer[1]["ref_data"], expected_ref_data_1)
-    expected_ref_data_4 = np.array([[625, 1625, 2625], [30, 78, 126]], dtype=np.int32)
+    expected_ref_data_4 = np.array([[6250, 16250, 26250], [30, 78, 126]], dtype=np.int32)
     np.testing.assert_equal(data_buffer[4]["ref_data"], expected_ref_data_4)
-    expected_ref_data_5 = np.array([[875, 1875, 2875], [42, 90, 138]], dtype=np.int32)
+    expected_ref_data_5 = np.array([[8750, 18750, 28750], [42, 90, 138]], dtype=np.int32)
     np.testing.assert_equal(data_buffer[5]["ref_data"], expected_ref_data_5)
 
 
@@ -359,13 +360,13 @@ def test_DataAnalyzerProcess__correctly_pairs_descending_order_ref_sensor_data_i
     invoke_process_run_and_check_errors(p)
 
     data_buffer = p._data_buffer  # pylint:disable=protected-access
-    expected_ref_data_23 = np.array([[125, 1125, 2125], [11, 59, 107]], dtype=np.int32)
+    expected_ref_data_23 = np.array([[1250, 11250, 21250], [11, 59, 107]], dtype=np.int32)
     np.testing.assert_equal(data_buffer[23]["ref_data"], expected_ref_data_23)
-    expected_ref_data_22 = np.array([[375, 1375, 2375], [23, 71, 119]], dtype=np.int32)
+    expected_ref_data_22 = np.array([[3750, 13750, 23750], [23, 71, 119]], dtype=np.int32)
     np.testing.assert_equal(data_buffer[22]["ref_data"], expected_ref_data_22)
-    expected_ref_data_19 = np.array([[625, 1625, 2625], [35, 83, 131]], dtype=np.int32)
+    expected_ref_data_19 = np.array([[6250, 16250, 26250], [35, 83, 131]], dtype=np.int32)
     np.testing.assert_equal(data_buffer[19]["ref_data"], expected_ref_data_19)
-    expected_ref_data_18 = np.array([[875, 1875, 2875], [47, 95, 143]], dtype=np.int32)
+    expected_ref_data_18 = np.array([[8750, 18750, 28750], [47, 95, 143]], dtype=np.int32)
     np.testing.assert_equal(data_buffer[18]["ref_data"], expected_ref_data_18)
 
 
@@ -373,11 +374,7 @@ def test_DataAnalyzerProcess__correctly_pairs_descending_order_ref_sensor_data_i
     "test_sample_indices,expected_status,test_description",
     [
         (None, False, "correctly sets falg when empty"),
-        (
-            np.array([0], dtype=np.int32),
-            False,
-            "correctly sets flag when containing one item",
-        ),
+        (np.array([0], dtype=np.int32), False, "correctly sets flag when containing one item"),
         (
             np.array(
                 [0, DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS - 1],
@@ -410,7 +407,7 @@ def test_DataAnalyzerProcess__is_buffer_full_returns_correct_value(
     for well_idx in range(24):
         data_buffer[well_idx]["construct_data"] = test_data
         data_buffer[well_idx]["ref_data"] = test_data
-    actual = p._is_buffer_full()  # pylint:disable=protected-access
+    actual = p.is_buffer_full()
     assert actual is expected_status
 
 
@@ -517,7 +514,7 @@ def test_DataAnalyzerProcess__create_outgoing_data__normalizes_and_flips_raw_dat
     sawtooth_data = signal.sawtooth(timepoints / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5) * -1
     test_data = np.array(
         (
-            timepoints,
+            timepoints * MICROSECONDS_PER_CENTIMILLISECOND,
             (FIFO_READ_PRODUCER_DATA_OFFSET + FIFO_READ_PRODUCER_WELL_AMPLITUDE * sawtooth_data)
             - RAW_TO_SIGNED_CONVERSION_VALUE,
         ),
@@ -538,8 +535,9 @@ def test_DataAnalyzerProcess__create_outgoing_data__normalizes_and_flips_raw_dat
     )
 
     pt = PipelineTemplate(
+        is_beta_1_data=True,
         noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
-        tissue_sampling_period=ROUND_ROBIN_PERIOD,
+        tissue_sampling_period=ROUND_ROBIN_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND,
     )
     pipeline = pt.create_pipeline()
     pipeline.load_raw_gmr_data(normalized_data, np.zeros(normalized_data.shape))

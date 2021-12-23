@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Docstring."""
+"""Mantarray Desktop App."""
 
 from . import fifo_read_producer
 from . import fifo_simulator
+from . import file_uploader
 from . import file_writer
 from . import firmware_manager
 from . import main
@@ -33,9 +34,13 @@ from .constants import BUFFERING_STATE
 from .constants import CALIBRATED_STATE
 from .constants import CALIBRATING_STATE
 from .constants import CALIBRATION_NEEDED_STATE
+from .constants import CALIBRATION_RECORDING_DUR_SECONDS
 from .constants import CHANNEL_INDEX_TO_24_WELL_INDEX
 from .constants import CLEAR_BARCODE_TRIG_BIT
 from .constants import CLEARED_BARCODE_VALUE
+from .constants import CLOUD_API_ENDPOINT
+from .constants import CLOUD_API_ENDPOINT_USER_OPTION
+from .constants import CLOUD_API_ENDPOINT_VALID_OPTIONS
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from .constants import CONSTRUCT_SENSORS_PER_REF_SENSOR
@@ -61,7 +66,10 @@ from .constants import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import FIRMWARE_VERSION_WIRE_OUT_ADDRESS
 from .constants import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import INSTRUMENT_INITIALIZING_STATE
+from .constants import IS_CALIBRATION_FILE_UUID
 from .constants import LIVE_VIEW_ACTIVE_STATE
+from .constants import MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS
+from .constants import MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import MAX_POSSIBLE_CONNECTED_BOARDS
 from .constants import MICRO_TO_BASE_CONVERSION
@@ -73,6 +81,7 @@ from .constants import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from .constants import NANOSECONDS_PER_CENTIMILLISECOND
 from .constants import NO_PLATE_DETECTED_BARCODE_VALUE
 from .constants import NO_PLATE_DETECTED_UUID
+from .constants import NUM_INITIAL_PACKETS_TO_DROP
 from .constants import OUTGOING_DATA_BUFFER_SIZE
 from .constants import RAW_TO_SIGNED_CONVERSION_VALUE
 from .constants import RECORDING_STATE
@@ -83,13 +92,19 @@ from .constants import ROUND_ROBIN_PERIOD
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BAUD_RATE
+from .constants import SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_BOOT_UP_CODE
+from .constants import SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+from .constants import SERIAL_COMM_COMMAND_FAILURE_BYTE
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
+from .constants import SERIAL_COMM_COMMAND_SUCCESS_BYTE
 from .constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from .constants import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
+from .constants import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_FATAL_ERROR_CODE
+from .constants import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
@@ -100,10 +115,11 @@ from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
 from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
-from .constants import SERIAL_COMM_MAX_DATA_LENGTH_BYTES
+from .constants import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
+from .constants import SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE
 from .constants import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
@@ -120,17 +136,19 @@ from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
+from .constants import SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_SOFT_ERROR_CODE
 from .constants import SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE
+from .constants import SERIAL_COMM_START_STIM_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
+from .constants import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
 from .constants import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
-from .constants import SERIAL_COMM_STREAM_MODE_CHANGED_BYTE
-from .constants import SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE
+from .constants import SERIAL_COMM_STOP_STIM_PACKET_TYPE
 from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
@@ -142,9 +160,13 @@ from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
 from .constants import START_BARCODE_SCAN_TRIG_BIT
 from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
+from .constants import STIM_COMPLETE_SUBPROTOCOL_IDX
 from .constants import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
 from .constants import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
+from .constants import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
 from .constants import STIM_MAX_PULSE_DURATION_MICROSECONDS
+from .constants import STIM_NO_PROTOCOL_ASSIGNED
+from .constants import StimStatuses
 from .constants import STM_VID
 from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SUBPROCESS_POLL_DELAY_SECONDS
@@ -159,11 +181,16 @@ from .exceptions import AttemptToAddCyclesWhileSPIRunningError
 from .exceptions import AttemptToInitializeFIFOReadsError
 from .exceptions import BarcodeNotClearedError
 from .exceptions import BarcodeScannerNotRespondingError
+from .exceptions import CalibrationFilesMissingError
 from .exceptions import FirmwareFileNameDoesNotMatchWireOutVersionError
+from .exceptions import FirmwareUpdateCommandFailedError
+from .exceptions import FirmwareUpdateTimeoutError
 from .exceptions import FirstManagedReadLessThanOneRoundRobinError
-from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
-from .exceptions import ImproperlyFormattedUserAccountUUIDError
+from .exceptions import ImproperlyFormattedCustomerAccountIDError
+from .exceptions import ImproperlyFormattedCustomerAccountPasskeyError
+from .exceptions import ImproperlyFormattedUserAccountIDError
 from .exceptions import IncorrectMagnetometerConfigFromInstrumentError
+from .exceptions import IncorrectSamplingPeriodFromInstrumentError
 from .exceptions import InstrumentCommIncorrectHeaderError
 from .exceptions import InstrumentDataStreamingAlreadyStartedError
 from .exceptions import InstrumentDataStreamingAlreadyStoppedError
@@ -171,8 +198,9 @@ from .exceptions import InstrumentFatalError
 from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import InstrumentSoftError
 from .exceptions import InvalidBeta2FlagOptionError
+from .exceptions import InvalidCustomerAccountIDError
+from .exceptions import InvalidCustomerPasskeyError
 from .exceptions import InvalidDataFramePeriodError
-from .exceptions import InvalidDataTypeFromOkCommError
 from .exceptions import InvalidScriptCommandError
 from .exceptions import InvalidStopRecordingTimepointError
 from .exceptions import LocalServerPortAlreadyInUseError
@@ -193,12 +221,15 @@ from .exceptions import SerialCommNotEnoughAdditionalBytesReadError
 from .exceptions import SerialCommPacketFromMantarrayTooSmallError
 from .exceptions import SerialCommPacketRegistrationReadEmptyError
 from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
-from .exceptions import SerialCommPacketRegistrationTimoutError
+from .exceptions import SerialCommPacketRegistrationTimeoutError
 from .exceptions import SerialCommStatusBeaconTimeoutError
 from .exceptions import SerialCommTooManyMissedHandshakesError
 from .exceptions import SerialCommUntrackedCommandResponseError
 from .exceptions import ServerManagerNotInitializedError
 from .exceptions import ServerManagerSingletonAlreadySetError
+from .exceptions import StimulationProtocolUpdateFailedError
+from .exceptions import StimulationProtocolUpdateWhileStimulatingError
+from .exceptions import StimulationStatusUpdateFailedError
 from .exceptions import SystemStartUpError
 from .exceptions import UnrecognizedCommandFromMainToDataAnalyzerError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
@@ -215,9 +246,12 @@ from .exceptions import UnrecognizedSimulatorTestCommandError
 from .fifo_read_producer import FIFOReadProducer
 from .fifo_read_producer import produce_data
 from .fifo_simulator import RunningFIFOSimulator
+from .file_uploader import ErrorCatchingThread
+from .file_writer import FILE_WRITER_BUFFER_SIZE_MICROSECONDS
 from .file_writer import FileWriterProcess
 from .file_writer import get_data_slice_within_timepoints
 from .file_writer import get_reference_dataset_from_file
+from .file_writer import get_stimulation_dataset_from_file
 from .file_writer import get_time_index_dataset_from_file
 from .file_writer import get_time_offset_dataset_from_file
 from .file_writer import get_tissue_dataset_from_file
@@ -247,10 +281,15 @@ from .process_monitor import MantarrayProcessesMonitor
 from .queue_container import MantarrayQueueContainer
 from .serial_comm_utils import convert_bitmask_to_config_dict
 from .serial_comm_utils import convert_bytes_to_config_dict
+from .serial_comm_utils import convert_bytes_to_subprotocol_dict
 from .serial_comm_utils import convert_metadata_bytes_to_str
+from .serial_comm_utils import convert_module_id_to_well_name
+from .serial_comm_utils import convert_stim_dict_to_bytes
+from .serial_comm_utils import convert_subprotocol_dict_to_bytes
 from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_status_code_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
+from .serial_comm_utils import convert_well_name_to_module_id
 from .serial_comm_utils import create_data_packet
 from .serial_comm_utils import create_magnetometer_config_bytes
 from .serial_comm_utils import create_sensor_axis_bitmask
@@ -282,7 +321,6 @@ if 6 < 9:  # pragma: no cover # protect this from zimports deleting the pylint d
         parse_sensor_bytes,
         handle_data_packets,
         SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY,
-        SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_CY,
         SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_CY,
     )
 
@@ -329,7 +367,6 @@ __all__ = [
     "REFERENCE_VOLTAGE",
     "MILLIVOLTS_PER_VOLT",
     "FileWriterProcess",
-    "InvalidDataTypeFromOkCommError",
     "build_file_writer_objects",
     "UnrecognizedCommandFromMainToOkCommError",
     "fifo_simulator",
@@ -395,8 +432,9 @@ __all__ = [
     "CURI_BIO_USER_ACCOUNT_ID",
     "MantarrayFrontPanelMixIn",
     "MantarrayFrontPanel",
-    "ImproperlyFormattedCustomerAccountUUIDError",
-    "ImproperlyFormattedUserAccountUUIDError",
+    "ImproperlyFormattedCustomerAccountIDError",
+    "ImproperlyFormattedCustomerAccountPasskeyError",
+    "ImproperlyFormattedUserAccountIDError",
     "RecordingFolderDoesNotExistError",
     "VALID_CONFIG_SETTINGS",
     "FIRMWARE_VERSION_WIRE_OUT_ADDRESS",
@@ -455,7 +493,7 @@ __all__ = [
     "McCommunicationProcess",
     "SERIAL_COMM_CHECKSUM_LENGTH_BYTES",
     "SERIAL_COMM_TIMESTAMP_LENGTH_BYTES",
-    "SerialCommPacketRegistrationTimoutError",
+    "SerialCommPacketRegistrationTimeoutError",
     "SerialCommIncorrectMagicWordFromMantarrayError",
     "SerialCommPacketRegistrationReadEmptyError",
     "SERIAL_COMM_MAX_PACKET_LENGTH_BYTES",
@@ -500,7 +538,7 @@ __all__ = [
     "SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS",
     "SerialCommHandshakeTimeoutError",
     "convert_to_status_code_bytes",
-    "SERIAL_COMM_MAX_DATA_LENGTH_BYTES",
+    "SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES",
     "SERIAL_COMM_SET_TIME_COMMAND_BYTE",
     "convert_to_timestamp_bytes",
     "get_serial_comm_timestamp",
@@ -513,8 +551,8 @@ __all__ = [
     "InstrumentSoftError",
     "SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE",
     "SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE",
-    "SERIAL_COMM_STREAM_MODE_CHANGED_BYTE",
-    "SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE",
+    "SERIAL_COMM_COMMAND_SUCCESS_BYTE",
+    "SERIAL_COMM_COMMAND_FAILURE_BYTE",
     "InstrumentDataStreamingAlreadyStartedError",
     "InstrumentDataStreamingAlreadyStoppedError",
     "SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE",
@@ -543,7 +581,6 @@ __all__ = [
     "SERIAL_COMM_NUM_CHANNELS_PER_SENSOR",
     "SERIAL_COMM_NUM_SENSORS_PER_WELL",
     "SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY",
-    "SERIAL_COMM_TIME_INDEX_LENGTH_BYTES_CY",
     "SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_CY",
     "create_active_channel_per_sensor_list",
     "get_time_offset_dataset_from_file",
@@ -567,4 +604,43 @@ __all__ = [
     "queue_container",
     "get_redacted_string",
     "UnrecognizedCommandFromServerToMainError",
+    "IncorrectSamplingPeriodFromInstrumentError",
+    "file_uploader",
+    "ErrorCatchingThread",
+    "InvalidCustomerAccountIDError",
+    "InvalidCustomerPasskeyError",
+    "convert_bytes_to_subprotocol_dict",
+    "convert_subprotocol_dict_to_bytes",
+    "convert_stim_dict_to_bytes",
+    "SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE",
+    "SERIAL_COMM_START_STIM_PACKET_TYPE",
+    "SERIAL_COMM_STOP_STIM_PACKET_TYPE",
+    "convert_module_id_to_well_name",
+    "convert_well_name_to_module_id",
+    "STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL",
+    "StimulationProtocolUpdateWhileStimulatingError",
+    "StimulationProtocolUpdateFailedError",
+    "StimulationStatusUpdateFailedError",
+    "StimStatuses",
+    "SERIAL_COMM_STIM_STATUS_PACKET_TYPE",
+    "STIM_COMPLETE_SUBPROTOCOL_IDX",
+    "STIM_NO_PROTOCOL_ASSIGNED",
+    "FILE_WRITER_BUFFER_SIZE_MICROSECONDS",
+    "get_stimulation_dataset_from_file",
+    "SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE",
+    "SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE",
+    "SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE",
+    "SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE",
+    "SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE",
+    "FirmwareUpdateCommandFailedError",
+    "FirmwareUpdateTimeoutError",
+    "MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS",
+    "MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS",
+    "IS_CALIBRATION_FILE_UUID",
+    "CALIBRATION_RECORDING_DUR_SECONDS",
+    "CalibrationFilesMissingError",
+    "CLOUD_API_ENDPOINT_USER_OPTION",
+    "CLOUD_API_ENDPOINT_VALID_OPTIONS",
+    "CLOUD_API_ENDPOINT",
+    "NUM_INITIAL_PACKETS_TO_DROP",
 ]

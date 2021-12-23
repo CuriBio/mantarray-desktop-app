@@ -26,13 +26,14 @@
         ]"
       >
         <StimulationStudioControls />
-        <div class="div__stimulation-studio-controls-container">
-          <NuxtLink to="/stimulationstudio">
-            <img
-              src="../assets/img/additional-controls-icon.png"
-              :style="'height:44px;'"
-            />
-          </NuxtLink>
+        <NuxtLink to="/stimulationstudio">
+          <div class="div__stim-studio-screen-view" />
+        </NuxtLink>
+        <div class="div__temp-controls-container">
+          <img
+            src="../assets/img/additional-controls-icon.png"
+            :style="'height:44px;'"
+          />
         </div>
       </div>
       <span
@@ -74,7 +75,8 @@
       </span>
     </div>
     <div class="div__top-bar-above-waveforms">
-      <div class="div__recording-time-container">
+      <div class="div__recording-status-container">
+        <UploadFilesWidget />
         <RecordingTime />
       </div>
     </div>
@@ -93,6 +95,7 @@ import {
   SimulationMode,
   RecordingTime,
   StimulationStudioControls,
+  UploadFilesWidget,
 } from "@curi-bio/mantarray-frontend-components";
 import { ipcRenderer } from "electron";
 
@@ -116,6 +119,7 @@ export default {
     SimulationMode,
     RecordingTime,
     StimulationStudioControls,
+    UploadFilesWidget,
   },
   data: function () {
     return {
@@ -124,9 +128,18 @@ export default {
       current_year: "2021", // new Date().getFullYear(),
       confirmation_request: false,
       beta_2_mode: process.env.SPECTRON || undefined,
+      log_dir_name: undefined,
     };
   },
   created: function () {
+    ipcRenderer.on("logs_flask_dir_response", (e, log_dir_name) => {
+      this.$store.commit("settings/set_log_path", log_dir_name);
+      this.log_dir_name = log_dir_name;
+    });
+    if (this.log_dir_name === undefined) {
+      ipcRenderer.send("logs_flask_dir_request");
+    }
+
     // init store values needed in pages here since this side bar is only created once
     this.$store.commit("data/set_heatmap_values", {
       "Twitch Force": { data: [...Array(24)].map((e) => Array(0)) },
@@ -135,11 +148,11 @@ export default {
 
     this.$store.commit("waveform/set_x_axis_zoom_idx", 2);
     this.$store.commit("waveform/set_x_axis_zoom_levels", [
-      { x_scale: 30 * 100000 },
-      { x_scale: 15 * 100000 },
-      { x_scale: 5 * 100000 },
-      { x_scale: 2 * 100000 },
-      { x_scale: 1 * 100000 },
+      { x_scale: 30 * 1e6 },
+      { x_scale: 15 * 1e6 },
+      { x_scale: 5 * 1e6 },
+      { x_scale: 2 * 1e6 },
+      { x_scale: 1 * 1e6 },
     ]);
     this.$store.dispatch("flask/start_status_pinging");
 
@@ -149,6 +162,7 @@ export default {
 
     ipcRenderer.on("beta_2_mode_response", (e, beta_2_mode) => {
       this.beta_2_mode = beta_2_mode;
+      this.$store.commit("settings/set_beta_2_mode", beta_2_mode);
     });
     if (this.beta_2_mode === undefined) {
       ipcRenderer.send("beta_2_mode_request");
@@ -182,11 +196,13 @@ body {
   height: 45px;
   width: calc(100vw - 289px);
 }
-.div__recording-time-container {
+.div__recording-status-container {
   float: right;
   position: relative;
   height: 45px;
-  width: 215px;
+  width: 650px;
+  display: flex;
+  justify-content: space-between;
 }
 
 .div__sidebar {
@@ -237,7 +253,15 @@ body {
 .div__additional_controls-controls-icon-container--beta-2-mode {
   visibility: visible;
 }
-.div__stimulation-studio-controls-container {
+.div__stim-studio-screen-view {
+  position: absolute;
+  top: 32px;
+  left: 67px;
+  width: 44px;
+  height: 44px;
+  opacity: 0;
+}
+.div__temp-controls-container {
   position: absolute;
   top: 33px;
   left: 17px;

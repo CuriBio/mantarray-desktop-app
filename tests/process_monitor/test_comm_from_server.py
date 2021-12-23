@@ -6,11 +6,12 @@ from uuid import UUID
 
 from freezegun import freeze_time
 from mantarray_desktop_app import BUFFERING_STATE
-from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
+from mantarray_desktop_app import CALIBRATION_RECORDING_DUR_SECONDS
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
+from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import process_monitor
 from mantarray_desktop_app import RECORDING_STATE
@@ -20,6 +21,17 @@ from mantarray_desktop_app import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from mantarray_desktop_app import UnrecognizedCommandFromServerToMainError
 from mantarray_desktop_app import UnrecognizedMantarrayNamingCommandError
 from mantarray_desktop_app import UnrecognizedRecordingCommandError
+from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
+from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
+from mantarray_file_manager import NOT_APPLICABLE_H5_METADATA
+from mantarray_file_manager import PLATE_BARCODE_UUID
+from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
+from mantarray_file_manager import STIMULATION_PROTOCOL_UUID
+from mantarray_file_manager import USER_ACCOUNT_ID_UUID
+from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
+from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
+from mantarray_file_manager import UTC_BEGINNING_STIMULATION_UUID
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
@@ -28,8 +40,10 @@ from ..fixtures import fixture_patch_subprocess_joins
 from ..fixtures import fixture_test_process_manager_creator
 from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_ok_comm import fixture_patch_connection_to_board
 from ..fixtures_process_monitor import fixture_test_monitor
+from ..fixtures_server import put_generic_beta_2_start_recording_info_in_dict
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -198,30 +212,76 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     assert actual_comm == expected_comm
 
 
-def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_start_calibration_by_updating_shared_values_dictionary_directly_to_calibrated__when_in_beta_2_mode(
+@freeze_time(
+    GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+        UTC_BEGINNING_RECORDING_UUID
+    ]
+)
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_run_calibration_command_when_in_beta_2_mode(
     test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, svd, *_ = test_monitor(test_process_manager)
-    svd["beta_2_mode"] = True
+
+    put_generic_beta_2_start_recording_info_in_dict(svd)
+    # Tanner (12/10/21): deleting since these may not actually be set by the time this route is called
+    del svd["utc_timestamps_of_beginning_of_data_acquisition"]
+    del svd["config_settings"]["customer_account_id"]
+    del svd["config_settings"]["user_account_id"]
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
-    expected_comm = {
-        "communication_type": "xem_scripts",
-        "script_type": "start_calibration",
-    }
+    main_to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+    main_to_fw_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
+    )
+
+    expected_comm = {"communication_type": "calibration", "command": "run_calibration"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_comm, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
+    assert svd["system_status"] == CALIBRATING_STATE
 
-    assert svd["system_status"] == CALIBRATED_STATE
-
-    main_to_instrument_comm = (
-        test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+    confirm_queue_is_eventually_of_size(main_to_ic_queue, 1)
+    assert (
+        main_to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == START_MANAGED_ACQUISITION_COMMUNICATION
     )
-    confirm_queue_is_eventually_empty(main_to_instrument_comm)
+
+    confirm_queue_is_eventually_of_size(main_to_fw_queue, 2)
+
+    expected_start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    expected_start_recording_command.update(
+        {
+            "active_well_indices": list(range(24)),
+            "is_calibration_recording": True,
+            "timepoint_to_begin_recording_at": 0,
+            "stim_running_statuses": [False] * 24,
+        }
+    )
+    expected_start_recording_command["metadata_to_copy_onto_main_file_attributes"].update(
+        {
+            START_RECORDING_TIME_INDEX_UUID: 0,
+            PLATE_BARCODE_UUID: NOT_APPLICABLE_H5_METADATA,
+            BARCODE_IS_FROM_SCANNER_UUID: NOT_APPLICABLE_H5_METADATA,
+            UTC_BEGINNING_DATA_ACQUISTION_UUID: GENERIC_BETA_2_START_RECORDING_COMMAND[
+                "metadata_to_copy_onto_main_file_attributes"
+            ][UTC_BEGINNING_RECORDING_UUID],
+            UTC_BEGINNING_STIMULATION_UUID: None,
+            STIMULATION_PROTOCOL_UUID: None,
+            CUSTOMER_ACCOUNT_ID_UUID: NOT_APPLICABLE_H5_METADATA,
+            USER_ACCOUNT_ID_UUID: NOT_APPLICABLE_H5_METADATA,
+        }
+    )
+    assert main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_start_recording_command
+
+    expected_stop_recording_command = {
+        "communication_type": "recording",
+        "command": "stop_recording",
+        "timepoint_to_stop_recording_at": CALIBRATION_RECORDING_DUR_SECONDS * MICRO_TO_BASE_CONVERSION,
+        "is_calibration_recording": True,
+    }
+    assert main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_stop_recording_command
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_boot_up_by_calling_process_manager_bootup(
@@ -362,17 +422,17 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     original_id = UUID("e623b13c-05a5-41f2-8526-c2eba8e78e7f")
     new_id = UUID("e7744225-c41c-4bd5-9e32-e79716cc8f40")
     shared_values_dict["config_settings"] = dict()
-    shared_values_dict["config_settings"]["User Account ID"] = original_id
+    shared_values_dict["config_settings"]["user_account_id"] = original_id
     communication = {
-        "communication_type": "update_shared_values_dictionary",
-        "content": {"config_settings": {"User Account ID": new_id}},
+        "communication_type": "update_customer_settings",
+        "content": {"config_settings": {"user_account_id": new_id}},
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
 
     assert (
-        test_process_manager.get_values_to_share_to_server()["config_settings"]["User Account ID"] == new_id
+        test_process_manager.get_values_to_share_to_server()["config_settings"]["user_account_id"] == new_id
     )
 
 
@@ -388,8 +448,8 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         communication = {
-            "communication_type": "update_shared_values_dictionary",
-            "content": {"config_settings": {"Recording Directory": expected_recordings_dir}},
+            "communication_type": "update_customer_settings",
+            "content": {"config_settings": {"recording_directory": expected_recordings_dir}},
         }
 
         put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
@@ -712,8 +772,15 @@ def test_MantarrayProcessesMonitor__passes_magnetometer_config_dict_from_server_
     assert main_to_da_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_comm
 
 
+@pytest.mark.parametrize(
+    "test_status,test_description",
+    [
+        (True, "processes command when status is True"),
+        (False, "processes command when status is False"),
+    ],
+)
 def test_MantarrayProcessesMonitor__processes_set_stim_status_command(
-    test_process_manager_creator, test_monitor
+    test_status, test_description, test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
@@ -722,25 +789,36 @@ def test_MantarrayProcessesMonitor__processes_set_stim_status_command(
     )
     main_to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
 
-    shared_values_dict["stimulation_running"] = False
-    shared_values_dict["stimulation_protocol"] = {"protocols": [None] * 24}
+    test_well_names = ["A1", "A2", "B1"]
+    test_well_indices = [
+        GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name) for well_name in test_well_names
+    ]
+
+    shared_values_dict["stimulation_running"] = [
+        (not test_status if well_idx in test_well_indices else False) for well_idx in range(24)
+    ]
+    shared_values_dict["stimulation_info"] = {
+        "protocols": [{"protocol_id": "A"}],
+        "protocol_assignments": {well_name: "A" for well_name in test_well_names},
+    }
 
     test_command = {
         "communication_type": "stimulation",
         "command": "set_stim_status",
-        "status": True,
+        "status": test_status,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, server_to_main_queue)
 
     invoke_process_run_and_check_errors(monitor_thread)
-    assert shared_values_dict["stimulation_running"] is True
 
     confirm_queue_is_eventually_of_size(main_to_ic_queue, 1)
     actual = main_to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert actual == test_command
+
+    expected_command = "start_stimulation" if test_status else "stop_stimulation"
+    assert actual == {"communication_type": "stimulation", "command": expected_command}
 
 
-def test_MantarrayProcessesMonitor__processes_set_protocol_command(
+def test_MantarrayProcessesMonitor__processes_set_protocols_command(
     test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
@@ -750,17 +828,17 @@ def test_MantarrayProcessesMonitor__processes_set_protocol_command(
     )
     main_to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
 
-    shared_values_dict["stimulation_running"] = False
+    shared_values_dict["stimulation_running"] = [False] * 24
 
     test_command = {
         "communication_type": "stimulation",
-        "command": "set_protocol",
-        "protocols": [None] * 24,
+        "command": "set_protocols",
+        "stim_info": {"protocols": [None] * 3, "protocol_assignments": {"dummy": "values"}},
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, server_to_main_queue)
 
     invoke_process_run_and_check_errors(monitor_thread)
-    assert shared_values_dict["stimulation_protocols"] == test_command["protocols"]
+    assert shared_values_dict["stimulation_info"] == test_command["stim_info"]
 
     confirm_queue_is_eventually_of_size(main_to_ic_queue, 1)
     actual = main_to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)

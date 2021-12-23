@@ -4,6 +4,7 @@ import json
 
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import DATA_ANALYZER_BETA_1_BUFFER_SIZE
+from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
@@ -14,7 +15,6 @@ from mantarray_waveform_analysis import AMPLITUDE_UUID
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 from mantarray_waveform_analysis import TWITCH_FREQUENCY_UUID
 import numpy as np
-import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
@@ -146,7 +146,6 @@ def test_get_pipeline_analysis__returns_force_metrics_from_given_beta_1_data(
     four_board_analyzer_process, mantarray_mc_simulator
 ):
     da_process, *_ = four_board_analyzer_process
-    # TODO Tanner (7/14/21): after waveform-analysis update make sure to add this same test for beta 2 data
     # Tanner (7/12/21): This test is "True by definition", but can't think of a better way to test waveform analysis
     test_y_data = (
         mantarray_mc_simulator["simulator"]
@@ -154,11 +153,39 @@ def test_get_pipeline_analysis__returns_force_metrics_from_given_beta_1_data(
         .tolist()
         * MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
     )
-    test_x_data = np.arange(0, ROUND_ROBIN_PERIOD * len(test_y_data), ROUND_ROBIN_PERIOD)
+    test_x_data = (
+        np.arange(0, ROUND_ROBIN_PERIOD * len(test_y_data), ROUND_ROBIN_PERIOD)
+        * MICROSECONDS_PER_CENTIMILLISECOND
+    )
     test_data_arr = np.array([test_x_data, test_y_data], dtype=np.int32)
 
     pipeline = da_process.get_pipeline_template().create_pipeline()
-    pipeline.load_raw_gmr_data(test_data_arr, np.zeros(test_data_arr.shape))
+    pipeline.load_raw_magnetic_data(test_data_arr, np.zeros(test_data_arr.shape))
+    expected_metrics = pipeline.get_force_data_metrics(
+        metrics_to_create=[AMPLITUDE_UUID, TWITCH_FREQUENCY_UUID]
+    )[0]
+
+    actual = da_process.get_pipeline_analysis(test_data_arr.tolist())
+
+    assert actual.keys() == expected_metrics.keys()
+    for k in expected_metrics.keys():
+        assert actual[k] == expected_metrics[k], f"Incorrect twitch dict at idx {k}"
+
+
+def test_get_pipeline_analysis__returns_force_metrics_from_given_beta_2_data(
+    four_board_analyzer_process, mantarray_mc_simulator
+):
+    da_process, *_ = four_board_analyzer_process
+    # Tanner (7/12/21): This test is "True by definition", but can't think of a better way to test waveform analysis
+    test_y_data = (
+        mantarray_mc_simulator["simulator"].get_interpolated_data(DEFAULT_SAMPLING_PERIOD).tolist()
+        * MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
+    )
+    test_x_data = np.arange(0, DEFAULT_SAMPLING_PERIOD * len(test_y_data), DEFAULT_SAMPLING_PERIOD)
+    test_data_arr = np.array([test_x_data, test_y_data], dtype=np.int64)
+
+    pipeline = da_process.get_pipeline_template().create_pipeline()
+    pipeline.load_raw_magnetic_data(test_data_arr, np.zeros(test_data_arr.shape))
     expected_metrics = pipeline.get_force_data_metrics(
         metrics_to_create=[AMPLITUDE_UUID, TWITCH_FREQUENCY_UUID]
     )[0]
@@ -200,7 +227,6 @@ def test_check_for_new_twitches__returns_latest_twitch_index_and_populated_metri
     assert actual_dict == {(latest_time_index + 1): None, 10: None}
 
 
-@pytest.mark.slow
 def test_DataAnalyzerProcess__sends_beta_1_metrics_of_all_wells_to_main_when_ready(
     four_board_analyzer_process, mantarray_mc_simulator, mocker
 ):
@@ -232,7 +258,9 @@ def test_DataAnalyzerProcess__sends_beta_1_metrics_of_all_wells_to_main_when_rea
         test_packet_1 = copy.deepcopy(SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0)
         test_packet_1["well_index"] = well_idx
         test_packet_1["data"] = test_data_arr[:, :-100] if well_idx <= 10 else dummy_data_arr[:, :-100]
-        put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet_1, board_queues[0][0])
+        put_object_into_queue_and_raise_error_if_eventually_still_empty(
+            copy.deepcopy(test_packet_1), board_queues[0][0]
+        )
         invoke_process_run_and_check_errors(da_process)
     confirm_queue_is_eventually_empty(board_queues[0][1])
 
@@ -241,7 +269,9 @@ def test_DataAnalyzerProcess__sends_beta_1_metrics_of_all_wells_to_main_when_rea
         test_packet_2 = copy.deepcopy(SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0)
         test_packet_2["well_index"] = well_idx
         test_packet_2["data"] = test_data_arr[:, -100:] if well_idx <= 10 else dummy_data_arr[:, -100:]
-        put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet_2, board_queues[0][0])
+        put_object_into_queue_and_raise_error_if_eventually_still_empty(
+            copy.deepcopy(test_packet_2), board_queues[0][0]
+        )
         invoke_process_run_and_check_errors(da_process)
     confirm_queue_is_eventually_of_size(board_queues[0][1], 1)
 
@@ -257,7 +287,9 @@ def test_DataAnalyzerProcess__sends_beta_1_metrics_of_all_wells_to_main_when_rea
         assert list(actual_well_metric_dict.keys()) == [str(AMPLITUDE_UUID), str(TWITCH_FREQUENCY_UUID)]
         for metric_id, metric_list in actual_well_metric_dict.items():
             # Tanner (7/13/21): to guard against future changes to mantarray-waveform-analysis breaking this test, only asserting that the correct number of data points are present
-            assert len(metric_list) == 5, f"Well: {well_idx}, Metric ID: {metric_id}"
+            assert (
+                len(metric_list) == MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS - 2
+            ), f"Well: {well_idx}, Metric ID: {metric_id}"
 
 
 def test_DataAnalyzerProcess__sends_beta_2_metrics_of_all_wells_to_main_when_ready(
@@ -306,7 +338,7 @@ def test_DataAnalyzerProcess__sends_beta_2_metrics_of_all_wells_to_main_when_rea
         # Tanner (7/14/21): time offsets are currently unused in data analyzer so not modifying them here
         first_channel = list(test_packet_1[well_idx].keys())[1]
         y_data = test_y_data if well_idx <= 10 else dummy_y_data
-        test_packet_1[well_idx][first_channel] = np.array(y_data[:-50], dtype=np.int16)
+        test_packet_1[well_idx][first_channel] = np.array(y_data[:-50], dtype=np.uint16)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet_1, board_queues[0][0])
     invoke_process_run_and_check_errors(da_process)
     confirm_queue_is_eventually_empty(board_queues[0][1])
@@ -318,7 +350,7 @@ def test_DataAnalyzerProcess__sends_beta_2_metrics_of_all_wells_to_main_when_rea
         # Tanner (7/14/21): time offsets are currently unused in data analyzer so not modifying them here
         first_channel = list(test_packet_2[well_idx].keys())[1]
         y_data = test_y_data if well_idx <= 10 else dummy_y_data
-        test_packet_2[well_idx][first_channel] = np.array(y_data[-50:], dtype=np.int16)
+        test_packet_2[well_idx][first_channel] = np.array(y_data[-50:], dtype=np.uint16)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet_2, board_queues[0][0])
     invoke_process_run_and_check_errors(da_process)
     confirm_queue_is_eventually_of_size(board_queues[0][1], 1)
@@ -335,10 +367,11 @@ def test_DataAnalyzerProcess__sends_beta_2_metrics_of_all_wells_to_main_when_rea
         assert list(actual_well_metric_dict.keys()) == [str(AMPLITUDE_UUID), str(TWITCH_FREQUENCY_UUID)]
         for metric_id, metric_list in actual_well_metric_dict.items():
             # Tanner (7/13/21): to guard against future changes to mantarray-waveform-analysis breaking this test, only asserting that the correct number of data points are present
-            assert len(metric_list) == 5, f"Well: {well_idx}, Metric ID: {metric_id}"
+            assert (
+                len(metric_list) == MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS - 2
+            ), f"Well: {well_idx}, Metric ID: {metric_id}"
 
 
-@pytest.mark.slow
 def test_DataAnalyzerProcess__only_dumps_new_twitch_metrics__with_beta_1_data(
     four_board_analyzer_process, mantarray_mc_simulator, mocker
 ):
@@ -367,7 +400,9 @@ def test_DataAnalyzerProcess__only_dumps_new_twitch_metrics__with_beta_1_data(
         test_packet_1 = copy.deepcopy(SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0)
         test_packet_1["data"] = test_data_arr[:, :-num_data_points_per_second]
         test_packet_1["well_index"] = well_idx
-        put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet_1, board_queues[0][0])
+        put_object_into_queue_and_raise_error_if_eventually_still_empty(
+            copy.deepcopy(test_packet_1), board_queues[0][0]
+        )
         invoke_process_run_and_check_errors(da_process)
     confirm_queue_is_eventually_of_size(board_queues[0][1], 1)
     # check all analyzable twitches are reported for each well
@@ -378,14 +413,18 @@ def test_DataAnalyzerProcess__only_dumps_new_twitch_metrics__with_beta_1_data(
         assert list(actual_well_metric_dict.keys()) == [str(AMPLITUDE_UUID), str(TWITCH_FREQUENCY_UUID)]
         for metric_id, metric_list in actual_well_metric_dict.items():
             # Tanner (7/13/21): to guard against future changes to mantarray-waveform-analysis breaking this test, only asserting that the correct number of data points are present
-            assert len(metric_list) == 5, f"Well: {well_idx}, Metric ID: {metric_id}"
+            assert (
+                len(metric_list) == MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS - 2
+            ), f"Well: {well_idx}, Metric ID: {metric_id}"
 
     # send remaining data (1 second / 1 new twitch)
     for well_idx in range(24):
         test_packet_2 = copy.deepcopy(SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0)
         test_packet_2["data"] = test_data_arr[:, -num_data_points_per_second:]
         test_packet_2["well_index"] = well_idx
-        put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet_2, board_queues[0][0])
+        put_object_into_queue_and_raise_error_if_eventually_still_empty(
+            copy.deepcopy(test_packet_2), board_queues[0][0]
+        )
         invoke_process_run_and_check_errors(da_process)
     confirm_queue_is_eventually_of_size(board_queues[0][1], 1)
     # check that only the newly analyzable twitch is reported for each well
@@ -444,7 +483,7 @@ def test_DataAnalyzerProcess__only_dumps_new_twitch_metrics__with_beta_2_data(
         # Tanner (7/14/21): time offsets are currently unused in data analyzer so not modifying them here
         first_channel = list(test_packet_1[well_idx].keys())[1]
         test_packet_1[well_idx][first_channel] = np.array(
-            test_y_data[:-num_data_points_per_second], dtype=np.int16
+            test_y_data[:-num_data_points_per_second], dtype=np.uint16
         )
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet_1, board_queues[0][0])
     invoke_process_run_and_check_errors(da_process)
@@ -457,7 +496,9 @@ def test_DataAnalyzerProcess__only_dumps_new_twitch_metrics__with_beta_2_data(
         assert list(actual_well_metric_dict.keys()) == [str(AMPLITUDE_UUID), str(TWITCH_FREQUENCY_UUID)]
         for metric_id, metric_list in actual_well_metric_dict.items():
             # Tanner (7/13/21): to guard against future changes to mantarray-waveform-analysis breaking this test, only asserting that the correct number of data points are present
-            assert len(metric_list) == 5, f"Well: {well_idx}, Metric ID: {metric_id}"
+            assert (
+                len(metric_list) == MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS - 2
+            ), f"Well: {well_idx}, Metric ID: {metric_id}"
 
     # send remaining data (1 second / 1 new twitch)
     test_packet_2 = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
@@ -466,7 +507,7 @@ def test_DataAnalyzerProcess__only_dumps_new_twitch_metrics__with_beta_2_data(
         # Tanner (7/14/21): time offsets are currently unused in data analyzer so not modifying them here
         first_channel = list(test_packet_2[well_idx].keys())[1]
         test_packet_2[well_idx][first_channel] = np.array(
-            test_y_data[-num_data_points_per_second:], dtype=np.int16
+            test_y_data[-num_data_points_per_second:], dtype=np.uint16
         )
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet_2, board_queues[0][0])
     invoke_process_run_and_check_errors(da_process)
@@ -525,7 +566,7 @@ def test_DataAnalyzerProcess__data_analysis_stream_is_reconfigured_in_beta_2_mod
     for well_idx in range(24):
         # Tanner (7/14/21): time offsets are currently unused in data analyzer so not modifying them here
         first_channel = list(test_packet_1[well_idx].keys())[1]
-        test_packet_1[well_idx][first_channel] = np.array(test_y_data, dtype=np.int16)
+        test_packet_1[well_idx][first_channel] = np.array(test_y_data, dtype=np.uint16)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet_1, board_queues[0][0])
     invoke_process_run_and_check_errors(da_process)
     confirm_queue_is_eventually_of_size(board_queues[0][1], 1)
@@ -536,7 +577,9 @@ def test_DataAnalyzerProcess__data_analysis_stream_is_reconfigured_in_beta_2_mod
         actual_well_metric_dict = outgoing_metrics[str(well_idx)]
         assert list(actual_well_metric_dict.keys()) == [str(AMPLITUDE_UUID), str(TWITCH_FREQUENCY_UUID)]
         for metric_id, metric_list in actual_well_metric_dict.items():
-            assert len(metric_list) == 5, f"Well: {well_idx}, Metric ID: {metric_id}"
+            assert (
+                len(metric_list) == MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS - 2
+            ), f"Well: {well_idx}, Metric ID: {metric_id}"
 
     # change magnetometer config so that only wells 20-23 are enabled
     test_config = create_magnetometer_config_dict(24)
@@ -555,7 +598,7 @@ def test_DataAnalyzerProcess__data_analysis_stream_is_reconfigured_in_beta_2_mod
     for well_idx in range(24):
         # Tanner (7/14/21): time offsets are currently unused in data analyzer so not modifying them here
         first_channel = list(test_packet_2[well_idx].keys())[1]
-        test_packet_2[well_idx][first_channel] = np.array(test_y_data, dtype=np.int16)
+        test_packet_2[well_idx][first_channel] = np.array(test_y_data, dtype=np.uint16)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet_2, board_queues[0][0])
     invoke_process_run_and_check_errors(da_process)
     confirm_queue_is_eventually_of_size(board_queues[0][1], 1)
@@ -570,4 +613,6 @@ def test_DataAnalyzerProcess__data_analysis_stream_is_reconfigured_in_beta_2_mod
         actual_well_metric_dict = outgoing_metrics[str(well_idx)]
         assert list(actual_well_metric_dict.keys()) == [str(AMPLITUDE_UUID), str(TWITCH_FREQUENCY_UUID)]
         for metric_id, metric_list in actual_well_metric_dict.items():
-            assert len(metric_list) == 5, f"Well: {well_idx}, Metric ID: {metric_id}"
+            assert (
+                len(metric_list) == MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS - 2
+            ), f"Well: {well_idx}, Metric ID: {metric_id}"

@@ -2,6 +2,7 @@
 """Misc utility functions."""
 from __future__ import annotations
 
+import datetime
 import json
 import logging
 import os
@@ -10,22 +11,56 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
+from typing import Union
+from uuid import UUID
 
 from flatten_dict import flatten
 from flatten_dict import unflatten
-from immutable_data_validation import is_uuid
+from mantarray_file_manager import ADC_GAIN_SETTING_UUID
+from mantarray_file_manager import BACKEND_LOG_UUID
+from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
+from mantarray_file_manager import BOOTUP_COUNTER_UUID
+from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
+from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
+from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
+from mantarray_file_manager import MAGNETOMETER_CONFIGURATION_UUID
+from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
+from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
+from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
+from mantarray_file_manager import NOT_APPLICABLE_H5_METADATA
+from mantarray_file_manager import PCB_SERIAL_NUMBER_UUID
+from mantarray_file_manager import PLATE_BARCODE_UUID
+from mantarray_file_manager import REFERENCE_VOLTAGE_UUID
+from mantarray_file_manager import SLEEP_FIRMWARE_VERSION_UUID
+from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
+from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
+from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
+from mantarray_file_manager import STIMULATION_PROTOCOL_UUID
+from mantarray_file_manager import TAMPER_FLAG_UUID
+from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
+from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
+from mantarray_file_manager import USER_ACCOUNT_ID_UUID
+from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
+from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
+from mantarray_file_manager import UTC_BEGINNING_STIMULATION_UUID
+from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
+import psutil
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import is_frozen_as_exe
 
-from .constants import CURI_BIO_ACCOUNT_UUID
-from .constants import CURI_BIO_USER_ACCOUNT_ID
+from .constants import CENTIMILLISECONDS_PER_SECOND
+from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CURRENT_SOFTWARE_VERSION
+from .constants import MICRO_TO_BASE_CONVERSION
+from .constants import MICROSECONDS_PER_CENTIMILLISECOND
+from .constants import REFERENCE_VOLTAGE
 from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from .constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
-from .exceptions import ImproperlyFormattedCustomerAccountUUIDError
-from .exceptions import ImproperlyFormattedUserAccountUUIDError
+from .exceptions import ImproperlyFormattedUserAccountIDError
+from .exceptions import InvalidCustomerAccountIDError
+from .exceptions import InvalidCustomerPasskeyError
 from .exceptions import RecordingFolderDoesNotExistError
 
 logger = logging.getLogger(__name__)
@@ -37,22 +72,36 @@ def validate_settings(settings_dict: Dict[str, Any]) -> None:
     Args:
         settings_dict: dictionary containing the new user configuration settings.
     """
-    customer_account_uuid = settings_dict.get("customer_account_uuid", None)
-    user_account_uuid = settings_dict.get("user_account_uuid", None)
     recording_directory = settings_dict.get("recording_directory", None)
 
-    if customer_account_uuid is not None:
-        if customer_account_uuid == "curi":
-            customer_account_uuid = str(CURI_BIO_ACCOUNT_UUID)
-            user_account_uuid = str(CURI_BIO_USER_ACCOUNT_ID)
-        elif not is_uuid(customer_account_uuid):
-            raise ImproperlyFormattedCustomerAccountUUIDError(customer_account_uuid)
-    if user_account_uuid is not None:
-        if not is_uuid(user_account_uuid):
-            raise ImproperlyFormattedUserAccountUUIDError(user_account_uuid)
     if recording_directory is not None:
         if not os.path.isdir(recording_directory):
             raise RecordingFolderDoesNotExistError(recording_directory)
+
+
+def validate_customer_credentials(request_args: Dict[str, Any], shared_values_dict: Dict[str, Any]) -> None:
+    """Check if new customer credentials exist in stored pairs.
+
+    Args:
+        request_args: dictionary containing the new user configuration settings.
+        shared_values_dict: dictionary containing stored customer settings.
+    """
+    customer_account_uuid = request_args.get("customer_account_uuid", None)
+    customer_pass_key = request_args.get("customer_pass_key", None)
+    user_account_id = request_args.get("user_account_id", None)
+    stored_customer_ids = shared_values_dict["stored_customer_settings"]["stored_customer_ids"]
+
+    if customer_account_uuid is not None:
+        if customer_account_uuid in stored_customer_ids:
+            valid_creds = stored_customer_ids[customer_account_uuid]["password"] == customer_pass_key
+            valid_user = user_account_id in stored_customer_ids[customer_account_uuid]["user_account_ids"]
+
+            if not valid_creds:
+                raise InvalidCustomerPasskeyError(customer_pass_key)
+            if not valid_user:
+                raise ImproperlyFormattedUserAccountIDError(user_account_id)
+        else:
+            raise InvalidCustomerAccountIDError(customer_account_uuid)
 
 
 def convert_request_args_to_config_dict(request_args: Dict[str, Any]) -> Dict[str, Any]:
@@ -61,18 +110,28 @@ def convert_request_args_to_config_dict(request_args: Dict[str, Any]) -> Dict[st
     Args should be validated before being passed to this function.
     """
     customer_account_uuid = request_args.get("customer_account_uuid", None)
-    user_account_uuid = request_args.get("user_account_uuid", None)
+    customer_pass_key = request_args.get("customer_pass_key", None)
+    user_account_id = request_args.get("user_account_id", None)
     recording_directory = request_args.get("recording_directory", None)
+    auto_upload_on_completion = request_args.get("auto_upload", None)
+    auto_delete_local_files = request_args.get("auto_delete", None)
+
     out_dict: Dict[str, Any] = {"config_settings": {}}
     if customer_account_uuid is not None:
-        if customer_account_uuid == "curi":
-            customer_account_uuid = str(CURI_BIO_ACCOUNT_UUID)
-            user_account_uuid = str(CURI_BIO_USER_ACCOUNT_ID)
-        out_dict["config_settings"]["Customer Account ID"] = customer_account_uuid
-    if user_account_uuid is not None:
-        out_dict["config_settings"]["User Account ID"] = user_account_uuid
+        out_dict["config_settings"]["customer_account_id"] = customer_account_uuid
+    if customer_pass_key is not None:
+        out_dict["config_settings"]["customer_pass_key"] = customer_pass_key
+    if user_account_id is not None:
+        out_dict["config_settings"]["user_account_id"] = user_account_id
     if recording_directory is not None:
-        out_dict["config_settings"]["Recording Directory"] = recording_directory
+        out_dict["config_settings"]["recording_directory"] = recording_directory
+    if auto_upload_on_completion is not None:
+        auto_upload_bool = auto_upload_on_completion.lower() == "true"
+        out_dict["config_settings"]["auto_upload_on_completion"] = auto_upload_bool
+    if auto_delete_local_files is not None:
+        auto_delete_bool = auto_delete_local_files.lower() == "true"
+        out_dict["config_settings"]["auto_delete_local_files"] = auto_delete_bool
+
     return out_dict
 
 
@@ -81,7 +140,7 @@ def attempt_to_get_recording_directory_from_new_dict(  # pylint:disable=invalid-
 ) -> Optional[str]:
     """Attempt to get the recording directory from the dict of new values."""
     try:
-        directory = new_dict["config_settings"]["Recording Directory"]
+        directory = new_dict["config_settings"]["recording_directory"]
     except KeyError:
         return None
     if not isinstance(directory, str):
@@ -314,3 +373,155 @@ def sort_nested_dict(dict_to_sort: Dict[Any, Any]) -> Dict[Any, Any]:
         if isinstance(value, dict):
             dict_to_sort[key] = sort_nested_dict(value)
     return dict_to_sort
+
+
+def _create_start_recording_command(
+    shared_values_dict: Dict[str, Any],
+    time_index: Optional[Union[str, int]] = 0,
+    active_well_indices: Optional[List[int]] = None,
+    barcode: Union[str, UUID] = NOT_APPLICABLE_H5_METADATA,
+    is_calibration_recording: bool = False,
+    is_hardware_test_recording: bool = False,
+) -> Dict[str, Any]:
+    board_idx = 0  # board index 0 hardcoded for now
+
+    timestamp_of_sample_idx_zero = _get_timestamp_of_acquisition_sample_index_zero(shared_values_dict)
+
+    begin_time_index: Union[int, float]
+    timestamp_of_begin_recording = datetime.datetime.utcnow()
+    if time_index is not None:
+        begin_time_index = int(time_index)
+        if not shared_values_dict["beta_2_mode"]:
+            begin_time_index /= MICROSECONDS_PER_CENTIMILLISECOND
+    else:
+        time_since_index_0 = timestamp_of_begin_recording - timestamp_of_sample_idx_zero
+        begin_time_index = time_since_index_0.total_seconds() * (
+            MICRO_TO_BASE_CONVERSION if shared_values_dict["beta_2_mode"] else CENTIMILLISECONDS_PER_SECOND
+        )
+
+    if active_well_indices is None:
+        active_well_indices = list(range(24))
+
+    are_barcodes_matching: Union[bool, UUID] = NOT_APPLICABLE_H5_METADATA
+    if isinstance(barcode, str):
+        are_barcodes_matching = _check_scanned_barcode_vs_user_value(barcode, shared_values_dict)
+
+    if is_calibration_recording:
+        customer_account_id = shared_values_dict["config_settings"].get(
+            "customer_account_id", NOT_APPLICABLE_H5_METADATA
+        )
+        user_account_id = shared_values_dict["config_settings"].get(
+            "user_account_id", NOT_APPLICABLE_H5_METADATA
+        )
+    else:
+        customer_account_id = shared_values_dict["config_settings"]["customer_account_id"]
+        user_account_id = shared_values_dict["config_settings"]["user_account_id"]
+
+    comm_dict: Dict[str, Any] = {
+        "communication_type": "recording",
+        "command": "start_recording",
+        "active_well_indices": active_well_indices,
+        "is_calibration_recording": is_calibration_recording,
+        "is_hardware_test_recording": is_hardware_test_recording,
+        "metadata_to_copy_onto_main_file_attributes": {
+            BACKEND_LOG_UUID: shared_values_dict["log_file_uuid"],
+            COMPUTER_NAME_HASH_UUID: shared_values_dict["computer_name_hash"],
+            HARDWARE_TEST_RECORDING_UUID: is_hardware_test_recording,
+            UTC_BEGINNING_DATA_ACQUISTION_UUID: timestamp_of_sample_idx_zero,
+            START_RECORDING_TIME_INDEX_UUID: begin_time_index,
+            UTC_BEGINNING_RECORDING_UUID: timestamp_of_begin_recording,
+            CUSTOMER_ACCOUNT_ID_UUID: customer_account_id,
+            USER_ACCOUNT_ID_UUID: user_account_id,
+            SOFTWARE_BUILD_NUMBER_UUID: COMPILED_EXE_BUILD_TIMESTAMP,
+            SOFTWARE_RELEASE_VERSION_UUID: CURRENT_SOFTWARE_VERSION,
+            MAIN_FIRMWARE_VERSION_UUID: shared_values_dict["main_firmware_version"][board_idx],
+            MANTARRAY_SERIAL_NUMBER_UUID: shared_values_dict["mantarray_serial_number"][board_idx],
+            MANTARRAY_NICKNAME_UUID: shared_values_dict["mantarray_nickname"][board_idx],
+            PLATE_BARCODE_UUID: barcode,
+            BARCODE_IS_FROM_SCANNER_UUID: are_barcodes_matching,
+        },
+        "timepoint_to_begin_recording_at": begin_time_index,
+    }
+    if shared_values_dict["beta_2_mode"]:
+        instrument_metadata = shared_values_dict["instrument_metadata"][board_idx]
+        magnetometer_config_dict = shared_values_dict["magnetometer_config_dict"]
+        beginning_of_stim_timestamp = shared_values_dict["utc_timestamps_of_beginning_of_stimulation"][
+            board_idx
+        ]
+        stim_info_value = (
+            None if beginning_of_stim_timestamp is None else shared_values_dict["stimulation_info"]
+        )
+        comm_dict["metadata_to_copy_onto_main_file_attributes"].update(
+            {
+                BOOTUP_COUNTER_UUID: instrument_metadata[BOOTUP_COUNTER_UUID],
+                TOTAL_WORKING_HOURS_UUID: instrument_metadata[TOTAL_WORKING_HOURS_UUID],
+                TAMPER_FLAG_UUID: instrument_metadata[TAMPER_FLAG_UUID],
+                PCB_SERIAL_NUMBER_UUID: instrument_metadata[PCB_SERIAL_NUMBER_UUID],
+                TISSUE_SAMPLING_PERIOD_UUID: magnetometer_config_dict["sampling_period"],
+                MAGNETOMETER_CONFIGURATION_UUID: magnetometer_config_dict["magnetometer_config"],
+                STIMULATION_PROTOCOL_UUID: stim_info_value,
+                UTC_BEGINNING_STIMULATION_UUID: beginning_of_stim_timestamp,
+            }
+        )
+        comm_dict["stim_running_statuses"] = shared_values_dict["stimulation_running"]
+    else:
+        adc_offsets: Dict[int, Dict[str, int]]
+        if is_hardware_test_recording:
+            adc_offsets = dict()
+            for well_idx in range(24):
+                adc_offsets[well_idx] = {
+                    "construct": 0,
+                    "ref": 0,
+                }
+        else:
+            adc_offsets = shared_values_dict["adc_offsets"]
+        comm_dict["metadata_to_copy_onto_main_file_attributes"].update(
+            {
+                SLEEP_FIRMWARE_VERSION_UUID: shared_values_dict["sleep_firmware_version"][board_idx],
+                XEM_SERIAL_NUMBER_UUID: shared_values_dict["xem_serial_number"][board_idx],
+                REFERENCE_VOLTAGE_UUID: REFERENCE_VOLTAGE,
+                ADC_GAIN_SETTING_UUID: shared_values_dict["adc_gain"],
+                "adc_offsets": adc_offsets,
+            }
+        )
+
+    return comm_dict
+
+
+def _check_scanned_barcode_vs_user_value(barcode: str, shared_values_dict: Dict[str, Any]) -> bool:
+    board_idx = 0  # board index 0 hardcoded for now
+    if "barcodes" not in shared_values_dict:
+        # Tanner (1/11/21): Guard against edge case where start_recording route is called before a scanned barcode is stored since this can take up to 15 seconds
+        return False
+    result: bool = shared_values_dict["barcodes"][board_idx]["plate_barcode"] == barcode
+    return result
+
+
+def _get_timestamp_of_acquisition_sample_index_zero(  # pylint:disable=invalid-name # yeah, it's kind of long, but Eli (2/27/20) doesn't know a good way to shorten it
+    shared_values_dict: Dict[str, Any]
+) -> datetime.datetime:
+    board_idx = 0  # board index 0 hardcoded for now
+    timestamp_of_sample_idx_zero: datetime.datetime = shared_values_dict[
+        "utc_timestamps_of_beginning_of_data_acquisition"
+    ][board_idx]
+    return timestamp_of_sample_idx_zero
+
+
+# def set_windows_process_realtime_priority():
+#     try:
+#         import win32api, win32process, win32con
+#     except:
+#         return
+
+#     pid = win32api.GetCurrentProcessId()
+#     handle = win32api.OpenProcess(win32con.PROCESS_ALL_ACCESS, True, pid)
+#     win32process.SetPriorityClass(handle, win32process.REALTIME_PRIORITY_CLASS)
+
+
+def set_this_process_high_priority() -> None:  # pragma: no cover
+    p = psutil.Process(os.getpid())
+    try:
+        nice_value = psutil.HIGH_PRIORITY_CLASS
+    except AttributeError:
+        nice_value = -10
+    p.nice(nice_value)

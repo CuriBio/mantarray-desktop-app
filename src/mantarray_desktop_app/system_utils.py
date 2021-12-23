@@ -40,11 +40,12 @@ def wait_for_subprocesses_to_start() -> None:
     while elapsed_time < 20:
         try:
             response = requests.get(f"{get_api_endpoint()}system_status")
-        except requests.exceptions.ConnectionError:
-            response = None
-        if response is not None:
-            if response.json()["ui_status_code"] != str(SYSTEM_STATUS_UUIDS[SERVER_INITIALIZING_STATE]):
+            if response.status_code == 200 and response.json()["ui_status_code"] != str(
+                SYSTEM_STATUS_UUIDS[SERVER_INITIALIZING_STATE]
+            ):
                 return
+        except requests.exceptions.ConnectionError:
+            pass
         elapsed_time = time.perf_counter() - start
         sleep(
             0.75

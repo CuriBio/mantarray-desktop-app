@@ -10,12 +10,14 @@ The following constants are based off the geometry of Mantarray Board Rev 2
 * WELL_24_INDEX_TO_ADC_AND_CH_INDEX
 """
 import datetime
+from enum import IntEnum
 from typing import Dict
 from typing import Tuple
 import uuid
 
 from immutabledict import immutabledict
 from labware_domain_models import LabwareDefinition
+from mantarray_file_manager import METADATA_UUID_DESCRIPTIONS
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
@@ -24,9 +26,23 @@ CURRENT_SOFTWARE_VERSION = "REPLACETHISWITHVERSIONDURINGBUILD"
 
 COMPILED_EXE_BUILD_TIMESTAMP = "REPLACETHISWITHTIMESTAMPDURINGBUILD"
 
+# Cloud API
+CLOUD_API_ENDPOINT_USER_OPTION = "REPLACETHISWITHENDPOINTDURINGBUILD"
+CLOUD_API_ENDPOINT_VALID_OPTIONS = immutabledict(
+    {
+        "test": "curibio-test",
+        "modl": "curibio-modl",
+        "prod": "curibio",
+    }
+)
+CLOUD_API_ENDPOINT = (
+    f"api.{CLOUD_API_ENDPOINT_VALID_OPTIONS.get(CLOUD_API_ENDPOINT_USER_OPTION, 'curibio-test')}.com"
+)
+
 # Tanner (4/15/21): the latest HDF5 file version lives in mantarray-file-manager. This value represents the file version that is being created by the desktop app. When new mantarray-file-manager updates are brought into the desktop app, these values will differ indicating that FileWriterProcess needs to be updated to match the new file version
 CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION = "0.4.2"
 CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION = "1.0.0"
+
 
 DEFAULT_SERVER_PORT_NUMBER = 4567
 
@@ -60,11 +76,21 @@ CURI_BIO_USER_ACCOUNT_ID = uuid.UUID("455b93eb-c78f-4494-9f73-d3291130f126")
 
 DEFAULT_USER_CONFIG = immutabledict(
     {
-        "Customer Account ID": "",
-        "User Account ID": "",
+        "customer_account_id": "",
+        "user_account_id": "",
     }
 )
-VALID_CONFIG_SETTINGS = frozenset(["customer_account_uuid", "user_account_uuid", "recording_directory"])
+VALID_CONFIG_SETTINGS = frozenset(
+    [
+        "customer_account_uuid",
+        "user_account_id",
+        "customer_pass_key",
+        "user_account_id",
+        "recording_directory",
+        "auto_upload",
+        "auto_delete",
+    ]
+)
 
 DATA_FRAME_PERIOD = 20  # in centimilliseconds
 ROUND_ROBIN_PERIOD = DATA_FRAME_PERIOD * DATA_FRAMES_PER_ROUND_ROBIN
@@ -99,13 +125,14 @@ FIFO_READ_PRODUCER_DATA_OFFSET = (  # 0xB000 chosen through empirical testing
 RAW_TO_SIGNED_CONVERSION_VALUE = 2 ** 23  # subtract this value from raw hardware data
 MILLIVOLTS_PER_VOLT = 1000
 
-MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS = 7
+MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS = 10
 DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS = (
     MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS * CENTIMILLISECONDS_PER_SECOND
 )
 DATA_ANALYZER_BETA_1_BUFFER_SIZE = DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS // ROUND_ROBIN_PERIOD
 OUTGOING_DATA_BUFFER_SIZE = 2
 FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS = 30 * CENTIMILLISECONDS_PER_SECOND
+FILE_WRITER_BUFFER_SIZE_MICROSECONDS = 30 * MICRO_TO_BASE_CONVERSION
 
 INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES = 20
 FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES = int(
@@ -207,11 +234,6 @@ STOP_MANAGED_ACQUISITION_COMMUNICATION = immutabledict(
     }
 )
 
-# TODO Tanner (5/22/21): Add Beta 2 states. Also remove Beta 1 specific states once phased out
-#   "instrument_initializing" state could correspond to boot up status code
-#   "configuration_needed" state means that magnetometer config and sampling period need to be set
-#   should change "calibrated" state to something better like idle/ready to stream
-#   "buffering" state should be kept
 SERVER_INITIALIZING_STATE = "server_initializing"
 SERVER_READY_STATE = "server_ready"
 INSTRUMENT_INITIALIZING_STATE = "instrument_initializing"
@@ -240,11 +262,17 @@ SUBPROCESS_POLL_DELAY_SECONDS = 0.025
 
 SECONDS_TO_WAIT_WHEN_POLLING_QUEUES = 0.02  # Due to the unreliability of the :method:`.empty()` :method:`.qsize()` methods in queues, switched to a :method:`.get(timeout=)` approach for polling the queues in the subprocesses.  Eli (10/26/20): 0.01 seconds was still causing sporadic failures in Linux CI in Github, so bumped to 0.02 seconds.
 
+
+# Beta 2 Values
+NUM_INITIAL_PACKETS_TO_DROP = 2
+
 # Serial Communication Values
 STM_VID = 1155
 SERIAL_COMM_BAUD_RATE = int(5e6)
 
 MAX_MC_REBOOT_DURATION_SECONDS = 5
+MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS = 20
+MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS = 120
 
 SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES = 3
 
@@ -264,27 +292,27 @@ SERIAL_COMM_TIMESTAMP_LENGTH_BYTES = 8
 SERIAL_COMM_CHECKSUM_LENGTH_BYTES = 4
 SERIAL_COMM_STATUS_CODE_LENGTH_BYTES = 4
 # data stream components
-SERIAL_COMM_TIME_INDEX_LENGTH_BYTES = 5
+SERIAL_COMM_TIME_INDEX_LENGTH_BYTES = 8
 SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES = 2
 
-# following two values do not include the magic word or packet info bytes
-SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES = (
-    SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 2 + SERIAL_COMM_CHECKSUM_LENGTH_BYTES
-)  # 2 bytes for module ID and packet type bytes
-SERIAL_COMM_MAX_PACKET_LENGTH_BYTES = 2 ** 16
-
+SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES = (  # not including the magic word or packet info bytes,
+    SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+    + 2  # module ID and packet type bytes
+    + SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+)
 SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES = (
-    SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
+    len(SERIAL_COMM_MAGIC_WORD_BYTES)
     + SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
-    + len(SERIAL_COMM_MAGIC_WORD_BYTES)
+    + SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
 )
-SERIAL_COMM_MAX_DATA_LENGTH_BYTES = (
+
+SERIAL_COMM_MAX_PACKET_LENGTH_BYTES = 65000  # max number of bytes that can be sent to/from instrument at once
+SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES = (  # max number of bytes that can fit in the packet body (excludes magic word and 2 bytes for packet len)
     SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
+    - len(SERIAL_COMM_MAGIC_WORD_BYTES)
     - SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
-    - SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
-    - SERIAL_COMM_CHECKSUM_LENGTH_BYTES
-    - 10  # MCU DMA limit
 )
+
 SERIAL_COMM_MAX_TIMESTAMP_VALUE = 2 ** (8 * SERIAL_COMM_TIMESTAMP_LENGTH_BYTES) - 1
 
 SERIAL_COMM_TIMESTAMP_BYTES_INDEX = len(SERIAL_COMM_MAGIC_WORD_BYTES) + SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
@@ -297,11 +325,20 @@ SERIAL_COMM_MAIN_MODULE_ID = 0
 # PC to Mantarray Packet Types
 SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE = 3
 SERIAL_COMM_HANDSHAKE_PACKET_TYPE = 4
+SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE = 20
+SERIAL_COMM_START_STIM_PACKET_TYPE = 21
+SERIAL_COMM_STOP_STIM_PACKET_TYPE = 22
+SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE = 70
+SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE = 71
+SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE = 72
+SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE = 73
+SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE = 74
 # Mantarray to PC Packet Types
 SERIAL_COMM_STATUS_BEACON_PACKET_TYPE = 0
 SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE = 1
 SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE = 4
 SERIAL_COMM_PLATE_EVENT_PACKET_TYPE = 6
+SERIAL_COMM_STIM_STATUS_PACKET_TYPE = 7
 SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE = 255
 # Simple Command Codes
 SERIAL_COMM_REBOOT_COMMAND_BYTE = 0
@@ -320,8 +357,8 @@ SERIAL_COMM_BOOT_UP_CODE = 3
 SERIAL_COMM_FATAL_ERROR_CODE = 4
 SERIAL_COMM_SOFT_ERROR_CODE = 5
 # Command Response Info
-SERIAL_COMM_STREAM_MODE_CHANGED_BYTE = 0
-SERIAL_COMM_STREAM_MODE_UNCHANGED_BYTE = 1
+SERIAL_COMM_COMMAND_SUCCESS_BYTE = 0
+SERIAL_COMM_COMMAND_FAILURE_BYTE = 1
 # Magnetometer configuration
 SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE = {
     "A": {"X": 0, "Y": 1, "Z": 2},
@@ -332,8 +369,8 @@ SERIAL_COMM_NUM_CHANNELS_PER_SENSOR = 3
 SERIAL_COMM_NUM_SENSORS_PER_WELL = 3
 SERIAL_COMM_NUM_DATA_CHANNELS = SERIAL_COMM_NUM_SENSORS_PER_WELL * SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 SERIAL_COMM_DEFAULT_DATA_CHANNEL = SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]
-# default config values as of 8/18/21
-DEFAULT_SAMPLING_PERIOD = 6000
+# default config values as of 9/24/21
+DEFAULT_SAMPLING_PERIOD = 10000
 DEFAULT_MAGNETOMETER_CONFIG = {
     module_id: {channel_id: True for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS)}
     for module_id in range(1, 25)
@@ -342,6 +379,20 @@ DEFAULT_MAGNETOMETER_CONFIG = {
 STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS = int(100e3)
 STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS = int(1.2e3)
 STIM_MAX_PULSE_DURATION_MICROSECONDS = int(50e3)
+STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL = 50
+
+STIM_COMPLETE_SUBPROTOCOL_IDX = 255
+
+STIM_NO_PROTOCOL_ASSIGNED = 255
+
+
+class StimStatuses(IntEnum):
+    ACTIVE = 0
+    NULL = 1
+    RESTARTING = 2
+    FINISHED = 3
+    ERROR = 4
+
 
 # Metadata
 SERIAL_COMM_METADATA_BYTES_LENGTH = 32
@@ -353,3 +404,13 @@ SERIAL_COMM_WELL_IDX_TO_MODULE_ID = immutabledict(
 SERIAL_COMM_MODULE_ID_TO_WELL_IDX = immutabledict(
     {module_id: well_idx for well_idx, module_id in SERIAL_COMM_WELL_IDX_TO_MODULE_ID.items()}
 )
+
+# Calibration
+CALIBRATION_RECORDING_DUR_SECONDS = 30
+
+
+# TODO move this to mantarray_file_manager or sdk_refactor
+IS_CALIBRATION_FILE_UUID = uuid.UUID("9a6f90eb-fe34-423b-bfed-fb441d6d9e5f")
+METADATA_UUID_DESCRIPTIONS = dict(METADATA_UUID_DESCRIPTIONS)
+METADATA_UUID_DESCRIPTIONS[IS_CALIBRATION_FILE_UUID] = "Is this file a calibration (empty plate) recording"
+METADATA_UUID_DESCRIPTIONS = immutabledict(METADATA_UUID_DESCRIPTIONS)

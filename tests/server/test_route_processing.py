@@ -13,10 +13,10 @@ from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
-from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
+from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import ok_comm
 from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import produce_data
@@ -27,6 +27,7 @@ from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import server
 from mantarray_desktop_app import utils
+from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
@@ -51,9 +52,13 @@ from ..fixtures import fixture_patched_test_xem_scripts_folder
 from ..fixtures import fixture_patched_xem_scripts_folder
 from ..fixtures import fixture_test_process_manager_creator
 from ..fixtures import GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
+from ..fixtures import GENERIC_STORED_CUSTOMER_IDS
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
+from ..fixtures_file_writer import populate_calibration_folder
+from ..fixtures_mc_simulator import create_random_stim_info
+from ..fixtures_mc_simulator import get_random_subprotocol
 from ..fixtures_process_monitor import fixture_test_monitor
 from ..fixtures_server import fixture_client_and_server_manager_and_shared_values
 from ..fixtures_server import fixture_server_manager
@@ -135,6 +140,8 @@ def test_send_single_start_calibration_command__gets_processed_and_sets_system_s
 
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+
+    shared_values_dict["system_status"] = CALIBRATED_STATE
 
     ok_process = test_process_manager.get_instrument_process()
     set_connection_to_beta_1_board(ok_process, initialize_board=False)
@@ -932,22 +939,20 @@ def test_update_settings__stores_values_in_shared_values_dict__and_recordings_fo
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-
     spied_utils_logger = mocker.spy(utils.logger, "info")
-
-    expected_customer_uuid = "2dc06596-9cea-46a2-9ddd-a0d8a0f13584"
-    expected_user_uuid = "21875600-ca08-44c4-b1ea-0877b3c63ca7"
-
+    expected_customer_uuid = str(CURI_BIO_ACCOUNT_UUID)
+    expected_user_account_id = "test_user"
+    shared_values_dict["stored_customer_settings"] = {"stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS}
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         response = test_client.get(
-            f"/update_settings?customer_account_uuid={expected_customer_uuid}&user_account_uuid={expected_user_uuid}&recording_directory={expected_recordings_dir}"
+            f"/update_settings?customer_account_uuid={expected_customer_uuid}&customer_pass_key=Filler_password123&user_account_id=test_user&recording_directory={expected_recordings_dir}"
         )
         assert response.status_code == 200
         invoke_process_run_and_check_errors(monitor_thread)
 
-        assert shared_values_dict["config_settings"]["Customer Account ID"] == expected_customer_uuid
-        assert shared_values_dict["config_settings"]["Recording Directory"] == expected_recordings_dir
-        assert shared_values_dict["config_settings"]["User Account ID"] == expected_user_uuid
+        assert shared_values_dict["config_settings"]["customer_account_id"] == expected_customer_uuid
+        assert shared_values_dict["config_settings"]["recording_directory"] == expected_recordings_dir
+        assert shared_values_dict["config_settings"]["user_account_id"] == expected_user_account_id
         assert test_process_manager.get_file_directory() == expected_recordings_dir
 
         scrubbed_recordings_dir = redact_sensitive_info_from_path(expected_recordings_dir)
@@ -956,57 +961,98 @@ def test_update_settings__stores_values_in_shared_values_dict__and_recordings_fo
     queue_from_main_to_file_writer = (
         test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
     )
-    confirm_queue_is_eventually_of_size(queue_from_main_to_file_writer, 1)
+    confirm_queue_is_eventually_of_size(queue_from_main_to_file_writer, 2)
 
     # clean up the message that goes to file writer to update the recording directory
     drain_queue(queue_from_main_to_file_writer)
 
 
-def test_update_settings__replaces_curi_with_default_account_uuids(
-    test_process_manager_creator, test_client, test_monitor
-):
-    test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-
-    response = test_client.get("/update_settings?customer_account_uuid=curi")
-    assert response.status_code == 200
-
-    invoke_process_run_and_check_errors(monitor_thread)
-
-    assert shared_values_dict["config_settings"]["Customer Account ID"] == str(CURI_BIO_ACCOUNT_UUID)
-    assert shared_values_dict["config_settings"]["User Account ID"] == str(CURI_BIO_USER_ACCOUNT_ID)
-
-
 def test_update_settings__replaces_only_new_values_in_shared_values_dict(
-    test_process_manager_creator, test_client, test_monitor
+    test_process_manager_creator, test_client, test_monitor, mocker
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+    mocker.patch.object(utils, "validate_customer_credentials", autospec=True)
+
+    expected_customer_uuid = str(CURI_BIO_ACCOUNT_UUID)
+    expected_passkey = "Filler_password123"
+
+    shared_values_dict["stored_customer_settings"] = {"stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS}
+    shared_values_dict["config_settings"] = {
+        "customer_account_id": "2dc06596-9cea-46a2-9ddd-a0d8a0f13584",
+        "customer_pass_key": "other_password",
+        "user_account_id": "other_user",
+    }
+
+    response = test_client.get(
+        f"/update_settings?customer_account_uuid={expected_customer_uuid}&customer_pass_key=Filler_password123&user_account_id=test_user"
+    )
+    assert response.status_code == 200
+    invoke_process_run_and_check_errors(monitor_thread)
+
+    assert shared_values_dict["config_settings"]["customer_account_id"] == expected_customer_uuid
+    assert shared_values_dict["config_settings"]["customer_pass_key"] == expected_passkey
+
+
+def test_update_settings__errors_when_any_combo_of_invalid_customer_credits_gets_checked_against_stored_pairs(
+    test_process_manager_creator, test_client, test_monitor, mocker
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
-    expected_customer_uuid = "b357cab5-adba-4cc3-a805-93b0b57a6d72"
-    expected_user_uuid = "05dab94c-88dc-4505-ae4f-be6fa4a6f5f0"
+    expected_customer_uuid = str(CURI_BIO_ACCOUNT_UUID)
 
+    shared_values_dict["stored_customer_settings"] = {"stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS}
+
+    response = test_client.get(
+        f"/update_settings?customer_account_uuid={expected_customer_uuid}&customer_pass_key=wrong_password&user_account_id=test_user"
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert response.status_code == 401
+
+    response = test_client.get(
+        "/update_settings?customer_account_uuid=wrong_customer_id&customer_pass_key=Filler_password123&user_account_id=test_user"
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert response.status_code == 401
+
+    response = test_client.get(
+        f"/update_settings?customer_account_uuid={expected_customer_uuid}&customer_pass_key=Filler_password123&user_account_id=wrong_user"
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert response.status_code == 401
+
+
+def test_update_settings__returns_boolean_values_for_auto_upload_delete_values(
+    test_process_manager_creator, test_client, test_monitor, mocker
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+
+    shared_values_dict["stored_customer_settings"] = {"stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS}
     shared_values_dict["config_settings"] = {
-        "Customer Account ID": "2dc06596-9cea-46a2-9ddd-a0d8a0f13584",
-        "User Account ID": expected_user_uuid,
+        "auto_upload_on_completion": True,
+        "auto_delete_local_files": False,
     }
-    response = test_client.get(f"/update_settings?customer_account_uuid={expected_customer_uuid}")
+
+    response = test_client.get("/update_settings?auto_upload=false&auto_delete=true")
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
-    assert shared_values_dict["config_settings"]["Customer Account ID"] == expected_customer_uuid
-    assert shared_values_dict["config_settings"]["User Account ID"] == expected_user_uuid
+
+    assert shared_values_dict["config_settings"]["auto_upload_on_completion"] is False
+    assert shared_values_dict["config_settings"]["auto_delete_local_files"] is True
 
 
 def test_single_update_settings_command_with_recording_dir__gets_processed_by_FileWriter(
-    test_process_manager_creator, test_client, test_monitor
+    test_process_manager_creator, test_client, test_monitor, mocker
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    monitor_thread, *_ = test_monitor(test_process_manager)
-
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     fw_process = test_process_manager.get_file_writer_process()
     to_fw_queue = test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
     from_fw_queue = test_process_manager.queue_container().get_communication_queue_from_file_writer_to_main()
 
+    shared_values_dict["stored_customer_settings"] = {"stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS}
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         response = test_client.get(f"/update_settings?recording_directory={expected_recordings_dir}")
         assert response.status_code == 200
@@ -1058,7 +1104,7 @@ def test_stop_recording_command__is_received_by_file_writer__with_given_time_ind
     )
     shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [expected_acquisition_timestamp]
 
-    expected_time_index = 1000
+    expected_time_index = 9600
     comm_to_fw_queue = (
         test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
     )
@@ -1082,7 +1128,9 @@ def test_stop_recording_command__is_received_by_file_writer__with_given_time_ind
     communication = file_writer_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "stop_recording"
 
-    assert communication["timepoint_to_stop_recording_at"] == expected_time_index
+    assert communication["timepoint_to_stop_recording_at"] == (
+        expected_time_index / MICROSECONDS_PER_CENTIMILLISECOND
+    )
 
 
 def test_start_recording__returns_error_code_and_message_if_called_with_is_hardware_test_mode_false_when_previously_true(
@@ -1094,9 +1142,11 @@ def test_start_recording__returns_error_code_and_message_if_called_with_is_hardw
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
 
+    shared_values_dict["system_status"] = LIVE_VIEW_ACTIVE_STATE
     response = test_client.get("/start_recording?barcode=MA200440001&is_hardware_test_recording=True")
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
+    shared_values_dict["system_status"] = LIVE_VIEW_ACTIVE_STATE
     response = test_client.get("/start_recording?barcode=MA200440001&is_hardware_test_recording=False")
     assert response.status_code == 403
     assert (
@@ -1126,7 +1176,7 @@ def test_start_recording_command__gets_processed_with_given_time_index_parameter
     to_fw_queue = test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
     fw_error_queue = test_process_manager.queue_container().get_file_writer_error_queue()
 
-    expected_time_index = 10000000
+    expected_time_index = 9600
     timestamp_str = (
         GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
             UTC_BEGINNING_DATA_ACQUISTION_UUID
@@ -1233,7 +1283,10 @@ def test_start_recording_command__gets_processed_in_beta_2_mode__and_creates_a_f
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
 
+    shared_values_dict["stimulation_info"] = create_random_stim_info()
+
     fw_process = test_process_manager.get_file_writer_process()
+    populate_calibration_folder(fw_process)
     to_fw_queue = test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
     fw_error_queue = test_process_manager.queue_container().get_file_writer_error_queue()
 
@@ -1263,6 +1316,7 @@ def test_start_recording_command__gets_processed_in_beta_2_mode__and_creates_a_f
 
     file_dir = fw_process.get_file_directory()
     actual_files = os.listdir(os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}"))
+    actual_files = [file_path for file_path in actual_files if "Calibration" not in file_path]
     assert actual_files == [f"{expected_barcode}__{timestamp_str}__D1.h5"]
 
 
@@ -1369,6 +1423,40 @@ def test_set_magnetometer_config__gets_processed__and_default_channel_is_enabled
     for key, inner_dict in module_configs.items():
         key_list = list(inner_dict.keys())
         assert all(key_list[i] == key_list[i + 1] - 1 for i in range(len(key_list) - 1)) is True
+
+
+def test_set_protocols__waits_for_stim_info_in_shared_values_dict_to_be_updated_before_returning(
+    client_and_server_manager_and_shared_values, test_client, mocker
+):
+    _, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = [False] * 24
+
+    test_protocol_dict = {
+        "protocols": [
+            {
+                "protocol_id": "S",
+                "stimulation_type": "C",
+                "run_until_stopped": True,
+                "subprotocols": [get_random_subprotocol(), get_random_subprotocol()],
+            }
+        ],
+        "protocol_assignments": {
+            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "S" for well_idx in range(24)
+        },
+    }
+
+    mocker.patch.object(
+        server,
+        "_get_stim_info_from_process_monitor",
+        autospec=True,
+        side_effect=[None, None, test_protocol_dict],
+    )
+    mocked_sleep = mocker.patch.object(server, "sleep", autospec=True)
+
+    response = test_client.post("/set_protocols", json={"data": json.dumps(test_protocol_dict)})
+    assert response.status_code == 200
+    assert mocked_sleep.call_args_list == [mocker.call(0.1), mocker.call(0.1)]
 
 
 def test_system_status__returns_no_plate_barcode_and_status_when_none_present(
