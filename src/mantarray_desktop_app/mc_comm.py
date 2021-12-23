@@ -36,6 +36,7 @@ from .constants import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS
 from .constants import MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
+from .constants import NUM_INITIAL_PACKETS_TO_DROP
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BAUD_RATE
 from .constants import SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
@@ -310,9 +311,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 )
                 sleep(1)
             # flush and log remaining serial data
-            remaining_serial_data = bytes(0)
-            while board.in_waiting > 0:
-                remaining_serial_data += board.read(size=SERIAL_COMM_MAX_PACKET_LENGTH_BYTES)
+            remaining_serial_data = board.read_all()
             serial_data_flush_msg = f"Remaining Serial Data {str(remaining_serial_data)}"
             put_log_message_into_queue(
                 logging.INFO,
@@ -763,7 +762,6 @@ class McCommunicationProcess(InstrumentCommProcess):
 
                 if well_statuses:
                     self._dump_stim_packet(well_statuses)
-
             elif prev_command["command"] == "stop_managed_acquisition":
                 if response_data[0]:
                     if not self._hardware_test_mode:
@@ -1073,10 +1071,14 @@ class McCommunicationProcess(InstrumentCommProcess):
         if num_data_packets_read == 0:
             return
 
+        is_first_packet = not self._has_data_packet_been_sent
+        data_start_idx = NUM_INITIAL_PACKETS_TO_DROP if is_first_packet else 0
+        data_slice = slice(data_start_idx, num_data_packets_read)
+
         fw_item: Dict[Any, Any] = {
             "data_type": "magnetometer",
-            "time_indices": time_indices[:num_data_packets_read],
-            "is_first_packet_of_stream": not self._has_data_packet_been_sent,
+            "time_indices": time_indices[data_slice],
+            "is_first_packet_of_stream": is_first_packet,
         }
         data_idx = 0
         time_offset_idx = 0
@@ -1085,12 +1087,12 @@ class McCommunicationProcess(InstrumentCommProcess):
             if num_sensors_active == 0:
                 continue
             time_offset_slice = slice(time_offset_idx, time_offset_idx + num_sensors_active)
-            well_dict = {"time_offsets": time_offsets[time_offset_slice, :num_data_packets_read]}
+            well_dict = {"time_offsets": time_offsets[time_offset_slice, data_slice]}
             time_offset_idx += num_sensors_active
             for config_key, config_value in config_dict.items():
                 if not config_value or config_key == "num_sensors_active":
                     continue
-                well_dict[config_key] = data[data_idx][:num_data_packets_read]
+                well_dict[config_key] = data[data_idx][data_slice]
                 data_idx += 1
             well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
             fw_item[well_idx] = well_dict

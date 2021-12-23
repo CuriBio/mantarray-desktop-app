@@ -66,6 +66,7 @@ from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import NANOSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import NO_PLATE_DETECTED_BARCODE_VALUE
 from mantarray_desktop_app import NO_PLATE_DETECTED_UUID
+from mantarray_desktop_app import NUM_INITIAL_PACKETS_TO_DROP
 from mantarray_desktop_app import OUTGOING_DATA_BUFFER_SIZE
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
 from mantarray_desktop_app import RECORDING_STATE
@@ -355,8 +356,8 @@ def test_scripting():
 
 
 def test_buffer_size_constants():
-    assert MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS == 7
-    assert DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS == 700000
+    assert MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS == 10
+    assert DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS == 1000000
     assert FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS == 3000000
 
     assert OUTGOING_DATA_BUFFER_SIZE == 2
@@ -417,6 +418,10 @@ def test_shutdown_values():
 
 def test_parallelism_config():
     assert SECONDS_TO_WAIT_WHEN_POLLING_QUEUES == 0.02
+
+
+def test_data_stream_values():
+    assert NUM_INITIAL_PACKETS_TO_DROP == 2
 
 
 def test_serial_comm():

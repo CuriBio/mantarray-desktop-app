@@ -81,6 +81,7 @@ from .constants import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from .constants import NANOSECONDS_PER_CENTIMILLISECOND
 from .constants import NO_PLATE_DETECTED_BARCODE_VALUE
 from .constants import NO_PLATE_DETECTED_UUID
+from .constants import NUM_INITIAL_PACKETS_TO_DROP
 from .constants import OUTGOING_DATA_BUFFER_SIZE
 from .constants import RAW_TO_SIGNED_CONVERSION_VALUE
 from .constants import RECORDING_STATE
@@ -641,4 +642,5 @@ __all__ = [
     "CLOUD_API_ENDPOINT_USER_OPTION",
     "CLOUD_API_ENDPOINT_VALID_OPTIONS",
     "CLOUD_API_ENDPOINT",
+    "NUM_INITIAL_PACKETS_TO_DROP",
 ]

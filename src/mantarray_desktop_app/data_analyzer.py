@@ -337,7 +337,8 @@ class DataAnalyzerProcess(InfiniteProcess):
                 self._data_buffer[well_index]["construct_data"][0].extend(data_dict["data"][0])
                 self._data_buffer[well_index]["construct_data"][1].extend(data_dict["data"][1])
 
-    def _is_buffer_full(self) -> bool:
+    def is_buffer_full(self) -> bool:
+        """Only used in unit tests at the moment."""
         for data_pair in self._data_buffer.values():
             if data_pair["construct_data"] is None or data_pair["ref_data"] is None:
                 return False

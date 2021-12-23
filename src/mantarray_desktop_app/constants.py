@@ -125,7 +125,7 @@ FIFO_READ_PRODUCER_DATA_OFFSET = (  # 0xB000 chosen through empirical testing
 RAW_TO_SIGNED_CONVERSION_VALUE = 2 ** 23  # subtract this value from raw hardware data
 MILLIVOLTS_PER_VOLT = 1000
 
-MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS = 7
+MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS = 10
 DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS = (
     MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS * CENTIMILLISECONDS_PER_SECOND
 )
@@ -261,6 +261,10 @@ SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS = 1
 SUBPROCESS_POLL_DELAY_SECONDS = 0.025
 
 SECONDS_TO_WAIT_WHEN_POLLING_QUEUES = 0.02  # Due to the unreliability of the :method:`.empty()` :method:`.qsize()` methods in queues, switched to a :method:`.get(timeout=)` approach for polling the queues in the subprocesses.  Eli (10/26/20): 0.01 seconds was still causing sporadic failures in Linux CI in Github, so bumped to 0.02 seconds.
+
+
+# Beta 2 Values
+NUM_INITIAL_PACKETS_TO_DROP = 2
 
 # Serial Communication Values
 STM_VID = 1155
