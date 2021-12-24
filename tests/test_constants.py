@@ -300,12 +300,7 @@ def test_current_file_versions():
         CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION == latest_beta1_hdf5_file_format_version
     ), "FileWriterProcess needs an update to match the beta 1 file format with the latest file version from mantarray-file-manager. Make the changes then update CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION to match the latest version"
 
-    latest_beta2_hdf5_file_format_version = (
-        mantarray_file_manager.constants.CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
-    )
-    assert (
-        CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION == latest_beta2_hdf5_file_format_version
-    ), "FileWriterProcess needs an update to match the beta 2 file format with the latest file version from mantarray-file-manager. Make the changes then update CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION to match the latest version"
+    assert CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION == "1.0.1"
 
 
 def test_COMPILED_EXE_BUILD_TIMESTAMP():
