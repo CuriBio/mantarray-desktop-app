@@ -89,9 +89,6 @@ from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SUBPROCESS_POLL_DELAY_SECONDS
 from .constants import SYSTEM_STATUS_UUIDS
 from .constants import VALID_CONFIG_SETTINGS
-from .exceptions import ImproperlyFormattedUserAccountIDError
-from .exceptions import InvalidCustomerAccountIDError
-from .exceptions import InvalidCustomerPasskeyError
 from .exceptions import LocalServerPortAlreadyInUseError
 from .exceptions import RecordingFolderDoesNotExistError
 from .exceptions import ServerManagerNotInitializedError
@@ -104,7 +101,6 @@ from .utils import check_barcode_for_errors
 from .utils import convert_request_args_to_config_dict
 from .utils import get_current_software_version
 from .utils import get_redacted_string
-from .utils import validate_customer_credentials
 from .utils import validate_magnetometer_config_keys
 from .utils import validate_settings
 
@@ -327,16 +323,16 @@ def update_settings() -> Response:
         response = Response(status=f"400 {repr(e)}")
         return response
 
-    try:
-        shared_values_dict = _get_values_from_process_monitor()
-        validate_customer_credentials(request.args, shared_values_dict)
-    except (
-        InvalidCustomerAccountIDError,
-        InvalidCustomerPasskeyError,
-        ImproperlyFormattedUserAccountIDError,
-    ) as e:
-        response = Response(status=f"401 {repr(e)}")
-        return response
+    # try:
+    #     shared_values_dict = _get_values_from_process_monitor()
+    #     validate_customer_credentials(request.args, shared_values_dict)
+    # except (
+    #     InvalidCustomerAccountIDError,
+    #     InvalidCustomerPasskeyError,
+    #     ImproperlyFormattedUserAccountIDError,
+    # ) as e:
+    #     response = Response(status=f"401 {repr(e)}")
+    #     return response
 
     queue_command_to_main(
         {
