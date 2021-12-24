@@ -571,9 +571,7 @@ def test_beta_2_mappings():
     assert SERIAL_COMM_WELL_IDX_TO_MODULE_ID == {
         well_idx: module_id for module_id, well_idx in SERIAL_COMM_MODULE_ID_TO_WELL_IDX.items()
     }
-    assert SERIAL_COMM_MODULE_ID_TO_WELL_IDX == {
-        module_id: (module_id - 1) % 6 * 4 + (module_id - 1) // 6 for module_id in range(1, 25)
-    }
+    assert SERIAL_COMM_MODULE_ID_TO_WELL_IDX == {module_id: module_id - 1 for module_id in range(1, 25)}
     for well_idx in range(24):
         module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]
         well_idx_from_module_id = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
