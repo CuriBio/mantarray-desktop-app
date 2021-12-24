@@ -228,15 +228,15 @@ jobs:
       #   # only enable pre-commit on the fastest job
       #   run: pipenv run pre-commit run git-dirty -a
 
-      # - name: Insert the Build Number and Software Version into the code (Windows)
-      #   if: runner.os == 'Windows'
-      #   env:
-      #     build_number: ${{ github.run_number }}
-      #   run: |
-      #     echo $env:build_number
-      #     ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHTIMESTAMPDURINGBUILD',"$(Get-Date -Format 'yyMMddHHmmss')--$env:build_number") | Set-Content -Path src\mantarray_desktop_app\constants.py
-      #     ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHVERSIONDURINGBUILD',"${{steps.software-version.outputs.prop}}") | Set-Content -Path src\mantarray_desktop_app\constants.py
-      #     ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHENDPOINTDURINGBUILD',"${{github.event.inputs.api_endpoint}}") | Set-Content -Path src\mantarray_desktop_app\constants.py
+      - name: Insert the Build Number and Software Version into the code (Windows)
+        if: runner.os == 'Windows'
+        env:
+          build_number: ${{ github.run_number }}
+        run: |
+          echo $env:build_number
+          ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHTIMESTAMPDURINGBUILD',"$(Get-Date -Format 'yyMMddHHmmss')--$env:build_number") | Set-Content -Path src\mantarray_desktop_app\constants.py
+          ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHVERSIONDURINGBUILD',"${{steps.software-version.outputs.prop}}") | Set-Content -Path src\mantarray_desktop_app\constants.py
+          ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHENDPOINTDURINGBUILD',"${{github.event.inputs.api_endpoint}}") | Set-Content -Path src\mantarray_desktop_app\constants.py
 
       - name: Insert the Build Number and Software Version into the code (Linux)
         if: runner.os == 'Linux'
@@ -297,16 +297,16 @@ jobs:
       #   if: runner.os == 'Windows'
       #   run: pipenv run npm run test:e2e-ci
 
-      # - name: Digitally Signing the installation and win_unpacked EXE files
-      #   if: matrix.IS_DEPLOYMENT_CONFIG == true
-      #   env:
-      #     AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_USER_ACCESS_KEY }}
-      #     AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_USER_SECRET_KEY }}
-      #   run: |
-      #     pipenv run python .github/workflows/vcn.py notarize "dist/${{steps.product-name.outputs.prop}}-Setup-${{steps.software-version.outputs.prop}}.exe"
-      #     pipenv run python .github/workflows/vcn.py notarize "dist/win-unpacked/Mantarray Controller.exe"
-      #     pipenv run python .github/workflows/vcn.py authenticate "dist/${{steps.product-name.outputs.prop}}-Setup-${{steps.software-version.outputs.prop}}.exe"
-      #     pipenv run python .github/workflows/vcn.py authenticate "dist/win-unpacked/Mantarray Controller.exe"
+      - name: Digitally Signing the installation and win_unpacked EXE files
+        if: matrix.IS_DEPLOYMENT_CONFIG == true
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_USER_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_USER_SECRET_KEY }}
+        run: |
+          pipenv run python .github/workflows/vcn.py notarize "dist/${{steps.product-name.outputs.prop}}-Setup-${{steps.software-version.outputs.prop}}.exe"
+          pipenv run python .github/workflows/vcn.py notarize "dist/win-unpacked/Mantarray Controller.exe"
+          pipenv run python .github/workflows/vcn.py authenticate "dist/${{steps.product-name.outputs.prop}}-Setup-${{steps.software-version.outputs.prop}}.exe"
+          pipenv run python .github/workflows/vcn.py authenticate "dist/win-unpacked/Mantarray Controller.exe"
 
       - name: Archive visual regression
         if: ${{ failure() }}
