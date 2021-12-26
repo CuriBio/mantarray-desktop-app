@@ -81,6 +81,8 @@ from .file_uploader import ErrorCatchingThread
 from .file_uploader import uploader
 from .utils import create_sensor_axis_dict
 
+logger = logging.getLogger(__name__)
+
 
 def _get_formatted_utc_now() -> str:
     return datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -555,6 +557,7 @@ class FileWriterProcess(InfiniteProcess):
                     raise CalibrationFilesMissingError(f"Missing wells: {missing_well_names}")
                 for file_path in calibration_file_paths:
                     shutil.copy(file_path, file_folder_dir)
+
         communication["abs_path_to_file_folder"] = file_folder_dir
 
         stim_protocols = None
@@ -1234,40 +1237,41 @@ class FileWriterProcess(InfiniteProcess):
         if self._stored_customer_settings is not None:
             failed_uploads_dir = self._stored_customer_settings["failed_uploads_dir"]
             zipped_recordings_dir = self._stored_customer_settings["zipped_recordings_dir"]
-            stored_customer_ids = self._stored_customer_settings["stored_customer_ids"]
+            stored_customer_id = self._stored_customer_settings["stored_customer_id"]
 
             if os.path.exists(
                 failed_uploads_dir
             ):  # TODO Tanner (11/9/21): should log if folder for failed uploads not found
                 for customer_dir in os.listdir(failed_uploads_dir):
                     customer_failed_uploads_dir = os.path.join(failed_uploads_dir, customer_dir)
-                    customer_passkey = stored_customer_ids[customer_dir]["password"]
-                    for user_dir in os.listdir(customer_failed_uploads_dir):
-                        user_failed_uploads_dir = os.path.join(customer_failed_uploads_dir, user_dir)
+                    if stored_customer_id["id"] == customer_dir:
+                        customer_passkey = stored_customer_id["password"]
+                        for user_dir in os.listdir(customer_failed_uploads_dir):
+                            user_failed_uploads_dir = os.path.join(customer_failed_uploads_dir, user_dir)
 
-                        for file_name in os.listdir(user_failed_uploads_dir):
-                            upload_thread = ErrorCatchingThread(
-                                target=uploader,
-                                args=(
-                                    user_failed_uploads_dir,
-                                    file_name,
-                                    zipped_recordings_dir,
-                                    customer_dir,
-                                    customer_passkey,
-                                    user_dir,
-                                ),
-                            )
-                            upload_thread.start()
-                            thread_dict = {
-                                "failed_upload": True,
-                                "customer_account_id": customer_dir,
-                                "user_account_id": user_dir,
-                                "thread": upload_thread,
-                                "auto_delete": False,
-                                "file_name": file_name,
-                            }
-                            self._upload_threads_container.append(thread_dict)
-                            # Lucy (10/22/2021): figure out how to handle if delete local files had been selected on original customer settings and how to handle the zip file
+                            for file_name in os.listdir(user_failed_uploads_dir):
+                                upload_thread = ErrorCatchingThread(
+                                    target=uploader,
+                                    args=(
+                                        user_failed_uploads_dir,
+                                        file_name,
+                                        zipped_recordings_dir,
+                                        customer_dir,
+                                        customer_passkey,
+                                        user_dir,
+                                    ),
+                                )
+                                upload_thread.start()
+                                thread_dict = {
+                                    "failed_upload": True,
+                                    "customer_account_id": customer_dir,
+                                    "user_account_id": user_dir,
+                                    "thread": upload_thread,
+                                    "auto_delete": False,
+                                    "file_name": file_name,
+                                }
+                                self._upload_threads_container.append(thread_dict)
+                                # Lucy (10/22/2021): figure out how to handle if delete local files had been selected on original customer settings and how to handle the zip file
 
     def _check_upload_statuses(self) -> None:
         """Loops through active upload threads.

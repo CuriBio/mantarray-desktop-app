@@ -8,7 +8,7 @@ from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
-from mantarray_desktop_app import InvalidCustomerAccountIDError
+from mantarray_desktop_app import InvalidCustomerAccountIDPasswordError
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import RECORDING_STATE
@@ -25,7 +25,7 @@ from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 import pytest
 
 from ..fixtures import fixture_generic_queue_container
-from ..fixtures import GENERIC_STORED_CUSTOMER_IDS
+from ..fixtures import GENERIC_STORED_CUSTOMER_ID
 from ..fixtures_mc_simulator import create_random_stim_info
 from ..fixtures_mc_simulator import get_random_subprotocol
 from ..fixtures_server import fixture_client_and_server_manager_and_shared_values
@@ -353,15 +353,31 @@ def test_start_managed_acquisition__returns_error_code_and_message_if_mantarray_
 def test_update_settings__returns_error_message_when_customer_creds_dont_make_stored_pairs(
     client_and_server_manager_and_shared_values,
 ):
-    invalid_customer_id = "invalid_id"
-    invalid_password_id = "invalid_pass"
+    valid_customer_id = "test_id"
+    invalid_password = "invalid_pass"
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
-    shared_values_dict["stored_customer_settings"] = {"stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS}
+
+    shared_values_dict["stored_customer_settings"] = {"stored_customer_id": GENERIC_STORED_CUSTOMER_ID}
     response = test_client.get(
-        f"/update_settings?customer_account_uuid={invalid_customer_id}&customer_pass_key={invalid_password_id}"
+        f"/update_settings?customer_account_uuid={valid_customer_id}&customer_pass_key={invalid_password}"
     )
     assert response.status_code == 401
-    assert response.status.endswith(f"{repr(InvalidCustomerAccountIDError(invalid_customer_id))}") is True
+    assert response.status.endswith(f"{repr(InvalidCustomerAccountIDPasswordError())}") is True
+
+
+def test_update_settings__returns_200_code_when_customer_creds_matched_stored_pairs(
+    client_and_server_manager_and_shared_values,
+):
+    valid_customer_id = "test_id"
+    invalid_password = "test_password"
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+
+    shared_values_dict["stored_customer_settings"] = {"stored_customer_id": GENERIC_STORED_CUSTOMER_ID}
+    response = test_client.get(
+        f"/update_settings?customer_account_uuid={valid_customer_id}&customer_pass_key={invalid_password}"
+    )
+    assert response.status_code == 200
+    assert response.status.endswith(f"{repr(InvalidCustomerAccountIDPasswordError())}") is False
 
 
 def test_update_settings__returns_error_message_when_recording_directory_does_not_exist(
@@ -403,30 +419,6 @@ def test_start_recording__returns_no_error_message_with_multiple_hardware_test_r
     assert response.status_code == 200
     response = test_client.get("/start_recording?barcode=MA200440001&is_hardware_test_recording=True")
     assert response.status_code == 200
-
-
-def test_start_recording__returns_error_code_and_message_if_user_account_id_not_set(
-    client_and_server_manager_and_shared_values,
-):
-    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
-    put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
-    shared_values_dict["config_settings"]["user_account_id"] = ""
-
-    response = test_client.get("/start_recording?barcode=MA200440001")
-    assert response.status_code == 406
-    assert response.status.endswith("user_account_id has not yet been set") is True
-
-
-def test_start_recording__returns_error_code_and_message_if_customer_account_id_not_set(
-    client_and_server_manager_and_shared_values,
-):
-    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
-    put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
-    shared_values_dict["config_settings"]["customer_account_id"] = ""
-
-    response = test_client.get("/start_recording?barcode=MA200440001")
-    assert response.status_code == 406
-    assert response.status.endswith("customer_account_id has not yet been set") is True
 
 
 def test_start_recording__returns_error_code_and_message_if_barcode_is_not_given(

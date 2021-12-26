@@ -36,7 +36,7 @@ from ..fixtures import fixture_fully_running_app_from_main_entrypoint
 from ..fixtures import fixture_patched_firmware_folder
 from ..fixtures import fixture_patched_xem_scripts_folder
 from ..fixtures import GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
-from ..fixtures import GENERIC_STORED_CUSTOMER_IDS
+from ..fixtures import GENERIC_STORED_CUSTOMER_ID
 
 
 __fixtures__ = [
@@ -152,7 +152,7 @@ def test_main__logs_system_info__and_software_version_at_very_start(
         expected_uuid = "c7d3e956-cfc3-42df-94d9-b3a19cf1529c"
         test_dict = {
             "log_file_uuid": expected_uuid,
-            "stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS,
+            "stored_customer_id": GENERIC_STORED_CUSTOMER_ID,
             "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
             "zipped_recordings_dir": f"/{tmp}/zipped_recordings_dir",
             "failed_uploads_dir": f"/{tmp}/failed_uploads_dir",
@@ -392,7 +392,7 @@ def test_main__stores_and_logs_directory_for_log_files_from_command_line_argumen
 def test_main__stores_values_from_command_line_arguments(mocker, fully_running_app_from_main_entrypoint):
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         test_dict = {
-            "stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS,
+            "stored_customer_id": GENERIC_STORED_CUSTOMER_ID,
             "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
             "recording_directory": expected_recordings_dir,
             "zipped_recordings_dir": f"{expected_recordings_dir}/zipped_recordings",
@@ -416,7 +416,7 @@ def test_main__stores_values_from_command_line_arguments(mocker, fully_running_a
 
         assert actual_config_settings["recording_directory"] == expected_recordings_dir
         assert shared_values_dict["log_file_uuid"] == "91dbb151-0867-44da-a595-bd303f91927d"
-        assert "stored_customer_ids" in shared_values_dict["stored_customer_settings"]
+        assert "stored_customer_id" in shared_values_dict["stored_customer_settings"]
         assert (
             shared_values_dict["computer_name_hash"]
             == hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).hexdigest()
@@ -430,7 +430,7 @@ def test_main__generates_log_file_uuid_if_none_passed_in_cmd_line_args(
     mocker.patch.object(uuid, "uuid4", autospec=True, return_value=expected_log_file_uuid)
     with tempfile.TemporaryDirectory() as tmp:
         test_dict = {
-            "stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS,
+            "stored_customer_id": GENERIC_STORED_CUSTOMER_ID,
             "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
             "zipped_recordings_dir": f"/{tmp}/zipped_recordings",
             "failed_uploads_dir": f"/{tmp}/failed_uploads",

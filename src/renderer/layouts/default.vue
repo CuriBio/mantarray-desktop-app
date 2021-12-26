@@ -15,7 +15,7 @@
         />
       </div>
       <div class="div__player-controls-container">
-        <DesktopPlayerControls />
+        <DesktopPlayerControls @save_customer_id="save_customer_id" />
       </div>
       <div
         class="div__additional_controls-controls-icon-container"
@@ -98,7 +98,7 @@ import {
   UploadFilesWidget,
 } from "@curi-bio/mantarray-frontend-components";
 import { ipcRenderer } from "electron";
-
+import { mapState } from "vuex";
 // const pkginfo = require('pkginfo')(module, 'version');
 const dummy_electron_app = {
   getVersion() {
@@ -130,6 +130,9 @@ export default {
       beta_2_mode: process.env.SPECTRON || undefined,
       log_dir_name: undefined,
     };
+  },
+  computed: {
+    ...mapState("settings", ["customer_account_ids", "customer_index"]),
   },
   created: function () {
     ipcRenderer.on("logs_flask_dir_response", (e, log_dir_name) => {
@@ -174,6 +177,11 @@ export default {
     send_confirmation: function (idx) {
       ipcRenderer.send("confirmation_response", idx);
       this.confirmation_request = false;
+    },
+    save_customer_id: function () {
+      const customer_account = this.customer_account_ids[this.customer_index];
+      console.log("REACHED IN DEFAULT LAYOUT: ", customer_account);
+      ipcRenderer.send("save_customer_id", customer_account);
     },
   },
 };

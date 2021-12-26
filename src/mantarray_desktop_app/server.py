@@ -89,9 +89,7 @@ from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SUBPROCESS_POLL_DELAY_SECONDS
 from .constants import SYSTEM_STATUS_UUIDS
 from .constants import VALID_CONFIG_SETTINGS
-from .exceptions import ImproperlyFormattedUserAccountIDError
-from .exceptions import InvalidCustomerAccountIDError
-from .exceptions import InvalidCustomerPasskeyError
+from .exceptions import InvalidCustomerAccountIDPasswordError
 from .exceptions import LocalServerPortAlreadyInUseError
 from .exceptions import RecordingFolderDoesNotExistError
 from .exceptions import ServerManagerNotInitializedError
@@ -330,11 +328,7 @@ def update_settings() -> Response:
     try:
         shared_values_dict = _get_values_from_process_monitor()
         validate_customer_credentials(request.args, shared_values_dict)
-    except (
-        InvalidCustomerAccountIDError,
-        InvalidCustomerPasskeyError,
-        ImproperlyFormattedUserAccountIDError,
-    ) as e:
+    except (InvalidCustomerAccountIDPasswordError,) as e:
         response = Response(status=f"401 {repr(e)}")
         return response
 
@@ -614,12 +608,12 @@ def start_recording() -> Response:
 
     shared_values_dict = _get_values_from_process_monitor()
 
-    if not shared_values_dict["config_settings"]["customer_account_id"]:
-        response = Response(status="406 customer_account_id has not yet been set")
-        return response
-    if not shared_values_dict["config_settings"]["user_account_id"]:
-        response = Response(status="406 user_account_id has not yet been set")
-        return response
+    # if not shared_values_dict["config_settings"]["customer_account_id"]:
+    #     response = Response(status="406 customer_account_id has not yet been set")
+    #     return response
+    # if not shared_values_dict["config_settings"]["user_account_id"]:
+    #     response = Response(status="406 user_account_id has not yet been set")
+    #     return response
 
     is_hardware_test_recording = request.args.get("is_hardware_test_recording", True)
     if isinstance(is_hardware_test_recording, str):
