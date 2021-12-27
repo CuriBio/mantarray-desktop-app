@@ -369,12 +369,12 @@ def test_update_settings__returns_200_code_when_customer_creds_matched_stored_pa
     client_and_server_manager_and_shared_values,
 ):
     valid_customer_id = "test_id"
-    invalid_password = "test_password"
+    valid_password = "test_password"
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
 
     shared_values_dict["stored_customer_settings"] = {"stored_customer_id": GENERIC_STORED_CUSTOMER_ID}
     response = test_client.get(
-        f"/update_settings?customer_account_uuid={valid_customer_id}&customer_pass_key={invalid_password}"
+        f"/update_settings?customer_account_uuid={valid_customer_id}&customer_pass_key={valid_password}"
     )
     assert response.status_code == 200
     assert response.status.endswith(f"{repr(InvalidCustomerAccountIDPasswordError())}") is False

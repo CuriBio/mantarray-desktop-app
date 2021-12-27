@@ -91,11 +91,9 @@ def validate_customer_credentials(request_args: Dict[str, Any], shared_values_di
     stored_customer_id = shared_values_dict["stored_customer_settings"]["stored_customer_id"]
 
     if customer_account_id is not None:
-        if (
-            stored_customer_id["id"] == customer_account_id
-            and stored_customer_id["password"] != customer_pass_key
-        ):
-            raise InvalidCustomerAccountIDPasswordError()
+        if stored_customer_id["id"] == customer_account_id:
+            if stored_customer_id["password"] != customer_pass_key:
+                raise InvalidCustomerAccountIDPasswordError()
         else:
             response = requests.post(
                 f"https://{CLOUD_API_ENDPOINT}/get_auth",
