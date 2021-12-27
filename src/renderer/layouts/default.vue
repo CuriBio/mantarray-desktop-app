@@ -171,6 +171,20 @@ export default {
       ipcRenderer.send("beta_2_mode_request");
     }
 
+    // ipcRenderer.on('customer_account_response', (e, customer_account) => {
+    //   if (customer_account.id !== '') {
+    //     const customer = {
+    //       cust_idx: 0,
+    //       cust_id: customer_account.id,
+    //       pass_key: customer_account.password,
+    //       user_account_id: 'default_user',
+    //     };
+    //     this.$store.commit('settings/set_customer_account_ids', [customer]);
+    //     this.$store.commit('settings/set_customer_index', 0);
+    //   }
+    // });
+    // ipcRenderer.send('customer_account_request');
+
     console.log("Initial view has been rendered"); // allow-log
   },
   methods: {

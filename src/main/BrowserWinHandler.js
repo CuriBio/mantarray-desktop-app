@@ -95,6 +95,12 @@ export default class BrowserWinHandler {
     ipcMain.once("logs_flask_dir_request", (event) => {
       event.reply("logs_flask_dir_response", get_flask_logs_full_path(store));
     });
+    // ipcMain.once("customer_account_request", (event) => {
+    //   event.reply(
+    //     "customer_account_response",
+    //     store.get("customer_account_id")
+    //   );
+    // });
   }
 
   _recreate() {
