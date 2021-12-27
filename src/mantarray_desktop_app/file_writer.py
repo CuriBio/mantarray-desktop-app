@@ -81,8 +81,6 @@ from .file_uploader import ErrorCatchingThread
 from .file_uploader import uploader
 from .utils import create_sensor_axis_dict
 
-logger = logging.getLogger(__name__)
-
 
 def _get_formatted_utc_now() -> str:
     return datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")

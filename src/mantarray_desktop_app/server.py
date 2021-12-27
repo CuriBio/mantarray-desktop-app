@@ -7,7 +7,7 @@ Custom HTTP Error Codes:
 * 304 - Call to /start_recording while already recording
 * 400 - Call to /start_recording with invalid or missing barcode parameter
 * 400 - Call to /set_mantarray_nickname with invalid nickname parameter
-* 400 - Call to /update_settings with unexpected argument, invalid account UUID, or a recording directory that doesn't exist
+* 400 - Call to /update_settings with unexpected argument or a recording directory that doesn't exist
 * 400 - Call to /insert_xem_command_into_queue/set_mantarray_serial_number with invalid serial_number parameter
 * 400 - Call to /set_magnetometer_config with invalid configuration dict
 * 400 - Call to /set_magnetometer_config with invalid or missing sampling period
@@ -607,13 +607,6 @@ def start_recording() -> Response:
         return Response(status="304 Already recording")
 
     shared_values_dict = _get_values_from_process_monitor()
-
-    # if not shared_values_dict["config_settings"]["customer_account_id"]:
-    #     response = Response(status="406 customer_account_id has not yet been set")
-    #     return response
-    # if not shared_values_dict["config_settings"]["user_account_id"]:
-    #     response = Response(status="406 user_account_id has not yet been set")
-    #     return response
 
     is_hardware_test_recording = request.args.get("is_hardware_test_recording", True)
     if isinstance(is_hardware_test_recording, str):
