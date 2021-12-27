@@ -180,7 +180,6 @@ export default {
     },
     save_customer_id: function () {
       const customer_account = this.customer_account_ids[this.customer_index];
-      console.log("REACHED IN DEFAULT LAYOUT: ", customer_account);
       ipcRenderer.send("save_customer_id", customer_account);
     },
   },

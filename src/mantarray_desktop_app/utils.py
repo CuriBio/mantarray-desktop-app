@@ -405,14 +405,10 @@ def _create_start_recording_command(
     if isinstance(barcode, str):
         are_barcodes_matching = _check_scanned_barcode_vs_user_value(barcode, shared_values_dict)
 
-        # if is_calibration_recording:
     customer_account_id = shared_values_dict["config_settings"].get(
         "customer_account_id", NOT_APPLICABLE_H5_METADATA
     )
     user_account_id = shared_values_dict["config_settings"].get("user_account_id", NOT_APPLICABLE_H5_METADATA)
-    # else:
-    #     customer_account_id = shared_values_dict["config_settings"].get("customer_account_id", None)
-    #     user_account_id = shared_values_dict["config_settings"].get("user_account_id", None)
 
     comm_dict: Dict[str, Any] = {
         "communication_type": "recording",
