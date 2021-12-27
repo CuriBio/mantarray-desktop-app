@@ -1,5 +1,5 @@
 /* globals INCLUDE_RESOURCES_PATH */
-import { app } from "electron";
+import { app, ipcMain } from "electron";
 const { autoUpdater } = require("electron-updater");
 const log = require("electron-log");
 const path = require("path");
@@ -167,6 +167,18 @@ init_electron_store();
 
 // start the Flask server
 boot_up_flask();
+
+// save customer id after it's verified in the /get_auth aws route
+ipcMain.on("save_customer_id", (e, customer_account) => {
+  e.reply("save_customer_id", 200);
+
+  const { cust_id, pass_key } = customer_account;
+  store.set("customer_account_id", {
+    id: cust_id,
+    password: pass_key,
+  });
+});
+
 // Quit when all windows are closed.
 app.on("window-all-closed", function () {
   // On macOS it is common for applications and their menu bar
@@ -174,6 +186,7 @@ app.on("window-all-closed", function () {
   console.log("window-all-closed event being handled"); // allow-log
   if (process.platform !== "darwin") app.quit();
 });
+
 // let win_handler = null;
 app.on("ready", () => {
   if (!process.env.SPECTRON) {

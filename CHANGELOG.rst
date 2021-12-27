@@ -1,6 +1,13 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+0.6.1 (2021-12-27)
+------------------
+
+- Added ability to record without entering customer account credentials
+- Removed hardcoded customer accounts from default Electron state
+- Added route to set customer account ID/password in Electron store after being authenticated in AWS.
+- Removed user authentication.
 
 0.6.0 (2021-12-17)
 ------------------

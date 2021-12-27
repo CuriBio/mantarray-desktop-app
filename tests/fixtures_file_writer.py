@@ -65,7 +65,7 @@ from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import TestingQueue
 
-from .fixtures import GENERIC_STORED_CUSTOMER_IDS
+from .fixtures import GENERIC_STORED_CUSTOMER_ID
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .fixtures_mc_simulator import get_null_subprotocol
 from .fixtures_mc_simulator import get_random_subprotocol
@@ -291,7 +291,7 @@ def fixture_four_board_file_writer_process():
             error_queue,
             file_directory=tmp_dir,
             stored_customer_settings={
-                "stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS,
+                "stored_customer_id": GENERIC_STORED_CUSTOMER_ID,
                 "zipped_recordings_dir": os.path.join(tmp_dir, "zipped_recordings"),
                 "failed_uploads_dir": os.path.join(tmp_dir, "failed_uploads"),
             },
@@ -327,7 +327,7 @@ def fixture_runnable_four_board_file_writer_process():
             error_queue,
             file_directory=tmp_dir,
             stored_customer_settings={
-                "stored_customer_ids": GENERIC_STORED_CUSTOMER_IDS,
+                "stored_customer_id": GENERIC_STORED_CUSTOMER_ID,
                 "zipped_recordings_dir": os.path.join(tmp_dir, "zipped_recordings"),
                 "failed_uploads_dir": os.path.join(tmp_dir, "failed_uploads"),
             },

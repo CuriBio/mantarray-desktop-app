@@ -229,7 +229,7 @@ def main(
             "recording_directory": settings_dict["recording_directory"],
         }
         shared_values_dict["stored_customer_settings"] = {
-            "stored_customer_ids": settings_dict["stored_customer_ids"],
+            "stored_customer_id": settings_dict["stored_customer_id"],
             "zipped_recordings_dir": settings_dict["zipped_recordings_dir"],
             "failed_uploads_dir": settings_dict["failed_uploads_dir"],
         }
