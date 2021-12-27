@@ -45,10 +45,12 @@ from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
 from mantarray_file_manager import UTC_BEGINNING_STIMULATION_UUID
 from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
 import psutil
+import requests
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import is_frozen_as_exe
 
 from .constants import CENTIMILLISECONDS_PER_SECOND
+from .constants import CLOUD_API_ENDPOINT
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import MICRO_TO_BASE_CONVERSION
@@ -58,9 +60,7 @@ from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from .constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
-from .exceptions import ImproperlyFormattedUserAccountIDError
-from .exceptions import InvalidCustomerAccountIDError
-from .exceptions import InvalidCustomerPasskeyError
+from .exceptions import InvalidCustomerAccountIDPasswordError
 from .exceptions import RecordingFolderDoesNotExistError
 
 logger = logging.getLogger(__name__)
@@ -86,22 +86,21 @@ def validate_customer_credentials(request_args: Dict[str, Any], shared_values_di
         request_args: dictionary containing the new user configuration settings.
         shared_values_dict: dictionary containing stored customer settings.
     """
-    customer_account_uuid = request_args.get("customer_account_uuid", None)
+    customer_account_id = request_args.get("customer_account_uuid", None)
     customer_pass_key = request_args.get("customer_pass_key", None)
-    user_account_id = request_args.get("user_account_id", None)
-    stored_customer_ids = shared_values_dict["stored_customer_settings"]["stored_customer_ids"]
+    stored_customer_id = shared_values_dict["stored_customer_settings"]["stored_customer_id"]
 
-    if customer_account_uuid is not None:
-        if customer_account_uuid in stored_customer_ids:
-            valid_creds = stored_customer_ids[customer_account_uuid]["password"] == customer_pass_key
-            valid_user = user_account_id in stored_customer_ids[customer_account_uuid]["user_account_ids"]
-
-            if not valid_creds:
-                raise InvalidCustomerPasskeyError(customer_pass_key)
-            if not valid_user:
-                raise ImproperlyFormattedUserAccountIDError(user_account_id)
+    if customer_account_id is not None:
+        if stored_customer_id["id"] == customer_account_id:
+            if stored_customer_id["password"] != customer_pass_key:
+                raise InvalidCustomerAccountIDPasswordError()
         else:
-            raise InvalidCustomerAccountIDError(customer_account_uuid)
+            response = requests.post(
+                f"https://{CLOUD_API_ENDPOINT}/get_auth",
+                json={"username": customer_account_id, "password": customer_pass_key},
+            )
+            if response.status_code != 200:
+                raise InvalidCustomerAccountIDPasswordError()
 
 
 def convert_request_args_to_config_dict(request_args: Dict[str, Any]) -> Dict[str, Any]:
@@ -406,16 +405,10 @@ def _create_start_recording_command(
     if isinstance(barcode, str):
         are_barcodes_matching = _check_scanned_barcode_vs_user_value(barcode, shared_values_dict)
 
-    if is_calibration_recording:
-        customer_account_id = shared_values_dict["config_settings"].get(
-            "customer_account_id", NOT_APPLICABLE_H5_METADATA
-        )
-        user_account_id = shared_values_dict["config_settings"].get(
-            "user_account_id", NOT_APPLICABLE_H5_METADATA
-        )
-    else:
-        customer_account_id = shared_values_dict["config_settings"]["customer_account_id"]
-        user_account_id = shared_values_dict["config_settings"]["user_account_id"]
+    customer_account_id = shared_values_dict["config_settings"].get(
+        "customer_account_id", NOT_APPLICABLE_H5_METADATA
+    )
+    user_account_id = shared_values_dict["config_settings"].get("user_account_id", NOT_APPLICABLE_H5_METADATA)
 
     comm_dict: Dict[str, Any] = {
         "communication_type": "recording",

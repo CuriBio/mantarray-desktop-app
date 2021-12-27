@@ -188,16 +188,34 @@ def test_FileWriterProcess__correctly_kicks_off_upload_thread_on_setup_and_appen
     this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
 
-    mocker.patch.object(os, "listdir", return_value=["73f52be0-368c-42d8-a1fd-660d49ba5604"])
+    mocker.patch.object(os, "listdir", return_value=["test_id"])
     mocker.patch.object(os.path, "exists", autospec=True, return_value=True)
     mocker.patch.object(file_uploader, "ErrorCatchingThread", autospec=True)
 
     file_writer_process._process_failed_upload_files_on_setup()  # pylint: disable=protected-access
     upload_threads_container = file_writer_process.get_upload_threads_container()
-    assert upload_threads_container[0]["customer_account_id"] == "73f52be0-368c-42d8-a1fd-660d49ba5604"
+    assert upload_threads_container[0]["customer_account_id"] == "test_id"
     assert upload_threads_container[0]["failed_upload"] is True
     assert upload_threads_container[0]["auto_delete"] is False
-    assert upload_threads_container[0]["file_name"] == "73f52be0-368c-42d8-a1fd-660d49ba5604"
+    assert upload_threads_container[0]["file_name"] == "test_id"
+
+
+def test_FileWriterProcess__correctly_kicks_off_upload_thread_on_setup_and_will_only_upload_for_customer_account_in_store_with_password(
+    four_board_file_writer_process, mocker
+):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
+    this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
+
+    mocker.patch.object(os, "listdir", return_value=["wrong_id"])
+    mocker.patch.object(os.path, "exists", autospec=True, return_value=True)
+    mocker.patch.object(file_uploader, "ErrorCatchingThread", autospec=True)
+
+    file_writer_process._process_failed_upload_files_on_setup()  # pylint: disable=protected-access
+    upload_threads_container = file_writer_process.get_upload_threads_container()
+    assert len(upload_threads_container) == 0
 
 
 def test_FileWriterProcess__prevent_any_uploads_with_no_stored_customer_settings(

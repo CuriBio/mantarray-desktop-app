@@ -15,7 +15,7 @@
         />
       </div>
       <div class="div__player-controls-container">
-        <DesktopPlayerControls />
+        <DesktopPlayerControls @save_customer_id="save_customer_id" />
       </div>
       <div
         class="div__additional_controls-controls-icon-container"
@@ -98,7 +98,7 @@ import {
   UploadFilesWidget,
 } from "@curi-bio/mantarray-frontend-components";
 import { ipcRenderer } from "electron";
-
+import { mapState } from "vuex";
 // const pkginfo = require('pkginfo')(module, 'version');
 const dummy_electron_app = {
   getVersion() {
@@ -130,6 +130,9 @@ export default {
       beta_2_mode: process.env.SPECTRON || undefined,
       log_dir_name: undefined,
     };
+  },
+  computed: {
+    ...mapState("settings", ["customer_account_ids", "customer_index"]),
   },
   created: function () {
     ipcRenderer.on("logs_flask_dir_response", (e, log_dir_name) => {
@@ -168,12 +171,30 @@ export default {
       ipcRenderer.send("beta_2_mode_request");
     }
 
+    // ipcRenderer.on('customer_account_response', (e, customer_account) => {
+    //   if (customer_account.id !== '') {
+    //     const customer = {
+    //       cust_idx: 0,
+    //       cust_id: customer_account.id,
+    //       pass_key: customer_account.password,
+    //       user_account_id: 'default_user',
+    //     };
+    //     this.$store.commit('settings/set_customer_account_ids', [customer]);
+    //     this.$store.commit('settings/set_customer_index', 0);
+    //   }
+    // });
+    // ipcRenderer.send('customer_account_request');
+
     console.log("Initial view has been rendered"); // allow-log
   },
   methods: {
     send_confirmation: function (idx) {
       ipcRenderer.send("confirmation_response", idx);
       this.confirmation_request = false;
+    },
+    save_customer_id: function () {
+      const customer_account = this.customer_account_ids[this.customer_index];
+      ipcRenderer.send("save_customer_id", customer_account);
     },
   },
 };

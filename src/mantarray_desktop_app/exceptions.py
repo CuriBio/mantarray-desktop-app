@@ -22,11 +22,7 @@ class UnrecognizedCommandFromMainToOkCommError(Exception):
     pass
 
 
-class InvalidCustomerAccountIDError(Exception):
-    pass
-
-
-class InvalidCustomerPasskeyError(Exception):
+class InvalidCustomerAccountIDPasswordError(Exception):
     pass
 
 
@@ -95,18 +91,6 @@ class UnrecognizedRecordingCommandError(Exception):
 
 
 class UnrecognizedSimulatorTestCommandError(Exception):
-    pass
-
-
-class ImproperlyFormattedCustomerAccountIDError(Exception):
-    pass
-
-
-class ImproperlyFormattedUserAccountIDError(Exception):
-    pass
-
-
-class ImproperlyFormattedCustomerAccountPasskeyError(Exception):
     pass
 
 
