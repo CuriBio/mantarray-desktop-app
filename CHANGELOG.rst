@@ -1,7 +1,7 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-0.6.1 (unreleased)
+0.6.2 (2021-12-28)
 ------------------
 
 - Updated mappings between Well Indices and Module IDs to be compatible with Beta 2.2 board.
@@ -9,6 +9,13 @@ Changelog for Mantarray Desktop App
   on an instrument of version Beta 2.2 or higher
 
 
+0.6.1 (2021-12-27)
+------------------
+
+- Added ability to record without entering customer account credentials
+- Removed hardcoded customer accounts from default Electron state
+- Added route to set customer account ID/password in Electron store after being authenticated in AWS.
+- Removed user authentication.
 
 0.6.0 (2021-12-17)
 ------------------

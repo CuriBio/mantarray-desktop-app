@@ -37,14 +37,10 @@ const create_store = function ({
     serialize: yaml.dump,
     deserialize: yaml.load,
     defaults: {
-      customer_account_ids: {
-        "73f52be0-368c-42d8-a1fd-660d49ba5604": {
-          password: "Filler_password123",
-          user_account_ids: ["test_user"],
-        },
+      customer_account_id: {
+        id: "",
+        password: "",
       },
-      active_customer_account_index: 0,
-      active_user_account_index: 0,
       beta_2_mode: false,
     },
   });
@@ -87,13 +83,11 @@ const generate_flask_command_line_args = function (electron_store) {
   mkdirp.sync(zipped_recordings_dir_path);
   mkdirp.sync(failed_uploads_dir_path);
 
-  const user_account_id = electron_store.get("user_account_id");
-  const stored_customer_ids = electron_store.get("customer_account_ids");
+  const stored_customer_id = electron_store.get("customer_account_id");
   // storing upload dir paths so that they can be found on start up to try re-uploading even if file_directory path changes while FW is running
   const settings_to_supply = {
     recording_directory: recording_directory_path,
-    stored_customer_ids,
-    user_account_id,
+    stored_customer_id,
     zipped_recordings_dir: zipped_recordings_dir_path,
     failed_uploads_dir: failed_uploads_dir_path,
   };

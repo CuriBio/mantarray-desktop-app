@@ -186,9 +186,6 @@ from .exceptions import FirmwareFileNameDoesNotMatchWireOutVersionError
 from .exceptions import FirmwareUpdateCommandFailedError
 from .exceptions import FirmwareUpdateTimeoutError
 from .exceptions import FirstManagedReadLessThanOneRoundRobinError
-from .exceptions import ImproperlyFormattedCustomerAccountIDError
-from .exceptions import ImproperlyFormattedCustomerAccountPasskeyError
-from .exceptions import ImproperlyFormattedUserAccountIDError
 from .exceptions import IncorrectMagnetometerConfigFromInstrumentError
 from .exceptions import IncorrectSamplingPeriodFromInstrumentError
 from .exceptions import InstrumentCommIncorrectHeaderError
@@ -198,8 +195,7 @@ from .exceptions import InstrumentFatalError
 from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import InstrumentSoftError
 from .exceptions import InvalidBeta2FlagOptionError
-from .exceptions import InvalidCustomerAccountIDError
-from .exceptions import InvalidCustomerPasskeyError
+from .exceptions import InvalidCustomerAccountIDPasswordError
 from .exceptions import InvalidDataFramePeriodError
 from .exceptions import InvalidScriptCommandError
 from .exceptions import InvalidStopRecordingTimepointError
@@ -432,9 +428,7 @@ __all__ = [
     "CURI_BIO_USER_ACCOUNT_ID",
     "MantarrayFrontPanelMixIn",
     "MantarrayFrontPanel",
-    "ImproperlyFormattedCustomerAccountIDError",
-    "ImproperlyFormattedCustomerAccountPasskeyError",
-    "ImproperlyFormattedUserAccountIDError",
+    "InvalidCustomerAccountIDPasswordError",
     "RecordingFolderDoesNotExistError",
     "VALID_CONFIG_SETTINGS",
     "FIRMWARE_VERSION_WIRE_OUT_ADDRESS",
@@ -607,8 +601,6 @@ __all__ = [
     "IncorrectSamplingPeriodFromInstrumentError",
     "file_uploader",
     "ErrorCatchingThread",
-    "InvalidCustomerAccountIDError",
-    "InvalidCustomerPasskeyError",
     "convert_bytes_to_subprotocol_dict",
     "convert_subprotocol_dict_to_bytes",
     "convert_stim_dict_to_bytes",

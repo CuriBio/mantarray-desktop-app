@@ -75,11 +75,9 @@ describe("utils.js", () => {
           );
           const expected_obj = {
             recording_directory: path.join(tmp_dir_name, "recordings"),
-            stored_customer_ids: {
-              "73f52be0-368c-42d8-a1fd-660d49ba5604": {
-                password: "Filler_password123",
-                user_account_ids: ["test_user"],
-              },
+            stored_customer_id: {
+              id: "",
+              password: "",
             },
             zipped_recordings_dir: path.join(
               tmp_dir_name,
@@ -110,6 +108,16 @@ describe("utils.js", () => {
           expect(fs.existsSync(path.join(tmp_dir_name, "recordings"))).toBe(
             true
           );
+          expect(
+            fs.existsSync(
+              path.join(tmp_dir_name, "recordings", "zipped_recordings")
+            )
+          ).toBe(true);
+          expect(
+            fs.existsSync(
+              path.join(tmp_dir_name, "recordings", "failed_uploads")
+            )
+          ).toBe(true);
         });
       });
     });
@@ -142,19 +150,6 @@ describe("utils.js", () => {
           store.set(the_key, expected_value);
           const actual_value = store.get(the_key);
           expect(actual_value).toStrictEqual(expected_value);
-        });
-        test("When for customer_account_ids and account ID index and user ID index are accessed, Then they return the default value of an empty list", () => {
-          let actual_value = store.get("customer_account_ids");
-          expect(actual_value).toStrictEqual({
-            "73f52be0-368c-42d8-a1fd-660d49ba5604": {
-              password: "Filler_password123",
-              user_account_ids: ["test_user"],
-            },
-          });
-          actual_value = store.get("active_customer_account_index");
-          expect(actual_value).toStrictEqual(0);
-          actual_value = store.get("active_user_account_index");
-          expect(actual_value).toStrictEqual(0);
         });
       });
     });
