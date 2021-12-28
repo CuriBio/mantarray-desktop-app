@@ -300,12 +300,7 @@ def test_current_file_versions():
         CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION == latest_beta1_hdf5_file_format_version
     ), "FileWriterProcess needs an update to match the beta 1 file format with the latest file version from mantarray-file-manager. Make the changes then update CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION to match the latest version"
 
-    latest_beta2_hdf5_file_format_version = (
-        mantarray_file_manager.constants.CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
-    )
-    assert (
-        CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION == latest_beta2_hdf5_file_format_version
-    ), "FileWriterProcess needs an update to match the beta 2 file format with the latest file version from mantarray-file-manager. Make the changes then update CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION to match the latest version"
+    assert CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION == "1.0.1"
 
 
 def test_COMPILED_EXE_BUILD_TIMESTAMP():
@@ -571,9 +566,7 @@ def test_beta_2_mappings():
     assert SERIAL_COMM_WELL_IDX_TO_MODULE_ID == {
         well_idx: module_id for module_id, well_idx in SERIAL_COMM_MODULE_ID_TO_WELL_IDX.items()
     }
-    assert SERIAL_COMM_MODULE_ID_TO_WELL_IDX == {
-        module_id: (module_id - 1) % 6 * 4 + (module_id - 1) // 6 for module_id in range(1, 25)
-    }
+    assert SERIAL_COMM_MODULE_ID_TO_WELL_IDX == {module_id: module_id - 1 for module_id in range(1, 25)}
     for well_idx in range(24):
         module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]
         well_idx_from_module_id = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
