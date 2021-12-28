@@ -1,6 +1,12 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+0.6.2 (2021-12-28)
+------------------
+
+- Update to mantarray-frontend-components 0.5.7 to fix url encoding issue
+
+
 0.6.1 (2021-12-27)
 ------------------
 
