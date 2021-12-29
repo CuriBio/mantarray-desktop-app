@@ -41,7 +41,7 @@ CLOUD_API_ENDPOINT = (
 
 # Tanner (4/15/21): the latest HDF5 file version lives in mantarray-file-manager. This value represents the file version that is being created by the desktop app. When new mantarray-file-manager updates are brought into the desktop app, these values will differ indicating that FileWriterProcess needs to be updated to match the new file version
 CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION = "0.4.2"
-CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION = "1.0.0"
+CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION = "1.0.1"
 
 
 DEFAULT_SERVER_PORT_NUMBER = 4567
@@ -397,9 +397,7 @@ class StimStatuses(IntEnum):
 SERIAL_COMM_METADATA_BYTES_LENGTH = 32
 
 # Mappings
-SERIAL_COMM_WELL_IDX_TO_MODULE_ID = immutabledict(
-    {well_idx: well_idx % 4 * 6 + well_idx // 4 + 1 for well_idx in range(24)}
-)
+SERIAL_COMM_WELL_IDX_TO_MODULE_ID = immutabledict({well_idx: well_idx + 1 for well_idx in range(24)})
 SERIAL_COMM_MODULE_ID_TO_WELL_IDX = immutabledict(
     {module_id: well_idx for well_idx, module_id in SERIAL_COMM_WELL_IDX_TO_MODULE_ID.items()}
 )

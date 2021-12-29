@@ -1,6 +1,14 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+0.6.3 (2021-12-28)
+------------------
+
+- Updated mappings between Well Indices and Module IDs to be compatible with Beta 2.2 board.
+- Changed Beta 2 file format version to 1.0.1. This file version indicates that the file was taken
+  on an instrument of version Beta 2.2 or higher
+
+
 0.6.2 (2021-12-28)
 ------------------
 
