@@ -90,9 +90,9 @@ from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
-from .constants import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from .constants import STIM_COMPLETE_SUBPROTOCOL_IDX
 from .constants import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
+from .constants import STIM_WELL_IDX_TO_MODULE_ID
 from .constants import StimStatuses
 from .exceptions import SerialCommInvalidSamplingPeriodError
 from .exceptions import SerialCommTooManyMissedHandshakesError
@@ -358,7 +358,8 @@ class MantarrayMcSimulator(InfiniteProcess):
 
     def _reset_stim_running_statuses(self) -> None:
         self._stim_running_statuses = {
-            convert_module_id_to_well_name(module_id): False for module_id in range(1, self._num_wells + 1)
+            convert_module_id_to_well_name(module_id, use_stim_mapping=True): False
+            for module_id in range(1, self._num_wells + 1)
         }
 
     def _get_us_since_time_sync(self) -> int:
@@ -734,7 +735,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             num_status_updates += 1
             well_idx = GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name)
             status_update_bytes += (
-                bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]])
+                bytes([STIM_WELL_IDX_TO_MODULE_ID[well_idx]])
                 + bytes([StimStatuses.FINISHED])
                 + stop_time_index.to_bytes(8, byteorder="little")
                 + bytes([STIM_COMPLETE_SUBPROTOCOL_IDX])
@@ -911,7 +912,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                 for well_name, protocol_assigment in self._stim_info["protocol_assignments"].items():
                     if protocol_assigment != protocol_idx:
                         continue
-                    module_id = convert_well_name_to_module_id(well_name)
+                    module_id = convert_well_name_to_module_id(well_name, use_stim_mapping=True)
                     if protocol_complete:
                         packet_bytes += bytes([module_id]) + protocol_complete_bytes
                         num_status_updates += 1
