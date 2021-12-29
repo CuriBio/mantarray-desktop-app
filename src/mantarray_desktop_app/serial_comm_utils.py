@@ -272,7 +272,7 @@ def convert_stim_dict_to_bytes(stim_dict: Dict[str, Any]) -> bytes:
     # add bytes for module ID / protocol ID pairs
     protocol_assignment_list = [-1] * 24
     for well_name, protocol_id in stim_dict["protocol_assignments"].items():
-        module_id = convert_well_name_to_module_id(well_name)
+        module_id = convert_well_name_to_module_id(well_name, use_stim_mapping=True)
         protocol_assignment_list[module_id - 1] = (
             STIM_NO_PROTOCOL_ASSIGNED if protocol_id is None else protocol_ids.index(protocol_id)
         )
@@ -324,7 +324,9 @@ def convert_stim_bytes_to_dict(stim_bytes: bytes) -> Dict[str, Any]:
     # convert module ID / protocol idx pair bytes
     num_assignments = len(stim_bytes[curr_byte_idx:])
     for module_id in range(1, num_assignments + 1):
-        well_name = convert_module_id_to_well_name(module_id) if module_id <= 24 else ""
+        well_name = (
+            convert_module_id_to_well_name(module_id, use_stim_mapping=True) if module_id <= 24 else ""
+        )
         protocol_id_idx = (
             None if stim_bytes[curr_byte_idx] == STIM_NO_PROTOCOL_ASSIGNED else stim_bytes[curr_byte_idx]
         )
