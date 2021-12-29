@@ -15,10 +15,10 @@ from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
-from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from .constants import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
-from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
+from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
+from .constants import STIM_MODULE_ID_TO_WELL_IDX
 from .constants import StimStatuses
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
 from .exceptions import SerialCommIncorrectMagicWordFromMantarrayError
@@ -354,7 +354,7 @@ cdef _parse_stim_data(
         num_status_updates = stim_packet_bytes[bytes_idx]
         bytes_idx += 1
         for _ in range(num_status_updates):
-            well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[stim_packet_bytes[bytes_idx]]
+            well_idx = STIM_MODULE_ID_TO_WELL_IDX[stim_packet_bytes[bytes_idx]]
             stim_status = stim_packet_bytes[bytes_idx + 1]
             time_index = (<uint64_t *> &stim_packet_bytes[bytes_idx + 2])[0]
             subprotocol_idx = stim_packet_bytes[bytes_idx + 10]

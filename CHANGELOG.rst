@@ -1,25 +1,31 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+0.6.4 (2021-12-29)
+------------------
+
+- Fixed mappings between Well Indices and Module IDs for Beta 2.2 stimulation.
+
+
 0.6.3 (2021-12-28)
 ------------------
 
 - Updated mappings between Well Indices and Module IDs to be compatible with Beta 2.2 board.
 - Changed Beta 2 file format version to 1.0.1. This file version indicates that the file was taken
-  on an instrument of version Beta 2.2 or higher
+  on an instrument of version Beta 2.2.
 
 
 0.6.2 (2021-12-28)
 ------------------
 
-- Update to mantarray-frontend-components 0.5.7 to fix url encoding issue
+- Update to mantarray-frontend-components 0.5.7 to fix url encoding issue.
 
 
 0.6.1 (2021-12-27)
 ------------------
 
-- Added ability to record without entering customer account credentials
-- Removed hardcoded customer accounts from default Electron state
+- Added ability to record without entering customer account credentials.
+- Removed hardcoded customer accounts from default Electron state.
 - Added route to set customer account ID/password in Electron store after being authenticated in AWS.
 - Removed user authentication.
 

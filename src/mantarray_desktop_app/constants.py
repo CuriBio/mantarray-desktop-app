@@ -402,6 +402,27 @@ SERIAL_COMM_MODULE_ID_TO_WELL_IDX = immutabledict(
     {module_id: well_idx for well_idx, module_id in SERIAL_COMM_WELL_IDX_TO_MODULE_ID.items()}
 )
 
+# Tanner (12/28/21): The following two mappings are only needed due to a hardware issue with the Beta 2.2. They can eventually be removed in a future hardware iteration
+# fmt: off
+STIM_MODULE_ID_TO_WELL_IDX = immutabledict(
+    {
+        module_id + 1: well_idx
+        for module_id, well_idx in enumerate(
+            [
+                3, 7, 11, 15, 19, 23,  # D wells
+                2, 6, 10, 14, 18, 22,  # C wells
+                1, 5, 9, 13, 17, 21,   # B wells
+                0, 4, 8, 12, 16, 20    # A wells
+            ]
+        )
+    }
+)
+# fmt: on
+STIM_WELL_IDX_TO_MODULE_ID = immutabledict(
+    {module_id: well_idx for well_idx, module_id in STIM_MODULE_ID_TO_WELL_IDX.items()}
+)
+
+
 # Calibration
 CALIBRATION_RECORDING_DUR_SECONDS = 30
 
