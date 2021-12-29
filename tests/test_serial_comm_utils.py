@@ -443,7 +443,7 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__when_subproto
 
 
 def test_convert_stim_dict_to_bytes__return_expected_bytes():
-    protocol_assignments_dict = {"A1": "A", "B1": "D"}
+    protocol_assignments_dict = {"D1": "A", "D2": "D"}
     protocol_assignments_dict.update(
         {
             GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): None
