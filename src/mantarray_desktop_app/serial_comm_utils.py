@@ -29,7 +29,9 @@ from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIMESTAMP_EPOCH
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
+from .constants import STIM_MODULE_ID_TO_WELL_IDX
 from .constants import STIM_NO_PROTOCOL_ASSIGNED
+from .constants import STIM_WELL_IDX_TO_MODULE_ID
 from .exceptions import SerialCommMetadataValueTooLargeError
 
 
@@ -242,10 +244,9 @@ def convert_bytes_to_subprotocol_dict(subprotocol_bytes: bytes, is_voltage: bool
     }
 
 
-def convert_well_name_to_module_id(well_name: str) -> int:
-    module_id: int = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[
-        GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name)
-    ]
+def convert_well_name_to_module_id(well_name: str, use_stim_mapping: bool = False) -> int:
+    mapping = STIM_WELL_IDX_TO_MODULE_ID if use_stim_mapping else SERIAL_COMM_WELL_IDX_TO_MODULE_ID
+    module_id: int = mapping[GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name)]
     return module_id
 
 
@@ -271,7 +272,7 @@ def convert_stim_dict_to_bytes(stim_dict: Dict[str, Any]) -> bytes:
     # add bytes for module ID / protocol ID pairs
     protocol_assignment_list = [-1] * 24
     for well_name, protocol_id in stim_dict["protocol_assignments"].items():
-        module_id = convert_well_name_to_module_id(well_name)
+        module_id = convert_well_name_to_module_id(well_name, use_stim_mapping=True)
         protocol_assignment_list[module_id - 1] = (
             STIM_NO_PROTOCOL_ASSIGNED if protocol_id is None else protocol_ids.index(protocol_id)
         )
@@ -279,10 +280,9 @@ def convert_stim_dict_to_bytes(stim_dict: Dict[str, Any]) -> bytes:
     return stim_bytes
 
 
-def convert_module_id_to_well_name(module_id: int) -> str:
-    well_name: str = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(
-        SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
-    )
+def convert_module_id_to_well_name(module_id: int, use_stim_mapping: bool = False) -> str:
+    mapping = STIM_MODULE_ID_TO_WELL_IDX if use_stim_mapping else SERIAL_COMM_MODULE_ID_TO_WELL_IDX
+    well_name: str = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(mapping[module_id])
     return well_name
 
 
@@ -324,7 +324,9 @@ def convert_stim_bytes_to_dict(stim_bytes: bytes) -> Dict[str, Any]:
     # convert module ID / protocol idx pair bytes
     num_assignments = len(stim_bytes[curr_byte_idx:])
     for module_id in range(1, num_assignments + 1):
-        well_name = convert_module_id_to_well_name(module_id) if module_id <= 24 else ""
+        well_name = (
+            convert_module_id_to_well_name(module_id, use_stim_mapping=True) if module_id <= 24 else ""
+        )
         protocol_id_idx = (
             None if stim_bytes[curr_byte_idx] == STIM_NO_PROTOCOL_ASSIGNED else stim_bytes[curr_byte_idx]
         )

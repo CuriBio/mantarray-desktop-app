@@ -10,7 +10,6 @@ from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
-from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STIM_COMPLETE_SUBPROTOCOL_IDX
 from mantarray_desktop_app import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
@@ -19,6 +18,7 @@ from mantarray_desktop_app import StimulationProtocolUpdateFailedError
 from mantarray_desktop_app import StimulationProtocolUpdateWhileStimulatingError
 from mantarray_desktop_app import StimulationStatusUpdateFailedError
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import STIM_WELL_IDX_TO_MODULE_ID
 import numpy as np
 import pytest
 from stdlib_utils import drain_queue
@@ -84,7 +84,7 @@ def test_handle_data_packets__parses_single_stim_data_packet_with_a_single_statu
 
     stim_packet_body = (
         bytes([1])  # num status updates in packet
-        + bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
+        + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
         + bytes([StimStatuses.ACTIVE])
         + test_time_index.to_bytes(8, byteorder="little")
         + bytes([test_subprotocol_idx])
@@ -118,7 +118,7 @@ def test_handle_data_packets__parses_single_stim_data_packet_with_multiple_statu
     stim_packet_body = bytes([3])  # num status updates in packet
     for packet_idx in range(3):
         stim_packet_body += (
-            bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
+            bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
             + bytes([test_statuses[packet_idx]])
             + test_time_indices[packet_idx].to_bytes(8, byteorder="little")
             + bytes([test_subprotocol_indices[packet_idx]])
@@ -160,26 +160,26 @@ def test_handle_data_packets__parses_multiple_stim_data_packet_with_multiple_wel
 
     stim_packet_body_1 = (
         bytes([2])  # num status updates in packet
-        + bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[test_well_indices[0]]])
+        + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_indices[0]]])
         + bytes([test_statuses[0][0]])
         + test_time_indices[0][0].to_bytes(8, byteorder="little")
         + bytes([test_subprotocol_indices[0][0]])
-        + bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[test_well_indices[1]]])
+        + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_indices[1]]])
         + bytes([test_statuses[1][0]])
         + test_time_indices[1][0].to_bytes(8, byteorder="little")
         + bytes([test_subprotocol_indices[1][0]])
     )
     stim_packet_body_2 = (
         bytes([3])  # num status updates in packet
-        + bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[test_well_indices[1]]])
+        + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_indices[1]]])
         + bytes([test_statuses[1][1]])
         + test_time_indices[1][1].to_bytes(8, byteorder="little")
         + bytes([test_subprotocol_indices[1][1]])
-        + bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[test_well_indices[0]]])
+        + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_indices[0]]])
         + bytes([test_statuses[0][1]])
         + test_time_indices[0][1].to_bytes(8, byteorder="little")
         + bytes([test_subprotocol_indices[0][1]])
-        + bytes([SERIAL_COMM_WELL_IDX_TO_MODULE_ID[test_well_indices[1]]])
+        + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_indices[1]]])
         + bytes([test_statuses[1][2]])
         + test_time_indices[1][2].to_bytes(8, byteorder="little")
         + bytes([test_subprotocol_indices[1][2]])
