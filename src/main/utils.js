@@ -41,7 +41,7 @@ const create_store = function ({
         id: "",
         password: "",
       },
-      beta_2_mode: false,
+      beta_2_mode: true,
     },
   });
   return store;
