@@ -183,18 +183,18 @@ jobs:
           .\vcn --version
           pipenv run python .github/workflows/vcn.py login
 
-      - name: Run Python Tests with randomly generated seed
-        if: github.event.inputs.randomlyseed == ''
-        timeout-minutes: 40
-        run: pipenv run pytest -xsvv --cov-report=xml --include-slow-tests --full-ci
+      # - name: Run Python Tests with randomly generated seed
+      #   if: github.event.inputs.randomlyseed == ''
+      #   timeout-minutes: 40
+      #   run: pipenv run pytest -xsvv --cov-report=xml --include-slow-tests --full-ci
 
-      - name: Run Python Tests with supplied pytest-randomly seed
-        if: github.event.inputs.randomlyseed != ''
-        timeout-minutes: 40
-        run: pipenv run pytest -xsvv --cov-report=xml --include-slow-tests --full-ci --randomly-seed=${{ github.event.inputs.randomlyseed }}
+      # - name: Run Python Tests with supplied pytest-randomly seed
+      #   if: github.event.inputs.randomlyseed != ''
+      #   timeout-minutes: 40
+      #   run: pipenv run pytest -xsvv --cov-report=xml --include-slow-tests --full-ci --randomly-seed=${{ github.event.inputs.randomlyseed }}
 
-      - name: Run Jest Tests
-        run: npm run test:unit -- --ci
+      # - name: Run Jest Tests
+      #   run: npm run test:unit -- --ci
 
       - name: Insert the Build Number and Software Version into the code (Windows)
         if: runner.os == 'Windows'
@@ -209,13 +209,13 @@ jobs:
       - name: Compile the Python Executable
         run: pipenv run pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=dist-python --workpath=build-python
 
-      - name: Run Python Tests on Executable with randomly generated seed
-        if: github.event.inputs.randomlyseed == ''
-        run: pipenv run pytest tests/test_exe.py -xsvv --only-exe --no-cov
+      # - name: Run Python Tests on Executable with randomly generated seed
+      #   if: github.event.inputs.randomlyseed == ''
+      #   run: pipenv run pytest tests/test_exe.py -xsvv --only-exe --no-cov
 
-      - name: Run Python Tests on Executable with supplied pytest-randomly seed
-        if: github.event.inputs.randomlyseed != ''
-        run: pipenv run pytest tests/test_exe.py -xsvv --only-exe --no-cov --randomly-seed=${{ github.event.inputs.randomlyseed }}
+      # - name: Run Python Tests on Executable with supplied pytest-randomly seed
+      #   if: github.event.inputs.randomlyseed != ''
+      #   run: pipenv run pytest tests/test_exe.py -xsvv --only-exe --no-cov --randomly-seed=${{ github.event.inputs.randomlyseed }}
 
       - name: Digitally Signing the EXE bundled by pyinstaller before it gets packaged into the built Electron app
         if: matrix.IS_DEPLOYMENT_CONFIG == true
