@@ -192,24 +192,25 @@ app.on("window-all-closed", function () {
 });
 
 const set_up_auto_updater = () => {
-  // autoUpdater.autoInstallOnAppQuit = false;
-
-  autoUpdater.setFeedURL({
-    provider: "s3",
-    bucket: "downloads.curibio.com",
-    path: "software",
-    channel: "alpha",
-    region: "us-east-1",
-    updaterCacheDirName: "mantarraycontroller-updater",
-  });
-  // set up handler for update-available event
-  autoUpdater.on("update-available", (update_info) => {
-    const new_version = update_info.releaseName;
-    console.log("$$$", new_version);
+  // set up handler for the event in which an update is found
+  autoUpdater.once("update-available", (update_info) => {
+    const new_version = update_info.version;
     axios.post(
-      `http://localhost:${flask_port}/software_update_available?version=${new_version}`
+      `http://localhost:${flask_port}/latest_software_version?version=${new_version}`
     );
+    // remove listeners for update-not-available since this event occured instead
+    autoUpdater.removeAllListeners("update-not-available");
   });
+
+  // set up handler for the event in which an update is not found
+  autoUpdater.once("update-not-available", () => {
+    axios.post(
+      `http://localhost:${flask_port}/latest_software_version?version=null`
+    );
+    // remove listeners for update-available since this event occured instead
+    autoUpdater.removeAllListeners("update-available");
+  });
+
   // Check for updates. Will also automatically download the update as long as autoUpdater.autoDownload is true
   autoUpdater.checkForUpdates();
 };
@@ -232,6 +233,9 @@ app.on("will-quit", function (e) {
   // This is a good place to add tests ensuring the app is still
   // responsive and all windows are closed.
   console.log("will-quit event being handled"); // allow-log
+
+  // TODO find some way to check if firmware updates were found but not installed. If this is the case, prevent automatic SW updating. O/W, `autoUpdater.autoInstallOnAppQuit = true;`
+  autoUpdater.autoInstallOnAppQuit = false;
 
   // Tanner (9/1/21): Need to prevent (default) app termination, wait for /shutdown response which confirms
   // that the backend is completely shutdown, then call app.exit() which terminates app immediately
