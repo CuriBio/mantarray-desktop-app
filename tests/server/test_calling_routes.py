@@ -1358,3 +1358,46 @@ def test_set_protocols__returns_success_code_if_protocols_would_not_be_updated(
 
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 200
+
+
+def test_latest_software_version__returns_error_code_when_called_in_beta_1_mode(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = False
+
+    response = test_client.post("/latest_software_version")
+    assert response.status_code == 403
+    assert response.status.endswith("Route cannot be called in beta 1 mode") is True
+
+
+def test_latest_software_version__returns_error_code_when_version_param_is_not_given(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+
+    response = test_client.post("/latest_software_version")
+    assert response.status_code == 400
+    assert response.status.endswith("Version not specified") is True
+
+
+def test_latest_software_version__returns_error_code_when_version_string_is_not_a_valid_semantic_version(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+
+    response = test_client.post("/latest_software_version?version=bad")
+    assert response.status_code == 400
+    assert response.status.endswith("Invalid version string") is True
+
+
+def test_latest_software_version__returns_ok_when_version_string_is_a_valid_semantic_version(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+
+    response = test_client.post("/latest_software_version?version=1.1.1")
+    assert response.status_code == 200

@@ -61,6 +61,7 @@ from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import METADATA_UUID_DESCRIPTIONS
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import requests
+from semver import VersionInfo
 from stdlib_utils import drain_queue
 from stdlib_utils import is_port_in_use
 from stdlib_utils import put_log_message_into_queue
@@ -219,6 +220,7 @@ def system_status() -> Response:
     current_software_version = get_current_software_version()
     expected_software_version = shared_values_dict.get("expected_software_version", current_software_version)
     if expected_software_version != current_software_version:
+        # TODO figure out which FE status the SW gets stuck in when this error code is returned
         return Response(status="520 Versions of Electron and Flask EXEs do not match")
 
     board_idx = 0
@@ -246,6 +248,30 @@ def system_status() -> Response:
 
     response = Response(json.dumps(status_dict), mimetype="application/json")
 
+    return response
+
+
+@flask_app.route("/latest_software_version", methods=["POST"])
+def set_latest_software_version() -> Response:
+    """Set the latest available software version."""
+    # TODO unit test this entire route
+    if not _get_values_from_process_monitor()["beta_2_mode"]:
+        return Response(status="403 Route cannot be called in beta 1 mode")
+    try:
+        version = request.args["version"]
+        # check if version is a valid semantic version string. ValueError will be raised if not
+        VersionInfo.parse(version)
+    except KeyError:
+        return Response(status="400 Version not specified")
+    except ValueError:
+        return Response(status="400 Invalid version string")
+
+    comm_dict = {
+        "communication_type": "set_latest_version",
+        "version": version,
+    }
+
+    response = queue_command_to_main(comm_dict)
     return response
 
 

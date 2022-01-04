@@ -1322,3 +1322,26 @@ def test_start_calibration__populates_queue_to_process_monitor_with_correct_comm
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication == test_comm_dict
+
+
+def test_latest_software_version__returns_ok_when_version_string_is_a_valid_semantic_version(
+    client_and_server_manager_and_shared_values,
+):
+    (
+        test_client,
+        (server_manager, _),
+        shared_values_dict,
+    ) = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+
+    test_version = "10.10.10"
+    response = test_client.post(f"/latest_software_version?version={test_version}")
+    assert response.status_code == 200
+
+    comm_queue = server_manager.get_queue_to_main()
+    confirm_queue_is_eventually_of_size(comm_queue, 1)
+    communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication == {
+        "communication_type": "set_latest_version",
+        "version": test_version,
+    }

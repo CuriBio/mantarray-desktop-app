@@ -6,16 +6,11 @@ const path = require("path");
 const features = require("./features.json");
 const now = new Date();
 const utc_month = (now.getUTCMonth() + 1).toString().padStart(2, "0"); // Eli (3/29/21) for some reason getUTCMonth returns a zero-based number, while everything else is a month, so adjusting here
-const filename_prefix = `mantarray_log__${now.getUTCFullYear()}_${utc_month}_${now
-  .getUTCDate()
-  .toString()
-  .padStart(2, "0")}_${now
-    .getUTCHours()
-    .toString()
-    .padStart(2, "0")}${now
-      .getUTCMinutes()
-      .toString()
-      .padStart(2, "0")}${now.getUTCSeconds().toString().padStart(2, "0")}_`;
+const filename_prefix = `mantarray_log__${now.getUTCFullYear()}_${utc_month}_
+  ${now.getUTCDate().toString().padStart(2, "0")}_
+  ${now.getUTCHours().toString().padStart(2, "0")}
+  ${now.getUTCMinutes().toString().padStart(2, "0")}
+  ${now.getUTCSeconds().toString().padStart(2, "0")}_`;
 
 log.transports.file.resolvePath = (variables) => {
   let filename;
@@ -41,8 +36,8 @@ const axios = require("axios");
 
 import main_utils from "./utils.js"; // Eli (1/15/21): helping to be able to spy on functions within utils. https://stackoverflow.com/questions/49457451/jest-spyon-a-function-not-class-or-object-type
 const create_store = main_utils.create_store;
-const generate_flask_command_line_args =
-  main_utils.generate_flask_command_line_args;
+const generate_flask_command_line_args = main_utils.generate_flask_command_line_args;
+const get_current_app_version = main_utils.get_current_app_version;
 
 const store = create_store();
 
@@ -69,8 +64,7 @@ global.__resources = undefined; // eslint-disable-line no-underscore-dangle
 INCLUDE_RESOURCES_PATH; // eslint-disable-line no-unused-expressions
 // Eli (1/15/21): this code is straight from the template, so unclear what would happen if it was changed and how `__resources` may or may not be being injected into this somehow
 // eslint-disable-next-line no-undef
-if (__resources === undefined)
-  console.error("[Main-process]: Resources path is undefined");
+if (__resources === undefined) console.error("[Main-process]: Resources path is undefined");
 
 /**
  * Python Flask
@@ -82,14 +76,7 @@ const PY_MODULE = "entrypoint.py"; // the name of the main module
 const PY_EXE = "mantarray-flask"; // the name of the main module
 
 // When booting up (3/27/20), __dirname is equal to: win-unpacked\resources\app\dist\main
-const path_to_py_dist_folder = path.join(
-  __dirname,
-  "..",
-  "..",
-  "..",
-  "..",
-  PY_DIST_FOLDER
-);
+const path_to_py_dist_folder = path.join(__dirname, "..", "..", "..", "..", PY_DIST_FOLDER);
 const isRunningInBundle = () => {
   console.log(
     "Current dirname: " + main_utils.redact_username_from_logs(__dirname)
@@ -199,7 +186,8 @@ const set_up_auto_updater = () => {
 
   // set up handler for the event in which an update is not found
   autoUpdater.once("update-not-available", () => {
-    axios.post(`http://localhost:${flask_port}/latest_software_version?version=null`);
+    const current_version = get_current_app_version();
+    axios.post(`http://localhost:${flask_port}/latest_software_version?version=${current_version}`);
     // remove listeners for update-available since this event occured instead
     autoUpdater.removeAllListeners("update-available");
   });
