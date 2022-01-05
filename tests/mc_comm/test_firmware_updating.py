@@ -69,7 +69,93 @@ def test_get_latest_firmware_versions__polls_api_endpoint_correctly_and_returns_
     assert test_result_dict == expected_response_dict
 
 
-# TODO add tests for handling get_latest_firmware_versions thread
+def test_McCommunicationProcess__handles_successful_completion_of_firmware_update_worker_thread(
+    four_board_mc_comm_process_no_handshake, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    from_main_queue, to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][:2]
+
+    expected_main_fw_version = "1.1.1"
+    expected_channel_fw_version = "2.2.2"
+    expected_latest_firmware_versions = {
+        "main": expected_main_fw_version,
+        "channel": expected_channel_fw_version,
+    }
+
+    def init_se(obj, target, args):
+        args[0].update({"latest_firmware_versions": expected_latest_firmware_versions})
+
+    # mock init so it populates output dict immediately
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "__init__", autospec=True, side_effect=init_se)
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "start", autospec=True)
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "errors", autospec=True, return_value=False)
+    # mock so thread will appear complete on the second iteration of mc_process
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "is_alive", autospec=True, side_effect=[True, False])
+
+    # send command to mc_process. Using get_latest_firmware_versions here arbitrarily, but functionality should be the same for any worker thread
+    test_command = {
+        "communication_type": "firmware_update",
+        "command": "get_latest_firmware_versions",
+        "latest_software_version": "1.0.0",
+        "main_firmware_version": "2.0.0",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(test_command), from_main_queue
+    )
+
+    # run first iteration and make sure command response not sent to main
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_empty(to_main_queue)
+    # run second iteration and make sure correct command response sent to main
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+    command_response = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert command_response == {
+        "communication_type": "firmware_update",
+        "command": "get_latest_firmware_versions",
+        "latest_firmware_versions": expected_latest_firmware_versions,
+    }
+
+
+def test_McCommunicationProcess__handles_error_in_firmware_update_worker_thread(
+    four_board_mc_comm_process_no_handshake, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    from_main_queue, to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][:2]
+
+    expected_error_msg = "error in thread"
+    mocker.patch.object(
+        mc_comm.ErrorCatchingThread, "get_error", autospec=True, return_value=expected_error_msg
+    )
+
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "start", autospec=True)
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "errors", autospec=True, return_value=True)
+    # mock so thread will appear complete on the second iteration of mc_process
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "is_alive", autospec=True, side_effect=[True, False])
+
+    # send command to mc_process. Using get_latest_firmware_versions here arbitrarily, but functionality should be the same for any worker thread
+    test_command = {
+        "communication_type": "firmware_update",
+        "command": "get_latest_firmware_versions",
+        "latest_software_version": "1.0.0",
+        "main_firmware_version": "2.0.0",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(test_command), from_main_queue
+    )
+
+    # run first iteration and make sure command response not sent to main
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_empty(to_main_queue)
+    # run second iteration and make sure correct command response sent to main
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+    command_response = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert command_response == {
+        "communication_type": "firmware_update",
+        "command": "get_latest_firmware_versions",
+        "error": expected_error_msg,
+    }
 
 
 @pytest.mark.parametrize("firmware_type", ["channel", "main"])

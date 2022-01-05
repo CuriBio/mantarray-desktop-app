@@ -230,8 +230,8 @@ class McCommunicationProcess(InstrumentCommProcess):
         ] = None  # Tanner (4/1/21): This value will be None until this process receives a response to a reboot command. It will be set back to None after receiving a status beacon upon reboot completion
         self._hardware_test_mode = hardware_test_mode
         # firmware updating values
-        self._get_latest_firmware_thread: Optional[ErrorCatchingThread] = None
-        self._latest_firmware_versions: Optional[Dict[str, str]] = None
+        self._fw_update_worker_thread: Optional[ErrorCatchingThread] = None
+        self._fw_update_thread_dict: Optional[Dict[str, str]] = None
         self._is_updating_firmware = False
         self._firmware_update_type = ""
         self._firmware_file_contents: Optional[bytes] = None
@@ -460,6 +460,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         5. Make sure the beacon is not overdue, unless instrument is rebooting. If the beacon is overdue, it's reasonable to assume something caused the instrument to stop working. This task should happen after handling of sending/receiving data from the instrument and main process.
         6. Make sure commands are not overdue. This task should happen after the instrument has been determined to be working properly.
         7. If rebooting or waiting for firmware update to complete, make sure that the reboot has not taken longer than the max allowed reboot time.
+        8. Check on the status of any worker threads.
         """
         if self._in_simulation_mode:
             if self._check_simulator_error():
@@ -483,8 +484,10 @@ class McCommunicationProcess(InstrumentCommProcess):
         elif self._is_updating_firmware:
             self._check_firmware_update_status()
 
+        self._check_worker_thread()
+
         # process can be soft stopped if no commands in queue from main and no command responses needed from instrument
-        self._process_can_be_soft_stopped = (  # TODO prevent soft stop if rebooting or updating firmware
+        self._process_can_be_soft_stopped = (  # TODO prevent soft stop if rebooting, updating firmware, or there is an active worker thread
             not bool(self._commands_awaiting_response)
             and self._board_queues[0][
                 0
@@ -571,16 +574,21 @@ class McCommunicationProcess(InstrumentCommProcess):
         elif communication_type == "firmware_update":
             if comm_from_main["command"] == "get_latest_firmware_versions":
                 send_packet_to_instrument = False
-                self._latest_firmware_versions = {"latest_firmware_versions": {}}  # type: ignore
-                self._get_latest_firmware_thread = ErrorCatchingThread(
+
+                self._fw_update_thread_dict = {
+                    "communication_type": "firmware_update",
+                    "command": "get_latest_firmware_versions",
+                    "latest_firmware_versions": {},  # type: ignore
+                }
+                self._fw_update_worker_thread = ErrorCatchingThread(
                     target=get_latest_firmware_versions,
                     args=(
-                        self._latest_firmware_versions,
+                        self._fw_update_thread_dict,
                         comm_from_main["latest_software_version"],
                         comm_from_main["main_firmware_version"],
                     ),
                 )
-                self._get_latest_firmware_thread.start()
+                self._fw_update_worker_thread.start()
             elif comm_from_main["command"] == "start_firmware_update":
                 packet_type = SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
                 self._firmware_update_type = comm_from_main["firmware_type"]
@@ -1234,6 +1242,25 @@ class McCommunicationProcess(InstrumentCommProcess):
             )
             self._report_fatal_error(simulator_error_tuple[0])
         return simulator_has_error
+
+    def _check_worker_thread(self) -> None:
+        if self._fw_update_worker_thread is None or self._fw_update_worker_thread.is_alive():
+            return
+        if self._fw_update_thread_dict is None:
+            raise NotImplementedError("_fw_update_thread_dict should never be None here")
+        to_main_queue = self._board_queues[0][1]
+        if self._fw_update_worker_thread.errors():
+            error_dict = {
+                "communication_type": self._fw_update_thread_dict["communication_type"],
+                "command": self._fw_update_thread_dict["command"],
+                "error": self._fw_update_worker_thread.get_error(),
+            }
+            to_main_queue.put_nowait(error_dict)
+        else:
+            to_main_queue.put_nowait(self._fw_update_thread_dict)
+        # clear values
+        self._fw_update_worker_thread = None
+        self._fw_update_thread_dict = None
 
     def _handle_performance_logging(self) -> None:
         performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}

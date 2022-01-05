@@ -457,15 +457,19 @@ def test_McCommunicationProcess__processes_get_latest_firmware_versions_command(
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(copy.deepcopy(test_command), input_queue)
 
-    assert mc_process._get_latest_firmware_thread is None
+    assert mc_process._fw_update_worker_thread is None
     invoke_process_run_and_check_errors(mc_process)
-    assert isinstance(mc_process._get_latest_firmware_thread, ErrorCatchingThread) is True
-    assert mc_process._latest_firmware_versions == {"latest_firmware_versions": {}}
+    assert isinstance(mc_process._fw_update_worker_thread, ErrorCatchingThread) is True
+    assert mc_process._fw_update_thread_dict == {
+        "communication_type": "firmware_update",
+        "command": "get_latest_firmware_versions",
+        "latest_firmware_versions": {},
+    }
     spied_thread_init.assert_called_once_with(
         mocker.ANY,  # this is the actual thread instance
         target=get_latest_firmware_versions,
         args=(
-            mc_process._latest_firmware_versions,
+            mc_process._fw_update_thread_dict,
             test_latest_software_version,
             test_main_firmware_version,
         ),
