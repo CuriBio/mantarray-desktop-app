@@ -41,10 +41,7 @@ import { spectron_page_visual_regression } from "@curi-bio/frontend-test-utils";
 
 const is_windows = process.platform === "win32";
 
-const base_screenshot_path = path.join(
-  is_windows ? "windows" : "linux",
-  "continuous-waveform"
-);
+const base_screenshot_path = path.join(is_windows ? "windows" : "linux", "continuous-waveform");
 const box_surrounding_version_number = {
   left: 237, // Eli (3/29/21): This VRT does still include the major version so that basics of text style and ability to extract the version number can be validated. This seems like a reasonable compromise between testing to make sure nothing is wrong, and not having a brittle test that needs to be updated everytime a minor or patch version bump happens.
   top: 910,
@@ -169,9 +166,7 @@ async function wait_for_local_server_to_reach_calibration_needed() {
     const response = await axios.get("http://localhost:4567/system_status");
     console.log(i); // allow-log
     console.log(response); // allow-log
-    if (
-      response.data.ui_status_code == "009301eb-625c-4dc4-9e92-1a4d0762465f"
-    ) {
+    if (response.data.ui_status_code == "009301eb-625c-4dc4-9e92-1a4d0762465f") {
       // TODO (Eli 1/14/21): replace this string by importing the value from the frontend-components library
       await sleep(2000); // Eli (3/15/21): do an extra sleep because it seems like sporadically the screenshot is still in the initializing state
       return;
@@ -190,11 +185,7 @@ async function wait_for_flask_to_be_shutdown() {
   for (let i = 0; i < 15; i++) {
     const detected_open_port = await detect_port(flask_port);
     if (detected_open_port === flask_port) {
-      console.log(
-        "Flask successfully detected as shut down after " +
-          i +
-          " checks of the port."
-      ); // allow-log
+      console.log("Flask successfully detected as shut down after " + i + " checks of the port."); // allow-log
       return;
     }
     await sleep(1000);
@@ -279,10 +270,7 @@ describe("window_opening", () => {
       // let main_process_logs; // = await app.client.getMainProcessLogs()
       // let render_process_logs = await app.client.getRenderProcessLogs();
       const stopped_app_return_code = await app.stop();
-      console.log(
-        "stopped_app_return_code['running']: " +
-          stopped_app_return_code["running"]
-      ); // allow-log
+      console.log("stopped_app_return_code['running']: " + stopped_app_return_code["running"]); // allow-log
       // for (const [key, value] of Object.entries(stopped_app_return_code)) {
       //   console.log(` app.stop return code - ${key}: ${value}`); // allow-log
       // }
@@ -293,9 +281,7 @@ describe("window_opening", () => {
       // });
       // main_process_logs = await app.client.getMainProcessLogs();
       try {
-        const shutdown_response = await axios.get(
-          "http://localhost:4567/shutdown"
-        ); // Eli (1/18/21): `app.stop()` apparently isn't triggering the call to shutdown Flask, so manually doing it here
+        const shutdown_response = await axios.get("http://localhost:4567/shutdown"); // Eli (1/18/21): `app.stop()` apparently isn't triggering the call to shutdown Flask, so manually doing it here
         console.log("Shutdown response: " + JSON.stringify(shutdown_response)); // allow-log
       } catch (e) {
         console.log("Error attempting to call shutdown route: " + e); // allow-log
@@ -320,10 +306,7 @@ describe("window_opening", () => {
         }
       } catch (e) {
         // error catched : the process was not running
-        console.log(
-          "the app was confirmed to be closed: error message when attempting to kill it: " +
-            e
-        ); // allow-log
+        console.log("the app was confirmed to be closed: error message when attempting to kill it: " + e); // allow-log
         // do someting to end the test with success !
         done();
         return;
@@ -400,17 +383,13 @@ describe("window_opening", () => {
     const screenshot_path = path.join(this_base_screenshot_path, "init");
     await wait_for_local_server_to_reach_calibration_needed();
     resemble.outputSettings({ ignoredBox: box_surrounding_version_number });
-    await expect(
-      spectron_page_visual_regression(app.browserWindow, screenshot_path)
-    ).resolves.toBe(true);
+    await expect(spectron_page_visual_regression(app.browserWindow, screenshot_path)).resolves.toBe(true);
     resemble.outputSettings({ ignoredBox: undefined });
   }, 90000);
   test("When Calibrate is clicked (and waiting some time for calibration to finish), Then the screen shows the Calibrated state", async () => {
     const app = sandbox.the_app;
     await wait_for_local_server_to_reach_calibration_needed();
-    const calibrate_button = await app.client.$(
-      ".svg__playback-desktop-player-controls-calibrate-button"
-    );
+    const calibrate_button = await app.client.$(".svg__playback-desktop-player-controls-calibrate-button");
     await calibrate_button.click();
 
     await sleep(35000); // wait for calibration to occur and simulated barcode to populate
@@ -419,9 +398,7 @@ describe("window_opening", () => {
     const screenshot_path = path.join(this_base_screenshot_path, "calibrated");
 
     resemble.outputSettings({ ignoredBox: box_surrounding_version_number });
-    await expect(
-      spectron_page_visual_regression(app.browserWindow, screenshot_path)
-    ).resolves.toBe(true);
+    await expect(spectron_page_visual_regression(app.browserWindow, screenshot_path)).resolves.toBe(true);
     resemble.outputSettings({ ignoredBox: undefined });
   }, 90000);
 });

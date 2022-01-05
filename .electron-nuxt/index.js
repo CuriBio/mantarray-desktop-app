@@ -7,12 +7,7 @@ const { ElectronLauncher } = require("@xpda-dev/electron-launcher");
 const { ElectronBuilder } = require("@xpda-dev/electron-builder");
 const { Webpack } = require("@xpda-dev/webpack-step");
 const resourcesPath = require("./resources-path-provider");
-const {
-  DIST_DIR,
-  MAIN_PROCESS_DIR,
-  SERVER_HOST,
-  SERVER_PORT,
-} = require(path.join(__dirname, "config"));
+const { DIST_DIR, MAIN_PROCESS_DIR, SERVER_HOST, SERVER_PORT } = require(path.join(__dirname, "config"));
 const NuxtApp = require(path.join(__dirname, "renderer", "NuxtApp"));
 
 const isDev = process.env.NODE_ENV === "development";
@@ -32,20 +27,14 @@ const launcher = new ElectronLauncher({
 });
 
 let builder_config_path;
-builder_config_path = path.join(
-  __dirname,
-  "..",
-  `electron-builder-${channel}.yaml`
-);
+builder_config_path = path.join(__dirname, "..", `electron-builder-${channel}.yaml`);
 
 const builder = new ElectronBuilder({
   processArgv: ["--config", builder_config_path, "--publish", "never"],
 });
 
 const webpackConfig = Webpack.getBaseConfig({
-  entry: isDev
-    ? path.join(MAIN_PROCESS_DIR, "index.dev.js")
-    : path.join(MAIN_PROCESS_DIR, "index.js"),
+  entry: isDev ? path.join(MAIN_PROCESS_DIR, "index.dev.js") : path.join(MAIN_PROCESS_DIR, "index.js"),
   output: {
     filename: "index.js",
     path: path.join(DIST_DIR, "main"),

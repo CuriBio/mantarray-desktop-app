@@ -5,18 +5,11 @@ const path = require("path");
 
 const path_to_electron_nuxt = path.join(__dirname, ".electron-nuxt");
 
-const path_to_resources_provider = path.join(
-  path_to_electron_nuxt,
-  "resources-path-provider"
-);
+const path_to_resources_provider = path.join(path_to_electron_nuxt, "resources-path-provider");
 
 // const path_to_config = path.join(path_to_electron_nuxt, "config");
 
-const path_to_nuxt_config = path.join(
-  path_to_electron_nuxt,
-  "renderer",
-  "nuxt.config"
-);
+const path_to_nuxt_config = path.join(path_to_electron_nuxt, "renderer", "nuxt.config");
 
 // const path_to_nuxt_app = path.join(
 //   path_to_electron_nuxt,

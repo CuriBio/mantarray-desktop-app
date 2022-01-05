@@ -10,15 +10,10 @@ export default class ElectronStore extends Conf {
 
     if (options.cwd) {
       if (!path.isAbsolute(options.cwd)) {
-        options.cwd = path.join(
-          (electron.app || electron.remote.app).getPath("userData"),
-          options.cwd
-        );
+        options.cwd = path.join((electron.app || electron.remote.app).getPath("userData"), options.cwd);
       }
     } else {
-      const defaultCwd = (electron.app || electron.remote.app).getPath(
-        "userData"
-      );
+      const defaultCwd = (electron.app || electron.remote.app).getPath("userData");
       options.cwd = defaultCwd;
     }
 

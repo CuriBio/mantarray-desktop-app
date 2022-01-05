@@ -56,27 +56,19 @@ describe("utils.js", () => {
           );
         });
         test("When the function is invoked, Then the expected-software-version argument is set to the value returned by get_current_app_version", () => {
-          const spied_get_current_app_version = jest.spyOn(
-            main_utils,
-            "get_current_app_version"
-          );
+          const spied_get_current_app_version = jest.spyOn(main_utils, "get_current_app_version");
 
-          const actual_args = main_utils.generate_flask_command_line_args(
-            store
-          );
+          const actual_args = main_utils.generate_flask_command_line_args(store);
 
           expect(actual_args).toStrictEqual(
             expect.arrayContaining([
-              "--expected-software-version=" +
-                spied_get_current_app_version.mock.results[0].value,
+              "--expected-software-version=" + spied_get_current_app_version.mock.results[0].value,
             ])
           );
         });
 
         test("When the function is invoked, Then the returned --initial-base64-settings encoded settings argument is supplied only containing the recording directory (since no ID exists in the store)", () => {
-          const actual_args = main_utils.generate_flask_command_line_args(
-            store
-          );
+          const actual_args = main_utils.generate_flask_command_line_args(store);
           const expected_obj = {
             log_file_uuid: main_utils.filename_prefix,
             recording_directory: path.join(tmp_dir_name, "recordings"),
@@ -84,23 +76,13 @@ describe("utils.js", () => {
               id: "",
               password: "",
             },
-            zipped_recordings_dir: path.join(
-              tmp_dir_name,
-              "recordings",
-              "zipped_recordings"
-            ),
-            failed_uploads_dir: path.join(
-              tmp_dir_name,
-              "recordings",
-              "failed_uploads"
-            ),
+            zipped_recordings_dir: path.join(tmp_dir_name, "recordings", "zipped_recordings"),
+            failed_uploads_dir: path.join(tmp_dir_name, "recordings", "failed_uploads"),
           };
 
           const regex = "--initial-base64-settings=";
           const base_64_string = actual_args[2].replace(regex, "");
-          const parsed_base64 = JSON.parse(
-            url_safe_base64.decode(base_64_string).toString("utf8")
-          );
+          const parsed_base64 = JSON.parse(url_safe_base64.decode(base_64_string).toString("utf8"));
 
           expect(parsed_base64).toStrictEqual(expected_obj);
         });
@@ -147,12 +129,7 @@ describe("utils.js", () => {
     });
     describe("get_current_app_version", () => {
       test("Given that Electron is not actually running (because this is just a unit test), When the function is called, Then it returns the current version of the App", () => {
-        const path_to_package_json = path.join(
-          __dirname,
-          "..",
-          "..",
-          "package.json"
-        );
+        const path_to_package_json = path.join(__dirname, "..", "..", "package.json");
         const package_info = require(path_to_package_json);
         const expected = package_info.version;
         const actual = main_utils.get_current_app_version();

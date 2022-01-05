@@ -26,8 +26,7 @@ module.exports = {
     // process js files with jest
     "^.+\\.js$": "babel-jest",
     // process assets with transform stub
-    ".+\\.(css|styl|less|sass|scss|svg|png|jpg|ttf|woff|woff2)$":
-      "jest-transform-stub",
+    ".+\\.(css|styl|less|sass|scss|svg|png|jpg|ttf|woff|woff2)$": "jest-transform-stub",
   },
   // we will use this to create snapshot tests
   snapshotSerializers: ["jest-serializer-vue"],

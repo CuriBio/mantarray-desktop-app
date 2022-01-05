@@ -9,10 +9,7 @@
         <PlateNavigator />
       </div>
       <div class="div__status-bar-container">
-        <StatusBar
-          :confirmation_request="confirmation_request"
-          @send_confirmation="send_confirmation"
-        />
+        <StatusBar :confirmation_request="confirmation_request" @send_confirmation="send_confirmation" />
       </div>
       <div class="div__player-controls-container">
         <DesktopPlayerControls @save_customer_id="save_customer_id" />
@@ -30,10 +27,7 @@
           <div class="div__stim-studio-screen-view" />
         </NuxtLink>
         <div class="div__temp-controls-container">
-          <img
-            src="../assets/img/additional-controls-icon.png"
-            :style="'height:44px;'"
-          />
+          <img src="../assets/img/additional-controls-icon.png" :style="'height:44px;'" />
         </div>
       </div>
       <span
@@ -49,9 +43,7 @@
       <div
         class="div__screen-view-container"
         :class="[
-          beta_2_mode
-            ? 'div__screen-view-container--beta-2-mode'
-            : 'div__screen-view-container--beta-1-mode',
+          beta_2_mode ? 'div__screen-view-container--beta-2-mode' : 'div__screen-view-container--beta-1-mode',
         ]"
       >
         <div class="div__waveform-screen-view">
@@ -108,10 +100,7 @@ const dummy_electron_app = {
     return "0.0.0";
   },
 };
-const electron_app =
-  process.env.NODE_ENV === "test"
-    ? dummy_electron_app
-    : require("electron").remote.app;
+const electron_app = process.env.NODE_ENV === "test" ? dummy_electron_app : require("electron").remote.app;
 
 export default {
   components: {

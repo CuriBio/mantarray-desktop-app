@@ -216,7 +216,7 @@ app.on("will-quit", function (e) {
   // responsive and all windows are closed.
   console.log("will-quit event being handled"); // allow-log
 
-  // TODO find some way to check if firmware updates were found but not installed. If this is the case, prevent automatic SW updating. O/W, probably need use set up an event handler on ipcMain to set `autoUpdater.autoInstallOnAppQuit = true;`
+  // TODO find some way to check if firmware updates were found but not installed, or if app couldn't connect to api endpoint, or if in beta 1 or simulation mode. If this is the case, prevent automatic SW updating. O/W, need to set up an event handler on ipcMain to set `autoUpdater.autoInstallOnAppQuit = true;`
   autoUpdater.autoInstallOnAppQuit = false;
 
   // Tanner (9/1/21): Need to prevent (default) app termination, wait for /shutdown response which confirms

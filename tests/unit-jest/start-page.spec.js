@@ -1,16 +1,7 @@
-import {
-  mount,
-  shallowMount,
-  createLocalVue,
-  RouterLinkStub,
-} from "@vue/test-utils";
+import { mount, shallowMount, createLocalVue, RouterLinkStub } from "@vue/test-utils";
 import WaveformScreenView from "@/renderer/pages/index.vue";
 import SideBar from "@/renderer/layouts/default.vue";
-import {
-  Waveform,
-  FLASK_STATUS_ENUMS,
-  system_status_regexp,
-} from "@curi-bio/mantarray-frontend-components";
+import { Waveform, FLASK_STATUS_ENUMS, system_status_regexp } from "@curi-bio/mantarray-frontend-components";
 
 // from https://dev.to/bawa_geek/how-to-setup-jest-testing-in-nuxt-js-project-5c84
 import { config } from "@vue/test-utils";

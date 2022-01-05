@@ -940,7 +940,6 @@ class McCommunicationProcess(InstrumentCommProcess):
                 }
             )
         elif status_code == SERIAL_COMM_IDLE_READY_CODE:
-            print("$$$", self._auto_get_metadata)
             # Tanner (8/5/21): not explicitly unit tested, but magnetometer config should be sent before automatic metadata collection
             if self._auto_set_magnetometer_config:
                 initial_config_copy = copy.deepcopy(DEFAULT_MAGNETOMETER_CONFIG)

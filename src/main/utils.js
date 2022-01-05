@@ -37,10 +37,7 @@ const get_current_app_version = function () {
  *
  * @return {Object} the ElectronStore object
  */
-const create_store = function ({
-  file_path = undefined,
-  file_name = "mantarray_controller_config",
-} = {}) {
+const create_store = function ({ file_path = undefined, file_name = "mantarray_controller_config" } = {}) {
   const store = new ElectronStore({
     cwd: file_path,
     name: file_name,
@@ -83,18 +80,10 @@ const generate_flask_command_line_args = function (electron_store) {
   // Eli (7/15/20): Having quotation marks around the path does not appear to be necessary even with spaces in the path, since it's being passed programatically and not directly through the shell
   const args = [];
   args.push("--log-file-dir=" + flask_logs_full_path + "");
-  args.push(
-    "--expected-software-version=" + export_functions.get_current_app_version()
-  );
+  args.push("--expected-software-version=" + export_functions.get_current_app_version());
   const recording_directory_path = path.join(electron_store_dir, "recordings");
-  const zipped_recordings_dir_path = path.join(
-    recording_directory_path,
-    "zipped_recordings"
-  );
-  const failed_uploads_dir_path = path.join(
-    recording_directory_path,
-    "failed_uploads"
-  );
+  const zipped_recordings_dir_path = path.join(recording_directory_path, "zipped_recordings");
+  const failed_uploads_dir_path = path.join(recording_directory_path, "failed_uploads");
   mkdirp.sync(flask_logs_full_path);
   mkdirp.sync(recording_directory_path);
   mkdirp.sync(zipped_recordings_dir_path);
@@ -111,13 +100,8 @@ const generate_flask_command_line_args = function (electron_store) {
   };
 
   const settings_to_supply_json_str = JSON.stringify(settings_to_supply);
-  const settings_to_supply_buf = Buffer.from(
-    settings_to_supply_json_str,
-    "utf8"
-  );
-  const settings_to_supply_encoded = url_safe_base64.encode(
-    settings_to_supply_buf
-  );
+  const settings_to_supply_buf = Buffer.from(settings_to_supply_json_str, "utf8");
+  const settings_to_supply_encoded = url_safe_base64.encode(settings_to_supply_buf);
 
   if (settings_to_supply_json_str !== "{}") {
     args.push("--initial-base64-settings=" + settings_to_supply_encoded);

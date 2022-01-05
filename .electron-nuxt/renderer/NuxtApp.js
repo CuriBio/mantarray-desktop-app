@@ -35,8 +35,7 @@ class NuxtApp {
 
   async terminate() {
     this.nuxtProcess.kill();
-    if (this.nuxtProcess && !this.nuxtProcess.killed)
-      killWithAllSubProcess(this.nuxtProcess.pid);
+    if (this.nuxtProcess && !this.nuxtProcess.killed) killWithAllSubProcess(this.nuxtProcess.pid);
     this.nuxtProcess = null;
   }
 }

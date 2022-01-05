@@ -69,6 +69,9 @@ def test_get_latest_firmware_versions__polls_api_endpoint_correctly_and_returns_
     assert test_result_dict == expected_response_dict
 
 
+# TODO add tests for handling get_latest_firmware_versions thread
+
+
 @pytest.mark.parametrize("firmware_type", ["channel", "main"])
 def test_McCommunicationProcess__handles_successful_firmware_update(
     four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, firmware_type, mocker
