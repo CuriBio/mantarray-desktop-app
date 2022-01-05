@@ -16,9 +16,12 @@ from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
+from mantarray_desktop_app import CHANNEL_FIRMWARE_VERSION_UUID
+from mantarray_desktop_app import CHECKING_FOR_UPDATES_STATE
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
 from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
+from mantarray_desktop_app import DOWNLOADING_UPDATES_STATE
 from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import IncorrectMagnetometerConfigFromInstrumentError
 from mantarray_desktop_app import IncorrectSamplingPeriodFromInstrumentError
@@ -39,6 +42,7 @@ from mantarray_desktop_app import ServerManager
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.server import queue_command_to_instrument_comm
+from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 import numpy as np
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
@@ -734,15 +738,13 @@ def test_MantarrayProcessesMonitor__sets_in_simulation_mode_after_connection__in
     assert shared_values_dict["in_simulation_mode"] is True
 
 
-def test_MantarrayProcessesMonitor__stores_device_information_from_metadata_comm__and_updates_system_status(
+def test_MantarrayProcessesMonitor__stores_device_information_from_metadata_comm(
     test_monitor, test_process_manager_creator
 ):
     test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    shared_values_dict["system_status"] = INSTRUMENT_INITIALIZING_STATE
 
     board_idx = 0
-
     instrument_comm_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(board_idx)
     )
@@ -755,15 +757,11 @@ def test_MantarrayProcessesMonitor__stores_device_information_from_metadata_comm
     }
     instrument_comm_to_main_queue.put_nowait(metadata_comm_dict)
     assert is_queue_eventually_not_empty(instrument_comm_to_main_queue) is True
-    invoke_process_run_and_check_errors(
-        monitor_thread,
-        num_iterations=2,  # one cycle to retrieve metadata, one cycle to update system_status
-    )
-    assert shared_values_dict["system_status"] == CALIBRATION_NEEDED_STATE
+    invoke_process_run_and_check_errors(monitor_thread)
 
     assert (
         shared_values_dict["main_firmware_version"][board_idx]
-        == MantarrayMcSimulator.default_firmware_version
+        == MantarrayMcSimulator.default_main_firmware_version
     )
     assert (
         shared_values_dict["mantarray_serial_number"][board_idx]
@@ -775,6 +773,138 @@ def test_MantarrayProcessesMonitor__stores_device_information_from_metadata_comm
     assert (
         shared_values_dict["instrument_metadata"][board_idx] == MantarrayMcSimulator.default_metadata_values
     )
+
+
+def test_MantarrayProcessesMonitor__does_not_switch_from_INSTRUMENT_INITIALIZING_STATE_until_if_simulation_mode_value_is_not_set(
+    test_monitor, test_process_manager_creator
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+    shared_values_dict["system_status"] = INSTRUMENT_INITIALIZING_STATE
+
+    # confirm precondition
+    assert "in_simulation_mode" not in shared_values_dict
+
+    # set other values in shared values dict that would allow for a state transition
+    shared_values_dict["instrument_metadata"] = {}
+    shared_values_dict["latest_versions"] = {"software": "0.0.0"}
+
+    # run monitor_thread and make sure not state transition occurs
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert shared_values_dict["system_status"] == INSTRUMENT_INITIALIZING_STATE
+
+
+@pytest.mark.parametrize(
+    "test_simulation_mode,expected_state",
+    [(True, CALIBRATION_NEEDED_STATE), (False, CHECKING_FOR_UPDATES_STATE)],
+)
+def test_MantarrayProcessesMonitor__handles_switch_from_INSTRUMENT_INITIALIZING_STATE_in_beta_2_mode_correctly(
+    test_monitor, test_process_manager_creator, test_simulation_mode, expected_state
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = INSTRUMENT_INITIALIZING_STATE
+
+    shared_values_dict["in_simulation_mode"] = test_simulation_mode
+
+    # set other values in shared values dict that would allow for a state transition
+    test_sw_version = "1.1.1"
+    test_main_fw_version = "2.2.2"
+    shared_values_dict["instrument_metadata"] = {MAIN_FIRMWARE_VERSION_UUID: test_main_fw_version}
+    shared_values_dict["latest_versions"] = {
+        "software": test_sw_version,
+        "main_firmware": None,
+        "channel_firmware": None,
+    }
+
+    # run monitor_thread and make sure not state transition occurs
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert shared_values_dict["system_status"] == expected_state
+
+    to_instrument_comm_queue = (
+        test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+    )
+    if test_simulation_mode:
+        confirm_queue_is_eventually_empty(to_instrument_comm_queue)
+    else:
+        confirm_queue_is_eventually_of_size(to_instrument_comm_queue, 1)
+        command_to_ic = to_instrument_comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+        assert command_to_ic == {
+            "communication_type": "firmware_update",
+            "command": "get_latest_firmware_versions",
+            "latest_software_version": test_sw_version,
+            "main_firmware_version": test_main_fw_version,
+        }
+
+
+@pytest.mark.parametrize(
+    "error,main_fw_update,channel_fw_update,expected_state",
+    [
+        (True, False, False, CALIBRATION_NEEDED_STATE),
+        (False, False, False, CALIBRATION_NEEDED_STATE),
+        (False, True, False, DOWNLOADING_UPDATES_STATE),
+        (False, False, True, DOWNLOADING_UPDATES_STATE),
+        (False, True, True, DOWNLOADING_UPDATES_STATE),
+    ],
+)
+def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STATE_in_beta_2_mode_correctly(
+    test_monitor,
+    test_process_manager_creator,
+    error,
+    main_fw_update,
+    channel_fw_update,
+    expected_state,
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CHECKING_FOR_UPDATES_STATE
+
+    board_idx = 0
+    from_ic_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(board_idx)
+    )
+    to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(board_idx)
+
+    test_current_version = "0.0.0"
+    test_new_version = "1.0.0"
+
+    shared_values_dict["instrument_metadata"] = {
+        MAIN_FIRMWARE_VERSION_UUID: test_current_version,
+        CHANNEL_FIRMWARE_VERSION_UUID: test_current_version,
+    }
+
+    # set up command response
+    test_command_response = {
+        "communication_type": "firmware_update",
+        "command": "get_latest_firmware_versions",
+    }
+    if error:
+        test_command_response["error"] = "some error msg"
+    else:
+        test_command_response["latest_firmware_versions"] = {
+            "main": test_new_version if main_fw_update else test_current_version,
+            "channel": test_new_version if channel_fw_update else test_current_version,
+        }
+    # process command response
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command_response, from_ic_queue)
+    invoke_process_run_and_check_errors(monitor_thread)
+
+    # check that the system state is correct
+    assert shared_values_dict["system_status"] == expected_state
+    # check queue to ic process
+    if not error and (main_fw_update or channel_fw_update):
+        confirm_queue_is_eventually_of_size(to_ic_queue, 1)
+        start_firmware_download_command = to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+        assert start_firmware_download_command == {
+            "communication_type": "firmware_update",
+            "command": "download_firmware_updates",
+            "main": main_fw_update,
+            "channel": channel_fw_update,
+        }
+    else:
+        confirm_queue_is_eventually_empty(to_ic_queue)
 
 
 def test_MantarrayProcessesMonitor__calls_boot_up_only_once_after_subprocesses_start_if_boot_up_after_processes_start_is_True(

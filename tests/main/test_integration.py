@@ -1067,7 +1067,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                 assert this_file_attrs[str(CUSTOMER_ACCOUNT_ID_UUID)] == "test_id"
                 assert (
                     this_file_attrs[str(MAIN_FIRMWARE_VERSION_UUID)]
-                    == MantarrayMcSimulator.default_firmware_version
+                    == MantarrayMcSimulator.default_main_firmware_version
                 )
                 assert (
                     this_file_attrs[str(MANTARRAY_SERIAL_NUMBER_UUID)]

@@ -127,7 +127,9 @@ def put_generic_beta_2_start_recording_info_in_dict(shared_values_dict):
         "customer_account_id": CURI_BIO_ACCOUNT_UUID,
         "user_account_id": CURI_BIO_USER_ACCOUNT_ID,
     }
-    shared_values_dict["main_firmware_version"] = {board_idx: MantarrayMcSimulator.default_firmware_version}
+    shared_values_dict["main_firmware_version"] = {
+        board_idx: MantarrayMcSimulator.default_main_firmware_version
+    }
     shared_values_dict["mantarray_serial_number"] = {
         board_idx: MantarrayMcSimulator.default_mantarray_serial_number
     }

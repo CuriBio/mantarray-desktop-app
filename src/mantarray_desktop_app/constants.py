@@ -233,26 +233,38 @@ STOP_MANAGED_ACQUISITION_COMMUNICATION = immutabledict(
     }
 )
 
+# boot up states
 SERVER_INITIALIZING_STATE = "server_initializing"
 SERVER_READY_STATE = "server_ready"
 INSTRUMENT_INITIALIZING_STATE = "instrument_initializing"
+CHECKING_FOR_UPDATES_STATE = "checking_for_updates"
+# normal operation states
 CALIBRATION_NEEDED_STATE = "calibration_needed"
 CALIBRATING_STATE = "calibrating"
 CALIBRATED_STATE = "calibrated"
 BUFFERING_STATE = "buffering"
 LIVE_VIEW_ACTIVE_STATE = "live_view_active"
 RECORDING_STATE = "recording"
+# updating states
+DOWNLOADING_UPDATES_STATE = "downloading_updates"
+INSTALLING_UPDATES_STATE = "installing_updates"
+UPDATES_COMPLETE_STATE = "updates_complete"
+
 SYSTEM_STATUS_UUIDS = immutabledict(
     {
         SERVER_INITIALIZING_STATE: uuid.UUID("04471bcf-1a00-4a0d-83c8-4160622f9a25"),
         SERVER_READY_STATE: uuid.UUID("8e24ef4d-2353-4e9d-aa32-4346126e73e3"),
         INSTRUMENT_INITIALIZING_STATE: uuid.UUID("d2e3d386-b760-4c9a-8b2d-410362ff11c4"),
+        CHECKING_FOR_UPDATES_STATE: uuid.UUID("04fd6f6b-ee9e-4656-aae4-0b9584791f36"),
         CALIBRATION_NEEDED_STATE: uuid.UUID("009301eb-625c-4dc4-9e92-1a4d0762465f"),
         CALIBRATING_STATE: uuid.UUID("43c08fc5-ca2f-4dcd-9dff-5e9324cb5dbf"),
         CALIBRATED_STATE: uuid.UUID("b480373b-9466-4fa0-92a6-fa5f8e340d30"),
         BUFFERING_STATE: uuid.UUID("dc774d4b-6bd1-4717-b36e-6df6f1ef6cf4"),
         LIVE_VIEW_ACTIVE_STATE: uuid.UUID("9fbee58e-c6af-49a5-b2e2-5b085eead2ea"),
         RECORDING_STATE: uuid.UUID("1e3d76a2-508d-4c99-8bf5-60dac5cc51fe"),
+        DOWNLOADING_UPDATES_STATE: uuid.UUID("b623c5fa-af01-46d3-9282-748e19fe374c"),
+        INSTALLING_UPDATES_STATE: uuid.UUID("19c9c2d6-0de4-4334-8cb3-a4c7ab0eab00"),
+        UPDATES_COMPLETE_STATE: uuid.UUID("31f8fbc9-9b41-4191-8598-6462b7490789"),
     }
 )
 
@@ -432,3 +444,4 @@ IS_CALIBRATION_FILE_UUID = uuid.UUID("9a6f90eb-fe34-423b-bfed-fb441d6d9e5f")
 METADATA_UUID_DESCRIPTIONS = dict(METADATA_UUID_DESCRIPTIONS)
 METADATA_UUID_DESCRIPTIONS[IS_CALIBRATION_FILE_UUID] = "Is this file a calibration (empty plate) recording"
 METADATA_UUID_DESCRIPTIONS = immutabledict(METADATA_UUID_DESCRIPTIONS)
+CHANNEL_FIRMWARE_VERSION_UUID = uuid.UUID("d9694cfe-824c-41f8-915e-91e41ce7af32")

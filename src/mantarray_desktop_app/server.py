@@ -267,7 +267,7 @@ def set_latest_software_version() -> Response:
         return Response(status="400 Invalid version string")
 
     comm_dict = {
-        "communication_type": "set_latest_version",
+        "communication_type": "set_latest_software_version",
         "version": version,
     }
 

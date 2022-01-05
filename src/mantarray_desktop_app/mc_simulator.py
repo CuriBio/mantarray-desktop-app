@@ -35,6 +35,7 @@ from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import resource_path
 
+from .constants import CHANNEL_FIRMWARE_VERSION_UUID
 from .constants import DEFAULT_SAMPLING_PERIOD
 from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
@@ -168,7 +169,8 @@ class MantarrayMcSimulator(InfiniteProcess):
     default_mantarray_nickname = "Mantarray Simulator (MCU)"
     default_mantarray_serial_number = "M02001901"
     default_pcb_serial_number = "TBD"  # TODO Tanner (3/17/21): implement this once the format is determined
-    default_firmware_version = "0.0.0"
+    default_main_firmware_version = "0.0.0"
+    default_channel_firmware_version = "0.0.0"
     default_barcode = "MA190190001"
     default_metadata_values: Dict[UUID, Any] = immutabledict(
         {
@@ -178,7 +180,8 @@ class MantarrayMcSimulator(InfiniteProcess):
             MANTARRAY_SERIAL_NUMBER_UUID: default_mantarray_serial_number,
             MANTARRAY_NICKNAME_UUID: default_mantarray_nickname,
             PCB_SERIAL_NUMBER_UUID: default_pcb_serial_number,
-            MAIN_FIRMWARE_VERSION_UUID: default_firmware_version,
+            MAIN_FIRMWARE_VERSION_UUID: default_main_firmware_version,
+            CHANNEL_FIRMWARE_VERSION_UUID: default_channel_firmware_version,
         }
     )
     default_24_well_magnetometer_config: Dict[  # pylint: disable=invalid-name # Tanner (4/29/21): can't think of a shorter name for this value

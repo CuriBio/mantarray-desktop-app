@@ -35,6 +35,9 @@ from .constants import CALIBRATED_STATE
 from .constants import CALIBRATING_STATE
 from .constants import CALIBRATION_NEEDED_STATE
 from .constants import CALIBRATION_RECORDING_DUR_SECONDS
+from .constants import CHANNEL_FIRMWARE_VERSION_UUID
+from .constants import CHECKING_FOR_UPDATES_STATE
+from .constants import DOWNLOADING_UPDATES_STATE
 from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
@@ -51,6 +54,7 @@ from .exceptions import UnrecognizedMantarrayNamingCommandError
 from .exceptions import UnrecognizedRecordingCommandError
 from .process_manager import MantarrayProcessesManager
 from .server import ServerManager
+from .utils import _compare_semver
 from .utils import _create_start_recording_command
 from .utils import _trim_barcode
 from .utils import attempt_to_get_recording_directory_from_new_dict
@@ -225,7 +229,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 )
 
             update_shared_dict(shared_values_dict, new_values)
-
+        elif communication_type == "set_latest_software_version":
+            shared_values_dict["latest_versions"]["software"] = communication["version"]
         elif communication_type == "set_magnetometer_config":
             self._update_magnetometer_config_dict(communication["magnetometer_config_dict"])
         elif communication_type == "stimulation":
@@ -410,6 +415,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
         except queue.Empty:
             return
 
+        to_ic_queue = self._process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+
         if "bit_file_name" in communication:
             communication["bit_file_name"] = redact_sensitive_info_from_path(communication["bit_file_name"])
         if "response" in communication:
@@ -436,7 +443,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         command = communication.get("command", None)
 
-        if communication_type in "acquisition_manager":
+        if communication_type == "acquisition_manager":
             if command == "start_managed_acquisition":
                 if self._values_to_share_to_server["beta_2_mode"]:
                     if (
@@ -558,6 +565,33 @@ class MantarrayProcessesMonitor(InfiniteThread):
             self._update_magnetometer_config_dict(
                 communication["magnetometer_config_dict"], update_instrument_comm=False
             )
+        elif communication_type == "firmware_update":
+            if command == "get_latest_firmware_versions":
+                if "error" in communication:
+                    self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
+                else:
+                    main_fw_update_needed = _compare_semver(
+                        communication["latest_firmware_versions"]["main"],
+                        self._values_to_share_to_server["instrument_metadata"][MAIN_FIRMWARE_VERSION_UUID],
+                    )
+                    channel_fw_update_needed = _compare_semver(
+                        communication["latest_firmware_versions"]["channel"],
+                        self._values_to_share_to_server["instrument_metadata"][CHANNEL_FIRMWARE_VERSION_UUID],
+                    )
+                    if main_fw_update_needed or channel_fw_update_needed:
+                        self._values_to_share_to_server["system_status"] = DOWNLOADING_UPDATES_STATE
+                        # TODO tell FE that creds need to be entered if they are not already stored in shared_values_dict.
+                        # once creds are obtained, send this next command to IC
+                        to_ic_queue.put_nowait(
+                            {
+                                "communication_type": "firmware_update",
+                                "command": "download_firmware_updates",
+                                "main": main_fw_update_needed,
+                                "channel": channel_fw_update_needed,
+                            }
+                        )
+                    else:
+                        self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
 
     def _commands_for_each_run_iteration(self) -> None:
         """Execute additional commands inside the run loop."""
@@ -594,14 +628,34 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._values_to_share_to_server["system_status"] = INSTRUMENT_INITIALIZING_STATE
                 process_manager.boot_up_instrument(load_firmware_file=self._load_firmware_file)
         elif (
-            self._values_to_share_to_server["system_status"] == INSTRUMENT_INITIALIZING_STATE
-            and self._values_to_share_to_server["beta_2_mode"]
+            self._values_to_share_to_server["beta_2_mode"]
+            and self._values_to_share_to_server["system_status"] == INSTRUMENT_INITIALIZING_STATE
         ):
-            # TODO wait for latest SW version, and current FW versions. Then transition
-            # to "Checking For Updates" status and send get_latest_firmware_versions
-            # command to mc_comm if not in simulation mode
-            if "instrument_metadata" in self._values_to_share_to_server:
+            if "in_simulation_mode" not in self._values_to_share_to_server:
+                pass  # need to wait for this value before proceeding with state transition
+            elif self._values_to_share_to_server["in_simulation_mode"]:
                 self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
+            elif (
+                "instrument_metadata" in self._values_to_share_to_server
+                and self._values_to_share_to_server["latest_versions"]["software"] is not None
+            ):
+                self._values_to_share_to_server["system_status"] = CHECKING_FOR_UPDATES_STATE
+                # send command to instrument comm process to check for firmware updates
+                latest_software_version = self._values_to_share_to_server["latest_versions"]["software"]
+                current_main_fw_version = self._values_to_share_to_server["instrument_metadata"][
+                    MAIN_FIRMWARE_VERSION_UUID
+                ]
+                to_instrument_comm_queue = (
+                    self._process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+                )
+                to_instrument_comm_queue.put_nowait(
+                    {
+                        "communication_type": "firmware_update",
+                        "command": "get_latest_firmware_versions",
+                        "latest_software_version": latest_software_version,
+                        "main_firmware_version": current_main_fw_version,
+                    }
+                )
 
         # check/handle comm from the server and each subprocess
         self._check_and_handle_instrument_comm_to_main_queue()

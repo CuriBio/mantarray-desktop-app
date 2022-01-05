@@ -3,6 +3,7 @@ import logging
 from multiprocessing import Queue
 from random import randint
 
+from mantarray_desktop_app import CHANNEL_FIRMWARE_VERSION_UUID
 from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import convert_to_status_code_bytes
 from mantarray_desktop_app import convert_to_timestamp_bytes
@@ -69,7 +70,8 @@ def test_MantarrayMcSimulator__class_attributes():
     assert MantarrayMcSimulator.default_mantarray_nickname == "Mantarray Simulator (MCU)"
     assert MantarrayMcSimulator.default_mantarray_serial_number == "M02001901"
     assert MantarrayMcSimulator.default_pcb_serial_number == "TBD"
-    assert MantarrayMcSimulator.default_firmware_version == "0.0.0"
+    assert MantarrayMcSimulator.default_main_firmware_version == "0.0.0"
+    assert MantarrayMcSimulator.default_channel_firmware_version == "0.0.0"
     assert MantarrayMcSimulator.default_barcode == "MA190190001"
     assert MantarrayMcSimulator.default_metadata_values == {
         BOOTUP_COUNTER_UUID: 0,
@@ -78,7 +80,8 @@ def test_MantarrayMcSimulator__class_attributes():
         MANTARRAY_SERIAL_NUMBER_UUID: MantarrayMcSimulator.default_mantarray_serial_number,
         MANTARRAY_NICKNAME_UUID: MantarrayMcSimulator.default_mantarray_nickname,
         PCB_SERIAL_NUMBER_UUID: MantarrayMcSimulator.default_pcb_serial_number,
-        MAIN_FIRMWARE_VERSION_UUID: MantarrayMcSimulator.default_firmware_version,
+        MAIN_FIRMWARE_VERSION_UUID: MantarrayMcSimulator.default_main_firmware_version,
+        CHANNEL_FIRMWARE_VERSION_UUID: MantarrayMcSimulator.default_channel_firmware_version,
     }
     assert MantarrayMcSimulator.default_24_well_magnetometer_config == create_magnetometer_config_dict(24)
     assert MantarrayMcSimulator.global_timer_offset_secs == 2.5
@@ -116,7 +119,7 @@ def test_MantarrayMcSimulator__init__sets_default_metadata_values(
         MantarrayMcSimulator.default_mantarray_serial_number
     )
     assert metadata_dict[MAIN_FIRMWARE_VERSION_UUID.bytes] == convert_to_metadata_bytes(
-        MantarrayMcSimulator.default_firmware_version
+        MantarrayMcSimulator.default_main_firmware_version
     )
     assert metadata_dict[PCB_SERIAL_NUMBER_UUID.bytes] == convert_to_metadata_bytes(
         MantarrayMcSimulator.default_pcb_serial_number

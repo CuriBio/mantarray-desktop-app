@@ -35,7 +35,9 @@ from .constants import CALIBRATED_STATE
 from .constants import CALIBRATING_STATE
 from .constants import CALIBRATION_NEEDED_STATE
 from .constants import CALIBRATION_RECORDING_DUR_SECONDS
+from .constants import CHANNEL_FIRMWARE_VERSION_UUID
 from .constants import CHANNEL_INDEX_TO_24_WELL_INDEX
+from .constants import CHECKING_FOR_UPDATES_STATE
 from .constants import CLEAR_BARCODE_TRIG_BIT
 from .constants import CLEARED_BARCODE_VALUE
 from .constants import CLOUD_API_ENDPOINT
@@ -56,6 +58,7 @@ from .constants import DEFAULT_MAGNETOMETER_CONFIG
 from .constants import DEFAULT_SAMPLING_PERIOD
 from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import DEFAULT_USER_CONFIG
+from .constants import DOWNLOADING_UPDATES_STATE
 from .constants import FIFO_READ_PRODUCER_DATA_OFFSET
 from .constants import FIFO_READ_PRODUCER_REF_AMPLITUDE
 from .constants import FIFO_READ_PRODUCER_SAWTOOTH_PERIOD
@@ -64,6 +67,7 @@ from .constants import FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
 from .constants import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
 from .constants import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import FIRMWARE_VERSION_WIRE_OUT_ADDRESS
+from .constants import INSTALLING_UPDATES_STATE
 from .constants import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import IS_CALIBRATION_FILE_UUID
@@ -173,6 +177,7 @@ from .constants import SUBPROCESS_POLL_DELAY_SECONDS
 from .constants import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from .constants import SYSTEM_STATUS_UUIDS
 from .constants import TIMESTEP_CONVERSION_FACTOR
+from .constants import UPDATES_COMPLETE_STATE
 from .constants import VALID_CONFIG_SETTINGS
 from .constants import VALID_SCRIPTING_COMMANDS
 from .constants import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
@@ -636,5 +641,10 @@ __all__ = [
     "CLOUD_API_ENDPOINT_VALID_OPTIONS",
     "CLOUD_API_ENDPOINT",
     "NUM_INITIAL_PACKETS_TO_DROP",
+    "CHECKING_FOR_UPDATES_STATE",
+    "DOWNLOADING_UPDATES_STATE",
+    "INSTALLING_UPDATES_STATE",
+    "UPDATES_COMPLETE_STATE",
+    "CHANNEL_FIRMWARE_VERSION_UUID",
     "upload_log_files_to_s3",
 ]

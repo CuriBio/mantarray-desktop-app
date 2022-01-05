@@ -574,7 +574,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         elif communication_type == "firmware_update":
             if comm_from_main["command"] == "get_latest_firmware_versions":
                 send_packet_to_instrument = False
-
+                # set up worker thread
                 self._fw_update_thread_dict = {
                     "communication_type": "firmware_update",
                     "command": "get_latest_firmware_versions",

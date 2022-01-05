@@ -206,7 +206,6 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         actual_build_id = this_file.attrs[str(SOFTWARE_BUILD_NUMBER_UUID)]
         assert actual_build_id == COMPILED_EXE_BUILD_TIMESTAMP
         assert this_file.attrs[str(SOFTWARE_RELEASE_VERSION_UUID)] == CURRENT_SOFTWARE_VERSION
-        assert this_file.attrs[str(MAIN_FIRMWARE_VERSION_UUID)] == simulator_class.default_firmware_version
         assert this_file.attrs[str(MANTARRAY_NICKNAME_UUID)] == simulator_class.default_mantarray_nickname
         assert (
             this_file.attrs[str(MANTARRAY_SERIAL_NUMBER_UUID)]
@@ -238,6 +237,10 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         )
         # test metadata values and datasets not present in both beta versions
         if test_beta_version == 1:
+            assert (
+                this_file.attrs[str(MAIN_FIRMWARE_VERSION_UUID)]
+                == RunningFIFOSimulator.default_firmware_version
+            )
             assert this_file.attrs[str(SLEEP_FIRMWARE_VERSION_UUID)] == "0.0.0"
             assert (
                 this_file.attrs[str(XEM_SERIAL_NUMBER_UUID)] == RunningFIFOSimulator.default_xem_serial_number
@@ -273,6 +276,10 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
             assert str(ADC_TISSUE_OFFSET_UUID) not in this_file.attrs
             assert str(ADC_REF_OFFSET_UUID) not in this_file.attrs
             # check that beta 2 value are present
+            assert (
+                this_file.attrs[str(MAIN_FIRMWARE_VERSION_UUID)]
+                == MantarrayMcSimulator.default_main_firmware_version
+            )
             assert bool(this_file.attrs[str(IS_CALIBRATION_FILE_UUID)]) is False
             well_config = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
                 MAGNETOMETER_CONFIGURATION_UUID

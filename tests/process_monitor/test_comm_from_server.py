@@ -843,3 +843,33 @@ def test_MantarrayProcessesMonitor__processes_set_protocols_command(
     confirm_queue_is_eventually_of_size(main_to_ic_queue, 1)
     actual = main_to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == test_command
+
+
+def test_MantarrayProcessesMonitor__processes_set_latest_software_command(
+    test_process_manager_creator, test_monitor
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+
+    shared_values_dict["latest_versions"] = {
+        "software": None,
+        "main_firmware": None,
+        "channel_firmware": None,
+    }
+
+    test_version = "1.2.3"
+    test_command = {
+        "communication_type": "set_latest_software_version",
+        "version": test_version,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, server_to_main_queue)
+
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert shared_values_dict["latest_versions"] == {
+        "software": test_version,
+        "main_firmware": None,
+        "channel_firmware": None,
+    }

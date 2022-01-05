@@ -18,6 +18,7 @@ from mantarray_file_manager import PCB_SERIAL_NUMBER_UUID
 from mantarray_file_manager import TAMPER_FLAG_UUID
 from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
 
+from .constants import CHANNEL_FIRMWARE_VERSION_UUID
 from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
@@ -41,6 +42,7 @@ from .exceptions import SerialCommMetadataValueTooLargeError
 METADATA_TYPES = immutabledict(
     {
         MAIN_FIRMWARE_VERSION_UUID: str,
+        CHANNEL_FIRMWARE_VERSION_UUID: str,
         MANTARRAY_NICKNAME_UUID: str,
         MANTARRAY_SERIAL_NUMBER_UUID: str,
         TOTAL_WORKING_HOURS_UUID: int,

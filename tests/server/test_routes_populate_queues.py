@@ -1342,6 +1342,6 @@ def test_latest_software_version__returns_ok_when_version_string_is_a_valid_sema
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication == {
-        "communication_type": "set_latest_version",
+        "communication_type": "set_latest_software_version",
         "version": test_version,
     }

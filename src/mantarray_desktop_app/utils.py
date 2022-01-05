@@ -47,6 +47,7 @@ from mantarray_file_manager import UTC_BEGINNING_STIMULATION_UUID
 from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
 import psutil
 import requests
+from semver import VersionInfo
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import is_frozen_as_exe
 
@@ -542,3 +543,8 @@ def upload_log_files_to_s3(shared_values_dict: Dict[str, Any]) -> None:
         zipped_dir.cleanup()
     else:
         logger.info("Log upload to s3 has been prevented because no customer account was found")
+
+
+def _compare_semver(version_1: str, version_2: str) -> bool:
+    """Determine if Version 1 is greater than Version 2."""
+    return VersionInfo.parse(version_1) > VersionInfo.parse(version_2)  # type: ignore

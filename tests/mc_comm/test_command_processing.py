@@ -444,6 +444,8 @@ def test_McCommunicationProcess__processes_get_latest_firmware_versions_command(
 
     spied_thread_init = mocker.spy(mc_comm.ErrorCatchingThread, "__init__")
     mocked_thread_start = mocker.patch.object(mc_comm.ErrorCatchingThread, "start", autospec=True)
+    # mock so thread won't get deleted on same iteration it is created
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "is_alive", autospec=True, return_value=True)
 
     test_latest_software_version = "1.0.0"
     test_main_firmware_version = "2.0.0"
