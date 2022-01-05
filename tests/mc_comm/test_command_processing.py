@@ -7,10 +7,13 @@ import time
 from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import MantarrayMcSimulator
+from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import UnrecognizedCommandFromMainToMcCommError
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.mc_comm import get_latest_firmware_versions
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
+from mantarray_desktop_app.worker_thread import ErrorCatchingThread
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
@@ -430,3 +433,41 @@ def test_McCommunicationProcess__processes_set_protocols_command(
     confirm_queue_is_eventually_of_size(output_queue, 1)
     message_to_main = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert message_to_main == expected_response
+
+
+def test_McCommunicationProcess__processes_get_latest_firmware_versions_command(
+    four_board_mc_comm_process_no_handshake, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    board_queues = four_board_mc_comm_process_no_handshake["board_queues"]
+    input_queue = board_queues[0][0]
+
+    spied_thread_init = mocker.spy(mc_comm.ErrorCatchingThread, "__init__")
+    mocked_thread_start = mocker.patch.object(mc_comm.ErrorCatchingThread, "start", autospec=True)
+
+    test_latest_software_version = "1.0.0"
+    test_main_firmware_version = "2.0.0"
+
+    # send command to mc_process
+    test_command = {
+        "communication_type": "firmware_update",
+        "command": "get_latest_firmware_versions",
+        "latest_software_version": test_latest_software_version,
+        "main_firmware_version": test_main_firmware_version,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(copy.deepcopy(test_command), input_queue)
+
+    assert mc_process._get_latest_firmware_thread is None
+    invoke_process_run_and_check_errors(mc_process)
+    assert isinstance(mc_process._get_latest_firmware_thread, ErrorCatchingThread) is True
+    assert mc_process._latest_firmware_versions == {"latest_firmware_versions": {}}
+    spied_thread_init.assert_called_once_with(
+        mocker.ANY,  # this is the actual thread instance
+        target=get_latest_firmware_versions,
+        args=(
+            mc_process._latest_firmware_versions,
+            test_latest_software_version,
+            test_main_firmware_version,
+        ),
+    )
+    mocked_thread_start.assert_called_once()

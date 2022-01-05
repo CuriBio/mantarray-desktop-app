@@ -184,6 +184,7 @@ const set_up_auto_updater = () => {
     autoUpdater.removeAllListeners("update-not-available");
   });
 
+  // TODO make sure offline mode is handled
   // set up handler for the event in which an update is not found
   autoUpdater.once("update-not-available", () => {
     const current_version = get_current_app_version();

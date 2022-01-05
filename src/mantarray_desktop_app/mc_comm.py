@@ -25,10 +25,12 @@ from zlib import crc32
 from mantarray_file_manager import DATETIME_STR_FORMAT
 from nptyping import NDArray
 import numpy as np
+import requests
 import serial
 import serial.tools.list_ports as list_ports
 from stdlib_utils import put_log_message_into_queue
 
+from .constants import CLOUD_API_ENDPOINT
 from .constants import DEFAULT_MAGNETOMETER_CONFIG
 from .constants import DEFAULT_SAMPLING_PERIOD
 from .constants import GENERIC_24_WELL_DEFINITION
@@ -134,12 +136,25 @@ from .utils import check_barcode_is_valid
 from .utils import create_active_channel_per_sensor_list
 from .utils import set_this_process_high_priority
 from .utils import sort_nested_dict
+from .worker_thread import ErrorCatchingThread
 
 
 if 6 < 9:  # pragma: no cover # protect this from zimports deleting the pylint disable statement
     from .data_parsing_cy import (  # pylint: disable=import-error # Tanner (5/12/21): unsure why pylint is unable to recognize cython import
         handle_data_packets,
     )
+
+
+def get_latest_firmware_versions(
+    version_dict: Dict[str, Dict[str, str]],
+    latest_software_version: str,
+    main_firmware_version: str,
+) -> None:
+    response = requests.get(
+        f"https://{CLOUD_API_ENDPOINT}/firmware_latest?software_version={latest_software_version}&main_firmware_version={main_firmware_version}"
+    )
+    response_json = response.json()
+    version_dict["latest_firmware_versions"].update(response_json["latest_firmware_versions"])
 
 
 def _get_formatted_utc_now() -> str:
@@ -215,6 +230,8 @@ class McCommunicationProcess(InstrumentCommProcess):
         ] = None  # Tanner (4/1/21): This value will be None until this process receives a response to a reboot command. It will be set back to None after receiving a status beacon upon reboot completion
         self._hardware_test_mode = hardware_test_mode
         # firmware updating values
+        self._get_latest_firmware_thread: Optional[ErrorCatchingThread] = None
+        self._latest_firmware_versions: Optional[Dict[str, str]] = None
         self._is_updating_firmware = False
         self._firmware_update_type = ""
         self._firmware_file_contents: Optional[bytes] = None
@@ -368,8 +385,6 @@ class McCommunicationProcess(InstrumentCommProcess):
                 )
                 break
             else:
-                # if self._hardware_test_mode:  # pragma: no cover
-                #     raise NotImplementedError("Must connect to a real board in hardware test mode")
                 msg["message"] = "No board detected. Creating simulator."
                 serial_obj = MantarrayMcSimulator(
                     Queue(), Queue(), Queue(), Queue(), num_wells=self._num_wells
@@ -487,6 +502,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         except queue.Empty:
             return
         board_idx = 0
+        send_packet_to_instrument = True
         bytes_to_send = bytes(0)
         packet_type = SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 
@@ -553,27 +569,45 @@ class McCommunicationProcess(InstrumentCommProcess):
         elif communication_type == "metadata_comm":
             bytes_to_send = bytes([SERIAL_COMM_GET_METADATA_COMMAND_BYTE])
         elif communication_type == "firmware_update":
-            packet_type = SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
-            self._firmware_update_type = comm_from_main["firmware_type"]
-            bytes_to_send = bytes([self._firmware_update_type == "channel"])
-            with open(comm_from_main["file_path"], "rb") as firmware_file:
-                self._firmware_file_contents = firmware_file.read()
-            bytes_to_send += len(self._firmware_file_contents).to_bytes(4, byteorder="little")
-            self._firmware_packet_idx = 0
-            self._is_updating_firmware = True
-            self._firmware_checksum = crc32(self._firmware_file_contents)
+            if comm_from_main["command"] == "get_latest_firmware_versions":
+                send_packet_to_instrument = False
+                self._latest_firmware_versions = {"latest_firmware_versions": {}}  # type: ignore
+                self._get_latest_firmware_thread = ErrorCatchingThread(
+                    target=get_latest_firmware_versions,
+                    args=(
+                        self._latest_firmware_versions,
+                        comm_from_main["latest_software_version"],
+                        comm_from_main["main_firmware_version"],
+                    ),
+                )
+                self._get_latest_firmware_thread.start()
+            elif comm_from_main["command"] == "start_firmware_update":
+                packet_type = SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
+                self._firmware_update_type = comm_from_main["firmware_type"]
+                bytes_to_send = bytes([self._firmware_update_type == "channel"])
+                with open(comm_from_main["file_path"], "rb") as firmware_file:
+                    self._firmware_file_contents = firmware_file.read()
+                bytes_to_send += len(self._firmware_file_contents).to_bytes(4, byteorder="little")
+                self._firmware_packet_idx = 0
+                self._is_updating_firmware = True
+                self._firmware_checksum = crc32(self._firmware_file_contents)
+            else:
+                raise UnrecognizedCommandFromMainToMcCommError(
+                    f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
+                )
         else:
             raise UnrecognizedCommandFromMainToMcCommError(
                 f"Invalid communication_type: {communication_type}"
             )
 
-        self._send_data_packet(
-            board_idx,
-            SERIAL_COMM_MAIN_MODULE_ID,
-            packet_type,
-            bytes_to_send,
-        )
-        self._add_command_to_track(comm_from_main)
+        if send_packet_to_instrument:
+            self._send_data_packet(
+                board_idx,
+                SERIAL_COMM_MAIN_MODULE_ID,
+                packet_type,
+                bytes_to_send,
+            )
+            self._add_command_to_track(comm_from_main)
 
     def _add_command_to_track(self, command_dict: Dict[str, Any]) -> None:
         command_dict["timepoint"] = perf_counter()
@@ -906,6 +940,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 }
             )
         elif status_code == SERIAL_COMM_IDLE_READY_CODE:
+            print("$$$", self._auto_get_metadata)
             # Tanner (8/5/21): not explicitly unit tested, but magnetometer config should be sent before automatic metadata collection
             if self._auto_set_magnetometer_config:
                 initial_config_copy = copy.deepcopy(DEFAULT_MAGNETOMETER_CONFIG)

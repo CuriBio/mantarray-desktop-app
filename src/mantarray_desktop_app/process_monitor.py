@@ -597,6 +597,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
             self._values_to_share_to_server["system_status"] == INSTRUMENT_INITIALIZING_STATE
             and self._values_to_share_to_server["beta_2_mode"]
         ):
+            # TODO wait for latest SW version, and current FW versions. Then transition
+            # to "Checking For Updates" status and send get_latest_firmware_versions
+            # command to mc_comm if not in simulation mode
             if "instrument_metadata" in self._values_to_share_to_server:
                 self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
 

@@ -5,6 +5,7 @@ from random import choice
 from random import randint
 from zlib import crc32
 
+from mantarray_desktop_app import CLOUD_API_ENDPOINT
 from mantarray_desktop_app import FirmwareUpdateCommandFailedError
 from mantarray_desktop_app import FirmwareUpdateTimeoutError
 from mantarray_desktop_app import MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS
@@ -17,9 +18,11 @@ from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from mantarray_desktop_app.mc_comm import get_latest_firmware_versions
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 import pytest
 from pytest import approx
+import requests
 from stdlib_utils import invoke_process_run_and_check_errors
 
 from ..fixtures import fixture_patch_print
@@ -40,6 +43,30 @@ __fixtures__ = [
     fixture_four_board_mc_comm_process_no_handshake,
     fixture_mantarray_mc_simulator_no_beacon,
 ]
+
+
+def test_get_latest_firmware_versions__polls_api_endpoint_correctly_and_returns_values_correctly(mocker):
+    expected_latest_main_fw_version = "1.0.0"
+    expected_latest_channel_fw_version = "1.0.1"
+    expected_response_dict = {
+        "latest_firmware_versions": {
+            "main": expected_latest_main_fw_version,
+            "channel": expected_latest_channel_fw_version,
+        }
+    }
+
+    mocked_get = mocker.patch.object(requests, "get", autospec=True)
+    mocked_get.return_value.json.return_value = copy.deepcopy(expected_response_dict)
+
+    test_result_dict = {"latest_firmware_versions": {}}
+    test_latest_software_version = "0.0.1"
+    test_main_firmware_version = "0.0.2"
+    get_latest_firmware_versions(test_result_dict, test_latest_software_version, test_main_firmware_version)
+    mocked_get.assert_called_once_with(
+        f"https://{CLOUD_API_ENDPOINT}/firmware_latest?software_version={test_latest_software_version}&main_firmware_version={test_main_firmware_version}"
+    )
+
+    assert test_result_dict == expected_response_dict
 
 
 @pytest.mark.parametrize("firmware_type", ["channel", "main"])

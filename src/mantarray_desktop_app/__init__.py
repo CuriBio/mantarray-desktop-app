@@ -242,7 +242,6 @@ from .exceptions import UnrecognizedSimulatorTestCommandError
 from .fifo_read_producer import FIFOReadProducer
 from .fifo_read_producer import produce_data
 from .fifo_simulator import RunningFIFOSimulator
-from .file_uploader import ErrorCatchingThread
 from .file_writer import FILE_WRITER_BUFFER_SIZE_MICROSECONDS
 from .file_writer import FileWriterProcess
 from .file_writer import get_data_slice_within_timepoints
@@ -310,6 +309,7 @@ from .utils import get_redacted_string
 from .utils import redact_sensitive_info_from_path
 from .utils import upload_log_files_to_s3
 from .utils import validate_magnetometer_config_keys
+from .worker_thread import ErrorCatchingThread
 
 if 6 < 9:  # pragma: no cover # protect this from zimports deleting the pylint disable statement
     from .data_parsing_cy import (  # pylint: disable=import-error # Tanner (8/25/20): unsure why pylint is unable to recognize cython import
