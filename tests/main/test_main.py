@@ -9,11 +9,10 @@ from mantarray_desktop_app import main
 from mantarray_desktop_app import SensitiveFormatter
 from mantarray_desktop_app import ServerManager
 
+from ..fixtures import fixture_fully_running_app_from_main_entrypoint
 from ..fixtures import fixture_generic_queue_container
 
-__fixtures__ = [
-    fixture_generic_queue_container,
-]
+__fixtures__ = [fixture_generic_queue_container, fixture_fully_running_app_from_main_entrypoint]
 
 
 def test_get_server_port_number__returns_default_port_number_if_server_never_instantiated(
@@ -59,3 +58,11 @@ def test_SensitiveFormatter__redacts_from_request_log_entries_correctly():
     test_unsensitive_log_entry = "<any text here>system_status HTTP<any text here>"
     actual = test_formatter.format(logging.makeLogRecord({"msg": test_unsensitive_log_entry}))
     assert actual == test_unsensitive_log_entry
+
+
+def test_SensitiveFormatter__removes_request_log_with_customer_creds():
+    test_formatter = SensitiveFormatter("%(message)s")
+
+    test_sensitive_log_entry = "<any text here>/update_settings?password=test HTTP<any text here>"
+    actual = test_formatter.format(logging.makeLogRecord({"msg": test_sensitive_log_entry}))
+    assert actual is None

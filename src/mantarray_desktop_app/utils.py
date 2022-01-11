@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import re
+import tempfile
 from typing import Any
 from typing import Dict
 from typing import List
@@ -62,6 +63,8 @@ from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from .exceptions import InvalidCustomerAccountIDPasswordError
 from .exceptions import RecordingFolderDoesNotExistError
+from .file_uploader import ErrorCatchingThread
+from .file_uploader import uploader
 
 logger = logging.getLogger(__name__)
 
@@ -507,3 +510,35 @@ def set_this_process_high_priority() -> None:  # pragma: no cover
     except AttributeError:
         nice_value = -10
     p.nice(nice_value)
+
+
+def upload_log_files_to_s3(shared_values_dict: Dict[str, Any]) -> None:
+    if "customer_account_id" in shared_values_dict["config_settings"]:
+        log_file_dir = shared_values_dict["config_settings"]["log_directory"]
+        sub_dir_name = os.path.basename(log_file_dir)
+        file_directory = os.path.dirname(log_file_dir)
+        zipped_dir = tempfile.TemporaryDirectory()
+        customer_account_id = shared_values_dict["config_settings"]["customer_account_id"]
+        customer_pass_key = shared_values_dict["config_settings"]["customer_pass_key"]
+
+        upload_thread = ErrorCatchingThread(
+            target=uploader,
+            args=(
+                file_directory,
+                sub_dir_name,
+                zipped_dir.name,
+                customer_account_id,
+                customer_pass_key,
+            ),
+        )
+        upload_thread.start()
+        upload_thread.join()
+
+        if upload_thread.errors():
+            logger.error(f"Failed to upload log files to s3: {upload_thread.get_error()}")
+        else:
+            logger.info("Successfully uploaded session logs to s3 at shutdown")
+
+        zipped_dir.cleanup()
+    else:
+        logger.info("Log upload to s3 has been prevented because no customer account was found")

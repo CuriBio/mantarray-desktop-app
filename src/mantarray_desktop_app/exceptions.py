@@ -14,6 +14,10 @@ class UnrecognizedDebugConsoleCommandError(Exception):
     pass
 
 
+class UnableToUploadLogFilesToS3(Exception):
+    pass
+
+
 class UnrecognizedCommandFromServerToMainError(Exception):
     pass
 

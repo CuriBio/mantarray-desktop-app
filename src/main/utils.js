@@ -3,7 +3,8 @@ const mkdirp = require("mkdirp");
 const url_safe_base64 = require("urlsafe-base64");
 import ElectronStore from "./electron_store.js";
 const yaml = require("js-yaml");
-
+import { v4 as uuidv4 } from "uuid";
+const log_uuid = uuidv4();
 /**
  * Depending on whether Electron is running, get the application version from package.json or from the Electron process itself
  *
@@ -44,13 +45,13 @@ const create_store = function ({
       beta_2_mode: true,
     },
   });
+  store.set("beta_2_mode", false);
   return store;
 };
 
 const get_flask_logs_full_path = function (electron_store) {
   const electron_store_dir = path.dirname(electron_store.path);
-  const flask_logs_subfolder = "logs_flask";
-  return path.join(electron_store_dir, flask_logs_subfolder);
+  return path.join(electron_store_dir, "logs_flask", log_uuid);
 };
 /**
  * Generate the command line arguments to pass to the local server as it is initialized. This also creates the necessary directories if they don't exist to hold the log files and recordings...although (Eli 1/15/21) unclear why the server doesn't do that itself...
@@ -116,6 +117,7 @@ const export_functions = {
   generate_flask_command_line_args,
   create_store,
   get_current_app_version,
+  log_uuid,
 };
 
 export default export_functions;

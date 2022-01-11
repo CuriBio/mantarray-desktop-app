@@ -102,9 +102,11 @@ from .utils import check_barcode_for_errors
 from .utils import convert_request_args_to_config_dict
 from .utils import get_current_software_version
 from .utils import get_redacted_string
+from .utils import upload_log_files_to_s3
 from .utils import validate_customer_credentials
 from .utils import validate_magnetometer_config_keys
 from .utils import validate_settings
+
 
 logger = logging.getLogger(__name__)
 os.environ[
@@ -338,8 +340,8 @@ def update_settings() -> Response:
             "content": convert_request_args_to_config_dict(request.args),
         }
     )
-    response = Response(json.dumps(request.args), mimetype="application/json")
 
+    response = Response(json.dumps(request.args), mimetype="application/json")
     return response
 
 
@@ -1090,6 +1092,11 @@ def shutdown() -> Response:
     """
     queue_command_to_main({"communication_type": "shutdown", "command": "hard_stop"})
     wait_for_subprocesses_to_stop()
+
+    if request.args.get("called_through_app_will_quit", None) is not None:
+        shared_values_dict = _get_values_from_process_monitor()
+        upload_log_files_to_s3(shared_values_dict)
+
     response = queue_command_to_main({"communication_type": "shutdown", "command": "shutdown_server"})
     return response
 
@@ -1134,7 +1141,8 @@ def after_request(response: Response) -> Response:
             response_json["metadata_to_copy_onto_main_file_attributes"][
                 str(MANTARRAY_NICKNAME_UUID)
             ] = get_redacted_string(len(mantarray_nickname))
-
+        if "update_settings" in rule.rule:
+            response_json["customer_pass_key"] = get_redacted_string(4)
     msg = "Response to HTTP Request in next log entry: "
     if response.status_code == 200:
         # Tanner (1/19/21): using json.dumps instead of an f-string here allows us to perform better testing of our log messages by loading the json string to a python dict

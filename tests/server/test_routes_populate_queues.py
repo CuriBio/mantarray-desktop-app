@@ -14,6 +14,7 @@ from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import server
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_desktop_app import utils
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
@@ -1197,7 +1198,8 @@ def test_shutdown__sends_hard_stop_command__waits_for_subprocesses_to_stop__then
         mocked_queue_command.assert_called_once()
 
     mocked_wait = mocker.patch.object(server, "wait_for_subprocesses_to_stop", autospec=True, side_effect=se)
-
+    mocked_upload = mocker.patch.object(utils, "upload_log_files_to_s3", autospec=True)
+    mocker.patch.object(server, "_get_values_from_process_monitor", autospec=True)
     test_client, test_server_info, _ = client_and_server_manager_and_shared_values
     test_server, _ = test_server_info
     server_to_main_queue = test_server.get_queue_to_main()
@@ -1216,6 +1218,8 @@ def test_shutdown__sends_hard_stop_command__waits_for_subprocesses_to_stop__then
     assert shutdown_server_command["communication_type"] == "shutdown"
     assert shutdown_server_command["command"] == "shutdown_server"
     assert response_json == shutdown_server_command
+
+    mocked_upload.assert_not_called()
 
 
 @pytest.mark.parametrize(

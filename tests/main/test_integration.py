@@ -240,7 +240,7 @@ def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_li
         assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 3) is True
 
         response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&user_account_id=test_user&recording_directory={expected_recordings_dir}&auto_upload=false&auto_delete=false"
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=test_id&customer_pass_key=test_password&user_account_id=test_user&recording_directory={expected_recordings_dir}&auto_upload=false&auto_delete=false"
         )
         assert response.status_code == 200
 
@@ -394,7 +394,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
         # Tanner (12/29/20): Manually set recording directory through update_settings route
         response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&user_account_id=test_user&recording_directory={expected_recordings_dir}&auto_upload=false&auto_delete=false"
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=test_id&customer_pass_key=test_password&user_account_id=test_user&recording_directory={expected_recordings_dir}&auto_upload=false&auto_delete=false"
         )
         assert response.status_code == 200
 
@@ -521,7 +521,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                         )
                     ).strftime("%Y-%m-%d %H:%M:%S.%f")
                     assert this_file_attrs[str(USER_ACCOUNT_ID_UUID)] == "test_user"
-                    assert this_file_attrs[str(CUSTOMER_ACCOUNT_ID_UUID)] == str(CURI_BIO_ACCOUNT_UUID)
+                    assert this_file_attrs[str(CUSTOMER_ACCOUNT_ID_UUID)] == "test_id"
                     assert this_file_attrs[str(ADC_GAIN_SETTING_UUID)] == 16
                     assert (
                         this_file_attrs[str(ADC_TISSUE_OFFSET_UUID)] == FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
@@ -747,7 +747,7 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
         # Tanner (12/29/20): use updated settings to set the recording directory to the TemporaryDirectory
 
         response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&user_account_id=test_user&auto_upload=false&auto_delete=false"
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=test_id&customer_pass_key=test_password&user_account_id=test_user&auto_upload=false&auto_delete=false"
         )
         assert response.status_code == 200
 
@@ -890,7 +890,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         da_out = test_process_manager.queue_container().get_data_analyzer_data_out_queue()
 
         response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&user_account_id=test_user&auto_upload=false&auto_delete=false"
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=test_id&customer_pass_key=test_password&user_account_id=test_user&auto_upload=false&auto_delete=false"
         )
         assert response.status_code == 200
 

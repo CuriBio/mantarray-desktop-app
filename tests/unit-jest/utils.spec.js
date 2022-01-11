@@ -44,10 +44,15 @@ describe("utils.js", () => {
           const actual_args = main_utils.generate_flask_command_line_args(
             store
           );
+
           expect(actual_args).toStrictEqual(
             expect.arrayContaining([
               "--log-file-dir=" +
-                path.join(path.dirname(store.path), "logs_flask"),
+                path.join(
+                  path.dirname(store.path),
+                  "logs_flask",
+                  main_utils.log_uuid
+                ),
             ])
           );
         });
