@@ -412,28 +412,38 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    monitor_thread, *_ = test_monitor(test_process_manager)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
 
-    shared_values_dict = test_process_manager.get_values_to_share_to_server()
-    original_id = UUID("e623b13c-05a5-41f2-8526-c2eba8e78e7f")
     new_id = UUID("e7744225-c41c-4bd5-9e32-e79716cc8f40")
-    shared_values_dict["config_settings"] = dict()
-    shared_values_dict["config_settings"]["user_account_id"] = original_id
+    new_account_id = "new_ai"
+    new_pass_key = "new_pw"
+
+    shared_values_dict["config_settings"] = {"user_account_id": UUID("e623b13c-05a5-41f2-8526-c2eba8e78e7f")}
+    shared_values_dict["customer_creds"] = {"customer_account_id": "old_ai", "customer_pass_key": "old_pw"}
+
     communication = {
         "communication_type": "update_customer_settings",
-        "content": {"config_settings": {"user_account_id": new_id}},
+        "content": {
+            "config_settings": {
+                "user_account_id": new_id,
+                "customer_account_id": new_account_id,
+                "customer_pass_key": new_pass_key,
+            }
+        },
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
 
-    assert (
-        test_process_manager.get_values_to_share_to_server()["config_settings"]["user_account_id"] == new_id
-    )
+    assert shared_values_dict["config_settings"]["user_account_id"] == new_id
+    assert shared_values_dict["customer_creds"] == {
+        "customer_account_id": new_account_id,
+        "customer_pass_key": new_pass_key,
+    }
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_update_shared_values__by_populating_file_writer_queue_when_recording_directory_updated(

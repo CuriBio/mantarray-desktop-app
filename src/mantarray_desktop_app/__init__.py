@@ -178,6 +178,7 @@ from .constants import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from .constants import SYSTEM_STATUS_UUIDS
 from .constants import TIMESTEP_CONVERSION_FACTOR
 from .constants import UPDATES_COMPLETE_STATE
+from .constants import UPDATES_NEEDED_STATE
 from .constants import VALID_CONFIG_SETTINGS
 from .constants import VALID_SCRIPTING_COMMANDS
 from .constants import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
@@ -646,5 +647,6 @@ __all__ = [
     "INSTALLING_UPDATES_STATE",
     "UPDATES_COMPLETE_STATE",
     "CHANNEL_FIRMWARE_VERSION_UUID",
+    "UPDATES_NEEDED_STATE",
     "upload_log_files_to_s3",
 ]

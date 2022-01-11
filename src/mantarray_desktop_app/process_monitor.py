@@ -47,6 +47,7 @@ from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
 from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
+from .constants import UPDATES_NEEDED_STATE
 from .exceptions import IncorrectMagnetometerConfigFromInstrumentError
 from .exceptions import IncorrectSamplingPeriodFromInstrumentError
 from .exceptions import UnrecognizedCommandFromServerToMainError
@@ -203,11 +204,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 raise NotImplementedError(f"Unrecognized shutdown command from Server: {command}")
         elif communication_type == "update_customer_settings":
             new_values = communication["content"]
-
             new_recording_directory: Optional[str] = attempt_to_get_recording_directory_from_new_dict(
                 new_values
             )
-
             if new_recording_directory is not None:
                 to_file_writer_queue = (
                     process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
@@ -219,8 +218,12 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     }
                 )
                 process_manager.set_file_directory(new_recording_directory)
-
             if "customer_account_id" in new_values["config_settings"]:
+                # Tanner (1/5/22): might make more sense to store these values under "stored_customer_settings"
+                shared_values_dict["customer_creds"] = {
+                    "customer_account_id": new_values["config_settings"]["customer_account_id"],
+                    "customer_pass_key": new_values["config_settings"]["customer_pass_key"],
+                }
                 to_file_writer_queue = (
                     process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
                 )
@@ -415,8 +418,6 @@ class MantarrayProcessesMonitor(InfiniteThread):
         except queue.Empty:
             return
 
-        to_ic_queue = self._process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
-
         if "bit_file_name" in communication:
             communication["bit_file_name"] = redact_sensitive_info_from_path(communication["bit_file_name"])
         if "response" in communication:
@@ -579,19 +580,30 @@ class MantarrayProcessesMonitor(InfiniteThread):
                         self._values_to_share_to_server["instrument_metadata"][CHANNEL_FIRMWARE_VERSION_UUID],
                     )
                     if main_fw_update_needed or channel_fw_update_needed:
-                        self._values_to_share_to_server["system_status"] = DOWNLOADING_UPDATES_STATE
-                        # TODO tell FE that creds need to be entered if they are not already stored in shared_values_dict.
-                        # once creds are obtained, send this next command to IC
-                        to_ic_queue.put_nowait(
-                            {
-                                "communication_type": "firmware_update",
-                                "command": "download_firmware_updates",
-                                "main": main_fw_update_needed,
-                                "channel": channel_fw_update_needed,
-                            }
-                        )
+                        self._values_to_share_to_server["firmware_updates_needed"] = {
+                            "main": main_fw_update_needed,
+                            "channel": channel_fw_update_needed,
+                        }
+                        if "customer_creds" in self._values_to_share_to_server:
+                            self._start_firmware_update()
+                        else:
+                            self._values_to_share_to_server["system_status"] = UPDATES_NEEDED_STATE
                     else:
                         self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
+
+    def _start_firmware_update(self) -> None:
+        self._values_to_share_to_server["system_status"] = DOWNLOADING_UPDATES_STATE
+        to_instrument_comm_queue = (
+            self._process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+        )
+        to_instrument_comm_queue.put_nowait(
+            {
+                "communication_type": "firmware_update",
+                "command": "download_firmware_updates",
+                "main": self._values_to_share_to_server["firmware_updates_needed"]["main"],
+                "channel": self._values_to_share_to_server["firmware_updates_needed"]["channel"],
+            }
+        )
 
     def _commands_for_each_run_iteration(self) -> None:
         """Execute additional commands inside the run loop."""
@@ -656,6 +668,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
                         "main_firmware_version": current_main_fw_version,
                     }
                 )
+        elif self._values_to_share_to_server["system_status"] == UPDATES_NEEDED_STATE:
+            if "customer_creds" in self._values_to_share_to_server:
+                self._start_firmware_update()
 
         # check/handle comm from the server and each subprocess
         self._check_and_handle_instrument_comm_to_main_queue()
