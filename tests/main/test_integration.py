@@ -16,7 +16,6 @@ from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
-from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
@@ -1065,7 +1064,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                     expected_time + datetime.timedelta(microseconds=expected_start_index_1)
                 ).strftime("%Y-%m-%d %H:%M:%S.%f")
                 assert this_file_attrs[str(USER_ACCOUNT_ID_UUID)] == "test_user"
-                assert this_file_attrs[str(CUSTOMER_ACCOUNT_ID_UUID)] == str(CURI_BIO_ACCOUNT_UUID)
+                assert this_file_attrs[str(CUSTOMER_ACCOUNT_ID_UUID)] == "test_id"
                 assert (
                     this_file_attrs[str(MAIN_FIRMWARE_VERSION_UUID)]
                     == MantarrayMcSimulator.default_firmware_version
