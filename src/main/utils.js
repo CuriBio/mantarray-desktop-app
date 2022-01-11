@@ -45,7 +45,6 @@ const create_store = function ({
       beta_2_mode: true,
     },
   });
-  store.set("beta_2_mode", false);
   return store;
 };
 
