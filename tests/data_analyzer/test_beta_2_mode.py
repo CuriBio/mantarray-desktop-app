@@ -7,6 +7,7 @@ from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_waveform_analysis import MEMSIC_CENTER_OFFSET
 import numpy as np
 from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
@@ -81,7 +82,9 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
     waveform_data_points = dict()
     for well_idx in range(24):
         default_channel_data = test_data_packet[well_idx][SERIAL_COMM_DEFAULT_DATA_CHANNEL]
-        flipped_default_channel_data = (default_channel_data - max(default_channel_data)) * -1
+        flipped_default_channel_data = (
+            (default_channel_data.astype(np.int32) - max(default_channel_data)) * -1 + MEMSIC_CENTER_OFFSET
+        ).astype(np.uint16)
         pipeline = da_process.get_pipeline_template().create_pipeline()
         pipeline.load_raw_gmr_data(
             np.array([test_data_packet["time_indices"], flipped_default_channel_data], np.int64),
