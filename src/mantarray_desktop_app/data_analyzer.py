@@ -19,6 +19,7 @@ from typing import Union
 
 from mantarray_waveform_analysis import AMPLITUDE_UUID
 from mantarray_waveform_analysis import BUTTERWORTH_LOWPASS_30_UUID
+from mantarray_waveform_analysis import MEMSIC_CENTER_OFFSET
 from mantarray_waveform_analysis import PipelineTemplate
 from mantarray_waveform_analysis import TWITCH_FREQUENCY_UUID
 from mantarray_waveform_analysis.exceptions import PeakDetectionError
@@ -293,9 +294,17 @@ class DataAnalyzerProcess(InfiniteProcess):
             raise NotImplementedError(f"Invalid data type from File Writer Process: {data_type}")
 
     def _process_beta_2_data(self, data_dict: Dict[Any, Any]) -> None:
+        # flip and normalize data first so FE receives waveform data quickly
+        for key, well_dict in data_dict.items():
+            # filter out any keys that are not well indices
+            if not isinstance(key, int):
+                continue
+            self._normalize_beta_2_data_for_well(key, well_dict)
         outgoing_data = self._create_outgoing_beta_2_data(data_dict)
         self._dump_data_into_queue(outgoing_data)
+        # send data through analysis stream
         for key, well_dict in data_dict.items():
+            # filter out any keys that are not well indices
             if not isinstance(key, int):
                 continue
             first_channel_data = [
@@ -368,7 +377,6 @@ class DataAnalyzerProcess(InfiniteProcess):
                 np.zeros((2, len(default_channel_data))),
             )
             force_data = pipeline.get_compressed_force()
-            self._normalize_beta_2_data_for_well(well_idx, force_data)
 
             # convert arrays to lists for json conversion later
             waveform_data_points[well_idx] = {
@@ -388,10 +396,13 @@ class DataAnalyzerProcess(InfiniteProcess):
         }
         return outgoing_data
 
-    def _normalize_beta_2_data_for_well(self, well_idx: int, tissue_data: NDArray[(2, Any), float]) -> None:
+    def _normalize_beta_2_data_for_well(self, well_idx: int, well_dict: Dict[Any, Any]) -> None:
         if self._well_offsets[well_idx] is None:
-            self._well_offsets[well_idx] = min(tissue_data[1])
-        tissue_data[1] -= self._well_offsets[well_idx]
+            self._well_offsets[well_idx] = max(well_dict[SERIAL_COMM_DEFAULT_DATA_CHANNEL])
+        well_dict[SERIAL_COMM_DEFAULT_DATA_CHANNEL] = (
+            (well_dict[SERIAL_COMM_DEFAULT_DATA_CHANNEL].astype(np.int32) - self._well_offsets[well_idx]) * -1
+            + MEMSIC_CENTER_OFFSET
+        ).astype(np.uint16)
 
     def _create_outgoing_beta_1_data(self) -> Dict[str, Any]:
         outgoing_data_creation_start = perf_counter()

@@ -1,6 +1,18 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+0.6.6 (2022-01-12)
+------------------
+
+- Fixed issue with Beta 2 waveforms being upside down in Live View.
+
+
+0.6.5 (2021-12-30)
+------------------
+
+- Updated user config to set Beta 2 mode as the default.
+
+
 0.6.4 (2021-12-29)
 ------------------
 
