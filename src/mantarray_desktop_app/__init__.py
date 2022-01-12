@@ -308,6 +308,7 @@ from .utils import get_active_wells_from_config
 from .utils import get_current_software_version
 from .utils import get_redacted_string
 from .utils import redact_sensitive_info_from_path
+from .utils import upload_log_files_to_s3
 from .utils import validate_magnetometer_config_keys
 
 if 6 < 9:  # pragma: no cover # protect this from zimports deleting the pylint disable statement
@@ -635,4 +636,5 @@ __all__ = [
     "CLOUD_API_ENDPOINT_VALID_OPTIONS",
     "CLOUD_API_ENDPOINT",
     "NUM_INITIAL_PACKETS_TO_DROP",
+    "upload_log_files_to_s3",
 ]

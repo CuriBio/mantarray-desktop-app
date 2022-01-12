@@ -49,7 +49,6 @@ from .utils import redact_sensitive_info_from_path
 
 
 logger = logging.getLogger(__name__)
-
 _server_port_number = DEFAULT_SERVER_PORT_NUMBER  # pylint:disable=invalid-name # Eli (12/8/20): this is deliberately a module-level singleton
 
 
@@ -227,6 +226,7 @@ def main(
         settings_dict = json.loads(decoded_settings)
         shared_values_dict["config_settings"] = {
             "recording_directory": settings_dict["recording_directory"],
+            "log_directory": path_to_log_folder,
         }
         shared_values_dict["stored_customer_settings"] = {
             "stored_customer_id": settings_dict["stored_customer_id"],
@@ -337,5 +337,6 @@ def main(
     process_monitor_thread.join()
     logger.info("Process monitor shut down")
     logger.info("Program exiting")
+
     # Tanner (8/23/21): unsure what this line was trying to achieve, so commenting it out for now until if/when problems arise
     # process_manager.set_logging_level(logging.INFO)  # Eli (3/12/20) - this is really hacky...better solution is to allow setting the process manager back to its normal state

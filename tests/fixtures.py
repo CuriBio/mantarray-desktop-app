@@ -139,6 +139,7 @@ def fixture_test_process_manager_creator(mocker):
                 values_to_share_to_server={
                     "beta_2_mode": beta_2_mode,
                     "stored_customer_id": GENERIC_STORED_CUSTOMER_ID,
+                    "config_settings": dict(),
                 },
             )
             if use_testing_queues:

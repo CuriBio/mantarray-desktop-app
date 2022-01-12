@@ -164,6 +164,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
             comm_copy = copy.deepcopy(communication)
             comm_copy["mantarray_nickname"] = get_redacted_string(len(comm_copy["mantarray_nickname"]))
             msg = f"Communication from the Server: {comm_copy}"
+        elif "update_customer_settings" == communication["communication_type"]:
+            comm_copy = copy.deepcopy(communication)
+            comm_copy["content"]["config_settings"]["customer_pass_key"] = get_redacted_string(4)
+            msg = f"Communication from the Server: {comm_copy}"
         else:
             msg = f"Communication from the Server: {communication}"
         # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
@@ -221,6 +225,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 )
 
             update_shared_dict(shared_values_dict, new_values)
+
         elif communication_type == "set_magnetometer_config":
             self._update_magnetometer_config_dict(communication["magnetometer_config_dict"])
         elif communication_type == "stimulation":

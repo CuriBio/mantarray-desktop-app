@@ -20,11 +20,14 @@ import pytest
 import requests
 
 TEST_FILENAME = "test_filename"
-TEST_FILEPATH = "/test"
+TEST_FILEPATH = "/test/recordings"
 TEST_ZIPDIR = os.path.join("test", "zipped_recordings")
 TEST_CUSTOMER_ACCOUNT_ID = "cid"
 TEST_PASSWORD = "pw"
 TEST_USER_ACCOUNT_ID = "test_user"
+SDK_UPLOAD_TYPE = "sdk"
+LOG_UPLOAD_TYPE = "logs"
+TEST_LOGPATH = "/log/directory"
 
 
 def test_get_file_md5__creates_and_returns_file_md5_value_correctly(mocker):
@@ -56,18 +59,33 @@ def test_get_access_token__requests_and_returns_access_token_correctly(mocker):
 
 def test_get_upload_details__requests_and_returns_upload_details_correctly(mocker):
     mocked_post = mocker.patch.object(requests, "post", autospec=True)
-
     expected_upload_details = mocked_post.return_value.json()
     test_access_token = "token"
     test_file_md5 = "hash"
-    object_key = f"{TEST_CUSTOMER_ACCOUNT_ID}/{TEST_USER_ACCOUNT_ID}/{TEST_FILENAME}"
+    no_user_object_key = f"{TEST_CUSTOMER_ACCOUNT_ID}/{TEST_FILENAME}"
+    user_object_key = f"{TEST_CUSTOMER_ACCOUNT_ID}/{TEST_USER_ACCOUNT_ID}/{TEST_FILENAME}"
 
     actual = get_upload_details(
-        test_access_token, TEST_FILENAME, TEST_CUSTOMER_ACCOUNT_ID, TEST_USER_ACCOUNT_ID, test_file_md5
+        test_access_token, TEST_FILENAME, TEST_CUSTOMER_ACCOUNT_ID, test_file_md5, None, SDK_UPLOAD_TYPE
     )
     mocked_post.assert_called_once_with(
         f"https://{CLOUD_API_ENDPOINT}/sdk_upload",
-        json={"file_name": object_key},
+        json={"file_name": no_user_object_key, "upload_type": SDK_UPLOAD_TYPE},
+        headers={"Authorization": f"Bearer {test_access_token}", "Content-MD5": test_file_md5},
+    )
+    assert actual == expected_upload_details
+
+    actual = get_upload_details(
+        test_access_token,
+        TEST_FILENAME,
+        TEST_CUSTOMER_ACCOUNT_ID,
+        test_file_md5,
+        TEST_USER_ACCOUNT_ID,
+        SDK_UPLOAD_TYPE,
+    )
+    mocked_post.assert_any_call(
+        f"https://{CLOUD_API_ENDPOINT}/sdk_upload",
+        json={"file_name": user_object_key, "upload_type": SDK_UPLOAD_TYPE},
         headers={"Authorization": f"Bearer {test_access_token}", "Content-MD5": test_file_md5},
     )
     assert actual == expected_upload_details
@@ -153,7 +171,7 @@ def test_create_zip_file__create_zip_file_should_not_be_called_with_previously_f
     mocked_create_zip_file.assert_not_called()
 
 
-def test_uploader__runs_upload_procedure_correctly(mocker):
+def test_uploader__runs_upload_procedure_correctly_for_uploading_a_recording(mocker):
     mocked_create_zip_file = mocker.patch.object(file_uploader, "create_zip_file", autospec=True)
     mocked_get_file_md5 = mocker.patch.object(file_uploader, "get_file_md5", autospec=True)
     mocked_get_access_token = mocker.patch.object(file_uploader, "get_access_token", autospec=True)
@@ -197,8 +215,9 @@ def test_uploader__runs_upload_procedure_correctly(mocker):
             expected_access_token,
             zipped_file_name,
             TEST_CUSTOMER_ACCOUNT_ID,
-            TEST_USER_ACCOUNT_ID,
             expected_md5,
+            TEST_USER_ACCOUNT_ID,
+            SDK_UPLOAD_TYPE,
         )
         mocked_upload_file.assert_called_once_with(
             zipped_file_path, zipped_file_name, expected_upload_details
@@ -207,6 +226,58 @@ def test_uploader__runs_upload_procedure_correctly(mocker):
         mocked_download_analaysis.assert_called_once_with(
             mocked_get_sdk_status.return_value, zipped_file_name
         )
+
+
+def test_uploader__runs_upload_procedure_correctly_for_log_files(mocker):
+    mocked_create_zip_file = mocker.patch.object(file_uploader, "create_zip_file", autospec=True)
+    mocked_get_file_md5 = mocker.patch.object(file_uploader, "get_file_md5", autospec=True)
+    mocked_get_access_token = mocker.patch.object(file_uploader, "get_access_token", autospec=True)
+    mocked_get_upload_details = mocker.patch.object(file_uploader, "get_upload_details", autospec=True)
+    mocked_upload_file = mocker.patch.object(file_uploader, "upload_file_to_s3", autospec=True)
+    spied_download_analaysis = mocker.spy(file_uploader, "download_analysis_from_s3")
+    spied_get_sdk_status = mocker.spy(
+        file_uploader,
+        "get_sdk_status",
+    )
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        expected_upload_details = mocked_get_upload_details.return_value
+        expected_access_token = mocked_get_access_token.return_value
+        expected_md5 = mocked_get_file_md5.return_value
+        mocker.patch.object(os.path, "exists", autospec=True, return_value=True)
+
+        test_dir = tmp_dir
+        zipped_file_name = f"{test_dir}.zip"
+        zipped_file_path = mocked_create_zip_file.return_value
+
+        uploader(
+            TEST_LOGPATH,
+            test_dir,
+            TEST_ZIPDIR,
+            TEST_CUSTOMER_ACCOUNT_ID,
+            TEST_PASSWORD,
+        )
+
+        mocked_create_zip_file.assert_called_once_with(
+            TEST_LOGPATH,
+            test_dir,
+            f"{os.path.join(TEST_ZIPDIR, TEST_CUSTOMER_ACCOUNT_ID)}",
+        )
+        mocked_get_access_token.assert_called_once_with(TEST_CUSTOMER_ACCOUNT_ID, TEST_PASSWORD)
+        mocked_get_file_md5.assert_called_once_with(zipped_file_path)
+        mocked_get_upload_details.assert_called_once_with(
+            expected_access_token,
+            zipped_file_name,
+            TEST_CUSTOMER_ACCOUNT_ID,
+            expected_md5,
+            None,
+            LOG_UPLOAD_TYPE,
+        )
+        mocked_upload_file.assert_called_once_with(
+            zipped_file_path, zipped_file_name, expected_upload_details
+        )
+        spied_get_sdk_status.assert_not_called()
+        spied_download_analaysis.assert_not_called()
 
 
 def test_uploader__uploader_raises_error_if_get_sdk_status_returns_error_message_from_aws(mocker):

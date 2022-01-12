@@ -99,6 +99,9 @@ import {
 } from "@curi-bio/mantarray-frontend-components";
 import { ipcRenderer } from "electron";
 import { mapState } from "vuex";
+const log = require("electron-log");
+import path from "path";
+
 // const pkginfo = require('pkginfo')(module, 'version');
 const dummy_electron_app = {
   getVersion() {
@@ -134,11 +137,23 @@ export default {
   computed: {
     ...mapState("settings", ["customer_account_ids", "customer_index"]),
   },
-  created: function () {
+  created: async function () {
     ipcRenderer.on("logs_flask_dir_response", (e, log_dir_name) => {
       this.$store.commit("settings/set_log_path", log_dir_name);
       this.log_dir_name = log_dir_name;
+      const filename_prefix = path.basename(log_dir_name);
+
+      // Only way to create a custom file path for the renderer process logs
+      log.transports.file.resolvePath = () => {
+        const filename = filename_prefix + "_renderer.txt";
+        return path.join(this.log_dir_name, filename);
+      };
+
+      console.log = log.log;
+      console.error = log.error;
+      console.log("Initial view has been rendered");
     });
+
     if (this.log_dir_name === undefined) {
       ipcRenderer.send("logs_flask_dir_request");
     }
@@ -184,8 +199,6 @@ export default {
     //   }
     // });
     // ipcRenderer.send('customer_account_request');
-
-    console.log("Initial view has been rendered"); // allow-log
   },
   methods: {
     send_confirmation: function (idx) {

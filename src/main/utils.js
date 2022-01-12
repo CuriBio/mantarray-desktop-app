@@ -3,7 +3,18 @@ const mkdirp = require("mkdirp");
 const url_safe_base64 = require("urlsafe-base64");
 import ElectronStore from "./electron_store.js";
 const yaml = require("js-yaml");
-
+const now = new Date();
+const utc_month = (now.getUTCMonth() + 1).toString().padStart(2, "0"); // Eli (3/29/21) for some reason getUTCMonth returns a zero-based number, while everything else is a month, so adjusting here
+const filename_prefix = `mantarray_log__${now.getUTCFullYear()}_${utc_month}_${now
+  .getUTCDate()
+  .toString()
+  .padStart(2, "0")}_${now
+  .getUTCHours()
+  .toString()
+  .padStart(2, "0")}${now
+  .getUTCMinutes()
+  .toString()
+  .padStart(2, "0")}${now.getUTCSeconds().toString().padStart(2, "0")}`;
 /**
  * Depending on whether Electron is running, get the application version from package.json or from the Electron process itself
  *
@@ -49,8 +60,7 @@ const create_store = function ({
 
 const get_flask_logs_full_path = function (electron_store) {
   const electron_store_dir = path.dirname(electron_store.path);
-  const flask_logs_subfolder = "logs_flask";
-  return path.join(electron_store_dir, flask_logs_subfolder);
+  return path.join(electron_store_dir, "logs_flask", filename_prefix);
 };
 /**
  * Generate the command line arguments to pass to the local server as it is initialized. This also creates the necessary directories if they don't exist to hold the log files and recordings...although (Eli 1/15/21) unclear why the server doesn't do that itself...
@@ -86,6 +96,7 @@ const generate_flask_command_line_args = function (electron_store) {
   const stored_customer_id = electron_store.get("customer_account_id");
   // storing upload dir paths so that they can be found on start up to try re-uploading even if file_directory path changes while FW is running
   const settings_to_supply = {
+    log_file_uuid: filename_prefix,
     recording_directory: recording_directory_path,
     stored_customer_id,
     zipped_recordings_dir: zipped_recordings_dir_path,
@@ -116,6 +127,7 @@ const export_functions = {
   generate_flask_command_line_args,
   create_store,
   get_current_app_version,
+  filename_prefix,
 };
 
 export default export_functions;

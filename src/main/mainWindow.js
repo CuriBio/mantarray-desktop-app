@@ -38,7 +38,6 @@ winHandler.onCreated((browserWindow) => {
   }
 });
 
-// TODO Lucy (11/15/21) figure out how to add shortcuts and hide menu bar
 const template = [
   {
     label: "Edit",

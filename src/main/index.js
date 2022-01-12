@@ -1,60 +1,34 @@
 /* globals INCLUDE_RESOURCES_PATH */
-import { app, ipcMain } from "electron";
+const { app, ipcMain } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const log = require("electron-log");
 const path = require("path");
 const features = require("./features.json");
-const now = new Date();
-const utc_month = (now.getUTCMonth() + 1).toString().padStart(2, "0"); // Eli (3/29/21) for some reason getUTCMonth returns a zero-based number, while everything else is a month, so adjusting here
-const filename_prefix = `mantarray_log__${now.getUTCFullYear()}_${utc_month}_${now
-  .getUTCDate()
-  .toString()
-  .padStart(2, "0")}_${now
-  .getUTCHours()
-  .toString()
-  .padStart(2, "0")}${now
-  .getUTCMinutes()
-  .toString()
-  .padStart(2, "0")}${now.getUTCSeconds().toString().padStart(2, "0")}_`;
-
-log.transports.file.resolvePath = (variables) => {
-  let filename;
-  switch (process.type) {
-    case "renderer":
-      filename = filename_prefix + "renderer";
-      break;
-    case "worker":
-      filename = filename_prefix + "worker";
-      break;
-    default:
-      filename = filename_prefix + "main";
-  }
-  filename = filename + ".txt";
-  return path.join(variables.libraryDefaultDir, "..", "logs_flask", filename);
-};
-console.log = log.log;
-console.error = log.error;
-/* Eli added */
-// import './style.scss'
-// import 'typeface-roboto/index.css' // https://medium.com/@daddycat/using-offline-material-icons-and-roboto-font-in-electron-app-f25082447443
-// require('typeface-roboto')
-/* end Eli added */
 const ci = require("ci-info");
-
 const fs = require("fs");
 const axios = require("axios");
-// const {
-//   create_store,
-//   generate_flask_command_line_args,
-// } = require("./utils.js");
+
 import main_utils from "./utils.js"; // Eli (1/15/21): helping to be able to spy on functions within utils. https://stackoverflow.com/questions/49457451/jest-spyon-a-function-not-class-or-object-type
 const create_store = main_utils.create_store;
 const generate_flask_command_line_args =
   main_utils.generate_flask_command_line_args;
-// const ElectronStore = require("electron-store");
-/**
- * Set `__resources` path to resources files in renderer process
- */
+
+const store = create_store();
+
+log.transports.file.resolvePath = () => {
+  const filename = main_utils.filename_prefix + "_main.txt";
+
+  return path.join(
+    path.dirname(store.path),
+    "logs_flask",
+    main_utils.filename_prefix,
+    filename
+  );
+};
+console.log = log.log;
+console.error = log.error;
+console.log("Electron store at: '" + store.path + "'");
+
 global.__resources = undefined; // eslint-disable-line no-underscore-dangle
 // noinspection BadExpressionStatementJS
 INCLUDE_RESOURCES_PATH; // eslint-disable-line no-unused-expressions
@@ -62,8 +36,6 @@ INCLUDE_RESOURCES_PATH; // eslint-disable-line no-unused-expressions
 // eslint-disable-next-line no-undef
 if (__resources === undefined)
   console.error("[Main-process]: Resources path is undefined");
-
-let store;
 
 /**
  * Python Flask
@@ -158,13 +130,6 @@ const boot_up_flask = function () {
   start_python_subprocess();
 };
 
-const init_electron_store = function () {
-  store = create_store();
-  console.log("Electron store at: '" + store.path + "'"); // allow-log
-};
-
-init_electron_store();
-
 // start the Flask server
 boot_up_flask();
 
@@ -177,14 +142,6 @@ ipcMain.on("save_customer_id", (e, customer_account) => {
     id: cust_id,
     password: pass_key,
   });
-});
-
-// Quit when all windows are closed.
-app.on("window-all-closed", function () {
-  // On macOS it is common for applications and their menu bar
-  // to stay active until the user quits explicitly with Cmd + Q
-  console.log("window-all-closed event being handled"); // allow-log
-  if (process.platform !== "darwin") app.quit();
 });
 
 // let win_handler = null;
@@ -201,6 +158,8 @@ app.on("ready", () => {
 
 // This is another place to handle events after all windows are closed
 app.on("will-quit", function (e) {
+  e.preventDefault();
+
   // This is a good place to add tests ensuring the app is still
   // responsive and all windows are closed.
   console.log("will-quit event being handled"); // allow-log
@@ -208,7 +167,6 @@ app.on("will-quit", function (e) {
 
   // Tanner (9/1/21): Need to prevent (default) app termination, wait for /shutdown response which confirms
   // that the backend is completely shutdown, then call app.exit() which terminates app immediately
-  e.preventDefault();
   axios
     .get(
       `http://localhost:${flask_port}/shutdown?called_through_app_will_quit=true`
@@ -218,7 +176,12 @@ app.on("will-quit", function (e) {
         `Shutdown response: ${response.status} ${response.statusText}`
       ); // allow-log
       app.exit();
-    });
+    })
+    .catch((response) =>
+      console.log(
+        `Error calling shutdown from Electron main process: ${response.status} ${response.statusText}`
+      )
+    );
 });
 
 require("./mainWindow");
