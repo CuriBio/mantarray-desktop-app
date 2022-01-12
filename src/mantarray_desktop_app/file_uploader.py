@@ -65,10 +65,11 @@ def get_upload_details(
         file_md5: md5 hash.
         upload_type: determines if it's a log file or recording that is being uploaded.
     """
-    if user_account_id is not None:
-        object_key = f"{customer_account_id}/{user_account_id}/{file_name}"
-    else:
-        object_key = f"{customer_account_id}/{file_name}"
+    object_key = (
+        f"{customer_account_id}/{user_account_id}/{file_name}"
+        if user_account_id is not None
+        else f"{customer_account_id}/{file_name}"
+    )
 
     sdk_upload_response = requests.post(
         f"https://{CLOUD_API_ENDPOINT}/s3_upload",

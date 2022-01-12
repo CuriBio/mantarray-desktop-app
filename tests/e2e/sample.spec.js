@@ -413,7 +413,7 @@ describe("window_opening", () => {
     );
     await calibrate_button.click();
 
-    await sleep(15000); // wait for calibration to occur and simulated barcode to populate
+    await sleep(35000); // wait for calibration to occur and simulated barcode to populate
     const this_base_screenshot_path = path.join(base_screenshot_path);
 
     const screenshot_path = path.join(this_base_screenshot_path, "calibrated");
