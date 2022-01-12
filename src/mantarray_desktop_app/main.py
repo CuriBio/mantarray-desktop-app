@@ -21,7 +21,6 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
-import uuid
 
 from eventlet.queue import Empty
 from stdlib_utils import configure_logging
@@ -233,13 +232,11 @@ def main(
             "zipped_recordings_dir": settings_dict["zipped_recordings_dir"],
             "failed_uploads_dir": settings_dict["failed_uploads_dir"],
         }
+        shared_values_dict["log_file_uuid"] = settings_dict["log_file_uuid"]
 
     if parsed_args.expected_software_version:
         if not parsed_args.skip_software_version_verification:
             shared_values_dict["expected_software_version"] = parsed_args.expected_software_version
-
-    log_file_uuid = settings_dict.get("log_file_uuid", uuid.uuid4())
-    shared_values_dict["log_file_uuid"] = log_file_uuid
 
     computer_name_hash = hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).hexdigest()
     shared_values_dict["computer_name_hash"] = computer_name_hash
@@ -250,6 +247,7 @@ def main(
         shared_values_dict["stimulation_running"] = [False] * 24
         shared_values_dict["stimulation_info"] = None
 
+    log_file_uuid = shared_values_dict["log_file_uuid"]
     msg = f"Log File UUID: {log_file_uuid}"
     logger.info(msg)
     msg = f"SHA512 digest of Computer Name {computer_name_hash}"

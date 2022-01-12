@@ -3,8 +3,7 @@ const mkdirp = require("mkdirp");
 const url_safe_base64 = require("urlsafe-base64");
 import ElectronStore from "./electron_store.js";
 const yaml = require("js-yaml");
-import { v4 as uuidv4 } from "uuid";
-const log_uuid = uuidv4();
+import { filename_prefix } from "./index.js";
 /**
  * Depending on whether Electron is running, get the application version from package.json or from the Electron process itself
  *
@@ -50,7 +49,7 @@ const create_store = function ({
 
 const get_flask_logs_full_path = function (electron_store) {
   const electron_store_dir = path.dirname(electron_store.path);
-  return path.join(electron_store_dir, "logs_flask", log_uuid);
+  return path.join(electron_store_dir, "logs_flask", filename_prefix);
 };
 /**
  * Generate the command line arguments to pass to the local server as it is initialized. This also creates the necessary directories if they don't exist to hold the log files and recordings...although (Eli 1/15/21) unclear why the server doesn't do that itself...
@@ -86,6 +85,7 @@ const generate_flask_command_line_args = function (electron_store) {
   const stored_customer_id = electron_store.get("customer_account_id");
   // storing upload dir paths so that they can be found on start up to try re-uploading even if file_directory path changes while FW is running
   const settings_to_supply = {
+    log_file_uuid: filename_prefix,
     recording_directory: recording_directory_path,
     stored_customer_id,
     zipped_recordings_dir: zipped_recordings_dir_path,
@@ -116,7 +116,6 @@ const export_functions = {
   generate_flask_command_line_args,
   create_store,
   get_current_app_version,
-  log_uuid,
 };
 
 export default export_functions;

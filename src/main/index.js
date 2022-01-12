@@ -17,7 +17,7 @@ const store = create_store();
 
 const now = new Date();
 const utc_month = (now.getUTCMonth() + 1).toString().padStart(2, "0"); // Eli (3/29/21) for some reason getUTCMonth returns a zero-based number, while everything else is a month, so adjusting here
-const filename_prefix = `mantarray_log__${now.getUTCFullYear()}_${utc_month}_${now
+export const filename_prefix = `mantarray_log__${now.getUTCFullYear()}_${utc_month}_${now
   .getUTCDate()
   .toString()
   .padStart(2, "0")}_${now
@@ -26,15 +26,15 @@ const filename_prefix = `mantarray_log__${now.getUTCFullYear()}_${utc_month}_${n
   .padStart(2, "0")}${now
   .getUTCMinutes()
   .toString()
-  .padStart(2, "0")}${now.getUTCSeconds().toString().padStart(2, "0")}_`;
+  .padStart(2, "0")}${now.getUTCSeconds().toString().padStart(2, "0")}`;
 
 log.transports.file.resolvePath = () => {
-  const filename = filename_prefix + "main.txt";
+  const filename = filename_prefix + "_main.txt";
 
   return path.join(
     path.dirname(store.path),
     "logs_flask",
-    main_utils.log_uuid,
+    filename_prefix,
     filename
   );
 };
