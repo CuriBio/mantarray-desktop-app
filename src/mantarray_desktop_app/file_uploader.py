@@ -72,7 +72,7 @@ def get_upload_details(
     )
 
     sdk_upload_response = requests.post(
-        f"https://{CLOUD_API_ENDPOINT}/s3_upload",
+        f"https://{CLOUD_API_ENDPOINT}/sdk_upload",
         json={"file_name": object_key, "upload_type": upload_type},
         headers={"Authorization": f"Bearer {access_token}", "Content-MD5": file_md5},
     )

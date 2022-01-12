@@ -69,7 +69,7 @@ def test_get_upload_details__requests_and_returns_upload_details_correctly(mocke
         test_access_token, TEST_FILENAME, TEST_CUSTOMER_ACCOUNT_ID, test_file_md5, None, SDK_UPLOAD_TYPE
     )
     mocked_post.assert_called_once_with(
-        f"https://{CLOUD_API_ENDPOINT}/s3_upload",
+        f"https://{CLOUD_API_ENDPOINT}/sdk_upload",
         json={"file_name": no_user_object_key, "upload_type": SDK_UPLOAD_TYPE},
         headers={"Authorization": f"Bearer {test_access_token}", "Content-MD5": test_file_md5},
     )
@@ -84,7 +84,7 @@ def test_get_upload_details__requests_and_returns_upload_details_correctly(mocke
         SDK_UPLOAD_TYPE,
     )
     mocked_post.assert_any_call(
-        f"https://{CLOUD_API_ENDPOINT}/s3_upload",
+        f"https://{CLOUD_API_ENDPOINT}/sdk_upload",
         json={"file_name": user_object_key, "upload_type": SDK_UPLOAD_TYPE},
         headers={"Authorization": f"Bearer {test_access_token}", "Content-MD5": test_file_md5},
     )

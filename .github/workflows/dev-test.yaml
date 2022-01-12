@@ -33,8 +33,8 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          # - "ubuntu-18.04"
-          # - "ubuntu-20.04"
+          - "ubuntu-18.04"
+          - "ubuntu-20.04"
           - "windows-2019"
         python-version:
           - 3.8
@@ -43,10 +43,10 @@ jobs:
           - 14
         include:
           # only enable coverage on the fastest job
-          # - os: "ubuntu-20.04"
-          #   python-version: "3.8"
-          #   node-version: "14"
-          #   IS_FASTEST_JOB: true
+          - os: "ubuntu-20.04"
+            python-version: "3.8"
+            node-version: "14"
+            IS_FASTEST_JOB: true
           - os: "windows-2019"
             python-version: "3.8"
             node-version: "14"
@@ -61,7 +61,6 @@ jobs:
           Get-DisplayResolution
           Set-DisplayResolution -Width 1920 -Height 1080 -Force
           Get-DisplayResolution
-
       - name: Checkout
         uses: actions/checkout@v2
         with:
@@ -82,7 +81,6 @@ jobs:
           pip --version
           node --version
           npm --version
-
       - name: Cache node modules # https://docs.github.com/en/free-pro-team@latest/actions/guides/caching-dependencies-to-speed-up-workflows
         uses: actions/cache@v2.1.7
         env:
@@ -92,7 +90,6 @@ jobs:
           key: ${{ matrix.os }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ matrix.os }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-
-
       - name: Cache Python modules
         uses: actions/cache@v2.1.7
         env:
@@ -102,7 +99,6 @@ jobs:
           key: ${{ matrix.os }}-${{ matrix.python-version }}-build-${{ env.cache-name }}-${{ hashFiles('**/Pipfile.lock') }}
           restore-keys: |
             ${{ matrix.os }}-${{ matrix.python-version }}-build-${{ env.cache-name }}-
-
       - name: Cache Pre-commit hooks
         uses: actions/cache@v2.1.7
         env:
@@ -113,7 +109,6 @@ jobs:
           key: ${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-${{ hashFiles('**/.pre-commit-config.yaml') }}
           restore-keys: |
             ${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-
-
       - name: Display Chrome version (Windows)
         if: runner.os == 'Windows'
         run: (Get-Item (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe').'(Default)').VersionInfo
@@ -123,7 +118,6 @@ jobs:
         run: |
           google-chrome --version
           chromedriver --version
-
       - name: Get Version
         id: software-version
         uses: notiz-dev/github-action-json-property@v0.1.0
@@ -142,7 +136,6 @@ jobs:
         run: |
           echo ${{steps.software-version.outputs.prop}}
           echo ${{steps.product-name.outputs.prop}}
-
       - name: Install pipenv # no known reason for this specific version of pipenv, just pinning it for good practice
         run: pip install pipenv==2020.11.15
 
@@ -153,7 +146,6 @@ jobs:
         run: |
           pipenv --python ${{ matrix.python-version }}
           pipenv run pip freeze
-
       - name: Install Python Dependencies
         env:
           PIPENV_CACHE_DIR: ./.pipenv_cache
@@ -180,13 +172,11 @@ jobs:
         run: |
           pipenv run pre-commit install
           pipenv run pre-commit run -a
-
       - name: Move OpalKelly .so file to needed location (Linux)
         if: runner.os == 'Linux' # Eli (10/20/20): not sure if copying to both locations is needed...but it's working and haven't checked which is required...should theoretically only be one needed
         run: |
           sudo cp .venv/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/local/lib
           sudo cp .venv/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/lib
-
       - name: Download the firmware files from AWS S3
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_USER_ACCESS_KEY }}
@@ -202,24 +192,23 @@ jobs:
           pipenv run python .github/workflows/vcn.py download
           .\vcn --version
           pipenv run python .github/workflows/vcn.py login
+      - name: Run Python Tests with randomly generated seed
+        if: github.event.inputs.randomlyseed == ''
+        timeout-minutes: 40
+        run: pipenv run pytest -xsvv --cov-report=xml --include-slow-tests --full-ci
 
-      # - name: Run Python Tests with randomly generated seed
-      #   if: github.event.inputs.randomlyseed == ''
-      #   timeout-minutes: 40
-      #   run: pipenv run pytest -xsvv --cov-report=xml --include-slow-tests --full-ci
+      - name: Run Python Tests with supplied pytest-randomly seed
+        if: github.event.inputs.randomlyseed != ''
+        timeout-minutes: 40
+        run: pipenv run pytest -xsvv --cov-report=xml --include-slow-tests --full-ci --randomly-seed=${{ github.event.inputs.randomlyseed }}
 
-      # - name: Run Python Tests with supplied pytest-randomly seed
-      #   if: github.event.inputs.randomlyseed != ''
-      #   timeout-minutes: 40
-      #   run: pipenv run pytest -xsvv --cov-report=xml --include-slow-tests --full-ci --randomly-seed=${{ github.event.inputs.randomlyseed }}
+      - name: Confirm Sphinx Docs build correctly
+        # only check Sphinx docs build on the fastest job
+        if: matrix.IS_FASTEST_JOB == true
+        run: pipenv run sh make_sphinx_fail_on_error.sh
 
-      # - name: Confirm Sphinx Docs build correctly
-      #   # only check Sphinx docs build on the fastest job
-      #   if: matrix.IS_FASTEST_JOB == true
-      #   run: pipenv run sh make_sphinx_fail_on_error.sh
-
-      # - name: Run Jest Tests
-      #   run: npm run test:unit -- --ci
+      - name: Run Jest Tests
+        run: npm run test:unit -- --ci
 
       - name: Confirm no extra files generated by this test suite
         if: matrix.IS_FASTEST_JOB == true
@@ -237,7 +226,6 @@ jobs:
           ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHTIMESTAMPDURINGBUILD',"$(Get-Date -Format 'yyMMddHHmmss')--$env:build_number") | Set-Content -Path src\mantarray_desktop_app\constants.py
           ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHVERSIONDURINGBUILD',"${{steps.software-version.outputs.prop}}") | Set-Content -Path src\mantarray_desktop_app\constants.py
           ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHENDPOINTDURINGBUILD',"${{github.event.inputs.api_endpoint}}") | Set-Content -Path src\mantarray_desktop_app\constants.py
-
       - name: Insert the Build Number and Software Version into the code (Linux)
         if: runner.os == 'Linux'
         env:
@@ -247,17 +235,16 @@ jobs:
           sed -i 's/REPLACETHISWITHTIMESTAMPDURINGBUILD/'"$(date +'%y%m%d%H%M%S')"'--$build_number/g' src/mantarray_desktop_app/constants.py
           sed -i 's/REPLACETHISWITHVERSIONDURINGBUILD/'"${{steps.software-version.outputs.prop}}"'/g' src/mantarray_desktop_app/constants.py
           sed -i 's/REPLACETHISWITHENDPOINTDURINGBUILD/'"${{github.event.inputs.api_endpoint}}"'/g' src/mantarray_desktop_app/constants.py
-
       - name: Compile the Python Executable
         run: pipenv run pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=dist-python --workpath=build-python
 
-      # - name: Run Python Tests on Executable with randomly generated seed
-      #   if: github.event.inputs.randomlyseed == ''
-      #   run: pipenv run pytest tests/test_exe.py -xsvv --only-exe --no-cov
+      - name: Run Python Tests on Executable with randomly generated seed
+        if: github.event.inputs.randomlyseed == ''
+        run: pipenv run pytest tests/test_exe.py -xsvv --only-exe --no-cov
 
-      # - name: Run Python Tests on Executable with supplied pytest-randomly seed
-      #   if: github.event.inputs.randomlyseed != ''
-      #   run: pipenv run pytest tests/test_exe.py -xsvv --only-exe --no-cov --randomly-seed=${{ github.event.inputs.randomlyseed }}
+      - name: Run Python Tests on Executable with supplied pytest-randomly seed
+        if: github.event.inputs.randomlyseed != ''
+        run: pipenv run pytest tests/test_exe.py -xsvv --only-exe --no-cov --randomly-seed=${{ github.event.inputs.randomlyseed }}
 
       - name: Digitally Signing the EXE bundled by pyinstaller before it gets packaged into the built Electron app
         if: matrix.IS_DEPLOYMENT_CONFIG == true
@@ -267,22 +254,21 @@ jobs:
         run: |
           pipenv run python .github/workflows/vcn.py notarize "dist-python/mantarray-flask/mantarray-flask.exe"
           pipenv run python .github/workflows/vcn.py authenticate "dist-python/mantarray-flask/mantarray-flask.exe"
-
       - name: Build Full Electron App
         run: pipenv run npm run build
 
-      # - name: Upload coverage to Codecov
-      #   # only upload coverage from fastest job
-      #   if: matrix.IS_FASTEST_JOB == true
-      #   uses: codecov/codecov-action@v2.1.0
-      #   timeout-minutes: 1 # Tanner (8/11/20): once fundmental issue with codecov timeout is fixed, remove this line and the next
-      #   continue-on-error: true
-      #   with:
-      #     file: ./coverage.xml
-      #     flags: unittests
-      #     env_vars: OS,PYTHON
-      #     name: codecov-umbrella
-      #     fail_ci_if_error: true
+      - name: Upload coverage to Codecov
+        # only upload coverage from fastest job
+        if: matrix.IS_FASTEST_JOB == true
+        uses: codecov/codecov-action@v2.1.0
+        timeout-minutes: 1 # Tanner (8/11/20): once fundmental issue with codecov timeout is fixed, remove this line and the next
+        continue-on-error: true
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          env_vars: OS,PYTHON
+          name: codecov-umbrella
+          fail_ci_if_error: true
 
       # - name: Run E2E Tests
       #   uses: GabrielBB/xvfb-action@v1.0 # from https://github.com/hypergraph-xyz/desktop/blob/main/.github/workflows/ci.yml
@@ -307,7 +293,6 @@ jobs:
           pipenv run python .github/workflows/vcn.py notarize "dist/win-unpacked/Mantarray Controller.exe"
           pipenv run python .github/workflows/vcn.py authenticate "dist/${{steps.product-name.outputs.prop}}-Setup-${{steps.software-version.outputs.prop}}.exe"
           pipenv run python .github/workflows/vcn.py authenticate "dist/win-unpacked/Mantarray Controller.exe"
-
       - name: Archive visual regression
         if: ${{ failure() }}
         uses: actions/upload-artifact@v2
