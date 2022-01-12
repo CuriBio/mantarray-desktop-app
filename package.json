@@ -34,7 +34,7 @@
   },
   "dependencies": {
     "@curi-bio/mantarray-frontend-components": "0.5.9",
-    "@electron/remote": "~1.0.2",
+    "@electron/remote": "~2.0.1",
     "axios": "~0.21.2",
     "current-script-polyfill": "~1.0.0",
     "custom-electron-titlebar": "~3.2.5",
