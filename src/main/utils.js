@@ -3,7 +3,18 @@ const mkdirp = require("mkdirp");
 const url_safe_base64 = require("urlsafe-base64");
 import ElectronStore from "./electron_store.js";
 const yaml = require("js-yaml");
-import { filename_prefix } from "./index.js";
+const now = new Date();
+const utc_month = (now.getUTCMonth() + 1).toString().padStart(2, "0"); // Eli (3/29/21) for some reason getUTCMonth returns a zero-based number, while everything else is a month, so adjusting here
+const filename_prefix = `mantarray_log__${now.getUTCFullYear()}_${utc_month}_${now
+  .getUTCDate()
+  .toString()
+  .padStart(2, "0")}_${now
+  .getUTCHours()
+  .toString()
+  .padStart(2, "0")}${now
+  .getUTCMinutes()
+  .toString()
+  .padStart(2, "0")}${now.getUTCSeconds().toString().padStart(2, "0")}`;
 /**
  * Depending on whether Electron is running, get the application version from package.json or from the Electron process itself
  *
@@ -116,6 +127,7 @@ const export_functions = {
   generate_flask_command_line_args,
   create_store,
   get_current_app_version,
+  filename_prefix,
 };
 
 export default export_functions;

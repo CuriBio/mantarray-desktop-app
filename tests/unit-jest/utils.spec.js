@@ -11,7 +11,6 @@ const url_safe_base64 = require("urlsafe-base64");
 
 // import default as main_utils from "@/main/utils.js" // Eli (1/15/21): helping to be able to spy on functions within utils. https://stackoverflow.com/questions/49457451/jest-spyon-a-function-not-class-or-object-type
 import main_utils from "@/main/utils.js"; // Eli (1/15/21): helping to be able to spy on functions within utils. https://stackoverflow.com/questions/49457451/jest-spyon-a-function-not-class-or-object-type
-import { filename_prefix } from "@/main/index.js";
 const sinon = require("sinon");
 // const sinon_helpers = require("sinon-helpers");
 
@@ -51,7 +50,7 @@ describe("utils.js", () => {
                 path.join(
                   path.dirname(store.path),
                   "logs_flask",
-                  filename_prefix
+                  main_utils.filename_prefix
                 ),
             ])
           );
@@ -79,7 +78,7 @@ describe("utils.js", () => {
             store
           );
           const expected_obj = {
-            log_file_uuid: filename_prefix,
+            log_file_uuid: main_utils.filename_prefix,
             recording_directory: path.join(tmp_dir_name, "recordings"),
             stored_customer_id: {
               id: "",
@@ -110,7 +109,7 @@ describe("utils.js", () => {
           main_utils.generate_flask_command_line_args(store);
           expect(
             fs.existsSync(
-              path.join(tmp_dir_name, "logs_flask", filename_prefix)
+              path.join(tmp_dir_name, "logs_flask", main_utils.filename_prefix)
             )
           ).toBe(true);
           expect(fs.existsSync(path.join(tmp_dir_name, "recordings"))).toBe(

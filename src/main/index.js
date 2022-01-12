@@ -1,5 +1,5 @@
 /* globals INCLUDE_RESOURCES_PATH */
-import { app, ipcMain } from "electron";
+const { app, ipcMain } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const log = require("electron-log");
 const path = require("path");
@@ -15,26 +15,13 @@ const generate_flask_command_line_args =
 
 const store = create_store();
 
-const now = new Date();
-const utc_month = (now.getUTCMonth() + 1).toString().padStart(2, "0"); // Eli (3/29/21) for some reason getUTCMonth returns a zero-based number, while everything else is a month, so adjusting here
-export const filename_prefix = `mantarray_log__${now.getUTCFullYear()}_${utc_month}_${now
-  .getUTCDate()
-  .toString()
-  .padStart(2, "0")}_${now
-  .getUTCHours()
-  .toString()
-  .padStart(2, "0")}${now
-  .getUTCMinutes()
-  .toString()
-  .padStart(2, "0")}${now.getUTCSeconds().toString().padStart(2, "0")}`;
-
 log.transports.file.resolvePath = () => {
-  const filename = filename_prefix + "_main.txt";
+  const filename = main_utils.filename_prefix + "_main.txt";
 
   return path.join(
     path.dirname(store.path),
     "logs_flask",
-    filename_prefix,
+    main_utils.filename_prefix,
     filename
   );
 };
