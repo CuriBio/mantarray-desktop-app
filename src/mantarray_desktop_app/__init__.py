@@ -201,6 +201,7 @@ from .exceptions import InstrumentFatalError
 from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import InstrumentSoftError
 from .exceptions import InvalidBeta2FlagOptionError
+from .exceptions import InvalidCommandFromMainError
 from .exceptions import InvalidCustomerAccountIDPasswordError
 from .exceptions import InvalidDataFramePeriodError
 from .exceptions import InvalidScriptCommandError
@@ -648,5 +649,6 @@ __all__ = [
     "UPDATES_COMPLETE_STATE",
     "CHANNEL_FIRMWARE_VERSION_UUID",
     "UPDATES_NEEDED_STATE",
+    "InvalidCommandFromMainError",
     "upload_log_files_to_s3",
 ]

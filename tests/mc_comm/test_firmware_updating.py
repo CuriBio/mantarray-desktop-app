@@ -18,6 +18,7 @@ from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from mantarray_desktop_app.mc_comm import download_firmware_updates
 from mantarray_desktop_app.mc_comm import get_latest_firmware_versions
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 import pytest
@@ -69,52 +70,97 @@ def test_get_latest_firmware_versions__polls_api_endpoint_correctly_and_returns_
     assert test_result_dict == expected_response_dict
 
 
-def test_McCommunicationProcess__handles_successful_completion_of_firmware_update_worker_thread(
-    four_board_mc_comm_process_no_handshake, mocker
+@pytest.mark.parametrize(
+    "main_fw_update,channel_fw_update",
+    [(False, True), (True, False), (True, True)],
+)
+def test_download_firmware_updates__gets_auth_then_downloads_specified_firmware_files_and_returns_values_correctly(
+    main_fw_update, channel_fw_update, mocker
 ):
-    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
-    from_main_queue, to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][:2]
+    test_username = "user"
+    test_password = "pw"
+    test_access_token = "access_token"
 
-    expected_main_fw_version = "1.1.1"
-    expected_channel_fw_version = "2.2.2"
-    expected_latest_firmware_versions = {
-        "main": expected_main_fw_version,
-        "channel": expected_channel_fw_version,
-    }
+    test_main_presigned_url = "main_url"
+    test_channel_presigned_url = "channel_url"
 
-    def init_se(obj, target, args):
-        args[0].update({"latest_firmware_versions": expected_latest_firmware_versions})
+    test_new_version = "1.0.0"
 
-    # mock init so it populates output dict immediately
-    mocker.patch.object(mc_comm.ErrorCatchingThread, "__init__", autospec=True, side_effect=init_se)
-    mocker.patch.object(mc_comm.ErrorCatchingThread, "start", autospec=True)
-    mocker.patch.object(mc_comm.ErrorCatchingThread, "errors", autospec=True, return_value=False)
-    # mock so thread will appear complete on the second iteration of mc_process
-    mocker.patch.object(mc_comm.ErrorCatchingThread, "is_alive", autospec=True, side_effect=[True, False])
+    test_main_fw_to_download = test_new_version if main_fw_update else None
+    test_channel_fw_to_download = test_new_version if channel_fw_update else None
 
-    # send command to mc_process. Using get_latest_firmware_versions here arbitrarily, but functionality should be the same for any worker thread
-    test_command = {
+    expected_main_fw_bytes = bytes("main", "ascii") if main_fw_update else None
+    expected_channel_fw_bytes = bytes("channel", "ascii") if channel_fw_update else None
+    expected_response_dict = {
         "communication_type": "firmware_update",
-        "command": "get_latest_firmware_versions",
-        "latest_software_version": "1.0.0",
-        "main_firmware_version": "2.0.0",
+        "command": "download_firmware_updates",
+        "main": expected_main_fw_bytes,
+        "channel": expected_channel_fw_bytes,
     }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        copy.deepcopy(test_command), from_main_queue
+
+    mocked_post = mocker.patch.object(requests, "post", autospec=True)
+    mocked_post.return_value.json.return_value = {"access_token": test_access_token}
+
+    def get_se(url, headers=None):
+        mocked_get_return = mocker.MagicMock()
+
+        if "firmware_download" in url:
+            mocked_get_return.json = lambda: {
+                "presigned_url": test_main_presigned_url if "main" in url else test_channel_presigned_url
+            }
+        else:
+            mocked_get_return.content = expected_main_fw_bytes if "main" in url else expected_channel_fw_bytes
+
+        return mocked_get_return
+
+    mocked_get = mocker.patch.object(requests, "get", autospec=True, side_effect=get_se)
+
+    test_result_dict = {
+        "communication_type": "firmware_update",
+        "command": "download_firmware_updates",
+        "main": None,
+        "channel": None,
+    }
+    download_firmware_updates(
+        test_result_dict,
+        test_main_fw_to_download,
+        test_channel_fw_to_download,
+        test_username,
+        test_password,
     )
 
-    # run first iteration and make sure command response not sent to main
-    invoke_process_run_and_check_errors(mc_process)
-    confirm_queue_is_eventually_empty(to_main_queue)
-    # run second iteration and make sure correct command response sent to main
-    invoke_process_run_and_check_errors(mc_process)
-    confirm_queue_is_eventually_of_size(to_main_queue, 1)
-    command_response = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert command_response == {
-        "communication_type": "firmware_update",
-        "command": "get_latest_firmware_versions",
-        "latest_firmware_versions": expected_latest_firmware_versions,
-    }
+    mocked_post.assert_called_once_with(
+        f"https://{CLOUD_API_ENDPOINT}/get_auth", json={"username": test_username, "password": test_password}
+    )
+
+    assert mocked_get.call_count == 2 * (int(main_fw_update) + int(channel_fw_update))
+    call_idx = 0
+    call_idx_offset = 1 + int(main_fw_update and channel_fw_update)
+    for update_needed, type, presigned_url in (
+        (main_fw_update, "main", test_main_presigned_url),
+        (channel_fw_update, "channel", test_channel_presigned_url),
+    ):
+        if update_needed:
+            assert mocked_get.call_args_list[call_idx] == mocker.call(
+                f"https://{CLOUD_API_ENDPOINT}/firmware_download?firmware_version={test_new_version}&firmware_type={type}",
+                headers={"Authorization": f"Bearer {test_access_token}"},
+            ), type
+            assert mocked_get.call_args_list[call_idx + call_idx_offset] == mocker.call(presigned_url), type
+            call_idx += 1
+
+    assert test_result_dict == expected_response_dict
+
+
+def test_download_firmware_updates__raises_error_if_no_updates_needed():
+    assert not "TODO"
+
+
+def test_download_firmware_updates__handles_firmware_download_route_error_correctly():
+    assert not "TODO"
+
+
+def test_download_firmware_updates__handles_get_presigned_url_error_correctly():
+    assert not "TODO"
 
 
 def test_McCommunicationProcess__handles_error_in_firmware_update_worker_thread(
@@ -155,6 +201,103 @@ def test_McCommunicationProcess__handles_error_in_firmware_update_worker_thread(
         "communication_type": "firmware_update",
         "command": "get_latest_firmware_versions",
         "error": expected_error_msg,
+    }
+
+
+def test_McCommunicationProcess__handles_successful_completion_of_get_latest_firmware_versions_worker_thread(
+    four_board_mc_comm_process_no_handshake, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    from_main_queue, to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][:2]
+
+    expected_main_fw_version = "1.1.1"
+    expected_channel_fw_version = "2.2.2"
+    expected_latest_firmware_versions = {
+        "main": expected_main_fw_version,
+        "channel": expected_channel_fw_version,
+    }
+
+    def init_se(obj, target, args):
+        args[0].update({"latest_firmware_versions": expected_latest_firmware_versions})
+
+    # mock init so it populates output dict immediately
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "__init__", autospec=True, side_effect=init_se)
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "start", autospec=True)
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "errors", autospec=True, return_value=False)
+    # mock so thread will appear complete on the second iteration of mc_process
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "is_alive", autospec=True, side_effect=[True, False])
+
+    # send command to mc_process
+    test_command = {
+        "communication_type": "firmware_update",
+        "command": "get_latest_firmware_versions",
+        "latest_software_version": "1.0.0",
+        "main_firmware_version": "2.0.0",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(test_command), from_main_queue
+    )
+
+    # run first iteration and make sure command response not sent to main
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_empty(to_main_queue)
+    # run second iteration and make sure correct command response sent to main
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+    command_response = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert command_response == {
+        "communication_type": "firmware_update",
+        "command": "get_latest_firmware_versions",
+        "latest_firmware_versions": expected_latest_firmware_versions,
+    }
+
+
+def test_McCommunicationProcess__handles_successful_completion_of_download_firmware_updates_worker_thread(
+    four_board_mc_comm_process_no_handshake, mocker
+):
+    assert not "TODO"
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    from_main_queue, to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][:2]
+
+    expected_main_fw_version = "1.1.1"
+    expected_channel_fw_version = "2.2.2"
+    expected_latest_firmware_versions = {
+        "main": expected_main_fw_version,
+        "channel": expected_channel_fw_version,
+    }
+
+    def init_se(obj, target, args):
+        args[0].update({"latest_firmware_versions": expected_latest_firmware_versions})
+
+    # mock init so it populates output dict immediately
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "__init__", autospec=True, side_effect=init_se)
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "start", autospec=True)
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "errors", autospec=True, return_value=False)
+    # mock so thread will appear complete on the second iteration of mc_process
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "is_alive", autospec=True, side_effect=[True, False])
+
+    # send command to mc_process
+    test_command = {
+        "communication_type": "firmware_update",
+        "command": "get_latest_firmware_versions",
+        "latest_software_version": "1.0.0",
+        "main_firmware_version": "2.0.0",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(test_command), from_main_queue
+    )
+
+    # run first iteration and make sure command response not sent to main
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_empty(to_main_queue)
+    # run second iteration and make sure correct command response sent to main
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+    command_response = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert command_response == {
+        "communication_type": "firmware_update",
+        "command": "get_latest_firmware_versions",
+        "latest_firmware_versions": expected_latest_firmware_versions,
     }
 
 

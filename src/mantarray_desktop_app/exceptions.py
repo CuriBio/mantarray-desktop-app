@@ -10,6 +10,10 @@ class MultiprocessingNotSetToSpawnError(Exception):
         )
 
 
+class InvalidCommandFromMainError(Exception):
+    pass
+
+
 class UnrecognizedDebugConsoleCommandError(Exception):
     pass
 

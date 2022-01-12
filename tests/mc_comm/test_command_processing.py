@@ -6,6 +6,7 @@ import time
 
 from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import create_magnetometer_config_dict
+from mantarray_desktop_app import InvalidCommandFromMainError
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import mc_simulator
@@ -477,3 +478,62 @@ def test_McCommunicationProcess__processes_get_latest_firmware_versions_command(
         ),
     )
     mocked_thread_start.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "main_fw_update,channel_fw_update",
+    [(False, False), (False, True), (True, False), (True, True)],
+)
+def test_McCommunicationProcess__handles_download_firmware_updates_command(
+    main_fw_update, channel_fw_update, four_board_mc_comm_process_no_handshake, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    board_queues = four_board_mc_comm_process_no_handshake["board_queues"]
+    input_queue = board_queues[0][0]
+
+    spied_thread_init = mocker.spy(mc_comm.ErrorCatchingThread, "__init__")
+    mocked_thread_start = mocker.patch.object(mc_comm.ErrorCatchingThread, "start", autospec=True)
+    # mock so thread won't get deleted on same iteration it is created
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "is_alive", autospec=True, return_value=True)
+
+    test_username = "user"
+    test_password = "pw"
+
+    test_command = {
+        "communication_type": "firmware_update",
+        "command": "download_firmware_updates",
+        "main": main_fw_update,
+        "channel": channel_fw_update,
+        "username": test_username,
+        "password": test_password,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(copy.deepcopy(test_command), input_queue)
+
+    assert mc_process._fw_update_worker_thread is None
+    if main_fw_update or channel_fw_update:
+        invoke_process_run_and_check_errors(mc_process)
+        assert isinstance(mc_process._fw_update_worker_thread, ErrorCatchingThread) is True
+        assert mc_process._fw_update_thread_dict == {
+            "communication_type": "firmware_update",
+            "command": "download_firmware_updates",
+            "main": None,
+            "channel": None,
+        }
+        spied_thread_init.assert_called_once_with(
+            mocker.ANY,  # this is the actual thread instance
+            target=get_latest_firmware_versions,
+            args=(
+                mc_process._fw_update_thread_dict,
+                main_fw_update,
+                channel_fw_update,
+                test_username,
+                test_password,
+            ),
+        )
+        mocked_thread_start.assert_called_once()
+    else:
+        with pytest.raises(
+            InvalidCommandFromMainError,
+            match="Cannot download firmware files if neither firmware type needs an update",
+        ):
+            invoke_process_run_and_check_errors(mc_process)

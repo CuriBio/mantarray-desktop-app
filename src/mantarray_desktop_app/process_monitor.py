@@ -571,18 +571,20 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 if "error" in communication:
                     self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
                 else:
+                    latest_main_fw = communication["latest_firmware_versions"]["main"]
+                    latest_channel_fw = communication["latest_firmware_versions"]["channel"]
                     main_fw_update_needed = _compare_semver(
-                        communication["latest_firmware_versions"]["main"],
+                        latest_main_fw,
                         self._values_to_share_to_server["instrument_metadata"][MAIN_FIRMWARE_VERSION_UUID],
                     )
                     channel_fw_update_needed = _compare_semver(
-                        communication["latest_firmware_versions"]["channel"],
+                        latest_channel_fw,
                         self._values_to_share_to_server["instrument_metadata"][CHANNEL_FIRMWARE_VERSION_UUID],
                     )
                     if main_fw_update_needed or channel_fw_update_needed:
                         self._values_to_share_to_server["firmware_updates_needed"] = {
-                            "main": main_fw_update_needed,
-                            "channel": channel_fw_update_needed,
+                            "main": latest_main_fw if main_fw_update_needed else None,
+                            "channel": latest_channel_fw if channel_fw_update_needed else None,
                         }
                         if "customer_creds" in self._values_to_share_to_server:
                             self._start_firmware_update()
@@ -602,6 +604,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 "command": "download_firmware_updates",
                 "main": self._values_to_share_to_server["firmware_updates_needed"]["main"],
                 "channel": self._values_to_share_to_server["firmware_updates_needed"]["channel"],
+                "username": self._values_to_share_to_server["customer_creds"]["customer_account_id"],
+                "password": self._values_to_share_to_server["customer_creds"]["customer_pass_key"],
             }
         )
 

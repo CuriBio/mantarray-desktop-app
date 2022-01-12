@@ -101,6 +101,7 @@ from .exceptions import InstrumentDataStreamingAlreadyStoppedError
 from .exceptions import InstrumentFatalError
 from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import InstrumentSoftError
+from .exceptions import InvalidCommandFromMainError
 from .exceptions import MagnetometerConfigUpdateWhileDataStreamingError
 from .exceptions import MantarrayInstrumentError
 from .exceptions import SerialCommCommandResponseTimeoutError
@@ -146,15 +147,44 @@ if 6 < 9:  # pragma: no cover # protect this from zimports deleting the pylint d
 
 
 def get_latest_firmware_versions(
-    version_dict: Dict[str, Dict[str, str]],
+    result_dict: Dict[str, Dict[str, str]],
     latest_software_version: str,
     main_firmware_version: str,
 ) -> None:
+    # TODO figure out if offline
     response = requests.get(
         f"https://{CLOUD_API_ENDPOINT}/firmware_latest?software_version={latest_software_version}&main_firmware_version={main_firmware_version}"
     )
     response_json = response.json()
-    version_dict["latest_firmware_versions"].update(response_json["latest_firmware_versions"])
+    result_dict["latest_firmware_versions"].update(response_json["latest_firmware_versions"])
+
+
+def download_firmware_updates(
+    result_dict: Dict[str, Any],
+    main_fw_version: str,
+    channel_fw_version: str,
+    username: str,
+    password: str,
+) -> None:
+    # get access token
+    get_auth_response = requests.post(
+        f"https://{CLOUD_API_ENDPOINT}/get_auth", json={"username": username, "password": password}
+    )
+    access_token = get_auth_response.json()["access_token"]
+    # get presigned download URL(s)
+    presigned_urls: Dict[str, Optional[str]] = {"main": None, "channel": None}
+    for version, type in ((main_fw_version, "main"), (channel_fw_version, "channel")):
+        if version is not None:
+            download_details = requests.get(
+                f"https://{CLOUD_API_ENDPOINT}/firmware_download?firmware_version={version}&firmware_type={type}",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            presigned_urls[type] = download_details.json()["presigned_url"]
+    # download firmware file(s)
+    for fw_type, presigned_url in presigned_urls.items():
+        if presigned_url is not None:
+            download_response = requests.get(presigned_url)
+            result_dict[fw_type] = download_response.content
 
 
 def _get_formatted_utc_now() -> str:
@@ -231,7 +261,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._hardware_test_mode = hardware_test_mode
         # firmware updating values
         self._fw_update_worker_thread: Optional[ErrorCatchingThread] = None
-        self._fw_update_thread_dict: Optional[Dict[str, str]] = None
+        self._fw_update_thread_dict: Optional[Dict[str, Any]] = None
         self._is_updating_firmware = False
         self._firmware_update_type = ""
         self._firmware_file_contents: Optional[bytes] = None
@@ -578,7 +608,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._fw_update_thread_dict = {
                     "communication_type": "firmware_update",
                     "command": "get_latest_firmware_versions",
-                    "latest_firmware_versions": {},  # type: ignore
+                    "latest_firmware_versions": {},
                 }
                 self._fw_update_worker_thread = ErrorCatchingThread(
                     target=get_latest_firmware_versions,
@@ -589,10 +619,35 @@ class McCommunicationProcess(InstrumentCommProcess):
                     ),
                 )
                 self._fw_update_worker_thread.start()
+            elif comm_from_main["command"] == "download_firmware_updates":
+                if not comm_from_main["main"] and not comm_from_main["channel"]:
+                    raise InvalidCommandFromMainError(
+                        "Cannot download firmware files if neither firmware type needs an update"
+                    )
+                send_packet_to_instrument = False
+                # set up worker thread
+                self._fw_update_thread_dict = {
+                    "communication_type": "firmware_update",
+                    "command": "download_firmware_updates",
+                    "main": None,
+                    "channel": None,
+                }
+                self._fw_update_worker_thread = ErrorCatchingThread(
+                    target=get_latest_firmware_versions,
+                    args=(
+                        self._fw_update_thread_dict,
+                        comm_from_main["main"],
+                        comm_from_main["channel"],
+                        comm_from_main["username"],
+                        comm_from_main["password"],
+                    ),
+                )
+                self._fw_update_worker_thread.start()
             elif comm_from_main["command"] == "start_firmware_update":
                 packet_type = SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
                 self._firmware_update_type = comm_from_main["firmware_type"]
                 bytes_to_send = bytes([self._firmware_update_type == "channel"])
+                # TODO update this
                 with open(comm_from_main["file_path"], "rb") as firmware_file:
                     self._firmware_file_contents = firmware_file.read()
                 bytes_to_send += len(self._firmware_file_contents).to_bytes(4, byteorder="little")

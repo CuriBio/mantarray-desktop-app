@@ -877,12 +877,21 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
     test_current_version = "0.0.0"
     test_new_version = "1.0.0"
 
+    new_main_fw_version = test_new_version if main_fw_update else None
+    new_channel_fw_version = test_new_version if channel_fw_update else None
+
+    test_customer_account_id = "id"
+    test_customer_pass_key = "pw"
+
     shared_values_dict["instrument_metadata"] = {
         MAIN_FIRMWARE_VERSION_UUID: test_current_version,
         CHANNEL_FIRMWARE_VERSION_UUID: test_current_version,
     }
     if customer_settings_found:
-        shared_values_dict["customer_creds"] = {"customer_account_id": "id", "customer_pass_key": "pw"}
+        shared_values_dict["customer_creds"] = {
+            "customer_account_id": test_customer_account_id,
+            "customer_pass_key": test_customer_pass_key,
+        }
 
     # set up command response
     test_command_response = {
@@ -905,8 +914,8 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
     # check that firmware updating status is stored in shared values dict
     if shared_values_dict["system_status"] in (UPDATES_NEEDED_STATE, DOWNLOADING_UPDATES_STATE):
         assert shared_values_dict["firmware_updates_needed"] == {
-            "main": main_fw_update,
-            "channel": channel_fw_update,
+            "main": new_main_fw_version,
+            "channel": new_channel_fw_version,
         }
     # check queue to ic process
     if shared_values_dict["system_status"] == DOWNLOADING_UPDATES_STATE:
@@ -915,8 +924,10 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
         assert start_firmware_download_command == {
             "communication_type": "firmware_update",
             "command": "download_firmware_updates",
-            "main": main_fw_update,
-            "channel": channel_fw_update,
+            "main": new_main_fw_version,
+            "channel": new_channel_fw_version,
+            "username": test_customer_account_id,
+            "password": test_customer_pass_key,
         }
     else:
         confirm_queue_is_eventually_empty(to_ic_queue)
@@ -929,7 +940,16 @@ def test_MantarrayProcessesMonitor__handles_switch_from_UPDATES_NEEDED_STATE_in_
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["system_status"] = UPDATES_NEEDED_STATE
-    shared_values_dict["firmware_updates_needed"] = {"main": True, "channel": False}
+
+    test_customer_account_id = "id"
+    test_customer_pass_key = "pw"
+
+    new_main_fw_version = "1.1.0"
+    new_channel_fw_version = None
+    shared_values_dict["firmware_updates_needed"] = {
+        "main": new_main_fw_version,
+        "channel": new_channel_fw_version,
+    }
 
     board_idx = 0
     to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(board_idx)
@@ -949,8 +969,10 @@ def test_MantarrayProcessesMonitor__handles_switch_from_UPDATES_NEEDED_STATE_in_
     assert start_firmware_download_command == {
         "communication_type": "firmware_update",
         "command": "download_firmware_updates",
-        "main": True,
-        "channel": False,
+        "main": new_main_fw_version,
+        "channel": new_channel_fw_version,
+        "username": test_customer_account_id,
+        "password": test_customer_pass_key,
     }
 
 
