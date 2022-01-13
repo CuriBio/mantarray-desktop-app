@@ -39,6 +39,7 @@ from .constants import CHANNEL_FIRMWARE_VERSION_UUID
 from .constants import CHECKING_FOR_UPDATES_STATE
 from .constants import DOWNLOADING_UPDATES_STATE
 from .constants import GENERIC_24_WELL_DEFINITION
+from .constants import INSTALLING_UPDATES_STATE
 from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
 from .constants import MICRO_TO_BASE_CONVERSION
@@ -47,6 +48,7 @@ from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
 from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
+from .constants import UPDATE_ERROR_STATE
 from .constants import UPDATES_NEEDED_STATE
 from .exceptions import IncorrectMagnetometerConfigFromInstrumentError
 from .exceptions import IncorrectSamplingPeriodFromInstrumentError
@@ -410,8 +412,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
     def _check_and_handle_instrument_comm_to_main_queue(self) -> None:
         # pylint: disable=too-many-branches,too-many-statements  # TODO Tanner (10/25/21): refactor this into smaller methods
         process_manager = self._process_manager
+        board_idx = 0
         instrument_comm_to_main = (
-            process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
+            process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(board_idx)
         )
         try:
             communication = instrument_comm_to_main.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
@@ -592,11 +595,28 @@ class MantarrayProcessesMonitor(InfiniteThread):
                             self._values_to_share_to_server["system_status"] = UPDATES_NEEDED_STATE
                     else:
                         self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
+            elif command == "download_firmware_updates":
+                if "error" in communication:
+                    self._values_to_share_to_server["system_status"] = UPDATE_ERROR_STATE
+                else:
+                    self._values_to_share_to_server["system_status"] = INSTALLING_UPDATES_STATE
+                    to_instrument_comm_queue = (
+                        self._process_manager.queue_container().get_communication_to_instrument_comm_queue(
+                            board_idx
+                        )
+                    )
+                    to_instrument_comm_queue.put_nowait(
+                        {
+                            "communication_type": "firmware_update",
+                            "command": "start_firmware_update",
+                        }
+                    )
 
     def _start_firmware_update(self) -> None:
         self._values_to_share_to_server["system_status"] = DOWNLOADING_UPDATES_STATE
+        board_idx = 0
         to_instrument_comm_queue = (
-            self._process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+            self._process_manager.queue_container().get_communication_to_instrument_comm_queue(board_idx)
         )
         to_instrument_comm_queue.put_nowait(
             {

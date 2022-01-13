@@ -177,6 +177,7 @@ from .constants import SUBPROCESS_POLL_DELAY_SECONDS
 from .constants import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from .constants import SYSTEM_STATUS_UUIDS
 from .constants import TIMESTEP_CONVERSION_FACTOR
+from .constants import UPDATE_ERROR_STATE
 from .constants import UPDATES_COMPLETE_STATE
 from .constants import UPDATES_NEEDED_STATE
 from .constants import VALID_CONFIG_SETTINGS
@@ -653,4 +654,5 @@ __all__ = [
     "InvalidCommandFromMainError",
     "upload_log_files_to_s3",
     "FirmwareDownloadError",
+    "UPDATE_ERROR_STATE",
 ]

@@ -250,6 +250,7 @@ UPDATES_NEEDED_STATE = "updates_needed"
 DOWNLOADING_UPDATES_STATE = "downloading_updates"
 INSTALLING_UPDATES_STATE = "installing_updates"
 UPDATES_COMPLETE_STATE = "updates_complete"
+UPDATE_ERROR_STATE = "update_error"
 
 SYSTEM_STATUS_UUIDS = immutabledict(
     {
@@ -267,6 +268,7 @@ SYSTEM_STATUS_UUIDS = immutabledict(
         DOWNLOADING_UPDATES_STATE: uuid.UUID("b623c5fa-af01-46d3-9282-748e19fe374c"),
         INSTALLING_UPDATES_STATE: uuid.UUID("19c9c2d6-0de4-4334-8cb3-a4c7ab0eab00"),
         UPDATES_COMPLETE_STATE: uuid.UUID("31f8fbc9-9b41-4191-8598-6462b7490789"),
+        UPDATE_ERROR_STATE: uuid.UUID("33742bfc-d354-4ae5-88b6-2b3cee23aff8"),
     }
 )
 

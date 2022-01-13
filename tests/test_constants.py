@@ -162,6 +162,7 @@ from mantarray_desktop_app import SUBPROCESS_POLL_DELAY_SECONDS
 from mantarray_desktop_app import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
+from mantarray_desktop_app import UPDATE_ERROR_STATE
 from mantarray_desktop_app import UPDATES_COMPLETE_STATE
 from mantarray_desktop_app import UPDATES_NEEDED_STATE
 from mantarray_desktop_app import VALID_CONFIG_SETTINGS
@@ -386,6 +387,7 @@ def test_system_status_uuids():
     assert DOWNLOADING_UPDATES_STATE == "downloading_updates"
     assert INSTALLING_UPDATES_STATE == "installing_updates"
     assert UPDATES_COMPLETE_STATE == "updates_complete"
+    assert UPDATE_ERROR_STATE == "update_error"
     assert SYSTEM_STATUS_UUIDS == {
         SERVER_INITIALIZING_STATE: uuid.UUID("04471bcf-1a00-4a0d-83c8-4160622f9a25"),
         SERVER_READY_STATE: uuid.UUID("8e24ef4d-2353-4e9d-aa32-4346126e73e3"),
@@ -401,6 +403,7 @@ def test_system_status_uuids():
         DOWNLOADING_UPDATES_STATE: uuid.UUID("b623c5fa-af01-46d3-9282-748e19fe374c"),
         INSTALLING_UPDATES_STATE: uuid.UUID("19c9c2d6-0de4-4334-8cb3-a4c7ab0eab00"),
         UPDATES_COMPLETE_STATE: uuid.UUID("31f8fbc9-9b41-4191-8598-6462b7490789"),
+        UPDATE_ERROR_STATE: uuid.UUID("33742bfc-d354-4ae5-88b6-2b3cee23aff8"),
     }
 
 

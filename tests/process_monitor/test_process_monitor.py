@@ -25,6 +25,7 @@ from mantarray_desktop_app import DOWNLOADING_UPDATES_STATE
 from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import IncorrectMagnetometerConfigFromInstrumentError
 from mantarray_desktop_app import IncorrectSamplingPeriodFromInstrumentError
+from mantarray_desktop_app import INSTALLING_UPDATES_STATE
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import MantarrayMcSimulator
@@ -40,6 +41,7 @@ from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import ServerManager
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_desktop_app import UPDATE_ERROR_STATE
 from mantarray_desktop_app import UPDATES_NEEDED_STATE
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.server import queue_command_to_instrument_comm
@@ -974,6 +976,47 @@ def test_MantarrayProcessesMonitor__handles_switch_from_UPDATES_NEEDED_STATE_in_
         "username": test_customer_account_id,
         "password": test_customer_pass_key,
     }
+
+
+@pytest.mark.parametrize(
+    "error,expected_state", [(True, UPDATE_ERROR_STATE), (False, INSTALLING_UPDATES_STATE)]
+)
+def test_MantarrayProcessesMonitor__handles_switch_from_DOWNLOADING_UPDATES_STATE_in_beta_2_mode_correctly(
+    test_monitor, test_process_manager_creator, error, expected_state
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = DOWNLOADING_UPDATES_STATE
+
+    board_idx = 0
+    from_ic_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(board_idx)
+    )
+    to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(board_idx)
+
+    test_command_response = {
+        "communication_type": "firmware_update",
+        "command": "download_firmware_updates",
+    }
+    if error:
+        test_command_response["error"] = "error"
+    else:
+        test_command_response["message"] = "any"
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command_response, from_ic_queue)
+    invoke_process_run_and_check_errors(monitor_thread)
+
+    assert shared_values_dict["system_status"] == expected_state
+    if error:
+        confirm_queue_is_eventually_empty(to_ic_queue)
+    else:
+        confirm_queue_is_eventually_of_size(to_ic_queue, 1)
+        start_firmware_update_command = to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+        assert start_firmware_update_command == {
+            "communication_type": "firmware_update",
+            "command": "start_firmware_update",
+        }
 
 
 def test_MantarrayProcessesMonitor__calls_boot_up_only_once_after_subprocesses_start_if_boot_up_after_processes_start_is_True(
