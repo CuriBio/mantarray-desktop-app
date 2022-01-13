@@ -64,8 +64,8 @@ from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from .exceptions import InvalidCustomerAccountIDPasswordError
 from .exceptions import RecordingFolderDoesNotExistError
-from .file_uploader import ErrorCatchingThread
 from .file_uploader import uploader
+from .worker_thread import ErrorCatchingThread
 
 logger = logging.getLogger(__name__)
 

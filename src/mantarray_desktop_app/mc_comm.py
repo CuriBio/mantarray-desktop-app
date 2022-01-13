@@ -25,12 +25,10 @@ from zlib import crc32
 from mantarray_file_manager import DATETIME_STR_FORMAT
 from nptyping import NDArray
 import numpy as np
-import requests
 import serial
 import serial.tools.list_ports as list_ports
 from stdlib_utils import put_log_message_into_queue
 
-from .constants import CLOUD_API_ENDPOINT
 from .constants import DEFAULT_MAGNETOMETER_CONFIG
 from .constants import DEFAULT_SAMPLING_PERIOD
 from .constants import GENERIC_24_WELL_DEFINITION
@@ -122,6 +120,8 @@ from .exceptions import StimulationStatusUpdateFailedError
 from .exceptions import UnrecognizedCommandFromMainToMcCommError
 from .exceptions import UnrecognizedSerialCommModuleIdError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
+from .firmware_downloader import download_firmware_updates
+from .firmware_downloader import get_latest_firmware_versions
 from .instrument_comm import InstrumentCommProcess
 from .mc_simulator import MantarrayMcSimulator
 from .serial_comm_utils import convert_bytes_to_config_dict
@@ -144,47 +144,6 @@ if 6 < 9:  # pragma: no cover # protect this from zimports deleting the pylint d
     from .data_parsing_cy import (  # pylint: disable=import-error # Tanner (5/12/21): unsure why pylint is unable to recognize cython import
         handle_data_packets,
     )
-
-
-def get_latest_firmware_versions(
-    result_dict: Dict[str, Dict[str, str]],
-    latest_software_version: str,
-    main_firmware_version: str,
-) -> None:
-    # TODO figure out if offline
-    response = requests.get(
-        f"https://{CLOUD_API_ENDPOINT}/firmware_latest?software_version={latest_software_version}&main_firmware_version={main_firmware_version}"
-    )
-    response_json = response.json()
-    result_dict["latest_firmware_versions"].update(response_json["latest_firmware_versions"])
-
-
-def download_firmware_updates(
-    result_dict: Dict[str, Any],
-    main_fw_version: str,
-    channel_fw_version: str,
-    username: str,
-    password: str,
-) -> None:
-    # get access token
-    get_auth_response = requests.post(
-        f"https://{CLOUD_API_ENDPOINT}/get_auth", json={"username": username, "password": password}
-    )
-    access_token = get_auth_response.json()["access_token"]
-    # get presigned download URL(s)
-    presigned_urls: Dict[str, Optional[str]] = {"main": None, "channel": None}
-    for version, type in ((main_fw_version, "main"), (channel_fw_version, "channel")):
-        if version is not None:
-            download_details = requests.get(
-                f"https://{CLOUD_API_ENDPOINT}/firmware_download?firmware_version={version}&firmware_type={type}",
-                headers={"Authorization": f"Bearer {access_token}"},
-            )
-            presigned_urls[type] = download_details.json()["presigned_url"]
-    # download firmware file(s)
-    for fw_type, presigned_url in presigned_urls.items():
-        if presigned_url is not None:
-            download_response = requests.get(presigned_url)
-            result_dict[fw_type] = download_response.content
 
 
 def _get_formatted_utc_now() -> str:
@@ -633,7 +592,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                     "channel": None,
                 }
                 self._fw_update_worker_thread = ErrorCatchingThread(
-                    target=get_latest_firmware_versions,
+                    target=download_firmware_updates,
                     args=(
                         self._fw_update_thread_dict,
                         comm_from_main["main"],

@@ -6,6 +6,8 @@ from random import randint
 from zlib import crc32
 
 from mantarray_desktop_app import CLOUD_API_ENDPOINT
+from mantarray_desktop_app import firmware_downloader
+from mantarray_desktop_app import FirmwareDownloadError
 from mantarray_desktop_app import FirmwareUpdateCommandFailedError
 from mantarray_desktop_app import FirmwareUpdateTimeoutError
 from mantarray_desktop_app import MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS
@@ -18,12 +20,14 @@ from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from mantarray_desktop_app.firmware_downloader import call_firmware_route
 from mantarray_desktop_app.mc_comm import download_firmware_updates
 from mantarray_desktop_app.mc_comm import get_latest_firmware_versions
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 import pytest
 from pytest import approx
 import requests
+from requests.exceptions import ConnectionError
 from stdlib_utils import invoke_process_run_and_check_errors
 
 from ..fixtures import fixture_patch_print
@@ -46,7 +50,42 @@ __fixtures__ = [
 ]
 
 
-def test_get_latest_firmware_versions__polls_api_endpoint_correctly_and_returns_values_correctly(mocker):
+def test_call_firmware_route__calls_requests_get_correctly(mocker):
+    mocked_get = mocker.patch.object(requests, "get", autospec=True)
+    mocked_get.return_value.status_code = 200
+
+    test_url = "url"
+    test_headers = {"Authorization": "Bearer token"}
+    call_firmware_route("url", headers=test_headers, error_message="err msg")
+
+    mocked_get.assert_called_once_with(test_url, headers=test_headers)
+
+
+def test_call_firmware_route__handles_connection_error_correctly(mocker):
+    mocker.patch.object(requests, "get", autospec=True, side_effect=ConnectionError)
+
+    test_error_message = "err msg"
+    with pytest.raises(FirmwareDownloadError, match=test_error_message):
+        call_firmware_route("url", error_message=test_error_message)
+
+
+def test_call_firmware_route__handles_response_error_code_correctly(mocker):
+    expected_error_code = 400
+    expected_reason = "bad request"
+
+    mocked_get = mocker.patch.object(requests, "get", autospec=True)
+    mocked_get.return_value.status_code = expected_error_code
+    mocked_get.return_value.reason = expected_reason
+
+    test_error_message = "err msg"
+    with pytest.raises(
+        FirmwareDownloadError,
+        match=f"{test_error_message} Status code: {expected_error_code}, Reason: {expected_reason}",
+    ):
+        call_firmware_route("url", error_message=test_error_message)
+
+
+def test_get_latest_firmware_versions__calls_api_endpoint_correctly_and_returns_values_correctly(mocker):
     expected_latest_main_fw_version = "1.0.0"
     expected_latest_channel_fw_version = "1.0.1"
     expected_response_dict = {
@@ -101,19 +140,23 @@ def test_download_firmware_updates__gets_auth_then_downloads_specified_firmware_
     mocked_post = mocker.patch.object(requests, "post", autospec=True)
     mocked_post.return_value.json.return_value = {"access_token": test_access_token}
 
-    def get_se(url, headers=None):
-        mocked_get_return = mocker.MagicMock()
+    def call_se(url, *args, **kwargs):
+        mocked_call_return = mocker.MagicMock()
 
         if "firmware_download" in url:
-            mocked_get_return.json = lambda: {
+            mocked_call_return.json = lambda: {
                 "presigned_url": test_main_presigned_url if "main" in url else test_channel_presigned_url
             }
         else:
-            mocked_get_return.content = expected_main_fw_bytes if "main" in url else expected_channel_fw_bytes
+            mocked_call_return.content = (
+                expected_main_fw_bytes if "main" in url else expected_channel_fw_bytes
+            )
 
-        return mocked_get_return
+        return mocked_call_return
 
-    mocked_get = mocker.patch.object(requests, "get", autospec=True, side_effect=get_se)
+    mocked_call = mocker.patch.object(
+        firmware_downloader, "call_firmware_route", autospec=True, side_effect=call_se
+    )
 
     test_result_dict = {
         "communication_type": "firmware_update",
@@ -133,34 +176,36 @@ def test_download_firmware_updates__gets_auth_then_downloads_specified_firmware_
         f"https://{CLOUD_API_ENDPOINT}/get_auth", json={"username": test_username, "password": test_password}
     )
 
-    assert mocked_get.call_count == 2 * (int(main_fw_update) + int(channel_fw_update))
+    assert mocked_call.call_count == 2 * (int(main_fw_update) + int(channel_fw_update))
     call_idx = 0
     call_idx_offset = 1 + int(main_fw_update and channel_fw_update)
-    for update_needed, type, presigned_url in (
+    for update_needed, fw_type, presigned_url in (
         (main_fw_update, "main", test_main_presigned_url),
         (channel_fw_update, "channel", test_channel_presigned_url),
     ):
         if update_needed:
-            assert mocked_get.call_args_list[call_idx] == mocker.call(
-                f"https://{CLOUD_API_ENDPOINT}/firmware_download?firmware_version={test_new_version}&firmware_type={type}",
+            assert mocked_call.call_args_list[call_idx] == mocker.call(
+                f"https://{CLOUD_API_ENDPOINT}/firmware_download?firmware_version={test_new_version}&firmware_type={fw_type}",
                 headers={"Authorization": f"Bearer {test_access_token}"},
-            ), type
-            assert mocked_get.call_args_list[call_idx + call_idx_offset] == mocker.call(presigned_url), type
+                error_message=f"Error getting presigned URL for {fw_type} firmware",
+            ), fw_type
+            assert mocked_call.call_args_list[call_idx + call_idx_offset] == mocker.call(
+                presigned_url, error_message=f"Error during download of {fw_type} firmware"
+            ), fw_type
             call_idx += 1
 
     assert test_result_dict == expected_response_dict
 
 
 def test_download_firmware_updates__raises_error_if_no_updates_needed():
-    assert not "TODO"
-
-
-def test_download_firmware_updates__handles_firmware_download_route_error_correctly():
-    assert not "TODO"
-
-
-def test_download_firmware_updates__handles_get_presigned_url_error_correctly():
-    assert not "TODO"
+    with pytest.raises(FirmwareDownloadError, match="No firmware types specified"):
+        download_firmware_updates(
+            {},
+            None,
+            None,
+            "any user",
+            "any pw",
+        )
 
 
 def test_McCommunicationProcess__handles_error_in_firmware_update_worker_thread(

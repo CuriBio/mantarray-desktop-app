@@ -6,6 +6,7 @@ import os
 from time import sleep
 from typing import Any
 from typing import Dict
+from typing import Optional
 import zipfile
 
 import requests

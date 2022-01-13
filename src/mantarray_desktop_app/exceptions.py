@@ -250,6 +250,10 @@ class FirmwareUpdateTimeoutError(Exception):
     pass
 
 
+class FirmwareDownloadError(Exception):
+    pass
+
+
 class MantarrayInstrumentError(Exception):
     """Errors occurring on the Mantarray instrument itself."""
 

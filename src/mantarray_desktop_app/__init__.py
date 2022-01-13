@@ -188,6 +188,7 @@ from .exceptions import AttemptToInitializeFIFOReadsError
 from .exceptions import BarcodeNotClearedError
 from .exceptions import BarcodeScannerNotRespondingError
 from .exceptions import CalibrationFilesMissingError
+from .exceptions import FirmwareDownloadError
 from .exceptions import FirmwareFileNameDoesNotMatchWireOutVersionError
 from .exceptions import FirmwareUpdateCommandFailedError
 from .exceptions import FirmwareUpdateTimeoutError
@@ -651,4 +652,5 @@ __all__ = [
     "UPDATES_NEEDED_STATE",
     "InvalidCommandFromMainError",
     "upload_log_files_to_s3",
+    "FirmwareDownloadError",
 ]
