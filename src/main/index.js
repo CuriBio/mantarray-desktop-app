@@ -4,31 +4,6 @@ const { autoUpdater } = require("electron-updater");
 const log = require("electron-log");
 const path = require("path");
 const features = require("./features.json");
-const now = new Date();
-const utc_month = (now.getUTCMonth() + 1).toString().padStart(2, "0"); // Eli (3/29/21) for some reason getUTCMonth returns a zero-based number, while everything else is a month, so adjusting here
-const filename_prefix = `mantarray_log__${now.getUTCFullYear()}_${utc_month}_
-  ${now.getUTCDate().toString().padStart(2, "0")}_
-  ${now.getUTCHours().toString().padStart(2, "0")}
-  ${now.getUTCMinutes().toString().padStart(2, "0")}
-  ${now.getUTCSeconds().toString().padStart(2, "0")}_`;
-
-log.transports.file.resolvePath = (variables) => {
-  let filename;
-  switch (process.type) {
-    case "renderer":
-      filename = filename_prefix + "renderer";
-      break;
-    case "worker":
-      filename = filename_prefix + "worker";
-      break;
-    default:
-      filename = filename_prefix + "main";
-  }
-  filename = filename + ".txt";
-  return path.join(variables.libraryDefaultDir, "..", "logs_flask", filename);
-};
-console.log = log.log;
-console.error = log.error;
 
 const ci = require("ci-info");
 const fs = require("fs");
@@ -44,12 +19,7 @@ const store = create_store();
 log.transports.file.resolvePath = () => {
   const filename = main_utils.filename_prefix + "_main.txt";
 
-  return path.join(
-    path.dirname(store.path),
-    "logs_flask",
-    main_utils.filename_prefix,
-    filename
-  );
+  return path.join(path.dirname(store.path), "logs_flask", main_utils.filename_prefix, filename);
 };
 console.log = log.log;
 console.error = log.error;
@@ -203,13 +173,15 @@ app.on("ready", () => {
     if (features.autoupdate) {
       set_up_auto_updater();
     } else {
-      console.log("Autoupdate feature disabled");
+      console.log("Autoupdate feature disabled"); // allow-log
     }
   }
 });
 
 // This is another place to handle events after all windows are closed
 app.on("will-quit", function (e) {
+  // Tanner (9/1/21): Need to prevent (default) app termination, wait for /shutdown response which confirms
+  // that the backend is completely shutdown, then call app.exit() which terminates app immediately
   e.preventDefault();
 
   // This is a good place to add tests ensuring the app is still
@@ -229,6 +201,7 @@ app.on("will-quit", function (e) {
     })
     .catch((response) => {
       console.log(
+        // allow-log
         `Error calling shutdown from Electron main process: ${response.status} ${response.statusText}`
       );
       app.exit();
