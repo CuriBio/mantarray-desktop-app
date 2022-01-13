@@ -223,6 +223,8 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._fw_update_thread_dict: Optional[Dict[str, Any]] = None
         self._is_updating_firmware = False
         self._firmware_update_type = ""
+        self._main_firmware_update_bytes: Optional[bytes] = None
+        self._channel_firmware_update_bytes: Optional[bytes] = None
         self._firmware_file_contents: Optional[bytes] = None
         self._firmware_packet_idx: Optional[int] = None
         self._firmware_checksum: Optional[int] = None
@@ -1271,6 +1273,12 @@ class McCommunicationProcess(InstrumentCommProcess):
             }
             to_main_queue.put_nowait(error_dict)
         else:
+            if self._fw_update_thread_dict["command"] == "download_firmware_updates":
+                # pop firmware bytes out of dict and store
+                self._main_firmware_update_bytes = self._fw_update_thread_dict.pop("main")
+                self._channel_firmware_update_bytes = self._fw_update_thread_dict.pop("channel")
+                # add message
+                self._fw_update_thread_dict["message"] = "Updates downloaded, ready to install"
             to_main_queue.put_nowait(self._fw_update_thread_dict)
         # clear values
         self._fw_update_worker_thread = None

@@ -12,7 +12,8 @@ from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import UnrecognizedCommandFromMainToMcCommError
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
-from mantarray_desktop_app.mc_comm import get_latest_firmware_versions
+from mantarray_desktop_app.firmware_downloader import download_firmware_updates
+from mantarray_desktop_app.firmware_downloader import get_latest_firmware_versions
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app.worker_thread import ErrorCatchingThread
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
@@ -521,7 +522,7 @@ def test_McCommunicationProcess__handles_download_firmware_updates_command(
         }
         spied_thread_init.assert_called_once_with(
             mocker.ANY,  # this is the actual thread instance
-            target=get_latest_firmware_versions,
+            target=download_firmware_updates,
             args=(
                 mc_process._fw_update_thread_dict,
                 main_fw_update,

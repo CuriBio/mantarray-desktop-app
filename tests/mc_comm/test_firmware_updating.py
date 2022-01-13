@@ -300,19 +300,14 @@ def test_McCommunicationProcess__handles_successful_completion_of_get_latest_fir
 def test_McCommunicationProcess__handles_successful_completion_of_download_firmware_updates_worker_thread(
     four_board_mc_comm_process_no_handshake, mocker
 ):
-    assert not "TODO"
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     from_main_queue, to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][:2]
 
-    expected_main_fw_version = "1.1.1"
-    expected_channel_fw_version = "2.2.2"
-    expected_latest_firmware_versions = {
-        "main": expected_main_fw_version,
-        "channel": expected_channel_fw_version,
-    }
+    expected_main_fw_bytes = bytes("main", "ascii")
+    expected_channel_fw_bytes = bytes("channel", "ascii")
 
     def init_se(obj, target, args):
-        args[0].update({"latest_firmware_versions": expected_latest_firmware_versions})
+        args[0].update({"main": expected_main_fw_bytes, "channel": expected_channel_fw_bytes})
 
     # mock init so it populates output dict immediately
     mocker.patch.object(mc_comm.ErrorCatchingThread, "__init__", autospec=True, side_effect=init_se)
@@ -324,9 +319,11 @@ def test_McCommunicationProcess__handles_successful_completion_of_download_firmw
     # send command to mc_process
     test_command = {
         "communication_type": "firmware_update",
-        "command": "get_latest_firmware_versions",
-        "latest_software_version": "1.0.0",
-        "main_firmware_version": "2.0.0",
+        "command": "download_firmware_updates",
+        "main": "1.0.0",
+        "channel": "1.0.1",
+        "username": "user",
+        "password": "pw",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(test_command), from_main_queue
@@ -334,6 +331,8 @@ def test_McCommunicationProcess__handles_successful_completion_of_download_firmw
 
     # run first iteration and make sure command response not sent to main
     invoke_process_run_and_check_errors(mc_process)
+    assert mc_process._main_firmware_update_bytes is None
+    assert mc_process._channel_firmware_update_bytes is None
     confirm_queue_is_eventually_empty(to_main_queue)
     # run second iteration and make sure correct command response sent to main
     invoke_process_run_and_check_errors(mc_process)
@@ -341,9 +340,11 @@ def test_McCommunicationProcess__handles_successful_completion_of_download_firmw
     command_response = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert command_response == {
         "communication_type": "firmware_update",
-        "command": "get_latest_firmware_versions",
-        "latest_firmware_versions": expected_latest_firmware_versions,
+        "command": "download_firmware_updates",
+        "message": "Updates downloaded, ready to install",
     }
+    assert mc_process._main_firmware_update_bytes == expected_main_fw_bytes
+    assert mc_process._channel_firmware_update_bytes == expected_channel_fw_bytes
 
 
 @pytest.mark.parametrize("firmware_type", ["channel", "main"])
