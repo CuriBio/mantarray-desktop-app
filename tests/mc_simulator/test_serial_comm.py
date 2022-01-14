@@ -1219,7 +1219,6 @@ def test_MantarrayMcSimulator__sends_firmware_update_complete_message_after_rebo
     # complete reboot and send firmware update complete packet
     invoke_process_run_and_check_errors(simulator)
     assert simulator.is_rebooting() is False
-
     command_response = simulator.read(size=get_full_packet_size_from_packet_body_size(3))
     assert_serial_packet_is_expected(
         command_response,
@@ -1227,3 +1226,5 @@ def test_MantarrayMcSimulator__sends_firmware_update_complete_message_after_rebo
         packet_type,
         additional_bytes=bytes([0, 0, 0]),  # simulator will always return firmware version 0.0.0
     )
+    # make sure status code is idle ready
+    assert simulator.get_status_code() == SERIAL_COMM_IDLE_READY_CODE

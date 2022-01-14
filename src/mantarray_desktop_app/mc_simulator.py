@@ -330,7 +330,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._time_of_last_comm_from_pc_secs = None
         self._reset_start_time()
         self._reboot_time_secs = None
-        self._status_code = SERIAL_COMM_IDLE_READY_CODE
+        self._status_code = SERIAL_COMM_BOOT_UP_CODE  # TODO eventually need to change this to idle ready
         self._reset_magnetometer_config()
         self._baseline_time_us = None
         self._timepoint_of_time_sync_us = None
@@ -341,6 +341,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._firmware_update_bytes = None
         if reboot:
             if self._firmware_update_type is not None:
+                self._status_code = SERIAL_COMM_IDLE_READY_CODE
                 packet_type = (
                     SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE
                     if self._firmware_update_type
