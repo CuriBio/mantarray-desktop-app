@@ -137,14 +137,6 @@ ipcMain.on("save_customer_id", (e, customer_account) => {
   });
 });
 
-// Quit when all windows are closed.
-app.on("window-all-closed", function () {
-  // On macOS it is common for applications and their menu bar
-  // to stay active until the user quits explicitly with Cmd + Q
-  console.log("window-all-closed event being handled"); // allow-log
-  if (process.platform !== "darwin") app.quit();
-});
-
 const set_up_auto_updater = () => {
   // set up handler for the event in which an update is found
   autoUpdater.once("update-available", (update_info) => {

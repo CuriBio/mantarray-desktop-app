@@ -4,9 +4,13 @@ Changelog for Mantarray Desktop App
 0.7.0 (unreleased)
 ------------------
 
-- Added firmware auto updating.
+- Added firmware auto updating. Note that if any firmware updates are found but are
+  not successfully installed, then a software update, if found, will be not be installed.
+- Added upload log files at shutdown if customer credentials have been input.
 - Fixed issue with Mantarray Controller and Mantarray Software processes persisting after an error occurs and
   the app is closed.
+- Fixed issue with subprotocol markers not changing when less than 1000ms.
+- Removed customer credentials from log files.
 
 
 0.6.6 (2022-01-12)

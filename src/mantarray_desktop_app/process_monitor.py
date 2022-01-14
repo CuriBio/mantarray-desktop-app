@@ -579,11 +579,15 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     latest_channel_fw = communication["latest_firmware_versions"]["channel"]
                     main_fw_update_needed = _compare_semver(
                         latest_main_fw,
-                        self._values_to_share_to_server["instrument_metadata"][MAIN_FIRMWARE_VERSION_UUID],
+                        self._values_to_share_to_server["instrument_metadata"][board_idx][
+                            MAIN_FIRMWARE_VERSION_UUID
+                        ],
                     )
                     channel_fw_update_needed = _compare_semver(
                         latest_channel_fw,
-                        self._values_to_share_to_server["instrument_metadata"][CHANNEL_FIRMWARE_VERSION_UUID],
+                        self._values_to_share_to_server["instrument_metadata"][board_idx][
+                            CHANNEL_FIRMWARE_VERSION_UUID
+                        ],
                     )
                     if main_fw_update_needed or channel_fw_update_needed:
                         self._values_to_share_to_server["firmware_updates_needed"] = {
@@ -647,6 +651,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
     def _commands_for_each_run_iteration(self) -> None:
         """Execute additional commands inside the run loop."""
         process_manager = self._process_manager
+        board_idx = 0
 
         # any potential errors should be checked for first
         for iter_error_queue, iter_process in (
@@ -693,11 +698,13 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._values_to_share_to_server["system_status"] = CHECKING_FOR_UPDATES_STATE
                 # send command to instrument comm process to check for firmware updates
                 latest_software_version = self._values_to_share_to_server["latest_versions"]["software"]
-                current_main_fw_version = self._values_to_share_to_server["instrument_metadata"][
+                current_main_fw_version = self._values_to_share_to_server["instrument_metadata"][board_idx][
                     MAIN_FIRMWARE_VERSION_UUID
                 ]
                 to_instrument_comm_queue = (
-                    self._process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+                    self._process_manager.queue_container().get_communication_to_instrument_comm_queue(
+                        board_idx
+                    )
                 )
                 to_instrument_comm_queue.put_nowait(
                     {
@@ -738,7 +745,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             and not self._values_to_share_to_server["beta_2_mode"]
         ):
             to_instrument_comm = process_manager.queue_container().get_communication_to_instrument_comm_queue(
-                0
+                board_idx
             )
             barcode_poll_comm = {
                 "communication_type": "barcode_comm",

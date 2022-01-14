@@ -813,23 +813,26 @@ def test_MantarrayProcessesMonitor__handles_switch_from_INSTRUMENT_INITIALIZING_
     shared_values_dict["system_status"] = INSTRUMENT_INITIALIZING_STATE
 
     shared_values_dict["in_simulation_mode"] = test_simulation_mode
+    board_idx = 0
 
     # set other values in shared values dict that would allow for a state transition
     test_sw_version = "1.1.1"
     test_main_fw_version = "2.2.2"
-    shared_values_dict["instrument_metadata"] = {MAIN_FIRMWARE_VERSION_UUID: test_main_fw_version}
+    shared_values_dict["instrument_metadata"] = {
+        board_idx: {MAIN_FIRMWARE_VERSION_UUID: test_main_fw_version}
+    }
     shared_values_dict["latest_versions"] = {
         "software": test_sw_version,
         "main_firmware": None,
         "channel_firmware": None,
     }
 
-    # run monitor_thread and make sure not state transition occurs
+    # run monitor_thread and make sure no state transition occurs
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["system_status"] == expected_state
 
     to_instrument_comm_queue = (
-        test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+        test_process_manager.queue_container().get_communication_to_instrument_comm_queue(board_idx)
     )
     if test_simulation_mode:
         confirm_queue_is_eventually_empty(to_instrument_comm_queue)
@@ -889,8 +892,10 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
     test_customer_pass_key = "pw"
 
     shared_values_dict["instrument_metadata"] = {
-        MAIN_FIRMWARE_VERSION_UUID: test_current_version,
-        CHANNEL_FIRMWARE_VERSION_UUID: test_current_version,
+        board_idx: {
+            MAIN_FIRMWARE_VERSION_UUID: test_current_version,
+            CHANNEL_FIRMWARE_VERSION_UUID: test_current_version,
+        }
     }
     if customer_settings_found:
         shared_values_dict["customer_creds"] = {
