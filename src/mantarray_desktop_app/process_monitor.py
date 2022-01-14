@@ -49,6 +49,7 @@ from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
 from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import UPDATE_ERROR_STATE
+from .constants import UPDATES_COMPLETE_STATE
 from .constants import UPDATES_NEEDED_STATE
 from .exceptions import IncorrectMagnetometerConfigFromInstrumentError
 from .exceptions import IncorrectSamplingPeriodFromInstrumentError
@@ -618,6 +619,13 @@ class MantarrayProcessesMonitor(InfiniteThread):
                                     "firmware_type": firmware_type,
                                 }
                             )
+            elif command == "update_completed":
+                firmware_type = communication["firmware_type"]
+                self._values_to_share_to_server["firmware_updates_needed"][firmware_type] = None
+                if all(
+                    val is None for val in self._values_to_share_to_server["firmware_updates_needed"].values()
+                ):
+                    self._values_to_share_to_server["system_status"] = UPDATES_COMPLETE_STATE
 
     def _start_firmware_update(self) -> None:
         self._values_to_share_to_server["system_status"] = DOWNLOADING_UPDATES_STATE

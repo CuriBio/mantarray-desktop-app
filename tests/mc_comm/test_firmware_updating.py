@@ -423,6 +423,7 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
         assert msg_to_main == {
             "communication_type": "firmware_update",
             "command": "send_firmware_data",
+            "firmware_type": firmware_type,
             "packet_index": packet_idx,
         }
     spied_send_handshake.assert_not_called()
@@ -436,6 +437,7 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
     assert msg_to_main == {
         "communication_type": "firmware_update",
         "command": "end_of_firmware_update",
+        "firmware_type": firmware_type,
     }
     # make sure reboot has begun
     assert simulator.is_rebooting() is True
