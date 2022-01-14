@@ -138,9 +138,12 @@ ipcMain.on("save_customer_id", (e, customer_account) => {
 });
 
 const set_up_auto_updater = () => {
+  autoUpdater.autoInstallOnAppQuit = false;
+
   // set up handler for the event in which an update is found
   autoUpdater.once("update-available", (update_info) => {
     const new_version = update_info.version;
+    console.log("update-available " + new_version); // allow-log
     axios.post(`http://localhost:${flask_port}/latest_software_version?version=${new_version}`);
     // remove listeners for update-not-available since this event occured instead
     autoUpdater.removeAllListeners("update-not-available");
@@ -150,13 +153,14 @@ const set_up_auto_updater = () => {
   // set up handler for the event in which an update is not found
   autoUpdater.once("update-not-available", () => {
     const current_version = get_current_app_version();
+    console.log("update-not-available " + current_version); // allow-log
     axios.post(`http://localhost:${flask_port}/latest_software_version?version=${current_version}`);
     // remove listeners for update-available since this event occured instead
     autoUpdater.removeAllListeners("update-available");
   });
 
   // Check for updates. Will also automatically download the update as long as autoUpdater.autoDownload is true
-  autoUpdater.checkForUpdates();
+  autoUpdater.checkForUpdates(); // TODO catch errors on this?
 };
 
 app.on("ready", () => {
@@ -166,22 +170,27 @@ app.on("ready", () => {
       set_up_auto_updater();
     } else {
       console.log("Autoupdate feature disabled"); // allow-log
+      const current_version = get_current_app_version();
+      axios.post(`http://localhost:${flask_port}/latest_software_version?version=${current_version}`);
     }
   }
 });
 
 // This is another place to handle events after all windows are closed
 app.on("will-quit", function (e) {
-  // Tanner (9/1/21): Need to prevent (default) app termination, wait for /shutdown response which confirms
-  // that the backend is completely shutdown, then call app.exit() which terminates app immediately
-  e.preventDefault();
-
   // This is a good place to add tests ensuring the app is still
   // responsive and all windows are closed.
   console.log("will-quit event being handled"); // allow-log
 
-  // TODO find some way to check if firmware updates were found but not installed, or if app couldn't connect to api endpoint, or if in beta 1 or simulation mode. If this is the case, prevent automatic SW updating. O/W, need to set up an event handler on ipcMain to set `autoUpdater.autoInstallOnAppQuit = true;`
-  autoUpdater.autoInstallOnAppQuit = false;
+  // Tanner (9/1/21): Need to prevent (default) app termination, wait for /shutdown response which confirms
+  // that the backend is completely shutdown, then call app.exit() which terminates app immediately
+  e.preventDefault();
+
+  // TODO test this
+  // ipcMain.on("sw_update_auto_install_response", (e, enable_auto_install) => {
+  //   autoUpdater.autoInstallOnAppQuit = enable_auto_install;
+  // });
+  // ipcMain.send("sw_update_auto_install_request");
 
   // Tanner (9/1/21): Need to prevent (default) app termination, wait for /shutdown response which confirms
   // that the backend is completely shutdown, then call app.exit() which terminates app immediately

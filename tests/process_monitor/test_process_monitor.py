@@ -881,6 +881,7 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
         test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(board_idx)
     )
     to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(board_idx)
+    queue_to_server_ws = test_process_manager.queue_container().get_data_queue_to_server()
 
     test_current_version = "0.0.0"
     test_new_version = "1.0.0"
@@ -927,8 +928,32 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
             "main": new_main_fw_version,
             "channel": new_channel_fw_version,
         }
-    # check queue to ic process
-    if shared_values_dict["system_status"] == DOWNLOADING_UPDATES_STATE:
+
+    if shared_values_dict["system_status"] == CALIBRATION_NEEDED_STATE:
+        # make sure command not sent to mc_comm
+        confirm_queue_is_eventually_empty(to_ic_queue)
+        # make sure ws message is handled correctly
+        if error:
+            confirm_queue_is_eventually_empty(queue_to_server_ws)
+        else:
+            confirm_queue_is_eventually_of_size(queue_to_server_ws, 1)
+            ws_message = queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+            assert ws_message == {
+                "data_type": "sw_update",
+                "data_json": json.dumps({"allow_software_update": True}),
+            }
+    elif shared_values_dict["system_status"] == UPDATES_NEEDED_STATE:
+        # make sure no commands sent to mc_comm yet
+        confirm_queue_is_eventually_empty(to_ic_queue)
+        # make sure correct ws message is sent
+        confirm_queue_is_eventually_of_size(queue_to_server_ws, 1)
+        ws_message = queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+        assert ws_message == {
+            "data_type": "prompt_user_input",
+            "data_json": json.dumps({"input_type": "customer_creds"}),
+        }
+    else:
+        # make sure command sent to mc_comm
         confirm_queue_is_eventually_of_size(to_ic_queue, 1)
         start_firmware_download_command = to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
         assert start_firmware_download_command == {
@@ -939,8 +964,8 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
             "username": test_customer_account_id,
             "password": test_customer_pass_key,
         }
-    else:
-        confirm_queue_is_eventually_empty(to_ic_queue)
+        # make sure no ws message is sent
+        confirm_queue_is_eventually_empty(queue_to_server_ws)
 
 
 def test_MantarrayProcessesMonitor__handles_switch_from_UPDATES_NEEDED_STATE_in_beta_2_mode_correctly(
@@ -1064,6 +1089,12 @@ def test_MantarrayProcessesMonitor__handles_firmware_update_completed_commands_c
         "channel": "1.0.0" if channel_fw_update else None,
     }
 
+    board_idx = 0
+    from_ic_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(board_idx)
+    )
+    queue_to_server_ws = test_process_manager.queue_container().get_data_queue_to_server()
+
     command_responses = [
         {
             "communication_type": "firmware_update",
@@ -1074,19 +1105,23 @@ def test_MantarrayProcessesMonitor__handles_firmware_update_completed_commands_c
         if update_needed
     ]
 
-    board_idx = 0
-    from_ic_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(board_idx)
-    )
     handle_putting_multiple_objects_into_empty_queue(command_responses, from_ic_queue)
 
-    # make sure system_status is not updated until all command responses are received
+    # make sure system_status is not updated and no ws message sent until all command responses are received
     for command_response_num in range(len(command_responses)):
+        confirm_queue_is_eventually_empty(queue_to_server_ws)
         assert shared_values_dict["system_status"] == INSTALLING_UPDATES_STATE, command_response_num
         invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["system_status"] == UPDATES_COMPLETE_STATE
     # check that this gets reset
     assert shared_values_dict["firmware_updates_needed"] == {"main": None, "channel": None}
+    # make sure that correct ws message is sent
+    confirm_queue_is_eventually_of_size(queue_to_server_ws, 1)
+    ws_message = queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert ws_message == {
+        "data_type": "sw_update",
+        "data_json": json.dumps({"allow_software_update": True}),
+    }
 
 
 def test_MantarrayProcessesMonitor__calls_boot_up_only_once_after_subprocesses_start_if_boot_up_after_processes_start_is_True(

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import datetime
+import json
 import logging
 import queue
 import threading
@@ -124,9 +125,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         communication_type = communication["communication_type"]
         if communication_type == "update_upload_status":
-            outgoing_status_json = communication["content"]
-            data_to_server_queue = self._process_manager.queue_container().get_data_queue_to_server()
-            data_to_server_queue.put_nowait(outgoing_status_json)
+            self._queue_websocket_message(communication["content"])
         elif communication_type == "file_finalized":
             if (
                 self._values_to_share_to_server["system_status"] == CALIBRATING_STATE
@@ -407,8 +406,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             outgoing_data_json = da_data_out_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
         except queue.Empty:
             return
-        data_to_server_queue = self._process_manager.queue_container().get_data_queue_to_server()
-        data_to_server_queue.put_nowait(outgoing_data_json)
+        self._queue_websocket_message(outgoing_data_json)
 
     def _check_and_handle_instrument_comm_to_main_queue(self) -> None:
         # pylint: disable=too-many-branches,too-many-statements  # TODO Tanner (10/25/21): refactor this into smaller methods
@@ -597,8 +595,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
                         if "customer_creds" in self._values_to_share_to_server:
                             self._start_firmware_update()
                         else:
+                            self._send_user_creds_prompt_message()
                             self._values_to_share_to_server["system_status"] = UPDATES_NEEDED_STATE
                     else:
+                        self._send_enable_sw_auto_install_message()
                         self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
             elif command == "download_firmware_updates":
                 if "error" in communication:
@@ -629,6 +629,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 if all(
                     val is None for val in self._values_to_share_to_server["firmware_updates_needed"].values()
                 ):
+                    self._send_enable_sw_auto_install_message()
                     self._values_to_share_to_server["system_status"] = UPDATES_COMPLETE_STATE
 
     def _start_firmware_update(self) -> None:
@@ -774,6 +775,26 @@ class MantarrayProcessesMonitor(InfiniteThread):
             adc_offsets[well_index] = dict()
         offset_key = "ref" if is_ref_sensor else "construct"
         adc_offsets[well_index][offset_key] = offset_val
+
+    def _send_user_creds_prompt_message(self) -> None:
+        self._queue_websocket_message(
+            {
+                "data_type": "prompt_user_input",
+                "data_json": json.dumps({"input_type": "customer_creds"}),
+            }
+        )
+
+    def _send_enable_sw_auto_install_message(self) -> None:
+        self._queue_websocket_message(
+            {
+                "data_type": "sw_update",
+                "data_json": json.dumps({"allow_software_update": True}),
+            }
+        )
+
+    def _queue_websocket_message(self, message_dict: Dict[str, Any]) -> None:
+        data_to_server_queue = self._process_manager.queue_container().get_data_queue_to_server()
+        data_to_server_queue.put_nowait(message_dict)
 
     def _handle_error_in_subprocess(
         self,
