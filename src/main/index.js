@@ -190,11 +190,12 @@ app.on("will-quit", function (e) {
       ); // allow-log
       app.exit();
     })
-    .catch((response) =>
+    .catch((response) => {
       console.log(
         `Error calling shutdown from Electron main process: ${response.status} ${response.statusText}`
-      )
-    );
+      );
+      app.quit();
+    });
 });
 
 require("./mainWindow");
