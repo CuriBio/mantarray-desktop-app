@@ -605,12 +605,19 @@ class MantarrayProcessesMonitor(InfiniteThread):
                             board_idx
                         )
                     )
-                    to_instrument_comm_queue.put_nowait(
-                        {
-                            "communication_type": "firmware_update",
-                            "command": "start_firmware_update",
-                        }
-                    )
+                    # Tanner (1/13/22): send both firmware update commands at once, and make sure channel is sent first. If both are sent, the second will be ignored until the first install completes
+                    for firmware_type in ("channel", "main"):
+                        new_version = self._values_to_share_to_server["firmware_updates_needed"][
+                            firmware_type
+                        ]
+                        if new_version is not None:
+                            to_instrument_comm_queue.put_nowait(
+                                {
+                                    "communication_type": "firmware_update",
+                                    "command": "start_firmware_update",
+                                    "firmware_type": firmware_type,
+                                }
+                            )
 
     def _start_firmware_update(self) -> None:
         self._values_to_share_to_server["system_status"] = DOWNLOADING_UPDATES_STATE

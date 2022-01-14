@@ -608,9 +608,17 @@ class McCommunicationProcess(InstrumentCommProcess):
                 packet_type = SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
                 self._firmware_update_type = comm_from_main["firmware_type"]
                 bytes_to_send = bytes([self._firmware_update_type == "channel"])
-                # TODO update this
-                with open(comm_from_main["file_path"], "rb") as firmware_file:
-                    self._firmware_file_contents = firmware_file.read()
+                # store correct firmware bytes
+                if self._firmware_update_type == "channel":
+                    self._firmware_file_contents = self._channel_firmware_update_bytes
+                    self._channel_firmware_update_bytes = None
+                else:
+                    self._firmware_file_contents = self._main_firmware_update_bytes
+                    self._main_firmware_update_bytes = None
+                # mypy check
+                if self._firmware_file_contents is None:
+                    raise NotImplementedError("_firmware_file_contents should never be None here")
+                # set up values for firmware update
                 bytes_to_send += len(self._firmware_file_contents).to_bytes(4, byteorder="little")
                 self._firmware_packet_idx = 0
                 self._is_updating_firmware = True

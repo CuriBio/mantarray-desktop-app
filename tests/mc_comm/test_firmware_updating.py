@@ -367,18 +367,16 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
 
     test_firmware_len = randint(1000, SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES * 3)
     test_firmware_bytes = bytes([randint(0, 255) for _ in range(test_firmware_len)])
-
-    test_file_path = "test/file/path"
-    mocked_open = mocker.patch("builtins.open", autospec=True)
-    mocked_read = mocked_open.return_value.__enter__().read
-    mocked_read.return_value = test_firmware_bytes
+    if firmware_type == "main":
+        mc_process._main_firmware_update_bytes = test_firmware_bytes
+    else:
+        mc_process._channel_firmware_update_bytes = test_firmware_bytes
 
     # start firmware update
     update_firmware_command = {
         "communication_type": "firmware_update",
         "command": "start_firmware_update",
         "firmware_type": firmware_type,
-        "file_path": test_file_path,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(update_firmware_command), from_main_queue
@@ -391,9 +389,17 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
     msg_to_main = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert msg_to_main == update_firmware_command
-    # make sure firmware contents were loaded from file
-    mocked_open.assert_called_once_with(test_file_path, "rb")
-    mocked_read.assert_called_once_with()
+
+    # send another command and make sure it is ignored after next mc_comm iterations
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {
+            "communication_type": "metadata_comm",
+            "command": "get_metadata",
+        },
+        from_main_queue,
+    )
+    # confirm that only a single item is in queue
+    confirm_queue_is_eventually_of_size(from_main_queue, 1)
 
     spied_send_handshake.assert_not_called()
     # mock so that handshake is ready to be sent
@@ -446,15 +452,7 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
     )
     invoke_process_run_and_check_errors(mc_process)
 
-    # make sure command from main is ignored
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {
-            "communication_type": "metadata_comm",
-            "command": "get_metadata",
-        },
-        from_main_queue,
-    )
-    invoke_process_run_and_check_errors(mc_process)
+    # make sure command from main was ignored
     confirm_queue_is_eventually_of_size(from_main_queue, 1)
 
     # complete reboot and send firmware update complete packet
@@ -502,14 +500,16 @@ def test_McCommunicationProcess__raises_error_if_begin_firmware_update_command_f
     )
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
-    test_file_path = "test/file/path"
-    mocked_open = mocker.patch("builtins.open", autospec=True)
-    mocked_read = mocked_open.return_value.__enter__().read
-    mocked_read.return_value = bytes(1000)
+    test_firmware_type = choice(["main", "channel"])
+    test_firmware_bytes = bytes(1000)
+    if test_firmware_type == "main":
+        mc_process._main_firmware_update_bytes = test_firmware_bytes
+    else:
+        mc_process._channel_firmware_update_bytes = test_firmware_bytes
 
     # set simulator firmware update status
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "set_firmware_update_type", "firmware_type": choice(["main", "channel"])}, testing_queue
+        {"command": "set_firmware_update_type", "firmware_type": test_firmware_type}, testing_queue
     )
     invoke_process_run_and_check_errors(simulator)
 
@@ -517,8 +517,7 @@ def test_McCommunicationProcess__raises_error_if_begin_firmware_update_command_f
     update_firmware_command = {
         "communication_type": "firmware_update",
         "command": "start_firmware_update",
-        "firmware_type": choice(["main", "channel"]),
-        "file_path": test_file_path,
+        "firmware_type": test_firmware_type,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(update_firmware_command, from_main_queue)
     # send begin firmware update command and make sure error is raised
@@ -541,17 +540,18 @@ def test_McCommunicationProcess__raises_error_if_firmware_update_packet_fails(
     )
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
-    test_file_path = "test/file/path"
-    mocked_open = mocker.patch("builtins.open", autospec=True)
-    mocked_read = mocked_open.return_value.__enter__().read
-    mocked_read.return_value = bytes(1000)
+    test_firmware_type = choice(["main", "channel"])
+    test_firmware_bytes = bytes(1000)
+    if test_firmware_type == "main":
+        mc_process._main_firmware_update_bytes = test_firmware_bytes
+    else:
+        mc_process._channel_firmware_update_bytes = test_firmware_bytes
 
     # start firmware update
     update_firmware_command = {
         "communication_type": "firmware_update",
         "command": "start_firmware_update",
-        "firmware_type": choice(["main", "channel"]),
-        "file_path": test_file_path,
+        "firmware_type": test_firmware_type,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(update_firmware_command, from_main_queue)
     invoke_process_run_and_check_errors(mc_process)
@@ -589,17 +589,18 @@ def test_McCommunicationProcess__raises_error_if_end_firmware_update_command_fai
     )
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
-    test_file_path = "test/file/path"
-    mocked_open = mocker.patch("builtins.open", autospec=True)
-    mocked_read = mocked_open.return_value.__enter__().read
-    mocked_read.return_value = bytes(1000)
+    test_firmware_type = choice(["main", "channel"])
+    test_firmware_bytes = bytes(1000)
+    if test_firmware_type == "main":
+        mc_process._main_firmware_update_bytes = test_firmware_bytes
+    else:
+        mc_process._channel_firmware_update_bytes = test_firmware_bytes
 
     # start firmware update
     update_firmware_command = {
         "communication_type": "firmware_update",
         "command": "start_firmware_update",
-        "firmware_type": choice(["main", "channel"]),
-        "file_path": test_file_path,
+        "firmware_type": test_firmware_type,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(update_firmware_command, from_main_queue)
     invoke_process_run_and_check_errors(mc_process)
@@ -646,10 +647,11 @@ def test_McCommunicationProcess__raises_error_if_firmware_update_timeout_occurs(
     )
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
-    test_file_path = "test/file/path"
-    mocked_open = mocker.patch("builtins.open", autospec=True)
-    mocked_read = mocked_open.return_value.__enter__().read
-    mocked_read.return_value = bytes(1000)
+    test_firmware_bytes = bytes(1000)
+    if firmware_type == "main":
+        mc_process._main_firmware_update_bytes = test_firmware_bytes
+    else:
+        mc_process._channel_firmware_update_bytes = test_firmware_bytes
 
     # mock so timeout occurs after end of firmware response received
     mocker.patch.object(mc_comm, "_get_firmware_update_dur_secs", autospec=True, return_value=timeout_value)
@@ -659,7 +661,6 @@ def test_McCommunicationProcess__raises_error_if_firmware_update_timeout_occurs(
         "communication_type": "firmware_update",
         "command": "start_firmware_update",
         "firmware_type": firmware_type,
-        "file_path": test_file_path,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(update_firmware_command, from_main_queue)
     invoke_process_run_and_check_errors(mc_process)

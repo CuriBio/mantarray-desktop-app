@@ -48,6 +48,7 @@ from mantarray_desktop_app.server import queue_command_to_instrument_comm
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 import numpy as np
 import pytest
+from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import TestingQueue
 from xem_wrapper import FrontPanelSimulator
@@ -979,15 +980,29 @@ def test_MantarrayProcessesMonitor__handles_switch_from_UPDATES_NEEDED_STATE_in_
 
 
 @pytest.mark.parametrize(
-    "error,expected_state", [(True, UPDATE_ERROR_STATE), (False, INSTALLING_UPDATES_STATE)]
+    "main_fw_update,channel_fw_update",
+    [(False, True), (True, False), (True, True)],
+)
+@pytest.mark.parametrize(
+    "error,expected_state",
+    [(True, UPDATE_ERROR_STATE), (False, INSTALLING_UPDATES_STATE)],
 )
 def test_MantarrayProcessesMonitor__handles_switch_from_DOWNLOADING_UPDATES_STATE_in_beta_2_mode_correctly(
-    test_monitor, test_process_manager_creator, error, expected_state
+    main_fw_update,
+    channel_fw_update,
+    error,
+    expected_state,
+    test_monitor,
+    test_process_manager_creator,
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["system_status"] = DOWNLOADING_UPDATES_STATE
+    shared_values_dict["firmware_updates_needed"] = {
+        "main": "1.0.0" if main_fw_update else None,
+        "channel": "1.0.0" if channel_fw_update else None,
+    }
 
     board_idx = 0
     from_ic_queue = (
@@ -1011,12 +1026,23 @@ def test_MantarrayProcessesMonitor__handles_switch_from_DOWNLOADING_UPDATES_STAT
     if error:
         confirm_queue_is_eventually_empty(to_ic_queue)
     else:
-        confirm_queue_is_eventually_of_size(to_ic_queue, 1)
-        start_firmware_update_command = to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-        assert start_firmware_update_command == {
-            "communication_type": "firmware_update",
-            "command": "start_firmware_update",
-        }
+        expected_commands = []
+        # make sure one or both commands are sent. If both sent, make sure channel is sent first
+        for firmware_type, update_needed in (
+            ("channel", channel_fw_update),
+            ("main", main_fw_update),
+        ):
+            if update_needed:
+                expected_commands.append(
+                    {
+                        "communication_type": "firmware_update",
+                        "command": "start_firmware_update",
+                        "firmware_type": firmware_type,
+                    }
+                )
+        confirm_queue_is_eventually_of_size(to_ic_queue, len(expected_commands))
+        actual_commands = drain_queue(to_ic_queue)
+        assert actual_commands == expected_commands
 
 
 def test_MantarrayProcessesMonitor__calls_boot_up_only_once_after_subprocesses_start_if_boot_up_after_processes_start_is_True(
