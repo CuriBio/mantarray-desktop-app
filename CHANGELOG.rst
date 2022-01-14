@@ -1,6 +1,14 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+0.7.0 (unreleased)
+------------------
+
+- Added firmware auto updating.
+- Fixed issue with Mantarray Controller and Mantarray Software processes persisting after an error occurs and
+  the app is closed.
+
+
 0.6.6 (2022-01-12)
 ------------------
 
