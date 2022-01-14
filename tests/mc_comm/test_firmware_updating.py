@@ -390,7 +390,7 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
     msg_to_main = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert msg_to_main == update_firmware_command
 
-    # send another command and make sure it is ignored after next mc_comm iterations
+    # send another command and make sure it is ignored until firmware update process is complete
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {
             "communication_type": "metadata_comm",
@@ -485,7 +485,7 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
     # make sure handshakes are now sent
     invoke_process_run_and_check_errors(mc_process)
     spied_send_handshake.assert_called_once()
-    # make sure command from main get processed
+    # make sure command from main was processed
     confirm_queue_is_eventually_empty(from_main_queue)
 
 

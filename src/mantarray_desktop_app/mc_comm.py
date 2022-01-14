@@ -662,6 +662,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             command_dict = {
                 "communication_type": "firmware_update",
                 "command": "end_of_firmware_update",
+                "firmware_type": self._firmware_update_type,
             }
             self._firmware_file_contents = None
             self._firmware_checksum = None
@@ -676,6 +677,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             command_dict = {
                 "communication_type": "firmware_update",
                 "command": "send_firmware_data",
+                "firmware_type": self._firmware_update_type,
                 "packet_index": self._firmware_packet_idx,
             }
             self._firmware_file_contents = self._firmware_file_contents[

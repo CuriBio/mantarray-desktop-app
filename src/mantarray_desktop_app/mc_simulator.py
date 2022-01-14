@@ -215,8 +215,6 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._num_wells = num_wells
         # simulator values (not set in _handle_boot_up_config)
         self._time_of_last_status_beacon_secs: Optional[float] = None
-        self._time_of_last_handshake_secs: Optional[float] = None
-        self._time_of_last_comm_from_pc_secs: Optional[float] = None
         self._ready_to_send_barcode = False
         self._timepoint_of_last_data_packet_us: Optional[int] = None
         self._time_index_us = 0
@@ -226,6 +224,8 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._reset_metadata_dict()
         self._setup_data_interpolator()
         # simulator values (set in _handle_boot_up_config)
+        self._time_of_last_handshake_secs: Optional[float] = None
+        self._time_of_last_comm_from_pc_secs: Optional[float] = None
         self._reboot_time_secs: Optional[float]
         self._boot_up_time_secs: Optional[float] = None
         self._baseline_time_us: Optional[int]
@@ -326,31 +326,32 @@ class MantarrayMcSimulator(InfiniteProcess):
         )
 
     def _handle_boot_up_config(self, reboot: bool = False) -> None:
-        if self._firmware_update_type is not None:
-            packet_type = (
-                SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE
-                if self._firmware_update_type
-                else SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE
-            )
-            self._send_data_packet(SERIAL_COMM_MAIN_MODULE_ID, packet_type, bytes([0, 0, 0]))
+        self._time_of_last_handshake_secs = None
+        self._time_of_last_comm_from_pc_secs = None
         self._reset_start_time()
         self._reboot_time_secs = None
-        self._status_code = SERIAL_COMM_BOOT_UP_CODE
+        self._status_code = SERIAL_COMM_IDLE_READY_CODE
         self._reset_magnetometer_config()
         self._baseline_time_us = None
         self._timepoint_of_time_sync_us = None
         self._sampling_period_us = 0
         self._stim_info = {}
         self._is_stimulating = False
-        self._firmware_update_type = None
         self._firmware_update_idx = None
         self._firmware_update_bytes = None
         if reboot:
-            drain_queue(self._input_queue)
-            # only boot up time automatically after a reboot
+            if self._firmware_update_type is not None:
+                packet_type = (
+                    SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE
+                    if self._firmware_update_type
+                    else SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE
+                )
+                self._send_data_packet(SERIAL_COMM_MAIN_MODULE_ID, packet_type, bytes([0, 0, 0]))
+            # only set boot up time automatically after a reboot
             self._boot_up_time_secs = perf_counter()
             # after reboot, send status beacon to signal that reboot has completed
             self._send_status_beacon(truncate=False)
+        self._firmware_update_type = None
 
     def _reset_metadata_dict(self) -> None:
         for uuid_key, metadata_value in self.default_metadata_values.items():
