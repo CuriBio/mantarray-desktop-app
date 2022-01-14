@@ -27,7 +27,11 @@ log.transports.file.resolvePath = () => {
 };
 console.log = log.log;
 console.error = log.error;
-console.log("Electron store at: '" + store.path + "'");
+console.log(
+  "Electron store at: '" +
+    main_utils.redact_username_from_logs(store.path) +
+    "'"
+);
 
 global.__resources = undefined; // eslint-disable-line no-underscore-dangle
 // noinspection BadExpressionStatementJS
@@ -58,11 +62,13 @@ const path_to_py_dist_folder = path.join(
   PY_DIST_FOLDER
 );
 const isRunningInBundle = () => {
-  console.log("Current dirname: " + __dirname); // allow-log
+  console.log(
+    "Current dirname: " + main_utils.redact_username_from_logs(__dirname)
+  ); // allow-log
   console.log(
     // allow-log
     "To determine if running in bundle, checking the path " +
-      path_to_py_dist_folder
+      main_utils.redact_username_from_logs(path_to_py_dist_folder)
   );
   return fs.existsSync(path_to_py_dist_folder);
 };
@@ -91,19 +97,25 @@ const start_python_subprocess = () => {
     }
   }
 
-  console.log("sending command line args: " + command_line_args); // allow-log
+  const redacted_args = command_line_args.map((a, i) =>
+    i == 0 ? main_utils.redact_username_from_logs(a) : a
+  );
+
+  console.log("sending command line args: " + redacted_args); // allow-log
   if (isRunningInBundle()) {
     const script = getPythonScriptPath();
     console.log(
       // allow-log
-      "Launching compiled Python EXE at path: " + script
+      "Launching compiled Python EXE at path: " +
+        main_utils.redact_username_from_logs(script)
     );
     // const subpy = require("child_process").execFile(script, command_line_args);
     require("child_process").execFile(script, command_line_args);
   } else {
     const PythonShell = require("python-shell").PythonShell; // Eli (4/15/20) experienced odd error where the compiled exe was not able to load package python-shell...but since it's only actually required in development, just moving it to here
     if (!store.get("beta_2_mode")) command_line_args.push("--no-load-firmware");
-    console.log("sending command line args: " + command_line_args); // allow-log
+
+    console.log("sending command line args: " + redacted_args); // allow-log
     const options = {
       mode: "text",
       pythonPath: process.platform === "win32" ? "python" : "python3",
@@ -112,12 +124,13 @@ const start_python_subprocess = () => {
       args: command_line_args,
     };
     const py_file_name = "entrypoint.py";
+    const redacted_options = { ...options, args: redacted_args };
     console.log(
       // allow-log
       "Launching Python interpreter to run script '" +
         py_file_name +
         "' with options: " +
-        JSON.stringify(options)
+        JSON.stringify(redacted_options)
     );
     // const pyshell = new PythonShell(py_file_name, options);
     new PythonShell(py_file_name, options);

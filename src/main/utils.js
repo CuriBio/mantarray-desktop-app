@@ -58,6 +58,13 @@ const create_store = function ({
   return store;
 };
 
+const redact_username_from_logs = (dir_path) => {
+  const username = dir_path.includes("\\")
+    ? dir_path.split("\\")[2]
+    : dir_path.split("/")[2];
+  return dir_path.replace(username, "****");
+};
+
 const get_flask_logs_full_path = function (electron_store) {
   const electron_store_dir = path.dirname(electron_store.path);
   return path.join(electron_store_dir, "logs_flask", filename_prefix);
@@ -128,6 +135,7 @@ const export_functions = {
   create_store,
   get_current_app_version,
   filename_prefix,
+  redact_username_from_logs,
 };
 
 export default export_functions;
