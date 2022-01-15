@@ -137,6 +137,14 @@ ipcMain.on("save_customer_id", (e, customer_account) => {
   });
 });
 
+ipcMain.on("set_sw_update_auto_install", (e, enable_auto_install) => {
+  e.reply("save_customer_id", 200);
+
+  const action = enable_auto_install ? "Enabling" : "Disabling";
+  console.log(action + " automatic installation of SW updates after shutdown"); // allow-log
+  autoUpdater.autoInstallOnAppQuit = enable_auto_install;
+});
+
 const set_up_auto_updater = () => {
   autoUpdater.autoInstallOnAppQuit = false;
 
@@ -182,15 +190,15 @@ app.on("will-quit", function (e) {
   // responsive and all windows are closed.
   console.log("will-quit event being handled"); // allow-log
 
+  const auto_install_str = autoUpdater.autoInstallOnAppQuit ? "enabled" : "disabled";
+  console.log(
+    // allow-log
+    "Automatic installation of SW updates after shutdown is " + auto_install_str
+  );
+
   // Tanner (9/1/21): Need to prevent (default) app termination, wait for /shutdown response which confirms
   // that the backend is completely shutdown, then call app.exit() which terminates app immediately
   e.preventDefault();
-
-  // TODO test this
-  // ipcMain.on("sw_update_auto_install_response", (e, enable_auto_install) => {
-  //   autoUpdater.autoInstallOnAppQuit = enable_auto_install;
-  // });
-  // ipcMain.send("sw_update_auto_install_request");
 
   // Tanner (9/1/21): Need to prevent (default) app termination, wait for /shutdown response which confirms
   // that the backend is completely shutdown, then call app.exit() which terminates app immediately

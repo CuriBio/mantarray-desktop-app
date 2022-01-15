@@ -124,7 +124,12 @@ export default {
     };
   },
   computed: {
-    ...mapState("settings", ["customer_account_ids", "customer_index"]),
+    ...mapState("settings", ["customer_account_ids", "customer_index", "allow_sw_update_install"]),
+  },
+  watch: {
+    allow_sw_update_install: function () {
+      ipcRenderer.send("set_sw_update_auto_install", this.allow_sw_update_install);
+    },
   },
   created: async function () {
     ipcRenderer.on("logs_flask_dir_response", (e, log_dir_name) => {
@@ -140,7 +145,7 @@ export default {
 
       console.log = log.log;
       console.error = log.error;
-      console.log("Initial view has been rendered");
+      console.log("Initial view has been rendered"); // allow-log
     });
 
     if (this.log_dir_name === undefined) {
