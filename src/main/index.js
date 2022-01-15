@@ -145,6 +145,18 @@ ipcMain.on("set_sw_update_auto_install", (e, enable_auto_install) => {
   autoUpdater.autoInstallOnAppQuit = enable_auto_install;
 });
 
+const post_latest_software_version = (version) => {
+  const post_interval_id = setInterval(() => {
+    axios
+      .post(`http://localhost:${flask_port}/latest_software_version?version=${version}`)
+      .then((response) => {
+        console.log(`/latest_software_version response: ${response.status} ${response.statusText}`); // allow-log;
+        if (response.status === 200) clearInterval(post_interval_id);
+      })
+      .catch((response) => {});
+  }, 1000);
+};
+
 const set_up_auto_updater = () => {
   autoUpdater.autoInstallOnAppQuit = false;
 
@@ -152,23 +164,26 @@ const set_up_auto_updater = () => {
   autoUpdater.once("update-available", (update_info) => {
     const new_version = update_info.version;
     console.log("update-available " + new_version); // allow-log
-    axios.post(`http://localhost:${flask_port}/latest_software_version?version=${new_version}`);
+    post_latest_software_version(new_version);
     // remove listeners for update-not-available since this event occured instead
     autoUpdater.removeAllListeners("update-not-available");
   });
 
-  // TODO make sure offline mode is handled
   // set up handler for the event in which an update is not found
   autoUpdater.once("update-not-available", () => {
     const current_version = get_current_app_version();
     console.log("update-not-available " + current_version); // allow-log
-    axios.post(`http://localhost:${flask_port}/latest_software_version?version=${current_version}`);
+    post_latest_software_version(current_version);
     // remove listeners for update-available since this event occured instead
     autoUpdater.removeAllListeners("update-available");
   });
 
   // Check for updates. Will also automatically download the update as long as autoUpdater.autoDownload is true
-  autoUpdater.checkForUpdates(); // TODO catch errors on this?
+  autoUpdater.checkForUpdates().catch((response) => {
+    console.log("Error while checking for updates: " + JSON.stringify(response)); // allow-log
+    const current_version = get_current_app_version();
+    post_latest_software_version(current_version);
+  });
 };
 
 app.on("ready", () => {
@@ -179,7 +194,7 @@ app.on("ready", () => {
     } else {
       console.log("Autoupdate feature disabled"); // allow-log
       const current_version = get_current_app_version();
-      axios.post(`http://localhost:${flask_port}/latest_software_version?version=${current_version}`);
+      post_latest_software_version(current_version);
     }
   }
 });
