@@ -128,7 +128,23 @@ describe("utils.js", () => {
         });
       });
     });
+    describe("redact_username_from_logs", () => {
+      test("When a path gets logged, Then the username will be replaced with 4 astricks", () => {
+        const test_path_mac =
+          "--log-file-dir=/Users/test_user/Library/Electron/logs";
+        const expected_path_mac =
+          "--log-file-dir=/Users/****/Library/Electron/logs";
+        const actual_mac = main_utils.redact_username_from_logs(test_path_mac);
+        expect(actual_mac).toBe(expected_path_mac);
 
+        const test_path_win =
+          "--log-file-dir=c:\\Users\\test_user\\Library\\Electron\\logs";
+        const expected_path_win =
+          "--log-file-dir=c:\\Users\\****\\Library\\Electron\\logs";
+        const actual_win = main_utils.redact_username_from_logs(test_path_win);
+        expect(actual_win).toBe(expected_path_win);
+      });
+    });
     describe("get_current_app_version", () => {
       test("Given that Electron is not actually running (because this is just a unit test), When the function is called, Then it returns the current version of the App", () => {
         const path_to_package_json = path.join(
