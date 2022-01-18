@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import copy
 import datetime
+import json
 import tempfile
 from uuid import UUID
 
@@ -855,14 +856,26 @@ def test_MantarrayProcessesMonitor__processes_set_protocols_command(
     assert actual == test_command
 
 
-def test_MantarrayProcessesMonitor__processes_set_latest_software_command(
-    test_process_manager_creator, test_monitor
+@pytest.mark.parametrize(
+    "new_version,current_version,update_available",
+    [
+        ("1.0.0", "NOTASEMVER", False),
+        ("1.0.0", "1.0.1", False),
+        ("1.0.0", "1.0.0", False),
+        ("1.0.1", "1.0.0", True),
+    ],
+)
+def test_MantarrayProcessesMonitor__processes_set_latest_software_version_command(
+    new_version, current_version, update_available, test_process_manager_creator, test_monitor, mocker
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
+    queue_to_server_ws = test_process_manager.queue_container().get_data_queue_to_server()
+
+    mocker.patch.object(process_monitor, "CURRENT_SOFTWARE_VERSION", current_version)
 
     shared_values_dict["latest_versions"] = {
         "software": None,
@@ -870,16 +883,23 @@ def test_MantarrayProcessesMonitor__processes_set_latest_software_command(
         "channel_firmware": None,
     }
 
-    test_version = "1.2.3"
     test_command = {
         "communication_type": "set_latest_software_version",
-        "version": test_version,
+        "version": new_version,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, server_to_main_queue)
 
+    # make sure value is stored
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["latest_versions"] == {
-        "software": test_version,
+        "software": new_version,
         "main_firmware": None,
         "channel_firmware": None,
+    }
+    # make sure correct message sent to FE
+    confirm_queue_is_eventually_of_size(queue_to_server_ws, 1)
+    ws_message = queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert ws_message == {
+        "data_type": "sw_update",
+        "data_json": json.dumps({"software_update_available": update_available}),
     }

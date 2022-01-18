@@ -38,6 +38,7 @@ from .constants import CALIBRATION_NEEDED_STATE
 from .constants import CALIBRATION_RECORDING_DUR_SECONDS
 from .constants import CHANNEL_FIRMWARE_VERSION_UUID
 from .constants import CHECKING_FOR_UPDATES_STATE
+from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import DOWNLOADING_UPDATES_STATE
 from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import INSTALLING_UPDATES_STATE
@@ -236,6 +237,19 @@ class MantarrayProcessesMonitor(InfiniteThread):
             update_shared_dict(shared_values_dict, new_values)
         elif communication_type == "set_latest_software_version":
             shared_values_dict["latest_versions"]["software"] = communication["version"]
+            # send message to FE if an update is available
+            try:
+                software_update_available = _compare_semver(
+                    communication["version"], CURRENT_SOFTWARE_VERSION
+                )
+            except ValueError:
+                software_update_available = False
+            self._queue_websocket_message(
+                {
+                    "data_type": "sw_update",
+                    "data_json": json.dumps({"software_update_available": software_update_available}),
+                }
+            )
         elif communication_type == "set_magnetometer_config":
             self._update_magnetometer_config_dict(communication["magnetometer_config_dict"])
         elif communication_type == "stimulation":
