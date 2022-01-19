@@ -702,14 +702,14 @@ class MantarrayProcessesMonitor(InfiniteThread):
             self._values_to_share_to_server["beta_2_mode"]
             and self._values_to_share_to_server["system_status"] == INSTRUMENT_INITIALIZING_STATE
         ):
-            if "in_simulation_mode" not in self._values_to_share_to_server:
-                pass  # need to wait for this value before proceeding with state transition
+            if (
+                "in_simulation_mode" not in self._values_to_share_to_server
+                or "instrument_metadata" not in self._values_to_share_to_server
+            ):
+                pass  # need to wait for these values before proceeding with state transition
             elif self._values_to_share_to_server["in_simulation_mode"]:
                 self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
-            elif (
-                "instrument_metadata" in self._values_to_share_to_server
-                and self._values_to_share_to_server["latest_versions"]["software"] is not None
-            ):
+            elif self._values_to_share_to_server["latest_versions"]["software"] is not None:
                 self._values_to_share_to_server["system_status"] = CHECKING_FOR_UPDATES_STATE
                 # send command to instrument comm process to check for firmware updates
                 latest_software_version = self._values_to_share_to_server["latest_versions"]["software"]

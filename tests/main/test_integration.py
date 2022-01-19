@@ -882,11 +882,15 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         wait_for_subprocesses_to_start()
         test_process_manager = app_info["object_access_inside_main"]["process_manager"]
 
-        sio, msg_list_container = test_socketio_client()
-
         assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 10) is True
 
+        sio, msg_list_container = test_socketio_client()
+
         da_out = test_process_manager.queue_container().get_data_analyzer_data_out_queue()
+
+        response = requests.get(f"{get_api_endpoint()}start_calibration")
+        assert response.status_code == 200
+        assert system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
 
         response = requests.get(
             f"{get_api_endpoint()}update_settings?customer_account_uuid=test_id&customer_pass_key=test_password&user_account_id=test_user&auto_upload=false&auto_delete=false"
@@ -914,10 +918,6 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert stimulation_running_status_eventually_equals(True, 4) is True
         # sleep to let protocol B complete before starting live view
         time.sleep(5)
-
-        response = requests.get(f"{get_api_endpoint()}start_calibration")
-        assert response.status_code == 200
-        assert system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
 
         # Tanner (6/1/21): Start managed_acquisition in order to start recording
         response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")

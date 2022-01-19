@@ -781,21 +781,27 @@ def test_MantarrayProcessesMonitor__stores_device_information_from_metadata_comm
     )
 
 
-def test_MantarrayProcessesMonitor__does_not_switch_from_INSTRUMENT_INITIALIZING_STATE_until_if_simulation_mode_value_is_not_set(
+def test_MantarrayProcessesMonitor__does_not_switch_from_INSTRUMENT_INITIALIZING_STATE__in_beta_2_mode_if_in_simulation_mode_or_instrument_metadata_are_not_set(
     test_monitor, test_process_manager_creator
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     shared_values_dict["system_status"] = INSTRUMENT_INITIALIZING_STATE
 
-    # confirm precondition
+    # confirm preconditions
     assert "in_simulation_mode" not in shared_values_dict
+    assert "instrument_metadata" not in shared_values_dict
 
-    # set other values in shared values dict that would allow for a state transition
-    shared_values_dict["instrument_metadata"] = {}
+    # set other value in shared values dict that would allow for a state transition
     shared_values_dict["latest_versions"] = {"software": "0.0.0"}
 
-    # run monitor_thread and make sure not state transition occurs
+    # run monitor_thread with only in_simulation_mode set and make sure no state transition occurs
+    shared_values_dict["in_simulation_mode"] = True
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert shared_values_dict["system_status"] == INSTRUMENT_INITIALIZING_STATE
+    # run monitor_thread with only instrument_metadata set and make sure no state transition occurs
+    del shared_values_dict["in_simulation_mode"]
+    shared_values_dict["instrument_metadata"] = {}
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["system_status"] == INSTRUMENT_INITIALIZING_STATE
 
