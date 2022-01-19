@@ -139,9 +139,11 @@ def parse_metadata_bytes(metadata_bytes: bytes) -> Dict[UUID, Any]:
     metadata_dict: Dict[UUID, Any] = dict()
     for this_metadata_idx in range(0, len(metadata_bytes), single_metadata_length):
         this_metadata_bytes = metadata_bytes[this_metadata_idx : this_metadata_idx + single_metadata_length]
-        this_value_bytes = this_metadata_bytes[uuid_bytes_length:]
-        this_uuid = UUID(bytes=this_metadata_bytes[:uuid_bytes_length])
+        # get parse UUID
+        this_uuid = UUID(bytes=bytes(this_metadata_bytes[:uuid_bytes_length]))
         metadata_type = METADATA_TYPES[this_uuid]
+        # parse metadata value
+        this_value_bytes = this_metadata_bytes[uuid_bytes_length:]
         this_value = (
             convert_metadata_bytes_to_str(this_value_bytes)
             if metadata_type == str

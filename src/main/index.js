@@ -146,6 +146,9 @@ ipcMain.on("set_sw_update_auto_install", (e, enable_auto_install) => {
 });
 
 const post_latest_software_version = (version) => {
+  if (!store.get("beta_2_mode")) {
+    return; // cannot call this route in beta 1 mode
+  }
   const post_interval_id = setInterval(() => {
     axios
       .post(`http://localhost:${flask_port}/latest_software_version?version=${version}`)

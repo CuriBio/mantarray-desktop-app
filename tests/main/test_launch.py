@@ -481,7 +481,7 @@ def test_main__when_launched_with_an_expected_software_version_but_also_the_flag
 @pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 def test_main__full_launch_script_runs_as_expected(fully_running_app_from_main_entrypoint, mocker):
     spied_info = mocker.spy(main.logger, "info")
-    mocked_start_bg_task = mocker.patch.object(main.socketio, "start_background_task", autospec=True)
+    mocked_set_up = mocker.patch.object(main, "_set_up_socketio_handlers", autospec=True)
 
     app_info = fully_running_app_from_main_entrypoint(
         ["--startup-test-options", "no_subprocesses", "--beta-2-mode"]
@@ -519,8 +519,11 @@ def test_main__full_launch_script_runs_as_expected(fully_running_app_from_main_e
     else:
         assert False, f"Message: '{next_call_args}' not found"
 
-    # make sure background thread was started correctly
-    mocked_start_bg_task.assert_called_once_with(app_info["object_access_inside_main"]["data_sender"])
+    # assert socketio was set up correctly
+    ws_queue = (
+        app_info["object_access_inside_main"]["process_manager"].queue_container().get_data_queue_to_server()
+    )
+    mocked_set_up.assert_called_once_with(ws_queue)
     # assert Flask was started correctly
     _, host, port = get_server_address_components()
     mocked_socketio_run = app_info["mocked_socketio_run"]

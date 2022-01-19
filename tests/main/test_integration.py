@@ -1218,3 +1218,6 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                     assert actual_stim_data.shape[1] >= 5, well_idx
                 else:
                     assert actual_stim_data.shape[1] == 4, well_idx
+
+
+# TODO Tanner (1/18/21): eventually remove Beta 1 integration tests and add one for a successful auto FW update
