@@ -3,7 +3,6 @@ import random
 from random import randint
 from zlib import crc32
 
-from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import convert_to_status_code_bytes
 from mantarray_desktop_app import convert_to_timestamp_bytes
 from mantarray_desktop_app import create_data_packet
@@ -24,7 +23,7 @@ from mantarray_desktop_app import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_FATAL_ERROR_CODE
 from mantarray_desktop_app import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
-from mantarray_desktop_app import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_GET_METADATA_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
@@ -40,7 +39,6 @@ from mantarray_desktop_app import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
-from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE
@@ -55,7 +53,7 @@ from mantarray_desktop_app import UnrecognizedSerialCommModuleIdError
 from mantarray_desktop_app import UnrecognizedSerialCommPacketTypeError
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app.mc_simulator import MC_SIMULATOR_BOOT_UP_DURATION_SECONDS
-from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
+from mantarray_desktop_app.serial_comm_utils import convert_metadata_to_bytes
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
@@ -362,31 +360,32 @@ def test_MantarrayMcSimulator__does_not_send_status_beacon_while_rebooting(manta
 def test_MantarrayMcSimulator__allows_mantarray_nickname_to_be_set_by_command_received_from_pc__and_sends_correct_response(
     mantarray_mc_simulator_no_beacon, mocker
 ):
-    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    # simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
-    expected_nickname = "Newer Nickname"
-    expected_timestamp = SERIAL_COMM_MAX_TIMESTAMP_VALUE
-    set_nickname_command = create_data_packet(
-        expected_timestamp,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-        bytes([SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE]) + convert_to_metadata_bytes(expected_nickname),
-    )
-    simulator.write(set_nickname_command)
-    invoke_process_run_and_check_errors(simulator)
+    # expected_nickname = "Newer Nickname"
+    # expected_timestamp = SERIAL_COMM_MAX_TIMESTAMP_VALUE
+    assert not "TODO"
+    # set_nickname_command = create_data_packet(
+    #     expected_timestamp,
+    #     SERIAL_COMM_MAIN_MODULE_ID,
+    #     SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
+    #     bytes([SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE]) + TODO(expected_nickname),
+    # )
+    # simulator.write(set_nickname_command)
+    # invoke_process_run_and_check_errors(simulator)
 
-    # Check that nickname is updated
-    actual_metadata = simulator.get_metadata_dict()
-    assert actual_metadata[MANTARRAY_NICKNAME_UUID.bytes] == convert_to_metadata_bytes(expected_nickname)
-    # Check that correct response is sent
-    expected_response_size = get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES)
-    actual = simulator.read(size=expected_response_size)
-    assert_serial_packet_is_expected(
-        actual,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-        expected_timestamp.to_bytes(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES, byteorder="little"),
-    )
+    # # Check that nickname is updated
+    # actual_metadata = simulator.get_metadata_dict()
+    # assert actual_metadata[MANTARRAY_NICKNAME_UUID.bytes] == TODO(expected_nickname)
+    # # Check that correct response is sent
+    # expected_response_size = get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES)
+    # actual = simulator.read(size=expected_response_size)
+    # assert_serial_packet_is_expected(
+    #     actual,
+    #     SERIAL_COMM_MAIN_MODULE_ID,
+    #     SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+    #     expected_timestamp.to_bytes(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES, byteorder="little"),
+    # )
 
 
 def test_MantarrayMcSimulator__processes_get_metadata_command(mantarray_mc_simulator_no_beacon, mocker):
@@ -396,16 +395,12 @@ def test_MantarrayMcSimulator__processes_get_metadata_command(mantarray_mc_simul
     get_metadata_command = create_data_packet(
         expected_timestamp,
         SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-        bytes([SERIAL_COMM_GET_METADATA_COMMAND_BYTE]),
+        SERIAL_COMM_GET_METADATA_PACKET_TYPE,
     )
     simulator.write(get_metadata_command)
     invoke_process_run_and_check_errors(simulator)
 
-    expected_metadata_bytes = bytes(0)
-    for key, value in simulator.get_metadata_dict().items():
-        expected_metadata_bytes += key
-        expected_metadata_bytes += value
+    expected_metadata_bytes = convert_metadata_to_bytes(MantarrayMcSimulator.default_metadata_values)
     expected_size = get_full_packet_size_from_packet_body_size(
         SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + len(expected_metadata_bytes)
     )

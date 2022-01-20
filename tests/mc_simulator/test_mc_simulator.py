@@ -3,8 +3,8 @@ import logging
 from multiprocessing import Queue
 from random import randint
 
+from immutabledict import immutabledict
 from mantarray_desktop_app import CHANNEL_FIRMWARE_VERSION_UUID
-from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import convert_to_status_code_bytes
 from mantarray_desktop_app import convert_to_timestamp_bytes
 from mantarray_desktop_app import create_data_packet
@@ -28,14 +28,11 @@ from mantarray_desktop_app import SERIAL_COMM_TIME_SYNC_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import SerialCommInvalidSamplingPeriodError
 from mantarray_desktop_app import UnrecognizedSimulatorTestCommandError
+from mantarray_desktop_app.constants import BOOT_FLAGS_UUID
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
-from mantarray_file_manager import BOOTUP_COUNTER_UUID
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
-from mantarray_file_manager import PCB_SERIAL_NUMBER_UUID
-from mantarray_file_manager import TAMPER_FLAG_UUID
-from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
 import pytest
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import invoke_process_run_and_check_errors
@@ -67,19 +64,15 @@ __fixtures__ = [
 
 
 def test_MantarrayMcSimulator__class_attributes():
-    assert MantarrayMcSimulator.default_mantarray_nickname == "Mantarray Simulator (MCU)"
-    assert MantarrayMcSimulator.default_mantarray_serial_number == "M02001901"
-    assert MantarrayMcSimulator.default_pcb_serial_number == "TBD"
+    assert MantarrayMcSimulator.default_mantarray_nickname == "Mantarray Sim"
+    assert MantarrayMcSimulator.default_mantarray_serial_number == "M03456789012"
     assert MantarrayMcSimulator.default_main_firmware_version == "0.0.0"
     assert MantarrayMcSimulator.default_channel_firmware_version == "0.0.0"
-    assert MantarrayMcSimulator.default_barcode == "MA190190001"
+    assert MantarrayMcSimulator.default_barcode == "ML2022001000"
     assert MantarrayMcSimulator.default_metadata_values == {
-        BOOTUP_COUNTER_UUID: 0,
-        TOTAL_WORKING_HOURS_UUID: 0,
-        TAMPER_FLAG_UUID: 0,
+        BOOT_FLAGS_UUID: 0b00000000,
         MANTARRAY_SERIAL_NUMBER_UUID: MantarrayMcSimulator.default_mantarray_serial_number,
         MANTARRAY_NICKNAME_UUID: MantarrayMcSimulator.default_mantarray_nickname,
-        PCB_SERIAL_NUMBER_UUID: MantarrayMcSimulator.default_pcb_serial_number,
         MAIN_FIRMWARE_VERSION_UUID: MantarrayMcSimulator.default_main_firmware_version,
         CHANNEL_FIRMWARE_VERSION_UUID: MantarrayMcSimulator.default_channel_firmware_version,
     }
@@ -109,21 +102,8 @@ def test_MantarrayMcSimulator__init__sets_default_metadata_values(
 ):
     simulator = mantarray_mc_simulator["simulator"]
     metadata_dict = simulator.get_metadata_dict()
-    assert metadata_dict[BOOTUP_COUNTER_UUID.bytes] == convert_to_metadata_bytes(0)
-    assert metadata_dict[TOTAL_WORKING_HOURS_UUID.bytes] == convert_to_metadata_bytes(0)
-    assert metadata_dict[TAMPER_FLAG_UUID.bytes] == convert_to_metadata_bytes(0)
-    assert metadata_dict[MANTARRAY_NICKNAME_UUID.bytes] == convert_to_metadata_bytes(
-        MantarrayMcSimulator.default_mantarray_nickname
-    )
-    assert metadata_dict[MANTARRAY_SERIAL_NUMBER_UUID.bytes] == convert_to_metadata_bytes(
-        MantarrayMcSimulator.default_mantarray_serial_number
-    )
-    assert metadata_dict[MAIN_FIRMWARE_VERSION_UUID.bytes] == convert_to_metadata_bytes(
-        MantarrayMcSimulator.default_main_firmware_version
-    )
-    assert metadata_dict[PCB_SERIAL_NUMBER_UUID.bytes] == convert_to_metadata_bytes(
-        MantarrayMcSimulator.default_pcb_serial_number
-    )
+    assert isinstance(metadata_dict, dict)
+    assert not isinstance(metadata_dict, immutabledict)
 
 
 def test_MantarrayMcSimulator_setup_before_loop__calls_super(mantarray_mc_simulator, mocker):
@@ -561,34 +541,6 @@ def test_MantarrayMcSimulator__resets_status_code_after_rebooting(mantarray_mc_s
     handshake_response = simulator.read(size=HANDSHAKE_RESPONSE_SIZE_BYTES)
     assert len(handshake_response) == HANDSHAKE_RESPONSE_SIZE_BYTES
     assert handshake_response[-8:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES] == DEFAULT_SIMULATOR_STATUS_CODE
-
-
-def test_MantarrayMcSimulator__allows_metadata_to_be_set_through_testing_queue(
-    mantarray_mc_simulator,
-):
-    simulator = mantarray_mc_simulator["simulator"]
-    testing_queue = mantarray_mc_simulator["testing_queue"]
-
-    expected_metadata = {
-        TOTAL_WORKING_HOURS_UUID: 0,
-        MANTARRAY_NICKNAME_UUID: "New Nickname",
-    }
-    test_command = {"command": "set_metadata", "metadata_values": expected_metadata}
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, testing_queue)
-    invoke_process_run_and_check_errors(simulator)
-
-    actual_metadata = simulator.get_metadata_dict()
-    # Check that expected values are updated
-    assert actual_metadata[TOTAL_WORKING_HOURS_UUID.bytes] == convert_to_metadata_bytes(
-        expected_metadata[TOTAL_WORKING_HOURS_UUID]
-    )
-    assert actual_metadata[MANTARRAY_NICKNAME_UUID.bytes] == convert_to_metadata_bytes(
-        expected_metadata[MANTARRAY_NICKNAME_UUID]
-    )
-    # Check that at least one other value is not changed
-    assert actual_metadata[MANTARRAY_SERIAL_NUMBER_UUID.bytes] == convert_to_metadata_bytes(
-        MantarrayMcSimulator.default_mantarray_serial_number
-    )
 
 
 def test_MantarrayMcSimulator__accepts_time_sync_along_with_status_code_update__if_status_code_is_set_to_state_following_time_sync(

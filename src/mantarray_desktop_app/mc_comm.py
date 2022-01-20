@@ -48,7 +48,7 @@ from .constants import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
 from .constants import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_FATAL_ERROR_CODE
 from .constants import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
-from .constants import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
+from .constants import SERIAL_COMM_GET_METADATA_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
@@ -72,7 +72,6 @@ from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
-from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
@@ -126,7 +125,6 @@ from .instrument_comm import InstrumentCommProcess
 from .mc_simulator import MantarrayMcSimulator
 from .serial_comm_utils import convert_bytes_to_config_dict
 from .serial_comm_utils import convert_stim_dict_to_bytes
-from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
 from .serial_comm_utils import create_data_packet
 from .serial_comm_utils import create_magnetometer_config_bytes
@@ -503,10 +501,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         communication_type = comm_from_main["communication_type"]
         if communication_type == "mantarray_naming":
             if comm_from_main["command"] == "set_mantarray_nickname":
-                nickname = comm_from_main["mantarray_nickname"]
-                bytes_to_send = bytes([SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE]) + convert_to_metadata_bytes(
-                    nickname
-                )
+                pass  # TODO nickname = comm_from_main["mantarray_nickname"]
             else:
                 raise UnrecognizedCommandFromMainToMcCommError(
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
@@ -561,7 +556,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
                 )
         elif communication_type == "metadata_comm":
-            bytes_to_send = bytes([SERIAL_COMM_GET_METADATA_COMMAND_BYTE])
+            packet_type = SERIAL_COMM_GET_METADATA_PACKET_TYPE
         elif communication_type == "firmware_update":
             if comm_from_main["command"] == "get_latest_firmware_versions":
                 send_packet_to_instrument = False
@@ -987,7 +982,6 @@ class McCommunicationProcess(InstrumentCommProcess):
                     SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
                     bytes_to_send,
                 )
-
                 self._add_command_to_track(
                     {
                         "communication_type": "default_magnetometer_config",
@@ -1000,31 +994,19 @@ class McCommunicationProcess(InstrumentCommProcess):
                 )
                 self._auto_set_magnetometer_config = False
             if self._auto_get_metadata:
-                if (
-                    not self._in_simulation_mode
-                ):  # pragma: no cover  # TODO Tanner (6/11/21): remove this once get_metadata command is implemented on real board
-                    self._board_queues[0][1].put_nowait(
-                        {
-                            "communication_type": "metadata_comm",
-                            "board_index": 0,
-                            "metadata": MantarrayMcSimulator.default_metadata_values,
-                        }
-                    )
-                else:
-                    self._send_data_packet(
-                        board_idx,
-                        SERIAL_COMM_MAIN_MODULE_ID,
-                        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-                        bytes([SERIAL_COMM_GET_METADATA_COMMAND_BYTE])
-                        + convert_to_timestamp_bytes(get_serial_comm_timestamp()),
-                    )
-                    self._add_command_to_track(
-                        {
-                            "communication_type": "metadata_comm",
-                            "command": "get_metadata",
-                        }
-                    )
-                self._auto_get_metadata = False
+                self._send_data_packet(
+                    board_idx,
+                    SERIAL_COMM_MAIN_MODULE_ID,
+                    SERIAL_COMM_GET_METADATA_PACKET_TYPE,
+                    convert_to_timestamp_bytes(get_serial_comm_timestamp()),
+                )
+                self._add_command_to_track(
+                    {
+                        "communication_type": "metadata_comm",
+                        "command": "get_metadata",
+                    }
+                )
+            self._auto_get_metadata = False
 
     def _register_magic_word(self, board_idx: int) -> None:
         board = self._board_connections[board_idx]

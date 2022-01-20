@@ -6,7 +6,6 @@ from typing import Dict
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
 from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
-from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
@@ -73,27 +72,26 @@ RANDOM_STIM_INFO_1 = {
 RANDOM_STIM_INFO_2 = create_random_stim_info()  # type: ignore
 
 COMMAND_RESPONSE_SEQUENCE = [
-    # First two commands come in different orders with live board and simulator
-    ("change_magnetometer_config_1", "magnetometer_config_1"),  # first with simulator
-    ("get_metadata", "get_metadata"),  # first with real board
-    # # MAGNETOMETERS
-    # ("start_managed_acquisition", "start_md_1"),
-    # ("start_managed_acquisition", "start_md_2"),
-    # ("stop_managed_acquisition", "stop_md_1"),
-    # ("stop_managed_acquisition", "stop_md_2"),
-    # ("change_magnetometer_config_2", "magnetometer_config_2"),
-    # # STIMULATORS
-    # ("start_stimulation", "start_stim_1"),
-    # ("stop_stimulation", "stop_stim_1"),
-    # ("set_protocols_1", "set_protocols_1_1"),
-    # ("start_stimulation", "start_stim_2_1"),
-    # ("start_stimulation", "start_stim_2_2"),
-    # ("set_protocols_1", "set_protocols_1_2"),
-    # ("stop_stimulation", "stop_stim_2_1"),
-    # ("stop_stimulation", "stop_stim_2_2"),
-    # ("set_protocols_2", "set_protocols_2"),
+    ("change_magnetometer_config_1", "magnetometer_config_1"),
+    ("get_metadata", "get_metadata"),
+    # MAGNETOMETERS
+    ("start_managed_acquisition", "start_md_1"),
+    ("start_managed_acquisition", "start_md_2"),
+    ("stop_managed_acquisition", "stop_md_1"),
+    ("stop_managed_acquisition", "stop_md_2"),
+    ("change_magnetometer_config_2", "magnetometer_config_2"),
+    # STIMULATORS
+    ("start_stimulation", "start_stim_1"),
+    ("stop_stimulation", "stop_stim_1"),
+    ("set_protocols_1", "set_protocols_1_1"),
+    ("start_stimulation", "start_stim_2_1"),
+    ("start_stimulation", "start_stim_2_2"),
+    ("set_protocols_1", "set_protocols_1_2"),
+    ("stop_stimulation", "stop_stim_2_1"),
+    ("stop_stimulation", "stop_stim_2_2"),
+    ("set_protocols_2", "set_protocols_2"),
     # FIRMWARE
-    (["start_firmware_update_1", "start_firmware_update_2"], ["start_fw_update_1", "start_fw_update_2"]),
+    # (["start_firmware_update_1", "start_firmware_update_2"], ["start_fw_update_1", "start_fw_update_2"]),
 ]
 
 COMMANDS_FROM_MAIN = {
@@ -144,9 +142,10 @@ COMMANDS_FROM_MAIN = {
 RESPONSES = {
     "get_metadata": {
         "communication_type": "metadata_comm",
-        "command": "get_metadata",  # this value isn't present when connected to real board
+        "command": "get_metadata",
         "board_index": 0,
-        "metadata": MantarrayMcSimulator.default_metadata_values,  # TODO: remove this once get_metadata command is implemented
+        "metadata": None,  # TODO
+        # "metadata": MantarrayMcSimulator.default_metadata_values,
     },
     "magnetometer_config_1": {
         "communication_type": "default_magnetometer_config",

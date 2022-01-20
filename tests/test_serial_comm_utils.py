@@ -7,10 +7,8 @@ from freezegun import freeze_time
 from mantarray_desktop_app import convert_bitmask_to_config_dict
 from mantarray_desktop_app import convert_bytes_to_config_dict
 from mantarray_desktop_app import convert_bytes_to_subprotocol_dict
-from mantarray_desktop_app import convert_metadata_bytes_to_str
 from mantarray_desktop_app import convert_stim_dict_to_bytes
 from mantarray_desktop_app import convert_subprotocol_dict_to_bytes
-from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import create_magnetometer_config_bytes
 from mantarray_desktop_app import create_magnetometer_config_dict
@@ -25,11 +23,14 @@ from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_EPOCH
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
-from mantarray_desktop_app import SerialCommMetadataValueTooLargeError
 from mantarray_desktop_app import STIM_NO_PROTOCOL_ASSIGNED
 from mantarray_desktop_app import validate_checksum
+from mantarray_desktop_app.constants import BOOT_FLAGS_UUID
+from mantarray_desktop_app.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
-import pytest
+from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
+from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
+from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
 
 from .fixtures import fixture_patch_print
 from .fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
@@ -92,104 +93,23 @@ def test_validate_checksum__returns_false_when_checksum_is_incorrect():
     assert validate_checksum(test_bytes) is False
 
 
-@pytest.mark.parametrize(
-    "test_value,expected_bytes,test_description",
-    [
-        (
-            "My Mantarray Nickname",
-            b"My Mantarray Nickname" + bytes(11),
-            "converts string to 32 bytes",
-        ),
-        (
-            "Unicøde Nickname",
-            bytes("Unicøde Nickname", "utf-8") + bytes(15),
-            "converts string with unicode characters to 32 bytes",
-        ),
-        (
-            "A" * SERIAL_COMM_METADATA_BYTES_LENGTH,
-            bytes("A" * SERIAL_COMM_METADATA_BYTES_LENGTH, "utf-8"),
-            "converts string with max length 32 bytes",
-        ),
-        (
-            (1 << SERIAL_COMM_METADATA_BYTES_LENGTH) - 1,
-            ((1 << SERIAL_COMM_METADATA_BYTES_LENGTH) - 1).to_bytes(
-                SERIAL_COMM_METADATA_BYTES_LENGTH, byteorder="little"
-            ),
-            "converts max uint value to 32-byte long little-endian value",
-        ),
-    ],
-)
-def test_convert_to_metadata_bytes__returns_correct_values(test_value, expected_bytes, test_description):
-    assert convert_to_metadata_bytes(test_value) == expected_bytes
+def test_parse_metadata_bytes__returns_expected_value():
+    metadata_bytes = (
+        bytes([0b10101010])  # boot flags
+        + bytes(MantarrayMcSimulator.default_mantarray_serial_number, encoding="ascii")
+        + bytes("マンタレ1", encoding="utf-8")  # nickname
+        + bytes([0, 1, 2])  # main FW version
+        + bytes([255, 255, 255])  # channel FW version
+    )
+    assert len(metadata_bytes) == SERIAL_COMM_METADATA_BYTES_LENGTH
 
-
-def test_convert_to_metadata_bytes__raises_error_with_unsigned_integer_value_that_cannot_fit_in_allowed_number_of_bytes(
-    patch_print,
-):
-    test_value = 1 << (SERIAL_COMM_METADATA_BYTES_LENGTH * 8)
-    with pytest.raises(SerialCommMetadataValueTooLargeError, match=str(test_value)):
-        convert_to_metadata_bytes(test_value, signed=False)
-
-
-def test_convert_to_metadata_bytes__raises_error_with_signed_integer_value_that_cannot_fit_in_allowed_number_of_bytes(
-    patch_print,
-):
-    test_positive_value = 1 << (SERIAL_COMM_METADATA_BYTES_LENGTH * 8 - 1)
-    with pytest.raises(SerialCommMetadataValueTooLargeError, match=str(test_positive_value)):
-        convert_to_metadata_bytes(test_positive_value, signed=True)
-    test_negative_value = (-1 << (SERIAL_COMM_METADATA_BYTES_LENGTH * 8 - 1)) - 1
-    with pytest.raises(SerialCommMetadataValueTooLargeError, match=str(test_negative_value)):
-        convert_to_metadata_bytes(test_negative_value, signed=True)
-
-
-def test_convert_to_metadata_bytes__raises_error_string_longer_than_max_number_of_bytes(
-    patch_print,
-):
-    test_value = "T" * (SERIAL_COMM_METADATA_BYTES_LENGTH + 1)
-    with pytest.raises(SerialCommMetadataValueTooLargeError, match=str(test_value)):
-        convert_to_metadata_bytes(test_value)
-
-
-@pytest.mark.parametrize(
-    "test_bytes,expected_str,test_description",
-    [
-        (b"", "", "converts empty str correctly"),
-        (b"A", "A", "converts single utf-8 character correctly"),
-        (
-            bytes("水", encoding="utf-8"),
-            "水",
-            "converts single unicode character correctly",
-        ),
-        (
-            b"1" * SERIAL_COMM_METADATA_BYTES_LENGTH,
-            "1" * SERIAL_COMM_METADATA_BYTES_LENGTH,
-            "converts 32 bytes of utf-8 correctly",
-        ),
-        (
-            bytes("AAø" * (SERIAL_COMM_METADATA_BYTES_LENGTH // 4), encoding="utf-8"),
-            "AAø" * (SERIAL_COMM_METADATA_BYTES_LENGTH // 4),
-            "converts 32 bytes with unicode chars correctly",
-        ),
-    ],
-)
-def test_convert_metadata_bytes_to_str__returns_correct_string(test_bytes, expected_str, test_description):
-    # make sure test_bytes are correct length before sending them through function
-    test_bytes += b"\x00" * (SERIAL_COMM_METADATA_BYTES_LENGTH - len(test_bytes))
-    actual_str = convert_metadata_bytes_to_str(test_bytes)
-    assert actual_str == expected_str
-
-
-def test_parse_metadata_bytes__returns_metadata_as_dictionary(
-    mantarray_mc_simulator_no_beacon,
-):
-    # Tanner (3/18/21): Need to make sure to test this on all default metadata values, so get them from simulator
-    simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    test_metadata_bytes = bytes(0)
-    for key, value in simulator.get_metadata_dict().items():
-        test_metadata_bytes += key + value
-
-    actual = parse_metadata_bytes(test_metadata_bytes)
-    assert actual == MantarrayMcSimulator.default_metadata_values
+    assert parse_metadata_bytes(metadata_bytes) == {
+        BOOT_FLAGS_UUID: 0b10101010,
+        MANTARRAY_SERIAL_NUMBER_UUID: MantarrayMcSimulator.default_mantarray_serial_number,
+        MANTARRAY_NICKNAME_UUID: "マンタレ1",
+        MAIN_FIRMWARE_VERSION_UUID: "0.1.2",
+        CHANNEL_FIRMWARE_VERSION_UUID: "255.255.255",
+    }
 
 
 @freeze_time("2021-04-07 13:14:07.234987")

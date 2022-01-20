@@ -128,8 +128,8 @@ def test_download_firmware_updates__gets_auth_then_downloads_specified_firmware_
     test_main_fw_to_download = test_new_version if main_fw_update else None
     test_channel_fw_to_download = test_new_version if channel_fw_update else None
 
-    expected_main_fw_bytes = bytes("main", "ascii") if main_fw_update else None
-    expected_channel_fw_bytes = bytes("channel", "ascii") if channel_fw_update else None
+    expected_main_fw_bytes = bytes("main", encoding="ascii") if main_fw_update else None
+    expected_channel_fw_bytes = bytes("channel", encoding="ascii") if channel_fw_update else None
     expected_response_dict = {
         "communication_type": "firmware_update",
         "command": "download_firmware_updates",
@@ -303,8 +303,8 @@ def test_McCommunicationProcess__handles_successful_completion_of_download_firmw
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     from_main_queue, to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][:2]
 
-    expected_main_fw_bytes = bytes("main", "ascii")
-    expected_channel_fw_bytes = bytes("channel", "ascii")
+    expected_main_fw_bytes = bytes("main", encoding="ascii")
+    expected_channel_fw_bytes = bytes("channel", encoding="ascii")
 
     def init_se(obj, target, args):
         args[0].update({"main": expected_main_fw_bytes, "channel": expected_channel_fw_bytes})

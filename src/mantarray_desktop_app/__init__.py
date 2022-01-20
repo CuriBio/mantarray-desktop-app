@@ -109,7 +109,7 @@ from .constants import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
 from .constants import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_FATAL_ERROR_CODE
 from .constants import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
-from .constants import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
+from .constants import SERIAL_COMM_GET_METADATA_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
@@ -286,11 +286,9 @@ from .queue_container import MantarrayQueueContainer
 from .serial_comm_utils import convert_bitmask_to_config_dict
 from .serial_comm_utils import convert_bytes_to_config_dict
 from .serial_comm_utils import convert_bytes_to_subprotocol_dict
-from .serial_comm_utils import convert_metadata_bytes_to_str
 from .serial_comm_utils import convert_module_id_to_well_name
 from .serial_comm_utils import convert_stim_dict_to_bytes
 from .serial_comm_utils import convert_subprotocol_dict_to_bytes
-from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_status_code_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
 from .serial_comm_utils import convert_well_name_to_module_id
@@ -511,13 +509,11 @@ __all__ = [
     "SERIAL_COMM_BAUD_RATE",
     "SerialCommIncorrectChecksumFromPCError",
     "SERIAL_COMM_ADDITIONAL_BYTES_INDEX",
-    "convert_to_metadata_bytes",
     "SERIAL_COMM_METADATA_BYTES_LENGTH",
     "SerialCommMetadataValueTooLargeError",
     "SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE",
-    "SERIAL_COMM_GET_METADATA_COMMAND_BYTE",
+    "SERIAL_COMM_GET_METADATA_PACKET_TYPE",
     "parse_metadata_bytes",
-    "convert_metadata_bytes_to_str",
     "SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS",
     "UnrecognizedCommandFromMainToMcCommError",
     "SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES",
