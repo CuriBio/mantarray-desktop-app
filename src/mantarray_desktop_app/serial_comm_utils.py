@@ -89,8 +89,8 @@ def parse_metadata_bytes(metadata_bytes: bytes) -> Dict[UUID, Any]:
     """Parse bytes containing metadata and return as Dict."""
     return {
         BOOT_FLAGS_UUID: metadata_bytes[0],
-        MANTARRAY_SERIAL_NUMBER_UUID: metadata_bytes[1:13].decode("ascii"),
-        MANTARRAY_NICKNAME_UUID: metadata_bytes[13:26].decode("utf-8"),
+        MANTARRAY_NICKNAME_UUID: metadata_bytes[1:14].decode("utf-8"),
+        MANTARRAY_SERIAL_NUMBER_UUID: metadata_bytes[14:26].decode("ascii"),
         MAIN_FIRMWARE_VERSION_UUID: convert_semver_bytes_to_str(metadata_bytes[26:29]),
         CHANNEL_FIRMWARE_VERSION_UUID: convert_semver_bytes_to_str(metadata_bytes[29:32]),
     }
@@ -99,8 +99,8 @@ def parse_metadata_bytes(metadata_bytes: bytes) -> Dict[UUID, Any]:
 def convert_metadata_to_bytes(metadata_dict: Dict[UUID, Any]) -> bytes:
     return (
         bytes([metadata_dict[BOOT_FLAGS_UUID]])
-        + bytes(metadata_dict[MANTARRAY_SERIAL_NUMBER_UUID], encoding="ascii")
         + bytes(metadata_dict[MANTARRAY_NICKNAME_UUID], encoding="utf-8")
+        + bytes(metadata_dict[MANTARRAY_SERIAL_NUMBER_UUID], encoding="ascii")
         + convert_semver_str_to_bytes(metadata_dict[MAIN_FIRMWARE_VERSION_UUID])
         + convert_semver_str_to_bytes(metadata_dict[CHANNEL_FIRMWARE_VERSION_UUID])
     )

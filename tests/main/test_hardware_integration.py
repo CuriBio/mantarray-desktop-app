@@ -10,7 +10,12 @@ from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
+from mantarray_desktop_app.constants import BOOT_FLAGS_UUID
+from mantarray_desktop_app.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
+from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
+from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
 import pytest
 from stdlib_utils import drain_queue
 from stdlib_utils import get_formatted_stack_trace
@@ -144,7 +149,13 @@ RESPONSES = {
         "communication_type": "metadata_comm",
         "command": "get_metadata",
         "board_index": 0,
-        "metadata": None,  # TODO
+        "metadata": {
+            BOOT_FLAGS_UUID: 0,
+            MANTARRAY_NICKNAME_UUID: "Mantarray2.2 ",
+            MANTARRAY_SERIAL_NUMBER_UUID: "MA2201300001",
+            MAIN_FIRMWARE_VERSION_UUID: "1.0.1",
+            CHANNEL_FIRMWARE_VERSION_UUID: "1.0.1",
+        },
         # "metadata": MantarrayMcSimulator.default_metadata_values,
     },
     "magnetometer_config_1": {
@@ -257,7 +268,9 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
         if not isinstance(command, str):
             for idx, sub_command in enumerate(command):
                 command_dict = COMMANDS_FROM_MAIN[sub_command]
-                print(f"Sending command: {command}, expecting response: {response_key[idx]}")  # allow-print
+                print(  # allow-print
+                    f"Sending command: {sub_command}, expecting response: {response_key[idx]}"
+                )
                 input_queue.put_nowait(command_dict)
             expected_response = RESPONSES[response_key[-1]]
         elif command not in ("get_metadata", "change_magnetometer_config_1"):

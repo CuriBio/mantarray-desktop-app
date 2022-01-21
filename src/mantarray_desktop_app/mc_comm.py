@@ -124,6 +124,7 @@ from .firmware_downloader import get_latest_firmware_versions
 from .instrument_comm import InstrumentCommProcess
 from .mc_simulator import MantarrayMcSimulator
 from .serial_comm_utils import convert_bytes_to_config_dict
+from .serial_comm_utils import convert_semver_str_to_bytes
 from .serial_comm_utils import convert_stim_dict_to_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
 from .serial_comm_utils import create_data_packet
@@ -217,6 +218,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         ] = None  # Tanner (4/1/21): This value will be None until this process receives a response to a reboot command. It will be set back to None after receiving a status beacon upon reboot completion
         self._hardware_test_mode = hardware_test_mode
         # firmware updating values
+        self._latest_firmware_versions: Optional[Dict[str, str]] = None
         self._fw_update_worker_thread: Optional[ErrorCatchingThread] = None
         self._fw_update_thread_dict: Optional[Dict[str, Any]] = None
         self._is_updating_firmware = False
@@ -603,6 +605,11 @@ class McCommunicationProcess(InstrumentCommProcess):
                 packet_type = SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
                 self._firmware_update_type = comm_from_main["firmware_type"]
                 bytes_to_send = bytes([self._firmware_update_type == "channel"])
+                if self._latest_firmware_versions is None:
+                    raise NotImplementedError("_latest_firmware_versions should never be None here")
+                bytes_to_send += convert_semver_str_to_bytes(
+                    self._latest_firmware_versions[self._firmware_update_type]
+                )
                 # store correct firmware bytes
                 if self._firmware_update_type == "channel":
                     self._firmware_file_contents = self._channel_firmware_update_bytes
@@ -613,8 +620,8 @@ class McCommunicationProcess(InstrumentCommProcess):
                 # mypy check
                 if self._firmware_file_contents is None:
                     raise NotImplementedError("_firmware_file_contents should never be None here")
-                # set up values for firmware update
                 bytes_to_send += len(self._firmware_file_contents).to_bytes(4, byteorder="little")
+                # set up values for firmware update
                 self._firmware_packet_idx = 0
                 self._is_updating_firmware = True
                 self._firmware_checksum = crc32(self._firmware_file_contents)
@@ -732,8 +739,12 @@ class McCommunicationProcess(InstrumentCommProcess):
                 full_data_packet[-SERIAL_COMM_CHECKSUM_LENGTH_BYTES:],
                 byteorder="little",
             )
+            try:
+                prev_command = self._commands_awaiting_response.popleft()
+            except IndexError:
+                prev_command = None  # type: ignore
             raise SerialCommIncorrectChecksumFromInstrumentError(
-                f"Checksum Received: {received_checksum}, Checksum Calculated: {calculated_checksum}, Full Data Packet: {str(full_data_packet)}"
+                f"Checksum Received: {received_checksum}, Checksum Calculated: {calculated_checksum}, Full Data Packet: {str(full_data_packet)}, Previous Command: {prev_command}"
             )
         if packet_size < SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES:
             raise SerialCommPacketFromMantarrayTooSmallError(
@@ -769,6 +780,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             )
         elif packet_type in (
             SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+            SERIAL_COMM_GET_METADATA_PACKET_TYPE,
             SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE,
             SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE,
             SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE,
@@ -904,7 +916,9 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._firmware_update_type = ""
             self._is_updating_firmware = False
             self._time_of_firmware_update_start = None
-            self._time_of_last_beacon_secs = perf_counter()
+            # set up values for reboot  # TODO unit test
+            self._is_waiting_for_reboot = True
+            self._time_of_reboot_start = perf_counter()
         else:
             raise UnrecognizedSerialCommPacketTypeError(
                 f"Packet Type ID: {packet_type} is not defined for Module ID: {module_id}"
@@ -1265,7 +1279,11 @@ class McCommunicationProcess(InstrumentCommProcess):
             }
             to_main_queue.put_nowait(error_dict)
         else:
-            if self._fw_update_thread_dict["command"] == "download_firmware_updates":
+            if self._fw_update_thread_dict["command"] == "get_latest_firmware_versions":
+                self._latest_firmware_versions = copy.deepcopy(
+                    self._fw_update_thread_dict["latest_firmware_versions"]
+                )
+            elif self._fw_update_thread_dict["command"] == "download_firmware_updates":
                 # pop firmware bytes out of dict and store
                 self._main_firmware_update_bytes = self._fw_update_thread_dict.pop("main")
                 self._channel_firmware_update_bytes = self._fw_update_thread_dict.pop("channel")

@@ -612,6 +612,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         elif packet_type == SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE:
             firmware_type = comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX]
             command_failed = firmware_type not in (0, 1) or self._firmware_update_type is not None
+            # TODO store new FW version and number of bytes in FW
             self._firmware_update_idx = 0
             self._firmware_update_type = firmware_type
             self._firmware_update_bytes = bytes(0)

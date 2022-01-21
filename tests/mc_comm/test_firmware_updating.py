@@ -371,6 +371,7 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
         mc_process._main_firmware_update_bytes = test_firmware_bytes
     else:
         mc_process._channel_firmware_update_bytes = test_firmware_bytes
+    mc_process._latest_firmware_versions = {"main": "2.0.0", "channel": "2.0.0"}
 
     # start firmware update
     update_firmware_command = {
@@ -478,6 +479,9 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
         "command": "update_completed",
         "firmware_type": firmware_type,
     }
+
+    # TODO add testing for the next reboot
+
     # make sure status beacon tracking timepoint was updated  # Tanner (11/16/21): using large abs here in case perf_counter is called again in this same iteration
     assert mc_process._time_of_last_beacon_secs == approx(  # pylint: disable=protected-access
         spied_perf_counter.spy_return, abs=1
@@ -508,6 +512,7 @@ def test_McCommunicationProcess__raises_error_if_begin_firmware_update_command_f
         mc_process._main_firmware_update_bytes = test_firmware_bytes
     else:
         mc_process._channel_firmware_update_bytes = test_firmware_bytes
+    mc_process._latest_firmware_versions = {"main": "2.0.0", "channel": "2.0.0"}
 
     # set simulator firmware update status
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -548,6 +553,7 @@ def test_McCommunicationProcess__raises_error_if_firmware_update_packet_fails(
         mc_process._main_firmware_update_bytes = test_firmware_bytes
     else:
         mc_process._channel_firmware_update_bytes = test_firmware_bytes
+    mc_process._latest_firmware_versions = {"main": "2.0.0", "channel": "2.0.0"}
 
     # start firmware update
     update_firmware_command = {
@@ -597,6 +603,7 @@ def test_McCommunicationProcess__raises_error_if_end_firmware_update_command_fai
         mc_process._main_firmware_update_bytes = test_firmware_bytes
     else:
         mc_process._channel_firmware_update_bytes = test_firmware_bytes
+    mc_process._latest_firmware_versions = {"main": "2.0.0", "channel": "2.0.0"}
 
     # start firmware update
     update_firmware_command = {
@@ -654,6 +661,7 @@ def test_McCommunicationProcess__raises_error_if_firmware_update_timeout_occurs(
         mc_process._main_firmware_update_bytes = test_firmware_bytes
     else:
         mc_process._channel_firmware_update_bytes = test_firmware_bytes
+    mc_process._latest_firmware_versions = {"main": "2.0.0", "channel": "2.0.0"}
 
     # mock so timeout occurs after end of firmware response received
     mocker.patch.object(mc_comm, "_get_firmware_update_dur_secs", autospec=True, return_value=timeout_value)

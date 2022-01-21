@@ -96,8 +96,8 @@ def test_validate_checksum__returns_false_when_checksum_is_incorrect():
 def test_parse_metadata_bytes__returns_expected_value():
     metadata_bytes = (
         bytes([0b10101010])  # boot flags
-        + bytes(MantarrayMcSimulator.default_mantarray_serial_number, encoding="ascii")
         + bytes("マンタレ1", encoding="utf-8")  # nickname
+        + bytes(MantarrayMcSimulator.default_mantarray_serial_number, encoding="ascii")
         + bytes([0, 1, 2])  # main FW version
         + bytes([255, 255, 255])  # channel FW version
     )
