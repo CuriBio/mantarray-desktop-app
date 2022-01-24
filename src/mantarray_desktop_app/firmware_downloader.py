@@ -26,14 +26,13 @@ def call_firmware_route(url: str, error_message: str, **kwargs: Any) -> Response
 
 def get_latest_firmware_versions(
     result_dict: Dict[str, Dict[str, str]],
-    latest_software_version: str,
-    main_firmware_version: str,
+    hardware_version: str,
 ) -> None:
     response = requests.get(
-        f"https://{CLOUD_API_ENDPOINT}/firmware_latest?software_version={latest_software_version}&main_firmware_version={main_firmware_version}"
+        f"https://{CLOUD_API_ENDPOINT}/firmware_latest?hardware_version={hardware_version}"
     )
     response_json = response.json()
-    result_dict["latest_firmware_versions"].update(response_json["latest_firmware_versions"])
+    result_dict["latest_versions"].update(response_json["latest_versions"])
 
 
 def download_firmware_updates(

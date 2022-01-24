@@ -447,12 +447,14 @@ CALIBRATION_RECORDING_DUR_SECONDS = 30
 IS_CALIBRATION_FILE_UUID = uuid.UUID("9a6f90eb-fe34-423b-bfed-fb441d6d9e5f")
 CHANNEL_FIRMWARE_VERSION_UUID = uuid.UUID("d9694cfe-824c-41f8-915e-91e41ce7af32")
 BOOT_FLAGS_UUID = uuid.UUID("762f6715-ffcd-4e8d-b707-638dd5777841")
+HARDWARE_VERSION_UUID = uuid.UUID("ae07fad3-7397-49a6-9901-d510efba120f")
 METADATA_UUID_DESCRIPTIONS = dict(METADATA_UUID_DESCRIPTIONS)
 METADATA_UUID_DESCRIPTIONS.update(
     {
         IS_CALIBRATION_FILE_UUID: "Is this file a calibration (empty plate) recording",
         CHANNEL_FIRMWARE_VERSION_UUID: "Firmware Version (Channel Controller)",
         BOOT_FLAGS_UUID: "Hardware/firmware flags present on device bootup",  # TODO
+        HARDWARE_VERSION_UUID: "Hardware Version",
     }
 )
 METADATA_UUID_DESCRIPTIONS = immutabledict(METADATA_UUID_DESCRIPTIONS)

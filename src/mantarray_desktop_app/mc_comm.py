@@ -32,6 +32,7 @@ from stdlib_utils import put_log_message_into_queue
 from .constants import DEFAULT_MAGNETOMETER_CONFIG
 from .constants import DEFAULT_SAMPLING_PERIOD
 from .constants import GENERIC_24_WELL_DEFINITION
+from .constants import HARDWARE_VERSION_UUID
 from .constants import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS
 from .constants import MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS
@@ -218,7 +219,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         ] = None  # Tanner (4/1/21): This value will be None until this process receives a response to a reboot command. It will be set back to None after receiving a status beacon upon reboot completion
         self._hardware_test_mode = hardware_test_mode
         # firmware updating values
-        self._latest_firmware_versions: Optional[Dict[str, str]] = None
+        self._latest_versions: Optional[Dict[str, str]] = None
         self._fw_update_worker_thread: Optional[ErrorCatchingThread] = None
         self._fw_update_thread_dict: Optional[Dict[str, Any]] = None
         self._is_updating_firmware = False
@@ -566,14 +567,13 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._fw_update_thread_dict = {
                     "communication_type": "firmware_update",
                     "command": "get_latest_firmware_versions",
-                    "latest_firmware_versions": {},
+                    "latest_versions": {},
                 }
                 self._fw_update_worker_thread = ErrorCatchingThread(
                     target=get_latest_firmware_versions,
                     args=(
                         self._fw_update_thread_dict,
-                        comm_from_main["latest_software_version"],
-                        comm_from_main["main_firmware_version"],
+                        comm_from_main["hardware_version"],
                     ),
                 )
                 self._fw_update_worker_thread.start()
@@ -605,10 +605,10 @@ class McCommunicationProcess(InstrumentCommProcess):
                 packet_type = SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
                 self._firmware_update_type = comm_from_main["firmware_type"]
                 bytes_to_send = bytes([self._firmware_update_type == "channel"])
-                if self._latest_firmware_versions is None:
-                    raise NotImplementedError("_latest_firmware_versions should never be None here")
+                if self._latest_versions is None:
+                    raise NotImplementedError("_latest_versions should never be None here")
                 bytes_to_send += convert_semver_str_to_bytes(
-                    self._latest_firmware_versions[self._firmware_update_type]
+                    self._latest_versions[f"{self._firmware_update_type}-fw"]
                 )
                 # store correct firmware bytes
                 if self._firmware_update_type == "channel":
@@ -798,6 +798,8 @@ class McCommunicationProcess(InstrumentCommProcess):
             if prev_command["command"] == "get_metadata":
                 prev_command["board_index"] = board_idx
                 prev_command["metadata"] = parse_metadata_bytes(response_data)
+                # Tanner (1/24/22): hard coding this for now until details are worked out as to how to actually get the HW version
+                prev_command["metadata"][HARDWARE_VERSION_UUID] = "2.2.0"
             elif prev_command["command"] == "reboot":
                 prev_command["message"] = "Instrument beginning reboot"
                 self._time_of_reboot_start = perf_counter()
@@ -1280,9 +1282,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             to_main_queue.put_nowait(error_dict)
         else:
             if self._fw_update_thread_dict["command"] == "get_latest_firmware_versions":
-                self._latest_firmware_versions = copy.deepcopy(
-                    self._fw_update_thread_dict["latest_firmware_versions"]
-                )
+                self._latest_versions = copy.deepcopy(self._fw_update_thread_dict["latest_versions"])
             elif self._fw_update_thread_dict["command"] == "download_firmware_updates":
                 # pop firmware bytes out of dict and store
                 self._main_firmware_update_bytes = self._fw_update_thread_dict.pop("main")

@@ -20,7 +20,6 @@ from flatten_dict import unflatten
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
-from mantarray_file_manager import BOOTUP_COUNTER_UUID
 from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
@@ -29,7 +28,6 @@ from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
 from mantarray_file_manager import NOT_APPLICABLE_H5_METADATA
-from mantarray_file_manager import PCB_SERIAL_NUMBER_UUID
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import REFERENCE_VOLTAGE_UUID
 from mantarray_file_manager import SLEEP_FIRMWARE_VERSION_UUID
@@ -37,9 +35,7 @@ from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
 from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
 from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
 from mantarray_file_manager import STIMULATION_PROTOCOL_UUID
-from mantarray_file_manager import TAMPER_FLAG_UUID
 from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
-from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
 from mantarray_file_manager import USER_ACCOUNT_ID_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
@@ -51,7 +47,9 @@ from semver import VersionInfo
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import is_frozen_as_exe
 
+from .constants import BOOT_FLAGS_UUID
 from .constants import CENTIMILLISECONDS_PER_SECOND
+from .constants import CHANNEL_FIRMWARE_VERSION_UUID
 from .constants import CLOUD_API_ENDPOINT
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CURRENT_SOFTWARE_VERSION
@@ -450,10 +448,8 @@ def _create_start_recording_command(
         )
         comm_dict["metadata_to_copy_onto_main_file_attributes"].update(
             {
-                BOOTUP_COUNTER_UUID: instrument_metadata[BOOTUP_COUNTER_UUID],
-                TOTAL_WORKING_HOURS_UUID: instrument_metadata[TOTAL_WORKING_HOURS_UUID],
-                TAMPER_FLAG_UUID: instrument_metadata[TAMPER_FLAG_UUID],
-                PCB_SERIAL_NUMBER_UUID: instrument_metadata[PCB_SERIAL_NUMBER_UUID],
+                BOOT_FLAGS_UUID: instrument_metadata[BOOT_FLAGS_UUID],
+                CHANNEL_FIRMWARE_VERSION_UUID: instrument_metadata[CHANNEL_FIRMWARE_VERSION_UUID],
                 TISSUE_SAMPLING_PERIOD_UUID: magnetometer_config_dict["sampling_period"],
                 MAGNETOMETER_CONFIGURATION_UUID: magnetometer_config_dict["magnetometer_config"],
                 STIMULATION_PROTOCOL_UUID: stim_info_value,

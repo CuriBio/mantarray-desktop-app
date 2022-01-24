@@ -88,22 +88,23 @@ def test_call_firmware_route__handles_response_error_code_correctly(mocker):
 def test_get_latest_firmware_versions__calls_api_endpoint_correctly_and_returns_values_correctly(mocker):
     expected_latest_main_fw_version = "1.0.0"
     expected_latest_channel_fw_version = "1.0.1"
+    expected_latest_sw_version = "1.0.2"
     expected_response_dict = {
-        "latest_firmware_versions": {
-            "main": expected_latest_main_fw_version,
-            "channel": expected_latest_channel_fw_version,
+        "latest_versions": {
+            "main-fw": expected_latest_main_fw_version,
+            "channel-fw": expected_latest_channel_fw_version,
+            "sw": expected_latest_sw_version,
         }
     }
 
     mocked_get = mocker.patch.object(requests, "get", autospec=True)
     mocked_get.return_value.json.return_value = copy.deepcopy(expected_response_dict)
 
-    test_result_dict = {"latest_firmware_versions": {}}
-    test_latest_software_version = "0.0.1"
-    test_main_firmware_version = "0.0.2"
-    get_latest_firmware_versions(test_result_dict, test_latest_software_version, test_main_firmware_version)
+    test_result_dict = {"latest_versions": {}}
+    test_hw_version = "0.0.1"
+    get_latest_firmware_versions(test_result_dict, test_hw_version)
     mocked_get.assert_called_once_with(
-        f"https://{CLOUD_API_ENDPOINT}/firmware_latest?software_version={test_latest_software_version}&main_firmware_version={test_main_firmware_version}"
+        f"https://{CLOUD_API_ENDPOINT}/firmware_latest?hardware_version={test_hw_version}"
     )
 
     assert test_result_dict == expected_response_dict
@@ -228,8 +229,7 @@ def test_McCommunicationProcess__handles_error_in_firmware_update_worker_thread(
     test_command = {
         "communication_type": "firmware_update",
         "command": "get_latest_firmware_versions",
-        "latest_software_version": "1.0.0",
-        "main_firmware_version": "2.0.0",
+        "hardware_version": "1.0.0",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(test_command), from_main_queue
@@ -257,13 +257,15 @@ def test_McCommunicationProcess__handles_successful_completion_of_get_latest_fir
 
     expected_main_fw_version = "1.1.1"
     expected_channel_fw_version = "2.2.2"
-    expected_latest_firmware_versions = {
-        "main": expected_main_fw_version,
-        "channel": expected_channel_fw_version,
+    expected_sw_version = "3.3.3"
+    expected_latest_versions = {
+        "main-fw": expected_main_fw_version,
+        "channel-fw": expected_channel_fw_version,
+        "sw": expected_sw_version,
     }
 
     def init_se(obj, target, args):
-        args[0].update({"latest_firmware_versions": expected_latest_firmware_versions})
+        args[0].update({"latest_versions": expected_latest_versions})
 
     # mock init so it populates output dict immediately
     mocker.patch.object(mc_comm.ErrorCatchingThread, "__init__", autospec=True, side_effect=init_se)
@@ -276,8 +278,7 @@ def test_McCommunicationProcess__handles_successful_completion_of_get_latest_fir
     test_command = {
         "communication_type": "firmware_update",
         "command": "get_latest_firmware_versions",
-        "latest_software_version": "1.0.0",
-        "main_firmware_version": "2.0.0",
+        "hardware_version": "1.0.0",
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(test_command), from_main_queue
@@ -293,7 +294,7 @@ def test_McCommunicationProcess__handles_successful_completion_of_get_latest_fir
     assert command_response == {
         "communication_type": "firmware_update",
         "command": "get_latest_firmware_versions",
-        "latest_firmware_versions": expected_latest_firmware_versions,
+        "latest_versions": expected_latest_versions,
     }
 
 
@@ -371,7 +372,7 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
         mc_process._main_firmware_update_bytes = test_firmware_bytes
     else:
         mc_process._channel_firmware_update_bytes = test_firmware_bytes
-    mc_process._latest_firmware_versions = {"main": "2.0.0", "channel": "2.0.0"}
+    mc_process._latest_versions = {"main-fw": "2.0.0", "channel-fw": "2.0.0", "sw": "1.0.0"}
 
     # start firmware update
     update_firmware_command = {
@@ -512,7 +513,7 @@ def test_McCommunicationProcess__raises_error_if_begin_firmware_update_command_f
         mc_process._main_firmware_update_bytes = test_firmware_bytes
     else:
         mc_process._channel_firmware_update_bytes = test_firmware_bytes
-    mc_process._latest_firmware_versions = {"main": "2.0.0", "channel": "2.0.0"}
+    mc_process._latest_versions = {"main-fw": "2.0.0", "channel-fw": "2.0.0", "sw": "1.0.0"}
 
     # set simulator firmware update status
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -553,7 +554,7 @@ def test_McCommunicationProcess__raises_error_if_firmware_update_packet_fails(
         mc_process._main_firmware_update_bytes = test_firmware_bytes
     else:
         mc_process._channel_firmware_update_bytes = test_firmware_bytes
-    mc_process._latest_firmware_versions = {"main": "2.0.0", "channel": "2.0.0"}
+    mc_process._latest_versions = {"main-fw": "2.0.0", "channel-fw": "2.0.0", "sw": "1.0.0"}
 
     # start firmware update
     update_firmware_command = {
@@ -603,7 +604,7 @@ def test_McCommunicationProcess__raises_error_if_end_firmware_update_command_fai
         mc_process._main_firmware_update_bytes = test_firmware_bytes
     else:
         mc_process._channel_firmware_update_bytes = test_firmware_bytes
-    mc_process._latest_firmware_versions = {"main": "2.0.0", "channel": "2.0.0"}
+    mc_process._latest_versions = {"main-fw": "2.0.0", "channel-fw": "2.0.0", "sw": "1.0.0"}
 
     # start firmware update
     update_firmware_command = {
@@ -661,7 +662,7 @@ def test_McCommunicationProcess__raises_error_if_firmware_update_timeout_occurs(
         mc_process._main_firmware_update_bytes = test_firmware_bytes
     else:
         mc_process._channel_firmware_update_bytes = test_firmware_bytes
-    mc_process._latest_firmware_versions = {"main": "2.0.0", "channel": "2.0.0"}
+    mc_process._latest_versions = {"main-fw": "2.0.0", "channel-fw": "2.0.0", "sw": "1.0.0"}
 
     # mock so timeout occurs after end of firmware response received
     mocker.patch.object(mc_comm, "_get_firmware_update_dur_secs", autospec=True, return_value=timeout_value)

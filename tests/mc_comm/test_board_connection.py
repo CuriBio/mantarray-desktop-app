@@ -26,6 +26,7 @@ from mantarray_desktop_app import SERIAL_COMM_TIME_SYNC_READY_CODE
 from mantarray_desktop_app import SerialCommPacketRegistrationReadEmptyError
 from mantarray_desktop_app import SerialCommPacketRegistrationSearchExhaustedError
 from mantarray_desktop_app import SerialCommPacketRegistrationTimeoutError
+from mantarray_desktop_app.constants import HARDWARE_VERSION_UUID
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 import pytest
 import serial
@@ -593,7 +594,9 @@ def test_McCommunicationProcess__requests_metadata_from_instrument_after_it_init
     to_main_items = drain_queue(output_queue)
     metadata_comm = to_main_items[-1]
     assert metadata_comm["communication_type"] == "metadata_comm"
-    assert metadata_comm["metadata"] == MantarrayMcSimulator.default_metadata_values
+    expected_metadata = dict(MantarrayMcSimulator.default_metadata_values)
+    expected_metadata[HARDWARE_VERSION_UUID] = "2.2.0"
+    assert metadata_comm["metadata"] == expected_metadata
 
 
 def test_McCommunicationProcess__sets_default_magnetometer_config_after_instrument_initially_reaches_idle_ready_state__and_sends_default_config_process_monitor__if_setup_before_loop_was_performed(

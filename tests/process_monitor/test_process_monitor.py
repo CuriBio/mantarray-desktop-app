@@ -45,6 +45,7 @@ from mantarray_desktop_app import UPDATE_ERROR_STATE
 from mantarray_desktop_app import UPDATES_COMPLETE_STATE
 from mantarray_desktop_app import UPDATES_NEEDED_STATE
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import HARDWARE_VERSION_UUID
 from mantarray_desktop_app.server import queue_command_to_instrument_comm
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 import numpy as np
@@ -822,11 +823,9 @@ def test_MantarrayProcessesMonitor__handles_switch_from_INSTRUMENT_INITIALIZING_
     board_idx = 0
 
     # set other values in shared values dict that would allow for a state transition
-    test_sw_version = "1.1.1"
-    test_main_fw_version = "2.2.2"
-    shared_values_dict["instrument_metadata"] = {
-        board_idx: {MAIN_FIRMWARE_VERSION_UUID: test_main_fw_version}
-    }
+    test_hw_version = "1.1.1"
+    test_sw_version = "2.2.2"
+    shared_values_dict["instrument_metadata"] = {board_idx: {HARDWARE_VERSION_UUID: test_hw_version}}
     shared_values_dict["latest_versions"] = {
         "software": test_sw_version,
         "main_firmware": None,
@@ -848,8 +847,7 @@ def test_MantarrayProcessesMonitor__handles_switch_from_INSTRUMENT_INITIALIZING_
         assert command_to_ic == {
             "communication_type": "firmware_update",
             "command": "get_latest_firmware_versions",
-            "latest_software_version": test_sw_version,
-            "main_firmware_version": test_main_fw_version,
+            "hardware_version": test_hw_version,
         }
 
 
@@ -902,6 +900,7 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
         board_idx: {
             MAIN_FIRMWARE_VERSION_UUID: test_current_version,
             CHANNEL_FIRMWARE_VERSION_UUID: test_current_version,
+            HARDWARE_VERSION_UUID: "2.0.0",
         }
     }
     if customer_settings_found:
@@ -918,9 +917,10 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
     if error:
         test_command_response["error"] = "some error msg"
     else:
-        test_command_response["latest_firmware_versions"] = {
-            "main": test_new_version if main_fw_update else test_current_version,
-            "channel": test_new_version if channel_fw_update else test_current_version,
+        test_command_response["latest_versions"] = {
+            "main-fw": test_new_version if main_fw_update else test_current_version,
+            "channel-fw": test_new_version if channel_fw_update else test_current_version,
+            "sw": "0.0.1",
         }
     # process command response
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command_response, from_ic_queue)
