@@ -168,6 +168,7 @@ class MantarrayMcSimulator(InfiniteProcess):
     default_mantarray_serial_number = "M03456789012"  # TODO use a real serial number format
     default_main_firmware_version = "0.0.0"
     default_channel_firmware_version = "0.0.0"
+    default_hardware_version = "0.0.0"
     default_barcode = "ML2022001000"
     default_metadata_values: Dict[UUID, Any] = immutabledict(
         {
@@ -176,7 +177,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             MANTARRAY_NICKNAME_UUID: default_mantarray_nickname,
             MAIN_FIRMWARE_VERSION_UUID: default_main_firmware_version,
             CHANNEL_FIRMWARE_VERSION_UUID: default_channel_firmware_version,
-            HARDWARE_VERSION_UUID: "0.0.0",
+            HARDWARE_VERSION_UUID: default_hardware_version,
         }
     )
     default_24_well_magnetometer_config: Dict[  # pylint: disable=invalid-name # Tanner (4/29/21): can't think of a shorter name for this value

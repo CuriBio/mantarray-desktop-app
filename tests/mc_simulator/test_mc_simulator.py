@@ -29,6 +29,7 @@ from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import SerialCommInvalidSamplingPeriodError
 from mantarray_desktop_app import UnrecognizedSimulatorTestCommandError
 from mantarray_desktop_app.constants import BOOT_FLAGS_UUID
+from mantarray_desktop_app.constants import HARDWARE_VERSION_UUID
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
@@ -68,6 +69,7 @@ def test_MantarrayMcSimulator__class_attributes():
     assert MantarrayMcSimulator.default_mantarray_serial_number == "M03456789012"
     assert MantarrayMcSimulator.default_main_firmware_version == "0.0.0"
     assert MantarrayMcSimulator.default_channel_firmware_version == "0.0.0"
+    assert MantarrayMcSimulator.default_hardware_version == "0.0.0"
     assert MantarrayMcSimulator.default_barcode == "ML2022001000"
     assert MantarrayMcSimulator.default_metadata_values == {
         BOOT_FLAGS_UUID: 0b00000000,
@@ -75,6 +77,7 @@ def test_MantarrayMcSimulator__class_attributes():
         MANTARRAY_NICKNAME_UUID: MantarrayMcSimulator.default_mantarray_nickname,
         MAIN_FIRMWARE_VERSION_UUID: MantarrayMcSimulator.default_main_firmware_version,
         CHANNEL_FIRMWARE_VERSION_UUID: MantarrayMcSimulator.default_channel_firmware_version,
+        HARDWARE_VERSION_UUID: MantarrayMcSimulator.default_hardware_version,
     }
     assert MantarrayMcSimulator.default_24_well_magnetometer_config == create_magnetometer_config_dict(24)
     assert MantarrayMcSimulator.global_timer_offset_secs == 2.5

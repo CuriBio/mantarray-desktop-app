@@ -451,15 +451,13 @@ def test_McCommunicationProcess__processes_get_latest_firmware_versions_command(
     # mock so thread won't get deleted on same iteration it is created
     mocker.patch.object(mc_comm.ErrorCatchingThread, "is_alive", autospec=True, return_value=True)
 
-    test_latest_software_version = "1.0.0"
-    test_main_firmware_version = "2.0.0"
+    test_hardware_version = "1.0.0"
 
     # send command to mc_process
     test_command = {
         "communication_type": "firmware_update",
         "command": "get_latest_firmware_versions",
-        "latest_software_version": test_latest_software_version,
-        "main_firmware_version": test_main_firmware_version,
+        "hardware_version": test_hardware_version,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(copy.deepcopy(test_command), input_queue)
 
@@ -469,15 +467,14 @@ def test_McCommunicationProcess__processes_get_latest_firmware_versions_command(
     assert mc_process._fw_update_thread_dict == {
         "communication_type": "firmware_update",
         "command": "get_latest_firmware_versions",
-        "latest_firmware_versions": {},
+        "latest_versions": {},
     }
     spied_thread_init.assert_called_once_with(
         mocker.ANY,  # this is the actual thread instance
         target=get_latest_firmware_versions,
         args=(
             mc_process._fw_update_thread_dict,
-            test_latest_software_version,
-            test_main_firmware_version,
+            test_hardware_version,
         ),
     )
     mocked_thread_start.assert_called_once()
