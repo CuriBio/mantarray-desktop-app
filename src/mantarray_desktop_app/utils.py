@@ -207,6 +207,11 @@ def get_current_software_version() -> str:
         return version
 
 
+def get_hw_version_from_serial_number(serial_number: str) -> str:
+    # Tanner (1/24/22): hard coding this for now until details are worked out as to how to actually get the HW version
+    return "2.2.0"
+
+
 # Tanner (12/30/20): Need to support this function until barcodes are no longer accepted in /start_recording route. Creating a wrapper function `check_barcode_is_valid` to make the transition easier once this function is removed
 def check_barcode_for_errors(barcode: str) -> str:
     """Return error message if barcode contains an error."""

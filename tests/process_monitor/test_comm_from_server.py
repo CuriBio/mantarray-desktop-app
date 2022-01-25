@@ -877,11 +877,7 @@ def test_MantarrayProcessesMonitor__processes_set_latest_software_version_comman
 
     mocker.patch.object(process_monitor, "CURRENT_SOFTWARE_VERSION", current_version)
 
-    shared_values_dict["latest_versions"] = {
-        "software": None,
-        "main_firmware": None,
-        "channel_firmware": None,
-    }
+    shared_values_dict["latest_software_version"] = None
 
     test_command = {
         "communication_type": "set_latest_software_version",
@@ -891,11 +887,7 @@ def test_MantarrayProcessesMonitor__processes_set_latest_software_version_comman
 
     # make sure value is stored
     invoke_process_run_and_check_errors(monitor_thread)
-    assert shared_values_dict["latest_versions"] == {
-        "software": new_version,
-        "main_firmware": None,
-        "channel_firmware": None,
-    }
+    assert shared_values_dict["latest_software_version"] == new_version
     # make sure correct message sent to FE
     confirm_queue_is_eventually_of_size(queue_to_server_ws, 1)
     ws_message = queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)

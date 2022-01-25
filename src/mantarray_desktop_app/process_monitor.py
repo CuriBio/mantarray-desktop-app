@@ -237,9 +237,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
             update_shared_dict(shared_values_dict, new_values)
         elif communication_type == "set_latest_software_version":
-            shared_values_dict["latest_versions"]["software"] = communication[
-                "version"
-            ]  # TODO rename this to shared_values_dict["latest_software_version"]
+            shared_values_dict["latest_software_version"] = communication["version"]
             # send message to FE if an update is available
             try:
                 software_update_available = _compare_semver(
@@ -712,7 +710,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 pass  # need to wait for these values before proceeding with state transition
             elif self._values_to_share_to_server["in_simulation_mode"]:
                 self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
-            elif self._values_to_share_to_server["latest_versions"]["software"] is not None:
+            elif self._values_to_share_to_server["latest_software_version"] is not None:
                 self._values_to_share_to_server["system_status"] = CHECKING_FOR_UPDATES_STATE
                 # send command to instrument comm process to check for firmware updates
                 hw_version = self._values_to_share_to_server["instrument_metadata"][board_idx][

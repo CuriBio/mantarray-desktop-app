@@ -23,6 +23,7 @@ from typing import Union
 from zlib import crc32
 
 from mantarray_file_manager import DATETIME_STR_FORMAT
+from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
 from nptyping import NDArray
 import numpy as np
 import serial
@@ -136,6 +137,7 @@ from .serial_comm_utils import parse_metadata_bytes
 from .serial_comm_utils import validate_checksum
 from .utils import check_barcode_is_valid
 from .utils import create_active_channel_per_sensor_list
+from .utils import get_hw_version_from_serial_number
 from .utils import set_this_process_high_priority
 from .utils import sort_nested_dict
 from .worker_thread import ErrorCatchingThread
@@ -810,8 +812,9 @@ class McCommunicationProcess(InstrumentCommProcess):
             if prev_command["command"] == "get_metadata":
                 prev_command["board_index"] = board_idx
                 prev_command["metadata"] = parse_metadata_bytes(response_data)
-                # Tanner (1/24/22): hard coding this for now until details are worked out as to how to actually get the HW version
-                prev_command["metadata"][HARDWARE_VERSION_UUID] = "2.2.0"
+                prev_command["metadata"][HARDWARE_VERSION_UUID] = get_hw_version_from_serial_number(
+                    prev_command["metadata"][MANTARRAY_SERIAL_NUMBER_UUID]
+                )
             elif prev_command["command"] == "reboot":
                 prev_command["message"] = "Instrument beginning reboot"
                 self._time_of_reboot_start = perf_counter()

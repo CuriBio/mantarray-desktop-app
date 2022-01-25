@@ -794,7 +794,7 @@ def test_MantarrayProcessesMonitor__does_not_switch_from_INSTRUMENT_INITIALIZING
     assert "instrument_metadata" not in shared_values_dict
 
     # set other value in shared values dict that would allow for a state transition
-    shared_values_dict["latest_versions"] = {"software": "0.0.0"}
+    shared_values_dict["latest_software_version"] = "0.0.0"
 
     # run monitor_thread with only in_simulation_mode set and make sure no state transition occurs
     shared_values_dict["in_simulation_mode"] = True
@@ -826,11 +826,7 @@ def test_MantarrayProcessesMonitor__handles_switch_from_INSTRUMENT_INITIALIZING_
     test_hw_version = "1.1.1"
     test_sw_version = "2.2.2"
     shared_values_dict["instrument_metadata"] = {board_idx: {HARDWARE_VERSION_UUID: test_hw_version}}
-    shared_values_dict["latest_versions"] = {
-        "software": test_sw_version,
-        "main_firmware": None,
-        "channel_firmware": None,
-    }
+    shared_values_dict["latest_software_version"] = test_sw_version
 
     # run monitor_thread and make sure no state transition occurs
     invoke_process_run_and_check_errors(monitor_thread)
