@@ -30,7 +30,6 @@ from mantarray_file_manager import ADC_TISSUE_OFFSET_UUID
 from mantarray_file_manager import IS_FILE_ORIGINAL_UNTRIMMED_UUID
 from mantarray_file_manager import MAGNETOMETER_CONFIGURATION_UUID
 from mantarray_file_manager import MantarrayH5FileCreator
-from mantarray_file_manager import METADATA_UUID_DESCRIPTIONS
 from mantarray_file_manager import NOT_APPLICABLE_H5_METADATA
 from mantarray_file_manager import ORIGINAL_FILE_VERSION_UUID
 from mantarray_file_manager import PLATE_BARCODE_UUID
@@ -69,6 +68,7 @@ from .constants import FILE_WRITER_BUFFER_SIZE_MICROSECONDS
 from .constants import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import IS_CALIBRATION_FILE_UUID
+from .constants import METADATA_UUID_DESCRIPTIONS
 from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD

@@ -15,11 +15,12 @@ from mantarray_desktop_app import server
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import utils
+from mantarray_desktop_app.constants import BOOT_FLAGS_UUID
+from mantarray_desktop_app.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
-from mantarray_file_manager import BOOTUP_COUNTER_UUID
 from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
@@ -27,7 +28,6 @@ from mantarray_file_manager import MAGNETOMETER_CONFIGURATION_UUID
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
-from mantarray_file_manager import PCB_SERIAL_NUMBER_UUID
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import REFERENCE_VOLTAGE_UUID
 from mantarray_file_manager import SLEEP_FIRMWARE_VERSION_UUID
@@ -35,9 +35,7 @@ from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
 from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
 from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
 from mantarray_file_manager import STIMULATION_PROTOCOL_UUID
-from mantarray_file_manager import TAMPER_FLAG_UUID
 from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
-from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
 from mantarray_file_manager import USER_ACCOUNT_ID_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
@@ -1089,20 +1087,12 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     # metadata values from instrument
     instrument_metadata = shared_values_dict["instrument_metadata"][0]
     assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][BOOTUP_COUNTER_UUID]
-        == instrument_metadata[BOOTUP_COUNTER_UUID]
+        communication["metadata_to_copy_onto_main_file_attributes"][BOOT_FLAGS_UUID]
+        == instrument_metadata[BOOT_FLAGS_UUID]
     )
     assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][TOTAL_WORKING_HOURS_UUID]
-        == instrument_metadata[TOTAL_WORKING_HOURS_UUID]
-    )
-    assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][TAMPER_FLAG_UUID]
-        == instrument_metadata[TAMPER_FLAG_UUID]
-    )
-    assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][PCB_SERIAL_NUMBER_UUID]
-        == instrument_metadata[PCB_SERIAL_NUMBER_UUID]
+        communication["metadata_to_copy_onto_main_file_attributes"][CHANNEL_FIRMWARE_VERSION_UUID]
+        == instrument_metadata[CHANNEL_FIRMWARE_VERSION_UUID]
     )
     # make sure current beta 1 only values are not present
     assert SLEEP_FIRMWARE_VERSION_UUID not in communication["metadata_to_copy_onto_main_file_attributes"]
@@ -1344,4 +1334,30 @@ def test_latest_software_version__returns_ok_when_version_string_is_a_valid_sema
     assert communication == {
         "communication_type": "set_latest_software_version",
         "version": test_version,
+    }
+
+
+@pytest.mark.parametrize("user_response", ["true", "True", "false", "False"])
+def test_firmware_update_confirmation__sends_correct_command_to_main(
+    user_response,
+    client_and_server_manager_and_shared_values,
+):
+    (
+        test_client,
+        (server_manager, _),
+        shared_values_dict,
+    ) = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+
+    update_accepted = user_response in ("true", "True")
+
+    response = test_client.post(f"/firmware_update_confirmation?update_accepted={update_accepted}")
+    assert response.status_code == 200
+
+    comm_queue = server_manager.get_queue_to_main()
+    confirm_queue_is_eventually_of_size(comm_queue, 1)
+    communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication == {
+        "communication_type": "firmware_update_confirmation",
+        "update_accepted": update_accepted,
     }

@@ -899,7 +899,7 @@ def test_MantarrayProcessesMonitor__processes_set_latest_software_version_comman
 
 
 @pytest.mark.parametrize("update_accepted", [True, False])
-def test_MantarrayProcessesMonitor__processes_firmware_update_comfirmation_command(
+def test_MantarrayProcessesMonitor__processes_firmware_update_confirmation_command(
     update_accepted, test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
@@ -911,7 +911,7 @@ def test_MantarrayProcessesMonitor__processes_firmware_update_comfirmation_comma
     )
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"communication_type": "firmware_update_comfirmation", "update_accepted": update_accepted},
+        {"communication_type": "firmware_update_confirmation", "update_accepted": update_accepted},
         server_to_main_queue,
     )
     invoke_process_run_and_check_errors(monitor_thread)

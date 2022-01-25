@@ -251,8 +251,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     "data_json": json.dumps({"software_update_available": software_update_available}),
                 }
             )
-        elif communication_type == "firmware_update_comfirmation":
-            # TODO unit test
+        elif communication_type == "firmware_update_confirmation":
             shared_values_dict["firmware_update_accepted"] = communication["update_accepted"]
         elif communication_type == "set_magnetometer_config":
             self._update_magnetometer_config_dict(communication["magnetometer_config_dict"])
