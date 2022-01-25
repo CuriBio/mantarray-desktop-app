@@ -848,25 +848,19 @@ def test_MantarrayProcessesMonitor__handles_switch_from_INSTRUMENT_INITIALIZING_
 
 
 @pytest.mark.parametrize(
-    "error,customer_settings_found,main_fw_update,channel_fw_update,expected_state",
+    "error,main_fw_update,channel_fw_update,expected_state",
     [
-        (True, False, False, False, CALIBRATION_NEEDED_STATE),
-        (True, True, False, False, CALIBRATION_NEEDED_STATE),
-        (False, False, False, False, CALIBRATION_NEEDED_STATE),
-        (False, True, False, False, CALIBRATION_NEEDED_STATE),
-        (False, False, True, False, UPDATES_NEEDED_STATE),
-        (False, False, False, True, UPDATES_NEEDED_STATE),
-        (False, False, True, True, UPDATES_NEEDED_STATE),
-        (False, True, True, False, DOWNLOADING_UPDATES_STATE),
-        (False, True, False, True, DOWNLOADING_UPDATES_STATE),
-        (False, True, True, True, DOWNLOADING_UPDATES_STATE),
+        (True, False, False, CALIBRATION_NEEDED_STATE),
+        (False, False, False, CALIBRATION_NEEDED_STATE),
+        (False, True, False, UPDATES_NEEDED_STATE),
+        (False, False, True, UPDATES_NEEDED_STATE),
+        (False, True, True, UPDATES_NEEDED_STATE),
     ],
 )
 def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STATE_in_beta_2_mode_correctly(
     test_monitor,
     test_process_manager_creator,
     error,
-    customer_settings_found,
     main_fw_update,
     channel_fw_update,
     expected_state,
@@ -889,9 +883,6 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
     new_main_fw_version = test_new_version if main_fw_update else None
     new_channel_fw_version = test_new_version if channel_fw_update else None
 
-    test_customer_account_id = "id"
-    test_customer_pass_key = "pw"
-
     shared_values_dict["instrument_metadata"] = {
         board_idx: {
             MAIN_FIRMWARE_VERSION_UUID: test_current_version,
@@ -899,11 +890,6 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
             HARDWARE_VERSION_UUID: "2.0.0",
         }
     }
-    if customer_settings_found:
-        shared_values_dict["customer_creds"] = {
-            "customer_account_id": test_customer_account_id,
-            "customer_pass_key": test_customer_pass_key,
-        }
 
     # set up command response
     test_command_response = {
@@ -925,7 +911,7 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
     # check that the system state is correct
     assert shared_values_dict["system_status"] == expected_state
     # check that firmware updating status is stored in shared values dict
-    if shared_values_dict["system_status"] in (UPDATES_NEEDED_STATE, DOWNLOADING_UPDATES_STATE):
+    if shared_values_dict["system_status"] == UPDATES_NEEDED_STATE:
         assert shared_values_dict["firmware_updates_needed"] == {
             "main": new_main_fw_version,
             "channel": new_channel_fw_version,
@@ -951,27 +937,15 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
         confirm_queue_is_eventually_of_size(queue_to_server_ws, 1)
         ws_message = queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
         assert ws_message == {
-            "data_type": "prompt_user_input",
-            "data_json": json.dumps({"input_type": "customer_creds"}),
+            "data_type": "fw_update",
+            "data_json": json.dumps({"firmware_update_available": True}),
         }
-    else:
-        # make sure command sent to mc_comm
-        confirm_queue_is_eventually_of_size(to_ic_queue, 1)
-        start_firmware_download_command = to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-        assert start_firmware_download_command == {
-            "communication_type": "firmware_update",
-            "command": "download_firmware_updates",
-            "main": new_main_fw_version,
-            "channel": new_channel_fw_version,
-            "username": test_customer_account_id,
-            "password": test_customer_pass_key,
-        }
-        # make sure no ws message is sent
-        confirm_queue_is_eventually_empty(queue_to_server_ws)
 
 
+@pytest.mark.parametrize("customer_creds_already_stored", [True, False])
+@pytest.mark.parametrize("update_accepted", [True, False])
 def test_MantarrayProcessesMonitor__handles_switch_from_UPDATES_NEEDED_STATE_in_beta_2_mode_correctly(
-    test_monitor, test_process_manager_creator
+    update_accepted, customer_creds_already_stored, test_monitor, test_process_manager_creator
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
@@ -987,18 +961,41 @@ def test_MantarrayProcessesMonitor__handles_switch_from_UPDATES_NEEDED_STATE_in_
         "main": new_main_fw_version,
         "channel": new_channel_fw_version,
     }
+    if customer_creds_already_stored:
+        shared_values_dict["customer_creds"] = {"customer_account_id": "id", "customer_pass_key": "pw"}
 
     board_idx = 0
     to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(board_idx)
 
-    # confirm precondition
-    assert "customer_creds" not in shared_values_dict
     # run one iteration before customer creds stored
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["system_status"] == UPDATES_NEEDED_STATE
     confirm_queue_is_eventually_empty(to_ic_queue)
+    # store update accepted value but not customer creds
+    shared_values_dict["update_accepted"] = update_accepted
+    if not update_accepted:
+        invoke_process_run_and_check_errors(monitor_thread)
+        assert shared_values_dict["system_status"] == CALIBRATION_NEEDED_STATE
+        # if update was declined, the rest of this test can be skipped
+        return
+
+    assert shared_values_dict["system_status"] == UPDATES_NEEDED_STATE
     # store customer creds and run one more iteration
-    shared_values_dict["customer_creds"] = {"customer_account_id": "id", "customer_pass_key": "pw"}
+    if not customer_creds_already_stored:
+        # confirm precondition
+        assert "customer_creds" not in shared_values_dict
+        # make sure user input prompt message is sent only once
+        invoke_process_run_and_check_errors(monitor_thread, num_iterations=2)
+        queue_to_server_ws = test_process_manager.queue_container().get_data_queue_to_server()
+        confirm_queue_is_eventually_of_size(queue_to_server_ws, 1)
+        assert queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == {
+            "data_type": "prompt_user_input",
+            "data_json": json.dumps({"input_type": "customer_creds"}),
+        }
+        # run another iteration to make sure system_status is not updated
+        invoke_process_run_and_check_errors(monitor_thread)
+        assert shared_values_dict["system_status"] == UPDATES_NEEDED_STATE
+        shared_values_dict["customer_creds"] = {"customer_account_id": "id", "customer_pass_key": "pw"}
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["system_status"] == DOWNLOADING_UPDATES_STATE
     confirm_queue_is_eventually_of_size(to_ic_queue, 1)

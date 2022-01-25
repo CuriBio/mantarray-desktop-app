@@ -23,6 +23,7 @@ from mantarray_desktop_app import UnrecognizedCommandFromServerToMainError
 from mantarray_desktop_app import UnrecognizedMantarrayNamingCommandError
 from mantarray_desktop_app import UnrecognizedRecordingCommandError
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import UPDATES_NEEDED_STATE
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import NOT_APPLICABLE_H5_METADATA
@@ -895,3 +896,25 @@ def test_MantarrayProcessesMonitor__processes_set_latest_software_version_comman
         "data_type": "sw_update",
         "data_json": json.dumps({"software_update_available": update_available}),
     }
+
+
+@pytest.mark.parametrize("update_accepted", [True, False])
+def test_MantarrayProcessesMonitor__processes_firmware_update_comfirmation_command(
+    update_accepted, test_process_manager_creator, test_monitor
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+    shared_values_dict["system_status"] = UPDATES_NEEDED_STATE
+
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"communication_type": "firmware_update_comfirmation", "update_accepted": update_accepted},
+        server_to_main_queue,
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert shared_values_dict["firmware_update_accepted"] is update_accepted
+    # make sure system status was not updated
+    assert shared_values_dict["system_status"] == UPDATES_NEEDED_STATE

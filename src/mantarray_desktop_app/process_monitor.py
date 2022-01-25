@@ -251,6 +251,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     "data_json": json.dumps({"software_update_available": software_update_available}),
                 }
             )
+        elif communication_type == "firmware_update_comfirmation":
+            # TODO unit test
+            shared_values_dict["firmware_update_accepted"] = communication["update_accepted"]
         elif communication_type == "set_magnetometer_config":
             self._update_magnetometer_config_dict(communication["magnetometer_config_dict"])
         elif communication_type == "stimulation":
@@ -607,11 +610,13 @@ class MantarrayProcessesMonitor(InfiniteThread):
                             "main": latest_main_fw if main_fw_update_needed else None,
                             "channel": latest_channel_fw if channel_fw_update_needed else None,
                         }
-                        if "customer_creds" in self._values_to_share_to_server:
-                            self._start_firmware_update()
-                        else:
-                            self._send_user_creds_prompt_message()
-                            self._values_to_share_to_server["system_status"] = UPDATES_NEEDED_STATE
+                        self._values_to_share_to_server["system_status"] = UPDATES_NEEDED_STATE
+                        self._queue_websocket_message(
+                            {
+                                "data_type": "fw_update",
+                                "data_json": json.dumps({"firmware_update_available": True}),
+                            }
+                        )
                     else:
                         self._send_enable_sw_auto_install_message()
                         self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
@@ -729,8 +734,18 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     }
                 )
         elif self._values_to_share_to_server["system_status"] == UPDATES_NEEDED_STATE:
-            if "customer_creds" in self._values_to_share_to_server:
-                self._start_firmware_update()
+            if "update_accepted" not in self._values_to_share_to_server:
+                pass  # need to wait for this value
+            elif self._values_to_share_to_server["update_accepted"]:
+                if "customer_creds" in self._values_to_share_to_server:
+                    if "customer_account_id" in self._values_to_share_to_server["customer_creds"]:
+                        self._start_firmware_update()
+                else:
+                    # Tanner (1/25/22): setting this value to empty dict to indicate that user input prompt has been sent
+                    self._values_to_share_to_server["customer_creds"] = {}
+                    self._send_user_creds_prompt_message()
+            else:
+                self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
 
         # check/handle comm from the server and each subprocess
         self._check_and_handle_instrument_comm_to_main_queue()
