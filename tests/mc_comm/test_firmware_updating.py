@@ -18,6 +18,7 @@ from mantarray_desktop_app import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app.firmware_downloader import call_firmware_route
@@ -25,7 +26,6 @@ from mantarray_desktop_app.mc_comm import download_firmware_updates
 from mantarray_desktop_app.mc_comm import get_latest_firmware_versions
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 import pytest
-from pytest import approx
 import requests
 from requests.exceptions import ConnectionError
 from stdlib_utils import invoke_process_run_and_check_errors
@@ -35,6 +35,7 @@ from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process_no_handshake
 from ..fixtures_mc_comm import set_connection_and_register_simulator
+from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import set_simulator_idle_ready
 from ..helpers import confirm_queue_is_eventually_empty
@@ -46,6 +47,7 @@ __fixtures__ = [
     fixture_patch_print,
     fixture_four_board_mc_comm_process,
     fixture_four_board_mc_comm_process_no_handshake,
+    fixture_mantarray_mc_simulator,
     fixture_mantarray_mc_simulator_no_beacon,
 ]
 
@@ -350,21 +352,26 @@ def test_McCommunicationProcess__handles_successful_completion_of_download_firmw
 
 @pytest.mark.parametrize("firmware_type", ["channel", "main"])
 def test_McCommunicationProcess__handles_successful_firmware_update(
-    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, firmware_type, mocker
+    four_board_mc_comm_process, mantarray_mc_simulator, firmware_type, mocker
 ):
     mc_process = four_board_mc_comm_process["mc_process"]
     from_main_queue, to_main_queue = four_board_mc_comm_process["board_queues"][0][:2]
-    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    simulator = mantarray_mc_simulator["simulator"]
 
     spied_send_handshake = mocker.spy(mc_process, "_send_handshake")
     # mock so no handshakes are sent
     mocked_get_secs_since_handshake = mocker.patch.object(
         mc_comm, "_get_secs_since_last_handshake", autospec=True, return_value=0
     )
-    mc_process._time_of_last_handshake_secs = 0  # pylint: disable=protected-access
+    # set this value to anything other than None so mc_process thinks the first handshake has already been sent
+    mc_process._time_of_last_handshake_secs = 0
+    # mock so no beacons are sent
+    mocked_get_secs_since_beacon = mocker.patch.object(
+        mc_simulator, "_get_secs_since_last_status_beacon", autospec=True, return_value=0
+    )
 
-    set_connection_and_register_simulator(four_board_mc_comm_process, mantarray_mc_simulator_no_beacon)
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
+    set_connection_and_register_simulator(four_board_mc_comm_process, mantarray_mc_simulator)
+    set_simulator_idle_ready(mantarray_mc_simulator)
 
     test_firmware_len = randint(1000, SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES * 3)
     test_firmware_bytes = bytes([randint(0, 255) for _ in range(test_firmware_len)])
@@ -463,13 +470,12 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
     mocker.patch.object(
         mc_simulator,
         "_get_secs_since_reboot_command",
-        return_value=AVERAGE_MC_REBOOT_DURATION_SECONDS,
         autospec=True,
+        return_value=AVERAGE_MC_REBOOT_DURATION_SECONDS,
     )
     invoke_process_run_and_check_errors(simulator)
 
     mocked_get_secs_since_beacon.return_value = 0
-    spied_perf_counter = mocker.spy(mc_comm, "perf_counter")
 
     # process firmware update complete packet
     invoke_process_run_and_check_errors(mc_process)
@@ -481,12 +487,20 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
         "firmware_type": firmware_type,
     }
 
-    # TODO add testing for the next reboot
+    # make sure handshake still hasn't been sent
+    invoke_process_run_and_check_errors(mc_process)
+    spied_send_handshake.assert_not_called()
 
-    # make sure status beacon tracking timepoint was updated  # Tanner (11/16/21): using large abs here in case perf_counter is called again in this same iteration
-    assert mc_process._time_of_last_beacon_secs == approx(  # pylint: disable=protected-access
-        spied_perf_counter.spy_return, abs=1
-    )
+    # save current status beacon timepoint for assertion later
+    prev_time_of_last_beacon = mc_process._time_of_last_beacon_secs
+
+    # complete reboot and and acknowledge reboot completion
+    mocked_get_secs_since_beacon.return_value = SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+    invoke_process_run_and_check_errors(simulator)
+    invoke_process_run_and_check_errors(mc_process)
+
+    # make sure status beacon tracking timepoint was updated
+    assert mc_process._time_of_last_beacon_secs > prev_time_of_last_beacon
     # make sure handshakes are now sent
     invoke_process_run_and_check_errors(mc_process)
     spied_send_handshake.assert_called_once()

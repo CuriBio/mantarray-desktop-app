@@ -125,7 +125,7 @@ from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
-from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
@@ -169,6 +169,8 @@ from mantarray_desktop_app import VALID_CONFIG_SETTINGS
 from mantarray_desktop_app import VALID_SCRIPTING_COMMANDS
 from mantarray_desktop_app import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
 import mantarray_file_manager.constants
+from mantarray_file_manager.constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
+from mantarray_file_manager.constants import SERIAL_COMM_SERIAL_NUMBER_BYTES_LENGTH
 import numpy as np
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 
@@ -517,12 +519,14 @@ def test_serial_comm():
     assert SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE == 3
     assert SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE == 7
     assert SERIAL_COMM_SET_TIME_COMMAND_BYTE == 8
-    assert SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE == 9
+    assert SERIAL_COMM_SET_NICKNAME_PACKET_TYPE == 9
 
     assert SERIAL_COMM_COMMAND_SUCCESS_BYTE == 0
     assert SERIAL_COMM_COMMAND_FAILURE_BYTE == 1
 
     assert SERIAL_COMM_METADATA_BYTES_LENGTH == 32
+    assert SERIAL_COMM_NICKNAME_BYTES_LENGTH == 13
+    assert SERIAL_COMM_SERIAL_NUMBER_BYTES_LENGTH == 12
 
     assert SERIAL_COMM_IDLE_READY_CODE == 0
     assert SERIAL_COMM_TIME_SYNC_READY_CODE == 1

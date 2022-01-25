@@ -39,6 +39,7 @@ from mantarray_desktop_app import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
+from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE
@@ -54,6 +55,7 @@ from mantarray_desktop_app import UnrecognizedSerialCommPacketTypeError
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app.mc_simulator import MC_SIMULATOR_BOOT_UP_DURATION_SECONDS
 from mantarray_desktop_app.serial_comm_utils import convert_metadata_to_bytes
+from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
@@ -308,7 +310,7 @@ def test_MantarrayMcSimulator__discards_commands_from_pc_during_reboot_period__a
         status_beacon,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
-        DEFAULT_SIMULATOR_STATUS_CODE,
+        SERIAL_COMM_IDLE_READY_CODE.to_bytes(SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little"),
     )
 
     # test that start time was reset
@@ -360,32 +362,47 @@ def test_MantarrayMcSimulator__does_not_send_status_beacon_while_rebooting(manta
 def test_MantarrayMcSimulator__allows_mantarray_nickname_to_be_set_by_command_received_from_pc__and_sends_correct_response(
     mantarray_mc_simulator_no_beacon, mocker
 ):
-    # simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
-    # expected_nickname = "Newer Nickname"
-    # expected_timestamp = SERIAL_COMM_MAX_TIMESTAMP_VALUE
-    assert not "TODO"
-    # set_nickname_command = create_data_packet(
-    #     expected_timestamp,
-    #     SERIAL_COMM_MAIN_MODULE_ID,
-    #     SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-    #     bytes([SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE]) + TODO(expected_nickname),
-    # )
-    # simulator.write(set_nickname_command)
-    # invoke_process_run_and_check_errors(simulator)
+    # mock so that simulator will complete reboot on the next iteration
+    mocker.patch.object(
+        mc_simulator,
+        "_get_secs_since_reboot_command",
+        autospec=True,
+        return_value=AVERAGE_MC_REBOOT_DURATION_SECONDS,
+    )
 
-    # # Check that nickname is updated
-    # actual_metadata = simulator.get_metadata_dict()
-    # assert actual_metadata[MANTARRAY_NICKNAME_UUID.bytes] == TODO(expected_nickname)
-    # # Check that correct response is sent
-    # expected_response_size = get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES)
-    # actual = simulator.read(size=expected_response_size)
-    # assert_serial_packet_is_expected(
-    #     actual,
-    #     SERIAL_COMM_MAIN_MODULE_ID,
-    #     SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-    #     expected_timestamp.to_bytes(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES, byteorder="little"),
-    # )
+    expected_nickname = "NewerNickname"
+    expected_timestamp = SERIAL_COMM_MAX_TIMESTAMP_VALUE
+    set_nickname_command = create_data_packet(
+        expected_timestamp,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_SET_NICKNAME_PACKET_TYPE,
+        bytes(expected_nickname, "utf-8"),
+    )
+    simulator.write(set_nickname_command)
+    invoke_process_run_and_check_errors(simulator)
+
+    # check that simulator is rebooting
+    assert simulator.is_rebooting() is True
+    # run one iteration to complete reboot, send packet, then start next reboot
+    invoke_process_run_and_check_errors(simulator)
+    # check that nickname is updated
+    assert simulator.get_metadata_dict()[MANTARRAY_NICKNAME_UUID] == expected_nickname
+    # check that correct response is sent
+    expected_response_size = get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES)
+    actual = simulator.read(size=expected_response_size)
+    assert_serial_packet_is_expected(
+        actual,
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+        expected_timestamp.to_bytes(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES, byteorder="little"),
+    )
+    # make sure simulator is rebooting again again
+    assert simulator.is_rebooting() is True
+    # run one more iteration to complete reboot
+    invoke_process_run_and_check_errors(simulator)
+    assert simulator.is_rebooting() is False
 
 
 def test_MantarrayMcSimulator__processes_get_metadata_command(mantarray_mc_simulator_no_beacon, mocker):
@@ -1159,7 +1176,7 @@ def test_MantarrayMcSimulator__processes_end_firmware_update_command(
         (1, SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE),
     ],
 )
-def test_MantarrayMcSimulator__sends_firmware_update_complete_message_after_reboot(
+def test_MantarrayMcSimulator__sends_firmware_update_complete_message_after_reboot_then_reboots_again(
     mantarray_mc_simulator_no_beacon, firmware_type, packet_type, mocker
 ):
     set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
@@ -1211,9 +1228,8 @@ def test_MantarrayMcSimulator__sends_firmware_update_complete_message_after_rebo
         autospec=True,
         return_value=AVERAGE_MC_REBOOT_DURATION_SECONDS,
     )
-    # complete reboot and send firmware update complete packet
+    # complete first reboot and send firmware update complete packet
     invoke_process_run_and_check_errors(simulator)
-    assert simulator.is_rebooting() is False
     command_response = simulator.read(size=get_full_packet_size_from_packet_body_size(3))
     assert_serial_packet_is_expected(
         command_response,
@@ -1221,5 +1237,10 @@ def test_MantarrayMcSimulator__sends_firmware_update_complete_message_after_rebo
         packet_type,
         additional_bytes=bytes([0, 0, 0]),  # simulator will always return firmware version 0.0.0
     )
+    # make sure second reboot started immediately
+    assert simulator.is_rebooting() is True
+    # complete second reboot
+    invoke_process_run_and_check_errors(simulator)
+    assert simulator.is_rebooting() is False
     # make sure status code is idle ready
     assert simulator.get_status_code() == SERIAL_COMM_IDLE_READY_CODE

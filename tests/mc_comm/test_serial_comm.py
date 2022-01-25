@@ -351,7 +351,7 @@ def test_McCommunicationProcess__raises_error_if_mantarray_returns_data_packet_t
 #         expected_timestamp,
 #         SERIAL_COMM_MAIN_MODULE_ID,
 #         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-#         bytes([SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE]) + TODO(test_nickname),
+#         bytes([SERIAL_COMM_SET_NICKNAME_PACKET_TYPE]) + TODO(test_nickname),
 #     )
 #     spied_write.assert_called_with(expected_data_packet)
 

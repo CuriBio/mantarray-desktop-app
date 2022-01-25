@@ -40,7 +40,6 @@ from stdlib_utils import invoke_process_run_and_check_errors
 
 from ..fixtures import fixture_patch_print
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
-from ..fixtures_mc_simulator import DEFAULT_SIMULATOR_STATUS_CODE
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import fixture_runnable_mantarray_mc_simulator
@@ -66,7 +65,7 @@ __fixtures__ = [
 
 def test_MantarrayMcSimulator__class_attributes():
     assert MantarrayMcSimulator.default_mantarray_nickname == "Mantarray Sim"
-    assert MantarrayMcSimulator.default_mantarray_serial_number == "M03456789012"
+    assert MantarrayMcSimulator.default_mantarray_serial_number == "MA2022001000"
     assert MantarrayMcSimulator.default_main_firmware_version == "0.0.0"
     assert MantarrayMcSimulator.default_channel_firmware_version == "0.0.0"
     assert MantarrayMcSimulator.default_hardware_version == "0.0.0"
@@ -493,57 +492,6 @@ def test_MantarrayMcSimulator__processes_testing_commands_during_reboot(
     invoke_process_run_and_check_errors(simulator)
     actual = simulator.read(size=len(expected_item))
     assert actual == expected_item
-
-
-def test_MantarrayMcSimulator__resets_status_code_after_rebooting(mantarray_mc_simulator_no_beacon, mocker):
-    simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
-
-    reboot_dur = AVERAGE_MC_REBOOT_DURATION_SECONDS
-    mocker.patch.object(
-        mc_simulator,
-        "_get_secs_since_reboot_command",
-        autospec=True,
-        return_value=reboot_dur,
-    )
-    spied_get_absolute_timer = mocker.spy(simulator, "_get_absolute_timer")
-
-    # set status code to known value
-    test_status_code = 1738
-    test_command = {
-        "command": "set_status_code",
-        "status_code": test_status_code,
-    }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, testing_queue)
-    invoke_process_run_and_check_errors(simulator)
-    # send reboot command
-    test_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
-    simulator.write(
-        create_data_packet(
-            test_timestamp,
-            SERIAL_COMM_MAIN_MODULE_ID,
-            SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-            bytes([SERIAL_COMM_REBOOT_COMMAND_BYTE]),
-        )
-    )
-    invoke_process_run_and_check_errors(simulator)
-    # remove reboot response packet
-    invoke_process_run_and_check_errors(simulator)
-    reboot_response_size = get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES)
-    reboot_response = simulator.read(size=reboot_response_size)
-    assert_serial_packet_is_expected(
-        reboot_response,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-        additional_bytes=convert_to_timestamp_bytes(test_timestamp),
-        timestamp=spied_get_absolute_timer.spy_return,
-    )
-    # send handshake to test status code reset
-    simulator.write(TEST_HANDSHAKE)
-    invoke_process_run_and_check_errors(simulator)
-    handshake_response = simulator.read(size=HANDSHAKE_RESPONSE_SIZE_BYTES)
-    assert len(handshake_response) == HANDSHAKE_RESPONSE_SIZE_BYTES
-    assert handshake_response[-8:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES] == DEFAULT_SIMULATOR_STATUS_CODE
 
 
 def test_MantarrayMcSimulator__accepts_time_sync_along_with_status_code_update__if_status_code_is_set_to_state_following_time_sync(

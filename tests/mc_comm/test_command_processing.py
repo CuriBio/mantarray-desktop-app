@@ -96,10 +96,12 @@ def test_McCommunicationProcess__raises_error_when_receiving_invalid_command_fro
         assert test_comm["command"] in str(exc_info.value)
 
 
-# TODO
-# def test_McCommunicationProcess__processes_set_mantarray_nickname_command(
-#     four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
-# ):
+def test_McCommunicationProcess__processes_set_mantarray_nickname_command(
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+):
+    assert not "TODO"
+
+
 #     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
 #     board_queues = four_board_mc_comm_process_no_handshake["board_queues"]
 #     simulator = mantarray_mc_simulator_no_beacon["simulator"]

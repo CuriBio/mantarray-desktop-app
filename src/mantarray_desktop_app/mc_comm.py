@@ -309,8 +309,8 @@ class McCommunicationProcess(InstrumentCommProcess):
             if (
                 self._error is not None
                 and not isinstance(self._error, MantarrayInstrumentError)
-                and not self._hardware_test_mode  # TODO Tanner (6/11/21): remove this last condition once real instrument implements dump EEPROM command
-            ):
+                and not self._hardware_test_mode
+            ):  # TODO Tanner (1/24/22): remove this and add new error handling procedure
                 # if error occurred in software, send dump EEPROM command and wait for instrument to respond to command before flushing serial data. If the firmware caught an error in itself the EEPROM contents should already be logged and this command can be skipped here
                 self._send_data_packet(
                     board_idx,
@@ -504,7 +504,9 @@ class McCommunicationProcess(InstrumentCommProcess):
         communication_type = comm_from_main["communication_type"]
         if communication_type == "mantarray_naming":
             if comm_from_main["command"] == "set_mantarray_nickname":
-                pass  # TODO nickname = comm_from_main["mantarray_nickname"]
+                bytes_to_send = bytes(
+                    comm_from_main["mantarray_nickname"], "utf-8"
+                )  # TODO check this value in the route for it
             else:
                 raise UnrecognizedCommandFromMainToMcCommError(
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
@@ -945,9 +947,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._log_status_code(status_code, "Status Beacon")
         if status_code == SERIAL_COMM_FATAL_ERROR_CODE:
             error_msg = ""
-            if (
-                not self._hardware_test_mode
-            ):  # pragma: no cover  # TODO Tanner (6/11/21): remove this condition once real instrument implements dump EEPROM command
+            if not self._hardware_test_mode:  # pragma: no cover  # TODO Tanner (6/11/21): remove this command
                 eeprom_contents = packet_body[SERIAL_COMM_STATUS_CODE_LENGTH_BYTES:]
                 error_msg = f"Instrument EEPROM contents: {str(eeprom_contents)}"
             raise InstrumentFatalError(error_msg)

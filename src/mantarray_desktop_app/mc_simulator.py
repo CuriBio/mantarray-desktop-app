@@ -62,10 +62,10 @@ from .constants import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
 from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
-from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE
 from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
+from .constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
 from .constants import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from .constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
@@ -73,7 +73,7 @@ from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
-from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
+from .constants import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
@@ -165,7 +165,7 @@ class MantarrayMcSimulator(InfiniteProcess):
     """
 
     default_mantarray_nickname = "Mantarray Sim"
-    default_mantarray_serial_number = "M03456789012"  # TODO use a real serial number format
+    default_mantarray_serial_number = "MA2022001000"
     default_main_firmware_version = "0.0.0"
     default_channel_firmware_version = "0.0.0"
     default_hardware_version = "0.0.0"
@@ -222,6 +222,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         # simulator values (set in _handle_boot_up_config)
         self._time_of_last_handshake_secs: Optional[float] = None
         self._time_of_last_comm_from_pc_secs: Optional[float] = None
+        self._reboot_again = False
         self._reboot_time_secs: Optional[float]
         self._boot_up_time_secs: Optional[float] = None
         self._baseline_time_us: Optional[int]
@@ -336,18 +337,23 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._firmware_update_idx = None
         self._firmware_update_bytes = None
         if reboot:
+            self._status_code = SERIAL_COMM_IDLE_READY_CODE
             if self._firmware_update_type is not None:
-                self._status_code = SERIAL_COMM_IDLE_READY_CODE
                 packet_type = (
                     SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE
                     if self._firmware_update_type
                     else SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE
                 )
-                self._send_data_packet(SERIAL_COMM_MAIN_MODULE_ID, packet_type, bytes([0, 0, 0]))
+                self._send_data_packet(
+                    SERIAL_COMM_MAIN_MODULE_ID,
+                    packet_type,
+                    bytes([0, 0, 0]),  # TODO make this the new firmware version
+                )
             # only set boot up time automatically after a reboot
             self._boot_up_time_secs = perf_counter()
-            # after reboot, send status beacon to signal that reboot has completed
-            self._send_status_beacon(truncate=False)
+            # after reboot, if not rebooting again, send status beacon to signal that reboot has completed
+            if not self._reboot_again:
+                self._send_status_beacon(truncate=False)
         self._firmware_update_type = None
 
     def _reset_metadata_dict(self) -> None:
@@ -464,15 +470,18 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._handle_test_comm()
         if self._status_code == SERIAL_COMM_FATAL_ERROR_CODE:
             return
-        # if _reboot_time_secs is not None this means the simulator is in a "reboot" phase
-        if self._reboot_time_secs is not None:
-            secs_since_reboot = _get_secs_since_reboot_command(self._reboot_time_secs)
+
+        if self.is_rebooting():  # Tanner (1/24/22): currently checks if self._reboot_time_secs is not None
+            secs_since_reboot = _get_secs_since_reboot_command(self._reboot_time_secs)  # type: ignore
             # if secs_since_reboot is less than the reboot duration, simulator is still in the 'reboot' phase. Commands from PC will be ignored and status beacons will not be sent
             if (
                 secs_since_reboot < AVERAGE_MC_REBOOT_DURATION_SECONDS
             ):  # Tanner (3/31/21): rebooting should be much faster than the maximum allowed time for rebooting, so arbitrarily picking a simulated reboot duration
                 return
             self._handle_boot_up_config(reboot=True)
+            if self._reboot_again:
+                self._reboot_time_secs = perf_counter()
+            self._reboot_again = False
         elif self._status_code == SERIAL_COMM_BOOT_UP_CODE:
             if self._boot_up_time_secs is None:
                 self._boot_up_time_secs = perf_counter()
@@ -568,11 +577,6 @@ class MantarrayMcSimulator(InfiniteProcess):
                 self._timepoint_of_time_sync_us = _perf_counter_us()
                 status_code_update = SERIAL_COMM_IDLE_READY_CODE
                 self._ready_to_send_barcode = True
-            elif command_byte == SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE:
-                # TODO
-                start_idx = SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 1
-                nickname_bytes = comm_from_pc[start_idx : start_idx + SERIAL_COMM_METADATA_BYTES_LENGTH]
-                self._metadata_dict[MANTARRAY_NICKNAME_UUID] = nickname_bytes
             else:
                 # TODO Tanner (3/4/21): Determine what to do if command_byte, module_id, or packet_type are incorrect. It may make more sense to respond with a message rather than raising an error
                 raise NotImplementedError(command_byte)
@@ -612,6 +616,12 @@ class MantarrayMcSimulator(InfiniteProcess):
                 self._is_stimulating = False
         elif packet_type == SERIAL_COMM_GET_METADATA_PACKET_TYPE:
             response_body += convert_metadata_to_bytes(self._metadata_dict)
+        elif packet_type == SERIAL_COMM_SET_NICKNAME_PACKET_TYPE:
+            start_idx = SERIAL_COMM_ADDITIONAL_BYTES_INDEX
+            nickname_bytes = comm_from_pc[start_idx : start_idx + SERIAL_COMM_NICKNAME_BYTES_LENGTH]
+            self._metadata_dict[MANTARRAY_NICKNAME_UUID] = nickname_bytes.decode("utf-8")
+            self._reboot_time_secs = perf_counter()
+            self._reboot_again = True
         elif packet_type == SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE:
             firmware_type = comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX]
             command_failed = firmware_type not in (0, 1) or self._firmware_update_type is not None
@@ -657,6 +667,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             response_body += bytes([checksum_failure])
             if not checksum_failure:
                 self._reboot_time_secs = perf_counter()
+                self._reboot_again = True
         else:
             module_id = comm_from_pc[SERIAL_COMM_MODULE_ID_INDEX]
             raise UnrecognizedSerialCommPacketTypeError(
