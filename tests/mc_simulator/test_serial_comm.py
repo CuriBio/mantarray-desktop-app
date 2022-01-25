@@ -395,8 +395,7 @@ def test_MantarrayMcSimulator__allows_mantarray_nickname_to_be_set_by_command_re
     assert_serial_packet_is_expected(
         actual,
         SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-        expected_timestamp.to_bytes(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES, byteorder="little"),
+        SERIAL_COMM_SET_NICKNAME_PACKET_TYPE,
     )
     # make sure simulator is rebooting again again
     assert simulator.is_rebooting() is True

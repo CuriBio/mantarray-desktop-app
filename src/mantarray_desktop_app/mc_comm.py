@@ -73,6 +73,7 @@ from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
+from .constants import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
@@ -213,11 +214,13 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._commands_awaiting_response: Deque[  # pylint: disable=unsubscriptable-object
             Dict[str, Any]
         ] = deque()
+        self._hardware_test_mode = hardware_test_mode
+        # reboot values
+        self._is_setting_nickname = False
         self._is_waiting_for_reboot = False  # Tanner (4/1/21): This flag indicates that a reboot command has been sent and a status beacon following reboot completion has not been received. It does not imply that the instrument has begun rebooting.
         self._time_of_reboot_start: Optional[
             float
         ] = None  # Tanner (4/1/21): This value will be None until this process receives a response to a reboot command. It will be set back to None after receiving a status beacon upon reboot completion
-        self._hardware_test_mode = hardware_test_mode
         # firmware updating values
         self._latest_versions: Optional[Dict[str, str]] = None
         self._fw_update_worker_thread: Optional[ErrorCatchingThread] = None
@@ -459,7 +462,11 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self.stop()
                 return
 
-        if not self._is_updating_firmware and not self._is_waiting_for_reboot:
+        if (
+            not self._is_updating_firmware
+            and not self._is_setting_nickname
+            and not self._is_waiting_for_reboot
+        ):
             self._process_next_communication_from_main()
             self._handle_sending_handshake()
 
@@ -504,9 +511,11 @@ class McCommunicationProcess(InstrumentCommProcess):
         communication_type = comm_from_main["communication_type"]
         if communication_type == "mantarray_naming":
             if comm_from_main["command"] == "set_mantarray_nickname":
+                packet_type = SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
                 bytes_to_send = bytes(
                     comm_from_main["mantarray_nickname"], "utf-8"
-                )  # TODO check this value in the route for it
+                )  # TODO check this value in the route for it and make it 13 bytes if it is too short
+                self._is_setting_nickname = True
             else:
                 raise UnrecognizedCommandFromMainToMcCommError(
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
@@ -786,6 +795,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE,
             SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE,
             SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE,
+            SERIAL_COMM_SET_NICKNAME_PACKET_TYPE,
         ):
             response_data = packet_body[SERIAL_COMM_TIMESTAMP_LENGTH_BYTES:]
             if not self._commands_awaiting_response:
@@ -807,6 +817,11 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._time_of_reboot_start = perf_counter()
             elif prev_command["command"] == "set_time":
                 prev_command["message"] = "Instrument time synced with PC"
+            elif prev_command["command"] == "set_mantarray_nickname":
+                self._is_setting_nickname = False
+                # set up values for reboot
+                self._is_waiting_for_reboot = True
+                self._time_of_reboot_start = perf_counter()
             elif prev_command["command"] == "dump_eeprom":
                 if self._is_instrument_in_error_state:
                     raise InstrumentSoftError(f"Instrument EEPROM contents: {str(response_data)}")
@@ -920,7 +935,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._firmware_update_type = ""
             self._is_updating_firmware = False
             self._time_of_firmware_update_start = None
-            # set up values for reboot  # TODO unit test
+            # set up values for reboot
             self._is_waiting_for_reboot = True
             self._time_of_reboot_start = perf_counter()
         else:
@@ -1214,6 +1229,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             secs_since_last_beacon_received >= SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
             and not self._is_waiting_for_reboot
             and not self._is_updating_firmware
+            and not self._is_setting_nickname
         ):
             raise SerialCommStatusBeaconTimeoutError()
 

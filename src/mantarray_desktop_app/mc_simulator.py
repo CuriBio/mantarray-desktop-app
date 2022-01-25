@@ -239,6 +239,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._firmware_update_type: Optional[int] = None
         self._firmware_update_idx: Optional[int] = None
         self._firmware_update_bytes: Optional[bytes]
+        self._new_nickname: Optional[str] = None
         self._handle_boot_up_config()
 
     def start(self) -> None:
@@ -349,6 +350,14 @@ class MantarrayMcSimulator(InfiniteProcess):
                     packet_type,
                     bytes([0, 0, 0]),  # TODO make this the new firmware version
                 )
+            elif self._new_nickname is not None:
+                self._send_data_packet(
+                    SERIAL_COMM_MAIN_MODULE_ID,
+                    SERIAL_COMM_SET_NICKNAME_PACKET_TYPE,
+                    # TODO should send timestamp here
+                )
+                self._metadata_dict[MANTARRAY_NICKNAME_UUID] = self._new_nickname
+                self._new_nickname = None
             # only set boot up time automatically after a reboot
             self._boot_up_time_secs = perf_counter()
             # after reboot, if not rebooting again, send status beacon to signal that reboot has completed
@@ -549,6 +558,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             + SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
         ]
 
+        send_response = True
         response_body = timestamp_from_pc_bytes
         response_packet_type = SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 
@@ -617,9 +627,10 @@ class MantarrayMcSimulator(InfiniteProcess):
         elif packet_type == SERIAL_COMM_GET_METADATA_PACKET_TYPE:
             response_body += convert_metadata_to_bytes(self._metadata_dict)
         elif packet_type == SERIAL_COMM_SET_NICKNAME_PACKET_TYPE:
+            send_response = False
             start_idx = SERIAL_COMM_ADDITIONAL_BYTES_INDEX
             nickname_bytes = comm_from_pc[start_idx : start_idx + SERIAL_COMM_NICKNAME_BYTES_LENGTH]
-            self._metadata_dict[MANTARRAY_NICKNAME_UUID] = nickname_bytes.decode("utf-8")
+            self._new_nickname = nickname_bytes.decode("utf-8")
             self._reboot_time_secs = perf_counter()
             self._reboot_again = True
         elif packet_type == SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE:
@@ -673,11 +684,12 @@ class MantarrayMcSimulator(InfiniteProcess):
             raise UnrecognizedSerialCommPacketTypeError(
                 f"Packet Type ID: {packet_type} is not defined for Module ID: {module_id}"
             )
-        self._send_data_packet(
-            SERIAL_COMM_MAIN_MODULE_ID,
-            response_packet_type,
-            response_body,
-        )
+        if send_response:
+            self._send_data_packet(
+                SERIAL_COMM_MAIN_MODULE_ID,
+                response_packet_type,
+                response_body,
+            )
         # update status code (if an update is necessary) after sending command response
         if status_code_update is not None:
             self._update_status_code(status_code_update)
