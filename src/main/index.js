@@ -23,11 +23,7 @@ log.transports.file.resolvePath = () => {
 };
 console.log = log.log;
 console.error = log.error;
-console.log(
-  "Electron store at: '" +
-  main_utils.redact_username_from_logs(store.path) +
-  "'"
-);
+console.log("Electron store at: '" + main_utils.redact_username_from_logs(store.path) + "'");
 
 global.__resources = undefined; // eslint-disable-line no-underscore-dangle
 // noinspection BadExpressionStatementJS
@@ -48,13 +44,11 @@ const PY_EXE = "mantarray-flask"; // the name of the main module
 // When booting up (3/27/20), __dirname is equal to: win-unpacked\resources\app\dist\main
 const path_to_py_dist_folder = path.join(__dirname, "..", "..", "..", "..", PY_DIST_FOLDER);
 const isRunningInBundle = () => {
-  console.log(
-    "Current dirname: " + main_utils.redact_username_from_logs(__dirname)
-  ); // allow-log
+  console.log("Current dirname: " + main_utils.redact_username_from_logs(__dirname)); // allow-log
   console.log(
     // allow-log
     "To determine if running in bundle, checking the path " +
-    main_utils.redact_username_from_logs(path_to_py_dist_folder)
+      main_utils.redact_username_from_logs(path_to_py_dist_folder)
   );
   return fs.existsSync(path_to_py_dist_folder);
 };
@@ -89,8 +83,7 @@ const start_python_subprocess = () => {
     const script = getPythonScriptPath();
     console.log(
       // allow-log
-      "Launching compiled Python EXE at path: " +
-      main_utils.redact_username_from_logs(script)
+      "Launching compiled Python EXE at path: " + main_utils.redact_username_from_logs(script)
     );
     require("child_process").execFile(script, command_line_args);
   } else {
@@ -110,9 +103,9 @@ const start_python_subprocess = () => {
     console.log(
       // allow-log
       "Launching Python interpreter to run script '" +
-      py_file_name +
-      "' with options: " +
-      JSON.stringify(options)
+        py_file_name +
+        "' with options: " +
+        JSON.stringify(redacted_options)
     );
     new PythonShell(py_file_name, options);
   }
