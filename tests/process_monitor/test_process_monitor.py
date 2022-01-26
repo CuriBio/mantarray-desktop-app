@@ -972,7 +972,7 @@ def test_MantarrayProcessesMonitor__handles_switch_from_UPDATES_NEEDED_STATE_in_
     assert shared_values_dict["system_status"] == UPDATES_NEEDED_STATE
     confirm_queue_is_eventually_empty(to_ic_queue)
     # store update accepted value but not customer creds
-    shared_values_dict["update_accepted"] = update_accepted
+    shared_values_dict["firmware_update_accepted"] = update_accepted
     if not update_accepted:
         invoke_process_run_and_check_errors(monitor_thread)
         assert shared_values_dict["system_status"] == CALIBRATION_NEEDED_STATE
