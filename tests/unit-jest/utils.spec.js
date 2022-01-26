@@ -40,18 +40,12 @@ describe("utils.js", () => {
           store = main_utils.create_store({ file_path: tmp_dir_name });
         });
         test("When the function is invoked, Then the log file directory argument is set to the folder containing the store", () => {
-          const actual_args = main_utils.generate_flask_command_line_args(
-            store
-          );
+          const actual_args = main_utils.generate_flask_command_line_args(store);
 
           expect(actual_args).toStrictEqual(
             expect.arrayContaining([
               "--log-file-dir=" +
-                path.join(
-                  path.dirname(store.path),
-                  "logs_flask",
-                  main_utils.filename_prefix
-                ),
+                path.join(path.dirname(store.path), "logs_flask", main_utils.filename_prefix),
             ])
           );
         });
@@ -89,40 +83,22 @@ describe("utils.js", () => {
 
         test("When the function is invoked, Then subfolders are created for logs and recordings", () => {
           main_utils.generate_flask_command_line_args(store);
-          expect(
-            fs.existsSync(
-              path.join(tmp_dir_name, "logs_flask", main_utils.filename_prefix)
-            )
-          ).toBe(true);
-          expect(fs.existsSync(path.join(tmp_dir_name, "recordings"))).toBe(
-            true
-          );
-          expect(
-            fs.existsSync(
-              path.join(tmp_dir_name, "recordings", "zipped_recordings")
-            )
-          ).toBe(true);
-          expect(
-            fs.existsSync(
-              path.join(tmp_dir_name, "recordings", "failed_uploads")
-            )
-          ).toBe(true);
+          expect(fs.existsSync(path.join(tmp_dir_name, "logs_flask", main_utils.filename_prefix))).toBe(true);
+          expect(fs.existsSync(path.join(tmp_dir_name, "recordings"))).toBe(true);
+          expect(fs.existsSync(path.join(tmp_dir_name, "recordings", "zipped_recordings"))).toBe(true);
+          expect(fs.existsSync(path.join(tmp_dir_name, "recordings", "failed_uploads"))).toBe(true);
         });
       });
     });
     describe("redact_username_from_logs", () => {
       test("When a path gets logged, Then the username will be replaced with 4 astricks", () => {
-        const test_path_mac =
-          "--log-file-dir=/Users/test_user/Library/Electron/logs";
-        const expected_path_mac =
-          "--log-file-dir=/Users/****/Library/Electron/logs";
+        const test_path_mac = "--log-file-dir=/Users/test_user/Library/Electron/logs";
+        const expected_path_mac = "--log-file-dir=/Users/****/Library/Electron/logs";
         const actual_mac = main_utils.redact_username_from_logs(test_path_mac);
         expect(actual_mac).toBe(expected_path_mac);
 
-        const test_path_win =
-          "--log-file-dir=c:\\Users\\test_user\\Library\\Electron\\logs";
-        const expected_path_win =
-          "--log-file-dir=c:\\Users\\****\\Library\\Electron\\logs";
+        const test_path_win = "--log-file-dir=c:\\Users\\test_user\\Library\\Electron\\logs";
+        const expected_path_win = "--log-file-dir=c:\\Users\\****\\Library\\Electron\\logs";
         const actual_win = main_utils.redact_username_from_logs(test_path_win);
         expect(actual_win).toBe(expected_path_win);
       });
