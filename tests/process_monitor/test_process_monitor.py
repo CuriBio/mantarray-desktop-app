@@ -938,7 +938,9 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
         ws_message = queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
         assert ws_message == {
             "data_type": "fw_update",
-            "data_json": json.dumps({"firmware_update_available": True}),
+            "data_json": json.dumps(
+                {"firmware_update_available": True, "channel_fw_update": channel_fw_update}
+            ),
         }
 
 

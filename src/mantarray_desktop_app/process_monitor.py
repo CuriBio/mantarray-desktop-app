@@ -613,7 +613,12 @@ class MantarrayProcessesMonitor(InfiniteThread):
                         self._queue_websocket_message(
                             {
                                 "data_type": "fw_update",
-                                "data_json": json.dumps({"firmware_update_available": True}),
+                                "data_json": json.dumps(
+                                    {
+                                        "firmware_update_available": True,
+                                        "channel_fw_update": channel_fw_update_needed,
+                                    }
+                                ),
                             }
                         )
                     else:

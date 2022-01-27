@@ -26,9 +26,6 @@
         <NuxtLink to="/stimulationstudio">
           <div class="div__stim-studio-screen-view" />
         </NuxtLink>
-        <div class="div__temp-controls-container">
-          <img src="../assets/img/additional-controls-icon.png" :style="'height:44px;'" />
-        </div>
       </div>
       <span
         class="span__screen-view-options-text"
