@@ -22,7 +22,7 @@
             : 'div__additional_controls-controls-icon-container--beta-1-mode',
         ]"
       >
-        <StimulationStudioControls />
+        <AdditionalControls />
         <NuxtLink to="/stimulationstudio">
           <div class="div__stim-studio-screen-view" />
         </NuxtLink>
@@ -83,7 +83,7 @@ import {
   StatusBar,
   SimulationMode,
   RecordingTime,
-  StimulationStudioControls,
+  AdditionalControls,
   UploadFilesWidget,
 } from "@curi-bio/mantarray-frontend-components";
 import { ipcRenderer } from "electron";
@@ -107,7 +107,7 @@ export default {
     StatusBar,
     SimulationMode,
     RecordingTime,
-    StimulationStudioControls,
+    AdditionalControls,
     UploadFilesWidget,
   },
   data: function () {
