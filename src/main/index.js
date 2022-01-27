@@ -1,5 +1,14 @@
 /* globals INCLUDE_RESOURCES_PATH */
 const { app, ipcMain } = require("electron");
+
+// Tanner (1/27/22): before doing anything else, make sure no other instance of the app is open
+// based on https://www.electronjs.org/docs/v14-x-y/api/app#apprequestsingleinstancelock
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  // Exit app immediately if another instance is open
+  app.exit();
+}
+
 const { autoUpdater } = require("electron-updater");
 const log = require("electron-log");
 const path = require("path");
@@ -31,6 +40,8 @@ INCLUDE_RESOURCES_PATH; // eslint-disable-line no-unused-expressions
 // Eli (1/15/21): this code is straight from the template, so unclear what would happen if it was changed and how `__resources` may or may not be being injected into this somehow
 // eslint-disable-next-line no-undef
 if (__resources === undefined) console.error("[Main-process]: Resources path is undefined");
+
+let win_handler = null;
 
 /**
  * Python Flask
@@ -195,6 +206,15 @@ app.on("ready", () => {
   }
 });
 
+// based on https://www.electronjs.org/docs/v14-x-y/api/app#apprequestsingleinstancelock
+app.on("second-instance", (event, command_line, working_directory) => {
+  console.log("Prevented second instance from opening"); // allow-log
+  if (win_handler && win_handler.browserWindow) {
+    if (win_handler.browserWindow.isMinimized()) win_handler.browserWindow.restore();
+    win_handler.browserWindow.focus();
+  }
+});
+
 // This is another place to handle events after all windows are closed
 app.on("will-quit", function (e) {
   // This is a good place to add tests ensuring the app is still
@@ -228,4 +248,7 @@ app.on("will-quit", function (e) {
     });
 });
 
-require("./mainWindow");
+if (gotTheLock) {
+  // Extra check to make sure only one window is opened
+  win_handler = require("./mainWindow").default;
+}
