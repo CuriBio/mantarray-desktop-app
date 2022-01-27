@@ -11,8 +11,10 @@ const filename_prefix = `mantarray_log__${now.getUTCFullYear()}_${utc_month}_${n
   .padStart(2, "0")}_${now
   .getUTCHours()
   .toString()
-  .padStart(2, "0")}${now.getUTCMinutes().toString().padStart(2, "0")}
-  ${now.getUTCSeconds().toString().padStart(2, "0")}`;
+  .padStart(2, "0")}${now
+  .getUTCMinutes()
+  .toString()
+  .padStart(2, "0")}${now.getUTCSeconds().toString().padStart(2, "0")}`;
 /**
  * Depending on whether Electron is running, get the application version from package.json or from the Electron process itself
  *
