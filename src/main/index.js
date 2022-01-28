@@ -153,14 +153,21 @@ const post_latest_software_version = (version) => {
   if (!store.get("beta_2_mode")) {
     return; // cannot call this route in beta 1 mode
   }
+  let awaiting_response = false;
   const post_interval_id = setInterval(() => {
-    axios
-      .post(`http://localhost:${flask_port}/latest_software_version?version=${version}`)
-      .then((response) => {
-        console.log(`/latest_software_version response: ${response.status} ${response.statusText}`); // allow-log;
-        if (response.status === 200) clearInterval(post_interval_id);
-      })
-      .catch((response) => {});
+    if (!awaiting_response) {
+      awaiting_response = true;
+      axios
+        .post(`http://localhost:${flask_port}/latest_software_version?version=${version}`)
+        .then((response) => {
+          console.log(`/latest_software_version response: ${response.status} ${response.statusText}`); // allow-log;
+          if (response.status === 200) clearInterval(post_interval_id);
+          awaiting_response = false;
+        })
+        .catch((response) => {
+          awaiting_response = false;
+        });
+    }
   }, 1000);
 };
 
