@@ -230,4 +230,4 @@ def uploader(
 
             sleep(5)
 
-    download_analysis_from_s3(upload_status, file_name)
+        download_analysis_from_s3(upload_status, file_name)
