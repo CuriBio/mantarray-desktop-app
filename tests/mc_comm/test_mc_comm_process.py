@@ -7,7 +7,6 @@ from freezegun import freeze_time
 from mantarray_desktop_app import MantarrayInstrumentError
 from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import McCommunicationProcess
-from mantarray_desktop_app import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_FATAL_ERROR_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
@@ -244,7 +243,7 @@ def test_McCommunicationProcess_teardown_after_loop__puts_teardown_log_message_i
     )
 
 
-def test_McCommunicationProcess_teardown_after_loop__flushes_and_logs_remaining_serial_data__and_requests_eeprom_dump_if_error_occurred_in_mc_comm(
+def test_McCommunicationProcess_teardown_after_loop__flushes_and_logs_remaining_serial_data___if_error_occurred_in_mc_comm(
     patch_print,
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
@@ -287,22 +286,11 @@ def test_McCommunicationProcess_teardown_after_loop__flushes_and_logs_remaining_
     teardown_messages = drain_queue(output_queue)
     actual = teardown_messages[-1]
     assert "message" in actual, f"Correct message not found. Full message dict: {actual}"
-    expected_bytes = bytes(
-        sum([len(packet) for packet in test_read_bytes]) - len(SERIAL_COMM_MAGIC_WORD_BYTES)
-    )  # EEPROM bytes will not show up since simulator is not running while mc_process is in _teardown_after_loop. Assert that dump EEPROM command was sent instead
+    expected_bytes = bytes(sum([len(packet) for packet in test_read_bytes]) - len(SERIAL_COMM_MAGIC_WORD_BYTES))
     assert str(expected_bytes) in actual["message"]
-    # check that dump EEPROM command was sent
-    assert_serial_packet_is_expected(
-        mocked_write.call_args[0][0],
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-        bytes([SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE]),
-    )
-    # check that mc_process slept for 1 second prior to reading from simulator
-    mocked_sleep.assert_called_once_with(1)
 
 
-def test_McCommunicationProcess_teardown_after_loop__does_not_request_eeprom_dump_if_an_instrument_error_occurred(
+def test_McCommunicationProcess_teardown_after_loop__handles_fatal_instrument_error(
     patch_print,
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
@@ -317,7 +305,6 @@ def test_McCommunicationProcess_teardown_after_loop__does_not_request_eeprom_dum
     )
 
     mocked_write = mocker.patch.object(simulator, "write", autospec=True)
-    mocked_sleep = mocker.patch.object(mc_comm, "sleep", autospec=True)
 
     # put simulator in error state before sending beacon
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -356,35 +343,8 @@ def test_McCommunicationProcess_teardown_after_loop__does_not_request_eeprom_dum
         )
     # check that all data was flushed here
     assert simulator.in_waiting == 0
-    # check that dump EEPROM command was not sent and no sleep was performed
+    # check that no commands were sent
     mocked_write.assert_not_called()
-    mocked_sleep.assert_not_called()
-    # drain queue to prevent BrokenPipeErrors
-    drain_queue(output_queue)
-
-
-def test_McCommunicationProcess_teardown_after_loop__does_not_request_eeprom_dump_if_no_errors_occured(
-    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
-):
-    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
-    output_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
-    simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    set_connection_and_register_simulator(
-        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
-    )
-
-    mocked_write = mocker.patch.object(simulator, "write", autospec=True)
-    mocked_sleep = mocker.patch.object(mc_comm, "sleep", autospec=True)
-
-    # run one iteration then teardown
-    invoke_process_run_and_check_errors(
-        mc_process,
-        perform_teardown_after_loop=True,
-    )
-    # check that dump EEPROM command was not sent and no sleep was performed
-    mocked_write.assert_not_called()
-    mocked_sleep.assert_not_called()
-    # drain queue to prevent BrokenPipeErrors
     drain_queue(output_queue)
 
 

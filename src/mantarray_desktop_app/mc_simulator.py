@@ -47,7 +47,6 @@ from .constants import SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
-from .constants import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
 from .constants import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_FATAL_ERROR_CODE
 from .constants import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
@@ -396,15 +395,6 @@ class MantarrayMcSimulator(InfiniteProcess):
         """Mainly for use in unit tests."""
         return self._status_code
 
-    def get_eeprom_bytes(self) -> bytes:
-        eeprom_dict = {
-            "Status Code": self._status_code,
-            "Time Sync Value received from PC (microseconds)": self._baseline_time_us,
-            "Is Streaming Data": self._is_streaming_data,
-            "Sampling Period (microseconds)": self._sampling_period_us,
-        }
-        return bytes(f" Simulator EEPROM Contents: {str(eeprom_dict)}", encoding="ascii")
-
     def get_sampling_period_us(self) -> int:
         """Mainly for use in unit tests."""
         return self._sampling_period_us
@@ -580,8 +570,6 @@ class MantarrayMcSimulator(InfiniteProcess):
             elif command_byte == SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE:
                 response_body += bytes([not self._is_streaming_data])
                 self._is_streaming_data = False
-            elif command_byte == SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE:
-                response_body += self.get_eeprom_bytes()
             elif command_byte == SERIAL_COMM_SET_TIME_COMMAND_BYTE:
                 self._baseline_time_us = int.from_bytes(response_body, byteorder="little")
                 self._timepoint_of_time_sync_us = _perf_counter_us()
@@ -809,7 +797,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                 self._send_data_packet(
                     SERIAL_COMM_MAIN_MODULE_ID,
                     SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
-                    convert_to_status_code_bytes(self._status_code) + self.get_eeprom_bytes(),
+                    convert_to_status_code_bytes(self._status_code),
                 )
         elif command == "set_data_streaming_status":
             self._sampling_period_us = test_comm.get("sampling_period", DEFAULT_SAMPLING_PERIOD)

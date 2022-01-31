@@ -105,7 +105,6 @@ from .constants import SERIAL_COMM_COMMAND_FAILURE_BYTE
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from .constants import SERIAL_COMM_COMMAND_SUCCESS_BYTE
 from .constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
-from .constants import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
 from .constants import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_FATAL_ERROR_CODE
 from .constants import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
@@ -543,7 +542,6 @@ __all__ = [
     "convert_to_timestamp_bytes",
     "get_serial_comm_timestamp",
     "SERIAL_COMM_TIMESTAMP_EPOCH",
-    "SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE",
     "SERIAL_COMM_FATAL_ERROR_CODE",
     "SERIAL_COMM_SOFT_ERROR_CODE",
     "MantarrayInstrumentError",

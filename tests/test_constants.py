@@ -89,7 +89,6 @@ from mantarray_desktop_app import SERIAL_COMM_COMMAND_FAILURE_BYTE
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_SUCCESS_BYTE
 from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
-from mantarray_desktop_app import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_FATAL_ERROR_CODE
 from mantarray_desktop_app import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
@@ -518,7 +517,6 @@ def test_serial_comm():
     assert SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE == 1
     assert SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE == 2
     assert SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE == 3
-    assert SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE == 7
     assert SERIAL_COMM_SET_TIME_COMMAND_BYTE == 8
 
     assert SERIAL_COMM_COMMAND_SUCCESS_BYTE == 0

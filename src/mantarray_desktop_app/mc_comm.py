@@ -46,7 +46,6 @@ from .constants import SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
-from .constants import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
 from .constants import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_FATAL_ERROR_CODE
 from .constants import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
@@ -311,19 +310,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         )
         board = self._board_connections[board_idx]
         if board is not None:
-            if (
-                self._error is not None
-                and not isinstance(self._error, MantarrayInstrumentError)
-                and not self._hardware_test_mode
-            ):  # TODO Tanner (1/24/22): remove this and add new error handling procedure
-                # if error occurred in software, send dump EEPROM command and wait for instrument to respond to command before flushing serial data. If the firmware caught an error in itself the EEPROM contents should already be logged and this command can be skipped here
-                self._send_data_packet(
-                    board_idx,
-                    SERIAL_COMM_MAIN_MODULE_ID,
-                    SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-                    bytes([SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE]),
-                )
-                sleep(1)
+            # TODO Tanner (1/24/22): add new error handling procedure
             # flush and log remaining serial data
             remaining_serial_data = board.read_all()
             serial_data_flush_msg = f"Remaining Serial Data {str(remaining_serial_data)}"
@@ -526,8 +513,6 @@ class McCommunicationProcess(InstrumentCommProcess):
             if comm_from_main["command"] == "reboot":
                 bytes_to_send = bytes([SERIAL_COMM_REBOOT_COMMAND_BYTE])
                 self._is_waiting_for_reboot = True
-            elif comm_from_main["command"] == "dump_eeprom":
-                bytes_to_send = bytes([SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE])
             else:
                 raise UnrecognizedCommandFromMainToMcCommError(
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
@@ -825,10 +810,6 @@ class McCommunicationProcess(InstrumentCommProcess):
                 # set up values for reboot
                 self._is_waiting_for_reboot = True
                 self._time_of_reboot_start = perf_counter()
-            elif prev_command["command"] == "dump_eeprom":
-                if self._is_instrument_in_error_state:
-                    raise InstrumentSoftError(f"Instrument EEPROM contents: {str(response_data)}")
-                prev_command["eeprom_contents"] = response_data
             elif prev_command["command"] == "start_managed_acquisition":
                 self._is_data_streaming = True
                 self._has_stim_packet_been_sent = False
@@ -972,22 +953,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         if status_code == SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE:
             raise SerialCommHandshakeTimeoutError()
         if status_code == SERIAL_COMM_SOFT_ERROR_CODE:
-            if not self._hardware_test_mode:
-                self._send_data_packet(
-                    board_idx,
-                    SERIAL_COMM_MAIN_MODULE_ID,
-                    SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-                    bytes([SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE]),
-                )
-                self._add_command_to_track(
-                    {
-                        "communication_type": "to_instrument",
-                        "command": "dump_eeprom",
-                    }
-                )
-                self._is_instrument_in_error_state = True
-            else:  # pragma: no cover
-                raise InstrumentSoftError()
+            raise InstrumentSoftError()
         elif status_code == SERIAL_COMM_TIME_SYNC_READY_CODE:
             self._send_data_packet(
                 board_idx,
