@@ -654,6 +654,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 ):
                     self._send_enable_sw_auto_install_message()
                     self._values_to_share_to_server["system_status"] = UPDATES_COMPLETE_STATE
+            else:
+                raise NotImplementedError(
+                    f"Unrecognized firmware_update command from InstrumentComm: {command}"
+                )
 
     def _start_firmware_update(self) -> None:
         self._values_to_share_to_server["system_status"] = DOWNLOADING_UPDATES_STATE
@@ -718,7 +722,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 pass  # need to wait for these values before proceeding with state transition
             elif self._values_to_share_to_server["in_simulation_mode"]:
                 self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
-            elif self._values_to_share_to_server["latest_software_version"] is not None:
+            elif self._values_to_share_to_server["latest_software_version"] is not None:  # TODO cov
                 self._values_to_share_to_server["system_status"] = CHECKING_FOR_UPDATES_STATE
                 # send command to instrument comm process to check for firmware updates
                 serial_number = self._values_to_share_to_server["instrument_metadata"][board_idx][

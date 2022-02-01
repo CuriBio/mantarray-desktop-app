@@ -609,7 +609,7 @@ def test_MantarrayMcSimulator__processes_set_time_command(mantarray_mc_simulator
     )
 
 
-def test_MantarrayMcSimulator__when_in_fatal_error_state__does_not_respond_to_commands_or_send_any_packets__and_includes_eeprom_dump_in_status_beacon(
+def test_MantarrayMcSimulator__when_in_fatal_error_state__does_not_respond_to_commands_or_send_any_packets(
     mantarray_mc_simulator_no_beacon, mocker
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
@@ -630,18 +630,15 @@ def test_MantarrayMcSimulator__when_in_fatal_error_state__does_not_respond_to_co
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, testing_queue)
     # send a handshake
     simulator.write(TEST_HANDSHAKE)
-    # run simulator to make sure the only data packet sent back to PC is a status beacon with EEPROM dump
+    # run simulator to make sure the only data packet sent back to PC is a status beacon
     invoke_process_run_and_check_errors(simulator)
-    status_beacon_size = get_full_packet_size_from_packet_body_size(
-        SERIAL_COMM_STATUS_CODE_LENGTH_BYTES + len(simulator.get_eeprom_bytes())
-    )
+    status_beacon_size = get_full_packet_size_from_packet_body_size(SERIAL_COMM_STATUS_CODE_LENGTH_BYTES)
     status_beacon = simulator.read(size=status_beacon_size)
     assert_serial_packet_is_expected(
         status_beacon,
         SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
-        additional_bytes=convert_to_status_code_bytes(SERIAL_COMM_FATAL_ERROR_CODE)
-        + simulator.get_eeprom_bytes(),
+        additional_bytes=convert_to_status_code_bytes(SERIAL_COMM_FATAL_ERROR_CODE),
     )
     assert simulator.in_waiting == 0
 

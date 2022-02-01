@@ -306,7 +306,6 @@ class McCommunicationProcess(InstrumentCommProcess):
         )
         board = self._board_connections[board_idx]
         if board is not None:
-            # TODO Tanner (1/24/22): add new error handling procedure
             # flush and log remaining serial data
             remaining_serial_data = board.read_all()
             serial_data_flush_msg = f"Remaining Serial Data {str(remaining_serial_data)}"
@@ -938,11 +937,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         status_code = int.from_bytes(packet_body[:SERIAL_COMM_STATUS_CODE_LENGTH_BYTES], byteorder="little")
         self._log_status_code(status_code, "Status Beacon")
         if status_code == SERIAL_COMM_FATAL_ERROR_CODE:
-            error_msg = ""
-            if not self._hardware_test_mode:  # pragma: no cover  # TODO Tanner (6/11/21): remove this command
-                eeprom_contents = packet_body[SERIAL_COMM_STATUS_CODE_LENGTH_BYTES:]
-                error_msg = f"Instrument EEPROM contents: {str(eeprom_contents)}"
-            raise InstrumentFatalError(error_msg)
+            raise InstrumentFatalError()
         if status_code == SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE:
             raise SerialCommHandshakeTimeoutError()
         if status_code == SERIAL_COMM_SOFT_ERROR_CODE:
@@ -1267,6 +1262,10 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._channel_firmware_update_bytes = self._fw_update_thread_dict.pop("channel")
                 # add message
                 self._fw_update_thread_dict["message"] = "Updates downloaded, ready to install"
+            else:
+                raise NotImplementedError(
+                    f"Invalid worker thread command: {self._fw_update_thread_dict['command']}"
+                )
             to_main_queue.put_nowait(self._fw_update_thread_dict)
         # clear values
         self._fw_update_worker_thread = None

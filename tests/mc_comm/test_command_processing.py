@@ -80,6 +80,13 @@ __fixtures__ = [
             },
             "raises error with invalid stimulation command",
         ),
+        (
+            {
+                "communication_type": "firmware_update",
+                "command": "bad_command",
+            },
+            "raises error with invalid firmware_update command",
+        ),
     ],
 )
 def test_McCommunicationProcess__raises_error_when_receiving_invalid_command_from_main(
