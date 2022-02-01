@@ -320,6 +320,8 @@ def start_calibration() -> Response:
     shared_values_dict = _get_values_from_process_monitor()
     if shared_values_dict["system_status"] not in (CALIBRATION_NEEDED_STATE, CALIBRATED_STATE):
         return Response(status="403 Route cannot be called unless in calibration_needed or calibrated state")
+    if _is_stimulating_on_any_well():
+        return Response(status="403 Cannot calibrate while stimulation is running")
 
     if shared_values_dict["beta_2_mode"]:
         comm_dict = {"communication_type": "calibration", "command": "run_calibration"}
@@ -487,8 +489,9 @@ def set_protocols() -> Response:
         return Response(status="403 Route cannot be called in beta 1 mode")
     if _is_stimulating_on_any_well():
         return Response(status="403 Cannot change protocols while stimulation is running")
-    if _is_recording():
-        return Response(status="403 Cannot change protocols while recording")
+    system_status = _get_values_from_process_monitor()["system_status"]
+    if system_status not in (CALIBRATED_STATE, BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE):
+        return Response(status=f"403 Cannot change protocols while {system_status}")
 
     stim_info = json.loads(request.get_json()["data"])
 
@@ -603,22 +606,23 @@ def set_stim_status() -> Response:
         return Response(status="403 Route cannot be called in beta 1 mode")
 
     try:
-        status = request.args["running"] in ("true", "True")
+        stim_status = request.args["running"] in ("true", "True")
     except KeyError:
         return Response(status="400 Request missing 'running' parameter")
 
     if shared_values_dict["stimulation_info"] is None:
         return Response(status="406 Protocols have not been set")
-    if status and _is_recording():
-        return Response(status="403 Cannot start stimulation while recording")
-    if status is _is_stimulating_on_any_well():
+    system_status = shared_values_dict["system_status"]
+    if stim_status and system_status not in (CALIBRATED_STATE, BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE):
+        return Response(status=f"403 Cannot start stimulation while {system_status}")
+    if stim_status is _is_stimulating_on_any_well():
         return Response(status="304 Status not updated")
 
     response = queue_command_to_main(
         {
             "communication_type": "stimulation",
             "command": "set_stim_status",
-            "status": status,
+            "status": stim_status,
         }
     )
     return response

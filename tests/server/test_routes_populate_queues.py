@@ -3,6 +3,7 @@ import datetime
 import json
 
 from freezegun import freeze_time
+from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import create_magnetometer_config_dict
@@ -1232,6 +1233,7 @@ def test_set_stim_status__populates_queue_to_process_monitor_with_new_stim_statu
         shared_values_dict,
     ) = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_info"] = {"protocols": [None] * 4, "protocol_assignments": {}}
 
     expected_status_bool = test_status in ("true", "True")
@@ -1257,6 +1259,7 @@ def test_set_protocols__populates_queue_to_process_monitor_with_new_protocol(
         shared_values_dict,
     ) = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_running"] = [False] * 24
 
     test_protocol_dict = {
@@ -1304,6 +1307,7 @@ def test_start_calibration__populates_queue_to_process_monitor_with_correct_comm
     ) = client_and_server_manager_and_shared_values
     shared_values_dict["system_status"] = CALIBRATION_NEEDED_STATE
     shared_values_dict["beta_2_mode"] = test_beta_2_mode
+    shared_values_dict["stimulation_running"] = [False] * 24
 
     response = test_client.get("/start_calibration")
     assert response.status_code == 200

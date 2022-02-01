@@ -258,6 +258,7 @@ def test_send_single_start_calibration_command__returns_correct_response(
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["system_status"] = test_system_status
+    shared_values_dict["stimulation_running"] = [False] * 24
 
     expected_status_code = 200 if test_system_status in (CALIBRATION_NEEDED_STATE, CALIBRATED_STATE) else 403
 
@@ -270,6 +271,19 @@ def test_send_single_start_calibration_command__returns_correct_response(
             )
             is True
         )
+
+
+def test_start_calibration__returns_error_code_and_message_if_called_while_stimulating(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+    shared_values_dict["stimulation_running"] = [False] * 24
+    shared_values_dict["stimulation_running"][0] = True  # arbitrary well
+
+    response = test_client.get("/start_calibration")
+    assert response.status_code == 403
+    assert response.status.endswith("Cannot calibrate while stimulation is running") is True
 
 
 def test_dev_begin_hardware_script__returns_correct_response(test_client):
@@ -941,18 +955,23 @@ def test_set_stim_status__returns_error_code_and_message_if_called_before_protoc
     assert response.status.endswith("Protocols have not been set") is True
 
 
-def test_set_stim_status__returns_error_code_and_message_if_called_while_recording(
+@pytest.mark.parametrize(
+    "test_system_status",
+    set(SYSTEM_STATUS_UUIDS.keys()) - {CALIBRATED_STATE, BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE},
+)
+def test_set_stim_status__returns_error_code_and_message_if_called_with_true_during_invalid_state(
+    test_system_status,
     client_and_server_manager_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
-    shared_values_dict["system_status"] = RECORDING_STATE
     shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = test_system_status
     shared_values_dict["stimulation_running"] = [False] * 24
     shared_values_dict["stimulation_info"] = create_random_stim_info()
 
     response = test_client.post("/set_stim_status?running=true")
     assert response.status_code == 403
-    assert response.status.endswith("Cannot start stimulation while recording") is True
+    assert response.status.endswith(f"Cannot start stimulation while {test_system_status}") is True
 
 
 def test_set_stim_status__returns_code_and_message_if_new_status_is_the_same_as_the_current_status(
@@ -960,6 +979,7 @@ def test_set_stim_status__returns_code_and_message_if_new_status_is_the_same_as_
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_running"] = [False] * 24
     shared_values_dict["stimulation_info"] = {}
 
@@ -998,17 +1018,22 @@ def test_set_protocols__returns_error_code_if_called_while_stimulation_is_runnin
     assert response.status.endswith("Cannot change protocols while stimulation is running") is True
 
 
-def test_set_protocols__returns_error_code_if_called_while_recording(
+@pytest.mark.parametrize(
+    "test_system_status",
+    set(SYSTEM_STATUS_UUIDS.keys()) - {CALIBRATED_STATE, BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE},
+)
+def test_set_protocols__returns_error_code_if_called_during_invalid_system_status(
+    test_system_status,
     client_and_server_manager_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["stimulation_running"] = [False] * 24
-    shared_values_dict["system_status"] = RECORDING_STATE
+    shared_values_dict["system_status"] = test_system_status
 
     response = test_client.post("/set_protocols")
     assert response.status_code == 403
-    assert response.status.endswith("Cannot change protocols while recording") is True
+    assert response.status.endswith(f"Cannot change protocols while {test_system_status}") is True
 
 
 def test_set_protocols__returns_error_code_if_protocol_list_is_empty(
@@ -1016,6 +1041,7 @@ def test_set_protocols__returns_error_code_if_protocol_list_is_empty(
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_running"] = [False] * 24
 
     response = test_client.post("/set_protocols", json={"data": json.dumps({"protocols": []})})
@@ -1028,6 +1054,7 @@ def test_set_protocols__returns_error_code_if_two_protocols_are_given_with_the_s
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_running"] = [False] * 24
 
     expected_id = "Z"
@@ -1060,6 +1087,7 @@ def test_set_protocols__returns_error_code_with_invalid_stimulation_type(
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_running"] = [False] * 24
 
     test_stim_info_dict = {"protocols": [{"protocol_id": "A", "stimulation_type": test_stimulation_type}]}
@@ -1144,6 +1172,7 @@ def test_set_protocols__returns_error_code_with_single_invalid_subprotocol_value
 
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_running"] = [False] * 24
 
     test_base_charge = (
@@ -1182,6 +1211,7 @@ def test_set_protocols__returns_error_code_when_pulse_duration_is_too_long(
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_running"] = [False] * 24
 
     test_stim_info_dict = {
@@ -1213,6 +1243,7 @@ def test_set_protocols__returns_error_code_if_a_single_well_is_missing_from_prot
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_running"] = [False] * 24
 
     test_num_wells = 24
@@ -1250,6 +1281,7 @@ def test_set_protocols__returns_error_code_with_invalid_well_name(
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_running"] = [False] * 24
 
     protocol_assignments = {
@@ -1277,6 +1309,7 @@ def test_set_protocols__returns_error_code_if_protocol_assignments_contains_a_si
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_running"] = [False] * 24
 
     protocol_assignments = {
@@ -1308,6 +1341,7 @@ def test_set_protocols__returns_error_code_if_one_of_the_given_protocols_is_not_
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_running"] = [False] * 24
 
     test_ids = ("L", "M")
@@ -1339,6 +1373,7 @@ def test_set_protocols__returns_success_code_if_protocols_would_not_be_updated(
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_running"] = [False] * 24
 
     test_stim_info_dict = {
