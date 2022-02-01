@@ -25,6 +25,7 @@ from mantarray_desktop_app.firmware_downloader import call_firmware_route
 from mantarray_desktop_app.mc_comm import download_firmware_updates
 from mantarray_desktop_app.mc_comm import get_latest_firmware_versions
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
+from mantarray_desktop_app.mc_simulator import MantarrayMcSimulator
 import pytest
 import requests
 from requests.exceptions import ConnectionError
@@ -103,10 +104,10 @@ def test_get_latest_firmware_versions__calls_api_endpoint_correctly_and_returns_
     mocked_get.return_value.json.return_value = copy.deepcopy(expected_response_dict)
 
     test_result_dict = {"latest_versions": {}}
-    test_hw_version = "0.0.1"
-    get_latest_firmware_versions(test_result_dict, test_hw_version)
+    test_serial_number = MantarrayMcSimulator.default_mantarray_serial_number
+    get_latest_firmware_versions(test_result_dict, test_serial_number)
     mocked_get.assert_called_once_with(
-        f"https://{CLOUD_API_ENDPOINT}/firmware_latest?hardware_version={test_hw_version}"
+        f"https://{CLOUD_API_ENDPOINT}/firmware_latest?serial_number={test_serial_number}"
     )
 
     assert test_result_dict == expected_response_dict
@@ -231,7 +232,7 @@ def test_McCommunicationProcess__handles_error_in_firmware_update_worker_thread(
     test_command = {
         "communication_type": "firmware_update",
         "command": "get_latest_firmware_versions",
-        "hardware_version": "1.0.0",
+        "serial_number": MantarrayMcSimulator.default_mantarray_serial_number,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(test_command), from_main_queue
@@ -280,7 +281,7 @@ def test_McCommunicationProcess__handles_successful_completion_of_get_latest_fir
     test_command = {
         "communication_type": "firmware_update",
         "command": "get_latest_firmware_versions",
-        "hardware_version": "1.0.0",
+        "serial_number": MantarrayMcSimulator.default_mantarray_serial_number,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(test_command), from_main_queue

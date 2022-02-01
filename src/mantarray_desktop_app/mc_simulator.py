@@ -35,7 +35,6 @@ from .constants import BOOT_FLAGS_UUID
 from .constants import CHANNEL_FIRMWARE_VERSION_UUID
 from .constants import DEFAULT_SAMPLING_PERIOD
 from .constants import GENERIC_24_WELL_DEFINITION
-from .constants import HARDWARE_VERSION_UUID
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
@@ -167,7 +166,6 @@ class MantarrayMcSimulator(InfiniteProcess):
     default_mantarray_serial_number = "MA2022001000"
     default_main_firmware_version = "0.0.0"
     default_channel_firmware_version = "0.0.0"
-    default_hardware_version = "0.0.0"
     default_barcode = "ML2022001000"
     default_metadata_values: Dict[UUID, Any] = immutabledict(
         {
@@ -176,7 +174,6 @@ class MantarrayMcSimulator(InfiniteProcess):
             MANTARRAY_NICKNAME_UUID: default_mantarray_nickname,
             MAIN_FIRMWARE_VERSION_UUID: default_main_firmware_version,
             CHANNEL_FIRMWARE_VERSION_UUID: default_channel_firmware_version,
-            HARDWARE_VERSION_UUID: default_hardware_version,
         }
     )
     default_24_well_magnetometer_config: Dict[  # pylint: disable=invalid-name # Tanner (4/29/21): can't think of a shorter name for this value

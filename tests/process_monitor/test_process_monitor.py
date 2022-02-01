@@ -45,9 +45,9 @@ from mantarray_desktop_app import UPDATE_ERROR_STATE
 from mantarray_desktop_app import UPDATES_COMPLETE_STATE
 from mantarray_desktop_app import UPDATES_NEEDED_STATE
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
-from mantarray_desktop_app.constants import HARDWARE_VERSION_UUID
 from mantarray_desktop_app.server import queue_command_to_instrument_comm
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
+from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
 import numpy as np
 import pytest
 from stdlib_utils import drain_queue
@@ -823,9 +823,11 @@ def test_MantarrayProcessesMonitor__handles_switch_from_INSTRUMENT_INITIALIZING_
     board_idx = 0
 
     # set other values in shared values dict that would allow for a state transition
-    test_hw_version = "1.1.1"
+    test_serial_number = MantarrayMcSimulator.default_mantarray_serial_number
     test_sw_version = "2.2.2"
-    shared_values_dict["instrument_metadata"] = {board_idx: {HARDWARE_VERSION_UUID: test_hw_version}}
+    shared_values_dict["instrument_metadata"] = {
+        board_idx: {MANTARRAY_SERIAL_NUMBER_UUID: test_serial_number}
+    }
     shared_values_dict["latest_software_version"] = test_sw_version
 
     # run monitor_thread and make sure no state transition occurs
@@ -843,7 +845,7 @@ def test_MantarrayProcessesMonitor__handles_switch_from_INSTRUMENT_INITIALIZING_
         assert command_to_ic == {
             "communication_type": "firmware_update",
             "command": "get_latest_firmware_versions",
-            "hardware_version": test_hw_version,
+            "serial_number": test_serial_number,
         }
 
 
@@ -887,7 +889,7 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
         board_idx: {
             MAIN_FIRMWARE_VERSION_UUID: test_current_version,
             CHANNEL_FIRMWARE_VERSION_UUID: test_current_version,
-            HARDWARE_VERSION_UUID: "2.0.0",
+            MANTARRAY_SERIAL_NUMBER_UUID: MantarrayMcSimulator.default_mantarray_serial_number,
         }
     }
 

@@ -9,10 +9,8 @@ from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import McCommunicationProcess
 from mantarray_desktop_app import SERIAL_COMM_FATAL_ERROR_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
-from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
-from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from mantarray_desktop_app import SerialCommIncorrectMagicWordFromMantarrayError
 import pytest
 from stdlib_utils import drain_queue
@@ -28,7 +26,6 @@ from ..fixtures_mc_comm import set_connection_and_register_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..helpers import assert_queue_is_eventually_not_empty
-from ..helpers import assert_serial_packet_is_expected
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import handle_putting_multiple_objects_into_empty_queue
@@ -257,9 +254,6 @@ def test_McCommunicationProcess_teardown_after_loop__flushes_and_logs_remaining_
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
 
-    mocked_write = mocker.patch.object(simulator, "write", autospec=True)
-    mocked_sleep = mocker.patch.object(mc_comm, "sleep", autospec=True)
-
     # add one data packet with bad magic word to raise error and additional bytes to flush from simulator
     test_read_bytes = [
         bytes(SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES),  # bad packet
@@ -286,7 +280,9 @@ def test_McCommunicationProcess_teardown_after_loop__flushes_and_logs_remaining_
     teardown_messages = drain_queue(output_queue)
     actual = teardown_messages[-1]
     assert "message" in actual, f"Correct message not found. Full message dict: {actual}"
-    expected_bytes = bytes(sum([len(packet) for packet in test_read_bytes]) - len(SERIAL_COMM_MAGIC_WORD_BYTES))
+    expected_bytes = bytes(
+        sum([len(packet) for packet in test_read_bytes]) - len(SERIAL_COMM_MAGIC_WORD_BYTES)
+    )
     assert str(expected_bytes) in actual["message"]
 
 

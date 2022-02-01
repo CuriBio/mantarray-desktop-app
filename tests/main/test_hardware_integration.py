@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from cmath import exp
 import queue
 import time
 from typing import Dict
@@ -325,7 +324,9 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
                     if msg_to_main.get("command", "") == "get_metadata":
                         actual_metadata = msg_to_main.pop("metadata")
                         expected_metadata = expected_response.pop("metadata")
-                        # assert actual_metadata == expected_metadata, f"Incorrect metadata\nActual: {actual_metadata}\nExpected: {expected_metadata}"
+                        assert (
+                            actual_metadata == expected_metadata
+                        ), f"Incorrect metadata\nActual: {actual_metadata}\nExpected: {expected_metadata}"
                     assert (
                         msg_to_main == expected_response
                     ), f"{response_key}\nActual: {msg_to_main}\nExpected: {expected_response}"

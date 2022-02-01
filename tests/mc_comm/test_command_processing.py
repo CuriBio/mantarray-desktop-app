@@ -12,7 +12,6 @@ from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import UnrecognizedCommandFromMainToMcCommError
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
-from mantarray_desktop_app.constants import HARDWARE_VERSION_UUID
 from mantarray_desktop_app.firmware_downloader import download_firmware_updates
 from mantarray_desktop_app.firmware_downloader import get_latest_firmware_versions
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
@@ -185,8 +184,7 @@ def test_McCommunicationProcess__processes_get_metadata_command(
     # run mc_process one iteration to get metadata from simulator and send back to main
     invoke_process_run_and_check_errors(mc_process)
     confirm_queue_is_eventually_of_size(output_queue, 1)
-    expected_response["metadata"] = dict(MantarrayMcSimulator.default_metadata_values)
-    expected_response["metadata"][HARDWARE_VERSION_UUID] = "2.2.0"
+    expected_response["metadata"] = MantarrayMcSimulator.default_metadata_values
     expected_response["board_index"] = 0
     command_response = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert command_response == expected_response
@@ -433,13 +431,13 @@ def test_McCommunicationProcess__processes_get_latest_firmware_versions_command(
     # mock so thread won't get deleted on same iteration it is created
     mocker.patch.object(mc_comm.ErrorCatchingThread, "is_alive", autospec=True, return_value=True)
 
-    test_hardware_version = "1.0.0"
+    test_serial_number = MantarrayMcSimulator.default_mantarray_serial_number
 
     # send command to mc_process
     test_command = {
         "communication_type": "firmware_update",
         "command": "get_latest_firmware_versions",
-        "hardware_version": test_hardware_version,
+        "serial_number": test_serial_number,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(copy.deepcopy(test_command), input_queue)
 
@@ -456,7 +454,7 @@ def test_McCommunicationProcess__processes_get_latest_firmware_versions_command(
         target=get_latest_firmware_versions,
         args=(
             mc_process._fw_update_thread_dict,
-            test_hardware_version,
+            test_serial_number,
         ),
     )
     mocked_thread_start.assert_called_once()

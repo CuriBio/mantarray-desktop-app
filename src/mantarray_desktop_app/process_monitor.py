@@ -41,7 +41,6 @@ from .constants import CHECKING_FOR_UPDATES_STATE
 from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import DOWNLOADING_UPDATES_STATE
 from .constants import GENERIC_24_WELL_DEFINITION
-from .constants import HARDWARE_VERSION_UUID
 from .constants import INSTALLING_UPDATES_STATE
 from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
@@ -722,8 +721,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
             elif self._values_to_share_to_server["latest_software_version"] is not None:
                 self._values_to_share_to_server["system_status"] = CHECKING_FOR_UPDATES_STATE
                 # send command to instrument comm process to check for firmware updates
-                hw_version = self._values_to_share_to_server["instrument_metadata"][board_idx][
-                    HARDWARE_VERSION_UUID
+                serial_number = self._values_to_share_to_server["instrument_metadata"][board_idx][
+                    MANTARRAY_SERIAL_NUMBER_UUID
                 ]
                 to_instrument_comm_queue = (
                     self._process_manager.queue_container().get_communication_to_instrument_comm_queue(
@@ -734,7 +733,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     {
                         "communication_type": "firmware_update",
                         "command": "get_latest_firmware_versions",
-                        "hardware_version": hw_version,
+                        "serial_number": serial_number,
                     }
                 )
         elif self._values_to_share_to_server["system_status"] == UPDATES_NEEDED_STATE:

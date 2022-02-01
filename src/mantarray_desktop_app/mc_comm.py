@@ -23,7 +23,6 @@ from typing import Union
 from zlib import crc32
 
 from mantarray_file_manager import DATETIME_STR_FORMAT
-from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
 from nptyping import NDArray
 import numpy as np
 import serial
@@ -33,7 +32,6 @@ from stdlib_utils import put_log_message_into_queue
 from .constants import DEFAULT_MAGNETOMETER_CONFIG
 from .constants import DEFAULT_SAMPLING_PERIOD
 from .constants import GENERIC_24_WELL_DEFINITION
-from .constants import HARDWARE_VERSION_UUID
 from .constants import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS
 from .constants import MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS
@@ -102,7 +100,6 @@ from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import InstrumentSoftError
 from .exceptions import InvalidCommandFromMainError
 from .exceptions import MagnetometerConfigUpdateWhileDataStreamingError
-from .exceptions import MantarrayInstrumentError
 from .exceptions import SerialCommCommandResponseTimeoutError
 from .exceptions import SerialCommHandshakeTimeoutError
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
@@ -136,7 +133,6 @@ from .serial_comm_utils import parse_metadata_bytes
 from .serial_comm_utils import validate_checksum
 from .utils import check_barcode_is_valid
 from .utils import create_active_channel_per_sensor_list
-from .utils import get_hw_version_from_serial_number
 from .utils import set_this_process_high_priority
 from .utils import sort_nested_dict
 from .worker_thread import ErrorCatchingThread
@@ -571,7 +567,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                     target=get_latest_firmware_versions,
                     args=(
                         self._fw_update_thread_dict,
-                        comm_from_main["hardware_version"],
+                        comm_from_main["serial_number"],
                     ),
                 )
                 self._fw_update_worker_thread.start()
@@ -797,9 +793,6 @@ class McCommunicationProcess(InstrumentCommProcess):
             if prev_command["command"] == "get_metadata":
                 prev_command["board_index"] = board_idx
                 prev_command["metadata"] = parse_metadata_bytes(response_data)
-                prev_command["metadata"][HARDWARE_VERSION_UUID] = get_hw_version_from_serial_number(
-                    prev_command["metadata"][MANTARRAY_SERIAL_NUMBER_UUID]
-                )
             elif prev_command["command"] == "reboot":
                 prev_command["message"] = "Instrument beginning reboot"
                 self._time_of_reboot_start = perf_counter()
