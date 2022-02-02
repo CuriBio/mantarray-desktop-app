@@ -1307,7 +1307,8 @@ def test_start_calibration__populates_queue_to_process_monitor_with_correct_comm
     ) = client_and_server_manager_and_shared_values
     shared_values_dict["system_status"] = CALIBRATION_NEEDED_STATE
     shared_values_dict["beta_2_mode"] = test_beta_2_mode
-    shared_values_dict["stimulation_running"] = [False] * 24
+    if test_beta_2_mode:
+        shared_values_dict["stimulation_running"] = [False] * 24
 
     response = test_client.get("/start_calibration")
     assert response.status_code == 200

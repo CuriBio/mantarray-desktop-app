@@ -320,7 +320,7 @@ def start_calibration() -> Response:
     shared_values_dict = _get_values_from_process_monitor()
     if shared_values_dict["system_status"] not in (CALIBRATION_NEEDED_STATE, CALIBRATED_STATE):
         return Response(status="403 Route cannot be called unless in calibration_needed or calibrated state")
-    if _is_stimulating_on_any_well():
+    if shared_values_dict["beta_2_mode"] and _is_stimulating_on_any_well():
         return Response(status="403 Cannot calibrate while stimulation is running")
 
     if shared_values_dict["beta_2_mode"]:

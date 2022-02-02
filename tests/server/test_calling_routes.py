@@ -258,7 +258,6 @@ def test_send_single_start_calibration_command__returns_correct_response(
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["system_status"] = test_system_status
-    shared_values_dict["stimulation_running"] = [False] * 24
 
     expected_status_code = 200 if test_system_status in (CALIBRATION_NEEDED_STATE, CALIBRATED_STATE) else 403
 
@@ -273,11 +272,12 @@ def test_send_single_start_calibration_command__returns_correct_response(
         )
 
 
-def test_start_calibration__returns_error_code_and_message_if_called_while_stimulating(
+def test_start_calibration__returns_error_code_and_message_if_called_in_beta_2_mode_while_stimulating(
     client_and_server_manager_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["system_status"] = CALIBRATED_STATE
+    shared_values_dict["beta_2_mode"] = True
     shared_values_dict["stimulation_running"] = [False] * 24
     shared_values_dict["stimulation_running"][0] = True  # arbitrary well
 

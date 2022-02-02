@@ -142,7 +142,6 @@ def test_send_single_start_calibration_command__gets_processed_and_sets_system_s
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
     shared_values_dict["system_status"] = CALIBRATED_STATE
-    shared_values_dict["stimulation_running"] = [False] * 24
 
     ok_process = test_process_manager.get_instrument_process()
     set_connection_to_beta_1_board(ok_process, initialize_board=False)
