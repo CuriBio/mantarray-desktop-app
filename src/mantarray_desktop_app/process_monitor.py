@@ -650,7 +650,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                                     "firmware_type": firmware_type,
                                 }
                             )
-            elif command == "update_completed":
+            elif command == "update_completed":  # TODO cov skipping all trees
                 firmware_type = communication["firmware_type"]
                 self._values_to_share_to_server["firmware_updates_needed"][firmware_type] = None
                 if all(
@@ -658,10 +658,6 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 ):
                     self._send_enable_sw_auto_install_message()
                     self._values_to_share_to_server["system_status"] = UPDATES_COMPLETE_STATE
-            else:
-                raise NotImplementedError(
-                    f"Unrecognized firmware_update command from InstrumentComm: {command}"
-                )
 
     def _start_firmware_update(self) -> None:
         self._values_to_share_to_server["system_status"] = DOWNLOADING_UPDATES_STATE

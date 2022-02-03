@@ -1142,6 +1142,29 @@ def test_MantarrayProcessesMonitor__handles_firmware_update_completed_commands_c
     }
 
 
+def test_MantarrayProcessesMonitor__ignores_start_firmware_update_command_response(
+    test_monitor, test_process_manager_creator
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = INSTALLING_UPDATES_STATE
+
+    board_idx = 0
+    from_ic_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(board_idx)
+    )
+
+    command_response = {
+        "communication_type": "firmware_update",
+        "command": "start_firmware_update",
+        "firmware_type": "main",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(command_response, from_ic_queue)
+    # run monitor_thread to make sure no errors occur
+    invoke_process_run_and_check_errors(monitor_thread)
+
+
 def test_MantarrayProcessesMonitor__calls_boot_up_only_once_after_subprocesses_start_if_boot_up_after_processes_start_is_True(
     test_process_manager_creator, mocker
 ):
