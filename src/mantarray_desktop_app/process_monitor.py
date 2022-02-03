@@ -589,6 +589,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 if "error" in communication:
                     self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
                 else:
+                    # Tanner (2/2/22): Should eventually take communication["latest_versions"]["sw"] into account for both SW and FE auto updating
                     latest_main_fw = communication["latest_versions"]["main-fw"]
                     latest_channel_fw = communication["latest_versions"]["channel-fw"]
                     main_fw_update_needed = _compare_semver(
