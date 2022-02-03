@@ -589,9 +589,12 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 if "error" in communication:
                     self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
                 else:
-                    # Tanner (2/2/22): Should eventually take communication["latest_versions"]["sw"] into account for both SW and FE auto updating
+                    required_sw_for_fw = communication["latest_versions"]["sw"]
                     latest_main_fw = communication["latest_versions"]["main-fw"]
                     latest_channel_fw = communication["latest_versions"]["channel-fw"]
+                    min_sw_version_unavailable = _compare_semver(
+                        required_sw_for_fw, self._values_to_share_to_server["latest_software_version"]
+                    )
                     main_fw_update_needed = _compare_semver(
                         latest_main_fw,
                         self._values_to_share_to_server["instrument_metadata"][board_idx][
@@ -604,7 +607,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                             CHANNEL_FIRMWARE_VERSION_UUID
                         ],
                     )
-                    if main_fw_update_needed or channel_fw_update_needed:
+                    if (main_fw_update_needed or channel_fw_update_needed) and not min_sw_version_unavailable:
                         self._values_to_share_to_server["firmware_updates_needed"] = {
                             "main": latest_main_fw if main_fw_update_needed else None,
                             "channel": latest_channel_fw if channel_fw_update_needed else None,

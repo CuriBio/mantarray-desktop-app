@@ -855,7 +855,10 @@ def test_MantarrayProcessesMonitor__handles_switch_from_INSTRUMENT_INITIALIZING_
 
 
 @pytest.mark.parametrize(
-    "error,main_fw_update,channel_fw_update,expected_state",
+    "required_sw_version_available,expected_state_from_sw", [(True, None), (False, CALIBRATION_NEEDED_STATE)]
+)
+@pytest.mark.parametrize(
+    "error,main_fw_update,channel_fw_update,expected_state_from_fw",
     [
         (True, False, False, CALIBRATION_NEEDED_STATE),
         (False, False, False, CALIBRATION_NEEDED_STATE),
@@ -868,9 +871,11 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
     test_monitor,
     test_process_manager_creator,
     error,
+    required_sw_version_available,
     main_fw_update,
     channel_fw_update,
-    expected_state,
+    expected_state_from_sw,
+    expected_state_from_fw,
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
@@ -884,12 +889,17 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
     to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(board_idx)
     queue_to_server_ws = test_process_manager.queue_container().get_data_queue_to_server()
 
+    expected_state = expected_state_from_sw or expected_state_from_fw
+
     test_current_version = "0.0.0"
     test_new_version = "1.0.0"
 
     new_main_fw_version = test_new_version if main_fw_update else None
     new_channel_fw_version = test_new_version if channel_fw_update else None
 
+    shared_values_dict["latest_software_version"] = (
+        test_new_version if required_sw_version_available else test_current_version
+    )
     shared_values_dict["instrument_metadata"] = {
         board_idx: {
             MAIN_FIRMWARE_VERSION_UUID: test_current_version,
@@ -909,7 +919,7 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
         test_command_response["latest_versions"] = {
             "main-fw": test_new_version if main_fw_update else test_current_version,
             "channel-fw": test_new_version if channel_fw_update else test_current_version,
-            "sw": "0.0.1",
+            "sw": test_new_version,
         }
     # process command response
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command_response, from_ic_queue)
