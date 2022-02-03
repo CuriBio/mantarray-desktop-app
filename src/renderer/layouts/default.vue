@@ -24,7 +24,11 @@
       >
         <AdditionalControls />
         <NuxtLink to="/stimulationstudio">
-          <div class="div__stim-studio-screen-view" />
+          <div
+            v-b-popover.hover.bottom="'Click to view Stimulation Studio'"
+            :title="'Stimulation Studio'"
+            class="div__stim-studio-screen-view"
+          />
         </NuxtLink>
       </div>
       <span
@@ -46,12 +50,20 @@
         <div class="div__waveform-screen-view">
           <!-- Default view is waveform screen -->
           <NuxtLink to="/">
-            <img src="../assets/img/waveform-screen-view.png" />
+            <img
+              v-b-popover.hover.bottom="'Click to view Live View'"
+              :title="'Live View'"
+              src="../assets/img/waveform-screen-view.png"
+            />
           </NuxtLink>
         </div>
         <div class="div__heatmap-screen-view">
           <NuxtLink to="/heatmap">
-            <img src="../assets/img/heatmap-screen-view.png" />
+            <img
+              v-b-popover.hover.bottom="'Click to view Heat Map'"
+              :title="'Heat Map'"
+              src="../assets/img/heatmap-screen-view.png"
+            />
           </NuxtLink>
         </div>
       </div>
@@ -90,7 +102,12 @@ import { ipcRenderer } from "electron";
 import { mapState } from "vuex";
 const log = require("electron-log");
 import path from "path";
-
+import Vue from "vue";
+import BootstrapVue from "bootstrap-vue";
+import { VBPopover } from "bootstrap-vue";
+// Note: Vue automatically prefixes the directive name with 'v-'
+Vue.directive("b-popover", VBPopover);
+Vue.use(BootstrapVue);
 // const pkginfo = require('pkginfo')(module, 'version');
 const dummy_electron_app = {
   getVersion() {
