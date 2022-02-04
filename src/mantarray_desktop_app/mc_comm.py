@@ -38,6 +38,7 @@ from .constants import MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import NUM_INITIAL_PACKETS_TO_DROP
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
+from .constants import SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE
 from .constants import SERIAL_COMM_BAUD_RATE
 from .constants import SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE
@@ -885,6 +886,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             # Tanner (3/17/21): to be consistent with OkComm, command responses will be sent back to main after the command is acknowledged by the Mantarray
             self._board_queues[board_idx][1].put_nowait(prev_command)
         elif packet_type == SERIAL_COMM_PLATE_EVENT_PACKET_TYPE:
+            # Tanner (2/4/22): currently unused in favor of SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE, but plan to switch back to this packet type when the instrument is able to detect whether or not a plate was placed or removed
             plate_was_placed = bool(packet_body[0])
             barcode = packet_body[1:].decode("ascii") if plate_was_placed else ""
             barcode_comm = {
@@ -914,6 +916,15 @@ class McCommunicationProcess(InstrumentCommProcess):
             # set up values for reboot
             self._is_waiting_for_reboot = True
             self._time_of_reboot_start = perf_counter()
+        elif packet_type == SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE:
+            barcode = packet_body.decode("ascii")
+            barcode_comm = {
+                "communication_type": "barcode_comm",
+                "board_idx": board_idx,
+                "barcode": barcode,
+                "valid": check_barcode_is_valid(barcode),
+            }
+            self._board_queues[board_idx][1].put_nowait(barcode_comm)
         else:
             raise UnrecognizedSerialCommPacketTypeError(
                 f"Packet Type ID: {packet_type} is not defined for Module ID: {module_id}"

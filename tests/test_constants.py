@@ -79,6 +79,7 @@ from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from mantarray_desktop_app import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
+from mantarray_desktop_app import SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_BAUD_RATE
 from mantarray_desktop_app import SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_BOOT_UP_CODE
@@ -504,6 +505,7 @@ def test_serial_comm():
     assert SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE == 72
     assert SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE == 73
     assert SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE == 74
+    assert SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE == 90
     assert SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE == 255
 
     assert SERIAL_COMM_REBOOT_COMMAND_BYTE == 0
