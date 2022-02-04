@@ -3,7 +3,6 @@
 import base64
 import hashlib
 import os
-from threading import Thread
 from time import sleep
 from typing import Any
 from typing import Dict
@@ -51,8 +50,9 @@ def get_upload_details(
     access_token: str,
     file_name: str,
     customer_account_id: str,
-    user_account_id: str,
     file_md5: str,
+    user_account_id: Optional[str],
+    upload_type: str,
 ) -> Dict[Any, Any]:
     """Post to generate post specific parameters.
 
@@ -62,11 +62,17 @@ def get_upload_details(
         customer_account_id: current customer account id for file to upload.
         user_account_id: current customer user_account_id for file to upload.
         file_md5: md5 hash.
+        upload_type: determines if it's a log file or recording that is being uploaded.
     """
-    object_key = f"{customer_account_id}/{user_account_id}/{file_name}"
+    object_key = (
+        f"{customer_account_id}/{user_account_id}/{file_name}"
+        if user_account_id is not None
+        else f"{customer_account_id}/{file_name}"
+    )
+
     sdk_upload_response = requests.post(
         f"https://{CLOUD_API_ENDPOINT}/sdk_upload",
-        json={"file_name": object_key},
+        json={"file_name": object_key, "upload_type": upload_type},
         headers={"Authorization": f"Bearer {access_token}", "Content-MD5": file_md5},
     )
 
@@ -158,7 +164,7 @@ def uploader(
     zipped_recordings_dir: str,
     customer_account_id: str,
     password: str,
-    user_account_id: str,
+    user_account_id: Optional[str] = None,
     max_num_loops: int = 0,
 ) -> None:
     """Initiate and handle file upload process.
@@ -173,19 +179,22 @@ def uploader(
         max_num_loops: to break loop in testing.
     """
     file_path = os.path.join(os.path.abspath(file_directory), file_name)
+    if "/recordings" in file_directory:
+        upload_type = "sdk"
+    else:
+        upload_type = "logs"
     # Failed uploads will call function with zip file, not directory of well data
     if os.path.isdir(file_path):
         # store zipped files under customer specific and static zipped directory
-        customer_zipped_dir = os.path.join(zipped_recordings_dir, customer_account_id)
-        user_zipped_dir = os.path.join(customer_zipped_dir, user_account_id)
+        zipped_dir = os.path.join(zipped_recordings_dir, customer_account_id)
+        if not os.path.exists(zipped_dir):
+            os.makedirs(zipped_dir)
+        if user_account_id is not None:
+            zipped_dir = os.path.join(zipped_dir, user_account_id)
+            if not os.path.exists(zipped_dir):
+                os.makedirs(zipped_dir)
 
-        if not os.path.exists(customer_zipped_dir):
-            os.makedirs(customer_zipped_dir)
-
-        if not os.path.exists(user_zipped_dir):
-            os.makedirs(user_zipped_dir)
-
-        zipped_file_path = create_zip_file(file_directory, file_name, user_zipped_dir)
+        zipped_file_path = create_zip_file(file_directory, file_name, zipped_dir)
         file_name = f"{file_name}.zip"
     else:
         zipped_file_path = file_path
@@ -198,52 +207,27 @@ def uploader(
         customer_account_id=customer_account_id,
         user_account_id=user_account_id,
         file_md5=file_md5,
+        upload_type=upload_type,
     )
+
     upload_file_to_s3(file_path=zipped_file_path, file_name=file_name, upload_details=upload_details)
 
-    num_of_loops = 0
-    while True:
-        upload_status: str = get_sdk_status(access_token=access_token, upload_details=upload_details)
-        # for testing, had to put first to cover if max loops is already zero
-        if max_num_loops > 0:
-            num_of_loops += 1
-            if num_of_loops >= max_num_loops:
+    if upload_type == "sdk":
+        num_of_loops = 0
+        while True:
+            upload_status: str = get_sdk_status(access_token=access_token, upload_details=upload_details)
+            # for testing, had to put first to cover if max loops is already zero
+            if max_num_loops > 0:
+                num_of_loops += 1
+                if num_of_loops >= max_num_loops:
+                    break
+
+            if "https" in upload_status:
                 break
 
-        if "https" in upload_status:
-            break
+            if "error" in upload_status:
+                raise Exception(upload_status)
 
-        if "error" in upload_status:
-            raise Exception(upload_status)
+            sleep(5)
 
-        sleep(5)
-
-    download_analysis_from_s3(upload_status, file_name)
-
-
-class ErrorCatchingThread(Thread):
-    """Catch errors to make available to caller thread."""
-
-    def __init__(self, target: Any, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        self.error: Optional[Exception] = None
-        self._target: Any = target
-        self._args: Optional[Any]
-        self._kwargs: Optional[Any]
-
-    def run(self) -> None:
-        if self._target is not None:
-            try:
-                super().run()
-            except Exception as e:  # pylint: disable=broad-except  # Tanner (10/8/21): deliberately trying to catch all exceptions here
-                self.error = e
-
-    # for testing
-    def errors(self) -> bool:
-        return self.error is not None
-
-    def get_error(self) -> Any:
-        if self.error is not None:  # for testing
-            # Lucy (11/8/21) prevents error when sending status to main queue by making exception a string
-            return getattr(self.error, "message", str(self.error))
-        return self.error
+        download_analysis_from_s3(upload_status, file_name)

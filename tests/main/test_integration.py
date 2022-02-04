@@ -16,7 +16,6 @@ from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
-from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
@@ -55,13 +54,15 @@ from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
 from mantarray_desktop_app import utils
 from mantarray_desktop_app import wait_for_subprocesses_to_start
 from mantarray_desktop_app import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
+from mantarray_desktop_app.constants import BOOT_FLAGS_UUID
+from mantarray_desktop_app.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import METADATA_UUID_DESCRIPTIONS
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import ADC_REF_OFFSET_UUID
 from mantarray_file_manager import ADC_TISSUE_OFFSET_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
-from mantarray_file_manager import BOOTUP_COUNTER_UUID
 from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import FILE_FORMAT_VERSION_METADATA_KEY
@@ -70,10 +71,8 @@ from mantarray_file_manager import IS_FILE_ORIGINAL_UNTRIMMED_UUID
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
-from mantarray_file_manager import METADATA_UUID_DESCRIPTIONS
 from mantarray_file_manager import NOT_APPLICABLE_H5_METADATA
 from mantarray_file_manager import ORIGINAL_FILE_VERSION_UUID
-from mantarray_file_manager import PCB_SERIAL_NUMBER_UUID
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import REF_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import REFERENCE_VOLTAGE_UUID
@@ -82,10 +81,8 @@ from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
 from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
 from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
 from mantarray_file_manager import STIMULATION_PROTOCOL_UUID
-from mantarray_file_manager import TAMPER_FLAG_UUID
 from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import TOTAL_WELL_COUNT_UUID
-from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
 from mantarray_file_manager import TRIMMED_TIME_FROM_ORIGINAL_END_UUID
 from mantarray_file_manager import TRIMMED_TIME_FROM_ORIGINAL_START_UUID
 from mantarray_file_manager import USER_ACCOUNT_ID_UUID
@@ -240,7 +237,7 @@ def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_li
         assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 3) is True
 
         response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&user_account_id=test_user&recording_directory={expected_recordings_dir}&auto_upload=false&auto_delete=false"
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=test_id&customer_pass_key=test_password&user_account_id=test_user&recording_directory={expected_recordings_dir}&auto_upload=false&auto_delete=false"
         )
         assert response.status_code == 200
 
@@ -394,7 +391,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
         # Tanner (12/29/20): Manually set recording directory through update_settings route
         response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&user_account_id=test_user&recording_directory={expected_recordings_dir}&auto_upload=false&auto_delete=false"
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=test_id&customer_pass_key=test_password&user_account_id=test_user&recording_directory={expected_recordings_dir}&auto_upload=false&auto_delete=false"
         )
         assert response.status_code == 200
 
@@ -521,7 +518,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                         )
                     ).strftime("%Y-%m-%d %H:%M:%S.%f")
                     assert this_file_attrs[str(USER_ACCOUNT_ID_UUID)] == "test_user"
-                    assert this_file_attrs[str(CUSTOMER_ACCOUNT_ID_UUID)] == str(CURI_BIO_ACCOUNT_UUID)
+                    assert this_file_attrs[str(CUSTOMER_ACCOUNT_ID_UUID)] == "test_id"
                     assert this_file_attrs[str(ADC_GAIN_SETTING_UUID)] == 16
                     assert (
                         this_file_attrs[str(ADC_TISSUE_OFFSET_UUID)] == FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
@@ -747,7 +744,7 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
         # Tanner (12/29/20): use updated settings to set the recording directory to the TemporaryDirectory
 
         response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&user_account_id=test_user&auto_upload=false&auto_delete=false"
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=test_id&customer_pass_key=test_password&user_account_id=test_user&auto_upload=false&auto_delete=false"
         )
         assert response.status_code == 200
 
@@ -883,14 +880,18 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         wait_for_subprocesses_to_start()
         test_process_manager = app_info["object_access_inside_main"]["process_manager"]
 
-        sio, msg_list_container = test_socketio_client()
-
         assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 10) is True
+
+        sio, msg_list_container = test_socketio_client()
 
         da_out = test_process_manager.queue_container().get_data_analyzer_data_out_queue()
 
+        response = requests.get(f"{get_api_endpoint()}start_calibration")
+        assert response.status_code == 200
+        assert system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
+
         response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=73f52be0-368c-42d8-a1fd-660d49ba5604&customer_pass_key=Filler_password123&user_account_id=test_user&auto_upload=false&auto_delete=false"
+            f"{get_api_endpoint()}update_settings?customer_account_uuid=test_id&customer_pass_key=test_password&user_account_id=test_user&auto_upload=false&auto_delete=false"
         )
         assert response.status_code == 200
 
@@ -915,10 +916,6 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert stimulation_running_status_eventually_equals(True, 4) is True
         # sleep to let protocol B complete before starting live view
         time.sleep(5)
-
-        response = requests.get(f"{get_api_endpoint()}start_calibration")
-        assert response.status_code == 200
-        assert system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
 
         # Tanner (6/1/21): Start managed_acquisition in order to start recording
         response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
@@ -1065,10 +1062,14 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                     expected_time + datetime.timedelta(microseconds=expected_start_index_1)
                 ).strftime("%Y-%m-%d %H:%M:%S.%f")
                 assert this_file_attrs[str(USER_ACCOUNT_ID_UUID)] == "test_user"
-                assert this_file_attrs[str(CUSTOMER_ACCOUNT_ID_UUID)] == str(CURI_BIO_ACCOUNT_UUID)
+                assert this_file_attrs[str(CUSTOMER_ACCOUNT_ID_UUID)] == "test_id"
                 assert (
                     this_file_attrs[str(MAIN_FIRMWARE_VERSION_UUID)]
-                    == MantarrayMcSimulator.default_firmware_version
+                    == MantarrayMcSimulator.default_main_firmware_version
+                )
+                assert (
+                    this_file_attrs[str(CHANNEL_FIRMWARE_VERSION_UUID)]
+                    == MantarrayMcSimulator.default_channel_firmware_version
                 )
                 assert (
                     this_file_attrs[str(MANTARRAY_SERIAL_NUMBER_UUID)]
@@ -1080,20 +1081,8 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                 )
                 assert this_file_attrs[str(SOFTWARE_RELEASE_VERSION_UUID)] == CURRENT_SOFTWARE_VERSION
                 assert (
-                    this_file_attrs[str(BOOTUP_COUNTER_UUID)]
-                    == MantarrayMcSimulator.default_metadata_values[BOOTUP_COUNTER_UUID]
-                )
-                assert (
-                    this_file_attrs[str(TOTAL_WORKING_HOURS_UUID)]
-                    == MantarrayMcSimulator.default_metadata_values[TOTAL_WORKING_HOURS_UUID]
-                )
-                assert (
-                    this_file_attrs[str(TAMPER_FLAG_UUID)]
-                    == MantarrayMcSimulator.default_metadata_values[TAMPER_FLAG_UUID]
-                )
-                assert (
-                    this_file_attrs[str(PCB_SERIAL_NUMBER_UUID)]
-                    == MantarrayMcSimulator.default_pcb_serial_number
+                    this_file_attrs[str(BOOT_FLAGS_UUID)]
+                    == MantarrayMcSimulator.default_metadata_values[BOOT_FLAGS_UUID]
                 )
 
                 assert this_file_attrs[str(WELL_NAME_UUID)] == well_name
@@ -1219,3 +1208,6 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                     assert actual_stim_data.shape[1] >= 5, well_idx
                 else:
                     assert actual_stim_data.shape[1] == 4, well_idx
+
+
+# TODO Tanner (1/18/21): eventually remove Beta 1 integration tests and add one for a successful auto FW update

@@ -9,10 +9,7 @@
         <PlateNavigator />
       </div>
       <div class="div__status-bar-container">
-        <StatusBar
-          :confirmation_request="confirmation_request"
-          @send_confirmation="send_confirmation"
-        />
+        <StatusBar :confirmation_request="confirmation_request" @send_confirmation="send_confirmation" />
       </div>
       <div class="div__player-controls-container">
         <DesktopPlayerControls @save_customer_id="save_customer_id" />
@@ -25,16 +22,14 @@
             : 'div__additional_controls-controls-icon-container--beta-1-mode',
         ]"
       >
-        <StimulationStudioControls />
+        <AdditionalControls />
         <NuxtLink to="/stimulationstudio">
-          <div class="div__stim-studio-screen-view" />
-        </NuxtLink>
-        <div class="div__temp-controls-container">
-          <img
-            src="../assets/img/additional-controls-icon.png"
-            :style="'height:44px;'"
+          <div
+            v-b-popover.hover.bottom="'Click to view Stimulation Studio'"
+            :title="'Stimulation Studio'"
+            class="div__stim-studio-screen-view"
           />
-        </div>
+        </NuxtLink>
       </div>
       <span
         class="span__screen-view-options-text"
@@ -49,20 +44,26 @@
       <div
         class="div__screen-view-container"
         :class="[
-          beta_2_mode
-            ? 'div__screen-view-container--beta-2-mode'
-            : 'div__screen-view-container--beta-1-mode',
+          beta_2_mode ? 'div__screen-view-container--beta-2-mode' : 'div__screen-view-container--beta-1-mode',
         ]"
       >
         <div class="div__waveform-screen-view">
           <!-- Default view is waveform screen -->
           <NuxtLink to="/">
-            <img src="../assets/img/waveform-screen-view.png" />
+            <img
+              v-b-popover.hover.bottom="'Click to view Live View'"
+              :title="'Live View'"
+              src="../assets/img/waveform-screen-view.png"
+            />
           </NuxtLink>
         </div>
         <div class="div__heatmap-screen-view">
           <NuxtLink to="/heatmap">
-            <img src="../assets/img/heatmap-screen-view.png" />
+            <img
+              v-b-popover.hover.bottom="'Click to view Heat Map'"
+              :title="'Heat Map'"
+              src="../assets/img/heatmap-screen-view.png"
+            />
           </NuxtLink>
         </div>
       </div>
@@ -94,21 +95,26 @@ import {
   StatusBar,
   SimulationMode,
   RecordingTime,
-  StimulationStudioControls,
+  AdditionalControls,
   UploadFilesWidget,
 } from "@curi-bio/mantarray-frontend-components";
 import { ipcRenderer } from "electron";
 import { mapState } from "vuex";
+const log = require("electron-log");
+import path from "path";
+import Vue from "vue";
+import BootstrapVue from "bootstrap-vue";
+import { VBPopover } from "bootstrap-vue";
+// Note: Vue automatically prefixes the directive name with 'v-'
+Vue.directive("b-popover", VBPopover);
+Vue.use(BootstrapVue);
 // const pkginfo = require('pkginfo')(module, 'version');
 const dummy_electron_app = {
   getVersion() {
     return "0.0.0";
   },
 };
-const electron_app =
-  process.env.NODE_ENV === "test"
-    ? dummy_electron_app
-    : require("electron").remote.app;
+const electron_app = process.env.NODE_ENV === "test" ? dummy_electron_app : require("electron").remote.app;
 
 export default {
   components: {
@@ -118,27 +124,44 @@ export default {
     StatusBar,
     SimulationMode,
     RecordingTime,
-    StimulationStudioControls,
+    AdditionalControls,
     UploadFilesWidget,
   },
   data: function () {
     return {
       // package_version: module.exports.version,
       package_version: electron_app.getVersion(), // Eli (7/13/20): This only displays the application version when running from a built application---otherwise it displays the version of Electron that is installed
-      current_year: "2021", // new Date().getFullYear(),
+      current_year: "2022",
       confirmation_request: false,
       beta_2_mode: process.env.SPECTRON || undefined,
       log_dir_name: undefined,
     };
   },
   computed: {
-    ...mapState("settings", ["customer_account_ids", "customer_index"]),
+    ...mapState("settings", ["customer_account_ids", "customer_index", "allow_sw_update_install"]),
   },
-  created: function () {
+  watch: {
+    allow_sw_update_install: function () {
+      ipcRenderer.send("set_sw_update_auto_install", this.allow_sw_update_install);
+    },
+  },
+  created: async function () {
     ipcRenderer.on("logs_flask_dir_response", (e, log_dir_name) => {
       this.$store.commit("settings/set_log_path", log_dir_name);
       this.log_dir_name = log_dir_name;
+      const filename_prefix = path.basename(log_dir_name);
+
+      // Only way to create a custom file path for the renderer process logs
+      log.transports.file.resolvePath = () => {
+        const filename = filename_prefix + "_renderer.txt";
+        return path.join(this.log_dir_name, filename);
+      };
+
+      console.log = log.log;
+      console.error = log.error;
+      console.log("Initial view has been rendered"); // allow-log
     });
+
     if (this.log_dir_name === undefined) {
       ipcRenderer.send("logs_flask_dir_request");
     }
@@ -184,8 +207,6 @@ export default {
     //   }
     // });
     // ipcRenderer.send('customer_account_request');
-
-    console.log("Initial view has been rendered"); // allow-log
   },
   methods: {
     send_confirmation: function (idx) {

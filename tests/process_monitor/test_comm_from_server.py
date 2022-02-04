@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import copy
 import datetime
+import json
 import tempfile
 from uuid import UUID
 
@@ -22,6 +23,7 @@ from mantarray_desktop_app import UnrecognizedCommandFromServerToMainError
 from mantarray_desktop_app import UnrecognizedMantarrayNamingCommandError
 from mantarray_desktop_app import UnrecognizedRecordingCommandError
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import UPDATES_NEEDED_STATE
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import NOT_APPLICABLE_H5_METADATA
@@ -412,28 +414,38 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    monitor_thread, *_ = test_monitor(test_process_manager)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
 
-    shared_values_dict = test_process_manager.get_values_to_share_to_server()
-    original_id = UUID("e623b13c-05a5-41f2-8526-c2eba8e78e7f")
     new_id = UUID("e7744225-c41c-4bd5-9e32-e79716cc8f40")
-    shared_values_dict["config_settings"] = dict()
-    shared_values_dict["config_settings"]["user_account_id"] = original_id
+    new_account_id = "new_ai"
+    new_pass_key = "new_pw"
+
+    shared_values_dict["config_settings"] = {"user_account_id": UUID("e623b13c-05a5-41f2-8526-c2eba8e78e7f")}
+    shared_values_dict["customer_creds"] = {"customer_account_id": "old_ai", "customer_pass_key": "old_pw"}
+
     communication = {
         "communication_type": "update_customer_settings",
-        "content": {"config_settings": {"user_account_id": new_id}},
+        "content": {
+            "config_settings": {
+                "user_account_id": new_id,
+                "customer_account_id": new_account_id,
+                "customer_pass_key": new_pass_key,
+            }
+        },
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
 
-    assert (
-        test_process_manager.get_values_to_share_to_server()["config_settings"]["user_account_id"] == new_id
-    )
+    assert shared_values_dict["config_settings"]["user_account_id"] == new_id
+    assert shared_values_dict["customer_creds"] == {
+        "customer_account_id": new_account_id,
+        "customer_pass_key": new_pass_key,
+    }
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_update_shared_values__by_populating_file_writer_queue_when_recording_directory_updated(
@@ -843,3 +855,66 @@ def test_MantarrayProcessesMonitor__processes_set_protocols_command(
     confirm_queue_is_eventually_of_size(main_to_ic_queue, 1)
     actual = main_to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == test_command
+
+
+@pytest.mark.parametrize(
+    "new_version,current_version,update_available",
+    [
+        ("1.0.0", "NOTASEMVER", False),
+        ("1.0.0", "1.0.1", False),
+        ("1.0.0", "1.0.0", False),
+        ("1.0.1", "1.0.0", True),
+    ],
+)
+def test_MantarrayProcessesMonitor__processes_set_latest_software_version_command(
+    new_version, current_version, update_available, test_process_manager_creator, test_monitor, mocker
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+    queue_to_server_ws = test_process_manager.queue_container().get_data_queue_to_server()
+
+    mocker.patch.object(process_monitor, "CURRENT_SOFTWARE_VERSION", current_version)
+
+    shared_values_dict["latest_software_version"] = None
+
+    test_command = {
+        "communication_type": "set_latest_software_version",
+        "version": new_version,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, server_to_main_queue)
+
+    # make sure value is stored
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert shared_values_dict["latest_software_version"] == new_version
+    # make sure correct message sent to FE
+    confirm_queue_is_eventually_of_size(queue_to_server_ws, 1)
+    ws_message = queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert ws_message == {
+        "data_type": "sw_update",
+        "data_json": json.dumps({"software_update_available": update_available}),
+    }
+
+
+@pytest.mark.parametrize("update_accepted", [True, False])
+def test_MantarrayProcessesMonitor__processes_firmware_update_confirmation_command(
+    update_accepted, test_process_manager_creator, test_monitor
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+    shared_values_dict["system_status"] = UPDATES_NEEDED_STATE
+
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"communication_type": "firmware_update_confirmation", "update_accepted": update_accepted},
+        server_to_main_queue,
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert shared_values_dict["firmware_update_accepted"] is update_accepted
+    # make sure system status was not updated
+    assert shared_values_dict["system_status"] == UPDATES_NEEDED_STATE

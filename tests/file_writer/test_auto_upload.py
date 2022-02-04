@@ -4,8 +4,8 @@ import json
 import os
 import shutil
 
-from mantarray_desktop_app import file_uploader
 from mantarray_desktop_app import file_writer
+from mantarray_desktop_app import worker_thread
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
@@ -79,7 +79,7 @@ def test_FileWriterProcess__exits_status_function_correctly_when_previously_fail
 
     mocked_shutil = mocker.patch.object(shutil, "move", autospec=True)
 
-    mocked_thread = mocker.patch.object(file_uploader, "ErrorCatchingThread", autospec=True)
+    mocked_thread = mocker.patch.object(worker_thread, "ErrorCatchingThread", autospec=True)
     mocker.patch.object(mocked_thread.name, "is_alive", autospec=True, return_value=False)
     mocker.patch.object(mocked_thread.name, "get_error", autospec=True, return_value="error")
     mocker.patch.object(mocked_thread.name, "errors", autospec=True, return_value=thread_error)
@@ -117,7 +117,7 @@ def test_FileWriterProcess__exits_status_function_correctly_when_newly_failed_fi
     mocked_test = mocker.patch.object(os.path, "exists", autospec=True, return_value=paths_exist)
     mocked_makedirs = mocker.patch.object(os, "makedirs", autospec=True)
 
-    mocked_thread = mocker.patch.object(file_uploader, "ErrorCatchingThread", autospec=True)
+    mocked_thread = mocker.patch.object(worker_thread, "ErrorCatchingThread", autospec=True)
     mocker.patch.object(mocked_thread.name, "is_alive", autospec=True, return_value=False)
     mocker.patch.object(mocked_thread.name, "get_error", autospec=True, return_value="error")
     mocker.patch.object(mocked_thread.name, "errors", autospec=True, return_value=True)
@@ -158,7 +158,7 @@ def test_FileWriterProcess__exits_status_function_correctly_when_newly_failed_fi
     mocked_rmdir = mocker.patch.object(os, "rmdir", autospec=True)
     mocker.patch.object(os, "listdir", autospec=True)
 
-    mocked_thread = mocker.patch.object(file_uploader, "ErrorCatchingThread", autospec=True)
+    mocked_thread = mocker.patch.object(worker_thread, "ErrorCatchingThread", autospec=True)
     mocker.patch.object(mocked_thread.name, "is_alive", autospec=True, return_value=False)
     mocker.patch.object(mocked_thread.name, "errors", autospec=True, return_value=False)
     mocker.patch.object(mocked_thread.name, "join", autospec=True)
@@ -190,7 +190,7 @@ def test_FileWriterProcess__correctly_kicks_off_upload_thread_on_setup_and_appen
 
     mocker.patch.object(os, "listdir", return_value=["test_id"])
     mocker.patch.object(os.path, "exists", autospec=True, return_value=True)
-    mocker.patch.object(file_uploader, "ErrorCatchingThread", autospec=True)
+    mocker.patch.object(worker_thread, "ErrorCatchingThread", autospec=True)
 
     file_writer_process._process_failed_upload_files_on_setup()  # pylint: disable=protected-access
     upload_threads_container = file_writer_process.get_upload_threads_container()
@@ -211,7 +211,7 @@ def test_FileWriterProcess__correctly_kicks_off_upload_thread_on_setup_and_will_
 
     mocker.patch.object(os, "listdir", return_value=["wrong_id"])
     mocker.patch.object(os.path, "exists", autospec=True, return_value=True)
-    mocker.patch.object(file_uploader, "ErrorCatchingThread", autospec=True)
+    mocker.patch.object(worker_thread, "ErrorCatchingThread", autospec=True)
 
     file_writer_process._process_failed_upload_files_on_setup()  # pylint: disable=protected-access
     upload_threads_container = file_writer_process.get_upload_threads_container()
@@ -223,8 +223,8 @@ def test_FileWriterProcess__prevent_any_uploads_with_no_stored_customer_settings
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     spied_auto_delete = mocker.patch.object(file_writer_process, "_delete_local_files", autospec=True)
-    spied_thread_start = mocker.patch.object(file_uploader.ErrorCatchingThread, "start", autospec=True)
-    spied_thread_join = mocker.patch.object(file_uploader.ErrorCatchingThread, "join", autospec=True)
+    spied_thread_start = mocker.patch.object(worker_thread.ErrorCatchingThread, "start", autospec=True)
+    spied_thread_join = mocker.patch.object(worker_thread.ErrorCatchingThread, "join", autospec=True)
 
     file_writer_process._stored_customer_settings = None  # pylint: disable=protected-access
 
@@ -241,11 +241,11 @@ def test_FileWriterProcess__prevent_any_uploads_with_no_stored_customer_settings
 def test_FileWriterProcess__does_not_join_upload_thread_if_alive(four_board_file_writer_process, mocker):
     file_writer_process = four_board_file_writer_process["fw_process"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
-    spied_join = mocker.spy(file_uploader.ErrorCatchingThread, "join")
+    spied_join = mocker.spy(worker_thread.ErrorCatchingThread, "join")
     mocker.patch.object(os.path, "exists", autospec=True, return_value=True)
     mocker.patch.object(os, "listdir", autospec=True, return_value=["73f52be0-368c-42d8-a1fd-660d49ba5604"])
 
-    mocker.patch.object(file_uploader.ErrorCatchingThread, "is_alive", autospec=True, return_value=True)
+    mocker.patch.object(worker_thread.ErrorCatchingThread, "is_alive", autospec=True, return_value=True)
 
     GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_upload_on_completion"] = True
     GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_delete_local_files"] = False
@@ -261,8 +261,8 @@ def test_FileWriterProcess__upload_thread_gets_added_to_container_after_all_file
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
 
-    mocker.patch.object(file_uploader.ErrorCatchingThread, "start", autospec=True)
-    mocker.patch.object(file_uploader.ErrorCatchingThread, "is_alive", autospec=True, return_value=True)
+    mocker.patch.object(worker_thread.ErrorCatchingThread, "start", autospec=True)
+    mocker.patch.object(worker_thread.ErrorCatchingThread, "is_alive", autospec=True, return_value=True)
 
     update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
     update_customer_settings_command["config_settings"]["auto_delete_local_files"] = False
@@ -282,15 +282,15 @@ def test_FileWriterProcess__upload_errors_sent_to_main_correctly(four_board_file
     file_writer_process = four_board_file_writer_process["fw_process"]
     to_main_queue = four_board_file_writer_process["to_main_queue"]
 
-    mocker.patch.object(file_uploader.ErrorCatchingThread, "start", autospec=True)
+    mocker.patch.object(worker_thread.ErrorCatchingThread, "start", autospec=True)
     mocked_thread_is_alive = mocker.patch.object(
-        file_uploader.ErrorCatchingThread, "is_alive", autospec=True, return_value=True
+        worker_thread.ErrorCatchingThread, "is_alive", autospec=True, return_value=True
     )
     mocked_thread_errors = mocker.patch.object(
-        file_uploader.ErrorCatchingThread, "errors", autospec=True, return_value=False
+        worker_thread.ErrorCatchingThread, "errors", autospec=True, return_value=False
     )
     mocked_thread_err = mocker.patch.object(
-        file_uploader.ErrorCatchingThread, "get_error", autospec=True, return_value="mocked_error"
+        worker_thread.ErrorCatchingThread, "get_error", autospec=True, return_value="mocked_error"
     )
 
     update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
@@ -309,7 +309,7 @@ def test_FileWriterProcess__upload_errors_sent_to_main_correctly(four_board_file
     # create and process error
     mocked_thread_errors.return_value = True
     mocked_thread_is_alive.return_value = False
-    mocker.patch.object(file_uploader.ErrorCatchingThread, "join")
+    mocker.patch.object(worker_thread.ErrorCatchingThread, "join")
     invoke_process_run_and_check_errors(file_writer_process)
 
     update_upload_status_msg = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -326,7 +326,7 @@ def test_FileWriterProcess__no_upload_threads_are_started_when_auto_upload_is_fa
     file_writer_process = four_board_file_writer_process["fw_process"]
 
     mocked_upload_thread_start = mocker.patch.object(
-        file_uploader.ErrorCatchingThread, "start", autospec=True
+        worker_thread.ErrorCatchingThread, "start", autospec=True
     )
 
     test_well_indices = [4, 5]
@@ -355,11 +355,11 @@ def test_FileWriterProcess__status_successfully_gets_added_to_main_queue_when_au
 
     test_well_indices = [10, 20]
 
-    mocker.patch.object(file_uploader.ErrorCatchingThread, "errors", autospec=True, return_value=False)
-    mocker.patch.object(file_uploader.ErrorCatchingThread, "start", autospec=True)
-    mocker.patch.object(file_uploader.ErrorCatchingThread, "join")
+    mocker.patch.object(worker_thread.ErrorCatchingThread, "errors", autospec=True, return_value=False)
+    mocker.patch.object(worker_thread.ErrorCatchingThread, "start", autospec=True)
+    mocker.patch.object(worker_thread.ErrorCatchingThread, "join")
     mocked_thread_is_alive = mocker.patch.object(
-        file_uploader.ErrorCatchingThread, "is_alive", autospec=True, return_value=True
+        worker_thread.ErrorCatchingThread, "is_alive", autospec=True, return_value=True
     )
 
     update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)

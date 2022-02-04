@@ -42,6 +42,7 @@ def fixture_server_manager(generic_queue_container):
     # Tanner (4/23/21): Many routes require these values to be in the shared values dictionary. They are normally set during app start up, so manually setting here
     shared_values_dict["system_status"] = SERVER_READY_STATE
     shared_values_dict["beta_2_mode"] = False
+    shared_values_dict["config_settings"] = dict()
 
     yield sm, to_main_queue
 
@@ -126,7 +127,9 @@ def put_generic_beta_2_start_recording_info_in_dict(shared_values_dict):
         "customer_account_id": CURI_BIO_ACCOUNT_UUID,
         "user_account_id": CURI_BIO_USER_ACCOUNT_ID,
     }
-    shared_values_dict["main_firmware_version"] = {board_idx: MantarrayMcSimulator.default_firmware_version}
+    shared_values_dict["main_firmware_version"] = {
+        board_idx: MantarrayMcSimulator.default_main_firmware_version
+    }
     shared_values_dict["mantarray_serial_number"] = {
         board_idx: MantarrayMcSimulator.default_mantarray_serial_number
     }
@@ -179,7 +182,7 @@ def fixture_test_socketio_client():
 
     def _connect_client_to_server():
         confirm_port_in_use(get_server_port_number(), timeout=4)  # wait for server to boot up
-        sio.connect(get_api_endpoint())
+        sio.connect(get_api_endpoint(), wait_timeout=10)
         return sio, msg_list_container
 
     yield _connect_client_to_server

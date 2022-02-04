@@ -5,7 +5,6 @@ from __future__ import annotations
 import datetime
 from typing import Any
 from typing import Dict
-from typing import Union
 from uuid import UUID
 from zlib import crc32
 
@@ -18,10 +17,11 @@ from mantarray_file_manager import PCB_SERIAL_NUMBER_UUID
 from mantarray_file_manager import TAMPER_FLAG_UUID
 from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
 
+from .constants import BOOT_FLAGS_UUID
+from .constants import CHANNEL_FIRMWARE_VERSION_UUID
 from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
-from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
@@ -32,7 +32,6 @@ from .constants import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from .constants import STIM_MODULE_ID_TO_WELL_IDX
 from .constants import STIM_NO_PROTOCOL_ASSIGNED
 from .constants import STIM_WELL_IDX_TO_MODULE_ID
-from .exceptions import SerialCommMetadataValueTooLargeError
 
 
 # Tanner (3/18/21): If/When additional cython is needed to improve serial communication, this file may be worth investigating
@@ -41,12 +40,14 @@ from .exceptions import SerialCommMetadataValueTooLargeError
 METADATA_TYPES = immutabledict(
     {
         MAIN_FIRMWARE_VERSION_UUID: str,
+        CHANNEL_FIRMWARE_VERSION_UUID: str,
         MANTARRAY_NICKNAME_UUID: str,
         MANTARRAY_SERIAL_NUMBER_UUID: str,
         TOTAL_WORKING_HOURS_UUID: int,
         TAMPER_FLAG_UUID: int,
         BOOTUP_COUNTER_UUID: int,
         PCB_SERIAL_NUMBER_UUID: str,
+        BOOT_FLAGS_UUID: int,
     }
 )
 BITMASK_SHIFT_VALUE = 16 - SERIAL_COMM_NUM_DATA_CHANNELS  # 16 for number of bits in int16
@@ -84,69 +85,33 @@ def validate_checksum(comm_from_pc: bytes) -> bool:
     return actual_checksum == expected_checksum
 
 
-def convert_to_metadata_bytes(value: Union[str, int], signed: bool = False) -> bytes:
-    """Convert a value to the correct number of bytes for MCU metadata.
-
-    kwarg `signed` is ignored if the value is not an int.
-    """
-    if isinstance(value, int):
-        value_bytes: bytes
-        try:
-            value_bytes = value.to_bytes(
-                SERIAL_COMM_METADATA_BYTES_LENGTH,
-                byteorder="little",
-                signed=signed,
-            )
-        except OverflowError as e:
-            signed_str = "Signed" if signed else "Unsigned"
-            raise SerialCommMetadataValueTooLargeError(
-                f"{signed_str} value: {value} cannot fit into {SERIAL_COMM_METADATA_BYTES_LENGTH} bytes"
-            ) from e
-        return value_bytes
-    if isinstance(value, str):
-        value_bytes = bytes(value, encoding="utf-8")
-        if len(value_bytes) > SERIAL_COMM_METADATA_BYTES_LENGTH:
-            raise SerialCommMetadataValueTooLargeError(
-                f"String: {value} exceeds {SERIAL_COMM_METADATA_BYTES_LENGTH} bytes"
-            )
-        num_bytes_to_append = SERIAL_COMM_METADATA_BYTES_LENGTH - len(value_bytes)
-        value_bytes += bytes(num_bytes_to_append)
-        return value_bytes
-    raise NotImplementedError(f"No MCU metadata values are of type: {type(value)}")
-
-
-def convert_metadata_bytes_to_str(metadata_bytes: bytes) -> str:
-    """Convert bytes to a string.
-
-    Assumes that exactly 32 bytes are given.
-    """
-    metadata_str = metadata_bytes.decode("utf-8")
-    stop_idx = len(metadata_str)
-    for char in reversed(metadata_str):
-        if char != "\x00":
-            break
-        stop_idx -= 1
-    return metadata_str[:stop_idx]
-
-
 def parse_metadata_bytes(metadata_bytes: bytes) -> Dict[UUID, Any]:
     """Parse bytes containing metadata and return as Dict."""
-    uuid_bytes_length = 16
-    single_metadata_length = uuid_bytes_length + SERIAL_COMM_METADATA_BYTES_LENGTH
+    return {
+        BOOT_FLAGS_UUID: metadata_bytes[0],
+        MANTARRAY_NICKNAME_UUID: metadata_bytes[1:14].decode("utf-8"),
+        MANTARRAY_SERIAL_NUMBER_UUID: metadata_bytes[14:26].decode("ascii"),
+        MAIN_FIRMWARE_VERSION_UUID: convert_semver_bytes_to_str(metadata_bytes[26:29]),
+        CHANNEL_FIRMWARE_VERSION_UUID: convert_semver_bytes_to_str(metadata_bytes[29:32]),
+    }
 
-    metadata_dict: Dict[UUID, Any] = dict()
-    for this_metadata_idx in range(0, len(metadata_bytes), single_metadata_length):
-        this_metadata_bytes = metadata_bytes[this_metadata_idx : this_metadata_idx + single_metadata_length]
-        this_value_bytes = this_metadata_bytes[uuid_bytes_length:]
-        this_uuid = UUID(bytes=this_metadata_bytes[:uuid_bytes_length])
-        metadata_type = METADATA_TYPES[this_uuid]
-        this_value = (
-            convert_metadata_bytes_to_str(this_value_bytes)
-            if metadata_type == str
-            else int.from_bytes(this_value_bytes, byteorder="little")
-        )
-        metadata_dict[this_uuid] = this_value
-    return metadata_dict
+
+def convert_metadata_to_bytes(metadata_dict: Dict[UUID, Any]) -> bytes:
+    return (
+        bytes([metadata_dict[BOOT_FLAGS_UUID]])
+        + bytes(metadata_dict[MANTARRAY_NICKNAME_UUID], encoding="utf-8")
+        + bytes(metadata_dict[MANTARRAY_SERIAL_NUMBER_UUID], encoding="ascii")
+        + convert_semver_str_to_bytes(metadata_dict[MAIN_FIRMWARE_VERSION_UUID])
+        + convert_semver_str_to_bytes(metadata_dict[CHANNEL_FIRMWARE_VERSION_UUID])
+    )
+
+
+def convert_semver_bytes_to_str(semver_bytes: bytes) -> str:
+    return f"{semver_bytes[0]}.{semver_bytes[1]}.{semver_bytes[2]}"
+
+
+def convert_semver_str_to_bytes(semver_str: str) -> bytes:
+    return bytes([int(num) for num in semver_str.split(".")])
 
 
 def convert_to_status_code_bytes(status_code: int) -> bytes:

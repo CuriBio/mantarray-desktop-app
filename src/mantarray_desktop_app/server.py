@@ -58,9 +58,9 @@ from flask_cors import CORS
 from flask_socketio import SocketIO
 from immutabledict import immutabledict
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
-from mantarray_file_manager import METADATA_UUID_DESCRIPTIONS
 from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import requests
+from semver import VersionInfo
 from stdlib_utils import drain_queue
 from stdlib_utils import is_port_in_use
 from stdlib_utils import put_log_message_into_queue
@@ -72,6 +72,7 @@ from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
+from .constants import METADATA_UUID_DESCRIPTIONS
 from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MICROSECONDS_PER_MILLISECOND
@@ -102,9 +103,11 @@ from .utils import check_barcode_for_errors
 from .utils import convert_request_args_to_config_dict
 from .utils import get_current_software_version
 from .utils import get_redacted_string
+from .utils import upload_log_files_to_s3
 from .utils import validate_customer_credentials
 from .utils import validate_magnetometer_config_keys
 from .utils import validate_settings
+
 
 logger = logging.getLogger(__name__)
 os.environ[
@@ -217,6 +220,7 @@ def system_status() -> Response:
     current_software_version = get_current_software_version()
     expected_software_version = shared_values_dict.get("expected_software_version", current_software_version)
     if expected_software_version != current_software_version:
+        # TODO figure out which FE status the SW gets stuck in when this error code is returned
         return Response(status="520 Versions of Electron and Flask EXEs do not match")
 
     board_idx = 0
@@ -244,6 +248,41 @@ def system_status() -> Response:
 
     response = Response(json.dumps(status_dict), mimetype="application/json")
 
+    return response
+
+
+@flask_app.route("/latest_software_version", methods=["POST"])
+def set_latest_software_version() -> Response:
+    """Set the latest available software version."""
+    if not _get_values_from_process_monitor()["beta_2_mode"]:
+        return Response(status="403 Route cannot be called in beta 1 mode")
+    try:
+        version = request.args["version"]
+        # check if version is a valid semantic version string. ValueError will be raised if not
+        VersionInfo.parse(version)
+    except KeyError:
+        return Response(status="400 Version not specified")
+    except ValueError:
+        return Response(status="400 Invalid version string")
+
+    comm_dict = {
+        "communication_type": "set_latest_software_version",
+        "version": version,
+    }
+
+    response = queue_command_to_main(comm_dict)
+    return response
+
+
+@flask_app.route("/firmware_update_confirmation", methods=["POST"])
+def firmware_update_confirmation() -> Response:
+    """Confirm whether or not user wants to proceed with FW update."""
+    if not _get_values_from_process_monitor()["beta_2_mode"]:
+        return Response(status="403 Route cannot be called in beta 1 mode")
+    update_accepted = request.args["update_accepted"] in ("true", "True")
+    comm_dict = {"communication_type": "firmware_update_confirmation", "update_accepted": update_accepted}
+
+    response = queue_command_to_main(comm_dict)
     return response
 
 
@@ -281,6 +320,8 @@ def start_calibration() -> Response:
     shared_values_dict = _get_values_from_process_monitor()
     if shared_values_dict["system_status"] not in (CALIBRATION_NEEDED_STATE, CALIBRATED_STATE):
         return Response(status="403 Route cannot be called unless in calibration_needed or calibrated state")
+    if shared_values_dict["beta_2_mode"] and _is_stimulating_on_any_well():
+        return Response(status="403 Cannot calibrate while stimulation is running")
 
     if shared_values_dict["beta_2_mode"]:
         comm_dict = {"communication_type": "calibration", "command": "run_calibration"}
@@ -338,8 +379,8 @@ def update_settings() -> Response:
             "content": convert_request_args_to_config_dict(request.args),
         }
     )
-    response = Response(json.dumps(request.args), mimetype="application/json")
 
+    response = Response(json.dumps(request.args), mimetype="application/json")
     return response
 
 
@@ -448,8 +489,9 @@ def set_protocols() -> Response:
         return Response(status="403 Route cannot be called in beta 1 mode")
     if _is_stimulating_on_any_well():
         return Response(status="403 Cannot change protocols while stimulation is running")
-    if _is_recording():
-        return Response(status="403 Cannot change protocols while recording")
+    system_status = _get_values_from_process_monitor()["system_status"]
+    if system_status not in (CALIBRATED_STATE, BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE):
+        return Response(status=f"403 Cannot change protocols while {system_status}")
 
     stim_info = json.loads(request.get_json()["data"])
 
@@ -564,22 +606,23 @@ def set_stim_status() -> Response:
         return Response(status="403 Route cannot be called in beta 1 mode")
 
     try:
-        status = request.args["running"] in ("true", "True")
+        stim_status = request.args["running"] in ("true", "True")
     except KeyError:
         return Response(status="400 Request missing 'running' parameter")
 
     if shared_values_dict["stimulation_info"] is None:
         return Response(status="406 Protocols have not been set")
-    if status and _is_recording():
-        return Response(status="403 Cannot start stimulation while recording")
-    if status is _is_stimulating_on_any_well():
+    system_status = shared_values_dict["system_status"]
+    if stim_status and system_status not in (CALIBRATED_STATE, BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE):
+        return Response(status=f"403 Cannot start stimulation while {system_status}")
+    if stim_status is _is_stimulating_on_any_well():
         return Response(status="304 Status not updated")
 
     response = queue_command_to_main(
         {
             "communication_type": "stimulation",
             "command": "set_stim_status",
-            "status": status,
+            "status": stim_status,
         }
     )
     return response
@@ -1090,6 +1133,11 @@ def shutdown() -> Response:
     """
     queue_command_to_main({"communication_type": "shutdown", "command": "hard_stop"})
     wait_for_subprocesses_to_stop()
+
+    if request.args.get("called_through_app_will_quit", None) is not None:
+        shared_values_dict = _get_values_from_process_monitor()
+        upload_log_files_to_s3(shared_values_dict)
+
     response = queue_command_to_main({"communication_type": "shutdown", "command": "shutdown_server"})
     return response
 
@@ -1134,7 +1182,8 @@ def after_request(response: Response) -> Response:
             response_json["metadata_to_copy_onto_main_file_attributes"][
                 str(MANTARRAY_NICKNAME_UUID)
             ] = get_redacted_string(len(mantarray_nickname))
-
+        if "update_settings" in rule.rule:
+            response_json["customer_pass_key"] = get_redacted_string(4)
     msg = "Response to HTTP Request in next log entry: "
     if response.status_code == 200:
         # Tanner (1/19/21): using json.dumps instead of an f-string here allows us to perform better testing of our log messages by loading the json string to a python dict

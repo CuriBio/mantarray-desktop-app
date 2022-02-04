@@ -1,9 +1,7 @@
 import path from "path";
 const { Menu } = require("electron");
 const { centerWindow } = require("electron-util");
-// const browser_win_handler_path = path.join(__dirname, "BrowserWinHandler");
 
-// const BrowserWinHandler =require(browser_win_handler_path).BrowserWinHandler;
 import BrowserWinHandler from "./BrowserWinHandler";
 const isDev = process.env.NODE_ENV === "development";
 
@@ -38,7 +36,6 @@ winHandler.onCreated((browserWindow) => {
   }
 });
 
-// TODO Lucy (11/15/21) figure out how to add shortcuts and hide menu bar
 const template = [
   {
     label: "Edit",

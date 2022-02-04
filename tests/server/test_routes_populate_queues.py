@@ -3,6 +3,7 @@ import datetime
 import json
 
 from freezegun import freeze_time
+from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import create_magnetometer_config_dict
@@ -14,11 +15,13 @@ from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import server
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_desktop_app import utils
+from mantarray_desktop_app.constants import BOOT_FLAGS_UUID
+from mantarray_desktop_app.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import BACKEND_LOG_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
-from mantarray_file_manager import BOOTUP_COUNTER_UUID
 from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
@@ -26,7 +29,6 @@ from mantarray_file_manager import MAGNETOMETER_CONFIGURATION_UUID
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
-from mantarray_file_manager import PCB_SERIAL_NUMBER_UUID
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import REFERENCE_VOLTAGE_UUID
 from mantarray_file_manager import SLEEP_FIRMWARE_VERSION_UUID
@@ -34,9 +36,7 @@ from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
 from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
 from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
 from mantarray_file_manager import STIMULATION_PROTOCOL_UUID
-from mantarray_file_manager import TAMPER_FLAG_UUID
 from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
-from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
 from mantarray_file_manager import USER_ACCOUNT_ID_UUID
 from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
@@ -1088,20 +1088,12 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     # metadata values from instrument
     instrument_metadata = shared_values_dict["instrument_metadata"][0]
     assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][BOOTUP_COUNTER_UUID]
-        == instrument_metadata[BOOTUP_COUNTER_UUID]
+        communication["metadata_to_copy_onto_main_file_attributes"][BOOT_FLAGS_UUID]
+        == instrument_metadata[BOOT_FLAGS_UUID]
     )
     assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][TOTAL_WORKING_HOURS_UUID]
-        == instrument_metadata[TOTAL_WORKING_HOURS_UUID]
-    )
-    assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][TAMPER_FLAG_UUID]
-        == instrument_metadata[TAMPER_FLAG_UUID]
-    )
-    assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][PCB_SERIAL_NUMBER_UUID]
-        == instrument_metadata[PCB_SERIAL_NUMBER_UUID]
+        communication["metadata_to_copy_onto_main_file_attributes"][CHANNEL_FIRMWARE_VERSION_UUID]
+        == instrument_metadata[CHANNEL_FIRMWARE_VERSION_UUID]
     )
     # make sure current beta 1 only values are not present
     assert SLEEP_FIRMWARE_VERSION_UUID not in communication["metadata_to_copy_onto_main_file_attributes"]
@@ -1197,7 +1189,8 @@ def test_shutdown__sends_hard_stop_command__waits_for_subprocesses_to_stop__then
         mocked_queue_command.assert_called_once()
 
     mocked_wait = mocker.patch.object(server, "wait_for_subprocesses_to_stop", autospec=True, side_effect=se)
-
+    mocked_upload = mocker.patch.object(utils, "upload_log_files_to_s3", autospec=True)
+    mocker.patch.object(server, "_get_values_from_process_monitor", autospec=True)
     test_client, test_server_info, _ = client_and_server_manager_and_shared_values
     test_server, _ = test_server_info
     server_to_main_queue = test_server.get_queue_to_main()
@@ -1216,6 +1209,8 @@ def test_shutdown__sends_hard_stop_command__waits_for_subprocesses_to_stop__then
     assert shutdown_server_command["communication_type"] == "shutdown"
     assert shutdown_server_command["command"] == "shutdown_server"
     assert response_json == shutdown_server_command
+
+    mocked_upload.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -1238,6 +1233,7 @@ def test_set_stim_status__populates_queue_to_process_monitor_with_new_stim_statu
         shared_values_dict,
     ) = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_info"] = {"protocols": [None] * 4, "protocol_assignments": {}}
 
     expected_status_bool = test_status in ("true", "True")
@@ -1263,6 +1259,7 @@ def test_set_protocols__populates_queue_to_process_monitor_with_new_protocol(
         shared_values_dict,
     ) = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_running"] = [False] * 24
 
     test_protocol_dict = {
@@ -1310,6 +1307,8 @@ def test_start_calibration__populates_queue_to_process_monitor_with_correct_comm
     ) = client_and_server_manager_and_shared_values
     shared_values_dict["system_status"] = CALIBRATION_NEEDED_STATE
     shared_values_dict["beta_2_mode"] = test_beta_2_mode
+    if test_beta_2_mode:
+        shared_values_dict["stimulation_running"] = [False] * 24
 
     response = test_client.get("/start_calibration")
     assert response.status_code == 200
@@ -1318,3 +1317,52 @@ def test_start_calibration__populates_queue_to_process_monitor_with_correct_comm
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication == test_comm_dict
+
+
+def test_latest_software_version__returns_ok_when_version_string_is_a_valid_semantic_version(
+    client_and_server_manager_and_shared_values,
+):
+    (
+        test_client,
+        (server_manager, _),
+        shared_values_dict,
+    ) = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+
+    test_version = "10.10.10"
+    response = test_client.post(f"/latest_software_version?version={test_version}")
+    assert response.status_code == 200
+
+    comm_queue = server_manager.get_queue_to_main()
+    confirm_queue_is_eventually_of_size(comm_queue, 1)
+    communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication == {
+        "communication_type": "set_latest_software_version",
+        "version": test_version,
+    }
+
+
+@pytest.mark.parametrize("user_response", ["true", "True", "false", "False"])
+def test_firmware_update_confirmation__sends_correct_command_to_main(
+    user_response,
+    client_and_server_manager_and_shared_values,
+):
+    (
+        test_client,
+        (server_manager, _),
+        shared_values_dict,
+    ) = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+
+    update_accepted = user_response in ("true", "True")
+
+    response = test_client.post(f"/firmware_update_confirmation?update_accepted={update_accepted}")
+    assert response.status_code == 200
+
+    comm_queue = server_manager.get_queue_to_main()
+    confirm_queue_is_eventually_of_size(comm_queue, 1)
+    communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication == {
+        "communication_type": "firmware_update_confirmation",
+        "update_accepted": update_accepted,
+    }

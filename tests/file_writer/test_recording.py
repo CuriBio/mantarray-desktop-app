@@ -34,12 +34,14 @@ from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_desktop_app.constants import BOOT_FLAGS_UUID
+from mantarray_desktop_app.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import METADATA_UUID_DESCRIPTIONS
 from mantarray_file_manager import ADC_GAIN_SETTING_UUID
 from mantarray_file_manager import ADC_REF_OFFSET_UUID
 from mantarray_file_manager import ADC_TISSUE_OFFSET_UUID
 from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
-from mantarray_file_manager import BOOTUP_COUNTER_UUID
 from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
 from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
 from mantarray_file_manager import FILE_FORMAT_VERSION_METADATA_KEY
@@ -49,10 +51,8 @@ from mantarray_file_manager import MAGNETOMETER_CONFIGURATION_UUID
 from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
-from mantarray_file_manager import METADATA_UUID_DESCRIPTIONS
 from mantarray_file_manager import NOT_APPLICABLE_H5_METADATA
 from mantarray_file_manager import ORIGINAL_FILE_VERSION_UUID
-from mantarray_file_manager import PCB_SERIAL_NUMBER_UUID
 from mantarray_file_manager import PLATE_BARCODE_UUID
 from mantarray_file_manager import REF_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import REFERENCE_VOLTAGE_UUID
@@ -61,10 +61,8 @@ from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
 from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
 from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
 from mantarray_file_manager import STIMULATION_PROTOCOL_UUID
-from mantarray_file_manager import TAMPER_FLAG_UUID
 from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
 from mantarray_file_manager import TOTAL_WELL_COUNT_UUID
-from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
 from mantarray_file_manager import TRIMMED_TIME_FROM_ORIGINAL_END_UUID
 from mantarray_file_manager import TRIMMED_TIME_FROM_ORIGINAL_START_UUID
 from mantarray_file_manager import USER_ACCOUNT_ID_UUID
@@ -206,7 +204,6 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         actual_build_id = this_file.attrs[str(SOFTWARE_BUILD_NUMBER_UUID)]
         assert actual_build_id == COMPILED_EXE_BUILD_TIMESTAMP
         assert this_file.attrs[str(SOFTWARE_RELEASE_VERSION_UUID)] == CURRENT_SOFTWARE_VERSION
-        assert this_file.attrs[str(MAIN_FIRMWARE_VERSION_UUID)] == simulator_class.default_firmware_version
         assert this_file.attrs[str(MANTARRAY_NICKNAME_UUID)] == simulator_class.default_mantarray_nickname
         assert (
             this_file.attrs[str(MANTARRAY_SERIAL_NUMBER_UUID)]
@@ -238,6 +235,10 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         )
         # test metadata values and datasets not present in both beta versions
         if test_beta_version == 1:
+            assert (
+                this_file.attrs[str(MAIN_FIRMWARE_VERSION_UUID)]
+                == RunningFIFOSimulator.default_firmware_version
+            )
             assert this_file.attrs[str(SLEEP_FIRMWARE_VERSION_UUID)] == "0.0.0"
             assert (
                 this_file.attrs[str(XEM_SERIAL_NUMBER_UUID)] == RunningFIFOSimulator.default_xem_serial_number
@@ -273,6 +274,14 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
             assert str(ADC_TISSUE_OFFSET_UUID) not in this_file.attrs
             assert str(ADC_REF_OFFSET_UUID) not in this_file.attrs
             # check that beta 2 value are present
+            assert (
+                this_file.attrs[str(MAIN_FIRMWARE_VERSION_UUID)]
+                == MantarrayMcSimulator.default_main_firmware_version
+            )
+            assert (
+                this_file.attrs[str(CHANNEL_FIRMWARE_VERSION_UUID)]
+                == MantarrayMcSimulator.default_channel_firmware_version
+            )
             assert bool(this_file.attrs[str(IS_CALIBRATION_FILE_UUID)]) is False
             well_config = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
                 MAGNETOMETER_CONFIGURATION_UUID
@@ -287,19 +296,8 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
                 ]
             )
             assert (
-                this_file.attrs[str(BOOTUP_COUNTER_UUID)]
-                == MantarrayMcSimulator.default_metadata_values[BOOTUP_COUNTER_UUID]
-            )
-            assert (
-                this_file.attrs[str(TOTAL_WORKING_HOURS_UUID)]
-                == MantarrayMcSimulator.default_metadata_values[TOTAL_WORKING_HOURS_UUID]
-            )
-            assert (
-                this_file.attrs[str(TAMPER_FLAG_UUID)]
-                == MantarrayMcSimulator.default_metadata_values[TAMPER_FLAG_UUID]
-            )
-            assert (
-                this_file.attrs[str(PCB_SERIAL_NUMBER_UUID)] == MantarrayMcSimulator.default_pcb_serial_number
+                this_file.attrs[str(BOOT_FLAGS_UUID)]
+                == MantarrayMcSimulator.default_metadata_values[BOOT_FLAGS_UUID]
             )
             assert get_time_index_dataset_from_file(this_file).shape == (0,)
             assert get_time_index_dataset_from_file(this_file).dtype == "uint64"
