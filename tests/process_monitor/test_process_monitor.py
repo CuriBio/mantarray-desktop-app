@@ -315,6 +315,34 @@ def test_MantarrayProcessesMonitor__passes_update_upload_status_data_to_server(
     assert actual == expected_content
 
 
+@pytest.mark.parametrize(
+    "test_system_status", [DOWNLOADING_UPDATES_STATE, INSTALLING_UPDATES_STATE, "anything else"]
+)
+def test_MantarrayProcessesMonitor__handles_instrument_comm_process_error_correctly(
+    test_system_status, mocker, test_process_manager_creator, test_monitor
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+    shared_values_dict["system_status"] = test_system_status
+    ic_error_queue = test_process_manager.queue_container().get_instrument_communication_error_queue()
+
+    mocked_hard_stop_and_join = mocker.patch.object(
+        test_process_manager, "hard_stop_and_join_processes", autospec=True
+    )
+
+    is_fw_update_error = test_system_status in (
+        DOWNLOADING_UPDATES_STATE,
+        INSTALLING_UPDATES_STATE,
+    )
+    expected_system_status = UPDATE_ERROR_STATE if is_fw_update_error else test_system_status
+
+    error_tuple = (Exception(), "error")
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(error_tuple, ic_error_queue)
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert shared_values_dict["system_status"] == expected_system_status
+    mocked_hard_stop_and_join.assert_called_once_with(shutdown_server=not is_fw_update_error)
+
+
 def test_MantarrayProcessesMonitor__logs_errors_from_instrument_comm_process(
     mocker, test_process_manager_creator, test_monitor
 ):

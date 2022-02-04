@@ -650,7 +650,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                                     "firmware_type": firmware_type,
                                 }
                             )
-            elif command == "update_completed":  # TODO cov skipping all trees
+            elif command == "update_completed":
                 firmware_type = communication["firmware_type"]
                 self._values_to_share_to_server["firmware_updates_needed"][firmware_type] = None
                 if all(
@@ -722,7 +722,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 pass  # need to wait for these values before proceeding with state transition
             elif self._values_to_share_to_server["in_simulation_mode"]:
                 self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
-            elif self._values_to_share_to_server["latest_software_version"] is not None:  # TODO cov
+            elif self._values_to_share_to_server["latest_software_version"] is not None:
                 self._values_to_share_to_server["system_status"] = CHECKING_FOR_UPDATES_STATE
                 # send command to instrument comm process to check for firmware updates
                 serial_number = self._values_to_share_to_server["instrument_metadata"][board_idx][
@@ -841,7 +841,15 @@ class MantarrayProcessesMonitor(InfiniteThread):
         # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
         with self._lock:
             logger.error(msg)
-        self._hard_stop_and_join_processes_and_log_leftovers()
+        if self._values_to_share_to_server["system_status"] in (
+            DOWNLOADING_UPDATES_STATE,
+            INSTALLING_UPDATES_STATE,
+        ):
+            self._values_to_share_to_server["system_status"] = UPDATE_ERROR_STATE
+            shutdown_server = False
+        else:
+            shutdown_server = True
+        self._hard_stop_and_join_processes_and_log_leftovers(shutdown_server=shutdown_server)
 
     def _hard_stop_and_join_processes_and_log_leftovers(self, shutdown_server: bool = True) -> None:
         process_items = self._process_manager.hard_stop_and_join_processes(shutdown_server=shutdown_server)
