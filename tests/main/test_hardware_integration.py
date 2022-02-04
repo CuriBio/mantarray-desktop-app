@@ -6,11 +6,16 @@ from typing import Dict
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
 from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
-from mantarray_desktop_app import MantarrayMcSimulator
+from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
+from mantarray_desktop_app.constants import BOOT_FLAGS_UUID
+from mantarray_desktop_app.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
+from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
+from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
 import pytest
 from stdlib_utils import drain_queue
 from stdlib_utils import get_formatted_stack_trace
@@ -72,9 +77,8 @@ RANDOM_STIM_INFO_1 = {
 RANDOM_STIM_INFO_2 = create_random_stim_info()  # type: ignore
 
 COMMAND_RESPONSE_SEQUENCE = [
-    # First two commands come in different orders with live board and simulator
-    ("get_metadata", "get_metadata"),  # first with real board
-    ("change_magnetometer_config_1", "magnetometer_config_1"),  # first with simulator
+    ("change_magnetometer_config_1", "magnetometer_config_1"),
+    ("get_metadata", "get_metadata"),
     # MAGNETOMETERS
     ("start_managed_acquisition", "start_md_1"),
     ("start_managed_acquisition", "start_md_2"),
@@ -91,6 +95,8 @@ COMMAND_RESPONSE_SEQUENCE = [
     ("stop_stimulation", "stop_stim_2_1"),
     ("stop_stimulation", "stop_stim_2_2"),
     ("set_protocols_2", "set_protocols_2"),
+    # FIRMWARE
+    # (["start_firmware_update_1", "start_firmware_update_2"], ["start_fw_update_1", "start_fw_update_2"]),
 ]
 
 COMMANDS_FROM_MAIN = {
@@ -126,14 +132,31 @@ COMMANDS_FROM_MAIN = {
         "communication_type": "stimulation",
         "command": "stop_stimulation",
     },
+    "start_firmware_update_1": {
+        "communication_type": "firmware_update",
+        "command": "start_firmware_update",
+        "firmware_type": "channel",
+    },
+    "start_firmware_update_2": {
+        "communication_type": "firmware_update",
+        "command": "start_firmware_update",
+        "firmware_type": "main",
+    },
 }
 
 RESPONSES = {
     "get_metadata": {
         "communication_type": "metadata_comm",
-        # "command": "get_metadata",  # this value isn't present when connected to real board
+        "command": "get_metadata",
         "board_index": 0,
-        "metadata": MantarrayMcSimulator.default_metadata_values,  # TODO: remove this once get_metadata command is implemented
+        "metadata": {
+            BOOT_FLAGS_UUID: 0,
+            MANTARRAY_NICKNAME_UUID: "Mantarray2.2 ",
+            MANTARRAY_SERIAL_NUMBER_UUID: "MA2201300001",
+            MAIN_FIRMWARE_VERSION_UUID: "1.0.1",
+            CHANNEL_FIRMWARE_VERSION_UUID: "1.0.1",
+        },
+        # "metadata": MantarrayMcSimulator.default_metadata_values,
     },
     "magnetometer_config_1": {
         "communication_type": "default_magnetometer_config",
@@ -213,6 +236,16 @@ RESPONSES = {
         "command": "stop_stimulation",
         "hardware_test_message": "Command failed",
     },
+    "start_fw_update_1": {
+        "communication_type": "firmware_update",
+        "command": "update_completed",
+        "firmware_type": "channel",
+    },
+    "start_fw_update_2": {
+        "communication_type": "firmware_update",
+        "command": "update_completed",
+        "firmware_type": "main",
+    },
 }
 
 
@@ -224,18 +257,31 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
     output_queue = board_queues[0][1]
     data_queue = board_queues[0][2]
 
+    mc_process._main_firmware_update_bytes = bytes(int(SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES * 1.5))
+    mc_process._channel_firmware_update_bytes = bytes(int(SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES * 1.5))
+
     print("\n*** BEGIN TEST ***")  # allow-print
 
     mc_process.start()
 
     for command, response_key in COMMAND_RESPONSE_SEQUENCE:
-        if command not in ("get_metadata", "change_magnetometer_config_1"):
+        if not isinstance(command, str):
+            for idx, sub_command in enumerate(command):
+                command_dict = COMMANDS_FROM_MAIN[sub_command]
+                print(  # allow-print
+                    f"Sending command: {sub_command}, expecting response: {response_key[idx]}"
+                )
+                input_queue.put_nowait(command_dict)
+            expected_response = RESPONSES[response_key[-1]]
+        elif command not in ("get_metadata", "change_magnetometer_config_1"):
             # get_metadata command and initial magnetometer config are automatically sent by McComm
             command_dict = COMMANDS_FROM_MAIN[command]
             print(f"Sending command: {command}, expecting response: {response_key}")  # allow-print
             input_queue.put_nowait(command_dict)
+            expected_response = RESPONSES[response_key]
+        else:
+            expected_response = RESPONSES[response_key]
 
-        expected_response = RESPONSES[response_key]
         response_found = False
         error = None
         try:
@@ -261,6 +307,12 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
                 elif comm_type == "board_connection_status_change":
                     # if message is some other form of expected message, just print it
                     print("###", msg_to_main)  # allow-print
+                elif comm_type == "firmware_update":
+                    print("&&&", msg_to_main)  # allow-print
+                    response_found = (
+                        msg_to_main["command"] == "update_completed"
+                        and msg_to_main["firmware_type"] == "main"
+                    )
                 elif comm_type == expected_response["communication_type"]:
                     if msg_to_main.get("command", "") == "status_update":
                         print("###", msg_to_main)  # allow-print
@@ -269,6 +321,12 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
                         del msg_to_main["timestamp"]
                     # if message is the response, make sure it is as expected
                     print("$$$", msg_to_main)  # allow-print
+                    if msg_to_main.get("command", "") == "get_metadata":
+                        actual_metadata = msg_to_main.pop("metadata")
+                        expected_metadata = expected_response.pop("metadata")
+                        assert (
+                            actual_metadata == expected_metadata
+                        ), f"Incorrect metadata\nActual: {actual_metadata}\nExpected: {expected_metadata}"
                     assert (
                         msg_to_main == expected_response
                     ), f"{response_key}\nActual: {msg_to_main}\nExpected: {expected_response}"
@@ -277,7 +335,7 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
                         print("Sleeping so data can be produced and parsed...")  # allow-print
                         time.sleep(2)
                         print("End sleep...")  # allow-print
-                    if response_key == "start_stim_2_1":
+                    elif response_key == "start_stim_2_1":
                         print("Sleeping to let stim complete")  # allow-print
                         time.sleep(20)
                     response_found = True

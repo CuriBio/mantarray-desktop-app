@@ -8,11 +8,18 @@ from mantarray_desktop_app import get_server_port_number
 from mantarray_desktop_app import main
 from mantarray_desktop_app import SensitiveFormatter
 from mantarray_desktop_app import ServerManager
+from stdlib_utils import drain_queue
+from stdlib_utils import TestingQueue
 
 from ..fixtures import fixture_fully_running_app_from_main_entrypoint
 from ..fixtures import fixture_generic_queue_container
+from ..fixtures_socketio import fixture_fsio_test_client_creator
 
-__fixtures__ = [fixture_generic_queue_container, fixture_fully_running_app_from_main_entrypoint]
+__fixtures__ = [
+    fixture_generic_queue_container,
+    fixture_fully_running_app_from_main_entrypoint,
+    fixture_fsio_test_client_creator,
+]
 
 
 def test_get_server_port_number__returns_default_port_number_if_server_never_instantiated(
@@ -38,6 +45,30 @@ def test_get_server_port_number__returns_port_number_from_server_if_instantiated
     assert get_server_port_number() == expected_port
 
     clear_the_server_manager()
+
+
+def test_set_up_socketio_handlers__sets_up_socketio_events_correctly(mocker, fsio_test_client_creator):
+    mocked_start_bg_task = mocker.patch.object(main.socketio, "start_background_task", autospec=True)
+
+    test_queue = TestingQueue()
+
+    data_sender = main._set_up_socketio_handlers(test_queue)
+
+    test_clients = []
+    try:
+        # make sure background thread is started correctly after first connection
+        test_clients.append(fsio_test_client_creator(main.socketio, main.flask_app))
+        mocked_start_bg_task.assert_called_once_with(data_sender)
+        # make sure background thread is not restarted correctly after second connection
+        test_clients.append(fsio_test_client_creator(main.socketio, main.flask_app))
+        mocked_start_bg_task.assert_called_once_with(data_sender)
+    finally:
+        # Tanner (1/18/22): wrap in finally block so that clients are disconnected even if the test fails
+        for client in test_clients:
+            if client.connected:
+                client.disconnect()
+    # make sure tombstone message only sent once
+    assert drain_queue(test_queue) == [{"data_type": "tombstone"}]
 
 
 def test_SensitiveFormatter__redacts_from_request_log_entries_correctly():

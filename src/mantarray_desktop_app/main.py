@@ -18,12 +18,14 @@ import socket
 import sys
 import threading
 from typing import Any
+from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Optional
 import uuid
 
 from eventlet.queue import Empty
+from eventlet.queue import LightQueue
 from stdlib_utils import configure_logging
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import is_port_in_use
@@ -64,6 +66,35 @@ def get_server_port_number() -> int:
     except (NameError, ServerManagerNotInitializedError):
         return _server_port_number
     return server_manager.get_port_number()
+
+
+def _set_up_socketio_handlers(ws_queue: LightQueue) -> Callable[[], None]:
+    def data_sender() -> None:  # pragma: no cover  # Tanner (6/21/21): code coverage can't follow into start_background_task where this function is run
+        while True:
+            try:
+                item = ws_queue.get(timeout=0.0001)
+            except Empty:
+                continue
+            if item["data_type"] == "tombstone":
+                break
+            socketio.emit(item["data_type"], item["data_json"])
+
+    _socketio_background_task_status = {"data_sender": False}
+
+    @socketio.on("connect")
+    def start_data_sender():  # type: ignore
+        if not _socketio_background_task_status["data_sender"]:
+            socketio.start_background_task(data_sender)
+        _socketio_background_task_status["data_sender"] = True
+
+    @socketio.on("disconnect")
+    def stop_data_sender():  # type: ignore
+        if _socketio_background_task_status["data_sender"]:
+            ws_queue.put_nowait({"data_type": "tombstone"})
+        _socketio_background_task_status["data_sender"] = False
+
+    # only returning this for testing purposes
+    return data_sender
 
 
 def _create_process_manager(shared_values_dict: Dict[str, Any]) -> MantarrayProcessesManager:
@@ -246,6 +277,7 @@ def main(
 
     shared_values_dict["beta_2_mode"] = parsed_args.beta_2_mode
     if shared_values_dict["beta_2_mode"]:
+        shared_values_dict["latest_software_version"] = None
         shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] = [None]
         shared_values_dict["stimulation_running"] = [False] * 24
         shared_values_dict["stimulation_info"] = None
@@ -311,18 +343,8 @@ def main(
     data_queue_to_server = process_manager.queue_container().get_data_queue_to_server()
 
     if start_flask:
+        object_access_for_testing["data_sender"] = _set_up_socketio_handlers(data_queue_to_server)
 
-        def data_sender() -> None:  # pragma: no cover  # Tanner (6/21/21): code coverage can't follow into start_background_task where this function is run
-            while True:
-                try:
-                    item = data_queue_to_server.get(timeout=0.0001)
-                except Empty:
-                    continue
-                socketio.emit(item["data_type"], item["data_json"])
-
-        object_access_for_testing["data_sender"] = data_sender
-
-        socketio.start_background_task(data_sender)
         socketio.run(
             flask_app,
             host=host,

@@ -24,6 +24,7 @@ from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import CALIBRATION_RECORDING_DUR_SECONDS
 from mantarray_desktop_app import CHANNEL_INDEX_TO_24_WELL_INDEX
+from mantarray_desktop_app import CHECKING_FOR_UPDATES_STATE
 from mantarray_desktop_app import CLEAR_BARCODE_TRIG_BIT
 from mantarray_desktop_app import CLEARED_BARCODE_VALUE
 from mantarray_desktop_app import CLOUD_API_ENDPOINT_USER_OPTION
@@ -43,6 +44,7 @@ from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
 from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import DEFAULT_SERVER_PORT_NUMBER
 from mantarray_desktop_app import DEFAULT_USER_CONFIG
+from mantarray_desktop_app import DOWNLOADING_UPDATES_STATE
 from mantarray_desktop_app import FIFO_READ_PRODUCER_DATA_OFFSET
 from mantarray_desktop_app import FIFO_READ_PRODUCER_REF_AMPLITUDE
 from mantarray_desktop_app import FIFO_READ_PRODUCER_SAWTOOTH_PERIOD
@@ -51,6 +53,7 @@ from mantarray_desktop_app import FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
 from mantarray_desktop_app import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
 from mantarray_desktop_app import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import FIRMWARE_VERSION_WIRE_OUT_ADDRESS
+from mantarray_desktop_app import INSTALLING_UPDATES_STATE
 from mantarray_desktop_app import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
@@ -86,11 +89,10 @@ from mantarray_desktop_app import SERIAL_COMM_COMMAND_FAILURE_BYTE
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_SUCCESS_BYTE
 from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
-from mantarray_desktop_app import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_FATAL_ERROR_CODE
 from mantarray_desktop_app import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
-from mantarray_desktop_app import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_GET_METADATA_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
@@ -122,7 +124,7 @@ from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
-from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
@@ -159,9 +161,14 @@ from mantarray_desktop_app import SUBPROCESS_POLL_DELAY_SECONDS
 from mantarray_desktop_app import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
+from mantarray_desktop_app import UPDATE_ERROR_STATE
+from mantarray_desktop_app import UPDATES_COMPLETE_STATE
+from mantarray_desktop_app import UPDATES_NEEDED_STATE
 from mantarray_desktop_app import VALID_CONFIG_SETTINGS
 from mantarray_desktop_app import VALID_SCRIPTING_COMMANDS
 from mantarray_desktop_app import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
+from mantarray_desktop_app.constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
+from mantarray_desktop_app.constants import SERIAL_COMM_SERIAL_NUMBER_BYTES_LENGTH
 import mantarray_file_manager.constants
 import numpy as np
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
@@ -370,22 +377,34 @@ def test_system_status_uuids():
     assert SERVER_INITIALIZING_STATE == "server_initializing"
     assert SERVER_READY_STATE == "server_ready"
     assert INSTRUMENT_INITIALIZING_STATE == "instrument_initializing"
+    assert CHECKING_FOR_UPDATES_STATE == "checking_for_updates"
     assert CALIBRATION_NEEDED_STATE == "calibration_needed"
     assert CALIBRATING_STATE == "calibrating"
     assert CALIBRATED_STATE == "calibrated"
     assert BUFFERING_STATE == "buffering"
     assert LIVE_VIEW_ACTIVE_STATE == "live_view_active"
     assert RECORDING_STATE == "recording"
+    assert UPDATES_NEEDED_STATE == "updates_needed"
+    assert DOWNLOADING_UPDATES_STATE == "downloading_updates"
+    assert INSTALLING_UPDATES_STATE == "installing_updates"
+    assert UPDATES_COMPLETE_STATE == "updates_complete"
+    assert UPDATE_ERROR_STATE == "update_error"
     assert SYSTEM_STATUS_UUIDS == {
         SERVER_INITIALIZING_STATE: uuid.UUID("04471bcf-1a00-4a0d-83c8-4160622f9a25"),
         SERVER_READY_STATE: uuid.UUID("8e24ef4d-2353-4e9d-aa32-4346126e73e3"),
         INSTRUMENT_INITIALIZING_STATE: uuid.UUID("d2e3d386-b760-4c9a-8b2d-410362ff11c4"),
+        CHECKING_FOR_UPDATES_STATE: uuid.UUID("04fd6f6b-ee9e-4656-aae4-0b9584791f36"),
         CALIBRATION_NEEDED_STATE: uuid.UUID("009301eb-625c-4dc4-9e92-1a4d0762465f"),
         CALIBRATING_STATE: uuid.UUID("43c08fc5-ca2f-4dcd-9dff-5e9324cb5dbf"),
         CALIBRATED_STATE: uuid.UUID("b480373b-9466-4fa0-92a6-fa5f8e340d30"),
         BUFFERING_STATE: uuid.UUID("dc774d4b-6bd1-4717-b36e-6df6f1ef6cf4"),
         LIVE_VIEW_ACTIVE_STATE: uuid.UUID("9fbee58e-c6af-49a5-b2e2-5b085eead2ea"),
         RECORDING_STATE: uuid.UUID("1e3d76a2-508d-4c99-8bf5-60dac5cc51fe"),
+        UPDATES_NEEDED_STATE: uuid.UUID("d6dcf2a9-b6ea-4d4e-9423-500f91a82a2f"),
+        DOWNLOADING_UPDATES_STATE: uuid.UUID("b623c5fa-af01-46d3-9282-748e19fe374c"),
+        INSTALLING_UPDATES_STATE: uuid.UUID("19c9c2d6-0de4-4334-8cb3-a4c7ab0eab00"),
+        UPDATES_COMPLETE_STATE: uuid.UUID("31f8fbc9-9b41-4191-8598-6462b7490789"),
+        UPDATE_ERROR_STATE: uuid.UUID("33742bfc-d354-4ae5-88b6-2b3cee23aff8"),
     }
 
 
@@ -423,9 +442,9 @@ def test_serial_comm():
     assert STM_VID == 1155
     assert SERIAL_COMM_BAUD_RATE == int(5e6)
 
-    assert MAX_MC_REBOOT_DURATION_SECONDS == 5
-    assert MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS == 20
-    assert MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS == 120
+    assert MAX_MC_REBOOT_DURATION_SECONDS == 10
+    assert MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS == 60
+    assert MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS == 600
 
     assert SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES == 3
 
@@ -485,6 +504,8 @@ def test_serial_comm():
     assert SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE == 20
     assert SERIAL_COMM_START_STIM_PACKET_TYPE == 21
     assert SERIAL_COMM_STOP_STIM_PACKET_TYPE == 22
+    assert SERIAL_COMM_GET_METADATA_PACKET_TYPE == 60
+    assert SERIAL_COMM_SET_NICKNAME_PACKET_TYPE == 62
     assert SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE == 70
     assert SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE == 71
     assert SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE == 72
@@ -496,15 +517,14 @@ def test_serial_comm():
     assert SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE == 1
     assert SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE == 2
     assert SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE == 3
-    assert SERIAL_COMM_GET_METADATA_COMMAND_BYTE == 6
-    assert SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE == 7
     assert SERIAL_COMM_SET_TIME_COMMAND_BYTE == 8
-    assert SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE == 9
 
     assert SERIAL_COMM_COMMAND_SUCCESS_BYTE == 0
     assert SERIAL_COMM_COMMAND_FAILURE_BYTE == 1
 
     assert SERIAL_COMM_METADATA_BYTES_LENGTH == 32
+    assert SERIAL_COMM_NICKNAME_BYTES_LENGTH == 13
+    assert SERIAL_COMM_SERIAL_NUMBER_BYTES_LENGTH == 12
 
     assert SERIAL_COMM_IDLE_READY_CODE == 0
     assert SERIAL_COMM_TIME_SYNC_READY_CODE == 1

@@ -22,11 +22,6 @@ repos:
     hooks:
       # black and docformatter don't do this in docstrings (11/1/19)
       - id: trailing-whitespace
-      - id: pretty-format-json
-        args: [--autofix, --no-sort-keys]
-        exclude: sample_waveform_data/|.babelrc|Pipfile.lock
-        # debatable whether this is necessary in Python3 or not
-        # https://stackoverflow.com/questions/14083111/should-i-use-encoding-declaration-in-python-3
       - id: fix-encoding-pragma
 
   - repo: https://github.com/psf/black
@@ -43,6 +38,7 @@ repos:
     rev: v2.2.1
     hooks:
       - id: prettier
+        args: [--print-width=110]
         #args: [--vue-indent-script-and-style true]
 
   - repo: https://github.com/myint/docformatter
@@ -131,33 +127,33 @@ repos:
           # ignore D213 because mutually exclusive with D212 https://stackoverflow.com/questions/45990301/pep257-d212-and-d213-conflicts
           - --ignore=D100,D101,D102,D103,D104,D105,D106,D107,D203,D407,D408,D409,D406,D413,D213
 
-  # - repo: https://github.com/NanoSurface-Biomedical/pre-commit-pylint
-  #   rev: "d805cc60bb5290c2f1ca869d5f1d5e2be720f3fa" # pick a git hash / tag to point to
-  #   hooks:
-  #     - id: pylint-pass-with-displayed-warnings
-  #       name: pylint-src
-  #       args:
-  #         - --codes-to-allow=W0511
-  #         - src
-  #         - --rcfile=src/pylintrc
-  #         - --ignore-patterns=.*~.*
-  #         - --jobs 0
-  #       files: 'src/.*\.py$'
-  #       exclude: '.*\~.*'
-  #       verbose: true
-  #     - id: pylint-pass-with-displayed-warnings
-  #       name: pylint-tests
-  #       args:
-  #         - --codes-to-allow=W0511
-  #         - tests
-  #         - --rcfile=tests/pylintrc
-  #         - --ignore-patterns=.*~.*
-  #         - --jobs 0
-  #       files: 'tests/.*\.py$'
-  #       exclude: '.*\~.*'
-  #       verbose: true
-  #     - id: python-check-no-print-statments
-  #     - id: vuejs-check-no-console-log-statments
+  - repo: https://github.com/NanoSurface-Biomedical/pre-commit-pylint
+    rev: "d805cc60bb5290c2f1ca869d5f1d5e2be720f3fa" # pick a git hash / tag to point to
+    hooks:
+      # - id: pylint-pass-with-displayed-warnings
+      #   name: pylint-src
+      #   args:
+      #     - --codes-to-allow=W0511
+      #     - src
+      #     - --rcfile=src/pylintrc
+      #     - --ignore-patterns=.*~.*
+      #     - --jobs 0
+      #   files: 'src/.*\.py$'
+      #   exclude: '.*\~.*'
+      #   verbose: true
+      # - id: pylint-pass-with-displayed-warnings
+      #   name: pylint-tests
+      #   args:
+      #     - --codes-to-allow=W0511
+      #     - tests
+      #     - --rcfile=tests/pylintrc
+      #     - --ignore-patterns=.*~.*
+      #     - --jobs 0
+      #   files: 'tests/.*\.py$'
+      #   exclude: '.*\~.*'
+      #   verbose: true
+      - id: python-check-no-print-statments
+      - id: vuejs-check-no-console-log-statments
 
   - repo: https://github.com/pre-commit/mirrors-eslint
     rev: v7.23.0

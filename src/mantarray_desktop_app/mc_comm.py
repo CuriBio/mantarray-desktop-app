@@ -44,11 +44,10 @@ from .constants import SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
-from .constants import SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE
 from .constants import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_FATAL_ERROR_CODE
 from .constants import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
-from .constants import SERIAL_COMM_GET_METADATA_COMMAND_BYTE
+from .constants import SERIAL_COMM_GET_METADATA_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
@@ -72,7 +71,7 @@ from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
-from .constants import SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE
+from .constants import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
@@ -99,8 +98,8 @@ from .exceptions import InstrumentDataStreamingAlreadyStoppedError
 from .exceptions import InstrumentFatalError
 from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import InstrumentSoftError
+from .exceptions import InvalidCommandFromMainError
 from .exceptions import MagnetometerConfigUpdateWhileDataStreamingError
-from .exceptions import MantarrayInstrumentError
 from .exceptions import SerialCommCommandResponseTimeoutError
 from .exceptions import SerialCommHandshakeTimeoutError
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
@@ -119,11 +118,13 @@ from .exceptions import StimulationStatusUpdateFailedError
 from .exceptions import UnrecognizedCommandFromMainToMcCommError
 from .exceptions import UnrecognizedSerialCommModuleIdError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
+from .firmware_downloader import download_firmware_updates
+from .firmware_downloader import get_latest_firmware_versions
 from .instrument_comm import InstrumentCommProcess
 from .mc_simulator import MantarrayMcSimulator
 from .serial_comm_utils import convert_bytes_to_config_dict
+from .serial_comm_utils import convert_semver_str_to_bytes
 from .serial_comm_utils import convert_stim_dict_to_bytes
-from .serial_comm_utils import convert_to_metadata_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
 from .serial_comm_utils import create_data_packet
 from .serial_comm_utils import create_magnetometer_config_bytes
@@ -134,6 +135,7 @@ from .utils import check_barcode_is_valid
 from .utils import create_active_channel_per_sensor_list
 from .utils import set_this_process_high_priority
 from .utils import sort_nested_dict
+from .worker_thread import ErrorCatchingThread
 
 
 if 6 < 9:  # pragma: no cover # protect this from zimports deleting the pylint disable statement
@@ -209,14 +211,21 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._commands_awaiting_response: Deque[  # pylint: disable=unsubscriptable-object
             Dict[str, Any]
         ] = deque()
+        self._hardware_test_mode = hardware_test_mode
+        # reboot values
+        self._is_setting_nickname = False
         self._is_waiting_for_reboot = False  # Tanner (4/1/21): This flag indicates that a reboot command has been sent and a status beacon following reboot completion has not been received. It does not imply that the instrument has begun rebooting.
         self._time_of_reboot_start: Optional[
             float
         ] = None  # Tanner (4/1/21): This value will be None until this process receives a response to a reboot command. It will be set back to None after receiving a status beacon upon reboot completion
-        self._hardware_test_mode = hardware_test_mode
         # firmware updating values
+        self._latest_versions: Optional[Dict[str, str]] = None
+        self._fw_update_worker_thread: Optional[ErrorCatchingThread] = None
+        self._fw_update_thread_dict: Optional[Dict[str, Any]] = None
         self._is_updating_firmware = False
         self._firmware_update_type = ""
+        self._main_firmware_update_bytes: Optional[bytes] = None
+        self._channel_firmware_update_bytes: Optional[bytes] = None
         self._firmware_file_contents: Optional[bytes] = None
         self._firmware_packet_idx: Optional[int] = None
         self._firmware_checksum: Optional[int] = None
@@ -297,19 +306,6 @@ class McCommunicationProcess(InstrumentCommProcess):
         )
         board = self._board_connections[board_idx]
         if board is not None:
-            if (
-                self._error is not None
-                and not isinstance(self._error, MantarrayInstrumentError)
-                and not self._hardware_test_mode  # TODO Tanner (6/11/21): remove this last condition once real instrument implements dump EEPROM command
-            ):
-                # if error occurred in software, send dump EEPROM command and wait for instrument to respond to command before flushing serial data. If the firmware caught an error in itself the EEPROM contents should already be logged and this command can be skipped here
-                self._send_data_packet(
-                    board_idx,
-                    SERIAL_COMM_MAIN_MODULE_ID,
-                    SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-                    bytes([SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE]),
-                )
-                sleep(1)
             # flush and log remaining serial data
             remaining_serial_data = board.read_all()
             serial_data_flush_msg = f"Remaining Serial Data {str(remaining_serial_data)}"
@@ -368,8 +364,6 @@ class McCommunicationProcess(InstrumentCommProcess):
                 )
                 break
             else:
-                # if self._hardware_test_mode:  # pragma: no cover
-                #     raise NotImplementedError("Must connect to a real board in hardware test mode")
                 msg["message"] = "No board detected. Creating simulator."
                 serial_obj = MantarrayMcSimulator(
                     Queue(), Queue(), Queue(), Queue(), num_wells=self._num_wells
@@ -445,13 +439,18 @@ class McCommunicationProcess(InstrumentCommProcess):
         5. Make sure the beacon is not overdue, unless instrument is rebooting. If the beacon is overdue, it's reasonable to assume something caused the instrument to stop working. This task should happen after handling of sending/receiving data from the instrument and main process.
         6. Make sure commands are not overdue. This task should happen after the instrument has been determined to be working properly.
         7. If rebooting or waiting for firmware update to complete, make sure that the reboot has not taken longer than the max allowed reboot time.
+        8. Check on the status of any worker threads.
         """
         if self._in_simulation_mode:
             if self._check_simulator_error():
                 self.stop()
                 return
 
-        if not self._is_updating_firmware and not self._is_waiting_for_reboot:
+        if (
+            not self._is_updating_firmware
+            and not self._is_setting_nickname
+            and not self._is_waiting_for_reboot
+        ):
             self._process_next_communication_from_main()
             self._handle_sending_handshake()
 
@@ -468,8 +467,10 @@ class McCommunicationProcess(InstrumentCommProcess):
         elif self._is_updating_firmware:
             self._check_firmware_update_status()
 
+        self._check_worker_thread()
+
         # process can be soft stopped if no commands in queue from main and no command responses needed from instrument
-        self._process_can_be_soft_stopped = (  # TODO prevent soft stop if rebooting or updating firmware
+        self._process_can_be_soft_stopped = (  # TODO prevent soft stop if rebooting, updating firmware, or there is an active worker thread
             not bool(self._commands_awaiting_response)
             and self._board_queues[0][
                 0
@@ -487,16 +488,18 @@ class McCommunicationProcess(InstrumentCommProcess):
         except queue.Empty:
             return
         board_idx = 0
+        send_packet_to_instrument = True
         bytes_to_send = bytes(0)
         packet_type = SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 
         communication_type = comm_from_main["communication_type"]
         if communication_type == "mantarray_naming":
             if comm_from_main["command"] == "set_mantarray_nickname":
-                nickname = comm_from_main["mantarray_nickname"]
-                bytes_to_send = bytes([SERIAL_COMM_SET_NICKNAME_COMMAND_BYTE]) + convert_to_metadata_bytes(
-                    nickname
-                )
+                packet_type = SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
+                bytes_to_send = bytes(
+                    comm_from_main["mantarray_nickname"], "utf-8"
+                )  # TODO check this value in the route for it and make it 13 bytes if it is too short
+                self._is_setting_nickname = True
             else:
                 raise UnrecognizedCommandFromMainToMcCommError(
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
@@ -505,8 +508,6 @@ class McCommunicationProcess(InstrumentCommProcess):
             if comm_from_main["command"] == "reboot":
                 bytes_to_send = bytes([SERIAL_COMM_REBOOT_COMMAND_BYTE])
                 self._is_waiting_for_reboot = True
-            elif comm_from_main["command"] == "dump_eeprom":
-                bytes_to_send = bytes([SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE])
             else:
                 raise UnrecognizedCommandFromMainToMcCommError(
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
@@ -551,29 +552,89 @@ class McCommunicationProcess(InstrumentCommProcess):
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
                 )
         elif communication_type == "metadata_comm":
-            bytes_to_send = bytes([SERIAL_COMM_GET_METADATA_COMMAND_BYTE])
+            packet_type = SERIAL_COMM_GET_METADATA_PACKET_TYPE
         elif communication_type == "firmware_update":
-            packet_type = SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
-            self._firmware_update_type = comm_from_main["firmware_type"]
-            bytes_to_send = bytes([self._firmware_update_type == "channel"])
-            with open(comm_from_main["file_path"], "rb") as firmware_file:
-                self._firmware_file_contents = firmware_file.read()
-            bytes_to_send += len(self._firmware_file_contents).to_bytes(4, byteorder="little")
-            self._firmware_packet_idx = 0
-            self._is_updating_firmware = True
-            self._firmware_checksum = crc32(self._firmware_file_contents)
+            if comm_from_main["command"] == "get_latest_firmware_versions":
+                send_packet_to_instrument = False
+                # set up worker thread
+                self._fw_update_thread_dict = {
+                    "communication_type": "firmware_update",
+                    "command": "get_latest_firmware_versions",
+                    "latest_versions": {},
+                }
+                self._fw_update_worker_thread = ErrorCatchingThread(
+                    target=get_latest_firmware_versions,
+                    args=(
+                        self._fw_update_thread_dict,
+                        comm_from_main["serial_number"],
+                    ),
+                )
+                self._fw_update_worker_thread.start()
+            elif comm_from_main["command"] == "download_firmware_updates":
+                if not comm_from_main["main"] and not comm_from_main["channel"]:
+                    raise InvalidCommandFromMainError(
+                        "Cannot download firmware files if neither firmware type needs an update"
+                    )
+                send_packet_to_instrument = False
+                # set up worker thread
+                self._fw_update_thread_dict = {
+                    "communication_type": "firmware_update",
+                    "command": "download_firmware_updates",
+                    "main": None,
+                    "channel": None,
+                }
+                self._fw_update_worker_thread = ErrorCatchingThread(
+                    target=download_firmware_updates,
+                    args=(
+                        self._fw_update_thread_dict,
+                        comm_from_main["main"],
+                        comm_from_main["channel"],
+                        comm_from_main["username"],
+                        comm_from_main["password"],
+                    ),
+                )
+                self._fw_update_worker_thread.start()
+            elif comm_from_main["command"] == "start_firmware_update":
+                packet_type = SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
+                self._firmware_update_type = comm_from_main["firmware_type"]
+                bytes_to_send = bytes([self._firmware_update_type == "channel"])
+                if self._latest_versions is None:
+                    raise NotImplementedError("_latest_versions should never be None here")
+                bytes_to_send += convert_semver_str_to_bytes(
+                    self._latest_versions[f"{self._firmware_update_type}-fw"]
+                )
+                # store correct firmware bytes
+                if self._firmware_update_type == "channel":
+                    self._firmware_file_contents = self._channel_firmware_update_bytes
+                    self._channel_firmware_update_bytes = None
+                else:
+                    self._firmware_file_contents = self._main_firmware_update_bytes
+                    self._main_firmware_update_bytes = None
+                # mypy check
+                if self._firmware_file_contents is None:
+                    raise NotImplementedError("_firmware_file_contents should never be None here")
+                bytes_to_send += len(self._firmware_file_contents).to_bytes(4, byteorder="little")
+                # set up values for firmware update
+                self._firmware_packet_idx = 0
+                self._is_updating_firmware = True
+                self._firmware_checksum = crc32(self._firmware_file_contents)
+            else:
+                raise UnrecognizedCommandFromMainToMcCommError(
+                    f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
+                )
         else:
             raise UnrecognizedCommandFromMainToMcCommError(
                 f"Invalid communication_type: {communication_type}"
             )
 
-        self._send_data_packet(
-            board_idx,
-            SERIAL_COMM_MAIN_MODULE_ID,
-            packet_type,
-            bytes_to_send,
-        )
-        self._add_command_to_track(comm_from_main)
+        if send_packet_to_instrument:
+            self._send_data_packet(
+                board_idx,
+                SERIAL_COMM_MAIN_MODULE_ID,
+                packet_type,
+                bytes_to_send,
+            )
+            self._add_command_to_track(comm_from_main)
 
     def _add_command_to_track(self, command_dict: Dict[str, Any]) -> None:
         command_dict["timepoint"] = perf_counter()
@@ -596,6 +657,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             command_dict = {
                 "communication_type": "firmware_update",
                 "command": "end_of_firmware_update",
+                "firmware_type": self._firmware_update_type,
             }
             self._firmware_file_contents = None
             self._firmware_checksum = None
@@ -610,6 +672,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             command_dict = {
                 "communication_type": "firmware_update",
                 "command": "send_firmware_data",
+                "firmware_type": self._firmware_update_type,
                 "packet_index": self._firmware_packet_idx,
             }
             self._firmware_file_contents = self._firmware_file_contents[
@@ -669,8 +732,12 @@ class McCommunicationProcess(InstrumentCommProcess):
                 full_data_packet[-SERIAL_COMM_CHECKSUM_LENGTH_BYTES:],
                 byteorder="little",
             )
+            try:
+                prev_command = self._commands_awaiting_response.popleft()
+            except IndexError:
+                prev_command = None  # type: ignore
             raise SerialCommIncorrectChecksumFromInstrumentError(
-                f"Checksum Received: {received_checksum}, Checksum Calculated: {calculated_checksum}, Full Data Packet: {str(full_data_packet)}"
+                f"Checksum Received: {received_checksum}, Checksum Calculated: {calculated_checksum}, Full Data Packet: {str(full_data_packet)}, Previous Command: {prev_command}"
             )
         if packet_size < SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES:
             raise SerialCommPacketFromMantarrayTooSmallError(
@@ -706,9 +773,11 @@ class McCommunicationProcess(InstrumentCommProcess):
             )
         elif packet_type in (
             SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+            SERIAL_COMM_GET_METADATA_PACKET_TYPE,
             SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE,
             SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE,
             SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE,
+            SERIAL_COMM_SET_NICKNAME_PACKET_TYPE,
         ):
             response_data = packet_body[SERIAL_COMM_TIMESTAMP_LENGTH_BYTES:]
             if not self._commands_awaiting_response:
@@ -728,10 +797,11 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._time_of_reboot_start = perf_counter()
             elif prev_command["command"] == "set_time":
                 prev_command["message"] = "Instrument time synced with PC"
-            elif prev_command["command"] == "dump_eeprom":
-                if self._is_instrument_in_error_state:
-                    raise InstrumentSoftError(f"Instrument EEPROM contents: {str(response_data)}")
-                prev_command["eeprom_contents"] = response_data
+            elif prev_command["command"] == "set_mantarray_nickname":
+                self._is_setting_nickname = False
+                # set up values for reboot
+                self._is_waiting_for_reboot = True
+                self._time_of_reboot_start = perf_counter()
             elif prev_command["command"] == "start_managed_acquisition":
                 self._is_data_streaming = True
                 self._has_stim_packet_been_sent = False
@@ -841,7 +911,9 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._firmware_update_type = ""
             self._is_updating_firmware = False
             self._time_of_firmware_update_start = None
-            self._time_of_last_beacon_secs = perf_counter()
+            # set up values for reboot
+            self._is_waiting_for_reboot = True
+            self._time_of_reboot_start = perf_counter()
         else:
             raise UnrecognizedSerialCommPacketTypeError(
                 f"Packet Type ID: {packet_type} is not defined for Module ID: {module_id}"
@@ -865,32 +937,11 @@ class McCommunicationProcess(InstrumentCommProcess):
         status_code = int.from_bytes(packet_body[:SERIAL_COMM_STATUS_CODE_LENGTH_BYTES], byteorder="little")
         self._log_status_code(status_code, "Status Beacon")
         if status_code == SERIAL_COMM_FATAL_ERROR_CODE:
-            error_msg = ""
-            if (
-                not self._hardware_test_mode
-            ):  # pragma: no cover  # TODO Tanner (6/11/21): remove this condition once real instrument implements dump EEPROM command
-                eeprom_contents = packet_body[SERIAL_COMM_STATUS_CODE_LENGTH_BYTES:]
-                error_msg = f"Instrument EEPROM contents: {str(eeprom_contents)}"
-            raise InstrumentFatalError(error_msg)
+            raise InstrumentFatalError()
         if status_code == SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE:
             raise SerialCommHandshakeTimeoutError()
         if status_code == SERIAL_COMM_SOFT_ERROR_CODE:
-            if not self._hardware_test_mode:
-                self._send_data_packet(
-                    board_idx,
-                    SERIAL_COMM_MAIN_MODULE_ID,
-                    SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-                    bytes([SERIAL_COMM_DUMP_EEPROM_COMMAND_BYTE]),
-                )
-                self._add_command_to_track(
-                    {
-                        "communication_type": "to_instrument",
-                        "command": "dump_eeprom",
-                    }
-                )
-                self._is_instrument_in_error_state = True
-            else:  # pragma: no cover
-                raise InstrumentSoftError()
+            raise InstrumentSoftError()
         elif status_code == SERIAL_COMM_TIME_SYNC_READY_CODE:
             self._send_data_packet(
                 board_idx,
@@ -919,7 +970,6 @@ class McCommunicationProcess(InstrumentCommProcess):
                     SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
                     bytes_to_send,
                 )
-
                 self._add_command_to_track(
                     {
                         "communication_type": "default_magnetometer_config",
@@ -932,31 +982,19 @@ class McCommunicationProcess(InstrumentCommProcess):
                 )
                 self._auto_set_magnetometer_config = False
             if self._auto_get_metadata:
-                if (
-                    not self._in_simulation_mode
-                ):  # pragma: no cover  # TODO Tanner (6/11/21): remove this once get_metadata command is implemented on real board
-                    self._board_queues[0][1].put_nowait(
-                        {
-                            "communication_type": "metadata_comm",
-                            "board_index": 0,
-                            "metadata": MantarrayMcSimulator.default_metadata_values,
-                        }
-                    )
-                else:
-                    self._send_data_packet(
-                        board_idx,
-                        SERIAL_COMM_MAIN_MODULE_ID,
-                        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-                        bytes([SERIAL_COMM_GET_METADATA_COMMAND_BYTE])
-                        + convert_to_timestamp_bytes(get_serial_comm_timestamp()),
-                    )
-                    self._add_command_to_track(
-                        {
-                            "communication_type": "metadata_comm",
-                            "command": "get_metadata",
-                        }
-                    )
-                self._auto_get_metadata = False
+                self._send_data_packet(
+                    board_idx,
+                    SERIAL_COMM_MAIN_MODULE_ID,
+                    SERIAL_COMM_GET_METADATA_PACKET_TYPE,
+                    convert_to_timestamp_bytes(get_serial_comm_timestamp()),
+                )
+                self._add_command_to_track(
+                    {
+                        "communication_type": "metadata_comm",
+                        "command": "get_metadata",
+                    }
+                )
+            self._auto_get_metadata = False
 
     def _register_magic_word(self, board_idx: int) -> None:
         board = self._board_connections[board_idx]
@@ -1148,6 +1186,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             secs_since_last_beacon_received >= SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
             and not self._is_waiting_for_reboot
             and not self._is_updating_firmware
+            and not self._is_setting_nickname
         ):
             raise SerialCommStatusBeaconTimeoutError()
 
@@ -1200,6 +1239,37 @@ class McCommunicationProcess(InstrumentCommProcess):
             )
             self._report_fatal_error(simulator_error_tuple[0])
         return simulator_has_error
+
+    def _check_worker_thread(self) -> None:
+        if self._fw_update_worker_thread is None or self._fw_update_worker_thread.is_alive():
+            return
+        if self._fw_update_thread_dict is None:
+            raise NotImplementedError("_fw_update_thread_dict should never be None here")
+        to_main_queue = self._board_queues[0][1]
+        if self._fw_update_worker_thread.errors():
+            error_dict = {
+                "communication_type": self._fw_update_thread_dict["communication_type"],
+                "command": self._fw_update_thread_dict["command"],
+                "error": self._fw_update_worker_thread.get_error(),
+            }
+            to_main_queue.put_nowait(error_dict)
+        else:
+            if self._fw_update_thread_dict["command"] == "get_latest_firmware_versions":
+                self._latest_versions = copy.deepcopy(self._fw_update_thread_dict["latest_versions"])
+            elif self._fw_update_thread_dict["command"] == "download_firmware_updates":
+                # pop firmware bytes out of dict and store
+                self._main_firmware_update_bytes = self._fw_update_thread_dict.pop("main")
+                self._channel_firmware_update_bytes = self._fw_update_thread_dict.pop("channel")
+                # add message
+                self._fw_update_thread_dict["message"] = "Updates downloaded, ready to install"
+            else:
+                raise NotImplementedError(
+                    f"Invalid worker thread command: {self._fw_update_thread_dict['command']}"
+                )
+            to_main_queue.put_nowait(self._fw_update_thread_dict)
+        # clear values
+        self._fw_update_worker_thread = None
+        self._fw_update_thread_dict = None
 
     def _handle_performance_logging(self) -> None:
         performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}

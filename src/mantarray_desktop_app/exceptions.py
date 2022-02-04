@@ -10,6 +10,10 @@ class MultiprocessingNotSetToSpawnError(Exception):
         )
 
 
+class InvalidCommandFromMainError(Exception):
+    pass
+
+
 class UnrecognizedDebugConsoleCommandError(Exception):
     pass
 
@@ -243,6 +247,10 @@ class FirmwareUpdateCommandFailedError(Exception):
 
 
 class FirmwareUpdateTimeoutError(Exception):
+    pass
+
+
+class FirmwareDownloadError(Exception):
     pass
 
 

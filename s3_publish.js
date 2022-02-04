@@ -9,8 +9,7 @@
 const { MultiProgress } = require("electron-publish/out/multiProgress");
 const { CancellationToken } = require("builder-util-runtime");
 // is using s3 but you could choose another one under the 'app-builder-lib/out/publish' folder
-const S3Publisher = require("app-builder-lib/out/publish/s3/s3Publisher")
-  .default;
+const S3Publisher = require("app-builder-lib/out/publish/s3/s3Publisher").default;
 // const S3Publisher = require('electron-publisher-s3').default;
 const argv = require("yargs").argv;
 

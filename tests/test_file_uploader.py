@@ -9,13 +9,13 @@ import zipfile
 from mantarray_desktop_app import CLOUD_API_ENDPOINT
 from mantarray_desktop_app import file_uploader
 from mantarray_desktop_app.file_uploader import create_zip_file
-from mantarray_desktop_app.file_uploader import ErrorCatchingThread
 from mantarray_desktop_app.file_uploader import get_access_token
 from mantarray_desktop_app.file_uploader import get_file_md5
 from mantarray_desktop_app.file_uploader import get_sdk_status
 from mantarray_desktop_app.file_uploader import get_upload_details
 from mantarray_desktop_app.file_uploader import upload_file_to_s3
 from mantarray_desktop_app.file_uploader import uploader
+from mantarray_desktop_app.worker_thread import ErrorCatchingThread
 import pytest
 import requests
 
@@ -426,9 +426,7 @@ def test_ErrorCatchingThread__run__calls_init(mocker):
 
 def test_MantarrayProcessesMonitor__returns_if_no_target(mocker):
     mocked_super_init = mocker.spy(threading.Thread, "run")
-    mocked_thread = ErrorCatchingThread(
-        target=None,
-    )
+    mocked_thread = ErrorCatchingThread(target=None)
     mocked_thread.start()
 
     assert mocked_super_init.call_count == 0

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import datetime
+import json
 import logging
 import queue
 import threading
@@ -35,7 +36,12 @@ from .constants import CALIBRATED_STATE
 from .constants import CALIBRATING_STATE
 from .constants import CALIBRATION_NEEDED_STATE
 from .constants import CALIBRATION_RECORDING_DUR_SECONDS
+from .constants import CHANNEL_FIRMWARE_VERSION_UUID
+from .constants import CHECKING_FOR_UPDATES_STATE
+from .constants import CURRENT_SOFTWARE_VERSION
+from .constants import DOWNLOADING_UPDATES_STATE
 from .constants import GENERIC_24_WELL_DEFINITION
+from .constants import INSTALLING_UPDATES_STATE
 from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
 from .constants import MICRO_TO_BASE_CONVERSION
@@ -44,6 +50,9 @@ from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
 from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
+from .constants import UPDATE_ERROR_STATE
+from .constants import UPDATES_COMPLETE_STATE
+from .constants import UPDATES_NEEDED_STATE
 from .exceptions import IncorrectMagnetometerConfigFromInstrumentError
 from .exceptions import IncorrectSamplingPeriodFromInstrumentError
 from .exceptions import UnrecognizedCommandFromServerToMainError
@@ -51,6 +60,7 @@ from .exceptions import UnrecognizedMantarrayNamingCommandError
 from .exceptions import UnrecognizedRecordingCommandError
 from .process_manager import MantarrayProcessesManager
 from .server import ServerManager
+from .utils import _compare_semver
 from .utils import _create_start_recording_command
 from .utils import _trim_barcode
 from .utils import attempt_to_get_recording_directory_from_new_dict
@@ -116,9 +126,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         communication_type = communication["communication_type"]
         if communication_type == "update_upload_status":
-            outgoing_status_json = communication["content"]
-            data_to_server_queue = self._process_manager.queue_container().get_data_queue_to_server()
-            data_to_server_queue.put_nowait(outgoing_status_json)
+            self._queue_websocket_message(communication["content"])
         elif communication_type == "file_finalized":
             if (
                 self._values_to_share_to_server["system_status"] == CALIBRATING_STATE
@@ -199,11 +207,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 raise NotImplementedError(f"Unrecognized shutdown command from Server: {command}")
         elif communication_type == "update_customer_settings":
             new_values = communication["content"]
-
             new_recording_directory: Optional[str] = attempt_to_get_recording_directory_from_new_dict(
                 new_values
             )
-
             if new_recording_directory is not None:
                 to_file_writer_queue = (
                     process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
@@ -215,8 +221,12 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     }
                 )
                 process_manager.set_file_directory(new_recording_directory)
-
             if "customer_account_id" in new_values["config_settings"]:
+                # Tanner (1/5/22): might make more sense to store these values under "stored_customer_settings"
+                shared_values_dict["customer_creds"] = {
+                    "customer_account_id": new_values["config_settings"]["customer_account_id"],
+                    "customer_pass_key": new_values["config_settings"]["customer_pass_key"],
+                }
                 to_file_writer_queue = (
                     process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
                 )
@@ -225,7 +235,23 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 )
 
             update_shared_dict(shared_values_dict, new_values)
-
+        elif communication_type == "set_latest_software_version":
+            shared_values_dict["latest_software_version"] = communication["version"]
+            # send message to FE if an update is available
+            try:
+                software_update_available = _compare_semver(
+                    communication["version"], CURRENT_SOFTWARE_VERSION
+                )
+            except ValueError:
+                software_update_available = False
+            self._queue_websocket_message(
+                {
+                    "data_type": "sw_update",
+                    "data_json": json.dumps({"software_update_available": software_update_available}),
+                }
+            )
+        elif communication_type == "firmware_update_confirmation":
+            shared_values_dict["firmware_update_accepted"] = communication["update_accepted"]
         elif communication_type == "set_magnetometer_config":
             self._update_magnetometer_config_dict(communication["magnetometer_config_dict"])
         elif communication_type == "stimulation":
@@ -396,14 +422,14 @@ class MantarrayProcessesMonitor(InfiniteThread):
             outgoing_data_json = da_data_out_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
         except queue.Empty:
             return
-        data_to_server_queue = self._process_manager.queue_container().get_data_queue_to_server()
-        data_to_server_queue.put_nowait(outgoing_data_json)
+        self._queue_websocket_message(outgoing_data_json)
 
     def _check_and_handle_instrument_comm_to_main_queue(self) -> None:
         # pylint: disable=too-many-branches,too-many-statements  # TODO Tanner (10/25/21): refactor this into smaller methods
         process_manager = self._process_manager
+        board_idx = 0
         instrument_comm_to_main = (
-            process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
+            process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(board_idx)
         )
         try:
             communication = instrument_comm_to_main.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
@@ -436,7 +462,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         command = communication.get("command", None)
 
-        if communication_type in "acquisition_manager":
+        if communication_type == "acquisition_manager":
             if command == "start_managed_acquisition":
                 if self._values_to_share_to_server["beta_2_mode"]:
                     if (
@@ -558,10 +584,102 @@ class MantarrayProcessesMonitor(InfiniteThread):
             self._update_magnetometer_config_dict(
                 communication["magnetometer_config_dict"], update_instrument_comm=False
             )
+        elif communication_type == "firmware_update":
+            if command == "get_latest_firmware_versions":
+                if "error" in communication:
+                    self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
+                else:
+                    required_sw_for_fw = communication["latest_versions"]["sw"]
+                    latest_main_fw = communication["latest_versions"]["main-fw"]
+                    latest_channel_fw = communication["latest_versions"]["channel-fw"]
+                    min_sw_version_unavailable = _compare_semver(
+                        required_sw_for_fw, self._values_to_share_to_server["latest_software_version"]
+                    )
+                    main_fw_update_needed = _compare_semver(
+                        latest_main_fw,
+                        self._values_to_share_to_server["instrument_metadata"][board_idx][
+                            MAIN_FIRMWARE_VERSION_UUID
+                        ],
+                    )
+                    channel_fw_update_needed = _compare_semver(
+                        latest_channel_fw,
+                        self._values_to_share_to_server["instrument_metadata"][board_idx][
+                            CHANNEL_FIRMWARE_VERSION_UUID
+                        ],
+                    )
+                    if (main_fw_update_needed or channel_fw_update_needed) and not min_sw_version_unavailable:
+                        self._values_to_share_to_server["firmware_updates_needed"] = {
+                            "main": latest_main_fw if main_fw_update_needed else None,
+                            "channel": latest_channel_fw if channel_fw_update_needed else None,
+                        }
+                        self._values_to_share_to_server["system_status"] = UPDATES_NEEDED_STATE
+                        self._queue_websocket_message(
+                            {
+                                "data_type": "fw_update",
+                                "data_json": json.dumps(
+                                    {
+                                        "firmware_update_available": True,
+                                        "channel_fw_update": channel_fw_update_needed,
+                                    }
+                                ),
+                            }
+                        )
+                    else:
+                        self._send_enable_sw_auto_install_message()
+                        self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
+            elif command == "download_firmware_updates":
+                if "error" in communication:
+                    self._values_to_share_to_server["system_status"] = UPDATE_ERROR_STATE
+                else:
+                    self._values_to_share_to_server["system_status"] = INSTALLING_UPDATES_STATE
+                    to_instrument_comm_queue = (
+                        self._process_manager.queue_container().get_communication_to_instrument_comm_queue(
+                            board_idx
+                        )
+                    )
+                    # Tanner (1/13/22): send both firmware update commands at once, and make sure channel is sent first. If both are sent, the second will be ignored until the first install completes
+                    for firmware_type in ("channel", "main"):
+                        new_version = self._values_to_share_to_server["firmware_updates_needed"][
+                            firmware_type
+                        ]
+                        if new_version is not None:
+                            to_instrument_comm_queue.put_nowait(
+                                {
+                                    "communication_type": "firmware_update",
+                                    "command": "start_firmware_update",
+                                    "firmware_type": firmware_type,
+                                }
+                            )
+            elif command == "update_completed":
+                firmware_type = communication["firmware_type"]
+                self._values_to_share_to_server["firmware_updates_needed"][firmware_type] = None
+                if all(
+                    val is None for val in self._values_to_share_to_server["firmware_updates_needed"].values()
+                ):
+                    self._send_enable_sw_auto_install_message()
+                    self._values_to_share_to_server["system_status"] = UPDATES_COMPLETE_STATE
+
+    def _start_firmware_update(self) -> None:
+        self._values_to_share_to_server["system_status"] = DOWNLOADING_UPDATES_STATE
+        board_idx = 0
+        to_instrument_comm_queue = (
+            self._process_manager.queue_container().get_communication_to_instrument_comm_queue(board_idx)
+        )
+        to_instrument_comm_queue.put_nowait(
+            {
+                "communication_type": "firmware_update",
+                "command": "download_firmware_updates",
+                "main": self._values_to_share_to_server["firmware_updates_needed"]["main"],
+                "channel": self._values_to_share_to_server["firmware_updates_needed"]["channel"],
+                "username": self._values_to_share_to_server["customer_creds"]["customer_account_id"],
+                "password": self._values_to_share_to_server["customer_creds"]["customer_pass_key"],
+            }
+        )
 
     def _commands_for_each_run_iteration(self) -> None:
         """Execute additional commands inside the run loop."""
         process_manager = self._process_manager
+        board_idx = 0
 
         # any potential errors should be checked for first
         for iter_error_queue, iter_process in (
@@ -594,10 +712,46 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._values_to_share_to_server["system_status"] = INSTRUMENT_INITIALIZING_STATE
                 process_manager.boot_up_instrument(load_firmware_file=self._load_firmware_file)
         elif (
-            self._values_to_share_to_server["system_status"] == INSTRUMENT_INITIALIZING_STATE
-            and self._values_to_share_to_server["beta_2_mode"]
+            self._values_to_share_to_server["beta_2_mode"]
+            and self._values_to_share_to_server["system_status"] == INSTRUMENT_INITIALIZING_STATE
         ):
-            if "instrument_metadata" in self._values_to_share_to_server:
+            if (
+                "in_simulation_mode" not in self._values_to_share_to_server
+                or "instrument_metadata" not in self._values_to_share_to_server
+            ):
+                pass  # need to wait for these values before proceeding with state transition
+            elif self._values_to_share_to_server["in_simulation_mode"]:
+                self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
+            elif self._values_to_share_to_server["latest_software_version"] is not None:
+                self._values_to_share_to_server["system_status"] = CHECKING_FOR_UPDATES_STATE
+                # send command to instrument comm process to check for firmware updates
+                serial_number = self._values_to_share_to_server["instrument_metadata"][board_idx][
+                    MANTARRAY_SERIAL_NUMBER_UUID
+                ]
+                to_instrument_comm_queue = (
+                    self._process_manager.queue_container().get_communication_to_instrument_comm_queue(
+                        board_idx
+                    )
+                )
+                to_instrument_comm_queue.put_nowait(
+                    {
+                        "communication_type": "firmware_update",
+                        "command": "get_latest_firmware_versions",
+                        "serial_number": serial_number,
+                    }
+                )
+        elif self._values_to_share_to_server["system_status"] == UPDATES_NEEDED_STATE:
+            if "firmware_update_accepted" not in self._values_to_share_to_server:
+                pass  # need to wait for this value
+            elif self._values_to_share_to_server["firmware_update_accepted"]:
+                if "customer_creds" in self._values_to_share_to_server:
+                    if "customer_account_id" in self._values_to_share_to_server["customer_creds"]:
+                        self._start_firmware_update()
+                else:
+                    # Tanner (1/25/22): setting this value to empty dict to indicate that user input prompt has been sent
+                    self._values_to_share_to_server["customer_creds"] = {}
+                    self._send_user_creds_prompt_message()
+            else:
                 self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
 
         # check/handle comm from the server and each subprocess
@@ -627,7 +781,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             and not self._values_to_share_to_server["beta_2_mode"]
         ):
             to_instrument_comm = process_manager.queue_container().get_communication_to_instrument_comm_queue(
-                0
+                board_idx
             )
             barcode_poll_comm = {
                 "communication_type": "barcode_comm",
@@ -657,6 +811,26 @@ class MantarrayProcessesMonitor(InfiniteThread):
         offset_key = "ref" if is_ref_sensor else "construct"
         adc_offsets[well_index][offset_key] = offset_val
 
+    def _send_user_creds_prompt_message(self) -> None:
+        self._queue_websocket_message(
+            {
+                "data_type": "prompt_user_input",
+                "data_json": json.dumps({"input_type": "customer_creds"}),
+            }
+        )
+
+    def _send_enable_sw_auto_install_message(self) -> None:
+        self._queue_websocket_message(
+            {
+                "data_type": "sw_update",
+                "data_json": json.dumps({"allow_software_update": True}),
+            }
+        )
+
+    def _queue_websocket_message(self, message_dict: Dict[str, Any]) -> None:
+        data_to_server_queue = self._process_manager.queue_container().get_data_queue_to_server()
+        data_to_server_queue.put_nowait(message_dict)
+
     def _handle_error_in_subprocess(
         self,
         process: Union[InfiniteProcess, ServerManager],
@@ -667,7 +841,15 @@ class MantarrayProcessesMonitor(InfiniteThread):
         # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
         with self._lock:
             logger.error(msg)
-        self._hard_stop_and_join_processes_and_log_leftovers()
+        if self._values_to_share_to_server["system_status"] in (
+            DOWNLOADING_UPDATES_STATE,
+            INSTALLING_UPDATES_STATE,
+        ):
+            self._values_to_share_to_server["system_status"] = UPDATE_ERROR_STATE
+            shutdown_server = False
+        else:
+            shutdown_server = True
+        self._hard_stop_and_join_processes_and_log_leftovers(shutdown_server=shutdown_server)
 
     def _hard_stop_and_join_processes_and_log_leftovers(self, shutdown_server: bool = True) -> None:
         process_items = self._process_manager.hard_stop_and_join_processes(shutdown_server=shutdown_server)

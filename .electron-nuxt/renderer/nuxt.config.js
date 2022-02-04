@@ -51,16 +51,13 @@ const baseExtend = (config, { isClient }) => {
 
   config.plugins.push(
     new webpack.DefinePlugin({
-      INCLUDE_RESOURCES_PATH: isClient
-        ? resourcesPath.nuxtClient()
-        : resourcesPath.nuxtServer(),
+      INCLUDE_RESOURCES_PATH: isClient ? resourcesPath.nuxtClient() : resourcesPath.nuxtServer(),
     })
   );
 };
 
 const mergeConfig = (customConfig) => {
-  const hasExtendFunction =
-    customConfig.build !== undefined && customConfig.build.extend !== undefined;
+  const hasExtendFunction = customConfig.build !== undefined && customConfig.build.extend !== undefined;
   if (hasExtendFunction) {
     const userExtend = customConfig.build.extend;
     customConfig.build.extend = function () {

@@ -1535,6 +1535,7 @@ def test_set_protocols__waits_for_stim_info_in_shared_values_dict_to_be_updated_
 ):
     _, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_running"] = [False] * 24
 
     test_protocol_dict = {

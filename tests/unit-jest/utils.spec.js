@@ -40,43 +40,29 @@ describe("utils.js", () => {
           store = main_utils.create_store({ file_path: tmp_dir_name });
         });
         test("When the function is invoked, Then the log file directory argument is set to the folder containing the store", () => {
-          const actual_args = main_utils.generate_flask_command_line_args(
-            store
-          );
+          const actual_args = main_utils.generate_flask_command_line_args(store);
 
           expect(actual_args).toStrictEqual(
             expect.arrayContaining([
               "--log-file-dir=" +
-                path.join(
-                  path.dirname(store.path),
-                  "logs_flask",
-                  main_utils.filename_prefix
-                ),
+                path.join(path.dirname(store.path), "logs_flask", main_utils.filename_prefix),
             ])
           );
         });
         test("When the function is invoked, Then the expected-software-version argument is set to the value returned by get_current_app_version", () => {
-          const spied_get_current_app_version = jest.spyOn(
-            main_utils,
-            "get_current_app_version"
-          );
+          const spied_get_current_app_version = jest.spyOn(main_utils, "get_current_app_version");
 
-          const actual_args = main_utils.generate_flask_command_line_args(
-            store
-          );
+          const actual_args = main_utils.generate_flask_command_line_args(store);
 
           expect(actual_args).toStrictEqual(
             expect.arrayContaining([
-              "--expected-software-version=" +
-                spied_get_current_app_version.mock.results[0].value,
+              "--expected-software-version=" + spied_get_current_app_version.mock.results[0].value,
             ])
           );
         });
 
         test("When the function is invoked, Then the returned --initial-base64-settings encoded settings argument is supplied only containing the recording directory (since no ID exists in the store)", () => {
-          const actual_args = main_utils.generate_flask_command_line_args(
-            store
-          );
+          const actual_args = main_utils.generate_flask_command_line_args(store);
           const expected_obj = {
             log_file_uuid: main_utils.filename_prefix,
             recording_directory: path.join(tmp_dir_name, "recordings"),
@@ -84,75 +70,42 @@ describe("utils.js", () => {
               id: "",
               password: "",
             },
-            zipped_recordings_dir: path.join(
-              tmp_dir_name,
-              "recordings",
-              "zipped_recordings"
-            ),
-            failed_uploads_dir: path.join(
-              tmp_dir_name,
-              "recordings",
-              "failed_uploads"
-            ),
+            zipped_recordings_dir: path.join(tmp_dir_name, "recordings", "zipped_recordings"),
+            failed_uploads_dir: path.join(tmp_dir_name, "recordings", "failed_uploads"),
           };
 
           const regex = "--initial-base64-settings=";
           const base_64_string = actual_args[2].replace(regex, "");
-          const parsed_base64 = JSON.parse(
-            url_safe_base64.decode(base_64_string).toString("utf8")
-          );
+          const parsed_base64 = JSON.parse(url_safe_base64.decode(base_64_string).toString("utf8"));
 
           expect(parsed_base64).toStrictEqual(expected_obj);
         });
 
         test("When the function is invoked, Then subfolders are created for logs and recordings", () => {
           main_utils.generate_flask_command_line_args(store);
-          expect(
-            fs.existsSync(
-              path.join(tmp_dir_name, "logs_flask", main_utils.filename_prefix)
-            )
-          ).toBe(true);
-          expect(fs.existsSync(path.join(tmp_dir_name, "recordings"))).toBe(
-            true
-          );
-          expect(
-            fs.existsSync(
-              path.join(tmp_dir_name, "recordings", "zipped_recordings")
-            )
-          ).toBe(true);
-          expect(
-            fs.existsSync(
-              path.join(tmp_dir_name, "recordings", "failed_uploads")
-            )
-          ).toBe(true);
+          expect(fs.existsSync(path.join(tmp_dir_name, "logs_flask", main_utils.filename_prefix))).toBe(true);
+          expect(fs.existsSync(path.join(tmp_dir_name, "recordings"))).toBe(true);
+          expect(fs.existsSync(path.join(tmp_dir_name, "recordings", "zipped_recordings"))).toBe(true);
+          expect(fs.existsSync(path.join(tmp_dir_name, "recordings", "failed_uploads"))).toBe(true);
         });
       });
     });
     describe("redact_username_from_logs", () => {
       test("When a path gets logged, Then the username will be replaced with 4 astricks", () => {
-        const test_path_mac =
-          "--log-file-dir=/Users/test_user/Library/Electron/logs";
-        const expected_path_mac =
-          "--log-file-dir=/Users/****/Library/Electron/logs";
+        const test_path_mac = "--log-file-dir=/Users/test_user/Library/Electron/logs";
+        const expected_path_mac = "--log-file-dir=/Users/****/Library/Electron/logs";
         const actual_mac = main_utils.redact_username_from_logs(test_path_mac);
         expect(actual_mac).toBe(expected_path_mac);
 
-        const test_path_win =
-          "--log-file-dir=c:\\Users\\test_user\\Library\\Electron\\logs";
-        const expected_path_win =
-          "--log-file-dir=c:\\Users\\****\\Library\\Electron\\logs";
+        const test_path_win = "--log-file-dir=c:\\Users\\test_user\\Library\\Electron\\logs";
+        const expected_path_win = "--log-file-dir=c:\\Users\\****\\Library\\Electron\\logs";
         const actual_win = main_utils.redact_username_from_logs(test_path_win);
         expect(actual_win).toBe(expected_path_win);
       });
     });
     describe("get_current_app_version", () => {
       test("Given that Electron is not actually running (because this is just a unit test), When the function is called, Then it returns the current version of the App", () => {
-        const path_to_package_json = path.join(
-          __dirname,
-          "..",
-          "..",
-          "package.json"
-        );
+        const path_to_package_json = path.join(__dirname, "..", "..", "package.json");
         const package_info = require(path_to_package_json);
         const expected = package_info.version;
         const actual = main_utils.get_current_app_version();

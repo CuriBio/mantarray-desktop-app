@@ -63,11 +63,7 @@ log.transports.file.resolvePath = (variables) => {
 };
 
 console.log = log.log;
-import {
-  ContinuousWaveform,
-  XAxisControls,
-  YAxisControls,
-} from "@curi-bio/mantarray-frontend-components";
+import { ContinuousWaveform, XAxisControls, YAxisControls } from "@curi-bio/mantarray-frontend-components";
 export default {
   components: {
     ContinuousWaveform,

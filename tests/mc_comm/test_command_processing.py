@@ -4,13 +4,18 @@ import queue
 from random import choice
 import time
 
-from mantarray_desktop_app import convert_to_metadata_bytes
 from mantarray_desktop_app import create_magnetometer_config_dict
+from mantarray_desktop_app import InvalidCommandFromMainError
 from mantarray_desktop_app import MantarrayMcSimulator
+from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import mc_simulator
+from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import UnrecognizedCommandFromMainToMcCommError
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.firmware_downloader import download_firmware_updates
+from mantarray_desktop_app.firmware_downloader import get_latest_firmware_versions
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
+from mantarray_desktop_app.worker_thread import ErrorCatchingThread
 from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
@@ -26,8 +31,8 @@ from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import get_null_subprotocol
 from ..fixtures_mc_simulator import get_random_subprotocol
 from ..fixtures_mc_simulator import set_simulator_idle_ready
+from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
-from ..helpers import handle_putting_multiple_objects_into_empty_queue
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 __fixtures__ = [
@@ -75,6 +80,13 @@ __fixtures__ = [
             },
             "raises error with invalid stimulation command",
         ),
+        (
+            {
+                "communication_type": "firmware_update",
+                "command": "bad_command",
+            },
+            "raises error with invalid firmware_update command",
+        ),
     ],
 )
 def test_McCommunicationProcess__raises_error_when_receiving_invalid_command_from_main(
@@ -92,18 +104,29 @@ def test_McCommunicationProcess__raises_error_when_receiving_invalid_command_fro
 
 
 def test_McCommunicationProcess__processes_set_mantarray_nickname_command(
-    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator, mocker
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     board_queues = four_board_mc_comm_process_no_handshake["board_queues"]
-    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    simulator = mantarray_mc_simulator["simulator"]
     input_queue = board_queues[0][0]
     output_queue = board_queues[0][1]
-    set_connection_and_register_simulator(
-        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    set_connection_and_register_simulator(four_board_mc_comm_process_no_handshake, mantarray_mc_simulator)
+
+    # mock so reboots complete on the next iteration
+    mocker.patch.object(
+        mc_simulator,
+        "_get_secs_since_reboot_command",
+        autospec=True,
+        return_value=AVERAGE_MC_REBOOT_DURATION_SECONDS,
+    )
+    # mock to have control over when beacons are sent
+    mocked_get_secs_since_beacon = mocker.patch.object(
+        mc_simulator, "_get_secs_since_last_status_beacon", autospec=True, return_value=0
     )
 
-    expected_nickname = "Mantarray++"
+    # send set nickname command
+    expected_nickname = "Mantarray++  "
     set_nickname_command = {
         "communication_type": "mantarray_naming",
         "command": "set_mantarray_nickname",
@@ -112,19 +135,34 @@ def test_McCommunicationProcess__processes_set_mantarray_nickname_command(
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(set_nickname_command), input_queue
     )
-    # run mc_process one iteration to send the command
+    # send another command to make sure it is ignored during nickname update process
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"communication_type": "metadata_comm", "command": "get_metadata"}, input_queue
+    )
+
+    # send the command
     invoke_process_run_and_check_errors(mc_process)
-    # run simulator one iteration to process the command
+    # process the command
     invoke_process_run_and_check_errors(simulator)
-    actual = simulator.get_metadata_dict()[MANTARRAY_NICKNAME_UUID.bytes]
-    assert actual == convert_to_metadata_bytes(expected_nickname)
+    # complete reboot and make sure nickname was updated
+    invoke_process_run_and_check_errors(simulator)
+    actual = simulator.get_metadata_dict()[MANTARRAY_NICKNAME_UUID]
+    assert actual == expected_nickname
     # run mc_process one iteration to read response from simulator and send command completed response back to main
     invoke_process_run_and_check_errors(mc_process)
+    # print(drain_queue(output_queue))
     confirm_queue_is_eventually_of_size(output_queue, 1)
     command_response = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert command_response == set_nickname_command
-    # confirm response is read by checking that no bytes are available to read from simulator
-    assert simulator.in_waiting == 0
+    # make sure second command not processed yet
+    confirm_queue_is_eventually_of_size(input_queue, 1)
+    # run simulator one more iteration to complete 2nd reboot
+    mocked_get_secs_since_beacon.return_value = SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+    invoke_process_run_and_check_errors(simulator)
+    invoke_process_run_and_check_errors(mc_process)
+    # make sure second command gets processed now
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_empty(input_queue)
 
 
 def test_McCommunicationProcess__processes_get_metadata_command(
@@ -162,7 +200,7 @@ def test_McCommunicationProcess__processes_get_metadata_command(
 @pytest.mark.slow
 @pytest.mark.timeout(20)
 def test_McCommunicationProcess__processes_commands_from_main_when_process_is_fully_running(
-    runnable_four_board_mc_comm_process,
+    runnable_four_board_mc_comm_process, mocker
 ):
     # Tanner (6/11/21): if this test times out, it means the get_metadata command response was never sent to main
     mc_process = runnable_four_board_mc_comm_process["mc_process"]
@@ -170,28 +208,17 @@ def test_McCommunicationProcess__processes_commands_from_main_when_process_is_fu
     input_queue = board_queues[0][0]
     output_queue = board_queues[0][1]
 
-    expected_nickname = "Running McSimulator"
-    set_nickname_command = {
-        "communication_type": "mantarray_naming",
-        "command": "set_mantarray_nickname",
-        "mantarray_nickname": expected_nickname,
-    }
     test_command = {
         "communication_type": "metadata_comm",
         "command": "get_metadata",
     }
-    handle_putting_multiple_objects_into_empty_queue(
-        [set_nickname_command, copy.deepcopy(test_command)],
-        input_queue,
-        sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(copy.deepcopy(test_command), input_queue)
     mc_process.start()
 
     while True:
         try:
             item = output_queue.get_nowait()
             if item.get("command", None) == "get_metadata":
-                assert item["metadata"][MANTARRAY_NICKNAME_UUID] == expected_nickname
                 break
         except queue.Empty:
             pass
@@ -285,39 +312,6 @@ def test_McCommunicationProcess__processes_reboot_command(
     reboot_response = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     expected_response["message"] = "Instrument completed reboot"
     assert reboot_response == expected_response
-
-
-def test_McCommunicationProcess__processes_dump_eeprom_command(
-    four_board_mc_comm_process_no_handshake,
-    mantarray_mc_simulator_no_beacon,
-):
-    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
-    board_queues = four_board_mc_comm_process_no_handshake["board_queues"]
-    simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    input_queue = board_queues[0][0]
-    output_queue = board_queues[0][1]
-    set_connection_and_register_simulator(
-        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
-    )
-
-    expected_response = {
-        "communication_type": "to_instrument",
-        "command": "dump_eeprom",
-    }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        copy.deepcopy(expected_response), input_queue
-    )
-    # run mc_process to send command
-    invoke_process_run_and_check_errors(mc_process)
-    # run simulator to process command and send response
-    invoke_process_run_and_check_errors(simulator)
-    # run mc_process to process command response and send message back to main
-    invoke_process_run_and_check_errors(mc_process)
-    # confirm correct message sent to main
-    confirm_queue_is_eventually_of_size(output_queue, 1)
-    message_to_main = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    expected_response["eeprom_contents"] = simulator.get_eeprom_bytes()
-    assert message_to_main == expected_response
 
 
 def test_McCommunicationProcess__processes_change_magnetometer_config_command(
@@ -430,3 +424,103 @@ def test_McCommunicationProcess__processes_set_protocols_command(
     confirm_queue_is_eventually_of_size(output_queue, 1)
     message_to_main = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert message_to_main == expected_response
+
+
+def test_McCommunicationProcess__processes_get_latest_firmware_versions_command(
+    four_board_mc_comm_process_no_handshake, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    board_queues = four_board_mc_comm_process_no_handshake["board_queues"]
+    input_queue = board_queues[0][0]
+
+    spied_thread_init = mocker.spy(mc_comm.ErrorCatchingThread, "__init__")
+    mocked_thread_start = mocker.patch.object(mc_comm.ErrorCatchingThread, "start", autospec=True)
+    # mock so thread won't get deleted on same iteration it is created
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "is_alive", autospec=True, return_value=True)
+
+    test_serial_number = MantarrayMcSimulator.default_mantarray_serial_number
+
+    # send command to mc_process
+    test_command = {
+        "communication_type": "firmware_update",
+        "command": "get_latest_firmware_versions",
+        "serial_number": test_serial_number,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(copy.deepcopy(test_command), input_queue)
+
+    assert mc_process._fw_update_worker_thread is None
+    invoke_process_run_and_check_errors(mc_process)
+    assert isinstance(mc_process._fw_update_worker_thread, ErrorCatchingThread) is True
+    assert mc_process._fw_update_thread_dict == {
+        "communication_type": "firmware_update",
+        "command": "get_latest_firmware_versions",
+        "latest_versions": {},
+    }
+    spied_thread_init.assert_called_once_with(
+        mocker.ANY,  # this is the actual thread instance
+        target=get_latest_firmware_versions,
+        args=(
+            mc_process._fw_update_thread_dict,
+            test_serial_number,
+        ),
+    )
+    mocked_thread_start.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "main_fw_update,channel_fw_update",
+    [(False, False), (False, True), (True, False), (True, True)],
+)
+def test_McCommunicationProcess__handles_download_firmware_updates_command(
+    main_fw_update, channel_fw_update, four_board_mc_comm_process_no_handshake, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    board_queues = four_board_mc_comm_process_no_handshake["board_queues"]
+    input_queue = board_queues[0][0]
+
+    spied_thread_init = mocker.spy(mc_comm.ErrorCatchingThread, "__init__")
+    mocked_thread_start = mocker.patch.object(mc_comm.ErrorCatchingThread, "start", autospec=True)
+    # mock so thread won't get deleted on same iteration it is created
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "is_alive", autospec=True, return_value=True)
+
+    test_username = "user"
+    test_password = "pw"
+
+    test_command = {
+        "communication_type": "firmware_update",
+        "command": "download_firmware_updates",
+        "main": main_fw_update,
+        "channel": channel_fw_update,
+        "username": test_username,
+        "password": test_password,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(copy.deepcopy(test_command), input_queue)
+
+    assert mc_process._fw_update_worker_thread is None
+    if main_fw_update or channel_fw_update:
+        invoke_process_run_and_check_errors(mc_process)
+        assert isinstance(mc_process._fw_update_worker_thread, ErrorCatchingThread) is True
+        assert mc_process._fw_update_thread_dict == {
+            "communication_type": "firmware_update",
+            "command": "download_firmware_updates",
+            "main": None,
+            "channel": None,
+        }
+        spied_thread_init.assert_called_once_with(
+            mocker.ANY,  # this is the actual thread instance
+            target=download_firmware_updates,
+            args=(
+                mc_process._fw_update_thread_dict,
+                main_fw_update,
+                channel_fw_update,
+                test_username,
+                test_password,
+            ),
+        )
+        mocked_thread_start.assert_called_once()
+    else:
+        with pytest.raises(
+            InvalidCommandFromMainError,
+            match="Cannot download firmware files if neither firmware type needs an update",
+        ):
+            invoke_process_run_and_check_errors(mc_process)
