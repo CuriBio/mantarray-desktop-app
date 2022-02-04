@@ -315,6 +315,34 @@ def test_MantarrayProcessesMonitor__passes_update_upload_status_data_to_server(
     assert actual == expected_content
 
 
+@pytest.mark.parametrize(
+    "test_system_status", [DOWNLOADING_UPDATES_STATE, INSTALLING_UPDATES_STATE, "anything else"]
+)
+def test_MantarrayProcessesMonitor__handles_instrument_comm_process_error_correctly(
+    test_system_status, mocker, test_process_manager_creator, test_monitor
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+    shared_values_dict["system_status"] = test_system_status
+    ic_error_queue = test_process_manager.queue_container().get_instrument_communication_error_queue()
+
+    mocked_hard_stop_and_join = mocker.patch.object(
+        test_process_manager, "hard_stop_and_join_processes", autospec=True
+    )
+
+    is_fw_update_error = test_system_status in (
+        DOWNLOADING_UPDATES_STATE,
+        INSTALLING_UPDATES_STATE,
+    )
+    expected_system_status = UPDATE_ERROR_STATE if is_fw_update_error else test_system_status
+
+    error_tuple = (Exception(), "error")
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(error_tuple, ic_error_queue)
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert shared_values_dict["system_status"] == expected_system_status
+    mocked_hard_stop_and_join.assert_called_once_with(shutdown_server=not is_fw_update_error)
+
+
 def test_MantarrayProcessesMonitor__logs_errors_from_instrument_comm_process(
     mocker, test_process_manager_creator, test_monitor
 ):
@@ -855,7 +883,10 @@ def test_MantarrayProcessesMonitor__handles_switch_from_INSTRUMENT_INITIALIZING_
 
 
 @pytest.mark.parametrize(
-    "error,main_fw_update,channel_fw_update,expected_state",
+    "required_sw_version_available,expected_state_from_sw", [(True, None), (False, CALIBRATION_NEEDED_STATE)]
+)
+@pytest.mark.parametrize(
+    "error,main_fw_update,channel_fw_update,expected_state_from_fw",
     [
         (True, False, False, CALIBRATION_NEEDED_STATE),
         (False, False, False, CALIBRATION_NEEDED_STATE),
@@ -868,9 +899,11 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
     test_monitor,
     test_process_manager_creator,
     error,
+    required_sw_version_available,
     main_fw_update,
     channel_fw_update,
-    expected_state,
+    expected_state_from_sw,
+    expected_state_from_fw,
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
@@ -884,12 +917,17 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
     to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(board_idx)
     queue_to_server_ws = test_process_manager.queue_container().get_data_queue_to_server()
 
+    expected_state = expected_state_from_sw or expected_state_from_fw
+
     test_current_version = "0.0.0"
     test_new_version = "1.0.0"
 
     new_main_fw_version = test_new_version if main_fw_update else None
     new_channel_fw_version = test_new_version if channel_fw_update else None
 
+    shared_values_dict["latest_software_version"] = (
+        test_new_version if required_sw_version_available else test_current_version
+    )
     shared_values_dict["instrument_metadata"] = {
         board_idx: {
             MAIN_FIRMWARE_VERSION_UUID: test_current_version,
@@ -909,7 +947,7 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
         test_command_response["latest_versions"] = {
             "main-fw": test_new_version if main_fw_update else test_current_version,
             "channel-fw": test_new_version if channel_fw_update else test_current_version,
-            "sw": "0.0.1",
+            "sw": test_new_version,
         }
     # process command response
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command_response, from_ic_queue)
@@ -1130,6 +1168,29 @@ def test_MantarrayProcessesMonitor__handles_firmware_update_completed_commands_c
         "data_type": "sw_update",
         "data_json": json.dumps({"allow_software_update": True}),
     }
+
+
+def test_MantarrayProcessesMonitor__ignores_start_firmware_update_command_response(
+    test_monitor, test_process_manager_creator
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = INSTALLING_UPDATES_STATE
+
+    board_idx = 0
+    from_ic_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(board_idx)
+    )
+
+    command_response = {
+        "communication_type": "firmware_update",
+        "command": "start_firmware_update",
+        "firmware_type": "main",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(command_response, from_ic_queue)
+    # run monitor_thread to make sure no errors occur
+    invoke_process_run_and_check_errors(monitor_thread)
 
 
 def test_MantarrayProcessesMonitor__calls_boot_up_only_once_after_subprocesses_start_if_boot_up_after_processes_start_is_True(

@@ -382,6 +382,7 @@ describe("window_opening", () => {
 
     const screenshot_path = path.join(this_base_screenshot_path, "init");
     await wait_for_local_server_to_reach_calibration_needed();
+    await sleep(3000);
     resemble.outputSettings({ ignoredBox: box_surrounding_version_number });
     await expect(spectron_page_visual_regression(app.browserWindow, screenshot_path)).resolves.toBe(true);
     resemble.outputSettings({ ignoredBox: undefined });

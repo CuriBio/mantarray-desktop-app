@@ -589,8 +589,12 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 if "error" in communication:
                     self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
                 else:
+                    required_sw_for_fw = communication["latest_versions"]["sw"]
                     latest_main_fw = communication["latest_versions"]["main-fw"]
                     latest_channel_fw = communication["latest_versions"]["channel-fw"]
+                    min_sw_version_unavailable = _compare_semver(
+                        required_sw_for_fw, self._values_to_share_to_server["latest_software_version"]
+                    )
                     main_fw_update_needed = _compare_semver(
                         latest_main_fw,
                         self._values_to_share_to_server["instrument_metadata"][board_idx][
@@ -603,7 +607,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                             CHANNEL_FIRMWARE_VERSION_UUID
                         ],
                     )
-                    if main_fw_update_needed or channel_fw_update_needed:
+                    if (main_fw_update_needed or channel_fw_update_needed) and not min_sw_version_unavailable:
                         self._values_to_share_to_server["firmware_updates_needed"] = {
                             "main": latest_main_fw if main_fw_update_needed else None,
                             "channel": latest_channel_fw if channel_fw_update_needed else None,
@@ -654,10 +658,6 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 ):
                     self._send_enable_sw_auto_install_message()
                     self._values_to_share_to_server["system_status"] = UPDATES_COMPLETE_STATE
-            else:
-                raise NotImplementedError(
-                    f"Unrecognized firmware_update command from InstrumentComm: {command}"
-                )
 
     def _start_firmware_update(self) -> None:
         self._values_to_share_to_server["system_status"] = DOWNLOADING_UPDATES_STATE
@@ -722,7 +722,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 pass  # need to wait for these values before proceeding with state transition
             elif self._values_to_share_to_server["in_simulation_mode"]:
                 self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
-            elif self._values_to_share_to_server["latest_software_version"] is not None:  # TODO cov
+            elif self._values_to_share_to_server["latest_software_version"] is not None:
                 self._values_to_share_to_server["system_status"] = CHECKING_FOR_UPDATES_STATE
                 # send command to instrument comm process to check for firmware updates
                 serial_number = self._values_to_share_to_server["instrument_metadata"][board_idx][
@@ -841,7 +841,15 @@ class MantarrayProcessesMonitor(InfiniteThread):
         # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
         with self._lock:
             logger.error(msg)
-        self._hard_stop_and_join_processes_and_log_leftovers()
+        if self._values_to_share_to_server["system_status"] in (
+            DOWNLOADING_UPDATES_STATE,
+            INSTALLING_UPDATES_STATE,
+        ):
+            self._values_to_share_to_server["system_status"] = UPDATE_ERROR_STATE
+            shutdown_server = False
+        else:
+            shutdown_server = True
+        self._hard_stop_and_join_processes_and_log_leftovers(shutdown_server=shutdown_server)
 
     def _hard_stop_and_join_processes_and_log_leftovers(self, shutdown_server: bool = True) -> None:
         process_items = self._process_manager.hard_stop_and_join_processes(shutdown_server=shutdown_server)
