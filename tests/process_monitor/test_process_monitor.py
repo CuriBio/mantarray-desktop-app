@@ -1446,7 +1446,7 @@ def test_MantarrayProcessesMonitor__sends_two_barcode_poll_commands_to_OKComm_at
         ("", None, BARCODE_UNREADABLE_UUID, "stores no barcode"),
     ],
 )
-def test_MantarrayProcessesMonitor__stores_barcode_sent_from_instrument_comm__and_no_previously_stored_barcode(
+def test_MantarrayProcessesMonitor__stores_barcode_sent_from_instrument_comm__and_sends_barcode_update_message_to_frontend__when_no_previously_stored_barcode(
     expected_barcode,
     test_valid,
     expected_status,
@@ -1462,6 +1462,7 @@ def test_MantarrayProcessesMonitor__stores_barcode_sent_from_instrument_comm__an
             expected_board_idx
         )
     )
+    queue_to_server_ws = test_process_manager.queue_container().get_data_queue_to_server()
 
     barcode_comm = {
         "communication_type": "barcode_comm",
@@ -1476,11 +1477,18 @@ def test_MantarrayProcessesMonitor__stores_barcode_sent_from_instrument_comm__an
     put_object_into_queue_and_raise_error_if_eventually_still_empty(barcode_comm, from_instrument_comm_queue)
     invoke_process_run_and_check_errors(monitor_thread)
 
-    assert shared_values_dict["barcodes"][expected_board_idx] == {
+    # check shared values dict was updated
+    expected_barcode_dict = {
         "plate_barcode": expected_barcode,
         "barcode_status": expected_status,
-        "frontend_needs_barcode_update": True,
     }
+    assert shared_values_dict["barcodes"][expected_board_idx] == expected_barcode_dict
+    # check message was put into queue
+    expected_barcode_dict["barcode_status"] = str(expected_barcode_dict["barcode_status"])
+    expected_barcode_message = {"data_type": "barcode", "data_json": json.dumps(expected_barcode_dict)}
+    confirm_queue_is_eventually_of_size(queue_to_server_ws, 1)
+    barcode_msg = queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert barcode_msg == expected_barcode_message
 
 
 @pytest.mark.parametrize(
@@ -1491,7 +1499,7 @@ def test_MantarrayProcessesMonitor__stores_barcode_sent_from_instrument_comm__an
         ("", None, BARCODE_UNREADABLE_UUID, "updates to no barcode"),
     ],
 )
-def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_instrument_comm(
+def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_instrument_comm__and_sends_barcode_update_message_to_frontend(
     expected_barcode,
     test_valid,
     expected_status,
@@ -1507,7 +1515,6 @@ def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_instrument_
         expected_board_idx: {
             "plate_barcode": "old barcode",
             "barcode_status": None,
-            "frontend_needs_barcode_update": None,
         }
     }
 
@@ -1516,6 +1523,7 @@ def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_instrument_
             expected_board_idx
         )
     )
+    queue_to_server_ws = test_process_manager.queue_container().get_data_queue_to_server()
 
     barcode_comm = {
         "communication_type": "barcode_comm",
@@ -1530,11 +1538,17 @@ def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_instrument_
     put_object_into_queue_and_raise_error_if_eventually_still_empty(barcode_comm, from_instrument_comm_queue)
     invoke_process_run_and_check_errors(monitor_thread)
 
-    assert shared_values_dict["barcodes"][expected_board_idx] == {
+    expected_barcode_dict = {
         "plate_barcode": expected_barcode,
         "barcode_status": expected_status,
-        "frontend_needs_barcode_update": True,
     }
+    assert shared_values_dict["barcodes"][expected_board_idx] == expected_barcode_dict
+    # check message was put into queue
+    expected_barcode_dict["barcode_status"] = str(expected_barcode_dict["barcode_status"])
+    expected_barcode_message = {"data_type": "barcode", "data_json": json.dumps(expected_barcode_dict)}
+    confirm_queue_is_eventually_of_size(queue_to_server_ws, 1)
+    barcode_msg = queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert barcode_msg == expected_barcode_message
 
 
 @pytest.mark.parametrize(
@@ -1545,7 +1559,7 @@ def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_instrument_
         ("", None, False, "does not update to current empty barcode"),
     ],
 )
-def test_MantarrayProcessesMonitor__does_not_update_any_values_if_new_barcode_matches_current_barcode(
+def test_MantarrayProcessesMonitor__does_not_update_any_values_or_send_barcode_update_to_frontend__if_new_barcode_matches_current_barcode(
     expected_barcode,
     test_valid,
     test_update,
@@ -1560,7 +1574,6 @@ def test_MantarrayProcessesMonitor__does_not_update_any_values_if_new_barcode_ma
     expected_dict = {
         "plate_barcode": expected_barcode,
         "barcode_status": None,
-        "frontend_needs_barcode_update": test_update,
     }
     shared_values_dict["barcodes"] = {expected_board_idx: expected_dict}
 
@@ -1569,6 +1582,7 @@ def test_MantarrayProcessesMonitor__does_not_update_any_values_if_new_barcode_ma
             expected_board_idx
         )
     )
+    queue_to_server_ws = test_process_manager.queue_container().get_data_queue_to_server()
 
     barcode_comm = {
         "communication_type": "barcode_comm",
@@ -1584,6 +1598,7 @@ def test_MantarrayProcessesMonitor__does_not_update_any_values_if_new_barcode_ma
     invoke_process_run_and_check_errors(monitor_thread)
 
     assert shared_values_dict["barcodes"][expected_board_idx] == expected_dict
+    confirm_queue_is_eventually_empty(queue_to_server_ws)
 
 
 def test_MantarrayProcessesMonitor__trims_barcode_string_before_storing_in_shared_values_dict(

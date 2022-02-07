@@ -355,9 +355,6 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 raise UnrecognizedCommandFromServerToMainError(
                     f"Invalid command: {command} for communication_type: {communication_type}"
                 )
-        elif communication_type == "barcode_read_receipt":
-            board_idx = communication["board_idx"]
-            self._values_to_share_to_server["barcodes"][board_idx]["frontend_needs_barcode_update"] = False
 
     def _update_magnetometer_config_dict(
         self, magnetometer_config_dict: Dict[str, Any], update_instrument_comm: bool = True
@@ -544,8 +541,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._add_offset_to_shared_dict(adc_index, ch_index, offset_val)
         elif communication_type == "barcode_comm":
             barcode = communication["barcode"]
-            if len(barcode) == 12:
-                # Tanner (1/27/21): invalid barcodes will be sent untrimmed from ok_comm so the full string is logged, so trimming them here in order to always send trimmed barcodes to GUI.
+            if not self._values_to_share_to_server["beta_2_mode"] and len(barcode) == 12:
+                # Tanner (1/27/21): invalid barcodes will be sent untrimmed from ok_comm so the full string is logged, so trimming them here in order to always send trimmed barcodes to frontend.
                 barcode = _trim_barcode(barcode)
             if "barcodes" not in self._values_to_share_to_server:
                 self._values_to_share_to_server["barcodes"] = dict()
@@ -554,6 +551,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._values_to_share_to_server["barcodes"][board_idx] = dict()
             elif self._values_to_share_to_server["barcodes"][board_idx]["plate_barcode"] == barcode:
                 return
+            # TODO Tanner (2/7/22): consider removing barcode_status after Beta 1 mode phased out
             valid = communication.get("valid", None)
             barcode_status: uuid.UUID
             if valid is None:
@@ -562,11 +560,17 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 barcode_status = BARCODE_VALID_UUID
             else:
                 barcode_status = BARCODE_INVALID_UUID
-            self._values_to_share_to_server["barcodes"][board_idx] = {
+
+            board_barcode_dict = {
                 "plate_barcode": barcode,
                 "barcode_status": barcode_status,
-                "frontend_needs_barcode_update": True,
             }
+            self._values_to_share_to_server["barcodes"][board_idx] = board_barcode_dict
+            # send message to FE
+            barcode_dict_copy = copy.deepcopy(board_barcode_dict)
+            barcode_dict_copy["barcode_status"] = str(barcode_dict_copy["barcode_status"])
+            barcode_update_message = {"data_type": "barcode", "data_json": json.dumps(barcode_dict_copy)}
+            self._queue_websocket_message(barcode_update_message)
         elif communication_type == "metadata_comm":
             board_idx = communication["board_index"]
             self._values_to_share_to_server["instrument_metadata"] = {board_idx: communication["metadata"]}

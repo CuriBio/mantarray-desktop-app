@@ -230,4 +230,6 @@ def fixture_runnable_mantarray_mc_simulator():
     # Tanner (2/25/21): Remove any data packets remaining in read queue. This is faster than hard_stop which will attempt to drain every queue
     drain_queue(output_queue)
 
-    simulator.join()
+    # only join if the process has actually been started. Sometimes a test will fail before this happens in which case join will raise an error
+    if simulator.is_alive():
+        simulator.join()

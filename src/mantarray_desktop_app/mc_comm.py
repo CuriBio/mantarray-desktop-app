@@ -499,7 +499,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 packet_type = SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
                 bytes_to_send = bytes(
                     comm_from_main["mantarray_nickname"], "utf-8"
-                )  # TODO check this value in the route for it and make it 13 bytes if it is too short
+                )  # TODO append '\x00' until it is 13 bytes long if needed
                 self._is_setting_nickname = True
             else:
                 raise UnrecognizedCommandFromMainToMcCommError(

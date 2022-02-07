@@ -223,7 +223,6 @@ def system_status() -> Response:
         # TODO figure out which FE status the SW gets stuck in when this error code is returned
         return Response(status="520 Versions of Electron and Flask EXEs do not match")
 
-    board_idx = 0
     status = shared_values_dict["system_status"]
     status_dict = {
         "ui_status_code": str(SYSTEM_STATUS_UUIDS[status]),
@@ -233,18 +232,6 @@ def system_status() -> Response:
         "mantarray_serial_number": shared_values_dict.get("mantarray_serial_number", ""),
         "mantarray_nickname": shared_values_dict.get("mantarray_nickname", ""),
     }
-    if (
-        "barcodes" in shared_values_dict
-        and shared_values_dict["barcodes"][board_idx]["frontend_needs_barcode_update"]
-    ):
-        status_dict["plate_barcode"] = shared_values_dict["barcodes"][board_idx]["plate_barcode"]
-        status_dict["barcode_status"] = str(shared_values_dict["barcodes"][board_idx]["barcode_status"])
-        queue_command_to_main(
-            {
-                "communication_type": "barcode_read_receipt",
-                "board_idx": board_idx,
-            }
-        )
 
     response = Response(json.dumps(status_dict), mimetype="application/json")
 

@@ -7,7 +7,6 @@ import struct
 import tempfile
 
 from freezegun import freeze_time
-from mantarray_desktop_app import BARCODE_VALID_UUID
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
@@ -1451,40 +1450,6 @@ def test_send_single_get_status_command__gets_processed(test_process_manager_cre
     }
 
 
-def test_system_status__returns_correct_plate_barcode_and_status__only_when_barcode_changes(
-    test_process_manager_creator,
-    test_monitor,
-    test_client,
-):
-    test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-
-    expected_status = BARCODE_VALID_UUID
-    expected_barcode = "MA200190000"
-    expected_board_idx = 0
-    shared_values_dict["system_status"] = CALIBRATED_STATE
-    shared_values_dict["barcodes"] = {
-        expected_board_idx: {
-            "plate_barcode": expected_barcode,
-            "barcode_status": expected_status,
-            "frontend_needs_barcode_update": True,
-        }
-    }
-
-    response = test_client.get("/system_status")
-    assert response.status_code == 200
-    response_json = response.get_json()
-    assert response_json["barcode_status"] == str(expected_status)
-    assert response_json["plate_barcode"] == expected_barcode
-
-    invoke_process_run_and_check_errors(monitor_thread)
-    response = test_client.get("/system_status")
-    assert response.status_code == 200
-    response_json = response.get_json()
-    assert "barcode_status" not in response_json
-    assert "plate_barcode" not in response_json
-
-
 def test_set_magnetometer_config__gets_processed__and_default_channel_is_enabled(
     test_process_manager_creator, test_monitor, test_client
 ):
@@ -1563,19 +1528,6 @@ def test_set_protocols__waits_for_stim_info_in_shared_values_dict_to_be_updated_
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_protocol_dict)})
     assert response.status_code == 200
     assert mocked_sleep.call_args_list == [mocker.call(0.1), mocker.call(0.1)]
-
-
-def test_system_status__returns_no_plate_barcode_and_status_when_none_present(
-    client_and_server_manager_and_shared_values, test_client
-):
-    _, _, shared_values_dict = client_and_server_manager_and_shared_values
-    shared_values_dict["system_status"] = CALIBRATED_STATE
-
-    response = test_client.get("/system_status")
-    assert response.status_code == 200
-    response_json = response.get_json()
-    assert "barcode_status" not in response_json
-    assert "plate_barcode" not in response_json
 
 
 def test_after_request__redacts_mantarray_nicknames_from_system_status_log_message(
