@@ -17,14 +17,13 @@ from typing import Optional
 from typing import Tuple
 from typing import Union
 
-from mantarray_waveform_analysis import AMPLITUDE_UUID
-from mantarray_waveform_analysis import BUTTERWORTH_LOWPASS_30_UUID
-from mantarray_waveform_analysis import MEMSIC_CENTER_OFFSET
-from mantarray_waveform_analysis import PipelineTemplate
-from mantarray_waveform_analysis import TWITCH_FREQUENCY_UUID
-from mantarray_waveform_analysis.exceptions import PeakDetectionError
 from nptyping import NDArray
 import numpy as np
+from pulse3D.constants import AMPLITUDE_UUID
+from pulse3D.constants import BUTTERWORTH_LOWPASS_30_UUID
+from pulse3D.constants import MEMSIC_CENTER_OFFSET
+from pulse3D.constants import TWITCH_FREQUENCY_UUID
+from pulse3D.exceptions import PeakDetectionError
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
@@ -41,6 +40,8 @@ from .constants import REF_INDEX_TO_24_WELL_INDEX
 from .constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from .exceptions import UnrecognizedCommandFromMainToDataAnalyzerError
 from .utils import get_active_wells_from_config
+
+PipelineTemplate = None
 
 
 def _get_secs_since_data_creation_start(start: float) -> float:

@@ -20,11 +20,11 @@ from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
-from mantarray_waveform_analysis import BUTTERWORTH_LOWPASS_30_UUID
-from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
-from mantarray_waveform_analysis import Pipeline
-from mantarray_waveform_analysis import PipelineTemplate
 import numpy as np
+from pulse3D.constants import BUTTERWORTH_LOWPASS_30_UUID
+from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
+from pulse3D.constants import Pipeline
+from pulse3D.constants import PipelineTemplate
 import pytest
 from scipy import signal
 from stdlib_utils import drain_queue

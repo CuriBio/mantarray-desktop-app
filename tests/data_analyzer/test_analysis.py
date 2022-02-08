@@ -11,10 +11,10 @@ from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app.data_analyzer import check_for_new_twitches
-from mantarray_waveform_analysis import AMPLITUDE_UUID
-from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
-from mantarray_waveform_analysis import TWITCH_FREQUENCY_UUID
 import numpy as np
+from pulse3D.constants import AMPLITUDE_UUID
+from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
+from pulse3D.constants import TWITCH_FREQUENCY_UUID
 from stdlib_utils import invoke_process_run_and_check_errors
 
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS

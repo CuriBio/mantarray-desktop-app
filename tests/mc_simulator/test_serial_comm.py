@@ -54,7 +54,7 @@ from mantarray_desktop_app import UnrecognizedSerialCommPacketTypeError
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app.mc_simulator import MC_SIMULATOR_BOOT_UP_DURATION_SECONDS
 from mantarray_desktop_app.serial_comm_utils import convert_metadata_to_bytes
-from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
+from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 

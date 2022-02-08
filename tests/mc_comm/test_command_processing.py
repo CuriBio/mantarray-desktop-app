@@ -16,7 +16,7 @@ from mantarray_desktop_app.firmware_downloader import download_firmware_updates
 from mantarray_desktop_app.firmware_downloader import get_latest_firmware_versions
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app.worker_thread import ErrorCatchingThread
-from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
+from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 

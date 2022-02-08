@@ -16,9 +16,10 @@ from typing import Tuple
 from typing import Union
 import uuid
 
-from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
-from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
-from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
+from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
+from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
+from pulse3D.constants import MANTARRAY_NICKNAME_UUID
+from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
 from stdlib_utils import drain_queue
 from stdlib_utils import get_formatted_stack_trace
 from stdlib_utils import InfiniteProcess
@@ -36,7 +37,6 @@ from .constants import CALIBRATED_STATE
 from .constants import CALIBRATING_STATE
 from .constants import CALIBRATION_NEEDED_STATE
 from .constants import CALIBRATION_RECORDING_DUR_SECONDS
-from .constants import CHANNEL_FIRMWARE_VERSION_UUID
 from .constants import CHECKING_FOR_UPDATES_STATE
 from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import DOWNLOADING_UPDATES_STATE

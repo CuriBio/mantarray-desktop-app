@@ -7,8 +7,8 @@ from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
-from mantarray_waveform_analysis import MEMSIC_CENTER_OFFSET
 import numpy as np
+from pulse3D.constants import MEMSIC_CENTER_OFFSET
 from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty

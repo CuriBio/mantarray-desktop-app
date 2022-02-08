@@ -27,11 +27,11 @@ from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import server
 from mantarray_desktop_app import utils
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
-from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
-from mantarray_file_manager import PLATE_BARCODE_UUID
-from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
-from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
-from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
+from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
+from pulse3D.constants import MANTARRAY_NICKNAME_UUID
+from pulse3D.constants import PLATE_BARCODE_UUID
+from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
+from pulse3D.constants import UTC_BEGINNING_RECORDING_UUID
 import pytest
 import requests
 from stdlib_utils import confirm_parallelism_is_stopped

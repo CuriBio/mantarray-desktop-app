@@ -4,7 +4,6 @@ from multiprocessing import Queue
 from random import randint
 
 from immutabledict import immutabledict
-from mantarray_desktop_app import CHANNEL_FIRMWARE_VERSION_UUID
 from mantarray_desktop_app import convert_to_status_code_bytes
 from mantarray_desktop_app import convert_to_timestamp_bytes
 from mantarray_desktop_app import create_data_packet
@@ -28,11 +27,12 @@ from mantarray_desktop_app import SERIAL_COMM_TIME_SYNC_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import SerialCommInvalidSamplingPeriodError
 from mantarray_desktop_app import UnrecognizedSimulatorTestCommandError
-from mantarray_desktop_app.constants import BOOT_FLAGS_UUID
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
-from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
-from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
-from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
+from pulse3D.constants import BOOT_FLAGS_UUID
+from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
+from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
+from pulse3D.constants import MANTARRAY_NICKNAME_UUID
+from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
 import pytest
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import invoke_process_run_and_check_errors

@@ -14,9 +14,9 @@ from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import UnrecognizedCommandFromMainToDataAnalyzerError
-from mantarray_waveform_analysis import Pipeline
-from mantarray_waveform_analysis import pipelines
 import numpy as np
+from pulse3D.constants import Pipeline
+from pulse3D.constants import pipelines
 import pytest
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess

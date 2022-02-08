@@ -31,8 +31,8 @@ from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
 from mantarray_desktop_app import UnrecognizedCommandFromMainToOkCommError
 from mantarray_desktop_app import UnrecognizedDataFrameFormatNameError
 from mantarray_desktop_app import UnrecognizedMantarrayNamingCommandError
-from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
+from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
 import pytest
 from stdlib_utils import confirm_parallelism_is_stopped
 from stdlib_utils import drain_queue

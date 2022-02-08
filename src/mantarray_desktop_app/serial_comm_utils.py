@@ -9,16 +9,16 @@ from uuid import UUID
 from zlib import crc32
 
 from immutabledict import immutabledict
-from mantarray_file_manager import BOOTUP_COUNTER_UUID
-from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
-from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
-from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
-from mantarray_file_manager import PCB_SERIAL_NUMBER_UUID
-from mantarray_file_manager import TAMPER_FLAG_UUID
-from mantarray_file_manager import TOTAL_WORKING_HOURS_UUID
+from pulse3D.constants import BOOT_FLAGS_UUID
+from pulse3D.constants import BOOTUP_COUNTER_UUID
+from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
+from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
+from pulse3D.constants import MANTARRAY_NICKNAME_UUID
+from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
+from pulse3D.constants import PCB_SERIAL_NUMBER_UUID
+from pulse3D.constants import TAMPER_FLAG_UUID
+from pulse3D.constants import TOTAL_WORKING_HOURS_UUID
 
-from .constants import BOOT_FLAGS_UUID
-from .constants import CHANNEL_FIRMWARE_VERSION_UUID
 from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
