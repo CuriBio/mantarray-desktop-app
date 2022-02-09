@@ -7,7 +7,6 @@ import json
 import logging
 from multiprocessing import Queue
 from multiprocessing import queues as mpqueues
-from operator import is_
 import queue
 from statistics import stdev
 from time import perf_counter
@@ -17,20 +16,28 @@ from typing import List
 from typing import Optional
 from typing import Tuple
 from typing import Union
+from uuid import UUID
 
+from mantarray_magnet_finding.utils import calculate_magnetic_flux_density_from_memsic
 from nptyping import NDArray
 import numpy as np
+from pulse3D.compression_cy import compress_filtered_magnetic_data
 from pulse3D.constants import AMPLITUDE_UUID
 from pulse3D.constants import BUTTERWORTH_LOWPASS_30_UUID
 from pulse3D.constants import MEMSIC_CENTER_OFFSET
-from pulse3D.constants import TWITCH_FREQUENCY_UUID, MILLIMETERS_PER_MILLITESLA
+from pulse3D.constants import MILLIMETERS_PER_MILLITESLA
+from pulse3D.constants import TWITCH_FREQUENCY_UUID
 from pulse3D.exceptions import PeakDetectionError
-from pulse3D.transforms import create_filter, apply_noise_filtering, calculate_force_from_displacement
-from pulse3D.transforms import calculate_displacement_from_voltage, calculate_voltage_from_gmr
 from pulse3D.magnet_finding import fix_dropped_samples
-from pulse3D.peak_detection import data_metrics, peak_detector
-from pulse3D.compression_cy import compress_filtered_magnetic_data
-from mantarray_magnet_finding.utils import calculate_magnetic_flux_density_from_memsic
+from pulse3D.metrics import TwitchAmplitude
+from pulse3D.metrics import TwitchFrequency
+from pulse3D.peak_detection import find_twitch_indices
+from pulse3D.peak_detection import peak_detector
+from pulse3D.transforms import apply_noise_filtering
+from pulse3D.transforms import calculate_displacement_from_voltage
+from pulse3D.transforms import calculate_force_from_displacement
+from pulse3D.transforms import calculate_voltage_from_gmr
+from pulse3D.transforms import create_filter
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
@@ -47,6 +54,12 @@ from .constants import REF_INDEX_TO_24_WELL_INDEX
 from .constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from .exceptions import UnrecognizedCommandFromMainToDataAnalyzerError
 from .utils import get_active_wells_from_config
+
+
+METRIC_CALCULATORS = {
+    AMPLITUDE_UUID: TwitchAmplitude(rounded=False),
+    TWITCH_FREQUENCY_UUID: TwitchFrequency(rounded=False),
+}
 
 
 def calculate_displacement_from_magnetic_flux_density(
@@ -90,6 +103,47 @@ def get_force_signal(raw_signal, filter_coefficients, compress=True, is_beta_2_d
         voltage = calculate_voltage_from_gmr(filtered_gmr)
         displacement = calculate_displacement_from_voltage(voltage)
     return calculate_force_from_displacement(displacement, in_mm=is_beta_2_data)
+
+
+def live_data_metrics(
+    peak_and_valley_indices: Tuple[NDArray[int], NDArray[int]],
+    filtered_data: NDArray[(2, Any), int],
+) -> Tuple[Dict[int, Dict[UUID, Any]], Dict[UUID, Any]]:
+    # TODO unit test this function
+    """Find all data metrics for individual twitches and averages.
+
+    Args:
+        peak_and_valley_indices: a tuple of integer value arrays representing the time indices of peaks and valleys within the data
+        filtered_data: a 2D array of the time and voltage data after it has gone through noise cancellation
+        rounded: whether to round estimates to the nearest int
+        metrics_to_create: list of desired metrics
+
+    Returns:
+        main_twitch_dict: a dictionary of individual peak metrics in which the twitch timepoint is accompanied by a dictionary in which the UUIDs for each twitch metric are the key and with its accompanying value as the value. For the Twitch Width metric UUID, another dictionary is stored in which the key is the percentage of the way down and the value is another dictionary in which the UUIDs for the rising coord, falling coord or width value are stored with the value as an int for the width value or a tuple of ints for the x/y coordinates
+    """
+    # create main dictionaries
+    main_twitch_dict: Dict[int, Dict[UUID, Any]] = dict()
+
+    # get values needed for metrics creation
+    twitch_indices = find_twitch_indices(peak_and_valley_indices)
+    num_twitches = len(twitch_indices)
+    time_series = filtered_data[0, :]
+
+    # create top level dict
+    twitch_peak_indices = tuple(twitch_indices.keys())
+    main_twitch_dict = {time_series[twitch_peak_indices[i]]: dict() for i in range(num_twitches)}
+
+    # create metrics
+    for metric_uuid in (TWITCH_FREQUENCY_UUID, AMPLITUDE_UUID):
+        metric_df = METRIC_CALCULATORS[metric_uuid].fit(
+            peak_and_valley_indices, filtered_data, twitch_indices
+        )
+        for twitch_idx, metric_value in metric_df.to_dict().items():
+            time_index = time_series[twitch_idx]
+            main_twitch_dict[time_index][metric_uuid] = metric_value
+
+    # import pdb; pdb.set_trace()
+    return main_twitch_dict
 
 
 def check_for_new_twitches(
@@ -217,19 +271,9 @@ class DataAnalyzerProcess(InfiniteProcess):
         force = get_force_signal(
             data_buf_arr, self._filter_coefficients, compress=False, is_beta_2_data=self._beta_2_mode
         )
-        metrics_to_create = [AMPLITUDE_UUID, TWITCH_FREQUENCY_UUID]
         try:
             peak_detection_results = peak_detector(force)
-            analysis_df = data_metrics(
-                peak_detection_results,
-                force,
-                rounded=False,
-                metrics_to_create=metrics_to_create,
-            )[0]
-            analysis_dict = {
-                idx: {metric_uuid: analysis_df[metric_uuid][idx] for metric_uuid in metrics_to_create}
-                for idx in analysis_df.index
-            }
+            analysis_dict = live_data_metrics(peak_detection_results, force)
         except PeakDetectionError:
             # Tanner (7/14/21): this dict will be filtered out by downstream elements of analysis stream
             analysis_dict = {-1: None}
