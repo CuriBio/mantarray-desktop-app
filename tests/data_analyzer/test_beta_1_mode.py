@@ -6,7 +6,8 @@ import math
 import time
 
 from freezegun import freeze_time
-from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD, data_analyzer
+from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
+from mantarray_desktop_app import data_analyzer
 from mantarray_desktop_app import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from mantarray_desktop_app import FIFO_READ_PRODUCER_DATA_OFFSET
 from mantarray_desktop_app import FIFO_READ_PRODUCER_SAWTOOTH_PERIOD

@@ -57,7 +57,6 @@ from mantarray_desktop_app import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.data_analyzer import get_force_signal
 import numpy as np
-from pulse3D.transforms import create_filter
 from pulse3D.constants import ADC_GAIN_SETTING_UUID
 from pulse3D.constants import ADC_REF_OFFSET_UUID
 from pulse3D.constants import ADC_TISSUE_OFFSET_UUID
@@ -101,6 +100,7 @@ from pulse3D.constants import WELL_INDEX_UUID
 from pulse3D.constants import WELL_NAME_UUID
 from pulse3D.constants import WELL_ROW_UUID
 from pulse3D.constants import XEM_SERIAL_NUMBER_UUID
+from pulse3D.transforms import create_filter
 import pytest
 import requests
 from scipy import signal

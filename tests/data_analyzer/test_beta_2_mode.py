@@ -3,16 +3,17 @@ import copy
 import json
 
 from freezegun import freeze_time
-from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION, data_analyzer
+from mantarray_desktop_app import data_analyzer
+from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app.data_analyzer import get_force_signal
 import numpy as np
-from pulse3D.constants import MEMSIC_CENTER_OFFSET
 from pulse3D.constants import BUTTERWORTH_LOWPASS_30_UUID
-from pulse3D.transforms import create_filter
+from pulse3D.constants import MEMSIC_CENTER_OFFSET
 from pulse3D.magnet_finding import fix_dropped_samples
+from pulse3D.transforms import create_filter
 from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty

@@ -2,20 +2,23 @@
 import copy
 import json
 
+from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import DATA_ANALYZER_BETA_1_BUFFER_SIZE
 from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
-from mantarray_desktop_app import ROUND_ROBIN_PERIOD, CONSTRUCT_SENSOR_SAMPLING_PERIOD
+from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app.constants import DEFAULT_MAGNETOMETER_CONFIG
-from mantarray_desktop_app.data_analyzer import check_for_new_twitches, get_force_signal, live_data_metrics
+from mantarray_desktop_app.data_analyzer import check_for_new_twitches
+from mantarray_desktop_app.data_analyzer import get_force_signal
+from mantarray_desktop_app.data_analyzer import live_data_metrics
 import numpy as np
 from pulse3D.constants import AMPLITUDE_UUID
-from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
 from pulse3D.constants import BUTTERWORTH_LOWPASS_30_UUID
+from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
 from pulse3D.constants import TWITCH_FREQUENCY_UUID
 from pulse3D.peak_detection import peak_detector
 from pulse3D.transforms import create_filter

@@ -84,7 +84,12 @@ def calculate_displacement_from_magnetic_flux_density(
     return np.vstack((time, sample_in_mm)).astype(np.float64)
 
 
-def get_force_signal(raw_signal, filter_coefficients, compress=True, is_beta_2_data=True):
+def get_force_signal(
+    raw_signal: NDArray[(2, Any), np.int64],
+    filter_coefficients: NDArray[(2, Any), np.float64],
+    compress: bool = True,
+    is_beta_2_data: bool = True,
+) -> NDArray[(2, Any), np.float64]:
     # TODO unit test this function
     if is_beta_2_data:
         filtered_memsic = apply_noise_filtering(raw_signal, filter_coefficients)
@@ -108,7 +113,7 @@ def get_force_signal(raw_signal, filter_coefficients, compress=True, is_beta_2_d
 def live_data_metrics(
     peak_and_valley_indices: Tuple[NDArray[int], NDArray[int]],
     filtered_data: NDArray[(2, Any), int],
-) -> Tuple[Dict[int, Dict[UUID, Any]], Dict[UUID, Any]]:
+) -> Dict[int, Dict[UUID, Any]]:
     # TODO unit test this function
     """Find all data metrics for individual twitches and averages.
 
@@ -263,7 +268,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         data_buf[1] = data_buf[1][-self.get_buffer_size() :]
         return data_buf, data_buf
 
-    def get_twitch_analysis(self, data_buf: List[List[int]]) -> Dict[Any, Any]:
+    def get_twitch_analysis(self, data_buf: List[List[int]]) -> Dict[int, Any]:
         """Run analysis on a single well's data."""
         data_buf_arr = np.array(data_buf, dtype=np.int64)
         analysis_start = perf_counter()
@@ -275,9 +280,9 @@ class DataAnalyzerProcess(InfiniteProcess):
             analysis_dict = live_data_metrics(peak_detection_results, force)
         except PeakDetectionError:
             # Tanner (7/14/21): this dict will be filtered out by downstream elements of analysis stream
-            analysis_dict = {-1: None}
+            analysis_dict = {-1: None}  # type: ignore
         self._data_analysis_durations.append(_get_secs_since_data_analysis_start(analysis_start))
-        return analysis_dict  # type: ignore
+        return analysis_dict
 
     def init_streams(self) -> None:
         """Set up data analysis streams for active wells."""
@@ -298,7 +303,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._data_analysis_stream_zipper = Stream.zip(*ends)
         self._data_analysis_stream_zipper.sink(self._dump_outgoing_well_metrics)
 
-    def change_magnetometer_config(self, new_config: Dict[str, Any]):
+    def change_magnetometer_config(self, new_config: Dict[str, Any]) -> None:
         if not self._beta_2_mode:
             raise NotImplementedError("Beta 1 device does not have a magnetometer config")
         self._active_wells = get_active_wells_from_config(new_config["magnetometer_config"])
