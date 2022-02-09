@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "0bf58d96556011c4f70f367b77a822ebd1aac3986add7600cb779c926266fd73"
+            "sha256": "51db390902d137c5680725078918c98861501a35fe8d231f8e05d91df737370a"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -507,9 +507,20 @@
             "version": "==5.8.0"
         },
         "pulse3d": {
-            "editable": true,
-            "git": "https://github.com/CuriBio/sdk_refactor.git",
-            "ref": "7d49ad94506300f68eeb1aa64ce6aff7d349131a"
+            "hashes": [
+                "sha256:066595b3c00244d0e4736058d20204c49898d0f933a173845a7118779b8e29f7",
+                "sha256:332932a743934147410c4df95eeec8324596d6c492d4c99d27a571a4ec5b9090",
+                "sha256:4c68aa22493f932fc4afa8703b3a2d663f6e8a16826bbeb5fc2ae057cbaec521",
+                "sha256:5072823ad74724f072a26b3887396cc057d9f373e49002acbe370f5c14c89f0f",
+                "sha256:9613cd02246b91a3f08dfeef0d9d50b1515c5aed6c64c489f9a9cb7528b2b5fe",
+                "sha256:bc010fe1813da071bdcd1cfdb320156d4f4705caaf9126ae86cd2c057da39844",
+                "sha256:d29da1826c8b354001cce870a36fbf0e7e990653aa02f6492413a61dab4dc52a",
+                "sha256:dae34ece26dd35770f0d8c7083599af4d62b1aae705bfef68727f1724c3a1d6d",
+                "sha256:f7d2459edff15706313d328643a107d4ec02e1fc8300284b71f5959057637020",
+                "sha256:ff80c14b75c1d2e4fb44513ae011861926153ac75060f4c4adf7abc6cc8903e4"
+            ],
+            "index": "pypi",
+            "version": "==0.22.4"
         },
         "pyrsistent": {
             "hashes": [
@@ -715,7 +726,7 @@
                 "sha256:000ca7f471a233c2251c6c7023ee85305721bfdf18621ebff4fd17a8653427ed",
                 "sha256:0e7c33d9a63e7ddfcb86780aac87befc2fbddf46c58dbb487e0855f7ceec283c"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4.0'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4'",
             "version": "==1.26.8"
         },
         "validator-collection": {
@@ -723,7 +734,7 @@
                 "sha256:56f6dc65d86c2e5b8f04f22acedd33af2c233edc1082fe4d24fd3996bd19d0fe",
                 "sha256:f9395cad9a30cb9864fa0c0d18a84daead1eb8807774f4e09f588f89b7dc77d8"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3' and python_version < '4.0'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3' and python_version < '4'",
             "version": "==1.5.0"
         },
         "werkzeug": {
@@ -983,11 +994,11 @@
         },
         "identify": {
             "hashes": [
-                "sha256:97e839c1779f07011b84c92af183e1883d9745d532d83412cca1ca76d3808c1c",
-                "sha256:a55bdd671b6063eb837af938c250ec00bba6e610454265133b0d2db7ae718d0f"
+                "sha256:bff7c4959d68510bc28b99d664b6a623e36c6eadc933f89a4e0a9ddff9b4fee4",
+                "sha256:e926ae3b3dc142b6a7a9c65433eb14ccac751b724ee255f7c2ed3b5970d764fb"
             ],
             "markers": "python_version >= '3.7'",
-            "version": "==2.4.8"
+            "version": "==2.4.9"
         },
         "idna": {
             "hashes": [
@@ -1078,6 +1089,14 @@
             ],
             "markers": "python_version >= '3.6'",
             "version": "==1.7.1"
+        },
+        "macholib": {
+            "hashes": [
+                "sha256:1542c41da3600509f91c165cb897e7e54c0e74008bd8da5da7ebbee519d593d2",
+                "sha256:885613dd02d3e26dbd2b541eb4cc4ce611b841f827c0958ab98656e478b9e6f6"
+            ],
+            "markers": "sys_platform == 'darwin'",
+            "version": "==1.15.2"
         },
         "markupsafe": {
             "hashes": [
@@ -1185,11 +1204,11 @@
         },
         "platformdirs": {
             "hashes": [
-                "sha256:1d7385c7db91728b83efd0ca99a5afb296cab9d0ed8313a45ed8ba17967ecfca",
-                "sha256:440633ddfebcc36264232365d7840a970e75e1018d15b4327d11f91909045fda"
+                "sha256:30671902352e97b1eafd74ade8e4a694782bd3471685e78c32d0fdfd3aa7e7bb",
+                "sha256:8ec11dfba28ecc0715eb5fb0147a87b1bf325f349f3da9aab2cd6b50b96b692b"
             ],
             "markers": "python_version >= '3.7'",
-            "version": "==2.4.1"
+            "version": "==2.5.0"
         },
         "pluggy": {
             "hashes": [
@@ -1488,7 +1507,7 @@
                 "sha256:000ca7f471a233c2251c6c7023ee85305721bfdf18621ebff4fd17a8653427ed",
                 "sha256:0e7c33d9a63e7ddfcb86780aac87befc2fbddf46c58dbb487e0855f7ceec283c"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4.0'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4'",
             "version": "==1.26.8"
         },
         "virtualenv": {

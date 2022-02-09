@@ -117,6 +117,10 @@ def live_data_metrics(
     # TODO unit test this function
     """Find all data metrics for individual twitches and averages.
 
+    Need to use this function until `data_metrics` function in pulse3D
+    can handle metric creation in real time. Currently has an issue with pandas DataFrames
+    being very slow.
+
     Args:
         peak_and_valley_indices: a tuple of integer value arrays representing the time indices of peaks and valleys within the data
         filtered_data: a 2D array of the time and voltage data after it has gone through noise cancellation
