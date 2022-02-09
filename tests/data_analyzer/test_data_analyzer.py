@@ -247,7 +247,7 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_2_dat
     da_process._minimum_iteration_duration_seconds /= 10
 
     # mock functions to speed up test
-    mocker.patch.object(data_analyzer, "get_force_signal", autospec=True)
+    mocker.patch.object(data_analyzer, "get_force_signal", autospec=True, return_value=np.zeros((2, 2)))
     mocker.patch.object(data_analyzer, "peak_detector", autospec=True, side_effect=PeakDetectionError())
 
     # set magnetometer configuration

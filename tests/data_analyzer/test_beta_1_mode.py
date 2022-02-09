@@ -79,6 +79,7 @@ def fill_da_input_data_queue(input_queue, num_seconds):
 def test_DataAnalyzerProcess_beta_1_performance__fill_data_analysis_buffer(
     runnable_four_board_analyzer_process,
 ):
+    # TODO add new value from refactor
     # 8 seconds of data (625 Hz) coming in from File Writer to going back to Main
     #
     # mantarray-waveform-analysis v0.3:     4.148136512
@@ -115,6 +116,7 @@ def test_DataAnalyzerProcess_beta_1_performance__fill_data_analysis_buffer(
 def test_DataAnalyzerProcess_beta_1_performance__first_second_of_data_with_analysis(
     runnable_four_board_analyzer_process,
 ):
+    # TODO add new value from refactor
     # Fill data analysis buffer with 7 seconds of data to start metric analysis,
     # Then record duration of sending 1 additional second of data
     #
@@ -149,6 +151,7 @@ def test_DataAnalyzerProcess_beta_1_performance__first_second_of_data_with_analy
 def test_DataAnalyzerProcess_beta_1_performance__single_data_packet_per_well(
     runnable_four_board_analyzer_process,
 ):
+    # TODO add new value from refactor
     # 1 second of data (625 Hz) coming in from File Writer to going back to Main
     #
     # start:                                 0.530731389

@@ -142,7 +142,6 @@ def live_data_metrics(
             time_index = time_series[twitch_idx]
             main_twitch_dict[time_index][metric_uuid] = metric_value
 
-    # import pdb; pdb.set_trace()
     return main_twitch_dict
 
 
@@ -299,6 +298,17 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._data_analysis_stream_zipper = Stream.zip(*ends)
         self._data_analysis_stream_zipper.sink(self._dump_outgoing_well_metrics)
 
+    def change_magnetometer_config(self, new_config: Dict[str, Any]):
+        if not self._beta_2_mode:
+            raise NotImplementedError("Beta 1 device does not have a magnetometer config")
+        self._active_wells = get_active_wells_from_config(new_config["magnetometer_config"])
+        sampling_period_us = new_config["sampling_period"]
+        self._beta_2_buffer_size = MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS * int(
+            MICRO_TO_BASE_CONVERSION / sampling_period_us
+        )
+        self._filter_coefficients = create_filter(BUTTERWORTH_LOWPASS_30_UUID, sampling_period_us)
+        self.init_streams()
+
     def _setup_before_loop(self) -> None:
         super()._setup_before_loop()
         self.init_streams()
@@ -339,16 +349,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                     }
                 self.init_streams()
             elif communication["command"] == "change_magnetometer_config":
-                if not self._beta_2_mode:
-                    raise NotImplementedError("Beta 1 device does not have a magnetometer config")
-                self._active_wells = get_active_wells_from_config(communication["magnetometer_config"])
-
-                sampling_period_us = communication["sampling_period"]
-                self._beta_2_buffer_size = MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS * int(
-                    MICRO_TO_BASE_CONVERSION / sampling_period_us
-                )
-                self._filter_coefficients = create_filter(BUTTERWORTH_LOWPASS_30_UUID, sampling_period_us)
-                self.init_streams()
+                self.change_magnetometer_config(communication)
             else:
                 raise UnrecognizedCommandFromMainToDataAnalyzerError(
                     f"Invalid command: {communication['command']} for communication_type: {communication_type}"
