@@ -3,12 +3,16 @@ import copy
 import json
 
 from freezegun import freeze_time
-from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
+from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION, data_analyzer
 from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_desktop_app.data_analyzer import get_force_signal
 import numpy as np
 from pulse3D.constants import MEMSIC_CENTER_OFFSET
+from pulse3D.constants import BUTTERWORTH_LOWPASS_30_UUID
+from pulse3D.transforms import create_filter
+from pulse3D.magnet_finding import fix_dropped_samples
 from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -38,6 +42,7 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
     incoming_data_queue = four_board_analyzer_process_beta_2_mode["board_queues"][0][0]
     outgoing_data_queue = four_board_analyzer_process_beta_2_mode["board_queues"][0][1]
 
+    spied_fix = mocker.spy(data_analyzer, "fix_dropped_samples")
     # mock so that well metrics don't populate outgoing data queue
     mocker.patch.object(da_process, "_dump_outgoing_well_metrics", autospec=True)
     # mock so performance log messages don't populate queue to main
@@ -75,22 +80,24 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
     )
 
     invoke_process_run_and_check_errors(da_process)
+    assert spied_fix.call_count == 24
     confirm_queue_is_eventually_of_size(outgoing_data_queue, 1)
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
 
     # test data dump
     waveform_data_points = dict()
+    filter_coefficients = create_filter(BUTTERWORTH_LOWPASS_30_UUID, test_sampling_period)
     for well_idx in range(24):
         default_channel_data = test_data_packet[well_idx][SERIAL_COMM_DEFAULT_DATA_CHANNEL]
+        fixed_default_channel_data = fix_dropped_samples(default_channel_data)
         flipped_default_channel_data = (
-            (default_channel_data.astype(np.int32) - max(default_channel_data)) * -1 + MEMSIC_CENTER_OFFSET
+            (fixed_default_channel_data.astype(np.int32) - max(fixed_default_channel_data)) * -1
+            + MEMSIC_CENTER_OFFSET
         ).astype(np.uint16)
-        pipeline = da_process.get_pipeline_template().create_pipeline()
-        pipeline.load_raw_gmr_data(
+        compressed_data = get_force_signal(
             np.array([test_data_packet["time_indices"], flipped_default_channel_data], np.int64),
-            np.zeros((2, len(flipped_default_channel_data))),
+            filter_coefficients,
         )
-        compressed_data = pipeline.get_compressed_force()
         waveform_data_points[well_idx] = {
             "x_data_points": compressed_data[0].tolist(),
             "y_data_points": (compressed_data[1] * MICRO_TO_BASE_CONVERSION).tolist(),

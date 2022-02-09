@@ -125,7 +125,7 @@ def test_append_data__beta_2__removes_oldest_data_points_when_buffer_exceeds_req
     assert new_list[1] == list(range(3, expected_buffer_size + 3))
 
 
-def test_get_pipeline_analysis__returns_error_dict_when_peak_detection_error_occurs_during_analysis(
+def test_get_twitch_analysis__returns_error_dict_when_peak_detection_error_occurs_during_analysis(
     four_board_analyzer_process,
 ):
     da_process, *_ = four_board_analyzer_process
@@ -138,11 +138,11 @@ def test_get_pipeline_analysis__returns_error_dict_when_peak_detection_error_occ
     test_x_data = np.arange(0, ROUND_ROBIN_PERIOD * len(test_y_data), ROUND_ROBIN_PERIOD)
     test_data_arr = np.array([test_x_data, test_y_data], dtype=np.int32)
 
-    actual = da_process.get_pipeline_analysis(test_data_arr.tolist())
+    actual = da_process.get_twitch_analysis(test_data_arr.tolist())
     assert actual == {-1: None}
 
 
-def test_get_pipeline_analysis__returns_force_metrics_from_given_beta_1_data(
+def test_get_twitch_analysis__returns_force_metrics_from_given_beta_1_data(
     four_board_analyzer_process, mantarray_mc_simulator
 ):
     da_process, *_ = four_board_analyzer_process
@@ -165,14 +165,14 @@ def test_get_pipeline_analysis__returns_force_metrics_from_given_beta_1_data(
         metrics_to_create=[AMPLITUDE_UUID, TWITCH_FREQUENCY_UUID]
     )[0]
 
-    actual = da_process.get_pipeline_analysis(test_data_arr.tolist())
+    actual = da_process.get_twitch_analysis(test_data_arr.tolist())
 
     assert actual.keys() == expected_metrics.keys()
     for k in expected_metrics.keys():
         assert actual[k] == expected_metrics[k], f"Incorrect twitch dict at idx {k}"
 
 
-def test_get_pipeline_analysis__returns_force_metrics_from_given_beta_2_data(
+def test_get_twitch_analysis__returns_force_metrics_from_given_beta_2_data(
     four_board_analyzer_process, mantarray_mc_simulator
 ):
     da_process, *_ = four_board_analyzer_process
@@ -190,7 +190,7 @@ def test_get_pipeline_analysis__returns_force_metrics_from_given_beta_2_data(
         metrics_to_create=[AMPLITUDE_UUID, TWITCH_FREQUENCY_UUID]
     )[0]
 
-    actual = da_process.get_pipeline_analysis(test_data_arr.tolist())
+    actual = da_process.get_twitch_analysis(test_data_arr.tolist())
 
     assert actual.keys() == expected_metrics.keys()
     for k in expected_metrics.keys():

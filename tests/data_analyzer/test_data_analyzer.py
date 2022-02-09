@@ -14,9 +14,8 @@ from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import UnrecognizedCommandFromMainToDataAnalyzerError
+from pulse3D.exceptions import PeakDetectionError
 import numpy as np
-from pulse3D.constants import Pipeline
-from pulse3D.constants import pipelines
 import pytest
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
@@ -157,13 +156,7 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_1_dat
 ):
     da_process, _, _, to_main_queue, _ = four_board_analyzer_process
 
-    mocker.patch.object(Pipeline, "get_compressed_voltage", autospec=True)
-    mocker.patch.object(
-        pipelines,
-        "calculate_displacement_from_voltage",
-        autospec=True,
-        return_value=np.zeros((2, 2)),
-    )
+    mocker.patch.object(data_analyzer, "get_force_signal", autospec=True, return_value=np.zeros((2, 2)))
 
     expected_num_iterations = 10
     expected_iteration_dur = 0.001 * 10 ** 9
@@ -250,13 +243,12 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_2_dat
     # perform setup so performance logging values are initialized
     invoke_process_run_and_check_errors(da_process, perform_setup_before_loop=True)
 
-    da_process._minimum_iteration_duration_seconds /= (  # pylint: disable=protected-access
-        10  # set this to a lower value to speed up the test
-    )
-    # mock actual pipeline functions to speed up test
-    mocker.patch.object(Pipeline, "load_raw_magnetic_data", autospec=True)
-    mocker.patch.object(Pipeline, "get_compressed_force", autospec=True, return_value=np.zeros((2, 2)))
-    mocker.patch.object(Pipeline, "get_force_data_metrics", autospec=True, return_value=({1: {}}, {}))
+    # set this to a lower value to speed up the test
+    da_process._minimum_iteration_duration_seconds /= 10
+
+    # mock functions to speed up test
+    mocker.patch.object(data_analyzer, "get_force_signal", autospec=True)
+    mocker.patch.object(data_analyzer, "peak_detector", autospec=True, side_effect=PeakDetectionError())
 
     # set magnetometer configuration
     expected_sampling_period_us = 10000
@@ -339,13 +331,7 @@ def test_DataAnalyzerProcess__does_not_include_performance_metrics_in_first_logg
     four_board_analyzer_process, mocker
 ):
     # TODO Tanner (8/30/21): change this test to work with Beta 2 data once beta 1 is phased out
-    mocker.patch.object(Pipeline, "get_compressed_voltage", autospec=True)
-    mocker.patch.object(
-        pipelines,
-        "calculate_displacement_from_voltage",
-        autospec=True,
-        return_value=np.zeros((2, 2)),
-    )
+    mocker.patch.object(data_analyzer, "get_force_signal", autospec=True, return_value=np.zeros((2, 2)))
 
     da_process, _, _, to_main_queue, _ = four_board_analyzer_process
     da_process._minimum_iteration_duration_seconds = 0  # pylint: disable=protected-access

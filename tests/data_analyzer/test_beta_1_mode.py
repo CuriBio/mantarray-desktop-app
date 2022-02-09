@@ -6,7 +6,7 @@ import math
 import time
 
 from freezegun import freeze_time
-from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
+from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD, data_analyzer
 from mantarray_desktop_app import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from mantarray_desktop_app import FIFO_READ_PRODUCER_DATA_OFFSET
 from mantarray_desktop_app import FIFO_READ_PRODUCER_SAWTOOTH_PERIOD
@@ -20,11 +20,11 @@ from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
+from mantarray_desktop_app.data_analyzer import get_force_signal
 import numpy as np
 from pulse3D.constants import BUTTERWORTH_LOWPASS_30_UUID
 from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
-from pulse3D.constants import Pipeline
-from pulse3D.constants import PipelineTemplate
+from pulse3D.transforms import create_filter
 import pytest
 from scipy import signal
 from stdlib_utils import drain_queue
@@ -419,9 +419,9 @@ def test_DataAnalyzerProcess__dumps_all_data_when_buffer_is_full_and_clears_buff
 
     # Tanner (6/16/20): The tiny amount of data used in this test doesn't work with mantarray_waveform_analysis functions, so we can mock them to prevent errors
     mocked_force_vals = [np.array([expected_x_vals, expected_y_vals[i]]) for i in range(24)]
-    mocked_compressed_force = mocker.patch.object(
-        Pipeline,
-        "get_compressed_force",
+    mocked_get_force = mocker.patch.object(
+        data_analyzer,
+        "get_force_signal",
         autospec=True,
         side_effect=mocked_force_vals,
     )
@@ -468,7 +468,7 @@ def test_DataAnalyzerProcess__dumps_all_data_when_buffer_is_full_and_clears_buff
     assert data_buffer[23]["construct_data"] is None
     assert data_buffer[23]["ref_data"] is None
 
-    assert mocked_compressed_force.call_count == 24
+    assert mocked_get_force.call_count == 24
 
 
 @freeze_time("2020-06-1 13:45:30.123456")
@@ -533,15 +533,11 @@ def test_DataAnalyzerProcess__create_outgoing_data__normalizes_and_flips_raw_dat
         [test_data[0], (test_data[1] - max(test_data[1])) * -1],
         dtype=np.int32,
     )
-
-    pt = PipelineTemplate(
-        is_beta_1_data=True,
-        noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
-        tissue_sampling_period=ROUND_ROBIN_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND,
+    filter_coefficients = create_filter(
+        BUTTERWORTH_LOWPASS_30_UUID,
+        ROUND_ROBIN_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND,
     )
-    pipeline = pt.create_pipeline()
-    pipeline.load_raw_gmr_data(normalized_data, np.zeros(normalized_data.shape))
-    expected_compressed_data = pipeline.get_compressed_force()
+    expected_compressed_data = get_force_signal(normalized_data, filter_coefficients, is_beta_2_data=False)
     np.testing.assert_equal(actual[0]["x_data_points"], expected_compressed_data[0, :])
     np.testing.assert_equal(
         actual[0]["y_data_points"], expected_compressed_data[1, :] * MICRO_TO_BASE_CONVERSION

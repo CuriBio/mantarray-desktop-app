@@ -7,6 +7,7 @@ import json
 import logging
 from multiprocessing import Queue
 from multiprocessing import queues as mpqueues
+from operator import is_
 import queue
 from statistics import stdev
 from time import perf_counter
@@ -22,8 +23,14 @@ import numpy as np
 from pulse3D.constants import AMPLITUDE_UUID
 from pulse3D.constants import BUTTERWORTH_LOWPASS_30_UUID
 from pulse3D.constants import MEMSIC_CENTER_OFFSET
-from pulse3D.constants import TWITCH_FREQUENCY_UUID
+from pulse3D.constants import TWITCH_FREQUENCY_UUID, MILLIMETERS_PER_MILLITESLA
 from pulse3D.exceptions import PeakDetectionError
+from pulse3D.transforms import create_filter, apply_noise_filtering, calculate_force_from_displacement
+from pulse3D.transforms import calculate_displacement_from_voltage, calculate_voltage_from_gmr
+from pulse3D.magnet_finding import fix_dropped_samples
+from pulse3D.peak_detection import data_metrics, peak_detector
+from pulse3D.compression_cy import compress_filtered_magnetic_data
+from mantarray_magnet_finding.utils import calculate_magnetic_flux_density_from_memsic
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
@@ -41,15 +48,48 @@ from .constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from .exceptions import UnrecognizedCommandFromMainToDataAnalyzerError
 from .utils import get_active_wells_from_config
 
-PipelineTemplate = None
+
+def calculate_displacement_from_magnetic_flux_density(
+    magnetic_flux_data: NDArray[(2, Any), np.float64],
+) -> NDArray[(2, Any), np.float64]:
+    """Convert magnetic flux density to displacement.
+
+    Conversion values were obtained 03/09/2021 by Kevin Grey
+
+    Args:
+        magnetic_flux_data: time and mangetic flux density numpy array.
+
+    Returns:
+        A 2D array of time vs Displacement (mm)
+    """
+    sample_in_milliteslas = magnetic_flux_data[1, :]
+    time = magnetic_flux_data[0, :]
+
+    # calculate displacement
+    sample_in_mm = sample_in_milliteslas * MILLIMETERS_PER_MILLITESLA
+
+    return np.vstack((time, sample_in_mm)).astype(np.float64)
 
 
-def _get_secs_since_data_creation_start(start: float) -> float:
-    return perf_counter() - start
-
-
-def _get_secs_since_data_analysis_start(start: float) -> float:
-    return perf_counter() - start
+def get_force_signal(raw_signal, filter_coefficients, compress=True, is_beta_2_data=True):
+    # TODO unit test this function
+    if is_beta_2_data:
+        filtered_memsic = apply_noise_filtering(raw_signal, filter_coefficients)
+        if compress:
+            filtered_memsic = compress_filtered_magnetic_data(filtered_memsic)
+        # can't pass time indices to calculate_magnetic_flux_density_from_memsic
+        mfd = np.array(
+            [filtered_memsic[0], calculate_magnetic_flux_density_from_memsic(filtered_memsic[1])],
+            dtype=np.float64,
+        )
+        displacement = calculate_displacement_from_magnetic_flux_density(mfd)
+    else:
+        filtered_gmr = apply_noise_filtering(raw_signal, filter_coefficients)
+        if compress:
+            filtered_gmr = compress_filtered_magnetic_data(filtered_gmr)
+        voltage = calculate_voltage_from_gmr(filtered_gmr)
+        displacement = calculate_displacement_from_voltage(voltage)
+    return calculate_force_from_displacement(displacement, in_mm=is_beta_2_data)
 
 
 def check_for_new_twitches(
@@ -66,6 +106,14 @@ def check_for_new_twitches(
         if twitch_time_index <= latest_time_index:
             del per_twitch_metrics[twitch_time_index]
     return time_index_list[-1], per_twitch_metrics
+
+
+def _get_secs_since_data_creation_start(start: float) -> float:
+    return perf_counter() - start
+
+
+def _get_secs_since_data_analysis_start(start: float) -> float:
+    return perf_counter() - start
 
 
 def _drain_board_queues(
@@ -118,10 +166,8 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._data_analysis_streams: Dict[int, Tuple[Stream, Stream]] = dict()
         self._data_analysis_stream_zipper: Optional[Stream] = None
         self._active_wells: List[int] = list(range(24))
-        self._pipeline_template = PipelineTemplate(
-            is_beta_1_data=not self._beta_2_mode,
-            noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
-            tissue_sampling_period=CONSTRUCT_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND,
+        self._filter_coefficients = create_filter(
+            BUTTERWORTH_LOWPASS_30_UUID, CONSTRUCT_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
         )
         # Beta 1 items
         self._well_offsets: List[Union[int, float, None]] = [None] * 24
@@ -142,10 +188,6 @@ class DataAnalyzerProcess(InfiniteProcess):
                     "All queues must be standard multiprocessing queues to start this process"
                 )
         super().start()
-
-    def get_pipeline_template(self) -> PipelineTemplate:
-        """Mainly for use in unit tests."""
-        return self._pipeline_template
 
     def get_calibration_settings(self) -> Union[None, Dict[Any, Any]]:
         if self._beta_2_mode:
@@ -168,17 +210,26 @@ class DataAnalyzerProcess(InfiniteProcess):
         data_buf[1] = data_buf[1][-self.get_buffer_size() :]
         return data_buf, data_buf
 
-    def get_pipeline_analysis(self, data_buf: List[List[int]]) -> Dict[Any, Any]:
+    def get_twitch_analysis(self, data_buf: List[List[int]]) -> Dict[Any, Any]:
         """Run analysis on a single well's data."""
         data_buf_arr = np.array(data_buf, dtype=np.int64)
-        pipeline = self._pipeline_template.create_pipeline()
-        # Tanner (7/14/21): reference data is currently unused by waveform analysis package, so sending zero array instead
-        pipeline.load_raw_magnetic_data(data_buf_arr, np.zeros(data_buf_arr.shape))
         analysis_start = perf_counter()
+        force = get_force_signal(
+            data_buf_arr, self._filter_coefficients, compress=False, is_beta_2_data=self._beta_2_mode
+        )
+        metrics_to_create = [AMPLITUDE_UUID, TWITCH_FREQUENCY_UUID]
         try:
-            analysis_dict = pipeline.get_force_data_metrics(
-                metrics_to_create=[AMPLITUDE_UUID, TWITCH_FREQUENCY_UUID]
+            peak_detection_results = peak_detector(force)
+            analysis_df = data_metrics(
+                peak_detection_results,
+                force,
+                rounded=False,
+                metrics_to_create=metrics_to_create,
             )[0]
+            analysis_dict = {
+                idx: {metric_uuid: analysis_df[metric_uuid][idx] for metric_uuid in metrics_to_create}
+                for idx in analysis_df.index
+            }
         except PeakDetectionError:
             # Tanner (7/14/21): this dict will be filtered out by downstream elements of analysis stream
             analysis_dict = {-1: None}
@@ -193,7 +244,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             end = (
                 source.accumulate(self.append_data, returns_state=True, start=[[], []])
                 .filter(lambda data_buf: len(data_buf[0]) >= self.get_buffer_size())
-                .map(self.get_pipeline_analysis)
+                .map(self.get_twitch_analysis)
                 .accumulate(check_for_new_twitches, returns_state=True, start=0)
                 .map(lambda per_twitch_dict, i=well_idx: (i, per_twitch_dict))
             )
@@ -252,12 +303,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                 self._beta_2_buffer_size = MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS * int(
                     MICRO_TO_BASE_CONVERSION / sampling_period_us
                 )
-                self._pipeline_template = PipelineTemplate(
-                    is_beta_1_data=not self._beta_2_mode,
-                    noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
-                    # Tanner (8/4/21): for some reason sampling periods > 16000 µs cause errors when creating filters.
-                    tissue_sampling_period=sampling_period_us,
-                )
+                self._filter_coefficients = create_filter(BUTTERWORTH_LOWPASS_30_UUID, sampling_period_us)
                 self.init_streams()
             else:
                 raise UnrecognizedCommandFromMainToDataAnalyzerError(
@@ -372,12 +418,10 @@ class DataAnalyzerProcess(InfiniteProcess):
         waveform_data_points: Dict[int, Dict[str, List[float]]] = dict()
         for well_idx in range(24):
             default_channel_data = data_dict[well_idx][SERIAL_COMM_DEFAULT_DATA_CHANNEL]
-            pipeline = self._pipeline_template.create_pipeline()
-            pipeline.load_raw_magnetic_data(
+            force_data = get_force_signal(
                 np.array([data_dict["time_indices"], default_channel_data], np.int64),
-                np.zeros((2, len(default_channel_data))),
+                self._filter_coefficients,
             )
-            force_data = pipeline.get_compressed_force()
 
             # convert arrays to lists for json conversion later
             waveform_data_points[well_idx] = {
@@ -400,9 +444,9 @@ class DataAnalyzerProcess(InfiniteProcess):
     def _normalize_beta_2_data_for_well(self, well_idx: int, well_dict: Dict[Any, Any]) -> None:
         if self._well_offsets[well_idx] is None:
             self._well_offsets[well_idx] = max(well_dict[SERIAL_COMM_DEFAULT_DATA_CHANNEL])
+        well_data = fix_dropped_samples(well_dict[SERIAL_COMM_DEFAULT_DATA_CHANNEL])
         well_dict[SERIAL_COMM_DEFAULT_DATA_CHANNEL] = (
-            (well_dict[SERIAL_COMM_DEFAULT_DATA_CHANNEL].astype(np.int32) - self._well_offsets[well_idx]) * -1
-            + MEMSIC_CENTER_OFFSET
+            (well_data.astype(np.int32) - self._well_offsets[well_idx]) * -1 + MEMSIC_CENTER_OFFSET
         ).astype(np.uint16)
 
     def _create_outgoing_beta_1_data(self) -> Dict[str, Any]:
@@ -414,12 +458,11 @@ class DataAnalyzerProcess(InfiniteProcess):
         latest_timepoint: Optional[int] = None
         for well_index in range(24):
             self._normalize_beta_1_data_for_well(well_index)
-            pipeline = self._pipeline_template.create_pipeline()
-            pipeline.load_raw_magnetic_data(
+            compressed_data = get_force_signal(
                 self._data_buffer[well_index]["construct_data"],
-                np.array(self._data_buffer[well_index]["ref_data"], dtype=np.int32),
+                self._filter_coefficients,
+                is_beta_2_data=False,
             )
-            compressed_data = pipeline.get_compressed_force()
 
             basic_waveform_data_points[well_index] = {
                 "x_data_points": compressed_data[0].tolist(),
@@ -538,9 +581,6 @@ class DataAnalyzerProcess(InfiniteProcess):
             }
             for twitch_metric_dict in per_twitch_dict.values():
                 for metric_id, metric_val in twitch_metric_dict.items():
-                    if metric_id == AMPLITUDE_UUID:
-                        # convert force amplitude from Newtons to micro Newtons
-                        metric_val *= MICRO_TO_BASE_CONVERSION
                     outgoing_metrics[well_idx][str(metric_id)].append(metric_val)
 
         outgoing_metrics_json = json.dumps(outgoing_metrics)
