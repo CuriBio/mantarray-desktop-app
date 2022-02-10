@@ -179,10 +179,7 @@ def uploader(
         max_num_loops: to break loop in testing.
     """
     file_path = os.path.join(os.path.abspath(file_directory), file_name)
-    if "/recordings" in file_directory:
-        upload_type = "sdk"
-    else:
-        upload_type = "logs"
+    upload_type = "sdk" if "/recordings" in file_directory else "logs"
     # Failed uploads will call function with zip file, not directory of well data
     if os.path.isdir(file_path):
         # store zipped files under customer specific and static zipped directory

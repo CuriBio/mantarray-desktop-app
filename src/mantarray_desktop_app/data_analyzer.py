@@ -90,7 +90,6 @@ def get_force_signal(
     compress: bool = True,
     is_beta_2_data: bool = True,
 ) -> NDArray[(2, Any), np.float64]:
-    # TODO unit test this function
     if is_beta_2_data:
         filtered_memsic = apply_noise_filtering(raw_signal, filter_coefficients)
         if compress:
@@ -114,7 +113,6 @@ def live_data_metrics(
     peak_and_valley_indices: Tuple[NDArray[int], NDArray[int]],
     filtered_data: NDArray[(2, Any), int],
 ) -> Dict[int, Dict[UUID, Any]]:
-    # TODO unit test this function
     """Find all data metrics for individual twitches and averages.
 
     Need to use this function until `data_metrics` function in pulse3D

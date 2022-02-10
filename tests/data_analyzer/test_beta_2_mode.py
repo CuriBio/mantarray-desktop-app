@@ -1,22 +1,30 @@
 # -*- coding: utf-8 -*-
 import copy
 import json
+import time
 
 from freezegun import freeze_time
 from mantarray_desktop_app import data_analyzer
+from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
+from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
+from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_desktop_app.constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app.data_analyzer import get_force_signal
+from mantarray_desktop_app.mc_simulator import MantarrayMcSimulator
 import numpy as np
 from pulse3D.constants import BUTTERWORTH_LOWPASS_30_UUID
 from pulse3D.constants import MEMSIC_CENTER_OFFSET
 from pulse3D.magnet_finding import fix_dropped_samples
 from pulse3D.transforms import create_filter
+import pytest
 from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty
+from stdlib_utils import TestingQueue
 
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process_beta_2_mode
@@ -31,6 +39,139 @@ from ..parsed_channel_data_packets import SIMPLE_STIM_DATA_PACKET_FROM_ALL_WELLS
 __fixtures__ = [
     fixture_four_board_analyzer_process_beta_2_mode,
 ]
+
+
+def fill_da_input_data_queue(input_queue, num_seconds):
+    simulator = MantarrayMcSimulator(*[TestingQueue() for _ in range(4)])
+    test_y_data = (
+        simulator["simulator"].get_interpolated_data(DEFAULT_SAMPLING_PERIOD).tolist()
+        * MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
+    )
+    single_packet_duration = DEFAULT_SAMPLING_PERIOD * len(test_y_data)
+    for seconds in range(num_seconds):
+        # test_data_arr = np.array([test_x_data, test_y_data.copy()], dtype=np.int64)
+        data_packet = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
+        data_packet["time_indices"] = np.arange(
+            seconds * single_packet_duration,
+            (seconds + 1) * single_packet_duration,
+            DEFAULT_SAMPLING_PERIOD,
+        )
+        for well_idx in range(24):
+            data_packet[well_idx] = {"time_offsets": np.zeros((2, 100), dtype=np.uint16)}
+            data_packet[well_idx].update(
+                {channel_num: test_y_data.copy() for channel_num in range(SERIAL_COMM_NUM_DATA_CHANNELS)}
+            )
+        input_queue.put_nowait(data_packet)
+    confirm_queue_is_eventually_of_size(
+        num_seconds, timeout=3, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    )
+
+
+@pytest.mark.slow
+def test_DataAnalyzerProcess_beta_2_performance__fill_data_analysis_buffer(
+    runnable_four_board_analyzer_process,
+):
+    # 8 seconds of data (100 Hz) coming in from File Writer to going back to Main
+    #
+    # start:                                 TODO
+
+    p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
+    p._beta_2_mode = True
+    p.change_magnetometer_config(
+        {"magnetometer_config": DEFAULT_MAGNETOMETER_CONFIG, "sampling_period": DEFAULT_SAMPLING_PERIOD},
+    )
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        dict(START_MANAGED_ACQUISITION_COMMUNICATION),
+        comm_from_main_queue,
+    )
+    invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
+
+    num_seconds = MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS + 1
+    fill_da_input_data_queue(board_queues[0][0], num_seconds)
+    start = time.perf_counter_ns()
+    invoke_process_run_and_check_errors(p, num_iterations=num_seconds)
+    dur_seconds = (time.perf_counter_ns() - start) / 10 ** 9
+
+    # prevent BrokenPipeErrors
+    drain_queue(board_queues[0][1])
+    drain_queue(comm_to_main_queue)
+
+    # print(f"Duration (seconds): {dur_seconds}")  # pylint:disable=wrong-spelling-in-comment # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
+    assert dur_seconds < 10
+
+
+@pytest.mark.slow
+def test_DataAnalyzerProcess_beta_2_performance__first_second_of_data_with_analysis(
+    runnable_four_board_analyzer_process,
+):
+    # Fill data analysis buffer with 7 seconds of data to start metric analysis,
+    # Then record duration of sending 1 additional second of data
+    #
+    # start:                                 TODO
+
+    p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
+    p._beta_2_mode = True
+    p.change_magnetometer_config(
+        {"magnetometer_config": DEFAULT_MAGNETOMETER_CONFIG, "sampling_period": DEFAULT_SAMPLING_PERIOD},
+    )
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        dict(START_MANAGED_ACQUISITION_COMMUNICATION),
+        comm_from_main_queue,
+    )
+    invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
+
+    # load data
+    num_seconds = MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS + 1
+    fill_da_input_data_queue(board_queues[0][0], num_seconds)
+    invoke_process_run_and_check_errors(p, num_iterations=num_seconds - 1)
+
+    # send additional data and time analysis
+    start = time.perf_counter_ns()
+    invoke_process_run_and_check_errors(p)
+    dur_seconds = (time.perf_counter_ns() - start) / 10 ** 9
+
+    # prevent BrokenPipeErrors
+    drain_queue(board_queues[0][1])
+    drain_queue(comm_to_main_queue)
+
+    # print(f"Duration (seconds): {dur_seconds}")  # pylint:disable=wrong-spelling-in-comment # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
+    assert dur_seconds < 2
+
+
+@pytest.mark.slow
+def test_DataAnalyzerProcess_beta_2_performance__single_data_packet_per_well(
+    runnable_four_board_analyzer_process,
+):
+    # 1 second of data (625 Hz) coming in from File Writer to going back to Main
+    #
+    # start:                                 TODO
+
+    p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
+    p._beta_2_mode = True
+    p.change_magnetometer_config(
+        {"magnetometer_config": DEFAULT_MAGNETOMETER_CONFIG, "sampling_period": DEFAULT_SAMPLING_PERIOD},
+    )
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        dict(START_MANAGED_ACQUISITION_COMMUNICATION),
+        comm_from_main_queue,
+    )
+    invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
+
+    num_seconds = 1
+    fill_da_input_data_queue(board_queues[0][0], num_seconds)
+    start = time.perf_counter_ns()
+    invoke_process_run_and_check_errors(p, num_iterations=num_seconds)
+    dur_seconds = (time.perf_counter_ns() - start) / 10 ** 9
+
+    # prevent BrokenPipeErrors
+    drain_queue(board_queues[0][1])
+    drain_queue(comm_to_main_queue)
+
+    # print(f"Duration (seconds): {dur_seconds}")  # pylint:disable=wrong-spelling-in-comment # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
+    assert dur_seconds < 2
 
 
 @freeze_time("2021-06-15 16:39:10.120589")

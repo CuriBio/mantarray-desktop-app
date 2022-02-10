@@ -73,9 +73,6 @@ def fill_da_input_data_queue(input_queue, num_seconds):
             input_queue.put_nowait(ref_packet)
 
 
-# TODO Tanner (7/15/21): Should eventually add the following 3 tests for Beta 2 mode
-
-
 @pytest.mark.slow
 def test_DataAnalyzerProcess_beta_1_performance__fill_data_analysis_buffer(
     runnable_four_board_analyzer_process,
