@@ -26,7 +26,6 @@ Changelog for Mantarray Desktop App
 - Removed customer credentials from log files.
 
 
-
 0.6.6 (2022-01-12)
 ------------------
 

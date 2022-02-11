@@ -77,8 +77,7 @@ def fill_da_input_data_queue(input_queue, num_seconds):
 def test_DataAnalyzerProcess_beta_1_performance__fill_data_analysis_buffer(
     runnable_four_board_analyzer_process,
 ):
-    # TODO add new value from refactor
-    # 8 seconds of data (625 Hz) coming in from File Writer to going back to Main
+    # 11 seconds of data (625 Hz) coming in from File Writer to going through to Main
     #
     # mantarray-waveform-analysis v0.3:     4.148136512
     # mantarray-waveform-analysis v0.3.1:   3.829136133
@@ -88,6 +87,7 @@ def test_DataAnalyzerProcess_beta_1_performance__fill_data_analysis_buffer(
     # 30 Hz Butterworth filter:             2.935009033  # Tanner (9/10/20): not intended to speed anything up, just adding this to show it had it didn't have much affect on performance
     #
     # added twitch metric analysis:         3.013469479
+    # initial pulse3D import:               3.855403546
 
     p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -106,7 +106,7 @@ def test_DataAnalyzerProcess_beta_1_performance__fill_data_analysis_buffer(
     drain_queue(board_queues[0][1])
     drain_queue(comm_to_main_queue)
 
-    # print(f"Duration (seconds): {dur_seconds}")  # pylint:disable=wrong-spelling-in-comment # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
+    # print(f"Duration (seconds): {dur_seconds}")  # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
     assert dur_seconds < 10
 
 
@@ -114,11 +114,11 @@ def test_DataAnalyzerProcess_beta_1_performance__fill_data_analysis_buffer(
 def test_DataAnalyzerProcess_beta_1_performance__first_second_of_data_with_analysis(
     runnable_four_board_analyzer_process,
 ):
-    # TODO add new value from refactor
-    # Fill data analysis buffer with 7 seconds of data to start metric analysis,
+    # Fill data analysis buffer with 10 seconds of data to start metric analysis,
     # Then record duration of sending 1 additional second of data
     #
     # start:                                 0.547285524
+    # initial pulse3D import:                0.535316489
 
     p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -141,19 +141,19 @@ def test_DataAnalyzerProcess_beta_1_performance__first_second_of_data_with_analy
     drain_queue(board_queues[0][1])
     drain_queue(comm_to_main_queue)
 
-    # print(f"Duration (seconds): {dur_seconds}")  # pylint:disable=wrong-spelling-in-comment # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
+    # print(f"Duration (seconds): {dur_seconds}")  # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
     assert dur_seconds < 2
 
 
 @pytest.mark.slow
-def test_DataAnalyzerProcess_beta_1_performance__single_data_packet_per_well(
+def test_DataAnalyzerProcess_beta_1_performance__single_data_packet_per_well_without_analysis(
     runnable_four_board_analyzer_process,
 ):
-    # TODO add new value from refactor
-    # 1 second of data (625 Hz) coming in from File Writer to going back to Main
+    # 1 second of data (625 Hz) coming in from File Writer to going through to Main
     #
     # start:                                 0.530731389
     # added twitch metric analysis:          0.578328276
+    # initial pulse3D import:                0.533860423
 
     p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -172,7 +172,7 @@ def test_DataAnalyzerProcess_beta_1_performance__single_data_packet_per_well(
     drain_queue(board_queues[0][1])
     drain_queue(comm_to_main_queue)
 
-    # print(f"Duration (seconds): {dur_seconds}")  # pylint:disable=wrong-spelling-in-comment # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
+    # print(f"Duration (seconds): {dur_seconds}")  # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
     assert dur_seconds < 2
 
 

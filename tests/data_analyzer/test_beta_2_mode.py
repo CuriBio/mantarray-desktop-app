@@ -28,6 +28,7 @@ from stdlib_utils import TestingQueue
 
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process_beta_2_mode
+from ..fixtures_data_analyzer import fixture_runnable_four_board_analyzer_process
 from ..fixtures_data_analyzer import set_magnetometer_config
 from ..fixtures_file_writer import GENERIC_BOARD_MAGNETOMETER_CONFIGURATION
 from ..helpers import confirm_queue_is_eventually_empty
@@ -36,17 +37,12 @@ from ..parsed_channel_data_packets import SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_
 from ..parsed_channel_data_packets import SIMPLE_STIM_DATA_PACKET_FROM_ALL_WELLS
 
 
-__fixtures__ = [
-    fixture_four_board_analyzer_process_beta_2_mode,
-]
+__fixtures__ = [fixture_four_board_analyzer_process_beta_2_mode, fixture_runnable_four_board_analyzer_process]
 
 
 def fill_da_input_data_queue(input_queue, num_seconds):
     simulator = MantarrayMcSimulator(*[TestingQueue() for _ in range(4)])
-    test_y_data = (
-        simulator["simulator"].get_interpolated_data(DEFAULT_SAMPLING_PERIOD).tolist()
-        * MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
-    )
+    test_y_data = np.tile(simulator.get_interpolated_data(DEFAULT_SAMPLING_PERIOD), num_seconds)
     single_packet_duration = DEFAULT_SAMPLING_PERIOD * len(test_y_data)
     for seconds in range(num_seconds):
         # test_data_arr = np.array([test_x_data, test_y_data.copy()], dtype=np.int64)
@@ -63,7 +59,7 @@ def fill_da_input_data_queue(input_queue, num_seconds):
             )
         input_queue.put_nowait(data_packet)
     confirm_queue_is_eventually_of_size(
-        num_seconds, timeout=3, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+        input_queue, num_seconds, timeout_seconds=3, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
 
 
@@ -71,9 +67,9 @@ def fill_da_input_data_queue(input_queue, num_seconds):
 def test_DataAnalyzerProcess_beta_2_performance__fill_data_analysis_buffer(
     runnable_four_board_analyzer_process,
 ):
-    # 8 seconds of data (100 Hz) coming in from File Writer to going back to Main
+    # 11 seconds of data (100 Hz) coming in from File Writer to going through to Main
     #
-    # start:                                 TODO
+    # initial pulse3D import:                             1.662150824
 
     p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
     p._beta_2_mode = True
@@ -97,7 +93,7 @@ def test_DataAnalyzerProcess_beta_2_performance__fill_data_analysis_buffer(
     drain_queue(board_queues[0][1])
     drain_queue(comm_to_main_queue)
 
-    # print(f"Duration (seconds): {dur_seconds}")  # pylint:disable=wrong-spelling-in-comment # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
+    # print(f"Duration (seconds): {dur_seconds}")  # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
     assert dur_seconds < 10
 
 
@@ -105,10 +101,10 @@ def test_DataAnalyzerProcess_beta_2_performance__fill_data_analysis_buffer(
 def test_DataAnalyzerProcess_beta_2_performance__first_second_of_data_with_analysis(
     runnable_four_board_analyzer_process,
 ):
-    # Fill data analysis buffer with 7 seconds of data to start metric analysis,
+    # Fill data analysis buffer with 10 seconds of data to start metric analysis,
     # Then record duration of sending 1 additional second of data
     #
-    # start:                                 TODO
+    # initial pulse3D import:                             0.334087008
 
     p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
     p._beta_2_mode = True
@@ -136,17 +132,17 @@ def test_DataAnalyzerProcess_beta_2_performance__first_second_of_data_with_analy
     drain_queue(board_queues[0][1])
     drain_queue(comm_to_main_queue)
 
-    # print(f"Duration (seconds): {dur_seconds}")  # pylint:disable=wrong-spelling-in-comment # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
+    # print(f"Duration (seconds): {dur_seconds}")  # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
     assert dur_seconds < 2
 
 
 @pytest.mark.slow
-def test_DataAnalyzerProcess_beta_2_performance__single_data_packet_per_well(
+def test_DataAnalyzerProcess_beta_2_performance__single_data_packet_per_well_without_analysis(
     runnable_four_board_analyzer_process,
 ):
-    # 1 second of data (625 Hz) coming in from File Writer to going back to Main
+    # 1 second of data (100 Hz) coming in from File Writer to going through to Main
     #
-    # start:                                 TODO
+    # initial pulse3D import:                             0.224968242
 
     p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
     p._beta_2_mode = True
@@ -170,7 +166,7 @@ def test_DataAnalyzerProcess_beta_2_performance__single_data_packet_per_well(
     drain_queue(board_queues[0][1])
     drain_queue(comm_to_main_queue)
 
-    # print(f"Duration (seconds): {dur_seconds}")  # pylint:disable=wrong-spelling-in-comment # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
+    # print(f"Duration (seconds): {dur_seconds}")  # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
     assert dur_seconds < 2
 
 
