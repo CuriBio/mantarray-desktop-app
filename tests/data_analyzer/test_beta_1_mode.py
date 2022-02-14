@@ -88,6 +88,7 @@ def test_DataAnalyzerProcess_beta_1_performance__fill_data_analysis_buffer(
     #
     # added twitch metric analysis:         3.013469479
     # initial pulse3D import:               3.855403546
+    # pulse3D 0.23.3:                       3.890723909
 
     p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -117,8 +118,9 @@ def test_DataAnalyzerProcess_beta_1_performance__first_second_of_data_with_analy
     # Fill data analysis buffer with 10 seconds of data to start metric analysis,
     # Then record duration of sending 1 additional second of data
     #
-    # start:                                 0.547285524
-    # initial pulse3D import:                0.535316489
+    # start:                                0.547285524
+    # initial pulse3D import:               0.535316489
+    # pulse3D 0.23.3:                       0.535428579
 
     p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -151,9 +153,10 @@ def test_DataAnalyzerProcess_beta_1_performance__single_data_packet_per_well_wit
 ):
     # 1 second of data (625 Hz) coming in from File Writer to going through to Main
     #
-    # start:                                 0.530731389
-    # added twitch metric analysis:          0.578328276
-    # initial pulse3D import:                0.533860423
+    # start:                                0.530731389
+    # added twitch metric analysis:         0.578328276
+    # initial pulse3D import:               0.533860423
+    # pulse3D 0.23.3:                       0.539447351
 
     p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
