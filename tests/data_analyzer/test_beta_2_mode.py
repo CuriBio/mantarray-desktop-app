@@ -1,20 +1,34 @@
 # -*- coding: utf-8 -*-
 import copy
 import json
+import time
 
 from freezegun import freeze_time
+from mantarray_desktop_app import data_analyzer
+from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
+from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
+from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
-from mantarray_waveform_analysis import MEMSIC_CENTER_OFFSET
+from mantarray_desktop_app.constants import SERIAL_COMM_NUM_DATA_CHANNELS
+from mantarray_desktop_app.data_analyzer import get_force_signal
+from mantarray_desktop_app.mc_simulator import MantarrayMcSimulator
 import numpy as np
+from pulse3D.constants import BUTTERWORTH_LOWPASS_30_UUID
+from pulse3D.constants import MEMSIC_CENTER_OFFSET
+from pulse3D.magnet_finding import fix_dropped_samples
+from pulse3D.transforms import create_filter
+import pytest
 from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty
+from stdlib_utils import TestingQueue
 
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process_beta_2_mode
+from ..fixtures_data_analyzer import fixture_runnable_four_board_analyzer_process
 from ..fixtures_data_analyzer import set_magnetometer_config
 from ..fixtures_file_writer import GENERIC_BOARD_MAGNETOMETER_CONFIGURATION
 from ..helpers import confirm_queue_is_eventually_empty
@@ -23,9 +37,140 @@ from ..parsed_channel_data_packets import SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_
 from ..parsed_channel_data_packets import SIMPLE_STIM_DATA_PACKET_FROM_ALL_WELLS
 
 
-__fixtures__ = [
-    fixture_four_board_analyzer_process_beta_2_mode,
-]
+__fixtures__ = [fixture_four_board_analyzer_process_beta_2_mode, fixture_runnable_four_board_analyzer_process]
+
+
+def fill_da_input_data_queue(input_queue, num_seconds):
+    simulator = MantarrayMcSimulator(*[TestingQueue() for _ in range(4)])
+    test_y_data = np.tile(simulator.get_interpolated_data(DEFAULT_SAMPLING_PERIOD), num_seconds)
+    single_packet_duration = DEFAULT_SAMPLING_PERIOD * len(test_y_data)
+    for seconds in range(num_seconds):
+        # test_data_arr = np.array([test_x_data, test_y_data.copy()], dtype=np.int64)
+        data_packet = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
+        data_packet["time_indices"] = np.arange(
+            seconds * single_packet_duration,
+            (seconds + 1) * single_packet_duration,
+            DEFAULT_SAMPLING_PERIOD,
+        )
+        for well_idx in range(24):
+            data_packet[well_idx] = {"time_offsets": np.zeros((2, 100), dtype=np.uint16)}
+            data_packet[well_idx].update(
+                {channel_num: test_y_data.copy() for channel_num in range(SERIAL_COMM_NUM_DATA_CHANNELS)}
+            )
+        input_queue.put_nowait(data_packet)
+    confirm_queue_is_eventually_of_size(
+        input_queue, num_seconds, timeout_seconds=3, sleep_after_confirm_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
+    )
+
+
+@pytest.mark.slow
+def test_DataAnalyzerProcess_beta_2_performance__fill_data_analysis_buffer(
+    runnable_four_board_analyzer_process,
+):
+    # 11 seconds of data (100 Hz) coming in from File Writer to going through to Main
+    #
+    # initial pulse3D import:                             1.662150824
+    # pulse3D 0.23.3:                                     1.680566285
+
+    p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
+    p._beta_2_mode = True
+    p.change_magnetometer_config(
+        {"magnetometer_config": DEFAULT_MAGNETOMETER_CONFIG, "sampling_period": DEFAULT_SAMPLING_PERIOD},
+    )
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        dict(START_MANAGED_ACQUISITION_COMMUNICATION),
+        comm_from_main_queue,
+    )
+    invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
+
+    num_seconds = MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS + 1
+    fill_da_input_data_queue(board_queues[0][0], num_seconds)
+    start = time.perf_counter_ns()
+    invoke_process_run_and_check_errors(p, num_iterations=num_seconds)
+    dur_seconds = (time.perf_counter_ns() - start) / 10 ** 9
+
+    # prevent BrokenPipeErrors
+    drain_queue(board_queues[0][1])
+    drain_queue(comm_to_main_queue)
+
+    # print(f"Duration (seconds): {dur_seconds}")  # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
+    assert dur_seconds < 10
+
+
+@pytest.mark.slow
+def test_DataAnalyzerProcess_beta_2_performance__first_second_of_data_with_analysis(
+    runnable_four_board_analyzer_process,
+):
+    # Fill data analysis buffer with 10 seconds of data to start metric analysis,
+    # Then record duration of sending 1 additional second of data
+    #
+    # initial pulse3D import:                             0.334087008
+    # pulse3D 0.23.3:                                     0.337370183
+
+    p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
+    p._beta_2_mode = True
+    p.change_magnetometer_config(
+        {"magnetometer_config": DEFAULT_MAGNETOMETER_CONFIG, "sampling_period": DEFAULT_SAMPLING_PERIOD},
+    )
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        dict(START_MANAGED_ACQUISITION_COMMUNICATION),
+        comm_from_main_queue,
+    )
+    invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
+
+    # load data
+    num_seconds = MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS + 1
+    fill_da_input_data_queue(board_queues[0][0], num_seconds)
+    invoke_process_run_and_check_errors(p, num_iterations=num_seconds - 1)
+
+    # send additional data and time analysis
+    start = time.perf_counter_ns()
+    invoke_process_run_and_check_errors(p)
+    dur_seconds = (time.perf_counter_ns() - start) / 10 ** 9
+
+    # prevent BrokenPipeErrors
+    drain_queue(board_queues[0][1])
+    drain_queue(comm_to_main_queue)
+
+    # print(f"Duration (seconds): {dur_seconds}")  # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
+    assert dur_seconds < 2
+
+
+@pytest.mark.slow
+def test_DataAnalyzerProcess_beta_2_performance__single_data_packet_per_well_without_analysis(
+    runnable_four_board_analyzer_process,
+):
+    # 1 second of data (100 Hz) coming in from File Writer to going through to Main
+    #
+    # initial pulse3D import:                             0.224968242
+    # pulse3D 0.23.3:                                     0.225489661
+
+    p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
+    p._beta_2_mode = True
+    p.change_magnetometer_config(
+        {"magnetometer_config": DEFAULT_MAGNETOMETER_CONFIG, "sampling_period": DEFAULT_SAMPLING_PERIOD},
+    )
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        dict(START_MANAGED_ACQUISITION_COMMUNICATION),
+        comm_from_main_queue,
+    )
+    invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
+
+    num_seconds = 1
+    fill_da_input_data_queue(board_queues[0][0], num_seconds)
+    start = time.perf_counter_ns()
+    invoke_process_run_and_check_errors(p, num_iterations=num_seconds)
+    dur_seconds = (time.perf_counter_ns() - start) / 10 ** 9
+
+    # prevent BrokenPipeErrors
+    drain_queue(board_queues[0][1])
+    drain_queue(comm_to_main_queue)
+
+    # print(f"Duration (seconds): {dur_seconds}")  # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
+    assert dur_seconds < 2
 
 
 @freeze_time("2021-06-15 16:39:10.120589")
@@ -38,6 +183,7 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
     incoming_data_queue = four_board_analyzer_process_beta_2_mode["board_queues"][0][0]
     outgoing_data_queue = four_board_analyzer_process_beta_2_mode["board_queues"][0][1]
 
+    spied_fix = mocker.spy(data_analyzer, "fix_dropped_samples")
     # mock so that well metrics don't populate outgoing data queue
     mocker.patch.object(da_process, "_dump_outgoing_well_metrics", autospec=True)
     # mock so performance log messages don't populate queue to main
@@ -75,22 +221,24 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
     )
 
     invoke_process_run_and_check_errors(da_process)
+    assert spied_fix.call_count == 24
     confirm_queue_is_eventually_of_size(outgoing_data_queue, 1)
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
 
     # test data dump
     waveform_data_points = dict()
+    filter_coefficients = create_filter(BUTTERWORTH_LOWPASS_30_UUID, test_sampling_period)
     for well_idx in range(24):
         default_channel_data = test_data_packet[well_idx][SERIAL_COMM_DEFAULT_DATA_CHANNEL]
+        fixed_default_channel_data = fix_dropped_samples(default_channel_data)
         flipped_default_channel_data = (
-            (default_channel_data.astype(np.int32) - max(default_channel_data)) * -1 + MEMSIC_CENTER_OFFSET
+            (fixed_default_channel_data.astype(np.int32) - max(fixed_default_channel_data)) * -1
+            + MEMSIC_CENTER_OFFSET
         ).astype(np.uint16)
-        pipeline = da_process.get_pipeline_template().create_pipeline()
-        pipeline.load_raw_gmr_data(
+        compressed_data = get_force_signal(
             np.array([test_data_packet["time_indices"], flipped_default_channel_data], np.int64),
-            np.zeros((2, len(flipped_default_channel_data))),
+            filter_coefficients,
         )
-        compressed_data = pipeline.get_compressed_force()
         waveform_data_points[well_idx] = {
             "x_data_points": compressed_data[0].tolist(),
             "y_data_points": (compressed_data[1] * MICRO_TO_BASE_CONVERSION).tolist(),

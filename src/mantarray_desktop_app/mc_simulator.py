@@ -20,19 +20,19 @@ from uuid import UUID
 from zlib import crc32
 
 from immutabledict import immutabledict
-from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
-from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
-from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
 from nptyping import NDArray
 import numpy as np
+from pulse3D.constants import BOOT_FLAGS_UUID
+from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
+from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
+from pulse3D.constants import MANTARRAY_NICKNAME_UUID
+from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
 from scipy import interpolate
 from stdlib_utils import drain_queue
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import resource_path
 
-from .constants import BOOT_FLAGS_UUID
-from .constants import CHANNEL_FIRMWARE_VERSION_UUID
 from .constants import DEFAULT_SAMPLING_PERIOD
 from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS

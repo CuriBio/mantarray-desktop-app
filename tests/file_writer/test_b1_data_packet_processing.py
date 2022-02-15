@@ -7,11 +7,12 @@ from mantarray_desktop_app import DATA_FRAME_PERIOD
 from mantarray_desktop_app import get_reference_dataset_from_file
 from mantarray_desktop_app import get_tissue_dataset_from_file
 from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
-from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
-from mantarray_file_manager import UTC_FIRST_REF_DATA_POINT_UUID
-from mantarray_file_manager import UTC_FIRST_TISSUE_DATA_POINT_UUID
-from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
+from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
+from pulse3D.constants import REFERENCE_SENSOR_READINGS
+from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
+from pulse3D.constants import UTC_FIRST_REF_DATA_POINT_UUID
+from pulse3D.constants import UTC_FIRST_TISSUE_DATA_POINT_UUID
 import pytest
 from stdlib_utils import confirm_parallelism_is_stopped
 from stdlib_utils import invoke_process_run_and_check_errors
@@ -277,8 +278,23 @@ def test_FileWriterProcess__process_next_data_packet__writes_reference_data_to_a
         from_main_queue,
     )
     num_data_points = 70
-    data = np.zeros((2, num_data_points), dtype=np.int32)
 
+    # create and send tissue data for active wells
+    for well_idx in this_command["active_well_indices"]:
+        this_data_packet = copy.deepcopy(SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0)
+        this_data_packet["well_index"] = well_idx
+        this_data_packet["data"][0] = (
+            np.arange(len(this_data_packet["data"][0]))
+            + GENERIC_BETA_1_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
+        )
+        put_object_into_queue_and_raise_error_if_eventually_still_empty(
+            this_data_packet,
+            board_queues[0][0],
+        )
+        invoke_process_run_and_check_errors(file_writer_process)
+
+    # create and send ref data
+    data = np.zeros((2, num_data_points), dtype=np.int32)
     for this_index in range(num_data_points):
         data[0, this_index] = (
             this_command["timepoint_to_begin_recording_at"]
@@ -286,7 +302,6 @@ def test_FileWriterProcess__process_next_data_packet__writes_reference_data_to_a
             + DATA_FRAME_PERIOD
         )
         data[1, this_index] = this_index * 3
-
     this_data_packet = copy.deepcopy(GENERIC_REFERENCE_SENSOR_DATA_PACKET)
     this_data_packet["data"] = data
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -305,18 +320,18 @@ def test_FileWriterProcess__process_next_data_packet__writes_reference_data_to_a
         seconds=(this_command["timepoint_to_begin_recording_at"] + DATA_FRAME_PERIOD)
         / CENTIMILLISECONDS_PER_SECOND
     )
-    assert actual_file_0.get_h5_attribute(str(UTC_FIRST_REF_DATA_POINT_UUID)) == expected_timestamp.strftime(
-        "%Y-%m-%d %H:%M:%S.%f"
+    assert actual_file_0[str(UTC_FIRST_REF_DATA_POINT_UUID)] == expected_timestamp.replace(
+        tzinfo=datetime.timezone.utc
     )
-    assert actual_file_4.get_h5_attribute(str(UTC_FIRST_REF_DATA_POINT_UUID)) == expected_timestamp.strftime(
-        "%Y-%m-%d %H:%M:%S.%f"
+    assert actual_file_4[str(UTC_FIRST_REF_DATA_POINT_UUID)] == expected_timestamp.replace(
+        tzinfo=datetime.timezone.utc
     )
-    actual_reference_data_0 = actual_file_0.get_raw_reference_reading()[1, :]
+    actual_reference_data_0 = actual_file_0[REFERENCE_SENSOR_READINGS][1, :]
     assert actual_reference_data_0.shape == (40,)
     assert actual_reference_data_0[0] == 90
     assert actual_reference_data_0[2] == 96
 
-    actual_reference_data_4 = actual_file_4.get_raw_reference_reading()[1, :]
+    actual_reference_data_4 = actual_file_4[REFERENCE_SENSOR_READINGS][1, :]
     assert actual_reference_data_4.shape == (40,)
     assert actual_reference_data_4[0] == 90
     assert actual_reference_data_0[39] == 207

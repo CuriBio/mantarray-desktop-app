@@ -22,9 +22,9 @@ from typing import Tuple
 from typing import Union
 from zlib import crc32
 
-from mantarray_file_manager import DATETIME_STR_FORMAT
 from nptyping import NDArray
 import numpy as np
+from pulse3D.constants import DATETIME_STR_FORMAT
 import serial
 import serial.tools.list_ports as list_ports
 from stdlib_utils import put_log_message_into_queue

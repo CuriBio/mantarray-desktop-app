@@ -1,7 +1,13 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-0.7.0 (unreleased)
+0.7.1 (unreleased)
+------------------
+
+- Changed 30 second recording time limit to 5 minutes.
+
+
+0.7.0 (2022-02-04)
 ------------------
 
 - Added firmware auto updating.
@@ -12,12 +18,12 @@ Changelog for Mantarray Desktop App
 - Added upload of log files at shutdown if customer credentials have been input.
 - Added minor styling updates.
 - Added tool tips for additional controls.
+- Added 30 second max time limit to recordings.
 - Changed subprotocol edit from Shift+Click to Double Click.
 - Fixed issue with Mantarray Controller and Mantarray Software processes persisting after an error occurs and
   the app is closed.
 - Fixed issue with subprotocol markers not changing when less than 1000ms.
 - Removed customer credentials from log files.
-
 
 
 0.6.6 (2022-01-12)

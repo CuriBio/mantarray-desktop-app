@@ -1,6 +1,6 @@
 {
   "name": "MantarrayController",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Desktop application for controlling the Mantarray instrument.",
   "author": {
     "name": "Curi Bio",

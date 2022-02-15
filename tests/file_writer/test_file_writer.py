@@ -21,9 +21,9 @@ from mantarray_desktop_app import MantarrayH5FileCreator
 from mantarray_desktop_app import REF_INDEX_TO_24_WELL_INDEX
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import UnrecognizedCommandFromMainToFileWriterError
-from mantarray_file_manager import PLATE_BARCODE_UUID
-from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
 import numpy as np
+from pulse3D.constants import PLATE_BARCODE_UUID
+from pulse3D.constants import START_RECORDING_TIME_INDEX_UUID
 import pytest
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess

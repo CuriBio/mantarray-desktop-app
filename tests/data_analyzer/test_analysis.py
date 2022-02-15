@@ -2,7 +2,9 @@
 import copy
 import json
 
+from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import create_magnetometer_config_dict
+from mantarray_desktop_app import data_analyzer
 from mantarray_desktop_app import DATA_ANALYZER_BETA_1_BUFFER_SIZE
 from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
@@ -10,11 +12,18 @@ from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_desktop_app.constants import DEFAULT_MAGNETOMETER_CONFIG
 from mantarray_desktop_app.data_analyzer import check_for_new_twitches
-from mantarray_waveform_analysis import AMPLITUDE_UUID
-from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
-from mantarray_waveform_analysis import TWITCH_FREQUENCY_UUID
+from mantarray_desktop_app.data_analyzer import get_force_signal
+from mantarray_desktop_app.data_analyzer import live_data_metrics
 import numpy as np
+from pulse3D.constants import AMPLITUDE_UUID
+from pulse3D.constants import BUTTERWORTH_LOWPASS_30_UUID
+from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
+from pulse3D.constants import TWITCH_FREQUENCY_UUID
+from pulse3D.peak_detection import peak_detector
+from pulse3D.transforms import create_filter
+import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
@@ -35,6 +44,90 @@ __fixtures__ = [
     fixture_four_board_analyzer_process_beta_2_mode,
     fixture_mantarray_mc_simulator,
 ]
+
+
+@pytest.mark.parametrize("is_beta_2_data", [True, False])
+@pytest.mark.parametrize("compress", [True, False])
+def test_get_force_signal__returns_converts_to_force_correctly(is_beta_2_data, compress, mocker):
+    # beta 2
+    mocked_mfd_from_memsic = mocker.patch.object(
+        data_analyzer, "calculate_magnetic_flux_density_from_memsic", autospec=True
+    )
+    mocked_displacement_from_mfd = mocker.patch.object(
+        data_analyzer, "calculate_displacement_from_magnetic_flux_density", autospec=True
+    )
+    mocked_array = mocker.patch.object(data_analyzer.np, "array", autospec=True)
+    # beta 1
+    mocked_voltage_from_gmr = mocker.patch.object(data_analyzer, "calculate_voltage_from_gmr", autospec=True)
+    mocked_displacement_from_voltage = mocker.patch.object(
+        data_analyzer, "calculate_displacement_from_voltage", autospec=True
+    )
+    # both
+    mocked_filt = mocker.patch.object(data_analyzer, "apply_noise_filtering", autospec=True)
+    mocked_compress = mocker.patch.object(data_analyzer, "compress_filtered_magnetic_data", autospec=True)
+    mocked_force_from_displacement = mocker.patch.object(
+        data_analyzer, "calculate_force_from_displacement", autospec=True
+    )
+
+    # using dummy values here since all funcs are mocked
+    test_raw_signal = "raw_signal"
+    test_filter_coefficients = "filter_coefficients"
+    get_force_signal(
+        test_raw_signal, test_filter_coefficients, compress=compress, is_beta_2_data=is_beta_2_data
+    )
+
+    mocked_filt.assert_called_once_with(test_raw_signal, test_filter_coefficients)
+    if compress:
+        mocked_compress.assert_called_once_with(mocked_filt.return_value)
+        filter_and_compress_res = mocked_compress.return_value
+    else:
+        mocked_compress.assert_not_called()
+        filter_and_compress_res = mocked_filt.return_value
+    if is_beta_2_data:
+        mocked_mfd_from_memsic.assert_called_once_with(filter_and_compress_res[1])
+        mocked_array.assert_called_once_with(
+            [filter_and_compress_res[0], mocked_mfd_from_memsic.return_value], dtype=np.float64
+        )
+        mocked_displacement_from_mfd.assert_called_once_with(mocked_array.return_value)
+        mocked_voltage_from_gmr.assert_not_called()
+        mocked_displacement_from_voltage.assert_not_called()
+        mocked_force_from_displacement.assert_called_once_with(
+            mocked_displacement_from_mfd.return_value, in_mm=True
+        )
+    else:
+        mocked_mfd_from_memsic.assert_not_called()
+        mocked_array.assert_not_called()
+        mocked_displacement_from_mfd.assert_not_called()
+        mocked_voltage_from_gmr.assert_called_once_with(filter_and_compress_res)
+        mocked_displacement_from_voltage.assert_called_once_with(mocked_voltage_from_gmr.return_value)
+        mocked_force_from_displacement.assert_called_once_with(
+            mocked_displacement_from_voltage.return_value, in_mm=False
+        )
+
+
+def test_live_data_metrics__returns_desired_metrics(mantarray_mc_simulator, mocker):
+    test_y_data = (
+        mantarray_mc_simulator["simulator"]
+        .get_interpolated_data(ROUND_ROBIN_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND)
+        .tolist()
+        * MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
+    )
+    test_x_data = (
+        np.arange(0, ROUND_ROBIN_PERIOD * len(test_y_data), ROUND_ROBIN_PERIOD)
+        * MICROSECONDS_PER_CENTIMILLISECOND
+    )
+    test_data_arr = np.array([test_x_data, test_y_data], dtype=np.int32)
+
+    peak_detection_results = peak_detector(test_data_arr)
+    metrics_dict = live_data_metrics(peak_detection_results, test_data_arr)
+
+    # first and last twitch will not be included in metric calculations
+    assert len(metrics_dict.keys()) == MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS - 2
+    for twitch_time_index, twitch_dict in metrics_dict.items():
+        # just assert that keys are present
+        assert sorted(twitch_dict.keys()) == sorted(
+            [TWITCH_FREQUENCY_UUID, AMPLITUDE_UUID]
+        ), twitch_time_index
 
 
 def test_append_data__beta_1__correctly_appends_x_and_y_data_from_numpy_array_to_list(
@@ -125,7 +218,7 @@ def test_append_data__beta_2__removes_oldest_data_points_when_buffer_exceeds_req
     assert new_list[1] == list(range(3, expected_buffer_size + 3))
 
 
-def test_get_pipeline_analysis__returns_error_dict_when_peak_detection_error_occurs_during_analysis(
+def test_get_twitch_analysis__returns_error_dict_when_peak_detection_error_occurs_during_analysis(
     four_board_analyzer_process,
 ):
     da_process, *_ = four_board_analyzer_process
@@ -138,11 +231,11 @@ def test_get_pipeline_analysis__returns_error_dict_when_peak_detection_error_occ
     test_x_data = np.arange(0, ROUND_ROBIN_PERIOD * len(test_y_data), ROUND_ROBIN_PERIOD)
     test_data_arr = np.array([test_x_data, test_y_data], dtype=np.int32)
 
-    actual = da_process.get_pipeline_analysis(test_data_arr.tolist())
+    actual = da_process.get_twitch_analysis(test_data_arr.tolist())
     assert actual == {-1: None}
 
 
-def test_get_pipeline_analysis__returns_force_metrics_from_given_beta_1_data(
+def test_get_twitch_analysis__returns_force_metrics_from_given_beta_1_data(
     four_board_analyzer_process, mantarray_mc_simulator
 ):
     da_process, *_ = four_board_analyzer_process
@@ -159,24 +252,29 @@ def test_get_pipeline_analysis__returns_force_metrics_from_given_beta_1_data(
     )
     test_data_arr = np.array([test_x_data, test_y_data], dtype=np.int32)
 
-    pipeline = da_process.get_pipeline_template().create_pipeline()
-    pipeline.load_raw_magnetic_data(test_data_arr, np.zeros(test_data_arr.shape))
-    expected_metrics = pipeline.get_force_data_metrics(
-        metrics_to_create=[AMPLITUDE_UUID, TWITCH_FREQUENCY_UUID]
-    )[0]
+    filter_coefficients = create_filter(
+        BUTTERWORTH_LOWPASS_30_UUID, CONSTRUCT_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
+    )
+    force = get_force_signal(test_data_arr, filter_coefficients, compress=False, is_beta_2_data=False)
+    peak_detection_results = peak_detector(force)
+    expected_metrics = live_data_metrics(peak_detection_results, force)
 
-    actual = da_process.get_pipeline_analysis(test_data_arr.tolist())
-
+    actual = da_process.get_twitch_analysis(test_data_arr.tolist())
     assert actual.keys() == expected_metrics.keys()
     for k in expected_metrics.keys():
         assert actual[k] == expected_metrics[k], f"Incorrect twitch dict at idx {k}"
 
 
-def test_get_pipeline_analysis__returns_force_metrics_from_given_beta_2_data(
-    four_board_analyzer_process, mantarray_mc_simulator
+def test_get_twitch_analysis__returns_force_metrics_from_given_beta_2_data(
+    four_board_analyzer_process_beta_2_mode, mantarray_mc_simulator
 ):
-    da_process, *_ = four_board_analyzer_process
     # Tanner (7/12/21): This test is "True by definition", but can't think of a better way to test waveform analysis
+    da_process = four_board_analyzer_process_beta_2_mode["da_process"]
+    set_magnetometer_config(
+        four_board_analyzer_process_beta_2_mode,
+        {"magnetometer_config": DEFAULT_MAGNETOMETER_CONFIG, "sampling_period": DEFAULT_SAMPLING_PERIOD},
+    )
+
     test_y_data = (
         mantarray_mc_simulator["simulator"].get_interpolated_data(DEFAULT_SAMPLING_PERIOD).tolist()
         * MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
@@ -184,14 +282,12 @@ def test_get_pipeline_analysis__returns_force_metrics_from_given_beta_2_data(
     test_x_data = np.arange(0, DEFAULT_SAMPLING_PERIOD * len(test_y_data), DEFAULT_SAMPLING_PERIOD)
     test_data_arr = np.array([test_x_data, test_y_data], dtype=np.int64)
 
-    pipeline = da_process.get_pipeline_template().create_pipeline()
-    pipeline.load_raw_magnetic_data(test_data_arr, np.zeros(test_data_arr.shape))
-    expected_metrics = pipeline.get_force_data_metrics(
-        metrics_to_create=[AMPLITUDE_UUID, TWITCH_FREQUENCY_UUID]
-    )[0]
+    filter_coefficients = create_filter(BUTTERWORTH_LOWPASS_30_UUID, DEFAULT_SAMPLING_PERIOD)
+    force = get_force_signal(test_data_arr, filter_coefficients, compress=False)
+    peak_detection_results = peak_detector(force)
+    expected_metrics = live_data_metrics(peak_detection_results, force)
 
-    actual = da_process.get_pipeline_analysis(test_data_arr.tolist())
-
+    actual = da_process.get_twitch_analysis(test_data_arr.tolist())
     assert actual.keys() == expected_metrics.keys()
     for k in expected_metrics.keys():
         assert actual[k] == expected_metrics[k], f"Incorrect twitch dict at idx {k}"

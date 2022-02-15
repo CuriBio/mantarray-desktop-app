@@ -17,9 +17,8 @@ import uuid
 
 from immutabledict import immutabledict
 from labware_domain_models import LabwareDefinition
-from mantarray_file_manager import METADATA_UUID_DESCRIPTIONS
-from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
+from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 
 CURRENT_SOFTWARE_VERSION = "REPLACETHISWITHVERSIONDURINGBUILD"
@@ -103,7 +102,7 @@ MICRO_TO_BASE_CONVERSION = int(1e6)
 
 # Beta 1 values
 MIDSCALE_CODE = 0x800000
-REFERENCE_VOLTAGE = 2.5  # TODO Tanner (5/22/21): Determine if this value is still needed for Beta 2
+REFERENCE_VOLTAGE = 2.5
 ADC_GAIN = 2
 REFERENCE_SENSOR_SAMPLING_PERIOD = ROUND_ROBIN_PERIOD // 4
 CONSTRUCT_SENSOR_SAMPLING_PERIOD = ROUND_ROBIN_PERIOD
@@ -442,18 +441,3 @@ STIM_WELL_IDX_TO_MODULE_ID = immutabledict(
 
 # Calibration
 CALIBRATION_RECORDING_DUR_SECONDS = 30
-
-
-# TODO move this to mantarray_file_manager or sdk_refactor
-IS_CALIBRATION_FILE_UUID = uuid.UUID("9a6f90eb-fe34-423b-bfed-fb441d6d9e5f")
-CHANNEL_FIRMWARE_VERSION_UUID = uuid.UUID("d9694cfe-824c-41f8-915e-91e41ce7af32")
-BOOT_FLAGS_UUID = uuid.UUID("762f6715-ffcd-4e8d-b707-638dd5777841")
-METADATA_UUID_DESCRIPTIONS = dict(METADATA_UUID_DESCRIPTIONS)
-METADATA_UUID_DESCRIPTIONS.update(
-    {
-        IS_CALIBRATION_FILE_UUID: "Is this file a calibration (empty plate) recording",
-        CHANNEL_FIRMWARE_VERSION_UUID: "Firmware Version (Channel Controller)",
-        BOOT_FLAGS_UUID: "Hardware/firmware flags present on device bootup",  # TODO
-    }
-)
-METADATA_UUID_DESCRIPTIONS = immutabledict(METADATA_UUID_DESCRIPTIONS)

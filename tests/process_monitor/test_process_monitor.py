@@ -16,7 +16,6 @@ from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
-from mantarray_desktop_app import CHANNEL_FIRMWARE_VERSION_UUID
 from mantarray_desktop_app import CHECKING_FOR_UPDATES_STATE
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
@@ -46,9 +45,10 @@ from mantarray_desktop_app import UPDATES_COMPLETE_STATE
 from mantarray_desktop_app import UPDATES_NEEDED_STATE
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.server import queue_command_to_instrument_comm
-from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
-from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
 import numpy as np
+from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
+from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
+from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
 import pytest
 from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors

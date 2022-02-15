@@ -25,12 +25,12 @@ from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_EPOCH
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import STIM_NO_PROTOCOL_ASSIGNED
 from mantarray_desktop_app import validate_checksum
-from mantarray_desktop_app.constants import BOOT_FLAGS_UUID
-from mantarray_desktop_app.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
-from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
-from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
-from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
+from pulse3D.constants import BOOT_FLAGS_UUID
+from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
+from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
+from pulse3D.constants import MANTARRAY_NICKNAME_UUID
+from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
 
 from .fixtures import fixture_patch_print
 from .fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
