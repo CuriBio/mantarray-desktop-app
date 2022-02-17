@@ -1254,11 +1254,17 @@ def test_McCommunicationProcess__logs_performance_metrics_after_parsing_data(
 
     # create expected values for metric creation
     expected_secs_between_parsing = list(range(15, 15 + INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES - 1))
-    mocker.patch.object(
+    mocked_since_last_parse = mocker.patch.object(
         mc_comm, "_get_secs_since_last_data_parse", autospec=True, side_effect=expected_secs_between_parsing
     )
+    expected_secs_between_reading = list(range(25, 25 + INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES - 1))
+    mocked_since_last_read = mocker.patch.object(
+        mc_comm, "_get_secs_since_last_data_read", autospec=True, side_effect=expected_secs_between_reading
+    )
     expected_read_durs = list(range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES))
-    mocker.patch.object(mc_comm, "_get_dur_of_data_read_secs", autospec=True, side_effect=expected_read_durs)
+    mocked_data_read_dur = mocker.patch.object(
+        mc_comm, "_get_dur_of_data_read_secs", autospec=True, side_effect=expected_read_durs
+    )
     # Tanner (8/30/21): using arbitrary large number here. If data packet size changes this test may fail
     expected_read_lengths = list(range(1000000, 1000000 + INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES))
     mocker.patch.object(
@@ -1268,7 +1274,7 @@ def test_McCommunicationProcess__logs_performance_metrics_after_parsing_data(
         side_effect=[bytes(read_len) for read_len in expected_read_lengths],
     )
     expected_parse_durs = list(range(0, INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES * 2, 2))
-    mocker.patch.object(
+    mocked_data_parse_dur = mocker.patch.object(
         mc_comm, "_get_dur_of_data_parse_secs", autospec=True, side_effect=expected_parse_durs
     )
     expected_num_packets_read = list(range(20, 20 + INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES))
@@ -1296,7 +1302,10 @@ def test_McCommunicationProcess__logs_performance_metrics_after_parsing_data(
     invoke_process_run_and_check_errors(
         mc_process, num_iterations=INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
     )
-
+    # check that related metrics use same timepoints
+    assert mocked_since_last_read.call_args_list == mocked_data_read_dur.call_args_list[:-1]
+    assert mocked_since_last_parse.call_args_list == mocked_data_parse_dur.call_args_list[:-1]
+    # check actual metric values
     actual = drain_queue(to_main_queue)[-1]["message"]
     assert actual["communication_type"] == "performance_metrics"
     for name, mc_measurements in (
@@ -1315,6 +1324,10 @@ def test_McCommunicationProcess__logs_performance_metrics_after_parsing_data(
         (
             "data_parsing_num_packets_produced",
             expected_num_packets_read,
+        ),
+        (
+            "duration_between_reading",
+            expected_secs_between_reading,
         ),
         (
             "duration_between_parsing",

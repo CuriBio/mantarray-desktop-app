@@ -177,6 +177,10 @@ def _get_secs_since_last_data_parse(last_parse_time: float) -> float:
     return perf_counter() - last_parse_time
 
 
+def _get_secs_since_last_data_read(last_read_time: float) -> float:
+    return perf_counter() - last_read_time
+
+
 def _get_dur_of_data_read_secs(start: float) -> float:
     return perf_counter() - start
 
@@ -252,7 +256,9 @@ class McCommunicationProcess(InstrumentCommProcess):
         # performance tracking values
         self._performance_logging_cycles = INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
         self._parses_since_last_logging: List[int] = [0] * len(self._board_queues)
+        self._durations_between_reading: List[float] = list()
         self._durations_between_parsing: List[float] = list()
+        self._timepoint_of_prev_data_read_secs: Optional[float] = None
         self._timepoint_of_prev_data_parse_secs: Optional[float] = None
         self._data_read_durations: List[float] = list()
         self._data_read_lengths: List[int] = list()
@@ -515,6 +521,8 @@ class McCommunicationProcess(InstrumentCommProcess):
                 )
         elif communication_type == "acquisition_manager":
             if comm_from_main["command"] == "start_managed_acquisition":
+                self._timepoint_of_prev_data_parse_secs = None
+                self._timepoint_of_prev_data_read_secs = None
                 bytes_to_send = bytes([SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE])
             elif comm_from_main["command"] == "stop_managed_acquisition":
                 self._is_stopping_data_stream = True
@@ -1056,9 +1064,14 @@ class McCommunicationProcess(InstrumentCommProcess):
         if board is None:
             raise NotImplementedError("board should never be None here")
 
-        data_read_start = perf_counter()
+        if self._timepoint_of_prev_data_read_secs is not None:
+            self._durations_between_reading.append(
+                _get_secs_since_last_data_read(self._timepoint_of_prev_data_read_secs)
+            )
+        self._timepoint_of_prev_data_read_secs = perf_counter()
+
         data_read_bytes = board.read_all()
-        self._data_read_durations.append(_get_dur_of_data_read_secs(data_read_start))
+        self._data_read_durations.append(_get_dur_of_data_read_secs(self._timepoint_of_prev_data_read_secs))
         self._data_read_lengths.append(len(data_read_bytes))
 
         self._data_packet_cache += data_read_bytes
@@ -1074,22 +1087,23 @@ class McCommunicationProcess(InstrumentCommProcess):
             return
 
         # TODO Tanner (10/22/21): add stim packet parsing to metrics once real stream is implemented
+
         # update performance tracking values
         self._parses_since_last_logging[board_idx] += 1
-        if self._timepoint_of_prev_data_parse_secs is None:
-            self._timepoint_of_prev_data_parse_secs = perf_counter()
-        else:
+        if self._timepoint_of_prev_data_parse_secs is not None:
             self._durations_between_parsing.append(
                 _get_secs_since_last_data_parse(self._timepoint_of_prev_data_parse_secs)
             )
+        self._timepoint_of_prev_data_parse_secs = perf_counter()
 
-        data_parsing_start = perf_counter()
         parsed_packet_dict = handle_data_packets(
             bytearray(self._data_packet_cache),
             self._active_sensors_list,
             self._base_global_time_of_data_stream,
         )
-        self._data_parsing_durations.append(_get_dur_of_data_parse_secs(data_parsing_start))
+        self._data_parsing_durations.append(
+            _get_dur_of_data_parse_secs(self._timepoint_of_prev_data_parse_secs)
+        )
         self._data_parsing_num_packets_produced.append(
             parsed_packet_dict["magnetometer_data"]["num_data_packets"]
         )
@@ -1292,6 +1306,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             ("data_read_duration", self._data_read_durations),
             ("data_parsing_duration", self._data_parsing_durations),
             ("data_parsing_num_packets_produced", self._data_parsing_num_packets_produced),
+            ("duration_between_reading", self._durations_between_reading),
             ("duration_between_parsing", self._durations_between_parsing),
         ):
             performance_metrics[name] = {
