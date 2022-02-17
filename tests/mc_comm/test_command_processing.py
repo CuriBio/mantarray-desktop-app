@@ -472,7 +472,7 @@ def test_McCommunicationProcess__processes_get_latest_firmware_versions_command(
     [(False, False), (False, True), (True, False), (True, True)],
 )
 def test_McCommunicationProcess__handles_download_firmware_updates_command(
-    main_fw_update, channel_fw_update, four_board_mc_comm_process_no_handshake, mocker
+    main_fw_update, channel_fw_update, four_board_mc_comm_process_no_handshake, mocker, patch_print
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     board_queues = four_board_mc_comm_process_no_handshake["board_queues"]
