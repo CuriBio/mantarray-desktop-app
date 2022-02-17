@@ -8,7 +8,7 @@ Changelog for Mantarray Desktop App
 - Changed 30 second recording time limit to 5 minutes.
 
 
-0.7.0 (2021-02-04)
+0.7.0 (2022-02-04)
 ------------------
 
 - Added firmware auto updating.
