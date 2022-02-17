@@ -6,6 +6,7 @@ Changelog for Mantarray Desktop App
 
 - Added initial Beta 2 barcode scanning functionality.
 - Changed 30 second recording time limit to 5 minutes.
+- Fixed issue that allowed transition into Live View directly from Calibrated state.
 
 
 0.7.0 (2022-02-04)
