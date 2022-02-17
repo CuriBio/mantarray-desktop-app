@@ -200,7 +200,7 @@ jobs:
 
       - name: Run Python Tests with supplied pytest-randomly seed
         if: github.event.inputs.randomlyseed != ''
-        timeout-minutes: 40
+        timeout-minutes: 30
         run: pipenv run pytest -xsvv --cov-report=xml --include-slow-tests --full-ci --randomly-seed=${{ github.event.inputs.randomlyseed }}
 
       - name: Confirm Sphinx Docs build correctly
@@ -227,6 +227,7 @@ jobs:
           ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHTIMESTAMPDURINGBUILD',"$(Get-Date -Format 'yyMMddHHmmss')--$env:build_number") | Set-Content -Path src\mantarray_desktop_app\constants.py
           ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHVERSIONDURINGBUILD',"${{steps.software-version.outputs.prop}}") | Set-Content -Path src\mantarray_desktop_app\constants.py
           ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHENDPOINTDURINGBUILD',"${{github.event.inputs.api_endpoint}}") | Set-Content -Path src\mantarray_desktop_app\constants.py
+
       - name: Insert the Build Number and Software Version into the code (Linux)
         if: runner.os == 'Linux'
         env:
@@ -236,6 +237,7 @@ jobs:
           sed -i 's/REPLACETHISWITHTIMESTAMPDURINGBUILD/'"$(date +'%y%m%d%H%M%S')"'--$build_number/g' src/mantarray_desktop_app/constants.py
           sed -i 's/REPLACETHISWITHVERSIONDURINGBUILD/'"${{steps.software-version.outputs.prop}}"'/g' src/mantarray_desktop_app/constants.py
           sed -i 's/REPLACETHISWITHENDPOINTDURINGBUILD/'"${{github.event.inputs.api_endpoint}}"'/g' src/mantarray_desktop_app/constants.py
+
       - name: Compile the Python Executable
         run: pipenv run pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=dist-python --workpath=build-python
 
@@ -255,6 +257,7 @@ jobs:
         run: |
           pipenv run python .github/workflows/vcn.py notarize "dist-python/mantarray-flask/mantarray-flask.exe"
           pipenv run python .github/workflows/vcn.py authenticate "dist-python/mantarray-flask/mantarray-flask.exe"
+
       - name: Build Full Electron App
         run: pipenv run npm run build
 
@@ -294,6 +297,7 @@ jobs:
           pipenv run python .github/workflows/vcn.py notarize "dist/win-unpacked/Mantarray Controller.exe"
           pipenv run python .github/workflows/vcn.py authenticate "dist/${{steps.product-name.outputs.prop}}-Setup-${{steps.software-version.outputs.prop}}.exe"
           pipenv run python .github/workflows/vcn.py authenticate "dist/win-unpacked/Mantarray Controller.exe"
+
       - name: Archive visual regression
         if: ${{ failure() }}
         uses: actions/upload-artifact@v2

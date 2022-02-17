@@ -93,6 +93,7 @@ from .constants import REFERENCE_VOLTAGE
 from .constants import ROUND_ROBIN_PERIOD
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
+from .constants import SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE
 from .constants import SERIAL_COMM_BAUD_RATE
 from .constants import SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_BOOT_UP_CODE
@@ -647,4 +648,5 @@ __all__ = [
     "upload_log_files_to_s3",
     "FirmwareDownloadError",
     "UPDATE_ERROR_STATE",
+    "SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE",
 ]

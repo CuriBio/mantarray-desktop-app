@@ -40,6 +40,7 @@ from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MICROSECONDS_PER_MILLISECOND
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
+from .constants import SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE
 from .constants import SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_BOOT_UP_CODE
 from .constants import SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE
@@ -69,7 +70,6 @@ from .constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
-from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from .constants import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
@@ -495,8 +495,8 @@ class MantarrayMcSimulator(InfiniteProcess):
         if self._ready_to_send_barcode:
             self._send_data_packet(
                 SERIAL_COMM_MAIN_MODULE_ID,
-                SERIAL_COMM_PLATE_EVENT_PACKET_TYPE,
-                bytes([1]) + bytes(self.default_barcode, encoding="ascii"),
+                SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE,
+                bytes(self.default_barcode, encoding="ascii"),
             )
             self._ready_to_send_barcode = False
 

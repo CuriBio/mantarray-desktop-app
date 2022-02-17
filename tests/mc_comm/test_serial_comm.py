@@ -9,6 +9,7 @@ from mantarray_desktop_app import InstrumentSoftError
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
+from mantarray_desktop_app import SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_FATAL_ERROR_CODE
@@ -599,20 +600,20 @@ def test_McCommunicationProcess__raises_error_if_soft_error_code_received_from_i
 @pytest.mark.parametrize(
     "test_barcode,expected_valid_flag,test_description",
     [
-        ("", None, "sends correct barcode comm when plate is removed"),
+        ("", None, "sends correct message to main when plate is removed"),
         (
             MantarrayMcSimulator.default_barcode,
             True,
-            "sends correct barcode comm when plate with valid barcode is placed",
+            "sends correct message to main when plate with valid barcode is placed",
         ),
         (
             "M$190190001",
             False,
-            "sends correct barcode comm when plate with invalid barcode is placed",
+            "sends correct message to main when plate with invalid barcode is placed",
         ),
     ],
 )
-def test_McCommunicationProcess__handles_barcode_comm(
+def test_McCommunicationProcess__handles_plate_event(
     test_barcode,
     expected_valid_flag,
     test_description,
@@ -651,5 +652,49 @@ def test_McCommunicationProcess__handles_barcode_comm(
     }
     if expected_valid_flag is not None:
         expected_barcode_comm["valid"] = expected_valid_flag
+    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert actual == expected_barcode_comm
+
+
+@pytest.mark.parametrize(
+    "test_barcode,expected_valid_flag",
+    [(MantarrayMcSimulator.default_barcode, True), ("M$190190001", False)],
+)
+def test_McCommunicationProcess__handles_barcode_found(
+    test_barcode,
+    expected_valid_flag,
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+    to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
+
+    # send plate event packet from simulator
+    plate_event_packet = create_data_packet(
+        randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE),
+        SERIAL_COMM_MAIN_MODULE_ID,
+        SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE,
+        bytes(test_barcode, encoding="ascii"),
+    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "add_read_bytes", "read_bytes": plate_event_packet},
+        testing_queue,
+    )
+    invoke_process_run_and_check_errors(simulator)
+    # process plate event packet and send barcode comm to main
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+    # check that comm was sent correctly
+    expected_barcode_comm = {
+        "communication_type": "barcode_comm",
+        "board_idx": 0,
+        "barcode": test_barcode,
+        "valid": expected_valid_flag,
+    }
     actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_barcode_comm
