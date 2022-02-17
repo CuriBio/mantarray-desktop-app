@@ -1,7 +1,7 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-0.8.0 (unreleased)
+0.8.0 (2022-17-22)
 ------------------
 
 - Added initial Beta 2 barcode scanning functionality.
