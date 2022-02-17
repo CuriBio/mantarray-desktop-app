@@ -28,36 +28,35 @@ from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
-from mantarray_desktop_app.constants import BOOT_FLAGS_UUID
-from mantarray_desktop_app.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
-from mantarray_file_manager import ADC_GAIN_SETTING_UUID
-from mantarray_file_manager import BACKEND_LOG_UUID
-from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
-from mantarray_file_manager import Beta1WellFile
-from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
-from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
-from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
-from mantarray_file_manager import MAGNETOMETER_CONFIGURATION_UUID
-from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
-from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
-from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
-from mantarray_file_manager import PLATE_BARCODE_UUID
-from mantarray_file_manager import REFERENCE_VOLTAGE_UUID
-from mantarray_file_manager import SLEEP_FIRMWARE_VERSION_UUID
-from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
-from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
-from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
-from mantarray_file_manager import STIMULATION_PROTOCOL_UUID
-from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
-from mantarray_file_manager import USER_ACCOUNT_ID_UUID
-from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
-from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
-from mantarray_file_manager import UTC_BEGINNING_STIMULATION_UUID
-from mantarray_file_manager import WellFile
-from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
-from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
 import numpy as np
+from pulse3D.constants import ADC_GAIN_SETTING_UUID
+from pulse3D.constants import BACKEND_LOG_UUID
+from pulse3D.constants import BARCODE_IS_FROM_SCANNER_UUID
+from pulse3D.constants import BOOT_FLAGS_UUID
+from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
+from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
+from pulse3D.constants import COMPUTER_NAME_HASH_UUID
+from pulse3D.constants import CUSTOMER_ACCOUNT_ID_UUID
+from pulse3D.constants import HARDWARE_TEST_RECORDING_UUID
+from pulse3D.constants import MAGNETOMETER_CONFIGURATION_UUID
+from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
+from pulse3D.constants import MANTARRAY_NICKNAME_UUID
+from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
+from pulse3D.constants import PLATE_BARCODE_UUID
+from pulse3D.constants import REFERENCE_VOLTAGE_UUID
+from pulse3D.constants import SLEEP_FIRMWARE_VERSION_UUID
+from pulse3D.constants import SOFTWARE_BUILD_NUMBER_UUID
+from pulse3D.constants import SOFTWARE_RELEASE_VERSION_UUID
+from pulse3D.constants import START_RECORDING_TIME_INDEX_UUID
+from pulse3D.constants import STIMULATION_PROTOCOL_UUID
+from pulse3D.constants import TISSUE_SAMPLING_PERIOD_UUID
+from pulse3D.constants import USER_ACCOUNT_ID_UUID
+from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
+from pulse3D.constants import UTC_BEGINNING_RECORDING_UUID
+from pulse3D.constants import UTC_BEGINNING_STIMULATION_UUID
+from pulse3D.constants import XEM_SERIAL_NUMBER_UUID
+from pulse3D.plate_recording import WellFile
 import pytest
 from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
@@ -252,8 +251,7 @@ def open_the_generic_h5_file_as_WellFile(
         PLATE_BARCODE_UUID
     ]
 
-    well_file_class = Beta1WellFile if beta_version == 1 else WellFile
-    actual_file = well_file_class(
+    actual_file = WellFile(
         os.path.join(
             file_dir,
             f"{barcode}__{timestamp_str}",

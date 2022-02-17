@@ -75,20 +75,26 @@ def _set_up_socketio_handlers(ws_queue: LightQueue) -> Callable[[], None]:
                 item = ws_queue.get(timeout=0.0001)
             except Empty:
                 continue
+
+            # Tanner (2/4/22): tombstone message currently only comes from socketio disconnect event handler
             if item["data_type"] == "tombstone":
                 break
+
             socketio.emit(item["data_type"], item["data_json"])
 
+    # Tanner (2/4/22): This value used to ensure that data_sender is only started once as a socketio background task
     _socketio_background_task_status = {"data_sender": False}
 
     @socketio.on("connect")
     def start_data_sender():  # type: ignore
+        # only start background task if not already running
         if not _socketio_background_task_status["data_sender"]:
             socketio.start_background_task(data_sender)
         _socketio_background_task_status["data_sender"] = True
 
     @socketio.on("disconnect")
     def stop_data_sender():  # type: ignore
+        # only send tombstone if already running
         if _socketio_background_task_status["data_sender"]:
             ws_queue.put_nowait({"data_type": "tombstone"})
         _socketio_background_task_status["data_sender"] = False

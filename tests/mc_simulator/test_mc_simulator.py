@@ -4,7 +4,6 @@ from multiprocessing import Queue
 from random import randint
 
 from immutabledict import immutabledict
-from mantarray_desktop_app import CHANNEL_FIRMWARE_VERSION_UUID
 from mantarray_desktop_app import convert_to_status_code_bytes
 from mantarray_desktop_app import convert_to_timestamp_bytes
 from mantarray_desktop_app import create_data_packet
@@ -12,13 +11,13 @@ from mantarray_desktop_app import create_magnetometer_config_bytes
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
+from mantarray_desktop_app import SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_IDLE_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
-from mantarray_desktop_app import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SET_TIME_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
@@ -28,11 +27,12 @@ from mantarray_desktop_app import SERIAL_COMM_TIME_SYNC_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import SerialCommInvalidSamplingPeriodError
 from mantarray_desktop_app import UnrecognizedSimulatorTestCommandError
-from mantarray_desktop_app.constants import BOOT_FLAGS_UUID
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
-from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
-from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
-from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
+from pulse3D.constants import BOOT_FLAGS_UUID
+from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
+from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
+from pulse3D.constants import MANTARRAY_NICKNAME_UUID
+from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
 import pytest
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import invoke_process_run_and_check_errors
@@ -575,14 +575,14 @@ def test_MantarrayMcSimulator__automatically_sends_plate_barcode_after_time_is_s
     # process set time command and remove response
     invoke_process_run_and_check_errors(simulator)
     simulator.read(size=get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES))
-    plate_event_packet_size = get_full_packet_size_from_packet_body_size(
-        1 + len(MantarrayMcSimulator.default_barcode)  # 1 byte for placed/removed flag
+    barcode_packet_size = get_full_packet_size_from_packet_body_size(
+        len(MantarrayMcSimulator.default_barcode)
     )
-    # assert plate event packet sent correctly
-    plate_event_packet = simulator.read(size=plate_event_packet_size)
+    # assert barcode packet sent correctly
+    barcode_packet = simulator.read(size=barcode_packet_size)
     assert_serial_packet_is_expected(
-        plate_event_packet,
+        barcode_packet,
         SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_PLATE_EVENT_PACKET_TYPE,
-        additional_bytes=bytes([1]) + bytes(MantarrayMcSimulator.default_barcode, encoding="ascii"),
+        SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE,
+        bytes(MantarrayMcSimulator.default_barcode, encoding="ascii"),
     )

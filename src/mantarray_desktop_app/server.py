@@ -57,8 +57,9 @@ from flask import Response
 from flask_cors import CORS
 from flask_socketio import SocketIO
 from immutabledict import immutabledict
-from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
-from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
+from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
+from pulse3D.constants import MANTARRAY_NICKNAME_UUID
+from pulse3D.constants import METADATA_UUID_DESCRIPTIONS
 import requests
 from semver import VersionInfo
 from stdlib_utils import drain_queue
@@ -72,7 +73,6 @@ from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
-from .constants import METADATA_UUID_DESCRIPTIONS
 from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MICROSECONDS_PER_MILLISECOND
@@ -223,7 +223,6 @@ def system_status() -> Response:
         # TODO figure out which FE status the SW gets stuck in when this error code is returned
         return Response(status="520 Versions of Electron and Flask EXEs do not match")
 
-    board_idx = 0
     status = shared_values_dict["system_status"]
     status_dict = {
         "ui_status_code": str(SYSTEM_STATUS_UUIDS[status]),
@@ -233,18 +232,6 @@ def system_status() -> Response:
         "mantarray_serial_number": shared_values_dict.get("mantarray_serial_number", ""),
         "mantarray_nickname": shared_values_dict.get("mantarray_nickname", ""),
     }
-    if (
-        "barcodes" in shared_values_dict
-        and shared_values_dict["barcodes"][board_idx]["frontend_needs_barcode_update"]
-    ):
-        status_dict["plate_barcode"] = shared_values_dict["barcodes"][board_idx]["plate_barcode"]
-        status_dict["barcode_status"] = str(shared_values_dict["barcodes"][board_idx]["barcode_status"])
-        queue_command_to_main(
-            {
-                "communication_type": "barcode_read_receipt",
-                "board_idx": board_idx,
-            }
-        )
 
     response = Response(json.dumps(status_dict), mimetype="application/json")
 

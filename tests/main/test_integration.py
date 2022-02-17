@@ -54,52 +54,53 @@ from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
 from mantarray_desktop_app import utils
 from mantarray_desktop_app import wait_for_subprocesses_to_start
 from mantarray_desktop_app import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
-from mantarray_desktop_app.constants import BOOT_FLAGS_UUID
-from mantarray_desktop_app.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
-from mantarray_desktop_app.constants import METADATA_UUID_DESCRIPTIONS
-from mantarray_file_manager import ADC_GAIN_SETTING_UUID
-from mantarray_file_manager import ADC_REF_OFFSET_UUID
-from mantarray_file_manager import ADC_TISSUE_OFFSET_UUID
-from mantarray_file_manager import BACKEND_LOG_UUID
-from mantarray_file_manager import BARCODE_IS_FROM_SCANNER_UUID
-from mantarray_file_manager import COMPUTER_NAME_HASH_UUID
-from mantarray_file_manager import CUSTOMER_ACCOUNT_ID_UUID
-from mantarray_file_manager import FILE_FORMAT_VERSION_METADATA_KEY
-from mantarray_file_manager import HARDWARE_TEST_RECORDING_UUID
-from mantarray_file_manager import IS_FILE_ORIGINAL_UNTRIMMED_UUID
-from mantarray_file_manager import MAIN_FIRMWARE_VERSION_UUID
-from mantarray_file_manager import MANTARRAY_NICKNAME_UUID
-from mantarray_file_manager import MANTARRAY_SERIAL_NUMBER_UUID
-from mantarray_file_manager import NOT_APPLICABLE_H5_METADATA
-from mantarray_file_manager import ORIGINAL_FILE_VERSION_UUID
-from mantarray_file_manager import PLATE_BARCODE_UUID
-from mantarray_file_manager import REF_SAMPLING_PERIOD_UUID
-from mantarray_file_manager import REFERENCE_VOLTAGE_UUID
-from mantarray_file_manager import SLEEP_FIRMWARE_VERSION_UUID
-from mantarray_file_manager import SOFTWARE_BUILD_NUMBER_UUID
-from mantarray_file_manager import SOFTWARE_RELEASE_VERSION_UUID
-from mantarray_file_manager import START_RECORDING_TIME_INDEX_UUID
-from mantarray_file_manager import STIMULATION_PROTOCOL_UUID
-from mantarray_file_manager import TISSUE_SAMPLING_PERIOD_UUID
-from mantarray_file_manager import TOTAL_WELL_COUNT_UUID
-from mantarray_file_manager import TRIMMED_TIME_FROM_ORIGINAL_END_UUID
-from mantarray_file_manager import TRIMMED_TIME_FROM_ORIGINAL_START_UUID
-from mantarray_file_manager import USER_ACCOUNT_ID_UUID
-from mantarray_file_manager import UTC_BEGINNING_DATA_ACQUISTION_UUID
-from mantarray_file_manager import UTC_BEGINNING_RECORDING_UUID
-from mantarray_file_manager import UTC_BEGINNING_STIMULATION_UUID
-from mantarray_file_manager import UTC_FIRST_REF_DATA_POINT_UUID
-from mantarray_file_manager import UTC_FIRST_TISSUE_DATA_POINT_UUID
-from mantarray_file_manager import WELL_COLUMN_UUID
-from mantarray_file_manager import WELL_INDEX_UUID
-from mantarray_file_manager import WELL_NAME_UUID
-from mantarray_file_manager import WELL_ROW_UUID
-from mantarray_file_manager import XEM_SERIAL_NUMBER_UUID
-from mantarray_waveform_analysis import BUTTERWORTH_LOWPASS_30_UUID
-from mantarray_waveform_analysis import CENTIMILLISECONDS_PER_SECOND
-from mantarray_waveform_analysis import PipelineTemplate
+from mantarray_desktop_app.data_analyzer import get_force_signal
 import numpy as np
+from pulse3D.constants import ADC_GAIN_SETTING_UUID
+from pulse3D.constants import ADC_REF_OFFSET_UUID
+from pulse3D.constants import ADC_TISSUE_OFFSET_UUID
+from pulse3D.constants import BACKEND_LOG_UUID
+from pulse3D.constants import BARCODE_IS_FROM_SCANNER_UUID
+from pulse3D.constants import BOOT_FLAGS_UUID
+from pulse3D.constants import BUTTERWORTH_LOWPASS_30_UUID
+from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
+from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
+from pulse3D.constants import COMPUTER_NAME_HASH_UUID
+from pulse3D.constants import CUSTOMER_ACCOUNT_ID_UUID
+from pulse3D.constants import FILE_FORMAT_VERSION_METADATA_KEY
+from pulse3D.constants import HARDWARE_TEST_RECORDING_UUID
+from pulse3D.constants import IS_FILE_ORIGINAL_UNTRIMMED_UUID
+from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
+from pulse3D.constants import MANTARRAY_NICKNAME_UUID
+from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
+from pulse3D.constants import METADATA_UUID_DESCRIPTIONS
+from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
+from pulse3D.constants import ORIGINAL_FILE_VERSION_UUID
+from pulse3D.constants import PLATE_BARCODE_UUID
+from pulse3D.constants import REF_SAMPLING_PERIOD_UUID
+from pulse3D.constants import REFERENCE_VOLTAGE_UUID
+from pulse3D.constants import SLEEP_FIRMWARE_VERSION_UUID
+from pulse3D.constants import SOFTWARE_BUILD_NUMBER_UUID
+from pulse3D.constants import SOFTWARE_RELEASE_VERSION_UUID
+from pulse3D.constants import START_RECORDING_TIME_INDEX_UUID
+from pulse3D.constants import STIMULATION_PROTOCOL_UUID
+from pulse3D.constants import TISSUE_SAMPLING_PERIOD_UUID
+from pulse3D.constants import TOTAL_WELL_COUNT_UUID
+from pulse3D.constants import TRIMMED_TIME_FROM_ORIGINAL_END_UUID
+from pulse3D.constants import TRIMMED_TIME_FROM_ORIGINAL_START_UUID
+from pulse3D.constants import USER_ACCOUNT_ID_UUID
+from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
+from pulse3D.constants import UTC_BEGINNING_RECORDING_UUID
+from pulse3D.constants import UTC_BEGINNING_STIMULATION_UUID
+from pulse3D.constants import UTC_FIRST_REF_DATA_POINT_UUID
+from pulse3D.constants import UTC_FIRST_TISSUE_DATA_POINT_UUID
+from pulse3D.constants import WELL_COLUMN_UUID
+from pulse3D.constants import WELL_INDEX_UUID
+from pulse3D.constants import WELL_NAME_UUID
+from pulse3D.constants import WELL_ROW_UUID
+from pulse3D.constants import XEM_SERIAL_NUMBER_UUID
+from pulse3D.transforms import create_filter
 import pytest
 import requests
 from scipy import signal
@@ -674,14 +675,11 @@ def test_full_datapath_in_beta_1_mode(
         dtype=np.int32,
     )
     test_data[1] -= min(test_data[1])
-    pl_template = PipelineTemplate(
-        is_beta_1_data=True,
-        noise_filter_uuid=BUTTERWORTH_LOWPASS_30_UUID,
-        tissue_sampling_period=ROUND_ROBIN_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND,
+    filter_coefficients = create_filter(
+        BUTTERWORTH_LOWPASS_30_UUID,
+        ROUND_ROBIN_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND,
     )
-    pipeline = pl_template.create_pipeline()
-    pipeline.load_raw_gmr_data(test_data, np.zeros(test_data.shape))
-    expected_well_data = pipeline.get_compressed_force()
+    expected_well_data = get_force_signal(test_data, filter_coefficients, is_beta_2_data=False)
 
     # Tanner (12/29/20): Assert data is as expected for two wells
     waveform_data_points = json.loads(msg_list_container["waveform_data"][0])["waveform_data"]["basic_data"][

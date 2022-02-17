@@ -1,23 +1,49 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-0.7.0 (unreleased)
+0.8.0 (2022-17-22)
+------------------
+
+- Added initial Beta 2 barcode scanning functionality.
+- Changed 30 second recording time limit to 5 minutes.
+- Fixed issue that allowed transition into Live View directly from Calibrated state.
+- Fixed performance tracking of process responsible for communications with the instrument.
+- Fixed issue with markers for long subprotocols not being displayed correctly in Live View.
+- Updated HeatMap:
+
+  - Changed settings to only update when the apply button is pressed and reset when Live View stops.
+  - Changed apply button to only be enabled when Live View is active **AND**
+
+    - Valid min and max values are entered **OR**
+    - Autoscale is enabled.
+
+  - Fixed autoscale feature.
+  - Fixed issue with ``NaN`` values showing up in the gradient bar when switching metrics.
+
+- Updated Stim Studio:
+
+  - Added dropdown menu to switch the x-axis units between ms and seconds.
+  - Changed subprotocols by double-clicking the block instead of Shift + Click.
+  - Updated the delete protocol modal to match existing modals.
+
+
+0.7.0 (2022-02-04)
 ------------------
 
 - Added firmware auto updating.
 
-    - *Note*: if any firmware updates are found but are not successfully installed, then a software update,
-      if found, will be not be installed.
+  - **Note**: if any firmware updates are found but are not successfully installed, then a software update,
+    if found, will be not be installed.
 
 - Added upload of log files at shutdown if customer credentials have been input.
 - Added minor styling updates.
 - Added tool tips for additional controls.
+- Added 30 second max time limit to recordings.
 - Changed subprotocol edit from Shift+Click to Double Click.
 - Fixed issue with Mantarray Controller and Mantarray Software processes persisting after an error occurs and
   the app is closed.
 - Fixed issue with subprotocol markers not changing when less than 1000ms.
 - Removed customer credentials from log files.
-
 
 
 0.6.6 (2022-01-12)
@@ -67,7 +93,7 @@ Changelog for Mantarray Desktop App
 - Added option to automatically upload recorded files to cloud analysis.
 - Added Stimulation Studio and Controls when app is launched in Beta 2 mode.
 
-  - *Note*: Beta 2 force values/metrics are currently in arbitrary units for Live View and Heat Map.
+  - **Note**: Beta 2 force values/metrics are currently in arbitrary units for Live View and Heat Map.
 
 - Added stimulation subprotocol markers in Live View.
 - Added stimulation subprotocol start times and stimulation stop time to H5 files.

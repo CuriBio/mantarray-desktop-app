@@ -22,9 +22,9 @@ from typing import Tuple
 from typing import Union
 from zlib import crc32
 
-from mantarray_file_manager import DATETIME_STR_FORMAT
 from nptyping import NDArray
 import numpy as np
+from pulse3D.constants import DATETIME_STR_FORMAT
 import serial
 import serial.tools.list_ports as list_ports
 from stdlib_utils import put_log_message_into_queue
@@ -38,6 +38,7 @@ from .constants import MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import NUM_INITIAL_PACKETS_TO_DROP
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
+from .constants import SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE
 from .constants import SERIAL_COMM_BAUD_RATE
 from .constants import SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE
@@ -176,6 +177,10 @@ def _get_secs_since_last_data_parse(last_parse_time: float) -> float:
     return perf_counter() - last_parse_time
 
 
+def _get_secs_since_last_data_read(last_read_time: float) -> float:
+    return perf_counter() - last_read_time
+
+
 def _get_dur_of_data_read_secs(start: float) -> float:
     return perf_counter() - start
 
@@ -251,7 +256,9 @@ class McCommunicationProcess(InstrumentCommProcess):
         # performance tracking values
         self._performance_logging_cycles = INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
         self._parses_since_last_logging: List[int] = [0] * len(self._board_queues)
+        self._durations_between_reading: List[float] = list()
         self._durations_between_parsing: List[float] = list()
+        self._timepoint_of_prev_data_read_secs: Optional[float] = None
         self._timepoint_of_prev_data_parse_secs: Optional[float] = None
         self._data_read_durations: List[float] = list()
         self._data_read_lengths: List[int] = list()
@@ -498,7 +505,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 packet_type = SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
                 bytes_to_send = bytes(
                     comm_from_main["mantarray_nickname"], "utf-8"
-                )  # TODO check this value in the route for it and make it 13 bytes if it is too short
+                )  # TODO append '\x00' until it is 13 bytes long if needed
                 self._is_setting_nickname = True
             else:
                 raise UnrecognizedCommandFromMainToMcCommError(
@@ -514,6 +521,9 @@ class McCommunicationProcess(InstrumentCommProcess):
                 )
         elif communication_type == "acquisition_manager":
             if comm_from_main["command"] == "start_managed_acquisition":
+                self._timepoint_of_prev_data_parse_secs = None
+                self._timepoint_of_prev_data_read_secs = None
+                self._parses_since_last_logging = [0] * len(self._board_queues)
                 bytes_to_send = bytes([SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE])
             elif comm_from_main["command"] == "stop_managed_acquisition":
                 self._is_stopping_data_stream = True
@@ -885,6 +895,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             # Tanner (3/17/21): to be consistent with OkComm, command responses will be sent back to main after the command is acknowledged by the Mantarray
             self._board_queues[board_idx][1].put_nowait(prev_command)
         elif packet_type == SERIAL_COMM_PLATE_EVENT_PACKET_TYPE:
+            # Tanner (2/4/22): currently unused in favor of SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE, but plan to switch back to this packet type when the instrument is able to detect whether or not a plate was placed or removed
             plate_was_placed = bool(packet_body[0])
             barcode = packet_body[1:].decode("ascii") if plate_was_placed else ""
             barcode_comm = {
@@ -914,6 +925,15 @@ class McCommunicationProcess(InstrumentCommProcess):
             # set up values for reboot
             self._is_waiting_for_reboot = True
             self._time_of_reboot_start = perf_counter()
+        elif packet_type == SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE:
+            barcode = packet_body.decode("ascii")
+            barcode_comm = {
+                "communication_type": "barcode_comm",
+                "board_idx": board_idx,
+                "barcode": barcode,
+                "valid": check_barcode_is_valid(barcode),
+            }
+            self._board_queues[board_idx][1].put_nowait(barcode_comm)
         else:
             raise UnrecognizedSerialCommPacketTypeError(
                 f"Packet Type ID: {packet_type} is not defined for Module ID: {module_id}"
@@ -1045,15 +1065,23 @@ class McCommunicationProcess(InstrumentCommProcess):
         if board is None:
             raise NotImplementedError("board should never be None here")
 
-        data_read_start = perf_counter()
+        performance_tracking_values: Dict[str, Any] = dict()
+
+        if self._timepoint_of_prev_data_read_secs is not None:
+            performance_tracking_values["dur_since_prev_read"] = _get_secs_since_last_data_read(
+                self._timepoint_of_prev_data_read_secs
+            )
+        self._timepoint_of_prev_data_read_secs = perf_counter()
+
         data_read_bytes = board.read_all()
-        self._data_read_durations.append(_get_dur_of_data_read_secs(data_read_start))
-        self._data_read_lengths.append(len(data_read_bytes))
+        performance_tracking_values["dur_of_data_read"] = _get_dur_of_data_read_secs(
+            self._timepoint_of_prev_data_read_secs
+        )
+        performance_tracking_values["data_read_len"] = len(data_read_bytes)
 
         self._data_packet_cache += data_read_bytes
         # If stopping data stream, make sure at least 1 byte is available.
         # Otherwise, wait for at least 1 second of data
-
         return_cond = len(self._data_packet_cache) == 0
         # if streaming data and not stopping yet, need to make sure at least one second of data is present
         if self._is_data_streaming and not self._is_stopping_data_stream:
@@ -1061,30 +1089,25 @@ class McCommunicationProcess(InstrumentCommProcess):
             return_cond |= len(self._data_packet_cache) < num_bytes_per_second
         if return_cond:
             return
-
-        # TODO Tanner (10/22/21): add stim packet parsing to metrics once real stream is implemented
         # update performance tracking values
         self._parses_since_last_logging[board_idx] += 1
-        if self._timepoint_of_prev_data_parse_secs is None:
-            self._timepoint_of_prev_data_parse_secs = perf_counter()
-        else:
-            self._durations_between_parsing.append(
-                _get_secs_since_last_data_parse(self._timepoint_of_prev_data_parse_secs)
-            )
 
-        data_parsing_start = perf_counter()
+        if self._timepoint_of_prev_data_parse_secs is not None:
+            performance_tracking_values["dur_since_prev_parse"] = _get_secs_since_last_data_parse(
+                self._timepoint_of_prev_data_parse_secs
+            )
+        self._timepoint_of_prev_data_parse_secs = perf_counter()
+
         parsed_packet_dict = handle_data_packets(
             bytearray(self._data_packet_cache),
             self._active_sensors_list,
             self._base_global_time_of_data_stream,
         )
-        self._data_parsing_durations.append(_get_dur_of_data_parse_secs(data_parsing_start))
-        self._data_parsing_num_packets_produced.append(
-            parsed_packet_dict["magnetometer_data"]["num_data_packets"]
+        performance_tracking_values["dur_of_data_parse"] = _get_dur_of_data_parse_secs(
+            self._timepoint_of_prev_data_parse_secs
         )
 
         self._data_packet_cache = parsed_packet_dict["unread_bytes"]
-
         # process any other packets
         for other_packet_info in parsed_packet_dict["other_packet_info"]:
             self._process_comm_from_instrument(*other_packet_info[1:])
@@ -1092,10 +1115,23 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._dump_data_packets(parsed_packet_dict["magnetometer_data"])
         self._handle_stim_packets(parsed_packet_dict["stim_data"])
 
-        # handle performance logging if ready
-        if self._parses_since_last_logging[board_idx] >= self._performance_logging_cycles:
-            self._handle_performance_logging()
-            self._parses_since_last_logging[board_idx] = 0
+        # update performance tracking values if not stopping data stream
+        if not self._is_stopping_data_stream:
+            # TODO Tanner (10/22/21): add stim packet parsing to metrics once real stream is implemented, could also clean up the performance tracking
+            if "dur_since_prev_read" in performance_tracking_values:
+                self._durations_between_reading.append(performance_tracking_values["dur_since_prev_read"])
+            self._data_read_durations.append(performance_tracking_values["dur_of_data_read"])
+            self._data_read_lengths.append(performance_tracking_values["data_read_len"])
+            if "dur_since_prev_parse" in performance_tracking_values:
+                self._durations_between_parsing.append(performance_tracking_values["dur_since_prev_parse"])
+            self._data_parsing_durations.append(performance_tracking_values["dur_of_data_parse"])
+            self._data_parsing_num_packets_produced.append(
+                parsed_packet_dict["magnetometer_data"]["num_data_packets"]
+            )
+            # handle performance logging if ready
+            if self._parses_since_last_logging[board_idx] >= self._performance_logging_cycles:
+                self._handle_performance_logging()
+                self._parses_since_last_logging[board_idx] = 0
 
     def _dump_data_packets(self, parsed_packet_dict: Dict[str, Any]) -> None:
         # Tanner (10/15/21): if performance needs to be improved, consider converting some of this function to cython
@@ -1281,6 +1317,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             ("data_read_duration", self._data_read_durations),
             ("data_parsing_duration", self._data_parsing_durations),
             ("data_parsing_num_packets_produced", self._data_parsing_num_packets_produced),
+            ("duration_between_reading", self._durations_between_reading),
             ("duration_between_parsing", self._durations_between_parsing),
         ):
             performance_metrics[name] = {

@@ -79,6 +79,7 @@ from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from mantarray_desktop_app import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
+from mantarray_desktop_app import SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_BAUD_RATE
 from mantarray_desktop_app import SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_BOOT_UP_CODE
@@ -169,7 +170,6 @@ from mantarray_desktop_app import VALID_SCRIPTING_COMMANDS
 from mantarray_desktop_app import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
 from mantarray_desktop_app.constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
 from mantarray_desktop_app.constants import SERIAL_COMM_SERIAL_NUMBER_BYTES_LENGTH
-import mantarray_file_manager.constants
 import numpy as np
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 
@@ -300,13 +300,7 @@ def test_sensors_and_mappings():
 
 
 def test_current_file_versions():
-    latest_beta1_hdf5_file_format_version = (
-        mantarray_file_manager.constants.CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
-    )
-    assert (
-        CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION == latest_beta1_hdf5_file_format_version
-    ), "FileWriterProcess needs an update to match the beta 1 file format with the latest file version from mantarray-file-manager. Make the changes then update CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION to match the latest version"
-
+    assert CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION == "0.4.2"
     assert CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION == "1.0.1"
 
 
@@ -511,6 +505,7 @@ def test_serial_comm():
     assert SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE == 72
     assert SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE == 73
     assert SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE == 74
+    assert SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE == 90
     assert SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE == 255
 
     assert SERIAL_COMM_REBOOT_COMMAND_BYTE == 0

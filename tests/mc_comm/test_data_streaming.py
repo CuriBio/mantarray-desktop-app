@@ -37,6 +37,7 @@ from mantarray_desktop_app import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import SerialCommIncorrectChecksumFromInstrumentError
 from mantarray_desktop_app import SerialCommIncorrectMagicWordFromMantarrayError
+from mantarray_desktop_app.constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 import numpy as np
 import pytest
 from stdlib_utils import drain_queue
@@ -1254,11 +1255,17 @@ def test_McCommunicationProcess__logs_performance_metrics_after_parsing_data(
 
     # create expected values for metric creation
     expected_secs_between_parsing = list(range(15, 15 + INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES - 1))
-    mocker.patch.object(
+    mocked_since_last_parse = mocker.patch.object(
         mc_comm, "_get_secs_since_last_data_parse", autospec=True, side_effect=expected_secs_between_parsing
     )
+    expected_secs_between_reading = list(range(25, 25 + INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES - 1))
+    mocked_since_last_read = mocker.patch.object(
+        mc_comm, "_get_secs_since_last_data_read", autospec=True, side_effect=expected_secs_between_reading
+    )
     expected_read_durs = list(range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES))
-    mocker.patch.object(mc_comm, "_get_dur_of_data_read_secs", autospec=True, side_effect=expected_read_durs)
+    mocked_data_read_dur = mocker.patch.object(
+        mc_comm, "_get_dur_of_data_read_secs", autospec=True, side_effect=expected_read_durs
+    )
     # Tanner (8/30/21): using arbitrary large number here. If data packet size changes this test may fail
     expected_read_lengths = list(range(1000000, 1000000 + INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES))
     mocker.patch.object(
@@ -1268,7 +1275,7 @@ def test_McCommunicationProcess__logs_performance_metrics_after_parsing_data(
         side_effect=[bytes(read_len) for read_len in expected_read_lengths],
     )
     expected_parse_durs = list(range(0, INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES * 2, 2))
-    mocker.patch.object(
+    mocked_data_parse_dur = mocker.patch.object(
         mc_comm, "_get_dur_of_data_parse_secs", autospec=True, side_effect=expected_parse_durs
     )
     expected_num_packets_read = list(range(20, 20 + INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES))
@@ -1296,30 +1303,19 @@ def test_McCommunicationProcess__logs_performance_metrics_after_parsing_data(
     invoke_process_run_and_check_errors(
         mc_process, num_iterations=INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
     )
-
+    # check that related metrics use same timepoints
+    assert mocked_since_last_read.call_args_list == mocked_data_read_dur.call_args_list[:-1]
+    assert mocked_since_last_parse.call_args_list == mocked_data_parse_dur.call_args_list[:-1]
+    # check actual metric values
     actual = drain_queue(to_main_queue)[-1]["message"]
     assert actual["communication_type"] == "performance_metrics"
     for name, mc_measurements in (
-        (
-            "data_read_num_bytes",
-            expected_read_lengths,
-        ),
-        (
-            "data_read_duration",
-            expected_read_durs,
-        ),
-        (
-            "data_parsing_duration",
-            expected_parse_durs,
-        ),
-        (
-            "data_parsing_num_packets_produced",
-            expected_num_packets_read,
-        ),
-        (
-            "duration_between_parsing",
-            expected_secs_between_parsing,
-        ),
+        ("data_read_num_bytes", expected_read_lengths),
+        ("data_read_duration", expected_read_durs),
+        ("data_parsing_duration", expected_parse_durs),
+        ("data_parsing_num_packets_produced", expected_num_packets_read),
+        ("duration_between_reading", expected_secs_between_reading),
+        ("duration_between_parsing", expected_secs_between_parsing),
     ):
         assert actual[name] == {
             "max": max(mc_measurements),
@@ -1335,7 +1331,102 @@ def test_McCommunicationProcess__logs_performance_metrics_after_parsing_data(
     assert "longest_iterations" in actual
 
 
-def test_McCommunicationProcess__does_not_include_performance_metrics_in_first_logging_cycle(
+def test_McCommunicationProcess__does_not_update_or_log_performance_metrics_when_stopping_data_stream(
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
+    from_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][0]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    # mock since connection to simulator will be made by this test
+    mocker.patch.object(mc_process, "create_connections_to_all_available_boards", autospec=True)
+    # perform setup so performance logging values are initialized
+    invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
+
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+    set_magnetometer_config_and_start_streaming(
+        four_board_mc_comm_process_no_handshake,
+        simulator,
+        DEFAULT_MAGNETOMETER_CONFIG,
+        DEFAULT_SAMPLING_PERIOD,
+    )
+
+    mc_process.reset_performance_tracker()  # call this method so there are percent use metrics to report
+    mc_process._minimum_iteration_duration_seconds /= (  # pylint: disable=protected-access
+        10  # set this to a lower value to speed up the test
+    )
+    # mock to speed up test
+    mocker.patch.object(mc_process, "_dump_data_packets", autospec=True)
+
+    # create expected values for metric creation
+    mocker.patch.object(mc_comm, "_get_secs_since_last_data_parse", autospec=True, return_value=-1)
+    mocker.patch.object(mc_comm, "_get_secs_since_last_data_read", autospec=True, return_value=-1)
+    mocker.patch.object(mc_comm, "_get_dur_of_data_read_secs", autospec=True, return_value=-1)
+    # Tanner (8/30/21): using arbitrary large number here. If data packet size changes this test may fail
+    mocker.patch.object(
+        simulator, "read_all", autospec=True, side_effect=lambda *args: bytes(1000000)  # arbitrary len
+    )
+    mocker.patch.object(mc_comm, "_get_dur_of_data_parse_secs", autospec=True, return_value=-1)
+    mocker.patch.object(
+        mc_comm,
+        "handle_data_packets",
+        autospec=True,
+        side_effect=lambda *args: {
+            "magnetometer_data": {
+                "time_indices": [],
+                "time_offsets": [],
+                "data": [],
+                "num_data_packets": 0,
+            },
+            "stim_data": {},
+            "other_packet_info": [],
+            "unread_bytes": bytes(0),
+        },
+    )
+
+    # run mc_process to create metrics
+    invoke_process_run_and_check_errors(
+        mc_process, num_iterations=INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
+    )
+    # check metric values were sent to main
+    actual = drain_queue(to_main_queue)[-1]["message"]
+    assert actual["communication_type"] == "performance_metrics"
+    # store current lengths of metric lists
+    initial_metric_list_lens = {
+        "data_read_durations": len(mc_process._data_read_durations),
+        "data_read_lengths": len(mc_process._data_read_lengths),
+        "data_parsing_num_packets_produced": len(mc_process._data_parsing_num_packets_produced),
+        "data_parsing_durations": len(mc_process._data_parsing_durations),
+        "durations_between_reading": len(mc_process._durations_between_reading),
+        "durations_between_parsing": len(mc_process._durations_between_parsing),
+    }
+
+    # send command to stop managed acquisition
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        dict(STOP_MANAGED_ACQUISITION_COMMUNICATION), from_main_queue
+    )
+    # run mc_process to create metrics
+    invoke_process_run_and_check_errors(
+        mc_process, num_iterations=INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
+    )
+    # check that not performance logging message sent to main
+    confirm_queue_is_eventually_empty(to_main_queue)
+    # make sure metric lists were not updated
+    new_metric_list_lens = {
+        "data_read_durations": len(mc_process._data_read_durations),
+        "data_read_lengths": len(mc_process._data_read_lengths),
+        "data_parsing_num_packets_produced": len(mc_process._data_parsing_num_packets_produced),
+        "data_parsing_durations": len(mc_process._data_parsing_durations),
+        "durations_between_reading": len(mc_process._durations_between_reading),
+        "durations_between_parsing": len(mc_process._durations_between_parsing),
+    }
+    assert initial_metric_list_lens == new_metric_list_lens
+
+
+def test_McCommunicationProcess__does_not_include_data_streaming_performance_metrics_in_first_logging_cycle(
     four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
@@ -1390,5 +1481,5 @@ def test_McCommunicationProcess__does_not_include_performance_metrics_in_first_l
     )
 
     actual = drain_queue(to_main_queue)[-1]["message"]
+    assert actual["communication_type"] == "performance_metrics"
     assert "percent_use_metrics" not in actual
-    assert "data_creation_duration_metrics" not in actual

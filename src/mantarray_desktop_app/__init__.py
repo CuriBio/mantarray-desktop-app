@@ -35,7 +35,6 @@ from .constants import CALIBRATED_STATE
 from .constants import CALIBRATING_STATE
 from .constants import CALIBRATION_NEEDED_STATE
 from .constants import CALIBRATION_RECORDING_DUR_SECONDS
-from .constants import CHANNEL_FIRMWARE_VERSION_UUID
 from .constants import CHANNEL_INDEX_TO_24_WELL_INDEX
 from .constants import CHECKING_FOR_UPDATES_STATE
 from .constants import CLEAR_BARCODE_TRIG_BIT
@@ -70,7 +69,6 @@ from .constants import FIRMWARE_VERSION_WIRE_OUT_ADDRESS
 from .constants import INSTALLING_UPDATES_STATE
 from .constants import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import INSTRUMENT_INITIALIZING_STATE
-from .constants import IS_CALIBRATION_FILE_UUID
 from .constants import LIVE_VIEW_ACTIVE_STATE
 from .constants import MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS
 from .constants import MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS
@@ -95,6 +93,7 @@ from .constants import REFERENCE_VOLTAGE
 from .constants import ROUND_ROBIN_PERIOD
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
+from .constants import SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE
 from .constants import SERIAL_COMM_BAUD_RATE
 from .constants import SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_BOOT_UP_CODE
@@ -649,4 +648,5 @@ __all__ = [
     "upload_log_files_to_s3",
     "FirmwareDownloadError",
     "UPDATE_ERROR_STATE",
+    "SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE",
 ]
