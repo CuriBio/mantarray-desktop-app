@@ -1,6 +1,12 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+0.8.1 (unreleased)
+------------------
+
+- Changed accept barcode headers to ML and MS.
+
+
 0.8.0 (2022-02-17)
 ------------------
 

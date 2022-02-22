@@ -26,6 +26,7 @@ from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import server
 from mantarray_desktop_app import utils
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.mc_simulator import MantarrayMcSimulator
 from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
@@ -1247,11 +1248,15 @@ def test_start_recording__returns_error_code_and_message_if_called_with_is_hardw
     put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
 
     shared_values_dict["system_status"] = LIVE_VIEW_ACTIVE_STATE
-    response = test_client.get("/start_recording?barcode=MA200440001&is_hardware_test_recording=True")
+    response = test_client.get(
+        f"/start_recording?barcode={MantarrayMcSimulator.default_barcode}&is_hardware_test_recording=True"
+    )
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
     shared_values_dict["system_status"] = LIVE_VIEW_ACTIVE_STATE
-    response = test_client.get("/start_recording?barcode=MA200440001&is_hardware_test_recording=False")
+    response = test_client.get(
+        f"/start_recording?barcode={MantarrayMcSimulator.default_barcode}&is_hardware_test_recording=False"
+    )
     assert response.status_code == 403
     assert (
         response.status.endswith(
@@ -1585,7 +1590,7 @@ def test_after_request__redacts_mantarray_nicknames_from_start_recording_log_mes
     spied_server_logger = mocker.spy(server.logger, "info")
 
     expected_nickname = shared_values_dict["mantarray_nickname"][board_idx]
-    response = test_client.get("/start_recording?barcode=MA200440001")
+    response = test_client.get(f"/start_recording?barcode={MantarrayMcSimulator.default_barcode}")
     assert response.status_code == 200
     response_json = response.get_json()
     assert (

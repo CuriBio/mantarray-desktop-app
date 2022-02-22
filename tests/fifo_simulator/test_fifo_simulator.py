@@ -35,7 +35,7 @@ def test_RunningFIFOSimulator__class_attributes():
     assert RunningFIFOSimulator.default_mantarray_serial_number == "M02001900"
     assert RunningFIFOSimulator.default_mantarray_nickname == "Mantarray Simulator"
     assert RunningFIFOSimulator.default_firmware_version == "0.0.0"
-    assert RunningFIFOSimulator.default_barcode == "MA190190000"
+    assert RunningFIFOSimulator.default_barcode == "ML2021001000"
 
 
 def test_RunningFIFOSimulator__super_is_called_during_init(mocker):

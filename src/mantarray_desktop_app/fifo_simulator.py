@@ -40,7 +40,7 @@ class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
     default_mantarray_serial_number = "M02001900"
     default_mantarray_nickname = "Mantarray Simulator"
     default_firmware_version = "0.0.0"
-    default_barcode = "MA190190000"
+    default_barcode = "ML2021001000"
 
     def __init__(self, simulated_response_queues: Optional[Dict[str, Any]] = None) -> None:
         if simulated_response_queues is None:

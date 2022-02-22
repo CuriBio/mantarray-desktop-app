@@ -1441,7 +1441,7 @@ def test_MantarrayProcessesMonitor__sends_two_barcode_poll_commands_to_OKComm_at
 @pytest.mark.parametrize(
     "expected_barcode,test_valid,expected_status,test_description",
     [
-        ("MA200190000", True, BARCODE_VALID_UUID, "stores new valid barcode"),
+        (RunningFIFOSimulator.default_barcode, True, BARCODE_VALID_UUID, "stores new valid barcode"),
         ("M$200190000", False, BARCODE_INVALID_UUID, "stores new invalid barcode"),
         ("", None, BARCODE_UNREADABLE_UUID, "stores no barcode"),
     ],
@@ -1494,7 +1494,7 @@ def test_MantarrayProcessesMonitor__stores_barcode_sent_from_instrument_comm__an
 @pytest.mark.parametrize(
     "expected_barcode,test_valid,expected_status,test_description",
     [
-        ("MA200190000", True, BARCODE_VALID_UUID, "updates to new valid barcode"),
+        (RunningFIFOSimulator.default_barcode, True, BARCODE_VALID_UUID, "updates to new valid barcode"),
         ("M$200190000", False, BARCODE_INVALID_UUID, "updates to new invalid barcode"),
         ("", None, BARCODE_UNREADABLE_UUID, "updates to no barcode"),
     ],
@@ -1554,7 +1554,7 @@ def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_instrument_
 @pytest.mark.parametrize(
     "expected_barcode,test_valid,test_update,test_description",
     [
-        ("MA200190000", True, False, "does not update to current valid barcode"),
+        (RunningFIFOSimulator.default_barcode, True, False, "does not update to current valid barcode"),
         ("M$200190000", False, True, "does not update to current invalid barcode"),
         ("", None, False, "does not update to current empty barcode"),
     ],
