@@ -4,7 +4,8 @@ Changelog for Mantarray Desktop App
 0.8.1 (unreleased)
 ------------------
 
-- Changed accept barcode headers to ML and MS.
+- Changed accepted barcode headers to ML and MS.
+- Fixed tooltips for stim start/stop button when calibrating.
 
 
 0.8.0 (2022-02-17)
