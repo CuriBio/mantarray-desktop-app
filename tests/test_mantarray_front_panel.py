@@ -151,11 +151,11 @@ def test_MantarrayFrontPanel__get_barcode__calls_read_wire_out_correctly__and_re
 
     def get_wire_out_se(ep_addr):
         if ep_addr == BARCODE_SCANNER_TOP_WIRE_OUT_ADDRESS:
-            return 0x4D413139
+            return 0x4D4C3230
         if ep_addr == BARCODE_SCANNER_MID_WIRE_OUT_ADDRESS:
-            return 0x30313930
+            return 0x32313030
         if ep_addr == BARCODE_SCANNER_BOTTOM_WIRE_OUT_ADDRESS:
-            return 0x30303030
+            return 0x31303030
         return 0
 
     mocked_get_wire = mocker.patch.object(

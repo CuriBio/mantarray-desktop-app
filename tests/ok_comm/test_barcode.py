@@ -26,12 +26,8 @@ RUN_BARCODE_SCAN_COMMUNICATION = {
     "command": "start_scan",
 }
 
-# Tanner (12/30/20): All barcodes must be twelve characters long due to current wire out sizes in the firmware
-TEST_11_CHAR_BARCODE = RunningFIFOSimulator.default_barcode + chr(0)
-TEST_10_CHAR_BARCODE = RunningFIFOSimulator.default_barcode[:10] + chr(0) * 2
-EXPECTED_11_CHAR_BARCODE = RunningFIFOSimulator.default_barcode
-EXPECTED_10_CHAR_BARCODE = RunningFIFOSimulator.default_barcode[:10]
-INVALID_BARCODE = RunningFIFOSimulator.default_barcode + "$"
+
+INVALID_BARCODE = RunningFIFOSimulator.default_barcode[:-1] + "$"
 
 
 def test_OkCommunicationProcess__always_returns_default_barcode_when_connected_to_simulator(
@@ -176,7 +172,9 @@ def test_OkCommunicationProcess__checks_barcode_value_after_appropriate_amount_o
     board_queues = four_board_comm_process["board_queues"]
     input_queue = board_queues[0][0]
 
-    simulator, mocked_get = test_barcode_simulator([CLEARED_BARCODE_VALUE, TEST_11_CHAR_BARCODE])
+    simulator, mocked_get = test_barcode_simulator(
+        [CLEARED_BARCODE_VALUE, RunningFIFOSimulator.default_barcode]
+    )
     ok_process.set_board_connection(0, simulator)
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -193,15 +191,10 @@ def test_OkCommunicationProcess__checks_barcode_value_after_appropriate_amount_o
     "test_barcode,expected_barcode,test_description",
     [
         (
-            TEST_10_CHAR_BARCODE,
-            EXPECTED_10_CHAR_BARCODE[:10],
-            "sends valid 10 char barcode",
-        ),
-        (
-            TEST_11_CHAR_BARCODE,
-            EXPECTED_11_CHAR_BARCODE[:11],
+            RunningFIFOSimulator.default_barcode,
+            RunningFIFOSimulator.default_barcode,
             "sends valid 11 char barcode",
-        ),
+        )
     ],
 )
 def test_OkCommunicationProcess__sends_message_to_main_if_valid_barcode_received_after_first_attempt__and_stops_scan_process(
@@ -421,7 +414,7 @@ def test_OkCommunicationProcess__sends_correct_values_to_main_for_valid_second_b
             CLEARED_BARCODE_VALUE,
             INVALID_BARCODE,
             CLEARED_BARCODE_VALUE,
-            TEST_11_CHAR_BARCODE,
+            RunningFIFOSimulator.default_barcode,
         ]
     )
     ok_process.set_board_connection(0, simulator)
@@ -439,7 +432,7 @@ def test_OkCommunicationProcess__sends_correct_values_to_main_for_valid_second_b
 
     expected_barcode_comm = {
         "communication_type": "barcode_comm",
-        "barcode": EXPECTED_11_CHAR_BARCODE,
+        "barcode": RunningFIFOSimulator.default_barcode,
         "board_idx": 0,
         "valid": True,
     }
@@ -599,7 +592,7 @@ def test_OkCommunicationProcess__correctly_handles_two_consecutive_full_process_
             CLEARED_BARCODE_VALUE,
             INVALID_BARCODE,
             CLEARED_BARCODE_VALUE,
-            TEST_10_CHAR_BARCODE,
+            RunningFIFOSimulator.default_barcode,
         ],
     )
     ok_process.set_board_connection(0, simulator)
@@ -628,7 +621,7 @@ def test_OkCommunicationProcess__correctly_handles_two_consecutive_full_process_
 
     expected_barcode_comm_2 = {
         "communication_type": "barcode_comm",
-        "barcode": EXPECTED_10_CHAR_BARCODE,
+        "barcode": RunningFIFOSimulator.default_barcode,
         "board_idx": 0,
         "valid": True,
     }
