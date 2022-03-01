@@ -6,6 +6,7 @@ Changelog for Mantarray Desktop App
 
 - Changed accepted barcode headers to ML and MS.
 - Fixed tooltips for stim start/stop button when calibrating.
+- Fixed issue with folder path getting logged without username redacted.
 
 
 0.8.0 (2022-02-17)
