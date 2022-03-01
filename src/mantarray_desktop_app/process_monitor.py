@@ -146,13 +146,14 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 main_to_fw_queue.put_nowait(stop_managed_acquisition_comm)
                 main_to_ic_queue.put_nowait(stop_managed_acquisition_comm)
 
-        # Tanner (12/13/21): redact file path after handling comm in case the actual file path is needed
-        if "file_path" in communication:
-            communication["file_path"] = redact_sensitive_info_from_path(communication["file_path"])
-        msg = f"Communication from the File Writer: {communication}".replace(
-            r"\\",
-            "\\",  # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
-        )
+        # Tanner (12/13/21): redact file/folder path after handling comm in case the actual file path is needed
+        for sensitive_field in ("file_path", "file_folder"):
+            if sensitive_field in communication:
+                communication[sensitive_field] = redact_sensitive_info_from_path(
+                    communication[sensitive_field]
+                )
+        # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
+        msg = f"Communication from the File Writer: {communication}".replace(r"\\", "\\")
         # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
         with self._lock:
             logger.info(msg)
@@ -448,10 +449,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
             comm_copy["mantarray_nickname"] = get_redacted_string(len(comm_copy["mantarray_nickname"]))
             msg = f"Communication from the Instrument Controller: {comm_copy}"
         else:
-            msg = f"Communication from the Instrument Controller: {communication}".replace(
-                r"\\",
-                "\\",  # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
-            )
+            # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
+            msg = f"Communication from the Instrument Controller: {communication}".replace(r"\\", "\\")
         # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
         with self._lock:
             logger.info(msg)

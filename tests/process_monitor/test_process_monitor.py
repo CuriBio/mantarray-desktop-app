@@ -45,6 +45,7 @@ from mantarray_desktop_app import UPDATES_COMPLETE_STATE
 from mantarray_desktop_app import UPDATES_NEEDED_STATE
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.server import queue_command_to_instrument_comm
+from mantarray_desktop_app.utils import redact_sensitive_info_from_path
 import numpy as np
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
@@ -221,7 +222,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_instrument_comm(
     mocked_logger.assert_called_once_with(f"Communication from the Instrument Controller: {expected_comm}")
 
 
-def test_MantarrayProcessesMonitor__logs_messages_from_file_writer(
+def test_MantarrayProcessesMonitor__logs_messages_from_file_writer__and_redacts_sensitive_info(
     mocker, test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
@@ -233,15 +234,20 @@ def test_MantarrayProcessesMonitor__logs_messages_from_file_writer(
         test_process_manager.queue_container().get_communication_queue_from_file_writer_to_main()
     )
     expected_comm = {
-        "communication_type": "command_receipt",
-        "command": "stop_recording",
-        "timepoint_to_stop_recording_at": 223,
+        "communication_type": "test",
+        "file_path": r"Users\Mantarray\AppData\file_path",
+        "file_folder": r"Users\Mantarray\AppData\file_folder",
     }
-    file_writer_to_main.put_nowait(expected_comm)
+    file_writer_to_main.put_nowait(copy.deepcopy(expected_comm))
     assert is_queue_eventually_not_empty(file_writer_to_main) is True
     invoke_process_run_and_check_errors(monitor_thread)
     assert is_queue_eventually_empty(file_writer_to_main) is True
-    mocked_logger.assert_called_once_with(f"Communication from the File Writer: {expected_comm}")
+
+    expected_comm["file_path"] = redact_sensitive_info_from_path(expected_comm["file_path"])
+    expected_comm["file_folder"] = redact_sensitive_info_from_path(expected_comm["file_folder"])
+    mocked_logger.assert_called_once_with(
+        f"Communication from the File Writer: {expected_comm}".replace(r"\\", "\\")
+    )
 
 
 def test_MantarrayProcessesMonitor__logs_messages_from_data_analyzer(
