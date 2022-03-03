@@ -106,6 +106,8 @@ Changelog for Mantarray Desktop App
 
   - **Note**: Beta 2 force values/metrics are currently in arbitrary units for Live View and Heat Map.
 
+- Added higher priority of process that communicates with instrument in attempt to fix issue with
+  Live View running for too long.
 - Added stimulation subprotocol markers in Live View.
 - Added stimulation subprotocol start times and stimulation stop time to H5 files.
 - Added following metadata to Beta 2 H5 files:

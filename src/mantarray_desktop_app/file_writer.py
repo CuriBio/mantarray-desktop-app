@@ -223,11 +223,8 @@ class FileWriterProcess(InfiniteProcess):
         _start_recording_timestamps: Each index for each board. Will be None if board is not actively recording to file. Otherwise a tuple of the timestamp for index 0 in the SPI, and an int of how many centimilliseconds later recording was requested to begin at
         _stop_recording_timestamps: Each index for each board. Will be None if board has not received request to stop recording. Otherwise an int of how many centimilliseconds after SPI index 0 the recording was requested to stop at
         _tissue_data_finalized_for_recording: Each index for each board. A dict where they key is the well index. When start recording begins, dict is cleared, and all active well indices for recording are inserted as False. They become True after a stop_recording has been initiated and all data up to the stop point has successfully been written to file.
+        _reference_data_finalized_for_recording: Each index for each board. A dict where they key is the well index. When start recording begins, dict is cleared, and all active well indices for recording are inserted as False. They become True after a stop_recording has been initiated and all data up to the stop point has successfully been written to file.
         _end_of_data_stream_reached: A Boolean for each board board queue on whether data is still getting streamed or not, set to False.
-        _start_recording_timestamps: A list containing a start timestamp for the beginning of a recording for each board queue, default for each board is None.
-        _stop_recording_timestamps: A list containing a stop timestamp for the end of a recording for each board queue, default for each board is None.
-        _tissue_data_finalized_for_recording: A tuple containing a Boolean for each active well determining if recording tissue data is finalized for each board queue. If true for both tissue and reference data, the h5 file is ready to be closed. Default state is set to false.
-        _reference_data_finalized_for_recording: A tuple containing a Boolean for each active well determining if recording reference data is finalized for each board queue. If true for both tissue and reference data, the h5 file is ready to be closed. Default state is set to false.
         _customer_settings: A dictionary of the current customer credentials, auto upload and auto delete settings that get stored from the update customer settings command from the main queue.
         _sub_dir_name: The directory where the H5 files are written to inside the recording directory.
         _upload_threads_container: A list that contains active upload threads that get looped through every iteration.
@@ -284,6 +281,7 @@ class FileWriterProcess(InfiniteProcess):
             Dict[int, int],
             ...,  # noqa: W504 # flake8 doesn't understand the 3 dots for type definition
         ] = tuple(dict() for _ in range(len(self._board_queues)))
+        # TODO Tanner (3/2/22): once beta 1 support is dropped, should either remove these values or refactor it into one value for every file
         self._tissue_data_finalized_for_recording: Tuple[Dict[int, bool], ...] = tuple(
             [dict()] * len(self._board_queues)
         )
@@ -400,22 +398,12 @@ class FileWriterProcess(InfiniteProcess):
     def _teardown_after_loop(self) -> None:
         to_main_queue = self._to_main_queue
         msg = f"File Writer Process beginning teardown at {_get_formatted_utc_now()}"
-        put_log_message_into_queue(
-            logging.INFO,
-            msg,
-            to_main_queue,
-            self.get_logging_level(),
-        )
+        put_log_message_into_queue(logging.INFO, msg, to_main_queue, self.get_logging_level())
         if self._board_has_open_files(0):
             msg = (
                 "Data is still be written to file. Stopping recording and closing files to complete teardown"
             )
-            put_log_message_into_queue(
-                logging.INFO,
-                msg,
-                to_main_queue,
-                self.get_logging_level(),
-            )
+            put_log_message_into_queue(logging.INFO, msg, to_main_queue, self.get_logging_level())
             self.close_all_files()
         # clean up temporary calibration recording folder
         if self._beta_2_mode:
@@ -472,15 +460,20 @@ class FileWriterProcess(InfiniteProcess):
                 }
             )
         elif command == "stop_managed_acquisition":
-            self._data_packet_buffers[0].clear()
+            board_idx = 0
+            self._data_packet_buffers[board_idx].clear()
             self._clear_stim_data_buffers()
-            self._end_of_data_stream_reached[0] = True
-            self._end_of_stim_stream_reached[0] = True
+            self._end_of_data_stream_reached[board_idx] = True
+            self._end_of_stim_stream_reached[board_idx] = True
             to_main.put_nowait(
                 {"communication_type": "command_receipt", "command": "stop_managed_acquisition"}
             )
             self._is_recording_calibration = False
-            # TODO Tanner (5/25/21): Set all finalization statuses to true here since no more data will be coming in
+            # set all finalization statuses to True since no more data will be coming in
+            for well_idx in self._tissue_data_finalized_for_recording[board_idx].keys():
+                self._tissue_data_finalized_for_recording[board_idx][well_idx] = True
+            for well_idx in self._reference_data_finalized_for_recording[board_idx].keys():
+                self._reference_data_finalized_for_recording[board_idx][well_idx] = True
         elif command == "update_directory":
             self._file_directory = communication["new_directory"]
             to_main.put_nowait(
@@ -715,6 +708,7 @@ class FileWriterProcess(InfiniteProcess):
 
         for this_well_idx in self._open_files[board_idx].keys():
             this_file = self._open_files[board_idx][this_well_idx]
+            latest_timepoint = self.get_file_latest_timepoint(this_well_idx)
             if self._beta_2_mode:
                 # find num points needed to remove from magnetometer datasets
                 time_index_dataset = get_time_index_dataset_from_file(this_file)
@@ -754,7 +748,6 @@ class FileWriterProcess(InfiniteProcess):
                 dataset_shape[-1] -= num_indices_to_remove
                 stimulation_dataset.resize(dataset_shape)
             else:
-                latest_timepoint = self.get_file_latest_timepoint(this_well_idx)
                 datasets = [
                     get_tissue_dataset_from_file(this_file),
                     get_reference_dataset_from_file(this_file),
@@ -768,13 +761,14 @@ class FileWriterProcess(InfiniteProcess):
                     )
                     new_data = dataset[: last_index_of_valid_data + 1]
                     dataset.resize(new_data.shape)
-                finalization_status = bool(  # need to convert from numpy._bool to regular bool
-                    latest_timepoint >= stop_recording_timepoint
-                )
-                self._tissue_data_finalized_for_recording[board_idx][this_well_idx] = finalization_status
-                self._reference_data_finalized_for_recording[board_idx][this_well_idx] = (
-                    self._beta_2_mode or finalization_status
-                )
+            finalization_status = bool(  # need to convert from numpy._bool to regular bool
+                latest_timepoint >= stop_recording_timepoint
+            )
+            self._tissue_data_finalized_for_recording[board_idx][this_well_idx] = finalization_status
+            # TODO Tanner (3/2/22): if/when beta 2 ref data is added update the follow line
+            self._reference_data_finalized_for_recording[board_idx][this_well_idx] = (
+                self._beta_2_mode or finalization_status
+            )
         # finalize here instead of waiting for next packet
         self._finalize_completed_files()
 
@@ -800,7 +794,7 @@ class FileWriterProcess(InfiniteProcess):
             this_file = self._open_files[0][this_well_idx]
             # grab filename before closing h5 file otherwise it will error
             file_name = this_file.filename
-            _finalize_file(this_file)
+            _finalize_file(this_file)  # TODO remove this
             self._to_main_queue.put_nowait({"communication_type": "file_finalized", "file_path": file_name})
             del self._open_files[0][this_well_idx]
         # if no files open anymore, then send message to main indicating that all files have been finalized

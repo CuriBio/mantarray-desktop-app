@@ -83,6 +83,7 @@ from stdlib_utils import validate_file_head_crc32
 from ..fixtures import fixture_patch_print
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_file_writer import create_and_close_beta_1_h5_files
+from ..fixtures_file_writer import create_simple_beta_2_data_packet
 from ..fixtures_file_writer import fixture_four_board_file_writer_process
 from ..fixtures_file_writer import fixture_runnable_four_board_file_writer_process
 from ..fixtures_file_writer import fixture_running_four_board_file_writer_process
@@ -1789,5 +1790,116 @@ def test_FileWriterProcess__stop_recording__immediately_finalizes_any_beta_1_fil
         update_customer_settings_command,
         active_well_indices=test_well_indices,
     )
+
+    mocked_upload.assert_called_once()
+
+
+def test_FileWriterProcess__stop_recording__immediately_finalizes_all_beta_2_files_if_ready(
+    four_board_file_writer_process, mocker
+):
+    fw_process = four_board_file_writer_process["fw_process"]
+    fw_process.set_beta_2_mode()
+    board_queues = four_board_file_writer_process["board_queues"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
+
+    # mock to make sure uploads don't actually start
+    mocked_upload = mocker.patch.object(fw_process, "_start_new_file_upload", autospec=True)
+
+    # store new customer settings
+    update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
+    update_customer_settings_command["config_settings"].update(
+        {"auto_delete_local_files": False, "auto_upload_on_completion": True}
+    )
+    this_command = copy.deepcopy(update_customer_settings_command)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
+    invoke_process_run_and_check_errors(fw_process)
+    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # remove update settings command receipt
+
+    # create calibration files
+    populate_calibration_folder(fw_process)
+
+    # start recording
+    active_well_indices = list(range(24))
+    start_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_command["timepoint_to_begin_recording_at"] = 0
+    start_command["active_well_indices"] = active_well_indices
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
+    invoke_process_run_and_check_errors(fw_process)
+    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # remove start recording command receipt
+
+    # create data
+    data_packet = create_simple_beta_2_data_packet(
+        start_command["timepoint_to_begin_recording_at"],
+        0,
+        active_well_indices,
+        10,
+        is_first_packet_of_stream=True,
+    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(data_packet, board_queues[0][0])
+    invoke_process_run_and_check_errors(fw_process)
+
+    # stop recording
+    stop_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    stop_command["timepoint_to_stop_recording_at"] = data_packet["time_indices"][-1]
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
+    invoke_process_run_and_check_errors(fw_process)
+    # confirm each finalization message, all files finalized, and stop recording receipt are sent
+    confirm_queue_is_eventually_of_size(to_main_queue, len(active_well_indices) + 2)
+
+    mocked_upload.assert_called_once()
+
+
+def test_FileWriterProcess__stop_managed_acquisition__finalizes_all_files_if_any_are_still_open(
+    four_board_file_writer_process, mocker
+):
+    fw_process = four_board_file_writer_process["fw_process"]
+    fw_process.set_beta_2_mode()
+    board_queues = four_board_file_writer_process["board_queues"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
+
+    # mock to make sure uploads don't actually start
+    mocked_upload = mocker.patch.object(fw_process, "_start_new_file_upload", autospec=True)
+
+    # store new customer settings
+    update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
+    update_customer_settings_command["config_settings"].update(
+        {"auto_delete_local_files": False, "auto_upload_on_completion": True}
+    )
+    this_command = copy.deepcopy(update_customer_settings_command)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
+    invoke_process_run_and_check_errors(fw_process)
+    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # remove update settings command receipt
+
+    # create calibration files
+    populate_calibration_folder(fw_process)
+
+    # start recording
+    active_well_indices = list(range(24))
+    start_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_command["timepoint_to_begin_recording_at"] = 0
+    start_command["active_well_indices"] = active_well_indices
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
+    invoke_process_run_and_check_errors(fw_process)
+    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # remove start recording command receipt
+
+    # create data
+    data_packet = create_simple_beta_2_data_packet(
+        start_command["timepoint_to_begin_recording_at"],
+        0,
+        active_well_indices,
+        10,
+        is_first_packet_of_stream=True,
+    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(data_packet, board_queues[0][0])
+    invoke_process_run_and_check_errors(fw_process)
+
+    # stop managed acquisition
+    stop_command = dict(STOP_MANAGED_ACQUISITION_COMMUNICATION)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
+    invoke_process_run_and_check_errors(fw_process)
+    # confirm each finalization message, all files finalized, and stop recording receipt are sent
+    confirm_queue_is_eventually_of_size(to_main_queue, len(active_well_indices) + 2)
 
     mocked_upload.assert_called_once()

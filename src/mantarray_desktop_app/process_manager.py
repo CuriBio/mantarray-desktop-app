@@ -27,6 +27,8 @@ from .ok_comm import OkCommunicationProcess
 from .queue_container import MantarrayQueueContainer
 from .server import ServerManager
 
+# logger = logging.getLogger(__name__)
+
 
 class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
     """Controls access to all the subprocesses."""
@@ -229,12 +231,15 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
 
     def hard_stop_and_join_processes(self, shutdown_server: bool = True) -> Dict[str, Any]:
         """Hard stop all processes and return contents of their queues."""
+        # TODO hard stop every process before attempting to join. Also add logging
         instrument_comm_items = self._instrument_communication_process.hard_stop()
-        self._instrument_communication_process.join()
         file_writer_items = self._file_writer_process.hard_stop()
-        self._file_writer_process.join()
         data_analyzer_items = self._data_analyzer_process.hard_stop()
+        # TODO add unit test that confirms hard stop is called on all subprocesses before join is called on any of them
+        self._instrument_communication_process.join()
+        self._file_writer_process.join()
         self._data_analyzer_process.join()
+
         process_items = {
             "instrument_comm_items": instrument_comm_items,
             "file_writer_items": file_writer_items,
