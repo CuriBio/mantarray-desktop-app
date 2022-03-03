@@ -199,47 +199,12 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             iter_process.soft_stop()
         self.get_server_manager().shutdown_server()
 
-    def hard_stop_processes(self) -> Dict[str, Any]:
+    def hard_stop_processes(self, shutdown_server: bool = True) -> Dict[str, Any]:
         """Immediately stop subprocesses."""
+        # TODO add logging
         instrument_comm_items = self._instrument_communication_process.hard_stop()
         file_writer_items = self._file_writer_process.hard_stop()
         data_analyzer_items = self._data_analyzer_process.hard_stop()
-        process_items = {
-            "instrument_comm_items": instrument_comm_items,
-            "file_writer_items": file_writer_items,
-            "data_analyzer_items": data_analyzer_items,
-        }
-
-        process_items.update(self.shutdown_server())
-
-        return process_items
-
-    def join_processes(self) -> None:
-        if self._all_processes is None:
-            raise NotImplementedError("Processes must be created first.")
-        for iter_process in self._all_processes:
-            if iter_process.ident is not None:
-                iter_process.join()
-
-    def soft_stop_and_join_processes(self) -> None:
-        self.soft_stop_processes()
-        self.join_processes()
-
-    def stop_and_join_processes(self) -> None:
-        self.stop_processes()
-        self.join_processes()
-
-    def hard_stop_and_join_processes(self, shutdown_server: bool = True) -> Dict[str, Any]:
-        """Hard stop all processes and return contents of their queues."""
-        # TODO hard stop every process before attempting to join. Also add logging
-        instrument_comm_items = self._instrument_communication_process.hard_stop()
-        file_writer_items = self._file_writer_process.hard_stop()
-        data_analyzer_items = self._data_analyzer_process.hard_stop()
-        # TODO add unit test that confirms hard stop is called on all subprocesses before join is called on any of them
-        self._instrument_communication_process.join()
-        self._file_writer_process.join()
-        self._data_analyzer_process.join()
-
         process_items = {
             "instrument_comm_items": instrument_comm_items,
             "file_writer_items": file_writer_items,
@@ -251,7 +216,35 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
 
         return process_items
 
+    def join_processes(self) -> None:
+        if self._all_processes is None:
+            raise NotImplementedError("Processes must be created first.")
+        for iter_process in self._all_processes:
+            if iter_process.ident is not None:
+                # TODO unit test the timeout and make a constant for the value
+                # TODO add logging, check to see if processes actually terminate
+                iter_process.join(3)
+
+    def soft_stop_and_join_processes(self) -> None:
+        self.soft_stop_processes()
+        self.join_processes()
+
+    def stop_and_join_processes(self) -> None:
+        self.stop_processes()
+        self.join_processes()
+
+    def hard_stop_and_join_processes(self, shutdown_server: bool = True) -> Dict[str, Any]:
+        """Hard stop all processes and return contents of their queues."""
+        process_items = self.hard_stop_processes(shutdown_server=False)
+        self.join_processes()
+
+        if shutdown_server:
+            process_items.update(self.shutdown_server())
+
+        return process_items
+
     def shutdown_server(self) -> Dict[str, Any]:
+        # TODO add logging
         server_manager = self.get_server_manager()
         server_manager.shutdown_server()
         return {"server_items": server_manager.drain_all_queues()}

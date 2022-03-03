@@ -57,7 +57,6 @@ from pulse3D.constants import WELL_INDEX_UUID
 from pulse3D.constants import WELL_NAME_UUID
 from pulse3D.constants import WELL_ROW_UUID
 from pulse3D.plate_recording import MantarrayH5FileCreator
-from stdlib_utils import compute_crc32_and_write_to_file_head
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
@@ -184,14 +183,6 @@ def _find_earliest_valid_stim_status_index(  # pylint: disable=invalid-name
     while idx > 0 and time_index_buffer[idx] > earliest_magnetometer_time_idx:
         idx -= 1
     return idx
-
-
-def _finalize_file(this_file: h5py.File) -> None:
-    # the file name cannot be accessed after the file has been closed
-    this_filename = this_file.filename
-    this_file.close()
-    with open(this_filename, "rb+") as file_buffer:
-        compute_crc32_and_write_to_file_head(file_buffer)
 
 
 def _drain_board_queues(
@@ -794,7 +785,7 @@ class FileWriterProcess(InfiniteProcess):
             this_file = self._open_files[0][this_well_idx]
             # grab filename before closing h5 file otherwise it will error
             file_name = this_file.filename
-            _finalize_file(this_file)  # TODO remove this
+            this_file.close()
             self._to_main_queue.put_nowait({"communication_type": "file_finalized", "file_path": file_name})
             del self._open_files[0][this_well_idx]
         # if no files open anymore, then send message to main indicating that all files have been finalized
