@@ -350,10 +350,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             elif communication["command"] == "stop_managed_acquisition":
                 self._end_of_data_stream_reached[0] = True
                 for well_index in range(24):
-                    self._data_buffer[well_index] = {
-                        "construct_data": None,
-                        "ref_data": None,
-                    }
+                    self._data_buffer[well_index] = {"construct_data": None, "ref_data": None}
                 self.init_streams()
             elif communication["command"] == "change_magnetometer_config":
                 self.change_magnetometer_config(communication)
@@ -526,10 +523,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             if latest_timepoint is None or compressed_data[0][-1] > latest_timepoint:
                 # Tanner (4/23/20): json cannot by default serialize numpy types, so we must use the item as native type
                 latest_timepoint = compressed_data[0][-1].item()
-            self._data_buffer[well_index] = {
-                "construct_data": None,
-                "ref_data": None,
-            }
+            self._data_buffer[well_index] = {"construct_data": None, "ref_data": None}
         outgoing_data_creation_dur = perf_counter() - outgoing_data_creation_start
         self._outgoing_data_creation_durations.append(outgoing_data_creation_dur)
         self._handle_performance_logging()
@@ -627,10 +621,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             if not per_twitch_dict:
                 # Tanner (7/15/21): in Beta 1 mode, wells with no analyzable data will still be passed through analysis stream, so catching the empty metric dicts here
                 continue
-            outgoing_metrics[well_idx] = {
-                str(AMPLITUDE_UUID): [],
-                str(TWITCH_FREQUENCY_UUID): [],
-            }
+            outgoing_metrics[well_idx] = {str(AMPLITUDE_UUID): [], str(TWITCH_FREQUENCY_UUID): []}
             for twitch_metric_dict in per_twitch_dict.values():
                 for metric_id, metric_val in twitch_metric_dict.items():
                     outgoing_metrics[well_idx][str(metric_id)].append(metric_val)

@@ -216,10 +216,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
                 )
                 to_file_writer_queue.put_nowait(
-                    {
-                        "command": "update_directory",
-                        "new_directory": new_recording_directory,
-                    }
+                    {"command": "update_directory", "new_directory": new_recording_directory}
                 )
                 process_manager.set_file_directory(new_recording_directory)
             if "customer_account_id" in new_values["config_settings"]:
@@ -560,10 +557,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             else:
                 barcode_status = BARCODE_INVALID_UUID
 
-            board_barcode_dict = {
-                "plate_barcode": barcode,
-                "barcode_status": barcode_status,
-            }
+            board_barcode_dict = {"plate_barcode": barcode, "barcode_status": barcode_status}
             self._values_to_share_to_server["barcodes"][board_idx] = board_barcode_dict
             # send message to FE
             barcode_dict_copy = copy.deepcopy(board_barcode_dict)
@@ -786,10 +780,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             to_instrument_comm = process_manager.queue_container().get_communication_to_instrument_comm_queue(
                 board_idx
             )
-            barcode_poll_comm = {
-                "communication_type": "barcode_comm",
-                "command": "start_scan",
-            }
+            barcode_poll_comm = {"communication_type": "barcode_comm", "command": "start_scan"}
             to_instrument_comm.put_nowait(barcode_poll_comm)
             self._last_barcode_clear_time = _get_barcode_clear_time()
 
@@ -816,18 +807,12 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
     def _send_user_creds_prompt_message(self) -> None:
         self._queue_websocket_message(
-            {
-                "data_type": "prompt_user_input",
-                "data_json": json.dumps({"input_type": "customer_creds"}),
-            }
+            {"data_type": "prompt_user_input", "data_json": json.dumps({"input_type": "customer_creds"})}
         )
 
     def _send_enable_sw_auto_install_message(self) -> None:
         self._queue_websocket_message(
-            {
-                "data_type": "sw_update",
-                "data_json": json.dumps({"allow_software_update": True}),
-            }
+            {"data_type": "sw_update", "data_json": json.dumps({"allow_software_update": True})}
         )
 
     def _queue_websocket_message(self, message_dict: Dict[str, Any]) -> None:
