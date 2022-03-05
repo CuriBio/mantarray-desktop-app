@@ -78,7 +78,6 @@ from pulse3D.constants import XEM_SERIAL_NUMBER_UUID
 import pytest
 from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
-from stdlib_utils import validate_file_head_crc32
 
 from ..fixtures import fixture_patch_print
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
@@ -727,7 +726,7 @@ def test_FileWriterProcess__stop_recording__sets_stop_recording_timestamp_to_tim
     assert tissue_status[0][expected_well_idx] is False
 
 
-def test_FileWriterProcess__closes_the_files_and_adds_crc32_checksum_and_sends_communication_to_main_when_all_data_has_been_added_after_recording_stopped(
+def test_FileWriterProcess__closes_the_files_and_sends_communication_to_main_when_all_data_has_been_added_after_recording_stopped(
     four_board_file_writer_process, mocker
 ):
     file_dir = four_board_file_writer_process["file_dir"]
@@ -762,8 +761,6 @@ def test_FileWriterProcess__closes_the_files_and_adds_crc32_checksum_and_sends_c
     assert actual_data[9] == 18
 
     assert spied_h5_close.call_count == 1
-    with open(actual_file.filename, "rb") as actual_file_buffer:
-        validate_file_head_crc32(actual_file_buffer)
 
     finalization_msg = msgs_to_main[0]
     assert finalization_msg["communication_type"] == "file_finalized"

@@ -4,7 +4,6 @@ import json
 import os
 import shutil
 
-from mantarray_desktop_app import file_writer
 from mantarray_desktop_app import worker_thread
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
@@ -58,7 +57,7 @@ def test_FileWriterProcess__does_not_start_upload_thread_after_all_calibration_f
     )
     # mock so the functions don't actually run
     mocked_start_upload = mocker.patch.object(file_writer_process, "_start_new_file_upload", autospec=True)
-    mocker.patch.object(file_writer, "_finalize_file", autospec=True)
+    # mocker.patch.object(file_writer, "_finalize_file", autospec=True)
 
     file_writer_process._open_files[0][0] = mocker.MagicMock()  # pylint: disable=protected-access
     file_writer_process._customer_settings = {"key": "val"}
