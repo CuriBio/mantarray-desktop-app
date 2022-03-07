@@ -116,7 +116,6 @@ from .constants import SERIAL_COMM_IDLE_READY_CODE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
 from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
-from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAX_TIMESTAMP_VALUE
@@ -124,7 +123,6 @@ from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE
 from .constants import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
-from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from .constants import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from .constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
@@ -243,7 +241,6 @@ from .exceptions import UnrecognizedDataFrameFormatNameError
 from .exceptions import UnrecognizedDebugConsoleCommandError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
 from .exceptions import UnrecognizedRecordingCommandError
-from .exceptions import UnrecognizedSerialCommModuleIdError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .exceptions import UnrecognizedSimulatorTestCommandError
 from .fifo_read_producer import FIFOReadProducer
@@ -482,13 +479,10 @@ __all__ = [
     "InstrumentCommProcess",
     "InstrumentCommIncorrectHeaderError",
     "SERIAL_COMM_STATUS_BEACON_PACKET_TYPE",
-    "SERIAL_COMM_MAIN_MODULE_ID",
     "SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE",
     "SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE",
     "SERIAL_COMM_HANDSHAKE_PACKET_TYPE",
-    "SERIAL_COMM_MODULE_ID_INDEX",
     "SERIAL_COMM_PACKET_TYPE_INDEX",
-    "UnrecognizedSerialCommModuleIdError",
     "UnrecognizedSerialCommPacketTypeError",
     "McCommunicationProcess",
     "SERIAL_COMM_CHECKSUM_LENGTH_BYTES",

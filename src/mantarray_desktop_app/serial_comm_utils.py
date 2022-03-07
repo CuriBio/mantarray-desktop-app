@@ -50,7 +50,6 @@ METADATA_TYPES = immutabledict(
         BOOT_FLAGS_UUID: int,
     }
 )
-BITMASK_SHIFT_VALUE = 16 - SERIAL_COMM_NUM_DATA_CHANNELS  # 16 for number of bits in int16
 
 
 def _get_checksum_bytes(packet: bytes) -> bytes:
@@ -59,13 +58,12 @@ def _get_checksum_bytes(packet: bytes) -> bytes:
 
 def create_data_packet(
     timestamp: int,
-    module_id: int,
     packet_type: int,
     packet_data: bytes = bytes(0),
 ) -> bytes:
     """Create a data packet to send to the PC."""
     packet_body = convert_to_timestamp_bytes(timestamp)
-    packet_body += bytes([module_id, packet_type])
+    packet_body += bytes([packet_type])
     packet_body += packet_data
     packet_length = len(packet_body) + SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 

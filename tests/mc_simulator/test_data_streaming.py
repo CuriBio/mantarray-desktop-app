@@ -7,8 +7,6 @@ from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
-from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
-from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_INDEX
 from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from mantarray_desktop_app import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
@@ -135,9 +133,6 @@ def test_MantarrayMcSimulator__sends_correct_time_index_and_data_points_in_first
     expected_waveform = simulator.get_interpolated_data(test_sampling_period)
     for packet_num, data_packet in enumerate(data_packets):
         assert (
-            data_packet[SERIAL_COMM_MODULE_ID_INDEX] == SERIAL_COMM_MAIN_MODULE_ID
-        ), f"Incorrect module ID in packet {packet_num + 1}"
-        assert (
             data_packet[SERIAL_COMM_PACKET_TYPE_INDEX] == SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
         ), f"Incorrect packet type in packet {packet_num + 1}"
 
@@ -246,8 +241,7 @@ def test_MantarrayMcSimulator__returns_correctly_formatted_data_packet_with_well
     data_packet = simulator.read(size=data_packet_size)
     assert simulator.in_waiting == 0, simulator.read(size=simulator.in_waiting)
 
-    # test data packet IDs
-    assert data_packet[SERIAL_COMM_MODULE_ID_INDEX] == SERIAL_COMM_MAIN_MODULE_ID
+    # test data packet type
     assert data_packet[SERIAL_COMM_PACKET_TYPE_INDEX] == SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
     # test time index
     idx = SERIAL_COMM_ADDITIONAL_BYTES_INDEX

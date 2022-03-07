@@ -10,8 +10,8 @@ from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import SERIAL_COMM_BOOT_UP_CODE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_IDLE_READY_CODE
-from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
+from mantarray_desktop_app import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 import pytest
 from stdlib_utils import drain_queue
@@ -21,16 +21,11 @@ from stdlib_utils import QUEUE_CHECK_TIMEOUT_SECONDS
 from stdlib_utils import TestingQueue
 
 
-STATUS_BEACON_SIZE_BYTES = 28
-HANDSHAKE_RESPONSE_SIZE_BYTES = 36
+STATUS_BEACON_SIZE_BYTES = SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES + 4
+HANDSHAKE_RESPONSE_SIZE_BYTES = 36  # STATUS_BEACON_SIZE_BYTES + SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 
 TEST_HANDSHAKE_TIMESTAMP = 12345
-TEST_HANDSHAKE = create_data_packet(
-    TEST_HANDSHAKE_TIMESTAMP,
-    SERIAL_COMM_MAIN_MODULE_ID,
-    SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
-    bytes(0),
-)
+TEST_HANDSHAKE = create_data_packet(TEST_HANDSHAKE_TIMESTAMP, SERIAL_COMM_HANDSHAKE_PACKET_TYPE, bytes(0))
 
 DEFAULT_SIMULATOR_STATUS_CODE = convert_to_status_code_bytes(SERIAL_COMM_BOOT_UP_CODE)
 

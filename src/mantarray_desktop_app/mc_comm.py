@@ -56,13 +56,11 @@ from .constants import SERIAL_COMM_IDLE_READY_CODE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
 from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
-from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE
 from .constants import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
-from .constants import SERIAL_COMM_MODULE_ID_INDEX
 from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from .constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
@@ -117,7 +115,6 @@ from .exceptions import StimulationProtocolUpdateFailedError
 from .exceptions import StimulationProtocolUpdateWhileStimulatingError
 from .exceptions import StimulationStatusUpdateFailedError
 from .exceptions import UnrecognizedCommandFromMainToMcCommError
-from .exceptions import UnrecognizedSerialCommModuleIdError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .firmware_downloader import download_firmware_updates
 from .firmware_downloader import get_latest_firmware_versions
@@ -386,16 +383,10 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _send_data_packet(
         self,
         board_idx: int,
-        module_id: int,
         packet_type: int,
         data_to_send: bytes = bytes(0),
     ) -> None:
-        data_packet = create_data_packet(
-            get_serial_comm_timestamp(),
-            module_id,
-            packet_type,
-            data_to_send,
-        )
+        data_packet = create_data_packet(get_serial_comm_timestamp(), packet_type, data_to_send)
         board = self._board_connections[board_idx]
         if board is None:
             raise NotImplementedError("Board should not be None when sending a command to it")
@@ -635,12 +626,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             )
 
         if send_packet_to_instrument:
-            self._send_data_packet(
-                board_idx,
-                SERIAL_COMM_MAIN_MODULE_ID,
-                packet_type,
-                bytes_to_send,
-            )
+            self._send_data_packet(board_idx, packet_type, bytes_to_send)
             self._add_command_to_track(comm_from_main)
 
     def _add_command_to_track(self, command_dict: Dict[str, Any]) -> None:
@@ -685,7 +671,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._firmware_file_contents = self._firmware_file_contents[
                 SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES - 1 :
             ]
-        self._send_data_packet(board_idx, SERIAL_COMM_MAIN_MODULE_ID, packet_type, bytes_to_send)
+        self._send_data_packet(board_idx, packet_type, bytes_to_send)
         self._add_command_to_track(command_dict)
 
     def _handle_sending_handshake(self) -> None:
@@ -701,11 +687,7 @@ class McCommunicationProcess(InstrumentCommProcess):
 
     def _send_handshake(self, board_idx: int) -> None:
         self._time_of_last_handshake_secs = perf_counter()
-        self._send_data_packet(
-            board_idx,
-            SERIAL_COMM_MAIN_MODULE_ID,
-            SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
-        )
+        self._send_data_packet(board_idx, SERIAL_COMM_HANDSHAKE_PACKET_TYPE)
         self._add_command_to_track({"command": "handshake"})
 
     def _handle_comm_from_instrument(self) -> None:
@@ -750,19 +732,13 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise SerialCommPacketFromMantarrayTooSmallError(
                 f"Invalid packet length received: {packet_size}, Full Data Packet: {str(full_data_packet)}"
             )
-        module_id = full_data_packet[SERIAL_COMM_MODULE_ID_INDEX]
-        if module_id == SERIAL_COMM_MAIN_MODULE_ID:
-            self._process_comm_from_instrument(
-                module_id,
-                full_data_packet[SERIAL_COMM_PACKET_TYPE_INDEX],
-                full_data_packet[SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES],
-            )
-        else:
-            raise UnrecognizedSerialCommModuleIdError(module_id)
+        self._process_comm_from_instrument(
+            full_data_packet[SERIAL_COMM_PACKET_TYPE_INDEX],
+            full_data_packet[SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES],
+        )
 
     def _process_comm_from_instrument(
         self,
-        module_id: int,
         packet_type: int,
         packet_body: bytes,
     ) -> None:
@@ -789,7 +765,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             response_data = packet_body[SERIAL_COMM_TIMESTAMP_LENGTH_BYTES:]
             if not self._commands_awaiting_response:
                 raise SerialCommUntrackedCommandResponseError(
-                    f"Module ID: {module_id}, Packet Type ID: {packet_type}, Packet Body: {str(packet_body)}"
+                    f"Packet Type ID: {packet_type}, Packet Body: {str(packet_body)}"
                 )
             prev_command = self._commands_awaiting_response.popleft()
             if prev_command["command"] == "handshake":
@@ -928,9 +904,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             }
             self._board_queues[board_idx][1].put_nowait(barcode_comm)
         else:
-            raise UnrecognizedSerialCommPacketTypeError(
-                f"Packet Type ID: {packet_type} is not defined for Module ID: {module_id}"
-            )
+            raise UnrecognizedSerialCommPacketTypeError(f"Packet Type ID: {packet_type} is not defined")
 
     def _process_status_beacon(self, packet_body: bytes) -> None:
         board_idx = 0
@@ -958,7 +932,6 @@ class McCommunicationProcess(InstrumentCommProcess):
         elif status_code == SERIAL_COMM_TIME_SYNC_READY_CODE:
             self._send_data_packet(
                 board_idx,
-                SERIAL_COMM_MAIN_MODULE_ID,
                 SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
                 bytes([SERIAL_COMM_SET_TIME_COMMAND_BYTE])
                 + convert_to_timestamp_bytes(get_serial_comm_timestamp()),
@@ -972,12 +945,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 bytes_to_send = bytes([SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE])
                 bytes_to_send += DEFAULT_SAMPLING_PERIOD.to_bytes(2, byteorder="little")
                 bytes_to_send += create_magnetometer_config_bytes(initial_config_copy)
-                self._send_data_packet(
-                    board_idx,
-                    SERIAL_COMM_MAIN_MODULE_ID,
-                    SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-                    bytes_to_send,
-                )
+                self._send_data_packet(board_idx, SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE, bytes_to_send)
                 self._add_command_to_track(
                     {
                         "communication_type": "default_magnetometer_config",
@@ -992,7 +960,6 @@ class McCommunicationProcess(InstrumentCommProcess):
             if self._auto_get_metadata:
                 self._send_data_packet(
                     board_idx,
-                    SERIAL_COMM_MAIN_MODULE_ID,
                     SERIAL_COMM_GET_METADATA_PACKET_TYPE,
                     convert_to_timestamp_bytes(get_serial_comm_timestamp()),
                 )

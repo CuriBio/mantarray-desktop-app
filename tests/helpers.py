@@ -19,7 +19,6 @@ from mantarray_desktop_app import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
-from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_INDEX
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_TYPE_INDEX
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
@@ -151,14 +150,12 @@ def convert_after_request_log_msg_to_json(log_msg: str) -> Dict[Any, Any]:
 
 def assert_serial_packet_is_expected(
     full_packet: bytes,
-    module_id: int,
     packet_type: int,
     additional_bytes: bytes = bytes(0),
     timestamp: Optional[int] = None,
     error_msg: Optional[str] = None,
 ) -> None:
     try:
-        assert full_packet[SERIAL_COMM_MODULE_ID_INDEX] == module_id
         assert full_packet[SERIAL_COMM_PACKET_TYPE_INDEX] == packet_type
         packet_body = full_packet[SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
         if packet_body != additional_bytes:

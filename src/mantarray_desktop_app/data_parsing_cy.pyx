@@ -13,7 +13,6 @@ from .constants import RAW_TO_SIGNED_CONVERSION_VALUE
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
-from .constants import SERIAL_COMM_MAIN_MODULE_ID
 from .constants import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from .constants import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
@@ -122,7 +121,6 @@ cdef int SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES_C_INT = SERIAL_COMM_TIME_OFFSET_LE
 cdef int SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_C_INT = NUM_CHANNELS_PER_SENSOR
 cdef int SERIAL_COMM_NUM_SENSORS_PER_WELL_C_INT = SERIAL_COMM_NUM_SENSORS_PER_WELL
 
-cdef int SERIAL_COMM_MAIN_MODULE_ID_C_INT = SERIAL_COMM_MAIN_MODULE_ID
 cdef int SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE_C_INT = SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 cdef int SERIAL_COMM_ADDITIONAL_BYTES_INDEX_C_INT = SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 cdef int SERIAL_COMM_STIM_STATUS_PACKET_TYPE_C_INT = SERIAL_COMM_STIM_STATUS_PACKET_TYPE
@@ -132,7 +130,6 @@ cdef packed struct Packet:
     char magic[MAGIC_WORD_LEN]
     uint16_t packet_len
     uint64_t timestamp
-    uint8_t module_id
     uint8_t packet_type
     uint8_t additional_bytes
 
@@ -160,7 +157,7 @@ cpdef dict handle_data_packets(
         active_channels_list: a list containing the number of channels on each active sensor, in order.
 
     Returns:
-        A tuple of the array of parsed time indices, the array of time offsets, the array of parsed data, the number of data packets read, list of tuples containing info about interrupting packets if any occured (timestamp, module ID, packet type, and packet body bytes), the remaining unread bytes
+        A tuple of the array of parsed time indices, the array of time offsets, the array of parsed data, the number of data packets read, list of tuples containing info about interrupting packets if any occured (timestamp, packet type, and packet body bytes), the remaining unread bytes
     """
     read_bytes = read_bytes.copy()  # make sure data is C contiguous
     cdef int num_bytes = len(read_bytes)
@@ -220,11 +217,8 @@ cpdef dict handle_data_packets(
 
         # if this packet was not a data packet then need to store its info and handle it after all data packets are parsed
         if (
-            p.module_id != SERIAL_COMM_MAIN_MODULE_ID_C_INT
-            or (
-                p.packet_type != SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE_C_INT
-                and  p.packet_type != SERIAL_COMM_STIM_STATUS_PACKET_TYPE_C_INT
-            )
+            p.packet_type != SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE_C_INT
+            and p.packet_type != SERIAL_COMM_STIM_STATUS_PACKET_TYPE_C_INT
         ):
             # exceptional case, so ok to incur reasonable amount of python overhead here
             other_bytes = bytearray(
@@ -232,7 +226,7 @@ cpdef dict handle_data_packets(
                     bytes_idx + SERIAL_COMM_ADDITIONAL_BYTES_INDEX_C_INT : bytes_idx + p.packet_len + 6
                 ]
             )
-            other_packet_info.append((p.timestamp, p.module_id, p.packet_type, other_bytes))
+            other_packet_info.append((p.timestamp, p.packet_type, other_bytes))
         elif p.packet_type == SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE_C_INT:
             data_packet_bytes[
                 data_packet_byte_idx : data_packet_byte_idx + data_packet_len

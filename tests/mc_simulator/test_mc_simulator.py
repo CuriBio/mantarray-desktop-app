@@ -16,7 +16,6 @@ from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_IDLE_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
-from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
 from mantarray_desktop_app import SERIAL_COMM_SET_TIME_COMMAND_BYTE
@@ -463,7 +462,6 @@ def test_MantarrayMcSimulator__processes_testing_commands_during_reboot(
     simulator.write(
         create_data_packet(
             test_timestamp,
-            SERIAL_COMM_MAIN_MODULE_ID,
             SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
             bytes([SERIAL_COMM_REBOOT_COMMAND_BYTE]),
         )
@@ -476,7 +474,6 @@ def test_MantarrayMcSimulator__processes_testing_commands_during_reboot(
     reboot_response = simulator.read(size=reboot_response_size)
     assert_serial_packet_is_expected(
         reboot_response,
-        SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
         additional_bytes=convert_to_timestamp_bytes(test_timestamp),
         timestamp=spied_get_absolute_timer.spy_return,
@@ -518,7 +515,6 @@ def test_MantarrayMcSimulator__accepts_time_sync_along_with_status_code_update__
     updated_status_beacon = simulator.read(size=STATUS_BEACON_SIZE_BYTES)
     assert_serial_packet_is_expected(
         updated_status_beacon,
-        SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
         additional_bytes=convert_to_status_code_bytes(SERIAL_COMM_IDLE_READY_CODE),
         timestamp=(expected_time_usecs + spied_get_us.spy_return),
@@ -539,7 +535,6 @@ def test_MantarrayMcSimulator__raises_error_when_magnetometer_config_command_rec
     dummy_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
     change_config_command = create_data_packet(
         dummy_timestamp,
-        SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
         bytes([SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE])
         + bad_sampling_period.to_bytes(2, byteorder="little")
@@ -567,7 +562,6 @@ def test_MantarrayMcSimulator__automatically_sends_plate_barcode_after_time_is_s
     test_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
     test_set_time_command = create_data_packet(
         test_pc_timestamp,
-        SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
         bytes([SERIAL_COMM_SET_TIME_COMMAND_BYTE]) + convert_to_timestamp_bytes(test_pc_timestamp),
     )
@@ -582,7 +576,6 @@ def test_MantarrayMcSimulator__automatically_sends_plate_barcode_after_time_is_s
     barcode_packet = simulator.read(size=barcode_packet_size)
     assert_serial_packet_is_expected(
         barcode_packet,
-        SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE,
         bytes(MantarrayMcSimulator.default_barcode, encoding="ascii"),
     )
