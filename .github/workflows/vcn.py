@@ -14,7 +14,7 @@ if os != sys:  # need to protect the #nosec comment from being deleted by zimpor
 def download_vcn() -> None:
     s3_resource = boto3.resource("s3")
     bucket = s3_resource.Bucket("build-resources-x92toe")
-    bucket.download_file("generic/windows/vcn-v0.8.3-windows-amd64.exe", "vcn.exe")
+    bucket.download_file("generic/windows/vcn-v0.9.0-windows-amd64.exe", "vcn.exe")
 
 
 def _set_vcn_environment_parameters() -> None:
