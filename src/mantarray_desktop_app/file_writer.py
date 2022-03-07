@@ -493,10 +493,7 @@ class FileWriterProcess(InfiniteProcess):
         elif command == "update_customer_settings":
             self._customer_settings = communication["config_settings"]
             to_main.put_nowait(
-                {
-                    "communication_type": "command_receipt",
-                    "command": "update_customer_settings",
-                }
+                {"communication_type": "command_receipt", "command": "update_customer_settings"}
             )
         else:
             raise UnrecognizedCommandFromMainToFileWriterError(command)
@@ -804,20 +801,12 @@ class FileWriterProcess(InfiniteProcess):
             # grab filename before closing h5 file otherwise it will error
             file_name = this_file.filename
             _finalize_file(this_file)
-            self._to_main_queue.put_nowait(
-                {
-                    "communication_type": "file_finalized",
-                    "file_path": file_name,
-                }
-            )
+            self._to_main_queue.put_nowait({"communication_type": "file_finalized", "file_path": file_name})
             del self._open_files[0][this_well_idx]
         # if no files open anymore, then send message to main indicating that all files have been finalized
         if len(self._open_files[0]) == 0:
             self._to_main_queue.put_nowait(
-                {
-                    "communication_type": "file_finalized",
-                    "message": "all_finals_finalized",
-                }
+                {"communication_type": "file_finalized", "message": "all_finals_finalized"}
             )
             # after all files are finalized, upload them if necessary
             if not self._is_recording_calibration and self._customer_settings:
@@ -1316,10 +1305,7 @@ class FileWriterProcess(InfiniteProcess):
                     self._upload_threads_container.remove(thread_dict)
                     outgoing_msg = {"data_type": "upload_status", "data_json": json.dumps(upload_status)}
                     self._to_main_queue.put_nowait(
-                        {
-                            "communication_type": "update_upload_status",
-                            "content": outgoing_msg,
-                        }
+                        {"communication_type": "update_upload_status", "content": outgoing_msg}
                     )
 
     def _drain_all_queues(self) -> Dict[str, Any]:

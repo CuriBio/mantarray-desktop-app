@@ -53,38 +53,23 @@ __fixtures__ = [
             "raises error with invalid communication_type",
         ),
         (
-            {
-                "communication_type": "mantarray_naming",
-                "command": "bad_command",
-            },
+            {"communication_type": "mantarray_naming", "command": "bad_command"},
             "raises error with invalid mantarray_naming command",
         ),
         (
-            {
-                "communication_type": "to_instrument",
-                "command": "bad_command",
-            },
+            {"communication_type": "to_instrument", "command": "bad_command"},
             "raises error with invalid to_instrument command",
         ),
         (
-            {
-                "communication_type": "acquisition_manager",
-                "command": "bad_command",
-            },
+            {"communication_type": "acquisition_manager", "command": "bad_command"},
             "raises error with invalid acquisition_manager command",
         ),
         (
-            {
-                "communication_type": "stimulation",
-                "command": "bad_command",
-            },
+            {"communication_type": "stimulation", "command": "bad_command"},
             "raises error with invalid stimulation command",
         ),
         (
-            {
-                "communication_type": "firmware_update",
-                "command": "bad_command",
-            },
+            {"communication_type": "firmware_update", "command": "bad_command"},
             "raises error with invalid firmware_update command",
         ),
     ],

@@ -429,9 +429,13 @@ def test_start_recording__returns_no_error_message_with_multiple_hardware_test_r
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
 
-    response = test_client.get("/start_recording?barcode=MA200440001&is_hardware_test_recording=True")
+    response = test_client.get(
+        f"/start_recording?barcode={MantarrayMcSimulator.default_barcode}&is_hardware_test_recording=True"
+    )
     assert response.status_code == 200
-    response = test_client.get("/start_recording?barcode=MA200440001&is_hardware_test_recording=True")
+    response = test_client.get(
+        f"/start_recording?barcode={MantarrayMcSimulator.default_barcode}&is_hardware_test_recording=True"
+    )
     assert response.status_code == 200
 
 
@@ -444,126 +448,24 @@ def test_start_recording__returns_error_code_and_message_if_barcode_is_not_given
 
 
 @pytest.mark.parametrize(
-    ",".join(("test_barcode", "expected_error_message", "test_description")),
+    "test_barcode,expected_error_message",
     [
-        (
-            "MA1234567890",
-            "Barcode exceeds max length",
-            "returns error message when pre-ML barcode is too long",
-        ),
-        (
-            "",
-            "Barcode does not reach min length",
-            "returns error message when barcode is empty",
-        ),
-        (
-            "MA1234567",
-            "Barcode does not reach min length",
-            "returns error message when barcode is too short",
-        ),
-        (
-            "MA21044-001",
-            "Barcode contains invalid character: '-'",
-            "returns error message when '-' is present",
-        ),
-        (
-            "M$210440001",
-            "Barcode contains invalid character: '$'",
-            "returns error message when '$' is present",
-        ),
-        (
-            "M120044001",
-            "Barcode contains invalid header: 'M1'",
-            "returns error message when barcode header is invalid",
-        ),
-        (
-            "MC20044001",
-            "Barcode contains invalid header: 'MC'",
-            "returns error message when barcode header is invalid",
-        ),
-        (
-            "MD20044001",
-            "Barcode contains invalid header: 'MD'",
-            "returns error message when barcode header is invalid",
-        ),
-        (
-            "MAS10440001",
-            "Barcode contains invalid year: 'S1'",
-            "returns error message when year is contains non-numeric character",
-        ),
-        (
-            "MA200000001",
-            "Barcode contains invalid Julian date: '000'",
-            "returns error message when julian date is too low",
-        ),
-        (
-            "MA20367001",
-            "Barcode contains invalid Julian date: '367'",
-            "returns error message when julian date is too big",
-        ),
-        (
-            "MA203P2001",
-            "Barcode contains invalid Julian date: '3P2'",
-            "returns error message when julian date contains non-numeric value",
-        ),
-        (
-            "MA2004400BA",
-            "Barcode contains nom-numeric string after Julian date: '00BA'",
-            "returns error message when barcode ending is non-numeric",
-        ),
-        (
-            "MA2004400A",
-            "Barcode contains nom-numeric string after Julian date: '00A'",
-            "returns error message when barcode ending is non-numeric",
-        ),
-        # new barcode format
-        (
-            "ML12345678901",
-            "Barcode is incorrect length",
-            "returns error message when ML barcode is too long",
-        ),
-        (
-            "ML123456789",
-            "Barcode is incorrect length",
-            "returns error message when ML barcode is too short",
-        ),
-        (
-            "ML2021$72144",
-            "Barcode contains invalid character: '$'",
-            "returns error message when '$' is present in ML barcode",
-        ),
-        (
-            "ML2020172144",
-            "Barcode contains invalid year: '2020'",
-            "returns error message when ML barcode contains invalid year",
-        ),
-        (
-            "ML2021000144",
-            "Barcode contains invalid Julian date: '000'",
-            "returns error message when ML barcode contains Julian date: '000'",
-        ),
-        (
-            "ML2021367144",
-            "Barcode contains invalid Julian date: '367'",
-            "returns error message when ML barcode contains Julian date: '367'",
-        ),
-        (
-            "ML2021172002",
-            "Barcode contains invalid kit ID: '002'",
-            "returns error message when ML barcode contains kit ID: '002'",
-        ),
-        (
-            "ML2021172003",
-            "Barcode contains invalid kit ID: '003'",
-            "returns error message when ML barcode contains kit ID: '003'",
-        ),
+        ("ML12345678901", "Barcode is incorrect length"),
+        ("ML123456789", "Barcode is incorrect length"),
+        ("MA1234567890", "Barcode contains invalid header: 'MA'"),
+        ("MB1234567890", "Barcode contains invalid header: 'MB'"),
+        ("ME1234567890", "Barcode contains invalid header: 'ME'"),
+        ("ML2021$72144", "Barcode contains invalid character: '$'"),
+        ("ML20211721)4", "Barcode contains invalid character: ')'"),
+        ("ML2020172144", "Barcode contains invalid year: '2020'"),
+        ("ML2021000144", "Barcode contains invalid Julian date: '000'"),
+        ("ML2021367144", "Barcode contains invalid Julian date: '367'"),
     ],
 )
 def test_start_recording__returns_error_code_and_message_if_barcode_is_invalid(
     test_client,
     test_barcode,
     expected_error_message,
-    test_description,
 ):
     response = test_client.get(f"/start_recording?barcode={test_barcode}")
     assert response.status_code == 400
@@ -572,72 +474,10 @@ def test_start_recording__returns_error_code_and_message_if_barcode_is_invalid(
 
 @pytest.mark.parametrize(
     "test_barcode,test_description",
-    [
-        (
-            "MA210440001",
-            "allows year to be 21",
-        ),
-        (
-            "MA190440001",
-            "allows year to be 19",
-        ),
-    ],
-)
-def test_start_recording__allows_years_other_than_20_in_barcode(
-    test_barcode, test_description, client_and_server_manager_and_shared_values
-):
-    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
-    put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
-
-    response = test_client.get(f"/start_recording?barcode={test_barcode}")
-    assert response.status_code == 200
-
-
-@pytest.mark.parametrize(
-    "test_barcode,test_description",
-    [
-        (
-            "MA200440001",
-            "allows header 'MA'",
-        ),
-        (
-            "ME200440001",
-            "allows header 'ME'",
-        ),
-        (
-            "MB200440001",
-            "allows header 'MB'",
-        ),
-        (
-            "ML2021172144",
-            "allows header 'ML'",
-        ),
-    ],
+    [("ML2021172003", "allows header 'ML'"), ("MS2021172002", "allows header 'MS'")],
 )
 def test_start_recording__allows_correct_barcode_headers(
     test_barcode, test_description, client_and_server_manager_and_shared_values
-):
-    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
-    put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
-    response = test_client.get(f"/start_recording?barcode={test_barcode}")
-    assert response.status_code == 200
-
-
-@pytest.mark.parametrize(
-    "test_barcode,test_description",
-    [
-        (
-            "ML2021172004",
-            "allows kit ID '004'",
-        ),
-        (
-            "ML2021172001",
-            "allows kit ID '001'",
-        ),
-    ],
-)
-def test_start_recording__allows_correct_kit_ids_in_ML_barcodes(
-    test_barcode, test_description, test_client, client_and_server_manager_and_shared_values
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
@@ -652,7 +492,7 @@ def test_start_recording__returns_error_code_and_message_if_already_recording(
     put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
     shared_values_dict["system_status"] = RECORDING_STATE
 
-    response = test_client.get("/start_recording?barcode=MA200440001")
+    response = test_client.get(f"/start_recording?barcode={MantarrayMcSimulator.default_barcode}")
     assert response.status_code == 304
     assert response.status.endswith("Already recording") is True
 

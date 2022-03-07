@@ -620,7 +620,7 @@ def start_recording() -> Response:
     """Tell the FileWriter to begin recording data to disk.
 
     Can be invoked by: curl http://localhost:4567/start_recording
-    curl http://localhost:4567/start_recording?active_well_indices=2,5,9&barcode=MA200440001&time_index=9600&is_hardware_test_recording=True
+    curl http://localhost:4567/start_recording?active_well_indices=2,5,9&barcode=ML2022001000&time_index=9600&is_hardware_test_recording=True
 
     Args:
         active_well_indices: [Optional, default=all 24] CSV of well indices to record from

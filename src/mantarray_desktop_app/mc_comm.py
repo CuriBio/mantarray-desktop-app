@@ -352,10 +352,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             # don't make new connection if a board is already connected
             if self._board_connections[i] is not None:
                 continue
-            msg = {
-                "communication_type": "board_connection_status_change",
-                "board_index": i,
-            }
+            msg = {"communication_type": "board_connection_status_change", "board_index": i}
 
             for port_info in list_ports.comports():
                 # Tanner (6/14/21): attempt to connect to any device with the STM vendor ID
@@ -898,11 +895,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             # Tanner (2/4/22): currently unused in favor of SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE, but plan to switch back to this packet type when the instrument is able to detect whether or not a plate was placed or removed
             plate_was_placed = bool(packet_body[0])
             barcode = packet_body[1:].decode("ascii") if plate_was_placed else ""
-            barcode_comm = {
-                "communication_type": "barcode_comm",
-                "board_idx": board_idx,
-                "barcode": barcode,
-            }
+            barcode_comm = {"communication_type": "barcode_comm", "board_idx": board_idx, "barcode": barcode}
             if plate_was_placed:
                 barcode_comm["valid"] = check_barcode_is_valid(barcode)
             self._board_queues[board_idx][1].put_nowait(barcode_comm)
@@ -970,12 +963,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 bytes([SERIAL_COMM_SET_TIME_COMMAND_BYTE])
                 + convert_to_timestamp_bytes(get_serial_comm_timestamp()),
             )
-            self._add_command_to_track(
-                {
-                    "communication_type": "to_instrument",
-                    "command": "set_time",
-                }
-            )
+            self._add_command_to_track({"communication_type": "to_instrument", "command": "set_time"})
         elif status_code == SERIAL_COMM_IDLE_READY_CODE:
             # Tanner (8/5/21): not explicitly unit tested, but magnetometer config should be sent before automatic metadata collection
             if self._auto_set_magnetometer_config:
@@ -1008,12 +996,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                     SERIAL_COMM_GET_METADATA_PACKET_TYPE,
                     convert_to_timestamp_bytes(get_serial_comm_timestamp()),
                 )
-                self._add_command_to_track(
-                    {
-                        "communication_type": "metadata_comm",
-                        "command": "get_metadata",
-                    }
-                )
+                self._add_command_to_track({"communication_type": "metadata_comm", "command": "get_metadata"})
             self._auto_get_metadata = False
 
     def _register_magic_word(self, board_idx: int) -> None:

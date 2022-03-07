@@ -17,6 +17,7 @@ from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import utils
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.mc_simulator import MantarrayMcSimulator
 from pulse3D.constants import ADC_GAIN_SETTING_UUID
 from pulse3D.constants import BACKEND_LOG_UUID
 from pulse3D.constants import BARCODE_IS_FROM_SCANNER_UUID
@@ -826,24 +827,29 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_correct_wel
     "scanned_barcode,user_entered_barcode,expected_result,test_description",
     [
         (
-            "MA200440001",
-            "MA200440002",
+            MantarrayMcSimulator.default_barcode,
+            MantarrayMcSimulator.default_barcode[:-1] + "2",
             False,
             "correctly sets value to False with scanned barcode present",
         ),
         (
             "",
-            "MA200440002",
+            MantarrayMcSimulator.default_barcode[:-1] + "2",
             False,
             "correctly sets value to False after barcode scan fails",
         ),
         (
             None,
-            "MA200440002",
+            MantarrayMcSimulator.default_barcode[:-1] + "2",
             False,
             "correctly sets value to False without scanned barcode present",
         ),
-        ("MA200440001", "MA200440001", True, "correctly sets value to True"),
+        (
+            MantarrayMcSimulator.default_barcode,
+            MantarrayMcSimulator.default_barcode,
+            True,
+            "correctly sets value to True",
+        ),
     ],
 )
 def test_start_recording_command__correctly_sets_barcode_from_scanner_value(
