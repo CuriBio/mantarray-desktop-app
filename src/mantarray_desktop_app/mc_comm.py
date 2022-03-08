@@ -54,7 +54,7 @@ from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from .constants import SERIAL_COMM_IDLE_READY_CODE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
-from .constants import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
+from .constants import SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE
 from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
@@ -67,22 +67,22 @@ from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
-from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
+from .constants import SERIAL_COMM_REBOOT_PACKET_TYPE
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
-from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
+from .constants import SERIAL_COMM_SET_TIME_PACKET_TYPE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_SOFT_ERROR_CODE
-from .constants import SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE
+from .constants import SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE
 from .constants import SERIAL_COMM_START_STIM_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from .constants import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
-from .constants import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
+from .constants import SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE
 from .constants import SERIAL_COMM_STOP_STIM_PACKET_TYPE
 from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
@@ -501,7 +501,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 )
         elif communication_type == "to_instrument":
             if comm_from_main["command"] == "reboot":
-                bytes_to_send = bytes([SERIAL_COMM_REBOOT_COMMAND_BYTE])
+                bytes_to_send = bytes([SERIAL_COMM_REBOOT_PACKET_TYPE])
                 self._is_waiting_for_reboot = True
             else:
                 raise UnrecognizedCommandFromMainToMcCommError(
@@ -512,14 +512,14 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._timepoint_of_prev_data_parse_secs = None
                 self._timepoint_of_prev_data_read_secs = None
                 self._parses_since_last_logging = [0] * len(self._board_queues)
-                bytes_to_send = bytes([SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE])
+                bytes_to_send = bytes([SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE])
             elif comm_from_main["command"] == "stop_managed_acquisition":
                 self._is_stopping_data_stream = True
-                bytes_to_send = bytes([SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE])
+                bytes_to_send = bytes([SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE])
             elif comm_from_main["command"] == "change_magnetometer_config":
                 if self._is_data_streaming:
                     raise MagnetometerConfigUpdateWhileDataStreamingError()
-                bytes_to_send = bytes([SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE])
+                bytes_to_send = bytes([SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE])
                 bytes_to_send += comm_from_main["sampling_period"].to_bytes(2, byteorder="little")
                 bytes_to_send += create_magnetometer_config_bytes(comm_from_main["magnetometer_config"])
                 self._set_magnetometer_config(
@@ -933,7 +933,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._send_data_packet(
                 board_idx,
                 SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-                bytes([SERIAL_COMM_SET_TIME_COMMAND_BYTE])
+                bytes([SERIAL_COMM_SET_TIME_PACKET_TYPE])
                 + convert_to_timestamp_bytes(get_serial_comm_timestamp()),
             )
             self._add_command_to_track({"communication_type": "to_instrument", "command": "set_time"})
@@ -942,7 +942,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             if self._auto_set_magnetometer_config:
                 initial_config_copy = copy.deepcopy(DEFAULT_MAGNETOMETER_CONFIG)
                 self._set_magnetometer_config(initial_config_copy, DEFAULT_SAMPLING_PERIOD)
-                bytes_to_send = bytes([SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE])
+                bytes_to_send = bytes([SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE])
                 bytes_to_send += DEFAULT_SAMPLING_PERIOD.to_bytes(2, byteorder="little")
                 bytes_to_send += create_magnetometer_config_bytes(initial_config_copy)
                 self._send_data_packet(board_idx, SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE, bytes_to_send)

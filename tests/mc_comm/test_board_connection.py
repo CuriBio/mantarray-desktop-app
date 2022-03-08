@@ -17,7 +17,7 @@ from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
-from mantarray_desktop_app import SERIAL_COMM_SET_TIME_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_SET_TIME_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
@@ -250,10 +250,7 @@ def test_McCommunicationProcess_register_magic_word__registers_with_magic_word_i
     expected_sleep_secs = 1
     for sleep_call_num in range(SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS - 1):
         sleep_iter_call = mocked_sleep.call_args_list[sleep_call_num][0][0]
-        assert (sleep_call_num, sleep_iter_call) == (
-            sleep_call_num,
-            expected_sleep_secs,
-        )
+        assert sleep_iter_call == expected_sleep_secs, sleep_call_num
 
 
 def test_McCommunicationProcess_register_magic_word__raises_error_if_less_than_8_bytes_available_after_registration_timeout_period_has_elapsed(
@@ -354,10 +351,7 @@ def test_McCommunicationProcess__automatically_sends_time_set_command_when_recei
 
     # put simulator in time sync ready status and send beacon
     test_commands = [
-        {
-            "command": "set_status_code",
-            "status_code": SERIAL_COMM_TIME_SYNC_READY_CODE,
-        },
+        {"command": "set_status_code", "status_code": SERIAL_COMM_TIME_SYNC_READY_CODE},
         {"command": "send_single_beacon"},
     ]
     handle_putting_multiple_objects_into_empty_queue(test_commands, testing_queue)
@@ -368,7 +362,7 @@ def test_McCommunicationProcess__automatically_sends_time_set_command_when_recei
     assert_serial_packet_is_expected(
         spied_write.call_args[0][0],
         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-        additional_bytes=bytes([SERIAL_COMM_SET_TIME_COMMAND_BYTE])
+        additional_bytes=bytes([SERIAL_COMM_SET_TIME_PACKET_TYPE])
         + convert_to_timestamp_bytes(spied_get_timestamp.spy_return),
     )
     # process command and send response
@@ -404,14 +398,8 @@ def test_McCommunicationProcess__waits_until_instrument_is_done_rebooting_to_sen
     )
 
     set_connection_and_register_simulator(four_board_mc_comm_process_no_handshake, mantarray_mc_simulator)
-    reboot_command = {
-        "communication_type": "to_instrument",
-        "command": "reboot",
-    }
-    test_command = {
-        "communication_type": "metadata_comm",
-        "command": "get_metadata",
-    }
+    reboot_command = {"communication_type": "to_instrument", "command": "reboot"}
+    test_command = {"communication_type": "metadata_comm", "command": "get_metadata"}
     handle_putting_multiple_objects_into_empty_queue(
         [copy.deepcopy(reboot_command), copy.deepcopy(test_command)], input_queue
     )
@@ -455,10 +443,7 @@ def test_McCommunicationProcess__does_not_send_handshakes_while_instrument_is_re
         autospec=True,
         side_effect=[0, SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS],
     )
-    reboot_command = {
-        "communication_type": "to_instrument",
-        "command": "reboot",
-    }
+    reboot_command = {"communication_type": "to_instrument", "command": "reboot"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(reboot_command), input_queue
     )
@@ -488,10 +473,7 @@ def test_McCommunicationProcess__does_not_check_for_overdue_status_beacons_after
         autospec=True,
         side_effect=[SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS],
     )
-    reboot_command = {
-        "communication_type": "to_instrument",
-        "command": "reboot",
-    }
+    reboot_command = {"communication_type": "to_instrument", "command": "reboot"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(reboot_command), input_queue
     )
@@ -521,10 +503,7 @@ def test_McCommunicationProcess__raises_error_if_reboot_takes_longer_than_maximu
         side_effect=[MAX_MC_REBOOT_DURATION_SECONDS],
     )
 
-    reboot_command = {
-        "communication_type": "to_instrument",
-        "command": "reboot",
-    }
+    reboot_command = {"communication_type": "to_instrument", "command": "reboot"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(reboot_command), input_queue
     )

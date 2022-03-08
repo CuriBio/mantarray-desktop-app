@@ -29,22 +29,22 @@ from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_IDLE_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
-from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
-from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_REBOOT_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
-from mantarray_desktop_app import SERIAL_COMM_SET_TIME_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_SET_TIME_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
-from mantarray_desktop_app import SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
-from mantarray_desktop_app import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_TIME_SYNC_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import SerialCommTooManyMissedHandshakesError
@@ -237,7 +237,7 @@ def test_MantarrayMcSimulator__discards_commands_from_pc_during_reboot_period__a
     # send reboot command
     expected_timestamp = 0
     test_reboot_command = create_data_packet(
-        expected_timestamp, SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE, bytes([SERIAL_COMM_REBOOT_COMMAND_BYTE])
+        expected_timestamp, SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE, bytes([SERIAL_COMM_REBOOT_PACKET_TYPE])
     )
     simulator.write(test_reboot_command)
     invoke_process_run_and_check_errors(simulator)
@@ -288,7 +288,7 @@ def test_MantarrayMcSimulator__does_not_send_status_beacon_while_rebooting(manta
     # send reboot command
     expected_timestamp = 1
     test_reboot_command = create_data_packet(
-        expected_timestamp, SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE, bytes([SERIAL_COMM_REBOOT_COMMAND_BYTE])
+        expected_timestamp, SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE, bytes([SERIAL_COMM_REBOOT_PACKET_TYPE])
     )
     simulator.write(test_reboot_command)
     invoke_process_run_and_check_errors(simulator)
@@ -520,7 +520,7 @@ def test_MantarrayMcSimulator__processes_set_time_command(mantarray_mc_simulator
     test_set_time_command = create_data_packet(
         expected_pc_timestamp,
         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-        bytes([SERIAL_COMM_SET_TIME_COMMAND_BYTE]) + convert_to_timestamp_bytes(expected_pc_timestamp),
+        bytes([SERIAL_COMM_SET_TIME_PACKET_TYPE]) + convert_to_timestamp_bytes(expected_pc_timestamp),
     )
     simulator.write(test_set_time_command)
     invoke_process_run_and_check_errors(simulator)
@@ -604,7 +604,7 @@ def test_MantarrayMcSimulator__processes_start_data_streaming_command(
         test_start_data_streaming_command = create_data_packet(
             expected_pc_timestamp,
             SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-            bytes([SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE]),
+            bytes([SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE]),
         )
         simulator.write(test_start_data_streaming_command)
         invoke_process_run_and_check_errors(simulator)
@@ -640,7 +640,7 @@ def test_MantarrayMcSimulator__processes_stop_data_streaming_command(
     test_start_data_streaming_command = create_data_packet(
         dummy_timestamp,
         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-        bytes([SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE]),
+        bytes([SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE]),
     )
     simulator.write(test_start_data_streaming_command)
     invoke_process_run_and_check_errors(simulator)
@@ -663,7 +663,7 @@ def test_MantarrayMcSimulator__processes_stop_data_streaming_command(
         test_stop_data_streaming_command = create_data_packet(
             expected_pc_timestamp,
             SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-            bytes([SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE]),
+            bytes([SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE]),
         )
         simulator.write(test_stop_data_streaming_command)
         invoke_process_run_and_check_errors(simulator)
@@ -709,7 +709,7 @@ def test_MantarrayMcSimulator__processes_change_magnetometer_config_command__whe
     change_config_command = create_data_packet(
         expected_pc_timestamp,
         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-        bytes([SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE])
+        bytes([SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE])
         + expected_sampling_period.to_bytes(2, byteorder="little")
         + magnetometer_config_bytes,
     )
@@ -773,7 +773,7 @@ def test_MantarrayMcSimulator__processes_change_magnetometer_config_command__whe
     change_config_command = create_data_packet(
         expected_pc_timestamp,
         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-        bytes([SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE])
+        bytes([SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE])
         + ignored_sampling_period.to_bytes(2, byteorder="little")
         + magnetometer_config_bytes,
     )

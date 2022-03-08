@@ -57,7 +57,7 @@ from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_IDLE_READY_CODE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
-from .constants import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
+from .constants import SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE
 from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from .constants import SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE
@@ -68,17 +68,17 @@ from .constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
-from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
+from .constants import SERIAL_COMM_REBOOT_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
-from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
+from .constants import SERIAL_COMM_SET_TIME_PACKET_TYPE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
-from .constants import SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE
+from .constants import SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE
 from .constants import SERIAL_COMM_START_STIM_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
-from .constants import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
+from .constants import SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE
 from .constants import SERIAL_COMM_STOP_STIM_PACKET_TYPE
 from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
@@ -536,11 +536,11 @@ class MantarrayMcSimulator(InfiniteProcess):
         packet_type = comm_from_pc[SERIAL_COMM_PACKET_TYPE_INDEX]
         if packet_type == SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE:
             command_byte = comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX]
-            if command_byte == SERIAL_COMM_REBOOT_COMMAND_BYTE:
+            if command_byte == SERIAL_COMM_REBOOT_PACKET_TYPE:
                 self._reboot_time_secs = perf_counter()
-            elif command_byte == SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE:
+            elif command_byte == SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE:
                 response_body += self._update_magnetometer_config(comm_from_pc)
-            elif command_byte == SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE:
+            elif command_byte == SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE:
                 is_data_already_streaming = self._is_streaming_data
                 response_body += bytes([is_data_already_streaming])
                 self._is_streaming_data = True
@@ -548,10 +548,10 @@ class MantarrayMcSimulator(InfiniteProcess):
                     response_body += self._time_index_us.to_bytes(8, byteorder="little")
                     response_body += self._sampling_period_us.to_bytes(2, byteorder="little")
                     response_body += create_magnetometer_config_bytes(self._magnetometer_config)
-            elif command_byte == SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE:
+            elif command_byte == SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE:
                 response_body += bytes([not self._is_streaming_data])
                 self._is_streaming_data = False
-            elif command_byte == SERIAL_COMM_SET_TIME_COMMAND_BYTE:
+            elif command_byte == SERIAL_COMM_SET_TIME_PACKET_TYPE:
                 self._baseline_time_us = int.from_bytes(response_body, byteorder="little")
                 self._timepoint_of_time_sync_us = _perf_counter_us()
                 status_code_update = SERIAL_COMM_IDLE_READY_CODE

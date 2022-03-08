@@ -15,10 +15,10 @@ from mantarray_desktop_app import SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_IDLE_READY_CODE
-from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
-from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
-from mantarray_desktop_app import SERIAL_COMM_SET_TIME_COMMAND_BYTE
+from mantarray_desktop_app import SERIAL_COMM_REBOOT_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_SET_TIME_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
@@ -463,7 +463,7 @@ def test_MantarrayMcSimulator__processes_testing_commands_during_reboot(
         create_data_packet(
             test_timestamp,
             SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-            bytes([SERIAL_COMM_REBOOT_COMMAND_BYTE]),
+            bytes([SERIAL_COMM_REBOOT_PACKET_TYPE]),
         )
     )
     invoke_process_run_and_check_errors(simulator)
@@ -536,7 +536,7 @@ def test_MantarrayMcSimulator__raises_error_when_magnetometer_config_command_rec
     change_config_command = create_data_packet(
         dummy_timestamp,
         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-        bytes([SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE])
+        bytes([SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE])
         + bad_sampling_period.to_bytes(2, byteorder="little")
         + magnetometer_config_bytes,
     )
@@ -563,7 +563,7 @@ def test_MantarrayMcSimulator__automatically_sends_plate_barcode_after_time_is_s
     test_set_time_command = create_data_packet(
         test_pc_timestamp,
         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-        bytes([SERIAL_COMM_SET_TIME_COMMAND_BYTE]) + convert_to_timestamp_bytes(test_pc_timestamp),
+        bytes([SERIAL_COMM_SET_TIME_PACKET_TYPE]) + convert_to_timestamp_bytes(test_pc_timestamp),
     )
     simulator.write(test_set_time_command)
     # process set time command and remove response

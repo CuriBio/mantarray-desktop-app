@@ -114,7 +114,7 @@ from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_IDLE_READY_CODE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
-from .constants import SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE
+from .constants import SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE
 from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
@@ -131,23 +131,23 @@ from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
-from .constants import SERIAL_COMM_REBOOT_COMMAND_BYTE
+from .constants import SERIAL_COMM_REBOOT_PACKET_TYPE
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from .constants import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
-from .constants import SERIAL_COMM_SET_TIME_COMMAND_BYTE
+from .constants import SERIAL_COMM_SET_TIME_PACKET_TYPE
 from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_SOFT_ERROR_CODE
-from .constants import SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE
+from .constants import SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE
 from .constants import SERIAL_COMM_START_STIM_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from .constants import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
-from .constants import SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE
+from .constants import SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE
 from .constants import SERIAL_COMM_STOP_STIM_PACKET_TYPE
 from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
@@ -493,7 +493,7 @@ __all__ = [
     "SERIAL_COMM_MAX_PACKET_LENGTH_BYTES",
     "SerialCommPacketRegistrationSearchExhaustedError",
     "SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE",
-    "SERIAL_COMM_REBOOT_COMMAND_BYTE",
+    "SERIAL_COMM_REBOOT_PACKET_TYPE",
     "MAX_MC_REBOOT_DURATION_SECONDS",
     "mc_comm",
     "validate_checksum",
@@ -531,7 +531,7 @@ __all__ = [
     "SerialCommHandshakeTimeoutError",
     "convert_to_status_code_bytes",
     "SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES",
-    "SERIAL_COMM_SET_TIME_COMMAND_BYTE",
+    "SERIAL_COMM_SET_TIME_PACKET_TYPE",
     "convert_to_timestamp_bytes",
     "get_serial_comm_timestamp",
     "SERIAL_COMM_TIMESTAMP_EPOCH",
@@ -540,13 +540,13 @@ __all__ = [
     "MantarrayInstrumentError",
     "InstrumentFatalError",
     "InstrumentSoftError",
-    "SERIAL_COMM_START_DATA_STREAMING_COMMAND_BYTE",
-    "SERIAL_COMM_STOP_DATA_STREAMING_COMMAND_BYTE",
+    "SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE",
+    "SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE",
     "SERIAL_COMM_COMMAND_SUCCESS_BYTE",
     "SERIAL_COMM_COMMAND_FAILURE_BYTE",
     "InstrumentDataStreamingAlreadyStartedError",
     "InstrumentDataStreamingAlreadyStoppedError",
-    "SERIAL_COMM_MAGNETOMETER_CONFIG_COMMAND_BYTE",
+    "SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE",
     "SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE",
     "MICROSECONDS_PER_MILLISECOND",
     "SerialCommInvalidSamplingPeriodError",
