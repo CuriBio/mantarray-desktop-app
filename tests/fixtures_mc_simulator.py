@@ -7,7 +7,6 @@ import time
 from mantarray_desktop_app import convert_to_status_code_bytes
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import MantarrayMcSimulator
-from mantarray_desktop_app import SERIAL_COMM_BOOT_UP_CODE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_IDLE_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
@@ -27,7 +26,7 @@ HANDSHAKE_RESPONSE_SIZE_BYTES = 36  # STATUS_BEACON_SIZE_BYTES + SERIAL_COMM_TIM
 TEST_HANDSHAKE_TIMESTAMP = 12345
 TEST_HANDSHAKE = create_data_packet(TEST_HANDSHAKE_TIMESTAMP, SERIAL_COMM_HANDSHAKE_PACKET_TYPE, bytes(0))
 
-DEFAULT_SIMULATOR_STATUS_CODE = convert_to_status_code_bytes(SERIAL_COMM_BOOT_UP_CODE)
+DEFAULT_SIMULATOR_STATUS_CODE = convert_to_status_code_bytes(SERIAL_COMM_IDLE_READY_CODE)
 
 
 def random_time_index():
@@ -44,16 +43,6 @@ def random_data_value():
 
 def random_timestamp():
     return randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
-
-
-def set_simulator_idle_ready(simulator_fixture):
-    simulator = simulator_fixture["simulator"]
-    testing_queue = simulator_fixture["testing_queue"]
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "set_status_code", "status_code": SERIAL_COMM_IDLE_READY_CODE},
-        testing_queue,
-    )
-    invoke_process_run_and_check_errors(simulator)
 
 
 def get_null_subprotocol(duration):

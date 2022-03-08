@@ -42,11 +42,9 @@ from .constants import MICROSECONDS_PER_MILLISECOND
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE
 from .constants import SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
-from .constants import SERIAL_COMM_BOOT_UP_CODE
 from .constants import SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
-from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from .constants import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_FATAL_ERROR_CODE
 from .constants import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
@@ -71,8 +69,6 @@ from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_REBOOT_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
-from .constants import SERIAL_COMM_SET_TIME_PACKET_TYPE
-from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE
 from .constants import SERIAL_COMM_START_STIM_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
@@ -82,7 +78,6 @@ from .constants import SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE
 from .constants import SERIAL_COMM_STOP_STIM_PACKET_TYPE
 from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
-from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import STIM_COMPLETE_SUBPROTOCOL_IDX
@@ -109,7 +104,6 @@ from .utils import sort_nested_dict
 
 MAGIC_WORD_LEN = len(SERIAL_COMM_MAGIC_WORD_BYTES)
 AVERAGE_MC_REBOOT_DURATION_SECONDS = MAX_MC_REBOOT_DURATION_SECONDS / 2
-MC_SIMULATOR_BOOT_UP_DURATION_SECONDS = 3
 
 
 def _perf_counter_us() -> int:
@@ -321,7 +315,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._time_of_last_comm_from_pc_secs = None
         self._reset_start_time()
         self._reboot_time_secs = None
-        self._status_code = SERIAL_COMM_BOOT_UP_CODE  # TODO eventually need to change this to idle ready
+        self._status_code = SERIAL_COMM_IDLE_READY_CODE
         self._reset_magnetometer_config()
         self._baseline_time_us = None
         self._timepoint_of_time_sync_us = None
@@ -472,13 +466,6 @@ class MantarrayMcSimulator(InfiniteProcess):
             if self._reboot_again:
                 self._reboot_time_secs = perf_counter()
             self._reboot_again = False
-        elif self._status_code == SERIAL_COMM_BOOT_UP_CODE:
-            if self._boot_up_time_secs is None:
-                self._boot_up_time_secs = perf_counter()
-            boot_up_dur_secs = _get_secs_since_boot_up(self._boot_up_time_secs)
-            # if boot_up_dur_secs is less than the boot-up duration, simulator is still booting up
-            if boot_up_dur_secs >= MC_SIMULATOR_BOOT_UP_DURATION_SECONDS:
-                self._update_status_code(SERIAL_COMM_TIME_SYNC_READY_CODE)
         self._handle_comm_from_pc()
         self._handle_status_beacon()
         if self._is_streaming_data:
@@ -496,11 +483,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         try:
             comm_from_pc = self._input_queue.get_nowait()
         except queue.Empty:
-            if self._status_code not in (
-                SERIAL_COMM_BOOT_UP_CODE,
-                SERIAL_COMM_TIME_SYNC_READY_CODE,
-            ):
-                self._check_handshake_timeout()
+            self._check_handshake_timeout()
             return
         self._time_of_last_comm_from_pc_secs = perf_counter()
 
@@ -531,34 +514,10 @@ class MantarrayMcSimulator(InfiniteProcess):
 
         send_response = True
         response_body = timestamp_from_pc_bytes
-        response_packet_type = SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 
         packet_type = comm_from_pc[SERIAL_COMM_PACKET_TYPE_INDEX]
-        if packet_type == SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE:
-            command_byte = comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX]
-            if command_byte == SERIAL_COMM_REBOOT_PACKET_TYPE:
-                self._reboot_time_secs = perf_counter()
-            elif command_byte == SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE:
-                response_body += self._update_magnetometer_config(comm_from_pc)
-            elif command_byte == SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE:
-                is_data_already_streaming = self._is_streaming_data
-                response_body += bytes([is_data_already_streaming])
-                self._is_streaming_data = True
-                if not is_data_already_streaming:
-                    response_body += self._time_index_us.to_bytes(8, byteorder="little")
-                    response_body += self._sampling_period_us.to_bytes(2, byteorder="little")
-                    response_body += create_magnetometer_config_bytes(self._magnetometer_config)
-            elif command_byte == SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE:
-                response_body += bytes([not self._is_streaming_data])
-                self._is_streaming_data = False
-            elif command_byte == SERIAL_COMM_SET_TIME_PACKET_TYPE:
-                self._baseline_time_us = int.from_bytes(response_body, byteorder="little")
-                self._timepoint_of_time_sync_us = _perf_counter_us()
-                status_code_update = SERIAL_COMM_IDLE_READY_CODE
-                self._ready_to_send_barcode = True
-            else:
-                # TODO Tanner (3/4/21): Determine what to do if command_byte, module_id, or packet_type are incorrect. It may make more sense to respond with a message rather than raising an error
-                raise NotImplementedError(command_byte)
+        if packet_type == SERIAL_COMM_REBOOT_PACKET_TYPE:
+            self._reboot_time_secs = perf_counter()
         elif packet_type == SERIAL_COMM_HANDSHAKE_PACKET_TYPE:
             self._time_of_last_handshake_secs = perf_counter()
             response_body += convert_to_status_code_bytes(self._status_code)
@@ -593,6 +552,19 @@ class MantarrayMcSimulator(InfiniteProcess):
             if not command_failed:
                 self._handle_manual_stim_stop()
                 self._is_stimulating = False
+        elif packet_type == SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE:
+            response_body += self._update_magnetometer_config(comm_from_pc)
+        elif packet_type == SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE:
+            is_data_already_streaming = self._is_streaming_data
+            response_body += bytes([is_data_already_streaming])
+            self._is_streaming_data = True
+            if not is_data_already_streaming:
+                response_body += self._time_index_us.to_bytes(8, byteorder="little")
+                response_body += self._sampling_period_us.to_bytes(2, byteorder="little")
+                response_body += create_magnetometer_config_bytes(self._magnetometer_config)
+        elif packet_type == SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE:
+            response_body += bytes([not self._is_streaming_data])
+            self._is_streaming_data = False
         elif packet_type == SERIAL_COMM_GET_METADATA_PACKET_TYPE:
             response_body += convert_metadata_to_bytes(self._metadata_dict)
         elif packet_type == SERIAL_COMM_SET_NICKNAME_PACKET_TYPE:
@@ -609,7 +581,6 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._firmware_update_idx = 0
             self._firmware_update_type = firmware_type
             self._firmware_update_bytes = bytes(0)
-            response_packet_type = SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
             response_body += bytes([command_failed])
         elif packet_type == SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE:
             if self._firmware_update_bytes is None:
@@ -626,7 +597,6 @@ class MantarrayMcSimulator(InfiniteProcess):
                 len(new_firmware_bytes) > SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES - 1
                 or packet_idx != self._firmware_update_idx
             )
-            response_packet_type = SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
             response_body += bytes([command_failed])
             self._firmware_update_bytes += new_firmware_bytes
             self._firmware_update_idx += 1
@@ -637,7 +607,6 @@ class MantarrayMcSimulator(InfiniteProcess):
             if self._firmware_update_bytes is None:
                 # Tanner (11/10/21): currently unsure how real board would handle receiving this packet before the previous two firmware packet types
                 raise NotImplementedError("_firmware_update_bytes should never be None here")
-            response_packet_type = SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
             received_checksum = int.from_bytes(
                 comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX : SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 4],
                 byteorder="little",
@@ -651,7 +620,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         else:
             raise UnrecognizedSerialCommPacketTypeError(f"Packet Type ID: {packet_type} is not defined")
         if send_response:
-            self._send_data_packet(response_packet_type, response_body)
+            self._send_data_packet(packet_type, response_body)
         # update status code (if an update is necessary) after sending command response
         if status_code_update is not None:
             self._update_status_code(status_code_update)
@@ -663,7 +632,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             return update_status_byte
         # check and set sampling period
         sampling_period = int.from_bytes(
-            comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 1 : SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 3],
+            comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX : SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 2],
             byteorder="little",
         )
         if sampling_period % MICROSECONDS_PER_MILLISECOND != 0:
@@ -671,7 +640,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._sampling_period_us = sampling_period
         # parse and store magnetometer configuration
         magnetometer_config_bytes = comm_from_pc[
-            SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 3 : -SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+            SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 2 : -SERIAL_COMM_CHECKSUM_LENGTH_BYTES
         ]
         config_dict_updates = convert_bytes_to_config_dict(magnetometer_config_bytes)
         # Tanner (6/2/21): Need to make sure module ID keys are in order
@@ -750,13 +719,6 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._status_code = status_code
             baseline_time = test_comm.get("baseline_time", None)
             if baseline_time is not None:
-                if status_code in (
-                    SERIAL_COMM_BOOT_UP_CODE,
-                    SERIAL_COMM_TIME_SYNC_READY_CODE,
-                ):
-                    raise NotImplementedError(
-                        "baseline_time cannot be set through testing queue in boot up or time sync state"
-                    )
                 self._baseline_time_us = baseline_time
                 self._timepoint_of_time_sync_us = _perf_counter_us()
             # Tanner (4/12/21): simulator has no other way of reaching this state since it has no physical components that can break, so this is the only way to reach this state and the status beacon should be sent automatically

@@ -101,7 +101,6 @@ from .constants import SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_COMMAND_FAILURE_BYTE
-from .constants import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from .constants import SERIAL_COMM_COMMAND_SUCCESS_BYTE
 from .constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from .constants import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
@@ -137,8 +136,6 @@ from .constants import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from .constants import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
-from .constants import SERIAL_COMM_SET_TIME_PACKET_TYPE
-from .constants import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from .constants import SERIAL_COMM_SOFT_ERROR_CODE
 from .constants import SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE
 from .constants import SERIAL_COMM_START_STIM_PACKET_TYPE
@@ -480,7 +477,6 @@ __all__ = [
     "InstrumentCommIncorrectHeaderError",
     "SERIAL_COMM_STATUS_BEACON_PACKET_TYPE",
     "SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE",
-    "SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE",
     "SERIAL_COMM_HANDSHAKE_PACKET_TYPE",
     "SERIAL_COMM_PACKET_TYPE_INDEX",
     "UnrecognizedSerialCommPacketTypeError",
@@ -492,7 +488,6 @@ __all__ = [
     "SerialCommPacketRegistrationReadEmptyError",
     "SERIAL_COMM_MAX_PACKET_LENGTH_BYTES",
     "SerialCommPacketRegistrationSearchExhaustedError",
-    "SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE",
     "SERIAL_COMM_REBOOT_PACKET_TYPE",
     "MAX_MC_REBOOT_DURATION_SECONDS",
     "mc_comm",
@@ -531,7 +526,6 @@ __all__ = [
     "SerialCommHandshakeTimeoutError",
     "convert_to_status_code_bytes",
     "SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES",
-    "SERIAL_COMM_SET_TIME_PACKET_TYPE",
     "convert_to_timestamp_bytes",
     "get_serial_comm_timestamp",
     "SERIAL_COMM_TIMESTAMP_EPOCH",

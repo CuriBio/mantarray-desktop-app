@@ -25,7 +25,6 @@ from ..fixtures import fixture_patch_print
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import fixture_runnable_mantarray_mc_simulator
-from ..fixtures_mc_simulator import set_simulator_idle_ready
 from ..helpers import get_full_packet_size_from_packet_body_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
@@ -107,7 +106,6 @@ def test_MantarrayMcSimulator__sends_correct_time_index_and_data_points_in_first
         }
 
     # set up data stream (no packets created yet)
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {
             "command": "set_data_streaming_status",
@@ -219,7 +217,6 @@ def test_MantarrayMcSimulator__returns_correctly_formatted_data_packet_with_well
     )
 
     # set up data stream (no packets created yet)
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
     expected_data_idx = 10  # picking this value to test a different sample point from the simulated data where the amplitude is larger
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {
