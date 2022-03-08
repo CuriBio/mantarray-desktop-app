@@ -18,7 +18,6 @@ from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
-from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
@@ -38,7 +37,6 @@ from mantarray_desktop_app import SerialCommNotEnoughAdditionalBytesReadError
 from mantarray_desktop_app import SerialCommPacketFromMantarrayTooSmallError
 from mantarray_desktop_app import SerialCommStatusBeaconTimeoutError
 from mantarray_desktop_app import SerialCommUntrackedCommandResponseError
-from mantarray_desktop_app import UnrecognizedSerialCommModuleIdError
 from mantarray_desktop_app import UnrecognizedSerialCommPacketTypeError
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
@@ -103,10 +101,7 @@ def test_McCommunicationProcess__raises_error_if_magic_word_is_incorrect_in_pack
     mc_process.set_board_connection(board_idx, simulator)
     assert mc_process.is_registered_with_serial_comm(board_idx) is False
     test_bytes_1 = create_data_packet(
-        dummy_timestamp,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
-        DEFAULT_SIMULATOR_STATUS_CODE,
+        dummy_timestamp, SERIAL_COMM_STATUS_BEACON_PACKET_TYPE, DEFAULT_SIMULATOR_STATUS_CODE
     )
     # Add arbitrary incorrect value into magic word slot
     bad_magic_word = b"NANOSURF"
@@ -133,10 +128,7 @@ def test_McCommunicationProcess__raises_error_if_length_of_additional_bytes_read
     # create valid packet
     dummy_timestamp = 0
     test_bytes = create_data_packet(
-        dummy_timestamp,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
-        DEFAULT_SIMULATOR_STATUS_CODE,
+        dummy_timestamp, SERIAL_COMM_STATUS_BEACON_PACKET_TYPE, DEFAULT_SIMULATOR_STATUS_CODE
     )
     # cut off checksum bytes so that the remaining packet size is less than the specified packet length
     truncated_test_bytes = test_bytes[:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
@@ -183,10 +175,7 @@ def test_McCommunicationProcess__raises_error_if_checksum_in_data_packet_sent_fr
     # add packet with bad checksum to be sent from simulator
     dummy_timestamp = 0
     test_bytes = create_data_packet(
-        dummy_timestamp,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
-        DEFAULT_SIMULATOR_STATUS_CODE,
+        dummy_timestamp, SERIAL_COMM_STATUS_BEACON_PACKET_TYPE, DEFAULT_SIMULATOR_STATUS_CODE
     )
     # set checksum bytes to an arbitrary incorrect value
     bad_checksum = 1234
@@ -222,14 +211,9 @@ def test_McCommunicationProcess__raises_error_if_not_enough_bytes_in_packet_sent
     test_packet = SERIAL_COMM_MAGIC_WORD_BYTES
     test_packet += bad_packet_length.to_bytes(SERIAL_COMM_PACKET_INFO_LENGTH_BYTES, byteorder="little")
     test_packet += dummy_timestamp_bytes
-    test_packet += bytes([SERIAL_COMM_MAIN_MODULE_ID])
     test_packet += crc32(test_packet).to_bytes(SERIAL_COMM_CHECKSUM_LENGTH_BYTES, byteorder="little")
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {
-            "command": "add_read_bytes",
-            "read_bytes": test_packet,
-        },
-        testing_queue,
+        {"command": "add_read_bytes", "read_bytes": test_packet}, testing_queue
     )
     invoke_process_run_and_check_errors(simulator)
 
@@ -241,37 +225,6 @@ def test_McCommunicationProcess__raises_error_if_not_enough_bytes_in_packet_sent
     assert str(test_packet) in exc_info.value.args[0]
 
 
-def test_McCommunicationProcess__raises_error_if_unrecognized_module_id_sent_from_instrument(
-    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker, patch_print
-):
-    mc_process = four_board_mc_comm_process["mc_process"]
-    simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
-
-    dummy_timestamp = 0
-    dummy_packet_type = 1
-    test_module_id = 254
-    test_packet = create_data_packet(
-        dummy_timestamp,
-        test_module_id,
-        dummy_packet_type,
-        DEFAULT_SIMULATOR_STATUS_CODE,
-    )
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {
-            "command": "add_read_bytes",
-            "read_bytes": test_packet,
-        },
-        testing_queue,
-    )
-    invoke_process_run_and_check_errors(simulator)
-
-    board_idx = 0
-    mc_process.set_board_connection(board_idx, simulator)
-    with pytest.raises(UnrecognizedSerialCommModuleIdError, match=str(test_module_id)):
-        invoke_process_run_and_check_errors(mc_process)
-
-
 def test_McCommunicationProcess__raises_error_if_unrecognized_packet_type_sent_from_instrument(
     four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker, patch_print
 ):
@@ -281,18 +234,9 @@ def test_McCommunicationProcess__raises_error_if_unrecognized_packet_type_sent_f
 
     dummy_timestamp = 0
     test_packet_type = 254
-    test_packet = create_data_packet(
-        dummy_timestamp,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        test_packet_type,
-        DEFAULT_SIMULATOR_STATUS_CODE,
-    )
+    test_packet = create_data_packet(dummy_timestamp, test_packet_type, DEFAULT_SIMULATOR_STATUS_CODE)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {
-            "command": "add_read_bytes",
-            "read_bytes": test_packet,
-        },
-        testing_queue,
+        {"command": "add_read_bytes", "read_bytes": test_packet}, testing_queue
     )
     invoke_process_run_and_check_errors(simulator)
 
@@ -300,7 +244,6 @@ def test_McCommunicationProcess__raises_error_if_unrecognized_packet_type_sent_f
     mc_process.set_board_connection(board_idx, simulator)
     with pytest.raises(UnrecognizedSerialCommPacketTypeError) as exc_info:
         invoke_process_run_and_check_errors(mc_process)
-    assert str(SERIAL_COMM_MAIN_MODULE_ID) in str(exc_info.value)
     assert str(test_packet_type) in str(exc_info.value)
 
 
@@ -318,7 +261,6 @@ def test_McCommunicationProcess__raises_error_if_mantarray_returns_data_packet_t
         SERIAL_COMM_PACKET_INFO_LENGTH_BYTES, byteorder="little"
     )
     test_handshake += dummy_timestamp_bytes
-    test_handshake += bytes([SERIAL_COMM_MAIN_MODULE_ID])
     test_handshake += bytes([SERIAL_COMM_HANDSHAKE_PACKET_TYPE])
     test_handshake += dummy_checksum_bytes
     # send bad packet to simulator to get checksum failure response
@@ -359,11 +301,7 @@ def test_McCommunicationProcess__includes_correct_timestamp_in_packets_sent_to_i
     # run mc_process one iteration to send the command
     invoke_process_run_and_check_errors(mc_process)
 
-    expected_data_packet = create_data_packet(
-        expected_timestamp,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_GET_METADATA_PACKET_TYPE,
-    )
+    expected_data_packet = create_data_packet(expected_timestamp, SERIAL_COMM_GET_METADATA_PACKET_TYPE)
     spied_write.assert_called_with(expected_data_packet)
 
 
@@ -397,12 +335,7 @@ def test_McCommunicationProcess__sends_handshake_every_5_seconds__and_includes_c
     set_connection_and_register_simulator(four_board_mc_comm_process, mantarray_mc_simulator_no_beacon)
     # send handshake
     invoke_process_run_and_check_errors(mc_process)
-    expected_handshake_1 = create_data_packet(
-        expected_durs[0],
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
-        bytes(0),
-    )
+    expected_handshake_1 = create_data_packet(expected_durs[0], SERIAL_COMM_HANDSHAKE_PACKET_TYPE, bytes(0))
     assert spied_write.call_args[0][0] == expected_handshake_1
     # process handshake on simulator
     invoke_process_run_and_check_errors(simulator)
@@ -412,12 +345,7 @@ def test_McCommunicationProcess__sends_handshake_every_5_seconds__and_includes_c
     assert simulator.in_waiting == 0
     # repeat, 5 seconds since previous beacon
     invoke_process_run_and_check_errors(mc_process)
-    expected_handshake_2 = create_data_packet(
-        expected_durs[1],
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
-        bytes(0),
-    )
+    expected_handshake_2 = create_data_packet(expected_durs[1], SERIAL_COMM_HANDSHAKE_PACKET_TYPE, bytes(0))
     assert spied_write.call_args[0][0] == expected_handshake_2
     invoke_process_run_and_check_errors(simulator)
     invoke_process_run_and_check_errors(mc_process)
@@ -437,10 +365,7 @@ def test_McCommunicationProcess__raises_error_when_receiving_untracked_command_r
     test_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
     test_timestamp_bytes = bytes(8)  # 8 arbitrary bytes in place of timestamp of command sent from PC
     test_command_response = create_data_packet(
-        test_timestamp,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-        test_timestamp_bytes,
+        test_timestamp, SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE, test_timestamp_bytes
     )
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"command": "add_read_bytes", "read_bytes": test_command_response},
@@ -451,7 +376,6 @@ def test_McCommunicationProcess__raises_error_when_receiving_untracked_command_r
     mc_process.set_board_connection(0, simulator)
     with pytest.raises(SerialCommUntrackedCommandResponseError) as exc_info:
         invoke_process_run_and_check_errors(mc_process)
-    assert str(SERIAL_COMM_MAIN_MODULE_ID) in str(exc_info.value)
     assert str(SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE) in str(exc_info.value)
     assert str(test_timestamp_bytes) in str(exc_info.value)
 
@@ -632,7 +556,6 @@ def test_McCommunicationProcess__handles_plate_event(
     was_plate_placed_byte = expected_valid_flag is not None
     plate_event_packet = create_data_packet(
         randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE),
-        SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_PLATE_EVENT_PACKET_TYPE,
         bytes([was_plate_placed_byte]) + bytes(test_barcode, encoding="ascii"),
     )
@@ -677,7 +600,6 @@ def test_McCommunicationProcess__handles_barcode_found(
     # send plate event packet from simulator
     plate_event_packet = create_data_packet(
         randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE),
-        SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE,
         bytes(test_barcode, encoding="ascii"),
     )

@@ -8,7 +8,6 @@ from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import handle_data_packets
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
-from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STIM_COMPLETE_SUBPROTOCOL_IDX
@@ -90,10 +89,7 @@ def test_handle_data_packets__parses_single_stim_data_packet_with_a_single_statu
         + bytes([test_subprotocol_idx])
     )
     test_data_packet = create_data_packet(
-        random_timestamp(),
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
-        stim_packet_body,
+        random_timestamp(), SERIAL_COMM_STIM_STATUS_PACKET_TYPE, stim_packet_body
     )
 
     parsed_data_dict = handle_data_packets(bytearray(test_data_packet), [], base_global_time)
@@ -124,10 +120,7 @@ def test_handle_data_packets__parses_single_stim_data_packet_with_multiple_statu
             + bytes([test_subprotocol_indices[packet_idx]])
         )
     test_data_packet = create_data_packet(
-        random_timestamp(),
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
-        stim_packet_body,
+        random_timestamp(), SERIAL_COMM_STIM_STATUS_PACKET_TYPE, stim_packet_body
     )
 
     parsed_data_dict = handle_data_packets(
@@ -185,16 +178,10 @@ def test_handle_data_packets__parses_multiple_stim_data_packet_with_multiple_wel
         + bytes([test_subprotocol_indices[1][2]])
     )
     test_data_packet_1 = create_data_packet(
-        random_timestamp(),
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
-        stim_packet_body_1,
+        random_timestamp(), SERIAL_COMM_STIM_STATUS_PACKET_TYPE, stim_packet_body_1
     )
     test_data_packet_2 = create_data_packet(
-        random_timestamp(),
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
-        stim_packet_body_2,
+        random_timestamp(), SERIAL_COMM_STIM_STATUS_PACKET_TYPE, stim_packet_body_2
     )
 
     parsed_data_dict = handle_data_packets(

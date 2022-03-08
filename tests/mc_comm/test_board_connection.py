@@ -14,7 +14,6 @@ from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import SERIAL_COMM_BAUD_RATE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
-from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
@@ -167,10 +166,7 @@ def test_McCommunicationProcess_register_magic_word__registers_magic_word_in_ser
     test_bytes = SERIAL_COMM_MAGIC_WORD_BYTES[3:] + bytes(8)
     dummy_timestamp = 0
     test_bytes += create_data_packet(
-        dummy_timestamp,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
-        DEFAULT_SIMULATOR_STATUS_CODE,
+        dummy_timestamp, SERIAL_COMM_STATUS_BEACON_PACKET_TYPE, DEFAULT_SIMULATOR_STATUS_CODE
     )
     test_item = {"command": "add_read_bytes", "read_bytes": test_bytes}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_item, testing_queue)
@@ -194,10 +190,7 @@ def test_McCommunicationProcess_register_magic_word__registers_magic_word_in_ser
     mc_process.set_board_connection(board_idx, simulator)
     assert mc_process.is_registered_with_serial_comm(board_idx) is False
     test_bytes = create_data_packet(
-        timestamp,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
-        DEFAULT_SIMULATOR_STATUS_CODE,
+        timestamp, SERIAL_COMM_STATUS_BEACON_PACKET_TYPE, DEFAULT_SIMULATOR_STATUS_CODE
     )
     test_item = {"command": "add_read_bytes", "read_bytes": [test_bytes, test_bytes]}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_item, testing_queue)
@@ -227,10 +220,7 @@ def test_McCommunicationProcess_register_magic_word__registers_with_magic_word_i
     # add a real data packet after but remove magic word
     dummy_timestamp = 0
     test_packet = create_data_packet(
-        dummy_timestamp,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
-        DEFAULT_SIMULATOR_STATUS_CODE,
+        dummy_timestamp, SERIAL_COMM_STATUS_BEACON_PACKET_TYPE, DEFAULT_SIMULATOR_STATUS_CODE
     )
     packet_length_bytes = test_packet[
         len(SERIAL_COMM_MAGIC_WORD_BYTES) : len(SERIAL_COMM_MAGIC_WORD_BYTES)
@@ -377,7 +367,6 @@ def test_McCommunicationProcess__automatically_sends_time_set_command_when_recei
     # assert correct time is sent
     assert_serial_packet_is_expected(
         spied_write.call_args[0][0],
-        SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
         additional_bytes=bytes([SERIAL_COMM_SET_TIME_COMMAND_BYTE])
         + convert_to_timestamp_bytes(spied_get_timestamp.spy_return),
