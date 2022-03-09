@@ -843,6 +843,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         process_items = self._process_manager.hard_stop_and_join_processes(shutdown_server=shutdown_server)
         msg = f"Remaining items in process queues: {process_items}"
         # Tanner (5/21/20): is not sure how to test that a lock is being acquired...so be careful about refactoring this
+        # TODO add a kwarg to determine if closing normally or due to an error and log using info if no error occurred
         with self._lock:
             logger.error(msg)
 
