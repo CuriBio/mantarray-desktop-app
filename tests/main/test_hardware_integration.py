@@ -339,7 +339,7 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
                         print("Sleeping to let stim complete")  # allow-print
                         time.sleep(20)
                     response_found = True
-                elif msg_to_main.get("command", None) == "set_time" or comm_type == "barcode_comm":
+                elif comm_type == "barcode_comm":
                     # this branch not needed for real board
                     print("@@@", msg_to_main)  # allow-print
                     continue

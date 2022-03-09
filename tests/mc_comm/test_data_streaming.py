@@ -22,7 +22,6 @@ from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import NUM_INITIAL_PACKETS_TO_DROP
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
-from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
@@ -31,6 +30,7 @@ from mantarray_desktop_app import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
@@ -52,7 +52,6 @@ from ..fixtures_mc_simulator import random_data_value
 from ..fixtures_mc_simulator import random_time_index
 from ..fixtures_mc_simulator import random_time_offset
 from ..fixtures_mc_simulator import random_timestamp
-from ..fixtures_mc_simulator import set_simulator_idle_ready
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -402,7 +401,7 @@ def test_handle_data_packets__does_not_parse_final_packet_if_it_is_not_complete(
         random_timestamp(), SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE, data_packet_body
     )
     incomplete_packet = create_data_packet(  # add one incomplete packet with arbitrary data
-        random_timestamp(), SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE, bytes(10)
+        random_timestamp(), SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE, bytes(10)
     )[:-1]
     test_data_packet_bytes = full_packet + incomplete_packet
 
@@ -489,7 +488,6 @@ def test_McCommunicationProcess__processes_start_managed_acquisition_command__wh
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     # set arbitrary sampling period
     expected_sampling_period = 60000
@@ -574,7 +572,6 @@ def test_McCommunicationProcess__processes_start_managed_acquisition_command__an
     )
 
     # put simulator in data streaming mode
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"command": "set_data_streaming_status", "data_streaming_status": True},
         testing_queue,
@@ -607,10 +604,8 @@ def test_McCommunicationProcess__processes_stop_data_streaming_command__when_dat
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     # put simulator in data streaming mode
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"command": "set_data_streaming_status", "data_streaming_status": True},
         testing_queue,
@@ -1042,6 +1037,8 @@ def test_McCommunicationProcess__handles_less_than_one_second_read_when_stopping
         autospec=True,
         side_effect=[0, test_sampling_period_us * test_num_packets],
     )
+    # mock so barcode isn't sent after streaming stops
+    mocker.patch.object(simulator, "_handle_barcode", autospec=True)
 
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
@@ -1164,6 +1161,9 @@ def test_McCommunicationProcess__logs_performance_metrics_after_parsing_data(
     mocker.patch.object(mc_process, "create_connections_to_all_available_boards", autospec=True)
     # perform setup so performance logging values are initialized
     invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
+    # don't automatically get metadata
+    mc_process._auto_get_metadata = False
+    mc_process._auto_set_magnetometer_config = False
 
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
@@ -1272,6 +1272,9 @@ def test_McCommunicationProcess__does_not_update_or_log_performance_metrics_when
     mocker.patch.object(mc_process, "create_connections_to_all_available_boards", autospec=True)
     # perform setup so performance logging values are initialized
     invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
+    # don't automatically get metadata
+    mc_process._auto_get_metadata = False
+    mc_process._auto_set_magnetometer_config = False
 
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
@@ -1366,6 +1369,9 @@ def test_McCommunicationProcess__does_not_include_data_streaming_performance_met
     mocker.patch.object(mc_process, "create_connections_to_all_available_boards", autospec=True)
     # perform setup so performance logging values are initialized
     invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
+    # don't automatically get metadata
+    mc_process._auto_get_metadata = False
+    mc_process._auto_set_magnetometer_config = False
 
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon

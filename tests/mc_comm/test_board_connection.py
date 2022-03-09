@@ -2,10 +2,7 @@
 import copy
 
 from freezegun import freeze_time
-from mantarray_desktop_app import convert_to_timestamp_bytes
 from mantarray_desktop_app import create_data_packet
-from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
-from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import InstrumentRebootTimeoutError
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import MAX_MC_REBOOT_DURATION_SECONDS
@@ -17,11 +14,8 @@ from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
-from mantarray_desktop_app import SERIAL_COMM_SET_TIME_PACKET_TYPE
-from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
-from mantarray_desktop_app import SERIAL_COMM_TIME_SYNC_READY_CODE
 from mantarray_desktop_app import SerialCommPacketRegistrationReadEmptyError
 from mantarray_desktop_app import SerialCommPacketRegistrationSearchExhaustedError
 from mantarray_desktop_app import SerialCommPacketRegistrationTimeoutError
@@ -43,7 +37,6 @@ from ..fixtures_mc_comm import set_connection_and_register_simulator
 from ..fixtures_mc_simulator import DEFAULT_SIMULATOR_STATUS_CODE
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
-from ..helpers import assert_serial_packet_is_expected
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import handle_putting_multiple_objects_into_empty_queue
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -334,53 +327,6 @@ def test_McCommunicationProcess_register_magic_word__does_not_try_to_register_wh
     assert mc_process.is_registered_with_serial_comm(3) is False
 
 
-@freeze_time("2021-04-07 16:26:42.880088")
-def test_McCommunicationProcess__automatically_sends_time_set_command_when_receiving_a_status_beacon_with_time_sync_ready_code__and_processes_command_response(
-    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
-):
-    simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
-    output_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
-    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
-    set_connection_and_register_simulator(
-        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
-    )
-
-    spied_write = mocker.spy(simulator, "write")
-    spied_get_timestamp = mocker.spy(mc_comm, "get_serial_comm_timestamp")
-
-    # put simulator in time sync ready status and send beacon
-    test_commands = [
-        {"command": "set_status_code", "status_code": SERIAL_COMM_TIME_SYNC_READY_CODE},
-        {"command": "send_single_beacon"},
-    ]
-    handle_putting_multiple_objects_into_empty_queue(test_commands, testing_queue)
-    invoke_process_run_and_check_errors(simulator, num_iterations=2)
-    # read status beacon and send time sync command
-    invoke_process_run_and_check_errors(mc_process)
-    # assert correct time is sent
-    assert_serial_packet_is_expected(
-        spied_write.call_args[0][0],
-        SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-        additional_bytes=bytes([SERIAL_COMM_SET_TIME_PACKET_TYPE])
-        + convert_to_timestamp_bytes(spied_get_timestamp.spy_return),
-    )
-    # process command and send response
-    invoke_process_run_and_check_errors(simulator)
-    # process command response
-    invoke_process_run_and_check_errors(mc_process)
-    # remove initial status beacon log message
-    output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    # assert command response processed and message sent to main
-    confirm_queue_is_eventually_of_size(output_queue, 1)
-    message_to_main = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert message_to_main == {
-        "communication_type": "to_instrument",
-        "command": "set_time",
-        "message": "Instrument time synced with PC",
-    }
-
-
 def test_McCommunicationProcess__waits_until_instrument_is_done_rebooting_to_send_commands(
     four_board_mc_comm_process_no_handshake, mantarray_mc_simulator, mocker
 ):
@@ -515,7 +461,7 @@ def test_McCommunicationProcess__raises_error_if_reboot_takes_longer_than_maximu
         invoke_process_run_and_check_errors(mc_process)
 
 
-def test_McCommunicationProcess__requests_metadata_from_instrument_after_it_initially_reaches_idle_ready_state__if_setup_before_loop_was_performed(
+def test_McCommunicationProcess__requests_metadata_if_setup_before_loop_was_performed(
     four_board_mc_comm_process_no_handshake, mantarray_mc_simulator, mocker
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
@@ -525,34 +471,22 @@ def test_McCommunicationProcess__requests_metadata_from_instrument_after_it_init
     set_connection_and_register_simulator(four_board_mc_comm_process_no_handshake, mantarray_mc_simulator)
 
     mocker.patch.object(  # Tanner (4/6/21): Need to prevent automatic beacons without interrupting the beacons sent after status code updates
-        mc_simulator,
-        "_get_secs_since_last_status_beacon",
-        return_value=0,
-        autospec=True,
+        mc_simulator, "_get_secs_since_last_status_beacon", return_value=0, autospec=True
     )
-    mocker.patch.object(  # Tanner (5/22/21): performing set up before loop means that mc_comm will try to start the simulator process which will slow this test down
-        simulator, "start", autospec=True
-    )
+    # Tanner (5/22/21): performing set up before loop means that mc_comm will try to start the simulator process which will slow this test down
+    mocker.patch.object(simulator, "start", autospec=True)
 
     invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
     # setting this value to False so as to not have unrelated queue messages interfere with this test
     mc_process._auto_set_magnetometer_config = False  # pylint: disable=protected-access
 
-    # put simulator in time sync ready status and send beacon
-    test_commands = [
-        {"command": "set_status_code", "status_code": SERIAL_COMM_TIME_SYNC_READY_CODE},
-        {"command": "send_single_beacon"},
-    ]
-    handle_putting_multiple_objects_into_empty_queue(test_commands, testing_queue)
-
-    invoke_process_run_and_check_errors(simulator, num_iterations=2)
-    # read status beacon and send time sync command
-    invoke_process_run_and_check_errors(mc_process)
-    # process command and switch to idle ready state
+    # have simulator send a status beacon to trigger automatic collection of metadata
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "send_single_beacon"}, testing_queue
+    )
     invoke_process_run_and_check_errors(simulator)
-
-    # run mc_process 3 times to process set time command response, process barcode comm, then trigger automatic collection of metadata
-    invoke_process_run_and_check_errors(mc_process, num_iterations=3)
+    # send get metadata command
+    invoke_process_run_and_check_errors(mc_process)
     # process get metadata command
     invoke_process_run_and_check_errors(simulator)
     # send metadata to main
@@ -562,53 +496,3 @@ def test_McCommunicationProcess__requests_metadata_from_instrument_after_it_init
     metadata_comm = to_main_items[-1]
     assert metadata_comm["communication_type"] == "metadata_comm"
     assert metadata_comm["metadata"] == MantarrayMcSimulator.default_metadata_values
-
-
-def test_McCommunicationProcess__sets_default_magnetometer_config_after_instrument_initially_reaches_idle_ready_state__and_sends_default_config_process_monitor__if_setup_before_loop_was_performed(
-    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator, mocker
-):
-    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
-    output_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
-    simulator = mantarray_mc_simulator["simulator"]
-    testing_queue = mantarray_mc_simulator["testing_queue"]
-    set_connection_and_register_simulator(four_board_mc_comm_process_no_handshake, mantarray_mc_simulator)
-
-    mocker.patch.object(  # Tanner (4/6/21): Need to prevent automatic beacons without interrupting the beacons sent after status code updates
-        mc_simulator,
-        "_get_secs_since_last_status_beacon",
-        return_value=0,
-        autospec=True,
-    )
-    mocker.patch.object(  # Tanner (5/22/21): performing set up before loop means that mc_comm will try to start the simulator process which will slow this test down
-        simulator, "start", autospec=True
-    )
-
-    invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
-
-    # put simulator in time sync ready status and send beacon
-    test_commands = [
-        {"command": "set_status_code", "status_code": SERIAL_COMM_TIME_SYNC_READY_CODE},
-        {"command": "send_single_beacon"},
-    ]
-    handle_putting_multiple_objects_into_empty_queue(test_commands, testing_queue)
-
-    invoke_process_run_and_check_errors(simulator, num_iterations=2)
-    # read status beacon and send time sync command
-    invoke_process_run_and_check_errors(mc_process)
-    # process command and switch to idle ready state
-    invoke_process_run_and_check_errors(simulator)
-
-    # run mc_process 3 times to process set time command response, process barcode comm, then trigger automatic setting of default magnetometer config
-    invoke_process_run_and_check_errors(mc_process, num_iterations=3)
-    # process change magnetometer config command response
-    invoke_process_run_and_check_errors(simulator)
-    # send config to main
-    invoke_process_run_and_check_errors(mc_process)
-    # check that config was sent to main
-    to_main_items = drain_queue(output_queue)
-    comm_to_main = to_main_items[-1]
-    assert comm_to_main["communication_type"] == "default_magnetometer_config"
-    assert comm_to_main["magnetometer_config_dict"] == {
-        "sampling_period": DEFAULT_SAMPLING_PERIOD,
-        "magnetometer_config": DEFAULT_MAGNETOMETER_CONFIG,
-    }

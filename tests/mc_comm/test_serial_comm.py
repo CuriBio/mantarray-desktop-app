@@ -11,7 +11,6 @@ from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
-from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_FATAL_ERROR_CODE
 from mantarray_desktop_app import SERIAL_COMM_GET_METADATA_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
@@ -364,8 +363,9 @@ def test_McCommunicationProcess__raises_error_when_receiving_untracked_command_r
 
     test_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
     test_timestamp_bytes = bytes(8)  # 8 arbitrary bytes in place of timestamp of command sent from PC
+    # using arbitrary command packet type here
     test_command_response = create_data_packet(
-        test_timestamp, SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE, test_timestamp_bytes
+        test_timestamp, SERIAL_COMM_HANDSHAKE_PACKET_TYPE, test_timestamp_bytes
     )
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"command": "add_read_bytes", "read_bytes": test_command_response},
@@ -376,7 +376,7 @@ def test_McCommunicationProcess__raises_error_when_receiving_untracked_command_r
     mc_process.set_board_connection(0, simulator)
     with pytest.raises(SerialCommUntrackedCommandResponseError) as exc_info:
         invoke_process_run_and_check_errors(mc_process)
-    assert str(SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE) in str(exc_info.value)
+    assert str(SERIAL_COMM_HANDSHAKE_PACKET_TYPE) in str(exc_info.value)
     assert str(test_timestamp_bytes) in str(exc_info.value)
 
 

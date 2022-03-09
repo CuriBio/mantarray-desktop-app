@@ -30,7 +30,6 @@ from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import get_null_subprotocol
 from ..fixtures_mc_simulator import get_random_subprotocol
-from ..fixtures_mc_simulator import set_simulator_idle_ready
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -311,7 +310,6 @@ def test_McCommunicationProcess__processes_change_magnetometer_config_command(
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     test_num_wells = 24
     # set arbitrary configuration and sampling period
@@ -356,7 +354,6 @@ def test_McCommunicationProcess__processes_set_protocols_command(
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     # confirm preconditions
     assert simulator.get_stim_info() == {}

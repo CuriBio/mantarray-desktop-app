@@ -83,7 +83,6 @@ from .constants import SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE
 from .constants import SERIAL_COMM_STOP_STIM_PACKET_TYPE
 from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
-from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import STIM_COMPLETE_SUBPROTOCOL_IDX
 from .constants import STM_VID
@@ -480,9 +479,8 @@ class McCommunicationProcess(InstrumentCommProcess):
         except queue.Empty:
             return
         board_idx = 0
-        send_packet_to_instrument = True
         bytes_to_send = bytes(0)
-        packet_type = SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
+        packet_type = None
 
         communication_type = comm_from_main["communication_type"]
         if communication_type == "mantarray_naming":
@@ -498,7 +496,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 )
         elif communication_type == "to_instrument":
             if comm_from_main["command"] == "reboot":
-                bytes_to_send = bytes([SERIAL_COMM_REBOOT_PACKET_TYPE])
+                packet_type = SERIAL_COMM_REBOOT_PACKET_TYPE
                 self._is_waiting_for_reboot = True
             else:
                 raise UnrecognizedCommandFromMainToMcCommError(
@@ -509,15 +507,15 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._timepoint_of_prev_data_parse_secs = None
                 self._timepoint_of_prev_data_read_secs = None
                 self._parses_since_last_logging = [0] * len(self._board_queues)
-                bytes_to_send = bytes([SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE])
+                packet_type = SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE
             elif comm_from_main["command"] == "stop_managed_acquisition":
                 self._is_stopping_data_stream = True
-                bytes_to_send = bytes([SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE])
+                packet_type = SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE
             elif comm_from_main["command"] == "change_magnetometer_config":
                 if self._is_data_streaming:
                     raise MagnetometerConfigUpdateWhileDataStreamingError()
-                bytes_to_send = bytes([SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE])
-                bytes_to_send += comm_from_main["sampling_period"].to_bytes(2, byteorder="little")
+                packet_type = SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE
+                bytes_to_send = comm_from_main["sampling_period"].to_bytes(2, byteorder="little")
                 bytes_to_send += create_magnetometer_config_bytes(comm_from_main["magnetometer_config"])
                 self._set_magnetometer_config(
                     comm_from_main["magnetometer_config"], comm_from_main["sampling_period"]
@@ -550,7 +548,6 @@ class McCommunicationProcess(InstrumentCommProcess):
             packet_type = SERIAL_COMM_GET_METADATA_PACKET_TYPE
         elif communication_type == "firmware_update":
             if comm_from_main["command"] == "get_latest_firmware_versions":
-                send_packet_to_instrument = False
                 # set up worker thread
                 self._fw_update_thread_dict = {
                     "communication_type": "firmware_update",
@@ -570,7 +567,6 @@ class McCommunicationProcess(InstrumentCommProcess):
                     raise InvalidCommandFromMainError(
                         "Cannot download firmware files if neither firmware type needs an update"
                     )
-                send_packet_to_instrument = False
                 # set up worker thread
                 self._fw_update_thread_dict = {
                     "communication_type": "firmware_update",
@@ -622,7 +618,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 f"Invalid communication_type: {communication_type}"
             )
 
-        if send_packet_to_instrument:
+        if packet_type is not None:
             self._send_data_packet(board_idx, packet_type, bytes_to_send)
             self._add_command_to_track(comm_from_main)
 
@@ -752,12 +748,20 @@ class McCommunicationProcess(InstrumentCommProcess):
                 "Should never receive magnetometer data packets when not streaming data"
             )
         elif packet_type in (
-            SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
+            # TODO figure out a better way to handle this than listing out all packet types here
+            SERIAL_COMM_REBOOT_PACKET_TYPE,
+            SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
+            SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE,
+            SERIAL_COMM_START_STIM_PACKET_TYPE,
+            SERIAL_COMM_STOP_STIM_PACKET_TYPE,
+            SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE,
+            SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE,
+            SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE,
             SERIAL_COMM_GET_METADATA_PACKET_TYPE,
+            SERIAL_COMM_SET_NICKNAME_PACKET_TYPE,
             SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE,
             SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE,
             SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE,
-            SERIAL_COMM_SET_NICKNAME_PACKET_TYPE,
         ):
             response_data = packet_body[SERIAL_COMM_TIMESTAMP_LENGTH_BYTES:]
             if not self._commands_awaiting_response:
@@ -775,8 +779,6 @@ class McCommunicationProcess(InstrumentCommProcess):
             elif prev_command["command"] == "reboot":
                 prev_command["message"] = "Instrument beginning reboot"
                 self._time_of_reboot_start = perf_counter()
-            elif prev_command["command"] == "set_time":
-                prev_command["message"] = "Instrument time synced with PC"
             elif prev_command["command"] == "set_mantarray_nickname":
                 self._is_setting_nickname = False
                 # set up values for reboot
@@ -926,23 +928,14 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise SerialCommHandshakeTimeoutError()
         if status_code == SERIAL_COMM_SOFT_ERROR_CODE:
             raise InstrumentSoftError()
-        elif status_code == SERIAL_COMM_TIME_SYNC_READY_CODE:
-            self._send_data_packet(
-                board_idx,
-                SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-                bytes([SERIAL_COMM_SET_TIME_PACKET_TYPE])
-                + convert_to_timestamp_bytes(get_serial_comm_timestamp()),
-            )
-            self._add_command_to_track({"communication_type": "to_instrument", "command": "set_time"})
         elif status_code == SERIAL_COMM_IDLE_READY_CODE:
             # Tanner (8/5/21): not explicitly unit tested, but magnetometer config should be sent before automatic metadata collection
             if self._auto_set_magnetometer_config:
                 initial_config_copy = copy.deepcopy(DEFAULT_MAGNETOMETER_CONFIG)
                 self._set_magnetometer_config(initial_config_copy, DEFAULT_SAMPLING_PERIOD)
-                bytes_to_send = bytes([SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE])
-                bytes_to_send += DEFAULT_SAMPLING_PERIOD.to_bytes(2, byteorder="little")
+                bytes_to_send = DEFAULT_SAMPLING_PERIOD.to_bytes(2, byteorder="little")
                 bytes_to_send += create_magnetometer_config_bytes(initial_config_copy)
-                self._send_data_packet(board_idx, SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE, bytes_to_send)
+                self._send_data_packet(board_idx, SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE, bytes_to_send)
                 self._add_command_to_track(
                     {
                         "communication_type": "default_magnetometer_config",

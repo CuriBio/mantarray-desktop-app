@@ -37,7 +37,6 @@ from ..fixtures_mc_simulator import get_null_subprotocol
 from ..fixtures_mc_simulator import get_random_subprotocol
 from ..fixtures_mc_simulator import random_time_index
 from ..fixtures_mc_simulator import random_timestamp
-from ..fixtures_mc_simulator import set_simulator_idle_ready
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -211,7 +210,6 @@ def test_McCommunicationProcess__processes_start_and_stop_stimulation_commands__
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
     expected_stim_info = create_random_stim_info()
     set_stimulation_protocols(four_board_mc_comm_process_no_handshake, simulator, expected_stim_info)
     expected_stim_running_statuses = (
@@ -274,7 +272,6 @@ def test_McCommunicationProcess__raises_error_if_set_protocols_command_received_
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
     set_stimulation_protocols(four_board_mc_comm_process_no_handshake, simulator, create_random_stim_info())
 
     # start stimulation
@@ -305,7 +302,6 @@ def test_McCommunicationProcess__raises_error_if_set_protocols_command_fails(
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     # send set protocols command with too many subprotocols in a protocol and confirm error is raised
     bad_stim_info = create_random_stim_info()
@@ -326,7 +322,6 @@ def test_McCommunicationProcess__raises_error_if_start_stim_command_fails(
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     # start stim before protocols are set and confirm error is raised from command failure response
     start_stim_command = {"communication_type": "stimulation", "command": "start_stimulation"}
@@ -347,7 +342,6 @@ def test_McCommunicationProcess__raises_error_if_stop_stim_command_fails(
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     # stop stim when it isn't running confirm error is raised from command failure response
     stop_stim_command = {"communication_type": "stimulation", "command": "stop_stimulation"}
@@ -368,7 +362,6 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     total_active_duration_ms = 74
     test_well_indices = [randint(0, 11), randint(12, 23)]
@@ -458,7 +451,6 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
     set_magnetometer_config(four_board_mc_comm_process_no_handshake, simulator)
 
     total_active_duration_ms = 76
@@ -589,7 +581,6 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     total_active_duration_ms = 74
     test_well_indices = [randint(0, 11), randint(12, 23)]
@@ -700,7 +691,6 @@ def test_McCommunicationProcess__protocols_can_be_updated_and_stimulation_can_be
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     total_active_duration_ms = 1400
     test_well_indices = [randint(0, 11), randint(12, 23)]
@@ -776,7 +766,6 @@ def test_McCommunicationProcess__stim_packets_sent_to_file_writer_after_restarti
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     total_active_duration_ms = 1100
     test_well_idx = randint(0, 23)
@@ -805,6 +794,8 @@ def test_McCommunicationProcess__stim_packets_sent_to_file_writer_after_restarti
         autospec=True,
         return_value=total_active_duration_ms * int(1e3),
     )
+    # mock so no barcode sent
+    mocker.patch.object(simulator, "_handle_barcode", autospec=True)
 
     # send start stimulation command
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
