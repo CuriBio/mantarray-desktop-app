@@ -80,7 +80,7 @@ const start_python_subprocess = () => {
   console.log("About to generate command line arguments to use when booting up server"); // allow-log
   const command_line_args = generate_flask_command_line_args(store);
   if (process.platform !== "win32") {
-    // presumably running in a linux dev or CI environment
+    // presumably running in a unix dev or CI environment
     if (!ci.isCI) {
       // don't do this in CI environment, only locally
       command_line_args.push("--skip-software-version-verification"); // TODO (Eli 3/12/21): use the `yargs` package to accept this as a command line argument to the Electron app so that it can be passed appropriately and with more control than everytime the python source code is run (which is based on the assumption that anytime source code is tested it's running locally in a dev environment and the bit file isn't available)
@@ -129,7 +129,7 @@ const start_python_subprocess = () => {
     const python_shell = new PythonShell(py_file_name, options);
 
     wait_for_subprocess_to_complete = new Promise((resolve) => {
-      python_shell.on("close", () => resolve("Python shell closed")); // TODO test this out
+      python_shell.on("close", () => resolve("Python shell closed"));
     });
   }
 };

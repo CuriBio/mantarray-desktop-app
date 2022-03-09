@@ -15,7 +15,7 @@ from stdlib_utils import InfiniteProcess
 
 from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import INSTRUMENT_INITIALIZING_STATE
-from .constants import SUBPROCESS_JOIN_SECONDS
+from .constants import SUBPROCESS_JOIN_TIMEOUT_SECONDS
 from .constants import SUBPROCESS_POLL_DELAY_SECONDS
 from .constants import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from .data_analyzer import DataAnalyzerProcess
@@ -233,7 +233,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         for process_name, iter_process in self._all_processes.items():
             if _process_can_be_joined(iter_process):
                 logger.info(f"Joining {process_name} Process")
-                iter_process.join(SUBPROCESS_JOIN_SECONDS)
+                iter_process.join(SUBPROCESS_JOIN_TIMEOUT_SECONDS)
                 if _process_failed_to_join(iter_process):
                     logger.error(f"Terminating {process_name} Process after unsuccessful join")
                     iter_process.terminate()

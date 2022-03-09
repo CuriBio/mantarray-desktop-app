@@ -10,7 +10,7 @@ from mantarray_desktop_app import McCommunicationProcess
 from mantarray_desktop_app import OkCommunicationProcess
 from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import ServerManager
-from mantarray_desktop_app import SUBPROCESS_JOIN_SECONDS
+from mantarray_desktop_app import SUBPROCESS_JOIN_TIMEOUT_SECONDS
 from mantarray_desktop_app import SUBPROCESS_POLL_DELAY_SECONDS
 from mantarray_desktop_app import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 import pytest
@@ -144,9 +144,9 @@ def test_MantarrayProcessesManager__join_processes__calls_join_on_all_processes(
     generic_manager.soft_stop_processes()
     generic_manager.join_processes()
 
-    spied_ok_comm_join.assert_called_once_with(mocker.ANY, SUBPROCESS_JOIN_SECONDS)
-    spied_file_writer_join.assert_called_once_with(mocker.ANY, SUBPROCESS_JOIN_SECONDS)
-    spied_data_analyzer_join.assert_called_once_with(mocker.ANY, SUBPROCESS_JOIN_SECONDS)
+    spied_ok_comm_join.assert_called_once_with(mocker.ANY, SUBPROCESS_JOIN_TIMEOUT_SECONDS)
+    spied_file_writer_join.assert_called_once_with(mocker.ANY, SUBPROCESS_JOIN_TIMEOUT_SECONDS)
+    spied_data_analyzer_join.assert_called_once_with(mocker.ANY, SUBPROCESS_JOIN_TIMEOUT_SECONDS)
 
 
 def test_MantarrayProcessesManager__join_processes__logs_info(mocker, generic_manager):

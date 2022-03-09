@@ -5,6 +5,14 @@ Changelog for Mantarray Desktop App
 ------------------
 
 - Changed accepted barcode headers to ML and MS.
+- Fixed shutdown issues:
+
+  - Changed shutdown procedure so that the instrument will be instructed to reboot if an error occurs
+    in the desktop app.
+  - Fixed issue with sporadic deadlock causing process responsible for closing H5 files to never terminate
+    which caused file corruption.
+  - Fixed issue with main electron process exiting before logging in other processes completes.
+
 - Fixed tooltips for stim start/stop button when calibrating.
 - Fixed issue with folder path getting logged without username redacted.
 
