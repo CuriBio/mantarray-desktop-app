@@ -9,6 +9,7 @@ from mantarray_desktop_app import convert_to_timestamp_bytes
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import create_magnetometer_config_bytes
 from mantarray_desktop_app import create_magnetometer_config_dict
+from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
@@ -16,11 +17,14 @@ from mantarray_desktop_app import SERIAL_COMM_IDLE_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import SerialCommInvalidSamplingPeriodError
 from mantarray_desktop_app import UnrecognizedSimulatorTestCommandError
+from mantarray_desktop_app.constants import SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 from pulse3D.constants import BOOT_FLAGS_UUID
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
@@ -532,8 +536,48 @@ def test_MantarrayMcSimulator__raises_error_when_magnetometer_config_command_rec
 
 
 def test_MantarrayMcSimulator__automatically_sends_plate_barcode_after_first_data_stream_completes(
-    mantarray_mc_simulator_no_beacon,
+    mantarray_mc_simulator_no_beacon, mocker
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
-    assert not "TODO"
+    # mock so no data is created
+    mocker.patch.object(simulator, "_handle_sending_data_packets", autospec=True)
+
+    # config magnetometers
+    magnetometer_config_bytes = create_magnetometer_config_bytes(
+        MantarrayMcSimulator.default_24_well_magnetometer_config
+    )
+    change_config_command = create_data_packet(
+        randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE),
+        SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE,
+        DEFAULT_SAMPLING_PERIOD.to_bytes(2, byteorder="little") + magnetometer_config_bytes,
+    )
+    simulator.write(change_config_command)
+    invoke_process_run_and_check_errors(simulator)
+    simulator.read_all()  # clear command response
+    # start data streaming
+    start_data_streaming_command = create_data_packet(
+        randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE), SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE
+    )
+    simulator.write(start_data_streaming_command)
+    invoke_process_run_and_check_errors(simulator)
+    simulator.read_all()  # clear command response
+    # stop data streaming
+    stop_data_streaming_command = create_data_packet(
+        randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE), SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE
+    )
+    simulator.write(stop_data_streaming_command)
+    invoke_process_run_and_check_errors(simulator)
+    # clear command response
+    expected_response_size = get_full_packet_size_from_packet_body_size(
+        SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1
+    )
+    assert len(simulator.read(size=expected_response_size)) == expected_response_size
+
+    # get barcode packet
+    barcode_packet = simulator.read_all()
+    assert_serial_packet_is_expected(
+        barcode_packet,
+        SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE,
+        additional_bytes=bytes(MantarrayMcSimulator.default_barcode, encoding="ascii"),
+    )

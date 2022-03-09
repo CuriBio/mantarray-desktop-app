@@ -298,10 +298,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
-    expected_comm = {
-        "communication_type": "to_instrument",
-        "command": "boot_up",
-    }
+    expected_comm = {"communication_type": "to_instrument", "command": "boot_up"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_comm, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)

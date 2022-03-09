@@ -493,9 +493,10 @@ def test_MantarrayMcSimulator__processes_stop_data_streaming_command(
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
-    mocker.patch.object(  # patch so no data packets will be sent
-        mc_simulator, "_get_us_since_last_data_packet", autospec=True, return_value=0
-    )
+
+    # mock so no data packets or barcodes will be sent
+    mocker.patch.object(mc_simulator, "_get_us_since_last_data_packet", autospec=True, return_value=0)
+    mocker.patch.object(simulator, "_handle_barcode", autospec=True)
 
     # set arbitrary sampling period
     put_object_into_queue_and_raise_error_if_eventually_still_empty(

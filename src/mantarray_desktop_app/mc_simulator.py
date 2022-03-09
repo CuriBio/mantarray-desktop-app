@@ -201,6 +201,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._ready_to_send_barcode = False
         self._timepoint_of_last_data_packet_us: Optional[int] = None
         self._time_index_us = 0
+        self._is_first_data_stream = True
         self._simulated_data_index = 0
         self._simulated_data: NDArray[np.uint16] = np.array([], dtype=np.uint16)
         self._metadata_dict: Dict[UUID, Any] = dict()
@@ -473,11 +474,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         if self._is_stimulating:
             self._handle_stimulation_packets()
         self._check_handshake()
-        if self._ready_to_send_barcode:
-            self._send_data_packet(
-                SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE, bytes(self.default_barcode, encoding="ascii")
-            )
-            self._ready_to_send_barcode = False
+        self._handle_barcode()
 
     def _handle_comm_from_pc(self) -> None:
         try:
@@ -564,6 +561,9 @@ class MantarrayMcSimulator(InfiniteProcess):
                 response_body += create_magnetometer_config_bytes(self._magnetometer_config)
         elif packet_type == SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE:
             response_body += bytes([not self._is_streaming_data])
+            if self._is_streaming_data and self._is_first_data_stream:
+                self._is_first_data_stream = False
+                self._ready_to_send_barcode = True
             self._is_streaming_data = False
         elif packet_type == SERIAL_COMM_GET_METADATA_PACKET_TYPE:
             response_body += convert_metadata_to_bytes(self._metadata_dict)
@@ -674,6 +674,13 @@ class MantarrayMcSimulator(InfiniteProcess):
             >= SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS * SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
         ):
             raise SerialCommTooManyMissedHandshakesError()
+
+    def _handle_barcode(self) -> None:
+        if self._ready_to_send_barcode:
+            self._send_data_packet(
+                SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE, bytes(self.default_barcode, encoding="ascii")
+            )
+            self._ready_to_send_barcode = False
 
     def _handle_manual_stim_stop(self) -> None:
         num_status_updates = 0
