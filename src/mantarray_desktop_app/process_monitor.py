@@ -107,7 +107,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         super()._report_fatal_error(the_err)
         stack_trace = get_formatted_stack_trace(the_err)
         msg = f"Error raised by Process Monitor\n{stack_trace}\n{the_err}"
-        # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
+        # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
             logger.error(msg)
         if self._process_manager.are_subprocess_start_ups_complete():
@@ -154,7 +154,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 )
         # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
         msg = f"Communication from the File Writer: {communication}".replace(r"\\", "\\")
-        # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
+        # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
             logger.info(msg)
 
@@ -179,7 +179,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             msg = f"Communication from the Server: {comm_copy}"
         else:
             msg = f"Communication from the Server: {communication}"
-        # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
+        # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
             logger.info(msg)
 
@@ -201,7 +201,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         elif communication_type == "shutdown":
             command = communication["command"]
             if command == "hard_stop":
-                self._hard_stop_and_join_processes_and_log_leftovers(shutdown_server=False)
+                self._hard_stop_and_join_processes_and_log_leftovers(shutdown_server=False, error=False)
             elif command == "shutdown_server":
                 self._process_manager.shutdown_server()
             else:
@@ -390,7 +390,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         except queue.Empty:
             return
 
-        # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
+        # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         msg = f"Communication from the Data Analyzer: {communication}"
         with self._lock:
             logger.info(msg)
@@ -448,7 +448,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         else:
             # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
             msg = f"Communication from the Instrument Controller: {communication}".replace(r"\\", "\\")
-        # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
+        # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
             logger.info(msg)
         communication_type = communication["communication_type"]
@@ -826,7 +826,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
     ) -> None:
         this_err, this_stack_trace = error_communication
         msg = f"Error raised by subprocess {process}\n{this_stack_trace}\n{this_err}"
-        # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
+        # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
             logger.error(msg)
         if self._values_to_share_to_server["system_status"] in (
@@ -839,13 +839,17 @@ class MantarrayProcessesMonitor(InfiniteThread):
             shutdown_server = True
         self._hard_stop_and_join_processes_and_log_leftovers(shutdown_server=shutdown_server)
 
-    def _hard_stop_and_join_processes_and_log_leftovers(self, shutdown_server: bool = True) -> None:
+    def _hard_stop_and_join_processes_and_log_leftovers(
+        self, shutdown_server: bool = True, error: bool = True
+    ) -> None:
         process_items = self._process_manager.hard_stop_and_join_processes(shutdown_server=shutdown_server)
         msg = f"Remaining items in process queues: {process_items}"
-        # Tanner (5/21/20): is not sure how to test that a lock is being acquired...so be careful about refactoring this
-        # TODO add a kwarg to determine if closing normally or due to an error and log using info if no error occurred
+        # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
-            logger.error(msg)
+            if error:
+                logger.error(msg)
+            else:
+                logger.info(msg)
 
     def soft_stop(self) -> None:
         self._process_manager.soft_stop_and_join_processes()
