@@ -930,7 +930,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise InstrumentSoftError()
         elif status_code == SERIAL_COMM_IDLE_READY_CODE:
             # Tanner (8/5/21): not explicitly unit tested, but magnetometer config should be sent before automatic metadata collection
-            if self._auto_set_magnetometer_config:
+            if self._auto_set_magnetometer_config:  # TODO remove
                 initial_config_copy = copy.deepcopy(DEFAULT_MAGNETOMETER_CONFIG)
                 self._set_magnetometer_config(initial_config_copy, DEFAULT_SAMPLING_PERIOD)
                 bytes_to_send = DEFAULT_SAMPLING_PERIOD.to_bytes(2, byteorder="little")

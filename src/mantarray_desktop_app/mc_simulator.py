@@ -33,6 +33,7 @@ from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import resource_path
 
+from .constants import DEFAULT_MAGNETOMETER_CONFIG
 from .constants import DEFAULT_SAMPLING_PERIOD
 from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
@@ -63,7 +64,6 @@ from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from .constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
 from .constants import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from .constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
-from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_REBOOT_PACKET_TYPE
@@ -88,18 +88,14 @@ from .exceptions import SerialCommInvalidSamplingPeriodError
 from .exceptions import SerialCommTooManyMissedHandshakesError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .exceptions import UnrecognizedSimulatorTestCommandError
-from .serial_comm_utils import convert_bytes_to_config_dict
 from .serial_comm_utils import convert_metadata_to_bytes
 from .serial_comm_utils import convert_module_id_to_well_name
 from .serial_comm_utils import convert_stim_bytes_to_dict
 from .serial_comm_utils import convert_to_status_code_bytes
 from .serial_comm_utils import convert_well_name_to_module_id
 from .serial_comm_utils import create_data_packet
-from .serial_comm_utils import create_magnetometer_config_bytes
 from .serial_comm_utils import is_null_subprotocol
 from .serial_comm_utils import validate_checksum
-from .utils import create_magnetometer_config_dict
-from .utils import sort_nested_dict
 
 
 MAGIC_WORD_LEN = len(SERIAL_COMM_MAGIC_WORD_BYTES)
@@ -121,10 +117,6 @@ def _get_secs_since_last_status_beacon(last_time: float) -> float:
 
 def _get_secs_since_reboot_command(command_time: float) -> float:
     return perf_counter() - command_time
-
-
-def _get_secs_since_boot_up(start_time: float) -> float:
-    return perf_counter() - start_time
 
 
 def _get_secs_since_last_comm_from_pc(last_time: float) -> float:
@@ -167,11 +159,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             CHANNEL_FIRMWARE_VERSION_UUID: default_channel_firmware_version,
         }
     )
-    default_24_well_magnetometer_config: Dict[  # pylint: disable=invalid-name # Tanner (4/29/21): can't think of a shorter name for this value
-        int, Dict[int, bool]
-    ] = immutabledict(
-        create_magnetometer_config_dict(24)
-    )
+    default_24_well_magnetometer_config: Dict[int, Dict[int, bool]] = DEFAULT_MAGNETOMETER_CONFIG
     global_timer_offset_secs = 2.5  # TODO Tanner (11/17/21): figure out if this should be removed
 
     def __init__(
@@ -216,7 +204,6 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._baseline_time_us: Optional[int]
         self._timepoint_of_time_sync_us: Optional[int]
         self._status_code: int
-        self._magnetometer_config: Dict[int, Dict[int, bool]]
         self._sampling_period_us: int
         self._stim_info: Dict[str, Any]
         self._stim_running_statuses: Dict[str, bool]
@@ -317,10 +304,9 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._reset_start_time()
         self._reboot_time_secs = None
         self._status_code = SERIAL_COMM_IDLE_READY_CODE
-        self._reset_magnetometer_config()
         self._baseline_time_us = None
         self._timepoint_of_time_sync_us = None
-        self._sampling_period_us = 0
+        self._sampling_period_us = DEFAULT_SAMPLING_PERIOD
         self._stim_info = {}
         self._is_stimulating = False
         self._firmware_update_idx = None
@@ -354,9 +340,6 @@ class MantarrayMcSimulator(InfiniteProcess):
     def _reset_metadata_dict(self) -> None:
         self._metadata_dict = dict(self.default_metadata_values)
 
-    def _reset_magnetometer_config(self) -> None:
-        self._magnetometer_config = dict(self.default_24_well_magnetometer_config)
-
     def _reset_stim_running_statuses(self) -> None:
         self._stim_running_statuses = {
             convert_module_id_to_well_name(module_id, use_stim_mapping=True): False
@@ -385,10 +368,6 @@ class MantarrayMcSimulator(InfiniteProcess):
     def get_sampling_period_us(self) -> int:
         """Mainly for use in unit tests."""
         return self._sampling_period_us
-
-    def get_magnetometer_config(self) -> Dict[int, Dict[int, bool]]:
-        """Mainly for use in unit tests."""
-        return self._magnetometer_config
 
     def get_interpolated_data(self, sampling_period_us: int) -> NDArray[np.uint16]:
         """Return one second (one twitch) of interpolated data."""
@@ -557,8 +536,6 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._is_streaming_data = True
             if not is_data_already_streaming:
                 response_body += self._time_index_us.to_bytes(8, byteorder="little")
-                response_body += self._sampling_period_us.to_bytes(2, byteorder="little")
-                response_body += create_magnetometer_config_bytes(self._magnetometer_config)
         elif packet_type == SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE:
             response_body += bytes([not self._is_streaming_data])
             if self._is_streaming_data and self._is_first_data_stream:
@@ -638,13 +615,6 @@ class MantarrayMcSimulator(InfiniteProcess):
         if sampling_period % MICROSECONDS_PER_MILLISECOND != 0:
             raise SerialCommInvalidSamplingPeriodError(sampling_period)
         self._sampling_period_us = sampling_period
-        # parse and store magnetometer configuration
-        magnetometer_config_bytes = comm_from_pc[
-            SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 2 : -SERIAL_COMM_CHECKSUM_LENGTH_BYTES
-        ]
-        config_dict_updates = convert_bytes_to_config_dict(magnetometer_config_bytes)
-        # Tanner (6/2/21): Need to make sure module ID keys are in order
-        self._magnetometer_config.update(sort_nested_dict(config_dict_updates))
         return update_status_byte
 
     def _update_status_code(self, new_code: int) -> None:
@@ -783,24 +753,16 @@ class MantarrayMcSimulator(InfiniteProcess):
             SERIAL_COMM_TIME_INDEX_LENGTH_BYTES, byteorder="little"
         )
         for module_id in range(1, self._num_wells + 1):
-            config_values = list(self._magnetometer_config[module_id].values())
-            for sensor_base_idx in range(0, SERIAL_COMM_NUM_DATA_CHANNELS, SERIAL_COMM_NUM_SENSORS_PER_WELL):
-                if not any(
-                    config_values[sensor_base_idx : sensor_base_idx + SERIAL_COMM_NUM_SENSORS_PER_WELL]
-                ):
-                    continue
-                offset = bytes(SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES)  # use 0 for offset in simulated data
-                data_packet_body += offset
-                # create data points
-                data_value = self._simulated_data[self._simulated_data_index] * np.uint16(
-                    SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id] + 1
-                )
-                data_value_bytes = data_value.tobytes()
-                for axis_idx in range(SERIAL_COMM_NUM_CHANNELS_PER_SENSOR):
-                    # add data points
-                    channel_id = sensor_base_idx + axis_idx
-                    if self._magnetometer_config[module_id][channel_id]:
-                        data_packet_body += data_value_bytes
+            # add offset of 0 since this is simulated data
+            offset = bytes(SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES)
+            # create data point value
+            data_value = self._simulated_data[self._simulated_data_index] * np.uint16(
+                SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id] + 1
+            )
+            # add data points
+            well_sensor_data = offset + (data_value.tobytes() * SERIAL_COMM_NUM_CHANNELS_PER_SENSOR)
+            well_data = well_sensor_data * SERIAL_COMM_NUM_SENSORS_PER_WELL
+            data_packet_body += well_data
         return data_packet_body
 
     def _handle_stimulation_packets(self) -> None:

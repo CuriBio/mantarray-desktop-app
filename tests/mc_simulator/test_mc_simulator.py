@@ -7,9 +7,7 @@ from immutabledict import immutabledict
 from mantarray_desktop_app import convert_to_status_code_bytes
 from mantarray_desktop_app import convert_to_timestamp_bytes
 from mantarray_desktop_app import create_data_packet
-from mantarray_desktop_app import create_magnetometer_config_bytes
-from mantarray_desktop_app import create_magnetometer_config_dict
-from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
+from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
@@ -72,7 +70,7 @@ def test_MantarrayMcSimulator__class_attributes():
         MAIN_FIRMWARE_VERSION_UUID: MantarrayMcSimulator.default_main_firmware_version,
         CHANNEL_FIRMWARE_VERSION_UUID: MantarrayMcSimulator.default_channel_firmware_version,
     }
-    assert MantarrayMcSimulator.default_24_well_magnetometer_config == create_magnetometer_config_dict(24)
+    assert MantarrayMcSimulator.default_24_well_magnetometer_config == DEFAULT_MAGNETOMETER_CONFIG
     assert MantarrayMcSimulator.global_timer_offset_secs == 2.5
 
 
@@ -519,15 +517,12 @@ def test_MantarrayMcSimulator__raises_error_when_magnetometer_config_command_rec
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     bad_sampling_period = 1001
-    magnetometer_config_bytes = create_magnetometer_config_bytes(
-        MantarrayMcSimulator.default_24_well_magnetometer_config
-    )
     # send command with invalid sampling period
     dummy_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
     change_config_command = create_data_packet(
         dummy_timestamp,
         SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE,
-        bad_sampling_period.to_bytes(2, byteorder="little") + magnetometer_config_bytes,
+        bad_sampling_period.to_bytes(2, byteorder="little"),
     )
     simulator.write(change_config_command)
     # process command and raise error with given sampling period
@@ -543,18 +538,6 @@ def test_MantarrayMcSimulator__automatically_sends_plate_barcode_after_first_dat
     # mock so no data is created
     mocker.patch.object(simulator, "_handle_sending_data_packets", autospec=True)
 
-    # config magnetometers
-    magnetometer_config_bytes = create_magnetometer_config_bytes(
-        MantarrayMcSimulator.default_24_well_magnetometer_config
-    )
-    change_config_command = create_data_packet(
-        randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE),
-        SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE,
-        DEFAULT_SAMPLING_PERIOD.to_bytes(2, byteorder="little") + magnetometer_config_bytes,
-    )
-    simulator.write(change_config_command)
-    invoke_process_run_and_check_errors(simulator)
-    simulator.read_all()  # clear command response
     # start data streaming
     start_data_streaming_command = create_data_packet(
         randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE), SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE

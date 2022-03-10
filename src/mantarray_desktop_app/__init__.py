@@ -102,6 +102,7 @@ from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_COMMAND_FAILURE_BYTE
 from .constants import SERIAL_COMM_COMMAND_SUCCESS_BYTE
+from .constants import SERIAL_COMM_DATA_SAMPLE_LENGTH_BYTES
 from .constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from .constants import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_FATAL_ERROR_CODE
@@ -637,4 +638,5 @@ __all__ = [
     "FirmwareDownloadError",
     "UPDATE_ERROR_STATE",
     "SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE",
+    "SERIAL_COMM_DATA_SAMPLE_LENGTH_BYTES",
 ]

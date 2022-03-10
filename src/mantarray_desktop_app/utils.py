@@ -241,8 +241,7 @@ def _trim_barcode(barcode: str) -> str:
 def create_magnetometer_config_dict(num_wells: int) -> Dict[int, Dict[int, bool]]:
     """Create default magnetometer configuration dictionary.
 
-    The default magnetometer state is off, represented in this dict by
-    False.
+    All values will be set to False
     """
     magnetometer_config_dict = dict()
     for module_id in range(1, num_wells + 1):

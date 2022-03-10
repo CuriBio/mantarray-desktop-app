@@ -308,6 +308,7 @@ SERIAL_COMM_STATUS_CODE_LENGTH_BYTES = 4
 # data stream components
 SERIAL_COMM_TIME_INDEX_LENGTH_BYTES = 8
 SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES = 2
+SERIAL_COMM_DATA_SAMPLE_LENGTH_BYTES = 2
 
 SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES = (  # not including the magic word or packet info bytes
     SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1 + SERIAL_COMM_CHECKSUM_LENGTH_BYTES  # 1 for packet type byte
@@ -373,21 +374,25 @@ SERIAL_COMM_SOFT_ERROR_CODE = 5
 SERIAL_COMM_COMMAND_SUCCESS_BYTE = 0
 SERIAL_COMM_COMMAND_FAILURE_BYTE = 1
 # Magnetometer configuration
-SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE = {
-    "A": {"X": 0, "Y": 1, "Z": 2},
-    "B": {"X": 3, "Y": 4, "Z": 5},
-    "C": {"X": 6, "Y": 7, "Z": 8},
-}
+SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE = immutabledict(
+    {
+        "A": {"X": 0, "Y": 1, "Z": 2},
+        "B": {"X": 3, "Y": 4, "Z": 5},
+        "C": {"X": 6, "Y": 7, "Z": 8},
+    }
+)
 SERIAL_COMM_NUM_CHANNELS_PER_SENSOR = 3
 SERIAL_COMM_NUM_SENSORS_PER_WELL = 3
 SERIAL_COMM_NUM_DATA_CHANNELS = SERIAL_COMM_NUM_SENSORS_PER_WELL * SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 SERIAL_COMM_DEFAULT_DATA_CHANNEL = SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]
 # default config values as of 3/7/22
 DEFAULT_SAMPLING_PERIOD = 10000
-DEFAULT_MAGNETOMETER_CONFIG = {
-    module_id: {channel_id: True for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS)}
-    for module_id in range(1, 25)
-}
+DEFAULT_MAGNETOMETER_CONFIG = immutabledict(
+    {
+        module_id: {channel_id: True for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS)}
+        for module_id in range(1, 25)
+    }
+)
 # Stimulation
 STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS = int(100e3)
 STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS = int(1.2e3)
