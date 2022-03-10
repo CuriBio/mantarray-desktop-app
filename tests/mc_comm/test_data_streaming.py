@@ -6,7 +6,6 @@ from statistics import stdev
 import time
 
 from freezegun import freeze_time
-from mantarray_desktop_app import convert_bitmask_to_config_dict
 from mantarray_desktop_app import create_active_channel_per_sensor_list
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import create_magnetometer_config_dict
@@ -47,6 +46,7 @@ from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process_no_handshake
 from ..fixtures_mc_comm import set_connection_and_register_simulator
 from ..fixtures_mc_comm import set_magnetometer_config_and_start_streaming
+from ..fixtures_mc_comm import start_data_stream
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import random_data_value
 from ..fixtures_mc_simulator import random_time_index
@@ -495,11 +495,9 @@ def test_McCommunicationProcess__processes_start_managed_acquisition_command__wh
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"command": "set_sampling_period", "sampling_period": expected_sampling_period}, testing_queue
     )
+    invoke_process_run_and_check_errors(simulator)
 
-    expected_response = {
-        "communication_type": "acquisition_manager",
-        "command": "start_managed_acquisition",
-    }
+    expected_response = {"communication_type": "acquisition_manager", "command": "start_managed_acquisition"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(expected_response), from_main_queue
     )
@@ -511,8 +509,6 @@ def test_McCommunicationProcess__processes_start_managed_acquisition_command__wh
     invoke_process_run_and_check_errors(mc_process)
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
     command_response = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    expected_response["sampling_period"] = expected_sampling_period
-    expected_response["magnetometer_config"] = simulator.get_magnetometer_config()
     expected_response["timestamp"] = datetime.datetime(
         year=2021, month=10, day=24, hour=13, minute=5, second=23, microsecond=173814
     )
@@ -537,10 +533,7 @@ def test_McCommunicationProcess__raises_error_when_change_magnetometer_config_co
     invoke_process_run_and_check_errors(simulator)
 
     # start data streaming
-    start_command = {
-        "communication_type": "acquisition_manager",
-        "command": "start_managed_acquisition",
-    }
+    start_command = {"communication_type": "acquisition_manager", "command": "start_managed_acquisition"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
     invoke_process_run_and_check_errors(mc_process)
     invoke_process_run_and_check_errors(simulator)
@@ -577,10 +570,7 @@ def test_McCommunicationProcess__processes_start_managed_acquisition_command__an
         testing_queue,
     )
 
-    expected_response = {
-        "communication_type": "acquisition_manager",
-        "command": "start_managed_acquisition",
-    }
+    expected_response = {"communication_type": "acquisition_manager", "command": "start_managed_acquisition"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(expected_response), from_main_queue
     )
@@ -611,10 +601,7 @@ def test_McCommunicationProcess__processes_stop_data_streaming_command__when_dat
         testing_queue,
     )
 
-    expected_response = {
-        "communication_type": "acquisition_manager",
-        "command": "stop_managed_acquisition",
-    }
+    expected_response = {"communication_type": "acquisition_manager", "command": "stop_managed_acquisition"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(expected_response), from_main_queue
     )
@@ -642,10 +629,7 @@ def test_McCommunicationProcess__processes_stop_data_streaming_command__and_rais
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
 
-    expected_response = {
-        "communication_type": "acquisition_manager",
-        "command": "stop_managed_acquisition",
-    }
+    expected_response = {"communication_type": "acquisition_manager", "command": "stop_managed_acquisition"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(expected_response), from_main_queue
     )
@@ -679,10 +663,7 @@ def test_McCommunicationProcess__reads_all_bytes_from_instrument__and_does_not_p
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
     set_magnetometer_config_and_start_streaming(
-        four_board_mc_comm_process_no_handshake,
-        simulator,
-        {},
-        test_sampling_period_us,  # arbitrary value
+        four_board_mc_comm_process_no_handshake, simulator, sampling_period=test_sampling_period_us
     )
 
     # mocking in order to produce incomplete data packet
@@ -731,12 +712,8 @@ def test_McCommunicationProcess__correctly_indicates_which_packet_is_the_first_o
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-
     set_magnetometer_config_and_start_streaming(
-        four_board_mc_comm_process_no_handshake,
-        simulator,
-        FULL_CONFIG_ALL_CHANNELS_ENABLED,
-        test_sampling_period_us,
+        four_board_mc_comm_process_no_handshake, simulator, sampling_period=test_sampling_period_us
     )
 
     for read_num in range(2):
@@ -759,7 +736,7 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
     test_num_wells = 24
     test_num_packets = 100
     expected_num_packets = test_num_packets - NUM_INITIAL_PACKETS_TO_DROP
-    test_sampling_period_us = int(1e6 // test_num_packets)
+    test_sampling_period_us = DEFAULT_SAMPLING_PERIOD
     # mocking to ensure only one data packet is sent
     mocker.patch.object(
         mc_simulator,
@@ -771,13 +748,7 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-
-    set_magnetometer_config_and_start_streaming(
-        four_board_mc_comm_process_no_handshake,
-        simulator,
-        FULL_CONFIG_ALL_CHANNELS_ENABLED,
-        test_sampling_period_us,
-    )
+    start_data_stream(four_board_mc_comm_process_no_handshake, simulator)
 
     min_time_idx_us = test_sampling_period_us * NUM_INITIAL_PACKETS_TO_DROP
     max_time_idx_us = test_sampling_period_us * test_num_packets
@@ -820,7 +791,7 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
             )
 
 
-def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_data_to_file_writer_correctly__when_one_second_of_data_with_random_magnetometer_config_is_present(
+def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_data_to_file_writer_correctly__when_one_second_of_data_is_present(
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
     mocker,
@@ -844,18 +815,8 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-
-    test_num_wells = 24
-    test_config_dict = create_magnetometer_config_dict(test_num_wells)
-    for module_dict in test_config_dict.values():
-        for channel_id in module_dict.keys():
-            module_dict[channel_id] = random_bool()
-    test_config_dict[1][0] = True  # need at least one channel enabled
     set_magnetometer_config_and_start_streaming(
-        four_board_mc_comm_process_no_handshake,
-        simulator,
-        test_config_dict,
-        test_sampling_period_us,
+        four_board_mc_comm_process_no_handshake, simulator, sampling_period=test_sampling_period_us
     )
 
     min_time_idx_us = test_sampling_period_us * NUM_INITIAL_PACKETS_TO_DROP
@@ -867,8 +828,10 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
         "data_type": "mangetometer",
         "time_indices": np.array(expected_time_indices, np.uint64),
     }
-    for well_idx in range(test_num_wells):
-        config_values = list(test_config_dict[SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]].values())
+    for well_idx in range(24):
+        config_values = list(
+            DEFAULT_MAGNETOMETER_CONFIG[SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]].values()
+        )
         if not any(config_values):
             continue
         num_channels_for_well = 0
@@ -934,16 +897,8 @@ def test_McCommunicationProcess__handles_one_second_read_with_two_interrupting_p
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
 
-    test_num_channels_per_sensor = 1
-    test_config_dict = dict()
-    for module_id in range(1, 25):
-        bitmask_int = int(10 <= module_id <= 15)  # turn on one channel of modules 10-15
-        test_config_dict[module_id] = convert_bitmask_to_config_dict(bitmask_int)
     set_magnetometer_config_and_start_streaming(
-        four_board_mc_comm_process_no_handshake,
-        simulator,
-        test_config_dict,
-        test_sampling_period_us,
+        four_board_mc_comm_process_no_handshake, simulator, sampling_period=test_sampling_period_us
     )
 
     min_time_idx_us = test_sampling_period_us * NUM_INITIAL_PACKETS_TO_DROP
@@ -956,13 +911,15 @@ def test_McCommunicationProcess__handles_one_second_read_with_two_interrupting_p
         "data_type": "mangetometer",
         "time_indices": np.array(expected_time_indices, np.uint64),
     }
-    for module_id in range(10, 16):
+    for module_id in range(1, 25):
         well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
         channel_data = np.concatenate(
             (simulated_data[NUM_INITIAL_PACKETS_TO_DROP:], simulated_data[: test_num_packets // 3])
         )
         channel_dict = {
-            "time_offsets": np.zeros((test_num_channels_per_sensor, expected_num_packets), dtype=np.uint16),
+            "time_offsets": np.zeros(
+                (SERIAL_COMM_NUM_SENSORS_PER_WELL, expected_num_packets), dtype=np.uint16
+            ),
             expected_sensor_axis_id: channel_data * np.uint16(well_idx + 1),
         }
         expected_fw_item[well_idx] = channel_dict
@@ -1043,17 +1000,8 @@ def test_McCommunicationProcess__handles_less_than_one_second_read_when_stopping
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-
-    test_num_channels_per_sensor = 1
-    test_config_dict = dict()
-    for module_id in range(1, 25):
-        bitmask_int = int(10 <= module_id <= 15)  # turn on one channel of modules 10-15
-        test_config_dict[module_id] = convert_bitmask_to_config_dict(bitmask_int)
     set_magnetometer_config_and_start_streaming(
-        four_board_mc_comm_process_no_handshake,
-        simulator,
-        test_config_dict,
-        test_sampling_period_us,
+        four_board_mc_comm_process_no_handshake, simulator, sampling_period=test_sampling_period_us
     )
     invoke_process_run_and_check_errors(simulator)
 
@@ -1067,10 +1015,12 @@ def test_McCommunicationProcess__handles_less_than_one_second_read_when_stopping
         "data_type": "mangetometer",
         "time_indices": np.array(expected_time_indices, np.uint64),
     }
-    for module_id in range(10, 16):
+    for module_id in range(1, 25):
         well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
         channel_dict = {
-            "time_offsets": np.zeros((test_num_channels_per_sensor, expected_num_packets), dtype=np.uint16),
+            "time_offsets": np.zeros(
+                (SERIAL_COMM_NUM_CHANNELS_PER_SENSOR, expected_num_packets), dtype=np.uint16
+            ),
             expected_sensor_axis_id: simulated_data[:expected_num_packets] * np.uint16(well_idx + 1),
         }
         expected_fw_item[well_idx] = channel_dict
@@ -1078,10 +1028,7 @@ def test_McCommunicationProcess__handles_less_than_one_second_read_when_stopping
     expected_fw_item["is_first_packet_of_stream"] = None
 
     # tell mc_comm to stop data stream before 1 second of data is present
-    expected_response = {
-        "communication_type": "acquisition_manager",
-        "command": "stop_managed_acquisition",
-    }
+    expected_response = {"communication_type": "acquisition_manager", "command": "stop_managed_acquisition"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(expected_response), from_main_queue
     )
@@ -1133,17 +1080,11 @@ def test_McCommunicationProcess__does_not_attempt_to_parse_when_stopping_data_st
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
     set_magnetometer_config_and_start_streaming(
-        four_board_mc_comm_process_no_handshake,
-        simulator,
-        DEFAULT_MAGNETOMETER_CONFIG,
-        test_sampling_period_us,
+        four_board_mc_comm_process_no_handshake, simulator, sampling_period=test_sampling_period_us
     )
 
     # tell mc_comm to stop data stream before 1 second of data is present
-    expected_response = {
-        "communication_type": "acquisition_manager",
-        "command": "stop_managed_acquisition",
-    }
+    expected_response = {"communication_type": "acquisition_manager", "command": "stop_managed_acquisition"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(expected_response), from_main_queue
     )
@@ -1163,17 +1104,11 @@ def test_McCommunicationProcess__logs_performance_metrics_after_parsing_data(
     invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
     # don't automatically get metadata
     mc_process._auto_get_metadata = False
-    mc_process._auto_set_magnetometer_config = False
 
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_magnetometer_config_and_start_streaming(
-        four_board_mc_comm_process_no_handshake,
-        simulator,
-        DEFAULT_MAGNETOMETER_CONFIG,
-        DEFAULT_SAMPLING_PERIOD,
-    )
+    start_data_stream(four_board_mc_comm_process_no_handshake, simulator)
 
     mc_process.reset_performance_tracker()  # call this method so there are percent use metrics to report
     mc_process._minimum_iteration_duration_seconds /= (  # pylint: disable=protected-access
@@ -1274,17 +1209,11 @@ def test_McCommunicationProcess__does_not_update_or_log_performance_metrics_when
     invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
     # don't automatically get metadata
     mc_process._auto_get_metadata = False
-    mc_process._auto_set_magnetometer_config = False
 
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_magnetometer_config_and_start_streaming(
-        four_board_mc_comm_process_no_handshake,
-        simulator,
-        DEFAULT_MAGNETOMETER_CONFIG,
-        DEFAULT_SAMPLING_PERIOD,
-    )
+    start_data_stream(four_board_mc_comm_process_no_handshake, simulator)
 
     mc_process.reset_performance_tracker()  # call this method so there are percent use metrics to report
     mc_process._minimum_iteration_duration_seconds /= (  # pylint: disable=protected-access
@@ -1371,17 +1300,11 @@ def test_McCommunicationProcess__does_not_include_data_streaming_performance_met
     invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
     # don't automatically get metadata
     mc_process._auto_get_metadata = False
-    mc_process._auto_set_magnetometer_config = False
 
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_magnetometer_config_and_start_streaming(
-        four_board_mc_comm_process_no_handshake,
-        simulator,
-        DEFAULT_MAGNETOMETER_CONFIG,
-        DEFAULT_SAMPLING_PERIOD,
-    )
+    start_data_stream(four_board_mc_comm_process_no_handshake, simulator)
 
     # mock these to speed up test
     mc_process._minimum_iteration_duration_seconds = 0  # pylint: disable=protected-access

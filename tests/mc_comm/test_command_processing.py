@@ -4,7 +4,6 @@ import queue
 from random import choice
 import time
 
-from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import InvalidCommandFromMainError
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_comm
@@ -311,17 +310,12 @@ def test_McCommunicationProcess__processes_change_magnetometer_config_command(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
 
-    test_num_wells = 24
-    # set arbitrary configuration and sampling period
-    expected_magnetometer_config = create_magnetometer_config_dict(test_num_wells)
-    for key in expected_magnetometer_config[9].keys():
-        expected_magnetometer_config[9][key] = True
+    # set arbitrary  sampling period
     expected_sampling_period = 14000
     # send command to mc_process
     expected_response = {
         "communication_type": "acquisition_manager",
         "command": "change_magnetometer_config",
-        "magnetometer_config": expected_magnetometer_config,
         "sampling_period": expected_sampling_period,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -331,9 +325,8 @@ def test_McCommunicationProcess__processes_change_magnetometer_config_command(
     invoke_process_run_and_check_errors(mc_process)
     # run simulator to process command and send response
     invoke_process_run_and_check_errors(simulator)
-    # assert that sampling period and configuration were updated
+    # assert that sampling period was updated
     assert simulator.get_sampling_period_us() == expected_sampling_period
-    assert simulator.get_magnetometer_config() == expected_magnetometer_config
     # run mc_process to process command response and send message back to main
     invoke_process_run_and_check_errors(mc_process)
     # confirm correct message sent to main

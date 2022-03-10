@@ -116,12 +116,10 @@ from .firmware_downloader import download_firmware_updates
 from .firmware_downloader import get_latest_firmware_versions
 from .instrument_comm import InstrumentCommProcess
 from .mc_simulator import MantarrayMcSimulator
-from .serial_comm_utils import convert_bytes_to_config_dict
 from .serial_comm_utils import convert_semver_str_to_bytes
 from .serial_comm_utils import convert_stim_dict_to_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
 from .serial_comm_utils import create_data_packet
-from .serial_comm_utils import create_magnetometer_config_bytes
 from .serial_comm_utils import get_serial_comm_timestamp
 from .serial_comm_utils import parse_metadata_bytes
 from .serial_comm_utils import validate_checksum
@@ -203,7 +201,6 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._num_wells = 24
         self._is_registered_with_serial_comm: List[bool] = [False] * len(self._board_queues)
         self._auto_get_metadata = False
-        self._auto_set_magnetometer_config = False
         self._time_of_last_handshake_secs: Optional[float] = None
         self._time_of_last_beacon_secs: Optional[float] = None
         self._commands_awaiting_response: Deque[  # pylint: disable=unsubscriptable-object
@@ -232,10 +229,12 @@ class McCommunicationProcess(InstrumentCommProcess):
         ] = None  # Tanner (11/17/21): This value will only be a float when from the moment the end of firmware packet is received to the moment the firmware update complete packet is received
         # data streaming values
         self._base_global_time_of_data_stream = 0
-        self._magnetometer_config: Dict[int, Dict[Any, Any]] = dict()
-        self._active_sensors_list: List[int] = list()
-        self._packet_len = 0
-        self._sampling_period_us = 0
+        # the follow uinitialized fields are set in _set_magnetometer_config
+        self._magnetometer_config: Dict[int, Dict[Any, Any]]
+        self._active_sensors_list: List[int]
+        self._packet_len: int
+        self._sampling_period_us: int
+        self._set_magnetometer_config(DEFAULT_SAMPLING_PERIOD)
         self._is_data_streaming = False
         self._is_stopping_data_stream = False
         self._has_data_packet_been_sent = False
@@ -292,7 +291,6 @@ class McCommunicationProcess(InstrumentCommProcess):
         else:
             # if connected to a real board, then make sure this process has a high priority
             set_this_process_high_priority()
-        self._auto_set_magnetometer_config = True
         self._auto_get_metadata = True
 
     def _teardown_after_loop(self) -> None:
@@ -388,11 +386,10 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise NotImplementedError("Board should not be None when sending a command to it")
         board.write(data_packet)
 
-    def _set_magnetometer_config(
-        self, magnetometer_config: Dict[int, Dict[int, bool]], sampling_period: int
-    ) -> None:
+    # Tanner (3/9/22): this method is currently overkill since only the sampling is configurable, but leaving it in case magnetometer sensors can be toggled on/off in the future
+    def _set_magnetometer_config(self, sampling_period: int) -> None:
         # Tanner (6/2/21): Need to make sure module ID keys are in order
-        self._magnetometer_config = sort_nested_dict(copy.deepcopy(magnetometer_config))
+        self._magnetometer_config = sort_nested_dict(dict(DEFAULT_MAGNETOMETER_CONFIG))
         self._sampling_period_us = sampling_period
         self._active_sensors_list = create_active_channel_per_sensor_list(self._magnetometer_config)
         for module_dict in self._magnetometer_config.values():
@@ -516,10 +513,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                     raise MagnetometerConfigUpdateWhileDataStreamingError()
                 packet_type = SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE
                 bytes_to_send = comm_from_main["sampling_period"].to_bytes(2, byteorder="little")
-                bytes_to_send += create_magnetometer_config_bytes(comm_from_main["magnetometer_config"])
-                self._set_magnetometer_config(
-                    comm_from_main["magnetometer_config"], comm_from_main["sampling_period"]
-                )
+                self._set_magnetometer_config(comm_from_main["sampling_period"])
             else:
                 raise UnrecognizedCommandFromMainToMcCommError(
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
@@ -796,8 +790,6 @@ class McCommunicationProcess(InstrumentCommProcess):
                     self._base_global_time_of_data_stream = int.from_bytes(
                         response_data[1:9], byteorder="little"
                     )
-                    prev_command["sampling_period"] = int.from_bytes(response_data[9:11], byteorder="little")
-                    prev_command["magnetometer_config"] = convert_bytes_to_config_dict(response_data[11:])
                 prev_command["timestamp"] = datetime.datetime.utcnow()
                 # Tanner (6/11/21): This helps prevent against status beacon timeouts with beacons that come just after the data stream begins but before 1 second of data is available
                 self._time_of_last_beacon_secs = perf_counter()
@@ -929,24 +921,6 @@ class McCommunicationProcess(InstrumentCommProcess):
         if status_code == SERIAL_COMM_SOFT_ERROR_CODE:
             raise InstrumentSoftError()
         elif status_code == SERIAL_COMM_IDLE_READY_CODE:
-            # Tanner (8/5/21): not explicitly unit tested, but magnetometer config should be sent before automatic metadata collection
-            if self._auto_set_magnetometer_config:  # TODO remove
-                initial_config_copy = copy.deepcopy(DEFAULT_MAGNETOMETER_CONFIG)
-                self._set_magnetometer_config(initial_config_copy, DEFAULT_SAMPLING_PERIOD)
-                bytes_to_send = DEFAULT_SAMPLING_PERIOD.to_bytes(2, byteorder="little")
-                bytes_to_send += create_magnetometer_config_bytes(initial_config_copy)
-                self._send_data_packet(board_idx, SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE, bytes_to_send)
-                self._add_command_to_track(
-                    {
-                        "communication_type": "default_magnetometer_config",
-                        "command": "change_magnetometer_config",
-                        "magnetometer_config_dict": {
-                            "magnetometer_config": initial_config_copy,
-                            "sampling_period": DEFAULT_SAMPLING_PERIOD,
-                        },
-                    }
-                )
-                self._auto_set_magnetometer_config = False
             if self._auto_get_metadata:
                 self._send_data_packet(
                     board_idx,

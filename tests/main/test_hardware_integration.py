@@ -6,16 +6,12 @@ from typing import Dict
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
 from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
+from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
-from pulse3D.constants import BOOT_FLAGS_UUID
-from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
-from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
-from pulse3D.constants import MANTARRAY_NICKNAME_UUID
-from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
 import pytest
 from stdlib_utils import drain_queue
 from stdlib_utils import get_formatted_stack_trace
@@ -77,14 +73,13 @@ RANDOM_STIM_INFO_1 = {
 RANDOM_STIM_INFO_2 = create_random_stim_info()  # type: ignore
 
 COMMAND_RESPONSE_SEQUENCE = [
-    ("change_magnetometer_config_1", "magnetometer_config_1"),
     ("get_metadata", "get_metadata"),
     # MAGNETOMETERS
     ("start_managed_acquisition", "start_md_1"),
     ("start_managed_acquisition", "start_md_2"),
     ("stop_managed_acquisition", "stop_md_1"),
     ("stop_managed_acquisition", "stop_md_2"),
-    ("change_magnetometer_config_2", "magnetometer_config_2"),
+    ("change_magnetometer_config", "magnetometer_config"),
     # STIMULATORS
     ("start_stimulation", "start_stim_1"),
     ("stop_stimulation", "stop_stim_1"),
@@ -108,10 +103,9 @@ COMMANDS_FROM_MAIN = {
         "communication_type": "acquisition_manager",
         "command": "stop_managed_acquisition",
     },
-    "change_magnetometer_config_2": {
+    "change_magnetometer_config": {
         "communication_type": "acquisition_manager",
         "command": "change_magnetometer_config",
-        "magnetometer_config": DEFAULT_MAGNETOMETER_CONFIG,
         "sampling_period": DEFAULT_SAMPLING_PERIOD,
     },
     "set_protocols_1": {
@@ -149,28 +143,23 @@ RESPONSES = {
         "communication_type": "metadata_comm",
         "command": "get_metadata",
         "board_index": 0,
-        "metadata": {
-            BOOT_FLAGS_UUID: 0,
-            MANTARRAY_NICKNAME_UUID: "Mantarray2.2 ",
-            MANTARRAY_SERIAL_NUMBER_UUID: "MA2201300001",
-            MAIN_FIRMWARE_VERSION_UUID: "1.0.1",
-            CHANNEL_FIRMWARE_VERSION_UUID: "1.0.1",
-        },
-        # "metadata": MantarrayMcSimulator.default_metadata_values,
+        # "metadata": {
+        #     BOOT_FLAGS_UUID: 0,
+        #     MANTARRAY_NICKNAME_UUID: "Mantarray2.2 ",
+        #     MANTARRAY_SERIAL_NUMBER_UUID: "MA2201300001",
+        #     MAIN_FIRMWARE_VERSION_UUID: "1.0.1",
+        #     CHANNEL_FIRMWARE_VERSION_UUID: "1.0.1",
+        # },
+        "metadata": MantarrayMcSimulator.default_metadata_values,
     },
-    "magnetometer_config_1": {
-        "communication_type": "default_magnetometer_config",
+    "magnetometer_config": {
+        "communication_type": "acquisition_manager",
         "command": "change_magnetometer_config",
-        "magnetometer_config_dict": {
-            "magnetometer_config": DEFAULT_MAGNETOMETER_CONFIG,
-            "sampling_period": DEFAULT_SAMPLING_PERIOD,
-        },
+        "sampling_period": DEFAULT_SAMPLING_PERIOD,
     },
     "start_md_1": {
         "communication_type": "acquisition_manager",
         "command": "start_managed_acquisition",
-        "magnetometer_config": DEFAULT_MAGNETOMETER_CONFIG,
-        "sampling_period": DEFAULT_SAMPLING_PERIOD,
     },
     "start_md_2": {
         "communication_type": "acquisition_manager",
@@ -185,12 +174,6 @@ RESPONSES = {
         "communication_type": "acquisition_manager",
         "command": "stop_managed_acquisition",
         "hardware_test_message": "Data stream already stopped",
-    },
-    "magnetometer_config_2": {
-        "communication_type": "acquisition_manager",
-        "command": "change_magnetometer_config",
-        "magnetometer_config": DEFAULT_MAGNETOMETER_CONFIG,
-        "sampling_period": DEFAULT_SAMPLING_PERIOD,
     },
     "set_protocols_1_1": {
         "communication_type": "stimulation",
@@ -273,8 +256,8 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
                 )
                 input_queue.put_nowait(command_dict)
             expected_response = RESPONSES[response_key[-1]]
-        elif command not in ("get_metadata", "change_magnetometer_config_1"):
-            # get_metadata command and initial magnetometer config are automatically sent by McComm
+        elif command != "get_metadata":
+            # get_metadata command is automatically sent by McComm
             command_dict = COMMANDS_FROM_MAIN[command]
             print(f"Sending command: {command}, expecting response: {response_key}")  # allow-print
             input_queue.put_nowait(command_dict)
@@ -290,7 +273,8 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
                 if not error_queue.empty():
                     try:
                         error = error_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-                        assert False, get_formatted_stack_trace(error[0])
+                        print(get_formatted_stack_trace(error[0]))  # allow-print
+                        assert False
                     except queue.Empty:
                         assert False, "Error queue reported not empty but no error found in queue"
                 # check for message to main
@@ -335,11 +319,11 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
                         print("Sleeping so data can be produced and parsed...")  # allow-print
                         time.sleep(2)
                         print("End sleep...")  # allow-print
-                    elif response_key == "start_stim_2_1":
-                        print("Sleeping to let stim complete")  # allow-print
-                        time.sleep(20)
+                    # elif response_key == "start_stim_2_1":
+                    #     print("Sleeping to let stim complete")  # allow-print
+                    #     time.sleep(20)
                     response_found = True
-                elif comm_type == "barcode_comm":
+                elif msg_to_main.get("command", None) == "set_time" or comm_type == "barcode_comm":
                     # this branch not needed for real board
                     print("@@@", msg_to_main)  # allow-print
                     continue

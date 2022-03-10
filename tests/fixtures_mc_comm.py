@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import time
 
-from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
 from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import McCommunicationProcess
@@ -52,7 +51,6 @@ def set_connection_and_register_simulator(
 def set_magnetometer_config(
     mc_fixture,
     simulator,
-    magnetometer_config=DEFAULT_MAGNETOMETER_CONFIG,
     sampling_period=DEFAULT_SAMPLING_PERIOD,
 ):
     mc_process = mc_fixture["mc_process"]
@@ -62,7 +60,6 @@ def set_magnetometer_config(
     config_command = {
         "communication_type": "acquisition_manager",
         "command": "change_magnetometer_config",
-        "magnetometer_config": magnetometer_config,
         "sampling_period": sampling_period,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(config_command, from_main_queue)
@@ -77,10 +74,9 @@ def set_magnetometer_config(
 def set_magnetometer_config_and_start_streaming(
     mc_fixture,
     simulator,
-    magnetometer_config=DEFAULT_MAGNETOMETER_CONFIG,
     sampling_period=DEFAULT_SAMPLING_PERIOD,
 ):
-    set_magnetometer_config(mc_fixture, simulator, magnetometer_config, sampling_period)
+    set_magnetometer_config(mc_fixture, simulator, sampling_period)
     start_data_stream(mc_fixture, simulator)
 
 
