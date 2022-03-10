@@ -6,12 +6,16 @@ from typing import Dict
 from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
 from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
-from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from pulse3D.constants import BOOT_FLAGS_UUID
+from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
+from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
+from pulse3D.constants import MANTARRAY_NICKNAME_UUID
+from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
 import pytest
 from stdlib_utils import drain_queue
 from stdlib_utils import get_formatted_stack_trace
@@ -143,14 +147,14 @@ RESPONSES = {
         "communication_type": "metadata_comm",
         "command": "get_metadata",
         "board_index": 0,
-        # "metadata": {
-        #     BOOT_FLAGS_UUID: 0,
-        #     MANTARRAY_NICKNAME_UUID: "Mantarray2.2 ",
-        #     MANTARRAY_SERIAL_NUMBER_UUID: "MA2201300001",
-        #     MAIN_FIRMWARE_VERSION_UUID: "1.0.1",
-        #     CHANNEL_FIRMWARE_VERSION_UUID: "1.0.1",
-        # },
-        "metadata": MantarrayMcSimulator.default_metadata_values,
+        "metadata": {
+            BOOT_FLAGS_UUID: 0,
+            MANTARRAY_NICKNAME_UUID: "Mantarray2.2 ",
+            MANTARRAY_SERIAL_NUMBER_UUID: "MA2201300001",
+            MAIN_FIRMWARE_VERSION_UUID: "1.0.1",
+            CHANNEL_FIRMWARE_VERSION_UUID: "1.0.1",
+        },
+        # "metadata": MantarrayMcSimulator.default_metadata_values,
     },
     "magnetometer_config": {
         "communication_type": "acquisition_manager",
