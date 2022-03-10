@@ -520,7 +520,6 @@ class MantarrayMcSimulator(InfiniteProcess):
             response_body += bytes([command_failed])
             if not command_failed:
                 self._is_stimulating = True
-                response_body += self._stim_time_indices[0].to_bytes(8, byteorder="little")
         elif packet_type == SERIAL_COMM_STOP_STIM_PACKET_TYPE:
             # command fails only if stimulation is not currently running
             command_failed = not self._is_stimulating

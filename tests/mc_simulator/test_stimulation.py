@@ -274,7 +274,6 @@ def test_MantarrayMcSimulator__processes_start_stimulation_command__after_protoc
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
-    spied_global_timer = mocker.spy(simulator, "_get_global_timer")
     # mock so no protocol status packets are sent
     mocker.patch.object(mc_simulator, "_get_us_since_subprotocol_start", autospec=True, return_value=0)
 
@@ -314,8 +313,6 @@ def test_MantarrayMcSimulator__processes_start_stimulation_command__after_protoc
         assert simulator.get_stim_running_statuses() == expected_stim_running_statuses
         # assert command response is correct
         additional_bytes = convert_to_timestamp_bytes(expected_pc_timestamp) + bytes([response_byte_value])
-        if not response_byte_value:
-            additional_bytes += spied_global_timer.spy_return.to_bytes(8, byteorder="little")
         expected_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
         stim_command_response = simulator.read(size=expected_size)
         assert_serial_packet_is_expected(
