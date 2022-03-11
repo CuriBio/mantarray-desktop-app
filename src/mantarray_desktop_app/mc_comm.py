@@ -757,7 +757,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE,
             SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE,
         ):
-            response_data = packet_body[SERIAL_COMM_TIMESTAMP_LENGTH_BYTES:]
+            response_data = packet_body
             if not self._commands_awaiting_response:
                 raise SerialCommUntrackedCommandResponseError(
                     f"Packet Type ID: {packet_type}, Packet Body: {str(packet_body)}"
