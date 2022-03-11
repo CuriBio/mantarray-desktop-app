@@ -78,8 +78,6 @@ from .constants import SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE
 from .constants import SERIAL_COMM_STOP_STIM_PACKET_TYPE
 from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
-from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
-from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import STIM_COMPLETE_SUBPROTOCOL_IDX
 from .constants import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
 from .constants import STIM_WELL_IDX_TO_MODULE_ID
@@ -482,14 +480,9 @@ class MantarrayMcSimulator(InfiniteProcess):
     def _process_main_module_command(self, comm_from_pc: bytes) -> None:
         # pylint: disable=too-many-branches  # Tanner (11/15/21): many branches needed here to handle all types of communication. Could try refactoring int smaller methods for similar packet types
         status_code_update: Optional[int] = None
-
-        timestamp_from_pc_bytes = comm_from_pc[
-            SERIAL_COMM_TIMESTAMP_BYTES_INDEX : SERIAL_COMM_TIMESTAMP_BYTES_INDEX
-            + SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
-        ]
-
         send_response = True
-        response_body = timestamp_from_pc_bytes
+
+        response_body = bytes(0)
 
         packet_type = comm_from_pc[SERIAL_COMM_PACKET_TYPE_INDEX]
         if packet_type == SERIAL_COMM_REBOOT_PACKET_TYPE:

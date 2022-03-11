@@ -4,7 +4,6 @@ from random import randint
 
 from mantarray_desktop_app import convert_module_id_to_well_name
 from mantarray_desktop_app import convert_stim_dict_to_bytes
-from mantarray_desktop_app import convert_to_timestamp_bytes
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_FAILURE_BYTE
@@ -14,7 +13,6 @@ from mantarray_desktop_app import SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_START_STIM_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STOP_STIM_PACKET_TYPE
-from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import STIM_COMPLETE_SUBPROTOCOL_IDX
 from mantarray_desktop_app import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
 from mantarray_desktop_app import StimStatuses
@@ -86,14 +84,11 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
         for well_name, protocol_id in stim_info_dict["protocol_assignments"].items()
     }
     # assert command response is correct
-    stim_command_response = simulator.read(
-        size=get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1)
-    )
+    stim_command_response = simulator.read(size=get_full_packet_size_from_packet_body_size(1))
     assert_serial_packet_is_expected(
         stim_command_response,
         SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE,
-        additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp)
-        + bytes([SERIAL_COMM_COMMAND_SUCCESS_BYTE]),
+        additional_bytes=bytes([SERIAL_COMM_COMMAND_SUCCESS_BYTE]),
     )
 
 
@@ -131,14 +126,11 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
     # assert stim info was not updated
     assert simulator.get_stim_info() == {}
     # assert command response is correct
-    stim_command_response = simulator.read(
-        size=get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1)
-    )
+    stim_command_response = simulator.read(size=get_full_packet_size_from_packet_body_size(1))
     assert_serial_packet_is_expected(
         stim_command_response,
         SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE,
-        additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp)
-        + bytes([SERIAL_COMM_COMMAND_FAILURE_BYTE]),
+        additional_bytes=bytes([SERIAL_COMM_COMMAND_FAILURE_BYTE]),
     )
 
 
@@ -184,14 +176,11 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
     # assert stim info was not updated
     assert simulator.get_stim_info() == {}
     # assert command response is correct
-    stim_command_response = simulator.read(
-        size=get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1)
-    )
+    stim_command_response = simulator.read(size=get_full_packet_size_from_packet_body_size(1))
     assert_serial_packet_is_expected(
         stim_command_response,
         SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE,
-        additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp)
-        + bytes([SERIAL_COMM_COMMAND_FAILURE_BYTE]),
+        additional_bytes=bytes([SERIAL_COMM_COMMAND_FAILURE_BYTE]),
     )
 
 
@@ -229,14 +218,11 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
     # assert stim info was not updated
     assert simulator.get_stim_info() == {}
     # assert command response is correct
-    stim_command_response = simulator.read(
-        size=get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1)
-    )
+    stim_command_response = simulator.read(size=get_full_packet_size_from_packet_body_size(1))
     assert_serial_packet_is_expected(
         stim_command_response,
         SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE,
-        additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp)
-        + bytes([SERIAL_COMM_COMMAND_FAILURE_BYTE]),
+        additional_bytes=bytes([SERIAL_COMM_COMMAND_FAILURE_BYTE]),
     )
 
 
@@ -258,13 +244,12 @@ def test_MantarrayMcSimulator__processes_start_stimulation_command__before_proto
     # assert that stimulation was not started on any wells
     assert simulator.get_stim_running_statuses() == expected_stim_running_statuses
     # assert command response is correct
-    expected_size = get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1)
+    expected_size = get_full_packet_size_from_packet_body_size(1)
     stim_command_response = simulator.read(size=expected_size)
     assert_serial_packet_is_expected(
         stim_command_response,
         SERIAL_COMM_START_STIM_PACKET_TYPE,
-        additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp)
-        + bytes([SERIAL_COMM_COMMAND_FAILURE_BYTE]),
+        additional_bytes=bytes([SERIAL_COMM_COMMAND_FAILURE_BYTE]),
     )
 
 
@@ -312,7 +297,7 @@ def test_MantarrayMcSimulator__processes_start_stimulation_command__after_protoc
         # assert that stimulation was started on wells that were assigned a protocol
         assert simulator.get_stim_running_statuses() == expected_stim_running_statuses
         # assert command response is correct
-        additional_bytes = convert_to_timestamp_bytes(expected_pc_timestamp) + bytes([response_byte_value])
+        additional_bytes = bytes([response_byte_value])
         expected_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
         stim_command_response = simulator.read(size=expected_size)
         assert_serial_packet_is_expected(
@@ -383,7 +368,7 @@ def test_MantarrayMcSimulator__processes_stop_stimulation_command(mantarray_mc_s
             convert_module_id_to_well_name(module_id): False for module_id in range(1, 25)
         }
         # assert command response is correct
-        additional_bytes = convert_to_timestamp_bytes(expected_pc_timestamp) + bytes([response_byte_value])
+        additional_bytes = bytes([response_byte_value])
         expected_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
         stim_command_response = simulator.read(size=expected_size)
         assert_serial_packet_is_expected(

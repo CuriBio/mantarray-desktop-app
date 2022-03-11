@@ -20,7 +20,6 @@ from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
-from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app.firmware_downloader import call_firmware_route
 from mantarray_desktop_app.mc_comm import download_firmware_updates
 from mantarray_desktop_app.mc_comm import get_latest_firmware_versions
@@ -584,7 +583,7 @@ def test_McCommunicationProcess__raises_error_if_firmware_update_packet_fails(
     invoke_process_run_and_check_errors(simulator)
     response = simulator.read_all()
     response = bytearray(response)
-    response[SERIAL_COMM_ADDITIONAL_BYTES_INDEX + SERIAL_COMM_TIMESTAMP_LENGTH_BYTES] = 1
+    response[SERIAL_COMM_ADDITIONAL_BYTES_INDEX] = 1
     response[-SERIAL_COMM_CHECKSUM_LENGTH_BYTES:] = crc32(
         response[:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
     ).to_bytes(4, byteorder="little")

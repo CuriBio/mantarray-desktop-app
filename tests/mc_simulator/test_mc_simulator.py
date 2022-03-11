@@ -5,7 +5,6 @@ from random import randint
 
 from immutabledict import immutabledict
 from mantarray_desktop_app import convert_to_status_code_bytes
-from mantarray_desktop_app import convert_to_timestamp_bytes
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
 from mantarray_desktop_app import MantarrayMcSimulator
@@ -463,10 +462,7 @@ def test_MantarrayMcSimulator__processes_testing_commands_during_reboot(
     reboot_response_size = get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES)
     reboot_response = simulator.read(size=reboot_response_size)
     assert_serial_packet_is_expected(
-        reboot_response,
-        SERIAL_COMM_REBOOT_PACKET_TYPE,
-        additional_bytes=convert_to_timestamp_bytes(test_timestamp),
-        timestamp=spied_get_absolute_timer.spy_return,
+        reboot_response, SERIAL_COMM_REBOOT_PACKET_TYPE, timestamp=spied_get_absolute_timer.spy_return
     )
 
     # add read bytes as test command
@@ -552,9 +548,7 @@ def test_MantarrayMcSimulator__automatically_sends_plate_barcode_after_first_dat
     simulator.write(stop_data_streaming_command)
     invoke_process_run_and_check_errors(simulator)
     # clear command response
-    expected_response_size = get_full_packet_size_from_packet_body_size(
-        SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1
-    )
+    expected_response_size = get_full_packet_size_from_packet_body_size(1)
     assert len(simulator.read(size=expected_response_size)) == expected_response_size
 
     # get barcode packet
