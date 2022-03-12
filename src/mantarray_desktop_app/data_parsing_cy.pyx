@@ -11,6 +11,7 @@ from .constants import ADC_CH_TO_24_WELL_INDEX
 from .constants import ADC_CH_TO_IS_REF_SENSOR
 from .constants import RAW_TO_SIGNED_CONVERSION_VALUE
 from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
+from .constants import SERIAL_COMM_DATA_SAMPLE_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
@@ -118,12 +119,17 @@ cdef char[MAGIC_WORD_LEN + 1] MAGIC_WORD = SERIAL_COMM_MAGIC_WORD_BYTES + bytes(
 cdef int MIN_PACKET_SIZE = SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 
 cdef int SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES_C_INT = SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
+cdef int SERIAL_COMM_DATA_SAMPLE_LENGTH_BYTES_C_INT = SERIAL_COMM_DATA_SAMPLE_LENGTH_BYTES
 cdef int SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_C_INT = NUM_CHANNELS_PER_SENSOR
 cdef int SERIAL_COMM_NUM_SENSORS_PER_WELL_C_INT = SERIAL_COMM_NUM_SENSORS_PER_WELL
 
 cdef int SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE_C_INT = SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 cdef int SERIAL_COMM_ADDITIONAL_BYTES_INDEX_C_INT = SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 cdef int SERIAL_COMM_STIM_STATUS_PACKET_TYPE_C_INT = SERIAL_COMM_STIM_STATUS_PACKET_TYPE
+
+
+cdef int TOTAL_NUM_WELLS_C_INT = 24
+cdef int TOTAL_NUM_SENSORS_C_INT = TOTAL_NUM_WELLS_C_INT * SERIAL_COMM_NUM_SENSORS_PER_WELL_C_INT
 
 
 cdef packed struct Packet:
@@ -145,7 +151,7 @@ cdef packed struct MagnetometerData:
 
 
 cpdef dict handle_data_packets(
-    unsigned char [:] read_bytes, list active_channels_list, uint64_t base_global_time
+    unsigned char [:] read_bytes, uint64_t base_global_time
 ):
     """Read the given number of data packets from the instrument.
 
@@ -153,8 +159,7 @@ cpdef dict handle_data_packets(
     a tuple of info about the interrupting packet will be returned and the first two data arrays will not be full.
 
     Args:
-        read_bytes: an array of all bytes waiting to be parsed. Not gauranteed to all be bytes in a data packet
-        active_channels_list: a list containing the number of channels on each active sensor, in order.
+        read_bytes: an array of all bytes waiting to be parsed. Not gauranteed to all be bytes in a magnetometer or stim data packet
 
     Returns:
         A tuple of the array of parsed time indices, the array of time offsets, the array of parsed data, the number of data packets read, list of tuples containing info about interrupting packets if any occured (timestamp, packet type, and packet body bytes), the remaining unread bytes
@@ -163,12 +168,13 @@ cpdef dict handle_data_packets(
     cdef int num_bytes = len(read_bytes)
 
     # magnetometer data parsing values
-    cdef int num_time_offsets = len(active_channels_list)
-    cdef int num_data_channels = sum(active_channels_list)
+    cdef int num_wells = 24
+    cdef int num_time_offsets = TOTAL_NUM_SENSORS_C_INT
+    cdef int num_data_channels = TOTAL_NUM_SENSORS_C_INT * SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_C_INT
     cdef int data_packet_len = (
         sizeof(uint64_t)  # time_index
-        + num_data_channels * sizeof(uint16_t)  # data point
-        + num_time_offsets * SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES_C_INT
+        + (num_data_channels * SERIAL_COMM_DATA_SAMPLE_LENGTH_BYTES_C_INT)
+        + (num_time_offsets * SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES_C_INT)
     )
     cdef unsigned char [:] data_packet_bytes = bytearray(num_bytes)
     cdef int data_packet_byte_idx = 0
@@ -246,9 +252,6 @@ cpdef dict handle_data_packets(
             num_stim_packets += 1
         bytes_idx += MAGIC_WORD_LEN + 2 + p.packet_len
 
-    # convert active_channels_list to an array for faster indexing later
-    active_channels_list_arr = np.array(active_channels_list, dtype=np.uint8, order="C")
-
     # arrays for storing parsed data
     time_indices = np.empty(num_data_packets, dtype=np.uint64, order="C")
     time_offsets = np.empty((num_time_offsets, num_data_packets), dtype=np.uint16, order="C")
@@ -261,7 +264,6 @@ cpdef dict handle_data_packets(
     if num_data_packets > 0:
         _parse_magetometer_data(
             data_packet_bytes[:data_packet_byte_idx],
-            active_channels_list_arr,
             num_data_packets,
             time_indices_view,
             time_offsets_view,
@@ -288,7 +290,6 @@ cpdef dict handle_data_packets(
 
 cdef _parse_magetometer_data(
     unsigned char [:] data_packet_bytes,
-    uint8_t [:] active_channels_list_view,
     int num_data_packets,
     uint64_t [::1] time_indices_view,
     uint16_t [:, ::1] time_offsets_view,
@@ -296,8 +297,6 @@ cdef _parse_magetometer_data(
 ):
     data_packet_bytes = data_packet_bytes.copy()  # make sure data is C contiguous
     cdef int data_packet_len = len(data_packet_bytes) // num_data_packets
-
-    cdef int num_sensors = len(active_channels_list_view)
 
     cdef int time_offset_arr_idx
     cdef int channel_arr_idx
@@ -316,18 +315,17 @@ cdef _parse_magetometer_data(
         sensor_data_ptr = &data_packet_ptr.sensor_data
         channel_arr_idx = 0
         time_offset_arr_idx = 0
-        for sensor in range(num_sensors):
+        for sensor in range(TOTAL_NUM_SENSORS_C_INT):
             time_offsets_view[time_offset_arr_idx, data_packet_idx] = sensor_data_ptr.time_offset
             time_offset_arr_idx += 1
-            num_channels_on_sensor = active_channels_list_view[sensor]
-            for channel in range(num_channels_on_sensor):
+            for channel in range(SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_C_INT):
                 data_view[channel_arr_idx, data_packet_idx] = sensor_data_ptr.data_points[channel]
                 channel_arr_idx += 1
             # shift SensorData ptr by appropriate amount
             sensor_data_ptr = <SensorData *> (
                 (<uint8_t *> sensor_data_ptr)
                 + SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES_C_INT
-                + (num_channels_on_sensor * 2)
+                + (SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_C_INT * SERIAL_COMM_DATA_SAMPLE_LENGTH_BYTES_C_INT)
             )
         # increment idxs
         bytes_idx += data_packet_len

@@ -59,7 +59,7 @@ def set_magnetometer_config(
 
     config_command = {
         "communication_type": "acquisition_manager",
-        "command": "change_magnetometer_config",
+        "command": "set_sampling_period",
         "sampling_period": sampling_period,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(config_command, from_main_queue)

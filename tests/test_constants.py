@@ -101,7 +101,6 @@ from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_IDLE_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY
-from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
@@ -124,6 +123,7 @@ from mantarray_desktop_app import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_SOFT_ERROR_CODE
 from mantarray_desktop_app import SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE
@@ -493,7 +493,7 @@ def test_serial_comm():
     assert SERIAL_COMM_START_STIM_PACKET_TYPE == 21
     assert SERIAL_COMM_STOP_STIM_PACKET_TYPE == 22
     assert SERIAL_COMM_STIM_STATUS_PACKET_TYPE == 23
-    assert SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE == 50
+    assert SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE == 50
     assert SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE == 52
     assert SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE == 53
     assert SERIAL_COMM_GET_METADATA_PACKET_TYPE == 60

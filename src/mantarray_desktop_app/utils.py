@@ -57,7 +57,6 @@ from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import REFERENCE_VOLTAGE
 from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
-from .constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from .exceptions import InvalidCustomerAccountIDPasswordError
@@ -303,29 +302,6 @@ def get_active_wells_from_config(magnetometer_config: Dict[int, Dict[int, bool]]
         well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
         active_well_list.append(well_idx)
     return sorted(active_well_list)
-
-
-def create_active_channel_per_sensor_list(  # pylint: disable=invalid-name  # Tanner (5/27/21): it's a little long but descriptive
-    magnetometer_config: Dict[int, Dict[int, bool]]
-) -> List[int]:
-    """Convert magnetometer configuration dictionary to list.
-
-    Contains one entry per sensor with at least one channel enabled.
-    Each entry is the number of channels enabled for that sensor.
-
-    Reflects structure of data packet body for given configuration.
-    """
-    active_sensor_channels_list = []
-    for config_dict in magnetometer_config.values():
-        config_values = list(config_dict.values())
-        for sensor_base_idx in range(0, SERIAL_COMM_NUM_DATA_CHANNELS, SERIAL_COMM_NUM_CHANNELS_PER_SENSOR):
-            num_channels_for_sensor = sum(
-                config_values[sensor_base_idx : sensor_base_idx + SERIAL_COMM_NUM_CHANNELS_PER_SENSOR]
-            )
-            if num_channels_for_sensor == 0:
-                continue
-            active_sensor_channels_list.append(num_channels_for_sensor)
-    return active_sensor_channels_list
 
 
 def create_sensor_axis_dict(module_config: Dict[int, bool]) -> Dict[str, List[str]]:

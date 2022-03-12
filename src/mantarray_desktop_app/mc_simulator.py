@@ -33,7 +33,6 @@ from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import resource_path
 
-from .constants import DEFAULT_MAGNETOMETER_CONFIG
 from .constants import DEFAULT_SAMPLING_PERIOD
 from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
@@ -56,7 +55,6 @@ from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_IDLE_READY_CODE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
-from .constants import SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE
 from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from .constants import SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE
@@ -68,6 +66,7 @@ from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_REBOOT_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
+from .constants import SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
 from .constants import SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE
 from .constants import SERIAL_COMM_START_STIM_PACKET_TYPE
@@ -157,7 +156,6 @@ class MantarrayMcSimulator(InfiniteProcess):
             CHANNEL_FIRMWARE_VERSION_UUID: default_channel_firmware_version,
         }
     )
-    default_24_well_magnetometer_config: Dict[int, Dict[int, bool]] = DEFAULT_MAGNETOMETER_CONFIG
     global_timer_offset_secs = 2.5  # TODO Tanner (11/17/21): figure out if this should be removed
 
     def __init__(
@@ -447,7 +445,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._handle_comm_from_pc()
         self._handle_status_beacon()
         if self._is_streaming_data:
-            self._handle_sending_data_packets()
+            self._handle_magnetometer_data_packet()
         if self._is_stimulating:
             self._handle_stimulation_packets()
         self._check_handshake()
@@ -520,8 +518,8 @@ class MantarrayMcSimulator(InfiniteProcess):
             if not command_failed:
                 self._handle_manual_stim_stop()
                 self._is_stimulating = False
-        elif packet_type == SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE:
-            response_body += self._update_magnetometer_config(comm_from_pc)
+        elif packet_type == SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE:
+            response_body += self._update_sampling_period(comm_from_pc)
         elif packet_type == SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE:
             is_data_already_streaming = self._is_streaming_data
             response_body += bytes([is_data_already_streaming])
@@ -594,7 +592,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         if status_code_update is not None:
             self._update_status_code(status_code_update)
 
-    def _update_magnetometer_config(self, comm_from_pc: bytes) -> bytes:
+    def _update_sampling_period(self, comm_from_pc: bytes) -> bytes:
         update_status_byte = bytes([self._is_streaming_data])
         if self._is_streaming_data:
             # cannot change configuration while data is streaming, so return here
@@ -710,7 +708,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         else:
             raise UnrecognizedSimulatorTestCommandError(command)
 
-    def _handle_sending_data_packets(self) -> None:
+    def _handle_magnetometer_data_packet(self) -> None:
         """Send the required number of data packets.
 
         Since this process iterates once per 10 ms, it is possible that

@@ -29,7 +29,6 @@ import serial
 import serial.tools.list_ports as list_ports
 from stdlib_utils import put_log_message_into_queue
 
-from .constants import DEFAULT_MAGNETOMETER_CONFIG
 from .constants import DEFAULT_SAMPLING_PERIOD
 from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
@@ -44,6 +43,7 @@ from .constants import SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+from .constants import SERIAL_COMM_DATA_SAMPLE_LENGTH_BYTES
 from .constants import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_FATAL_ERROR_CODE
 from .constants import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
@@ -53,7 +53,6 @@ from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from .constants import SERIAL_COMM_IDLE_READY_CODE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
-from .constants import SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE
 from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
@@ -61,8 +60,8 @@ from .constants import SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE
 from .constants import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 from .constants import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
-from .constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
+from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
@@ -70,6 +69,7 @@ from .constants import SERIAL_COMM_REBOOT_PACKET_TYPE
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
+from .constants import SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
 from .constants import SERIAL_COMM_SOFT_ERROR_CODE
 from .constants import SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE
@@ -83,9 +83,9 @@ from .constants import SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE
 from .constants import SERIAL_COMM_STOP_STIM_PACKET_TYPE
 from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
-from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import STIM_COMPLETE_SUBPROTOCOL_IDX
 from .constants import STM_VID
+from .data_parsing_cy import handle_data_packets
 from .exceptions import FirmwareUpdateCommandFailedError
 from .exceptions import FirmwareUpdateTimeoutError
 from .exceptions import InstrumentDataStreamingAlreadyStartedError
@@ -94,7 +94,7 @@ from .exceptions import InstrumentFatalError
 from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import InstrumentSoftError
 from .exceptions import InvalidCommandFromMainError
-from .exceptions import MagnetometerConfigUpdateWhileDataStreamingError
+from .exceptions import SamplingPeriodUpdateWhileDataStreamingError
 from .exceptions import SerialCommCommandResponseTimeoutError
 from .exceptions import SerialCommHandshakeTimeoutError
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
@@ -124,16 +124,27 @@ from .serial_comm_utils import get_serial_comm_timestamp
 from .serial_comm_utils import parse_metadata_bytes
 from .serial_comm_utils import validate_checksum
 from .utils import check_barcode_is_valid
-from .utils import create_active_channel_per_sensor_list
 from .utils import set_this_process_high_priority
-from .utils import sort_nested_dict
 from .worker_thread import ErrorCatchingThread
 
 
-if 6 < 9:  # pragma: no cover # protect this from zimports deleting the pylint disable statement
-    from .data_parsing_cy import (  # pylint: disable=import-error # Tanner (5/12/21): unsure why pylint is unable to recognize cython import
-        handle_data_packets,
-    )
+COMMAND_PACKET_TYPES = frozenset(
+    [
+        SERIAL_COMM_REBOOT_PACKET_TYPE,
+        SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
+        SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE,
+        SERIAL_COMM_START_STIM_PACKET_TYPE,
+        SERIAL_COMM_STOP_STIM_PACKET_TYPE,
+        SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE,
+        SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE,
+        SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE,
+        SERIAL_COMM_GET_METADATA_PACKET_TYPE,
+        SERIAL_COMM_SET_NICKNAME_PACKET_TYPE,
+        SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE,
+        SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE,
+        SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE,
+    ]
+)
 
 
 def _get_formatted_utc_now() -> str:
@@ -229,12 +240,13 @@ class McCommunicationProcess(InstrumentCommProcess):
         ] = None  # Tanner (11/17/21): This value will only be a float when from the moment the end of firmware packet is received to the moment the firmware update complete packet is received
         # data streaming values
         self._base_global_time_of_data_stream = 0
-        # the follow uinitialized fields are set in _set_magnetometer_config
-        self._magnetometer_config: Dict[int, Dict[Any, Any]]
-        self._active_sensors_list: List[int]
-        self._packet_len: int
-        self._sampling_period_us: int
-        self._set_magnetometer_config(DEFAULT_SAMPLING_PERIOD)
+        self._packet_len = (
+            SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
+            + SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
+            + (24 * SERIAL_COMM_NUM_SENSORS_PER_WELL * SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES)
+            + (24 * SERIAL_COMM_NUM_DATA_CHANNELS * SERIAL_COMM_DATA_SAMPLE_LENGTH_BYTES)
+        )
+        self._sampling_period_us = DEFAULT_SAMPLING_PERIOD
         self._is_data_streaming = False
         self._is_stopping_data_stream = False
         self._has_data_packet_been_sent = False
@@ -386,32 +398,6 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise NotImplementedError("Board should not be None when sending a command to it")
         board.write(data_packet)
 
-    # Tanner (3/9/22): this method is currently overkill since only the sampling is configurable, but leaving it in case magnetometer sensors can be toggled on/off in the future
-    def _set_magnetometer_config(self, sampling_period: int) -> None:
-        # Tanner (6/2/21): Need to make sure module ID keys are in order
-        self._magnetometer_config = sort_nested_dict(dict(DEFAULT_MAGNETOMETER_CONFIG))
-        self._sampling_period_us = sampling_period
-        self._active_sensors_list = create_active_channel_per_sensor_list(self._magnetometer_config)
-        for module_dict in self._magnetometer_config.values():
-            config_values = list(module_dict.values())
-            num_sensors_active = 0
-            for sensor_base_idx in range(
-                0, SERIAL_COMM_NUM_DATA_CHANNELS, SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
-            ):
-                is_sensor_active = any(
-                    config_values[sensor_base_idx : sensor_base_idx + SERIAL_COMM_NUM_CHANNELS_PER_SENSOR]
-                )
-                num_sensors_active += int(is_sensor_active)
-            module_dict["num_sensors_active"] = num_sensors_active
-        total_active_channels = sum(self._active_sensors_list)
-        total_active_sensors = len(self._active_sensors_list)
-        self._packet_len = (
-            SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
-            + total_active_channels * 2
-            + total_active_sensors * SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
-            + SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
-        )
-
     def _commands_for_each_run_iteration(self) -> None:
         """Ordered actions to perform each iteration.
 
@@ -508,12 +494,12 @@ class McCommunicationProcess(InstrumentCommProcess):
             elif comm_from_main["command"] == "stop_managed_acquisition":
                 self._is_stopping_data_stream = True
                 packet_type = SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE
-            elif comm_from_main["command"] == "change_magnetometer_config":
+            elif comm_from_main["command"] == "set_sampling_period":
                 if self._is_data_streaming:
-                    raise MagnetometerConfigUpdateWhileDataStreamingError()
-                packet_type = SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE
+                    raise SamplingPeriodUpdateWhileDataStreamingError()
+                packet_type = SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE
                 bytes_to_send = comm_from_main["sampling_period"].to_bytes(2, byteorder="little")
-                self._set_magnetometer_config(comm_from_main["sampling_period"])
+                self._sampling_period = comm_from_main["sampling_period"]
             else:
                 raise UnrecognizedCommandFromMainToMcCommError(
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
@@ -741,22 +727,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise NotImplementedError(
                 "Should never receive magnetometer data packets when not streaming data"
             )
-        elif packet_type in (
-            # TODO figure out a better way to handle this than listing out all packet types here
-            SERIAL_COMM_REBOOT_PACKET_TYPE,
-            SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
-            SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE,
-            SERIAL_COMM_START_STIM_PACKET_TYPE,
-            SERIAL_COMM_STOP_STIM_PACKET_TYPE,
-            SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE,
-            SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE,
-            SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE,
-            SERIAL_COMM_GET_METADATA_PACKET_TYPE,
-            SERIAL_COMM_SET_NICKNAME_PACKET_TYPE,
-            SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE,
-            SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE,
-            SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE,
-        ):
+        elif packet_type in COMMAND_PACKET_TYPES:
             response_data = packet_body
             if not self._commands_awaiting_response:
                 raise SerialCommUntrackedCommandResponseError(
@@ -1013,9 +984,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._timepoint_of_prev_data_parse_secs = perf_counter()
 
         parsed_packet_dict = handle_data_packets(
-            bytearray(self._data_packet_cache),
-            self._active_sensors_list,
-            self._base_global_time_of_data_stream,
+            bytearray(self._data_packet_cache), self._base_global_time_of_data_stream
         )
         performance_tracking_values["dur_of_data_parse"] = _get_dur_of_data_parse_secs(
             self._timepoint_of_prev_data_parse_secs
@@ -1068,20 +1037,14 @@ class McCommunicationProcess(InstrumentCommProcess):
             "time_indices": time_indices[data_slice],
             "is_first_packet_of_stream": is_first_packet,
         }
-        data_idx = 0
         time_offset_idx = 0
-        for module_id, config_dict in self._magnetometer_config.items():
-            num_sensors_active = config_dict["num_sensors_active"]
-            if num_sensors_active == 0:
-                continue
-            time_offset_slice = slice(time_offset_idx, time_offset_idx + num_sensors_active)
-            well_dict = {"time_offsets": time_offsets[time_offset_slice, data_slice]}
-            time_offset_idx += num_sensors_active
-            for config_key, config_value in config_dict.items():
-                if not config_value or config_key == "num_sensors_active":
-                    continue
-                well_dict[config_key] = data[data_idx][data_slice]
-                data_idx += 1
+        for module_id in range(1, self._num_wells + 1):
+            data_idx = (module_id - 1) * SERIAL_COMM_NUM_DATA_CHANNELS
+            time_offset_slice = slice(time_offset_idx, time_offset_idx + SERIAL_COMM_NUM_SENSORS_PER_WELL)
+            well_dict: Dict[Any, Any] = {"time_offsets": time_offsets[time_offset_slice, data_slice]}
+            time_offset_idx += SERIAL_COMM_NUM_SENSORS_PER_WELL
+            for channel_idx in range(SERIAL_COMM_NUM_DATA_CHANNELS):
+                well_dict[channel_idx] = data[data_idx + channel_idx][data_slice]
             well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
             fw_item[well_idx] = well_dict
         to_fw_queue = self._board_queues[0][2]

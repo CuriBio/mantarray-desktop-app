@@ -91,7 +91,7 @@ def test_handle_data_packets__parses_single_stim_data_packet_with_a_single_statu
         random_timestamp(), SERIAL_COMM_STIM_STATUS_PACKET_TYPE, stim_packet_body
     )
 
-    parsed_data_dict = handle_data_packets(bytearray(test_data_packet), [], base_global_time)
+    parsed_data_dict = handle_data_packets(bytearray(test_data_packet), base_global_time)
     actual_stim_data = parsed_data_dict["stim_data"]
     assert list(actual_stim_data.keys()) == [test_well_idx]
     assert actual_stim_data[test_well_idx].dtype == np.int64
@@ -122,9 +122,7 @@ def test_handle_data_packets__parses_single_stim_data_packet_with_multiple_statu
         random_timestamp(), SERIAL_COMM_STIM_STATUS_PACKET_TYPE, stim_packet_body
     )
 
-    parsed_data_dict = handle_data_packets(
-        bytearray(test_data_packet), [1, 2, 3, 4], base_global_time  # arbitrary channel list,
-    )
+    parsed_data_dict = handle_data_packets(bytearray(test_data_packet), base_global_time)
     actual_stim_data = parsed_data_dict["stim_data"]
     assert list(actual_stim_data.keys()) == [test_well_idx]
     np.testing.assert_array_equal(
@@ -184,7 +182,7 @@ def test_handle_data_packets__parses_multiple_stim_data_packet_with_multiple_wel
     )
 
     parsed_data_dict = handle_data_packets(
-        bytearray(test_data_packet_1 + test_data_packet_2), [], base_global_time
+        bytearray(test_data_packet_1 + test_data_packet_2), base_global_time
     )
     actual_stim_data = parsed_data_dict["stim_data"]
     assert sorted(list(actual_stim_data.keys())) == sorted(test_well_indices)

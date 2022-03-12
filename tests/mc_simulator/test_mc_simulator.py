@@ -6,14 +6,13 @@ from random import randint
 from immutabledict import immutabledict
 from mantarray_desktop_app import convert_to_status_code_bytes
 from mantarray_desktop_app import create_data_packet
-from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_IDLE_READY_CODE
-from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
@@ -69,7 +68,6 @@ def test_MantarrayMcSimulator__class_attributes():
         MAIN_FIRMWARE_VERSION_UUID: MantarrayMcSimulator.default_main_firmware_version,
         CHANNEL_FIRMWARE_VERSION_UUID: MantarrayMcSimulator.default_channel_firmware_version,
     }
-    assert MantarrayMcSimulator.default_24_well_magnetometer_config == DEFAULT_MAGNETOMETER_CONFIG
     assert MantarrayMcSimulator.global_timer_offset_secs == 2.5
 
 
@@ -517,7 +515,7 @@ def test_MantarrayMcSimulator__raises_error_when_magnetometer_config_command_rec
     dummy_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
     change_config_command = create_data_packet(
         dummy_timestamp,
-        SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE,
+        SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE,
         bad_sampling_period.to_bytes(2, byteorder="little"),
     )
     simulator.write(change_config_command)
@@ -532,7 +530,7 @@ def test_MantarrayMcSimulator__automatically_sends_plate_barcode_after_first_dat
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     # mock so no data is created
-    mocker.patch.object(simulator, "_handle_sending_data_packets", autospec=True)
+    mocker.patch.object(simulator, "_handle_magnetometer_data_packet", autospec=True)
 
     # start data streaming
     start_data_streaming_command = create_data_packet(

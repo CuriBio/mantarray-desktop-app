@@ -25,7 +25,6 @@ from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_IDLE_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
-from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE
@@ -33,6 +32,7 @@ from mantarray_desktop_app import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
@@ -523,7 +523,7 @@ def test_MantarrayMcSimulator__processes_change_magnetometer_config_command__whe
     expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
     change_config_command = create_data_packet(
         expected_pc_timestamp,
-        SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE,
+        SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE,
         expected_sampling_period.to_bytes(2, byteorder="little"),
     )
     simulator.write(change_config_command)
@@ -533,7 +533,7 @@ def test_MantarrayMcSimulator__processes_change_magnetometer_config_command__whe
     command_response = simulator.read(size=get_full_packet_size_from_packet_body_size(1))
     assert_serial_packet_is_expected(
         command_response,
-        SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE,
+        SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE,
         additional_bytes=bytes([SERIAL_COMM_COMMAND_SUCCESS_BYTE]),
     )
     # assert that sampling period is updated
@@ -566,7 +566,7 @@ def test_MantarrayMcSimulator__processes_change_magnetometer_config_command__whe
     expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
     change_config_command = create_data_packet(
         expected_pc_timestamp,
-        SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE,
+        SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE,
         ignored_sampling_period.to_bytes(2, byteorder="little"),
     )
     simulator.write(change_config_command)
@@ -576,7 +576,7 @@ def test_MantarrayMcSimulator__processes_change_magnetometer_config_command__whe
     command_response = simulator.read(size=get_full_packet_size_from_packet_body_size(1))
     assert_serial_packet_is_expected(
         command_response,
-        SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE,
+        SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE,
         additional_bytes=bytes([SERIAL_COMM_COMMAND_FAILURE_BYTE]),
     )
     # assert that sampling period is unchanged

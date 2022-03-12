@@ -114,7 +114,6 @@ from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_IDLE_READY_CODE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
-from .constants import SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE
 from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
@@ -136,6 +135,7 @@ from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from .constants import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
+from .constants import SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
 from .constants import SERIAL_COMM_SOFT_ERROR_CODE
 from .constants import SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE
@@ -178,6 +178,12 @@ from .constants import VALID_CONFIG_SETTINGS
 from .constants import VALID_SCRIPTING_COMMANDS
 from .constants import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
 from .data_analyzer import DataAnalyzerProcess
+from .data_parsing_cy import handle_data_packets
+from .data_parsing_cy import parse_adc_metadata_byte
+from .data_parsing_cy import parse_little_endian_int24
+from .data_parsing_cy import parse_sensor_bytes
+from .data_parsing_cy import SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY
+from .data_parsing_cy import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_CY
 from .exceptions import AttemptToAddCyclesWhileSPIRunningError
 from .exceptions import AttemptToInitializeFIFOReadsError
 from .exceptions import BarcodeNotClearedError
@@ -188,8 +194,6 @@ from .exceptions import FirmwareFileNameDoesNotMatchWireOutVersionError
 from .exceptions import FirmwareUpdateCommandFailedError
 from .exceptions import FirmwareUpdateTimeoutError
 from .exceptions import FirstManagedReadLessThanOneRoundRobinError
-from .exceptions import IncorrectMagnetometerConfigFromInstrumentError
-from .exceptions import IncorrectSamplingPeriodFromInstrumentError
 from .exceptions import InstrumentCommIncorrectHeaderError
 from .exceptions import InstrumentDataStreamingAlreadyStartedError
 from .exceptions import InstrumentDataStreamingAlreadyStoppedError
@@ -203,11 +207,11 @@ from .exceptions import InvalidDataFramePeriodError
 from .exceptions import InvalidScriptCommandError
 from .exceptions import InvalidStopRecordingTimepointError
 from .exceptions import LocalServerPortAlreadyInUseError
-from .exceptions import MagnetometerConfigUpdateWhileDataStreamingError
 from .exceptions import MantarrayInstrumentError
 from .exceptions import MismatchedScriptTypeError
 from .exceptions import MultiprocessingNotSetToSpawnError
 from .exceptions import RecordingFolderDoesNotExistError
+from .exceptions import SamplingPeriodUpdateWhileDataStreamingError
 from .exceptions import ScriptDoesNotContainEndCommandError
 from .exceptions import SerialCommCommandResponseTimeoutError
 from .exceptions import SerialCommHandshakeTimeoutError
@@ -300,7 +304,6 @@ from .server import socketio
 from .system_utils import system_state_eventually_equals
 from .system_utils import wait_for_subprocesses_to_start
 from .utils import check_barcode_for_errors
-from .utils import create_active_channel_per_sensor_list
 from .utils import create_magnetometer_config_dict
 from .utils import create_sensor_axis_dict
 from .utils import get_active_wells_from_config
@@ -310,16 +313,6 @@ from .utils import redact_sensitive_info_from_path
 from .utils import upload_log_files_to_s3
 from .utils import validate_magnetometer_config_keys
 from .worker_thread import ErrorCatchingThread
-
-if 6 < 9:  # pragma: no cover # protect this from zimports deleting the pylint disable statement
-    from .data_parsing_cy import (  # pylint: disable=import-error # Tanner (8/25/20): unsure why pylint is unable to recognize cython import
-        parse_adc_metadata_byte,
-        parse_little_endian_int24,
-        parse_sensor_bytes,
-        handle_data_packets,
-        SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY,
-        SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_CY,
-    )
 
 __all__ = [
     "main",
@@ -541,7 +534,7 @@ __all__ = [
     "SERIAL_COMM_COMMAND_FAILURE_BYTE",
     "InstrumentDataStreamingAlreadyStartedError",
     "InstrumentDataStreamingAlreadyStoppedError",
-    "SERIAL_COMM_MAGNETOMETER_CONFIG_PACKET_TYPE",
+    "SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE",
     "SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE",
     "MICROSECONDS_PER_MILLISECOND",
     "SerialCommInvalidSamplingPeriodError",
@@ -556,19 +549,17 @@ __all__ = [
     "SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE",
     "handle_data_packets",
     "SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES",
-    "MagnetometerConfigUpdateWhileDataStreamingError",
+    "SamplingPeriodUpdateWhileDataStreamingError",
     "CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION",
     "get_time_index_dataset_from_file",
     "InvalidStopRecordingTimepointError",
     "validate_magnetometer_config_keys",
-    "IncorrectMagnetometerConfigFromInstrumentError",
     "SERIAL_COMM_TIME_INDEX_LENGTH_BYTES",
     "SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES",
     "SERIAL_COMM_NUM_CHANNELS_PER_SENSOR",
     "SERIAL_COMM_NUM_SENSORS_PER_WELL",
     "SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY",
     "SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_CY",
-    "create_active_channel_per_sensor_list",
     "get_time_offset_dataset_from_file",
     "create_sensor_axis_dict",
     "SERIAL_COMM_MODULE_ID_TO_WELL_IDX",
@@ -590,7 +581,6 @@ __all__ = [
     "queue_container",
     "get_redacted_string",
     "UnrecognizedCommandFromServerToMainError",
-    "IncorrectSamplingPeriodFromInstrumentError",
     "file_uploader",
     "ErrorCatchingThread",
     "convert_bytes_to_subprotocol_dict",

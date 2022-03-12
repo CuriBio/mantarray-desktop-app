@@ -6,20 +6,17 @@ from statistics import stdev
 import time
 
 from freezegun import freeze_time
-from mantarray_desktop_app import create_active_channel_per_sensor_list
 from mantarray_desktop_app import create_data_packet
-from mantarray_desktop_app import create_magnetometer_config_dict
-from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
 from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import handle_data_packets
 from mantarray_desktop_app import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import InstrumentDataStreamingAlreadyStartedError
 from mantarray_desktop_app import InstrumentDataStreamingAlreadyStoppedError
-from mantarray_desktop_app import MagnetometerConfigUpdateWhileDataStreamingError
 from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import NUM_INITIAL_PACKETS_TO_DROP
+from mantarray_desktop_app import SamplingPeriodUpdateWhileDataStreamingError
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
@@ -32,7 +29,6 @@ from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
-from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import SerialCommIncorrectChecksumFromInstrumentError
 from mantarray_desktop_app import SerialCommIncorrectMagicWordFromMantarrayError
 from mantarray_desktop_app.constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
@@ -55,7 +51,6 @@ from ..fixtures_mc_simulator import random_timestamp
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
-from ..helpers import random_bool
 
 __fixtures__ = [
     fixture_mantarray_mc_simulator_no_beacon,
@@ -66,15 +61,6 @@ __fixtures__ = [
 
 TEST_NUM_WELLS = 24
 
-MODULE_CONFIG_ALL_CHANNELS_ENABLED = {channel_id: True for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS)}
-FULL_CONFIG_ALL_CHANNELS_ENABLED = {
-    module_id: copy.deepcopy(MODULE_CONFIG_ALL_CHANNELS_ENABLED) for module_id in range(1, TEST_NUM_WELLS + 1)
-}
-
-FULL_DATA_PACKET_CHANNEL_LIST = [
-    SERIAL_COMM_NUM_CHANNELS_PER_SENSOR for _ in range(SERIAL_COMM_NUM_SENSORS_PER_WELL * TEST_NUM_WELLS)
-]
-
 TEST_OTHER_TIMESTAMP = random_timestamp()  # type: ignore
 TEST_OTHER_PACKET = create_data_packet(TEST_OTHER_TIMESTAMP, SERIAL_COMM_STATUS_BEACON_PACKET_TYPE, bytes(4))
 TEST_OTHER_PACKET_INFO = (TEST_OTHER_TIMESTAMP, SERIAL_COMM_STATUS_BEACON_PACKET_TYPE, bytes(4))
@@ -82,30 +68,24 @@ TEST_OTHER_PACKET_INFO = (TEST_OTHER_TIMESTAMP, SERIAL_COMM_STATUS_BEACON_PACKET
 
 def create_data_stream_body(
     time_index_us,
-    magnetometer_config=FULL_CONFIG_ALL_CHANNELS_ENABLED,
     num_wells_on_plate=24,
 ):
     data_packet_body = time_index_us.to_bytes(SERIAL_COMM_TIME_INDEX_LENGTH_BYTES, byteorder="little")
     data_values = []
     offset_values = []
-    for module_id in range(1, num_wells_on_plate + 1):
-        config_values = list(magnetometer_config[module_id].values())
-        for sensor_base_idx in range(0, SERIAL_COMM_NUM_DATA_CHANNELS, SERIAL_COMM_NUM_SENSORS_PER_WELL):
-            if not any(config_values[sensor_base_idx : sensor_base_idx + SERIAL_COMM_NUM_SENSORS_PER_WELL]):
-                continue
-            # create offset value
+    for _ in range(1, num_wells_on_plate + 1):
+        for _ in range(0, SERIAL_COMM_NUM_DATA_CHANNELS, SERIAL_COMM_NUM_SENSORS_PER_WELL):
+            # create and add offset value
             offset = random_time_offset()
             offset_values.append(offset)
             data_packet_body += offset.to_bytes(SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES, byteorder="little")
             # create data point
             data_value = random_data_value()
             data_value_bytes = data_value.to_bytes(2, byteorder="little")
-            for axis_idx in range(SERIAL_COMM_NUM_CHANNELS_PER_SENSOR):
+            for _ in range(SERIAL_COMM_NUM_CHANNELS_PER_SENSOR):
                 # add data points
-                channel_id = sensor_base_idx + axis_idx
-                if magnetometer_config[module_id][channel_id]:
-                    data_values.append(data_value)
-                    data_packet_body += data_value_bytes
+                data_values.append(data_value)
+                data_packet_body += data_value_bytes
     return data_packet_body, offset_values, data_values
 
 
@@ -134,9 +114,7 @@ def test_handle_data_packets__handles_two_full_data_packets_correctly__and_assig
         (len(expected_data_points) // test_num_data_packets, test_num_data_packets), order="F"
     )
 
-    parsed_data_dict = handle_data_packets(
-        bytearray(test_data_packet_bytes), FULL_DATA_PACKET_CHANNEL_LIST, base_global_time
-    )
+    parsed_data_dict = handle_data_packets(bytearray(test_data_packet_bytes), base_global_time)
     actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read = parsed_data_dict[
         "magnetometer_data"
     ].values()
@@ -152,59 +130,8 @@ def test_handle_data_packets__handles_two_full_data_packets_correctly__and_assig
     assert parsed_data_dict["unread_bytes"] == bytes(0)
 
 
-def test_handle_data_packets__handles_two_full_data_packets_correctly__when_active_sensors_have_different_configs():
-    test_num_data_packets = 2
-    expected_time_indices = [1000, 2000]
-
-    # set up config dict so that starting at well 5 with one channel enabled, each well has one more channel enabled than the last until a well has all channels enabled
-    test_num_wells = 24
-    test_config_dict = create_magnetometer_config_dict(test_num_wells)
-    first_well_enabled = 5
-    for well_idx in range(first_well_enabled, first_well_enabled + SERIAL_COMM_NUM_DATA_CHANNELS):
-        num_channels_to_enable = well_idx - first_well_enabled + 1
-        for channel_id in range(num_channels_to_enable):
-            test_config_dict[SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]][channel_id] = True
-    # also set up random config on one more arbitrarily chosen key
-    module_id_for_random_config = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[test_num_wells - 1]
-    for channel_id in test_config_dict[module_id_for_random_config].keys():
-        test_config_dict[module_id_for_random_config][channel_id] = random_bool()
-
-    test_data_packet_bytes = bytes(0)
-    expected_data_points = []
-    expected_time_offsets = []
-    for packet_num in range(test_num_data_packets):
-        data_packet_body, test_offsets, test_data = create_data_stream_body(
-            expected_time_indices[packet_num],
-            test_config_dict,
-        )
-        test_data_packet_bytes += create_data_packet(
-            random_timestamp(), SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE, data_packet_body
-        )
-        expected_data_points.extend(test_data)
-        expected_time_offsets.extend(test_offsets)
-    expected_time_offsets = np.array(expected_time_offsets).reshape(
-        (len(expected_time_offsets) // test_num_data_packets, test_num_data_packets), order="F"
-    )
-    expected_data_points = np.array(expected_data_points).reshape(
-        (len(expected_data_points) // test_num_data_packets, test_num_data_packets), order="F"
-    )
-
-    active_channels_list = create_active_channel_per_sensor_list(test_config_dict)
-    parsed_data_dict = handle_data_packets(bytearray(test_data_packet_bytes), active_channels_list, 0)
-    actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read = parsed_data_dict[
-        "magnetometer_data"
-    ].values()
-
-    np.testing.assert_array_equal(actual_time_indices, expected_time_indices)
-    np.testing.assert_array_equal(actual_time_offsets, expected_time_offsets)
-    np.testing.assert_array_equal(actual_data, expected_data_points)
-    assert num_data_packets_read == test_num_data_packets
-    assert parsed_data_dict["other_packet_info"] == []
-    assert parsed_data_dict["unread_bytes"] == bytes(0)
-
-
 def test_handle_data_packets__handles_single_packet_with_incorrect_packet_type_correctly__when_all_channels_enabled():
-    parsed_data_dict = handle_data_packets(bytearray(TEST_OTHER_PACKET), FULL_DATA_PACKET_CHANNEL_LIST, 0)
+    parsed_data_dict = handle_data_packets(bytearray(TEST_OTHER_PACKET), 0)
     actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read = parsed_data_dict[
         "magnetometer_data"
     ].values()
@@ -226,7 +153,7 @@ def test_handle_data_packets__handles_interrupting_packet_followed_by_data_packe
         random_timestamp(), SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE, data_packet_body
     )
 
-    parsed_data_dict = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0)
+    parsed_data_dict = handle_data_packets(bytearray(test_bytes), 0)
     actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read = parsed_data_dict[
         "magnetometer_data"
     ].values()
@@ -247,7 +174,7 @@ def test_handle_data_packets__handles_single_data_packet_followed_by_interruptin
     )
     test_bytes = test_data_packet + TEST_OTHER_PACKET
 
-    parsed_data_dict = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0)
+    parsed_data_dict = handle_data_packets(bytearray(test_bytes), 0)
     actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read = parsed_data_dict[
         "magnetometer_data"
     ].values()
@@ -270,7 +197,7 @@ def test_handle_data_packets__handles_single_data_packet_followed_by_incomplete_
     test_incomplete_packet = bytes(SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES - 1)
     test_bytes = test_data_packet + test_incomplete_packet
 
-    parsed_data_dict = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0)
+    parsed_data_dict = handle_data_packets(bytearray(test_bytes), 0)
     actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read = parsed_data_dict[
         "magnetometer_data"
     ].values()
@@ -304,7 +231,7 @@ def test_handle_data_packets__handles_interrupting_packet_in_between_two_data_pa
         expected_data_points.extend(test_data)
     test_bytes = test_data_packets[0] + TEST_OTHER_PACKET + test_data_packets[1]
 
-    parsed_data_dict = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0)
+    parsed_data_dict = handle_data_packets(bytearray(test_bytes), 0)
     actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read = parsed_data_dict[
         "magnetometer_data"
     ].values()
@@ -344,7 +271,7 @@ def test_handle_data_packets__handles_two_interrupting_packets_in_between_two_da
         expected_data_points.extend(test_data)
     test_bytes = test_data_packets[0] + TEST_OTHER_PACKET + TEST_OTHER_PACKET + test_data_packets[1]
 
-    parsed_data_dict = handle_data_packets(bytearray(test_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0)
+    parsed_data_dict = handle_data_packets(bytearray(test_bytes), 0)
     actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read = parsed_data_dict[
         "magnetometer_data"
     ].values()
@@ -370,7 +297,7 @@ def test_handle_data_packets__raises_error_when_packet_from_instrument_has_incor
     bad_magic_word_bytes = b"NOT CURI"
     bad_packet = bad_magic_word_bytes + TEST_OTHER_PACKET[len(SERIAL_COMM_MAGIC_WORD_BYTES) :]
     with pytest.raises(SerialCommIncorrectMagicWordFromMantarrayError, match=str(bad_magic_word_bytes)):
-        handle_data_packets(bytearray(bad_packet), FULL_DATA_PACKET_CHANNEL_LIST, 0)
+        handle_data_packets(bytearray(bad_packet), 0)
 
 
 def test_handle_data_packets__raises_error_when_packet_from_instrument_has_incorrect_crc32_checksum(
@@ -380,7 +307,7 @@ def test_handle_data_packets__raises_error_when_packet_from_instrument_has_incor
     bad_checksum_bytes = bad_checksum.to_bytes(SERIAL_COMM_CHECKSUM_LENGTH_BYTES, byteorder="little")
     bad_packet = TEST_OTHER_PACKET[:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES] + bad_checksum_bytes
     with pytest.raises(SerialCommIncorrectChecksumFromInstrumentError) as exc_info:
-        handle_data_packets(bytearray(bad_packet), FULL_DATA_PACKET_CHANNEL_LIST, 0)
+        handle_data_packets(bytearray(bad_packet), 0)
 
     expected_checksum = int.from_bytes(bad_packet[-SERIAL_COMM_CHECKSUM_LENGTH_BYTES:], byteorder="little")
     assert str(bad_checksum) in exc_info.value.args[0]
@@ -405,9 +332,7 @@ def test_handle_data_packets__does_not_parse_final_packet_if_it_is_not_complete(
     )[:-1]
     test_data_packet_bytes = full_packet + incomplete_packet
 
-    parsed_data_dict = handle_data_packets(
-        bytearray(test_data_packet_bytes), FULL_DATA_PACKET_CHANNEL_LIST, base_global_time
-    )
+    parsed_data_dict = handle_data_packets(bytearray(test_data_packet_bytes), base_global_time)
     actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read = parsed_data_dict[
         "magnetometer_data"
     ].values()
@@ -456,9 +381,7 @@ def test_handle_data_packets__performance_test__magnetometer_data_only():
     )
 
     start = time.perf_counter_ns()
-    parsed_data_dict = handle_data_packets(
-        bytearray(test_data_packet_bytes), FULL_DATA_PACKET_CHANNEL_LIST, 0
-    )
+    parsed_data_dict = handle_data_packets(bytearray(test_data_packet_bytes), 0)
     actual_time_indices, actual_time_offsets, actual_data, num_data_packets_read = parsed_data_dict[
         "magnetometer_data"
     ].values()
@@ -515,7 +438,7 @@ def test_McCommunicationProcess__processes_start_managed_acquisition_command__wh
     assert command_response == expected_response
 
 
-def test_McCommunicationProcess__raises_error_when_change_magnetometer_config_command_received_while_data_is_streaming(
+def test_McCommunicationProcess__raises_error_when_set_sampling_period_command_received_while_data_is_streaming(
     four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker, patch_print
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
@@ -541,12 +464,11 @@ def test_McCommunicationProcess__raises_error_when_change_magnetometer_config_co
     # attempt to change magnetometer configuration and assert error is raised
     change_config_command = {
         "communication_type": "acquisition_manager",
-        "command": "change_magnetometer_config",
+        "command": "set_sampling_period",
         "sampling_period": 65000,  # arbitrary value
-        "magnetometer_config": dict(),
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(change_config_command, from_main_queue)
-    with pytest.raises(MagnetometerConfigUpdateWhileDataStreamingError):
+    with pytest.raises(SamplingPeriodUpdateWhileDataStreamingError):
         invoke_process_run_and_check_errors(mc_process)
 
 
@@ -829,24 +751,12 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
         "time_indices": np.array(expected_time_indices, np.uint64),
     }
     for well_idx in range(24):
-        config_values = list(
-            DEFAULT_MAGNETOMETER_CONFIG[SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]].values()
-        )
-        if not any(config_values):
-            continue
-        num_channels_for_well = 0
-        for sensor_base_idx in range(0, SERIAL_COMM_NUM_DATA_CHANNELS, SERIAL_COMM_NUM_CHANNELS_PER_SENSOR):
-            num_channels_for_sensor = sum(
-                config_values[sensor_base_idx : sensor_base_idx + SERIAL_COMM_NUM_CHANNELS_PER_SENSOR]
-            )
-            num_channels_for_well += int(num_channels_for_sensor > 0)
-
         channel_dict = {
-            "time_offsets": np.zeros((num_channels_for_well, expected_num_packets), dtype=np.uint16)
+            "time_offsets": np.zeros(
+                (SERIAL_COMM_NUM_SENSORS_PER_WELL, expected_num_packets), dtype=np.uint16
+            )
         }
         for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS):
-            if not config_values[channel_id]:
-                continue
             channel_dict[channel_id] = simulated_data * np.uint16(well_idx + 1)
         expected_fw_item[well_idx] = channel_dict
     # not actually using the value here in any assertions, just need the key present

@@ -297,7 +297,7 @@ def test_McCommunicationProcess__processes_reboot_command(
     assert reboot_response == expected_response
 
 
-def test_McCommunicationProcess__processes_change_magnetometer_config_command(
+def test_McCommunicationProcess__processes_set_sampling_period_command(
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
 ):
@@ -310,12 +310,12 @@ def test_McCommunicationProcess__processes_change_magnetometer_config_command(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
 
-    # set arbitrary  sampling period
+    # set arbitrary sampling period
     expected_sampling_period = 14000
     # send command to mc_process
     expected_response = {
         "communication_type": "acquisition_manager",
-        "command": "change_magnetometer_config",
+        "command": "set_sampling_period",
         "sampling_period": expected_sampling_period,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
