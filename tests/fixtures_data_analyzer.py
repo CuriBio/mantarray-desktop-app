@@ -10,18 +10,18 @@ from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 
-def set_magnetometer_config(da_fixture, magnetometer_config_dict):
+def set_sampling_period(da_fixture, sampling_period):
     da_process = da_fixture["da_process"]
     from_main_queue = da_fixture["from_main_queue"]
     to_main_queue = da_fixture["to_main_queue"]
 
-    set_magnetometer_config_command = {
+    set_sampling_period_command = {
         "communication_type": "acquisition_manager",
-        "command": "change_magnetometer_config",
+        "command": "set_sampling_period",
+        "sampling_period": sampling_period,
     }
-    set_magnetometer_config_command.update(magnetometer_config_dict)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        set_magnetometer_config_command, from_main_queue
+        set_sampling_period_command, from_main_queue
     )
     invoke_process_run_and_check_errors(da_process)
     # remove message to main

@@ -9,8 +9,6 @@ Custom HTTP Error Codes:
 * 400 - Call to /set_mantarray_nickname with invalid nickname parameter
 * 400 - Call to /update_settings with unexpected argument or a recording directory that doesn't exist
 * 400 - Call to /insert_xem_command_into_queue/set_mantarray_serial_number with invalid serial_number parameter
-* 400 - Call to /set_magnetometer_config with invalid configuration dict
-* 400 - Call to /set_magnetometer_config with invalid or missing sampling period
 * 400 - Call to /set_protocols with an invalid protocol or protocol assignments
 * 400 - Call to /set_stim_status with missing 'running' status
 * 401 - Call to /update_settings with invalid customer credentials
@@ -18,9 +16,6 @@ Custom HTTP Error Codes:
 * 403 - Call to any /insert_xem_command_into_queue/* route when in Beta 2 mode
 * 403 - Call to /boot_up when in Beta 2 mode
 * 403 - Call to /start_calibration when not in calibration_needed or calibrated state
-* 403 - Call to /set_magnetometer_config when in Beta 1 mode
-* 403 - Call to /set_magnetometer_config while data is streaming in Beta 2 mode
-* 403 - Call to /set_magnetometer_config before instrument finishes initializing in Beta 2 mode
 * 403 - Call to /set_protocols when in Beta 1 mode
 * 403 - Call to /set_protocols while stimulation is running
 * 403 - Call to /set_stim_status when in Beta 1 mode

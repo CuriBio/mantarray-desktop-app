@@ -511,7 +511,7 @@ def test_MantarrayMcSimulator__processes_stop_data_streaming_command(
         )
 
 
-def test_MantarrayMcSimulator__processes_change_magnetometer_config_command__when_data_is_not_streaming(
+def test_MantarrayMcSimulator__processes_set_sampling_period_command__when_data_is_not_streaming(
     mantarray_mc_simulator_no_beacon, mocker
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
@@ -540,7 +540,7 @@ def test_MantarrayMcSimulator__processes_change_magnetometer_config_command__whe
     assert simulator.get_sampling_period_us() == expected_sampling_period
 
 
-def test_MantarrayMcSimulator__processes_change_magnetometer_config_command__when_data_is_streaming(
+def test_MantarrayMcSimulator__processes_set_sampling_period_command__when_data_is_streaming(
     mantarray_mc_simulator_no_beacon, mocker
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]

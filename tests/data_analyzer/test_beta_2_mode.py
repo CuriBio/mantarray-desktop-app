@@ -28,7 +28,7 @@ from stdlib_utils import TestingQueue
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process_beta_2_mode
 from ..fixtures_data_analyzer import fixture_runnable_four_board_analyzer_process
-from ..fixtures_data_analyzer import set_magnetometer_config
+from ..fixtures_data_analyzer import set_sampling_period
 from ..fixtures_file_writer import GENERIC_BOARD_MAGNETOMETER_CONFIGURATION
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
@@ -73,9 +73,7 @@ def test_DataAnalyzerProcess_beta_2_performance__fill_data_analysis_buffer(
 
     p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
     p._beta_2_mode = True
-    p.change_magnetometer_config(
-        {"magnetometer_config": DEFAULT_MAGNETOMETER_CONFIG, "sampling_period": DEFAULT_SAMPLING_PERIOD},
-    )
+    p.set_sampling_period(DEFAULT_SAMPLING_PERIOD)
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         dict(START_MANAGED_ACQUISITION_COMMUNICATION),
@@ -109,9 +107,7 @@ def test_DataAnalyzerProcess_beta_2_performance__first_second_of_data_with_analy
 
     p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
     p._beta_2_mode = True
-    p.change_magnetometer_config(
-        {"magnetometer_config": DEFAULT_MAGNETOMETER_CONFIG, "sampling_period": DEFAULT_SAMPLING_PERIOD},
-    )
+    p.set_sampling_period(DEFAULT_SAMPLING_PERIOD)
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         dict(START_MANAGED_ACQUISITION_COMMUNICATION),
@@ -148,9 +144,7 @@ def test_DataAnalyzerProcess_beta_2_performance__single_data_packet_per_well_wit
 
     p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
     p._beta_2_mode = True
-    p.change_magnetometer_config(
-        {"magnetometer_config": DEFAULT_MAGNETOMETER_CONFIG, "sampling_period": DEFAULT_SAMPLING_PERIOD},
-    )
+    p.set_sampling_period(DEFAULT_SAMPLING_PERIOD)
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         dict(START_MANAGED_ACQUISITION_COMMUNICATION),
@@ -189,15 +183,9 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
     mocker.patch.object(da_process, "_handle_performance_logging", autospec=True)
 
     da_process.init_streams()
-    # set config arbitrary sampling period
+    # set arbitrary sampling period
     test_sampling_period = 1000
-    set_magnetometer_config(
-        four_board_analyzer_process_beta_2_mode,
-        {
-            "magnetometer_config": GENERIC_BOARD_MAGNETOMETER_CONFIGURATION,
-            "sampling_period": test_sampling_period,
-        },
-    )
+    set_sampling_period(four_board_analyzer_process_beta_2_mode, test_sampling_period)
 
     # start managed_acquisition
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -278,15 +266,6 @@ def test_DataAnalyzerProcess__does_not_process_data_packets_after_receiving_stop
     )
 
     invoke_process_run_and_check_errors(da_process, perform_setup_before_loop=True)
-    # set config arbitrary sampling period
-    test_sampling_period = 10000
-    set_magnetometer_config(
-        four_board_analyzer_process_beta_2_mode,
-        {
-            "magnetometer_config": GENERIC_BOARD_MAGNETOMETER_CONFIGURATION,
-            "sampling_period": test_sampling_period,
-        },
-    )
 
     # start managed_acquisition
     put_object_into_queue_and_raise_error_if_eventually_still_empty(

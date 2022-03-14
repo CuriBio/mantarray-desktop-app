@@ -63,7 +63,7 @@ COMMAND_RESPONSE_SEQUENCE = [
     ("start_managed_acquisition", "start_md_2"),
     ("stop_managed_acquisition", "stop_md_1"),
     ("stop_managed_acquisition", "stop_md_2"),
-    ("change_magnetometer_config", "magnetometer_config"),
+    ("change_magnetometer_config", "magnetometer_config"),  # TODO
     # STIMULATORS
     ("start_stimulation", "start_stim_1"),
     ("stop_stimulation", "stop_stim_1"),

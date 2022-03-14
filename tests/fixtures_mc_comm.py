@@ -48,7 +48,7 @@ def set_connection_and_register_simulator(
     drain_queue(output_queue)
 
 
-def set_magnetometer_config(
+def set_magnetometer_config(  # TODO rename?
     mc_fixture,
     simulator,
     sampling_period=DEFAULT_SAMPLING_PERIOD,

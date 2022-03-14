@@ -127,14 +127,14 @@ def get_serial_comm_timestamp() -> int:
     ) // datetime.timedelta(microseconds=1)
 
 
-def create_sensor_axis_bitmask(config_dict: Dict[int, bool]) -> int:
+def create_sensor_axis_bitmask(config_dict: Dict[int, bool]) -> int:  # TODO remove
     bitmask = 0
     for sensor_axis_id, config_value in config_dict.items():
         bitmask += int(config_value) << sensor_axis_id
     return bitmask
 
 
-def create_magnetometer_config_bytes(config_dict: Dict[int, Dict[int, bool]]) -> bytes:
+def create_magnetometer_config_bytes(config_dict: Dict[int, Dict[int, bool]]) -> bytes:  # TODO remove
     config_bytes = bytes(0)
     for module_id, well_config in config_dict.items():
         config_bytes += bytes([module_id])
@@ -142,7 +142,7 @@ def create_magnetometer_config_bytes(config_dict: Dict[int, Dict[int, bool]]) ->
     return config_bytes
 
 
-def convert_bitmask_to_config_dict(bitmask: int) -> Dict[int, bool]:
+def convert_bitmask_to_config_dict(bitmask: int) -> Dict[int, bool]:  # TODO remove
     config_dict: Dict[int, bool] = dict()
     bit = 1
     for sensor_axis_id in range(SERIAL_COMM_NUM_DATA_CHANNELS):
@@ -151,7 +151,7 @@ def convert_bitmask_to_config_dict(bitmask: int) -> Dict[int, bool]:
     return config_dict
 
 
-def convert_bytes_to_config_dict(
+def convert_bytes_to_config_dict(  # TODO remove
     magnetometer_config_bytes: bytes,
 ) -> Dict[int, Dict[int, bool]]:
     """Covert bytes from the instrument to a configuration dictionary."""
