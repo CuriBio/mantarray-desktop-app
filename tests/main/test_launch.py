@@ -478,10 +478,13 @@ def test_main__when_launched_with_an_expected_software_version_but_also_the_flag
     assert "expected_software_version" not in shared_values_dict
 
 
-@pytest.mark.timeout(GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS)
 def test_main__full_launch_script_runs_as_expected(fully_running_app_from_main_entrypoint, mocker):
     spied_info = mocker.spy(main.logger, "info")
     mocked_set_up = mocker.patch.object(main, "_set_up_socketio_handlers", autospec=True)
+
+    # mock these to avoid issues
+    mocker.patch.object(main, "_create_process_manager", autospec=True)
+    mocker.patch.object(main, "MantarrayProcessesMonitor", autospec=True)
 
     app_info = fully_running_app_from_main_entrypoint(
         ["--startup-test-options", "no_subprocesses", "--beta-2-mode"]

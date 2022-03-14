@@ -46,6 +46,8 @@ from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import RunningFIFOSimulator
+from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
+from mantarray_desktop_app import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from mantarray_desktop_app import server
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import system_state_eventually_equals
@@ -112,8 +114,6 @@ from ..fixtures import fixture_patched_xem_scripts_folder
 from ..fixtures import GENERIC_STORED_CUSTOMER_ID
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
-from ..fixtures_file_writer import GENERIC_NUM_CHANNELS_ENABLED
-from ..fixtures_file_writer import GENERIC_NUM_SENSORS_ENABLED
 from ..fixtures_file_writer import WELL_DEF_24
 from ..fixtures_mc_simulator import get_null_subprotocol
 from ..fixtures_mc_simulator import get_random_subprotocol
@@ -1115,14 +1115,11 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                 assert actual_time_index_data[-1] == expected_stop_index_1
                 actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
                 assert actual_time_offset_data.shape == (
-                    GENERIC_NUM_SENSORS_ENABLED,
+                    SERIAL_COMM_NUM_SENSORS_PER_WELL,
                     num_recorded_data_points_1,
                 )
                 actual_tissue_data = get_tissue_dataset_from_file(this_file)
-                assert actual_tissue_data.shape == (
-                    GENERIC_NUM_CHANNELS_ENABLED,
-                    num_recorded_data_points_1,
-                )
+                assert actual_tissue_data.shape == (SERIAL_COMM_NUM_DATA_CHANNELS, num_recorded_data_points_1)
                 # test recorded stim data
                 actual_stim_data = get_stimulation_dataset_from_file(this_file)
                 assert actual_stim_data.shape[0] == 2
@@ -1177,14 +1174,11 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                 assert actual_time_index_data[-1] == expected_stop_index_2
                 actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
                 assert actual_time_offset_data.shape == (
-                    GENERIC_NUM_SENSORS_ENABLED,
+                    SERIAL_COMM_NUM_SENSORS_PER_WELL,
                     num_recorded_data_points_2,
                 )
                 actual_tissue_data = get_tissue_dataset_from_file(this_file)
-                assert actual_tissue_data.shape == (
-                    GENERIC_NUM_CHANNELS_ENABLED,
-                    num_recorded_data_points_2,
-                )
+                assert actual_tissue_data.shape == (SERIAL_COMM_NUM_DATA_CHANNELS, num_recorded_data_points_2)
                 # test recorded stim data
                 actual_stim_data = get_stimulation_dataset_from_file(this_file)
                 assert actual_stim_data.shape[0] == 2
