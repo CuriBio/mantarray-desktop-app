@@ -49,7 +49,7 @@ from semver import VersionInfo
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import is_frozen_as_exe
 
-from .constants import CENTIMILLISECONDS_PER_SECOND
+from .constants import CENTIMILLISECONDS_PER_SECOND, DEFAULT_SAMPLING_PERIOD
 from .constants import CLOUD_API_ENDPOINT
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CURRENT_SOFTWARE_VERSION
@@ -306,7 +306,6 @@ def _create_start_recording_command(
     }
     if shared_values_dict["beta_2_mode"]:
         instrument_metadata = shared_values_dict["instrument_metadata"][board_idx]
-        magnetometer_config_dict = shared_values_dict["magnetometer_config_dict"]
         beginning_of_stim_timestamp = shared_values_dict["utc_timestamps_of_beginning_of_stimulation"][
             board_idx
         ]
@@ -317,8 +316,7 @@ def _create_start_recording_command(
             {
                 BOOT_FLAGS_UUID: instrument_metadata[BOOT_FLAGS_UUID],
                 CHANNEL_FIRMWARE_VERSION_UUID: instrument_metadata[CHANNEL_FIRMWARE_VERSION_UUID],
-                TISSUE_SAMPLING_PERIOD_UUID: magnetometer_config_dict["sampling_period"],
-                MAGNETOMETER_CONFIGURATION_UUID: magnetometer_config_dict["magnetometer_config"],
+                TISSUE_SAMPLING_PERIOD_UUID: DEFAULT_SAMPLING_PERIOD,
                 STIMULATION_PROTOCOL_UUID: stim_info_value,
                 UTC_BEGINNING_STIMULATION_UUID: beginning_of_stim_timestamp,
             }

@@ -28,7 +28,7 @@ from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
-from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import DEFAULT_SAMPLING_PERIOD, GENERIC_24_WELL_DEFINITION
 import numpy as np
 from pulse3D.constants import ADC_GAIN_SETTING_UUID
 from pulse3D.constants import BACKEND_LOG_UUID
@@ -79,20 +79,6 @@ for this_well_idx in range(24):
         "construct": this_well_idx * 2,
         "ref": this_well_idx * 2 + 1,
     }
-
-GENERIC_WELL_MAGNETOMETER_CONFIGURATION = {
-    channel_id: channel_id
-    in (SERIAL_COMM_DEFAULT_DATA_CHANNEL, SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"])
-    for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS)
-}
-GENERIC_NUM_CHANNELS_ENABLED = sum(GENERIC_WELL_MAGNETOMETER_CONFIGURATION.values())
-GENERIC_NUM_SENSORS_ENABLED = 2
-GENERIC_BOARD_MAGNETOMETER_CONFIGURATION: Dict[int, Dict[int, bool]] = dict()
-for module_id in range(1, 25):
-    GENERIC_BOARD_MAGNETOMETER_CONFIGURATION[module_id] = copy.deepcopy(
-        GENERIC_WELL_MAGNETOMETER_CONFIGURATION
-    )
-
 
 GENERIC_STIM_PROTOCOL_ASSIGNMENTS: Dict[str, Optional[str]] = {
     GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): None for well_idx in range(24)
@@ -175,8 +161,7 @@ GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
         MANTARRAY_SERIAL_NUMBER_UUID: MantarrayMcSimulator.default_mantarray_serial_number,
         MANTARRAY_NICKNAME_UUID: MantarrayMcSimulator.default_mantarray_nickname,
         BOOT_FLAGS_UUID: MantarrayMcSimulator.default_metadata_values[BOOT_FLAGS_UUID],
-        MAGNETOMETER_CONFIGURATION_UUID: GENERIC_BOARD_MAGNETOMETER_CONFIGURATION,
-        TISSUE_SAMPLING_PERIOD_UUID: 10000,
+        TISSUE_SAMPLING_PERIOD_UUID: DEFAULT_SAMPLING_PERIOD,
         STIMULATION_PROTOCOL_UUID: GENERIC_STIM_INFO,
         UTC_BEGINNING_STIMULATION_UUID: GENERIC_BASE_START_RECORDING_COMMAND[
             "metadata_to_copy_onto_main_file_attributes"

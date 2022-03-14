@@ -21,6 +21,8 @@ from mantarray_desktop_app import MantarrayH5FileCreator
 from mantarray_desktop_app import REF_INDEX_TO_24_WELL_INDEX
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import UnrecognizedCommandFromMainToFileWriterError
+from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
+from mantarray_desktop_app.constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
 import numpy as np
 from pulse3D.constants import PLATE_BARCODE_UUID
 from pulse3D.constants import START_RECORDING_TIME_INDEX_UUID
@@ -36,8 +38,6 @@ from ..fixtures_file_writer import fixture_runnable_four_board_file_writer_proce
 from ..fixtures_file_writer import fixture_running_four_board_file_writer_process
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
-from ..fixtures_file_writer import GENERIC_NUM_CHANNELS_ENABLED
-from ..fixtures_file_writer import GENERIC_NUM_SENSORS_ENABLED
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from ..fixtures_file_writer import populate_calibration_folder
 from ..fixtures_file_writer import WELL_DEF_24
@@ -678,7 +678,9 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_2_files_after_stop_recordi
     }
     for well_idx in range(24):
         channel_dict = {
-            "time_offsets": np.zeros((GENERIC_NUM_SENSORS_ENABLED, test_num_data_points), dtype=np.uint16),
+            "time_offsets": np.zeros(
+                (SERIAL_COMM_NUM_SENSORS_PER_WELL, test_num_data_points), dtype=np.uint16
+            ),
             SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: test_data,
             SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: test_data,
         }
@@ -716,11 +718,11 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_2_files_after_stop_recordi
                     test_num_data_points,
                 ), f"Incorrect time index data shape for Well {well_name}"
                 assert get_time_offset_dataset_from_file(this_file).shape == (
-                    GENERIC_NUM_SENSORS_ENABLED,
+                    SERIAL_COMM_NUM_SENSORS_PER_WELL,
                     test_num_data_points,
                 ), f"Incorrect time offset data shape for Well {well_name}"
                 assert get_tissue_dataset_from_file(this_file).shape == (
-                    GENERIC_NUM_CHANNELS_ENABLED,
+                    SERIAL_COMM_NUM_DATA_CHANNELS,
                     test_num_data_points,
                 ), f"Incorrect tissue data shape for Well {well_name}"
 
@@ -833,7 +835,7 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_2_f
     }
     for well_idx in range(24):
         channel_dict = {
-            "time_offsets": np.zeros((GENERIC_NUM_SENSORS_ENABLED, num_data_points), dtype=np.uint16),
+            "time_offsets": np.zeros((SERIAL_COMM_NUM_SENSORS_PER_WELL, num_data_points), dtype=np.uint16),
             SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: np.zeros(num_data_points, dtype=np.uint16),
             SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: np.zeros(num_data_points, dtype=np.uint16),
         }

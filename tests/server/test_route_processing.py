@@ -1381,7 +1381,7 @@ def test_start_recording_command__gets_processed_in_beta_1_mode__and_creates_a_f
         UTC_BEGINNING_RECORDING_UUID
     ]
 )
-def test_start_recording_command__gets_processed_in_beta_2_mode__and_creates_a_file__and_updates_shared_values_dict(
+def test_start_recording_command__gets_processed_in_beta_2_mode__and_creates_all_files__and_updates_shared_values_dict(
     test_process_manager_creator,
     test_client,
     mocker,
@@ -1397,11 +1397,6 @@ def test_start_recording_command__gets_processed_in_beta_2_mode__and_creates_a_f
     populate_calibration_folder(fw_process)
     to_fw_queue = test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
     fw_error_queue = test_process_manager.queue_container().get_file_writer_error_queue()
-
-    # set up config so only one well has a channel enabled
-    test_magnetometer_config = create_magnetometer_config_dict(24)
-    test_magnetometer_config[SERIAL_COMM_WELL_IDX_TO_MODULE_ID[3]][0] = True
-    shared_values_dict["magnetometer_config_dict"]["magnetometer_config"] = test_magnetometer_config
 
     timestamp_str = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         UTC_BEGINNING_RECORDING_UUID
@@ -1425,7 +1420,10 @@ def test_start_recording_command__gets_processed_in_beta_2_mode__and_creates_a_f
     file_dir = fw_process.get_file_directory()
     actual_files = os.listdir(os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}"))
     actual_files = [file_path for file_path in actual_files if "Calibration" not in file_path]
-    assert actual_files == [f"{expected_barcode}__{timestamp_str}__D1.h5"]
+    assert set(actual_files) == set(
+        f"{expected_barcode}__{timestamp_str}__{GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(idx)}.h5"
+        for idx in range(24)
+    )
 
 
 def test_send_single_get_status_command__gets_processed(test_process_manager_creator, test_client):

@@ -147,14 +147,6 @@ def put_generic_beta_2_start_recording_info_in_dict(shared_values_dict):
             ][PLATE_BARCODE_UUID]
         }
     }
-    shared_values_dict["magnetometer_config_dict"] = {
-        "magnetometer_config": GENERIC_BETA_2_START_RECORDING_COMMAND[
-            "metadata_to_copy_onto_main_file_attributes"
-        ][MAGNETOMETER_CONFIGURATION_UUID],
-        "sampling_period": GENERIC_BETA_2_START_RECORDING_COMMAND[
-            "metadata_to_copy_onto_main_file_attributes"
-        ][TISSUE_SAMPLING_PERIOD_UUID],
-    }
     shared_values_dict["instrument_metadata"] = {board_idx: MantarrayMcSimulator.default_metadata_values}
 
     shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] = [None]

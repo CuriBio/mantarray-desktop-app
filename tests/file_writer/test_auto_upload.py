@@ -136,7 +136,7 @@ def test_FileWriterProcess__exits_status_function_correctly_when_newly_failed_fi
     file_writer_process._check_upload_statuses()  # pylint: disable=protected-access
 
     assert mocked_shutil.call_count == int(paths_exist)
-    assert (mocked_makedirs.call_count == mocked_test.call_count - 1) == (not paths_exist)
+    assert (mocked_makedirs.call_count == mocked_test.call_count - 1) is not paths_exist
     assert len(file_writer_process.get_upload_threads_container()) == 0
 
 

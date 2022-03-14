@@ -533,19 +533,6 @@ def test_boot_up__return_error_code_and_message_if_called_in_beta_2_mode(
     assert response.status.endswith("Route cannot be called in beta 2 mode") is True
 
 
-def test_start_managed_acquisition__returns_error_code_if_called_in_beta_2_mode_before_magnetometer_configuration_is_set(
-    client_and_server_manager_and_shared_values,
-):
-    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
-    shared_values_dict["beta_2_mode"] = True
-    shared_values_dict["mantarray_serial_number"] = MantarrayMcSimulator.default_mantarray_serial_number
-    shared_values_dict["system_status"] = CALIBRATED_STATE
-
-    response = test_client.get("/start_managed_acquisition")
-    assert response.status_code == 406
-    assert response.status.endswith("Magnetometer Configuration has not been set yet") is True
-
-
 def test_set_stim_status__returns_error_code_if_called_in_beta_1_mode(
     client_and_server_manager_and_shared_values,
 ):
