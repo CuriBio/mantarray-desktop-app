@@ -10,7 +10,6 @@ from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import REFERENCE_VOLTAGE
-from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import server
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
@@ -26,7 +25,6 @@ from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from pulse3D.constants import COMPUTER_NAME_HASH_UUID
 from pulse3D.constants import CUSTOMER_ACCOUNT_ID_UUID
 from pulse3D.constants import HARDWARE_TEST_RECORDING_UUID
-from pulse3D.constants import MAGNETOMETER_CONFIGURATION_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
@@ -37,7 +35,6 @@ from pulse3D.constants import SOFTWARE_BUILD_NUMBER_UUID
 from pulse3D.constants import SOFTWARE_RELEASE_VERSION_UUID
 from pulse3D.constants import START_RECORDING_TIME_INDEX_UUID
 from pulse3D.constants import STIMULATION_PROTOCOL_UUID
-from pulse3D.constants import TISSUE_SAMPLING_PERIOD_UUID
 from pulse3D.constants import USER_ACCOUNT_ID_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from pulse3D.constants import UTC_BEGINNING_RECORDING_UUID

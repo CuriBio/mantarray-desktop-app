@@ -23,7 +23,6 @@ from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
-from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIMESTAMP_EPOCH

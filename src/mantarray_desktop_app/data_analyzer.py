@@ -43,10 +43,11 @@ from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
 from streamz import Stream
 
-from .constants import CONSTRUCT_SENSOR_SAMPLING_PERIOD, DEFAULT_SAMPLING_PERIOD
+from .constants import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from .constants import CONSTRUCT_SENSORS_PER_REF_SENSOR
 from .constants import DATA_ANALYZER_BETA_1_BUFFER_SIZE
 from .constants import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
+from .constants import DEFAULT_SAMPLING_PERIOD
 from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS

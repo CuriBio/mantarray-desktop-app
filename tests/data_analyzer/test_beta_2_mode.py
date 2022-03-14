@@ -29,7 +29,6 @@ from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process_beta_2_mode
 from ..fixtures_data_analyzer import fixture_runnable_four_board_analyzer_process
 from ..fixtures_data_analyzer import set_sampling_period
-from ..fixtures_file_writer import GENERIC_BOARD_MAGNETOMETER_CONFIGURATION
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..parsed_channel_data_packets import SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS

@@ -112,7 +112,6 @@ from ..fixtures import fixture_patched_xem_scripts_folder
 from ..fixtures import GENERIC_STORED_CUSTOMER_ID
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
-from ..fixtures_file_writer import GENERIC_BOARD_MAGNETOMETER_CONFIGURATION
 from ..fixtures_file_writer import GENERIC_NUM_CHANNELS_ENABLED
 from ..fixtures_file_writer import GENERIC_NUM_SENSORS_ENABLED
 from ..fixtures_file_writer import WELL_DEF_24

@@ -16,11 +16,7 @@ from mantarray_desktop_app import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
 from mantarray_desktop_app import FILE_WRITER_BUFFER_SIZE_MICROSECONDS
 from mantarray_desktop_app import get_reference_dataset_from_file
 from mantarray_desktop_app import get_stimulation_dataset_from_file
-from mantarray_desktop_app import (
-    get_time_index_dataset_from_file,
-    SERIAL_COMM_NUM_SENSORS_PER_WELL,
-    SERIAL_COMM_NUM_DATA_CHANNELS,
-)
+from mantarray_desktop_app import get_time_index_dataset_from_file
 from mantarray_desktop_app import get_time_offset_dataset_from_file
 from mantarray_desktop_app import get_tissue_dataset_from_file
 from mantarray_desktop_app import InvalidStopRecordingTimepointError
@@ -32,8 +28,9 @@ from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import RunningFIFOSimulator
+from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
+from mantarray_desktop_app import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
-from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 import numpy as np

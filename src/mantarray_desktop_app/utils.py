@@ -26,7 +26,6 @@ from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from pulse3D.constants import COMPUTER_NAME_HASH_UUID
 from pulse3D.constants import CUSTOMER_ACCOUNT_ID_UUID
 from pulse3D.constants import HARDWARE_TEST_RECORDING_UUID
-from pulse3D.constants import MAGNETOMETER_CONFIGURATION_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
@@ -49,10 +48,11 @@ from semver import VersionInfo
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import is_frozen_as_exe
 
-from .constants import CENTIMILLISECONDS_PER_SECOND, DEFAULT_SAMPLING_PERIOD
+from .constants import CENTIMILLISECONDS_PER_SECOND
 from .constants import CLOUD_API_ENDPOINT
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CURRENT_SOFTWARE_VERSION
+from .constants import DEFAULT_SAMPLING_PERIOD
 from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import REFERENCE_VOLTAGE

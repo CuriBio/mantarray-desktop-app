@@ -8,9 +8,7 @@ import time
 
 from mantarray_desktop_app import data_analyzer
 from mantarray_desktop_app import DataAnalyzerProcess
-from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
-from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import UnrecognizedCommandFromMainToDataAnalyzerError
 from mantarray_desktop_app.constants import DEFAULT_SAMPLING_PERIOD
@@ -27,8 +25,6 @@ from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATI
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process_beta_2_mode
-from ..fixtures_data_analyzer import set_sampling_period
-from ..fixtures_file_writer import GENERIC_BOARD_MAGNETOMETER_CONFIGURATION
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..parsed_channel_data_packets import SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS

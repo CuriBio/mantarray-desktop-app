@@ -14,7 +14,6 @@ from mantarray_desktop_app import parse_metadata_bytes
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_METADATA_BYTES_LENGTH
-from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_EPOCH
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
@@ -30,7 +29,6 @@ from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
 
 from .fixtures import fixture_patch_print
 from .fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
-from .helpers import random_bool
 
 
 __fixtures__ = [fixture_patch_print, fixture_mantarray_mc_simulator_no_beacon]

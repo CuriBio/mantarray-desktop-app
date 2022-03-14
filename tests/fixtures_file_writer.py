@@ -25,10 +25,8 @@ from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import RunningFIFOSimulator
-from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
-from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
-from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
-from mantarray_desktop_app.constants import DEFAULT_SAMPLING_PERIOD, GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import DEFAULT_SAMPLING_PERIOD
+from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 import numpy as np
 from pulse3D.constants import ADC_GAIN_SETTING_UUID
 from pulse3D.constants import BACKEND_LOG_UUID
@@ -39,7 +37,6 @@ from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from pulse3D.constants import COMPUTER_NAME_HASH_UUID
 from pulse3D.constants import CUSTOMER_ACCOUNT_ID_UUID
 from pulse3D.constants import HARDWARE_TEST_RECORDING_UUID
-from pulse3D.constants import MAGNETOMETER_CONFIGURATION_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID

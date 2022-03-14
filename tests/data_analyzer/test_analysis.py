@@ -9,7 +9,6 @@ from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
-from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app.data_analyzer import check_for_new_twitches
 from mantarray_desktop_app.data_analyzer import get_force_signal
@@ -28,7 +27,6 @@ from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process_beta_2_mode
 from ..fixtures_data_analyzer import set_sampling_period
-from ..fixtures_file_writer import GENERIC_BOARD_MAGNETOMETER_CONFIGURATION
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size

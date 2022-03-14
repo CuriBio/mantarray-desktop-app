@@ -12,7 +12,6 @@ from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import RecordingFolderDoesNotExistError
-from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import server
 from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE

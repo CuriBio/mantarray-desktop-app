@@ -61,11 +61,7 @@ from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
 
-from .constants import (
-    CONSTRUCT_SENSOR_SAMPLING_PERIOD,
-    SERIAL_COMM_NUM_DATA_CHANNELS,
-    SERIAL_COMM_NUM_SENSORS_PER_WELL,
-)
+from .constants import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from .constants import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
 from .constants import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from .constants import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
@@ -76,7 +72,8 @@ from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from .constants import ROUND_ROBIN_PERIOD
-from .constants import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
+from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
+from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from .exceptions import CalibrationFilesMissingError
 from .exceptions import InvalidStopRecordingTimepointError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError

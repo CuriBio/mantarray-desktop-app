@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import copy
 import datetime
 import json
 import os
@@ -20,8 +19,6 @@ from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import redact_sensitive_info_from_path
 from mantarray_desktop_app import RunningFIFOSimulator
-from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
-from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import server
 from mantarray_desktop_app import utils
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION

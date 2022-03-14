@@ -68,10 +68,7 @@ def test_FileWriterProcess__does_not_start_upload_thread_after_all_calibration_f
     mocked_start_upload.assert_not_called()
 
 
-@pytest.mark.parametrize(
-    "move_called, thread_error",
-    [(True, False), (False, True)],
-)
+@pytest.mark.parametrize("move_called, thread_error", [(True, False), (False, True)])
 def test_FileWriterProcess__exits_status_function_correctly_when_previously_failed_files_errors_or_passes(
     four_board_file_writer_process, move_called, thread_error, mocker
 ):
@@ -140,10 +137,7 @@ def test_FileWriterProcess__exits_status_function_correctly_when_newly_failed_fi
     assert len(file_writer_process.get_upload_threads_container()) == 0
 
 
-@pytest.mark.parametrize(
-    "auto_delete",
-    [True, False],
-)
+@pytest.mark.parametrize("auto_delete", [True, False])
 def test_FileWriterProcess__exits_status_function_correctly_when_newly_failed_files_passes_and_auto_delete_is_true_or_false(
     four_board_file_writer_process, auto_delete, mocker
 ):

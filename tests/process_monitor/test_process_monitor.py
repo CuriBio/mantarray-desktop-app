@@ -17,7 +17,6 @@ from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import CHECKING_FOR_UPDATES_STATE
-from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import DOWNLOADING_UPDATES_STATE
 from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import INSTALLING_UPDATES_STATE
