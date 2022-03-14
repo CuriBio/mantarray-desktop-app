@@ -5,6 +5,10 @@ Changelog for Mantarray Desktop App
 ------------------
 
 - Changed accepted barcode headers to ML and MS.
+- Changed Beta 2 H5 file format version to 1.0.2. Format Changes:
+
+  - Removed magnetometer configuration from metadata
+
 - Fixed tooltips for stim start/stop button when calibrating.
 - Fixed issue with folder path getting logged without username redacted.
 
@@ -79,7 +83,7 @@ Changelog for Mantarray Desktop App
 ------------------
 
 - Updated mappings between Well Indices and Module IDs to be compatible with Beta 2.2 board.
-- Changed Beta 2 file format version to 1.0.1. This file version indicates that the file was taken
+- Changed Beta 2 H5 file format version to 1.0.1. This file version indicates that the file was taken
   on an instrument of version Beta 2.2.
 
 

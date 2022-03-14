@@ -38,9 +38,8 @@ CLOUD_API_ENDPOINT = (
     f"api.{CLOUD_API_ENDPOINT_VALID_OPTIONS.get(CLOUD_API_ENDPOINT_USER_OPTION, 'curibio-test')}.com"
 )
 
-# Tanner (4/15/21): the latest HDF5 file version lives in mantarray-file-manager. This value represents the file version that is being created by the desktop app. When new mantarray-file-manager updates are brought into the desktop app, these values will differ indicating that FileWriterProcess needs to be updated to match the new file version
 CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION = "0.4.2"
-CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION = "1.0.1"
+CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION = "1.0.2"
 
 
 DEFAULT_SERVER_PORT_NUMBER = 4567
