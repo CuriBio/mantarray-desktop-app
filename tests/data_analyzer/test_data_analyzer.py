@@ -6,7 +6,6 @@ import random
 from statistics import stdev
 import time
 
-from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import data_analyzer
 from mantarray_desktop_app import DataAnalyzerProcess
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION

@@ -11,7 +11,6 @@ from mantarray_desktop_app import convert_stim_dict_to_bytes
 from mantarray_desktop_app import convert_subprotocol_dict_to_bytes
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import create_magnetometer_config_bytes
-from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import create_sensor_axis_bitmask
 from mantarray_desktop_app import get_serial_comm_timestamp
 from mantarray_desktop_app import MantarrayMcSimulator
@@ -130,27 +129,6 @@ def test_create_magnetometer_config_bytes__matches_api_definition_for_single_wel
         actual_byte = actual[byte_idx : byte_idx + 1]
         actual_value = int.from_bytes(actual_byte, byteorder="little")
         assert bin(actual_value) == bin(byte_value), f"Incorrect value at byte {byte_idx}"
-
-
-def test_create_magnetometer_config_bytes__returns_correct_values_for_every_module_id():
-    test_num_wells = 24
-    test_dict = create_magnetometer_config_dict(test_num_wells)
-    # arbitrarily change values
-    for key in test_dict[1].keys():
-        test_dict[1][key] = True
-    test_dict[2] = convert_bitmask_to_config_dict(0b111000100)
-    # create expected bit-masks
-    expected_uint16_bitmasks = [0b111111111, 0b111000100]
-    expected_uint16_bitmasks.extend([0 for _ in range(test_num_wells - 2)])
-    # test actual bytes
-    actual = create_magnetometer_config_bytes(test_dict)
-    for module_id in range(1, test_num_wells + 1):
-        start_idx = (module_id - 1) * 3
-        assert actual[start_idx] == module_id, f"Incorrect module_id at idx: {module_id}"
-        bitmask_bytes = expected_uint16_bitmasks[module_id - 1].to_bytes(2, byteorder="little")
-        assert (
-            actual[start_idx + 1 : start_idx + 3] == bitmask_bytes
-        ), f"Incorrect bitmask bytes for module_id: {module_id}"
 
 
 def test_convert_bitmask_to_config_dict__returns_correct_values_for_api_definition():

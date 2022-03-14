@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 import queue
 import time
-from typing import Dict
 
-from mantarray_desktop_app import create_magnetometer_config_dict
-from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
 from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
@@ -23,28 +20,11 @@ from stdlib_utils import get_formatted_stack_trace
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_hardware_integration import fixture_four_board_mc_comm_process_hardware_test_mode
 from ..fixtures_mc_simulator import create_random_stim_info
-from ..helpers import random_bool
 
 __fixtures__ = [
     fixture_four_board_mc_comm_process_hardware_test_mode,
 ]
 
-
-def create_random_config() -> Dict[int, Dict[int, bool]]:
-    random_config_dict: Dict[int, Dict[int, bool]] = create_magnetometer_config_dict(24)
-    num_channels = 0
-    for module_dict in random_config_dict.values():
-        for cid in module_dict.keys():
-            enabled = random_bool()
-            num_channels += int(enabled)
-            module_dict[cid] = enabled
-    # make sure at least one channel is on
-    if num_channels == 0:
-        random_config_dict[1][0] = True
-    return random_config_dict
-
-
-RANDOM_CONFIG_DICT = create_random_config()
 
 # RANDOM_STIM_INFO_1 = create_random_stim_info()  # type: ignore
 RANDOM_STIM_INFO_1 = {

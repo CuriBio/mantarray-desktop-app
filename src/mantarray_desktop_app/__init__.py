@@ -53,7 +53,6 @@ from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import DATA_ANALYZER_BETA_1_BUFFER_SIZE
 from .constants import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from .constants import DATA_FRAME_PERIOD
-from .constants import DEFAULT_MAGNETOMETER_CONFIG
 from .constants import DEFAULT_SAMPLING_PERIOD
 from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import DEFAULT_USER_CONFIG
@@ -304,14 +303,10 @@ from .server import socketio
 from .system_utils import system_state_eventually_equals
 from .system_utils import wait_for_subprocesses_to_start
 from .utils import check_barcode_for_errors
-from .utils import create_magnetometer_config_dict
-from .utils import create_sensor_axis_dict
-from .utils import get_active_wells_from_config
 from .utils import get_current_software_version
 from .utils import get_redacted_string
 from .utils import redact_sensitive_info_from_path
 from .utils import upload_log_files_to_s3
-from .utils import validate_magnetometer_config_keys
 from .worker_thread import ErrorCatchingThread
 
 __all__ = [
@@ -540,7 +535,6 @@ __all__ = [
     "SerialCommInvalidSamplingPeriodError",
     "InvalidBeta2FlagOptionError",
     "SERIAL_COMM_PLATE_EVENT_PACKET_TYPE",
-    "create_magnetometer_config_dict",
     "create_sensor_axis_bitmask",
     "create_magnetometer_config_bytes",
     "SERIAL_COMM_NUM_DATA_CHANNELS",
@@ -553,7 +547,6 @@ __all__ = [
     "CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION",
     "get_time_index_dataset_from_file",
     "InvalidStopRecordingTimepointError",
-    "validate_magnetometer_config_keys",
     "SERIAL_COMM_TIME_INDEX_LENGTH_BYTES",
     "SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES",
     "SERIAL_COMM_NUM_CHANNELS_PER_SENSOR",
@@ -561,7 +554,6 @@ __all__ = [
     "SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY",
     "SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_CY",
     "get_time_offset_dataset_from_file",
-    "create_sensor_axis_dict",
     "SERIAL_COMM_MODULE_ID_TO_WELL_IDX",
     "SERIAL_COMM_WELL_IDX_TO_MODULE_ID",
     "SerialCommNotEnoughAdditionalBytesReadError",
@@ -570,11 +562,9 @@ __all__ = [
     "SensitiveFormatter",
     "DATA_ANALYZER_BETA_1_BUFFER_SIZE",
     "MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS",
-    "get_active_wells_from_config",
     "MICRO_TO_BASE_CONVERSION",
     "SERIAL_COMM_DEFAULT_DATA_CHANNEL",
     "DEFAULT_SAMPLING_PERIOD",
-    "DEFAULT_MAGNETOMETER_CONFIG",
     "STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS",
     "STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS",
     "STIM_MAX_PULSE_DURATION_MICROSECONDS",

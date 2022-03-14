@@ -7,7 +7,6 @@ import h5py
 from mantarray_desktop_app import CalibrationFilesMissingError
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
-from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import create_sensor_axis_dict
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID

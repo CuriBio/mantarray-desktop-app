@@ -78,7 +78,6 @@ from .exceptions import CalibrationFilesMissingError
 from .exceptions import InvalidStopRecordingTimepointError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
 from .file_uploader import uploader
-from .utils import create_sensor_axis_dict
 from .worker_thread import ErrorCatchingThread
 
 
