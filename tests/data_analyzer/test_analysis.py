@@ -255,6 +255,9 @@ def test_get_twitch_analysis__returns_force_metrics_from_given_beta_2_data(
     # Tanner (7/12/21): This test is "True by definition", but can't think of a better way to test waveform analysis
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
 
+    # run setup before loop to set sampling period and init streams
+    invoke_process_run_and_check_errors(da_process, perform_setup_before_loop=True)
+
     test_y_data = (
         mantarray_mc_simulator["simulator"].get_interpolated_data(DEFAULT_SAMPLING_PERIOD).tolist()
         * MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS

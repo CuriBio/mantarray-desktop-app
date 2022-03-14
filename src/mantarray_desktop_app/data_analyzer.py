@@ -235,9 +235,6 @@ class DataAnalyzerProcess(InfiniteProcess):
         # Beta 2 items
         self._beta_2_buffer_size: Optional[int] = None  # set in set_sampling_period if in beta 2 mode
 
-        if self._beta_2_mode:
-            self.set_sampling_period(DEFAULT_SAMPLING_PERIOD)
-
     def start(self) -> None:
         for board_queue_tuple in self._board_queues:
             for da_queue in board_queue_tuple:
@@ -317,7 +314,10 @@ class DataAnalyzerProcess(InfiniteProcess):
 
     def _setup_before_loop(self) -> None:
         super()._setup_before_loop()
-        self.init_streams()
+        if self._beta_2_mode:
+            self.set_sampling_period(DEFAULT_SAMPLING_PERIOD)
+        else:
+            self.init_streams()
 
     def _commands_for_each_run_iteration(self) -> None:
         self._process_next_command_from_main()

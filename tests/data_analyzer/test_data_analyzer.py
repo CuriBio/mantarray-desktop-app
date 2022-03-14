@@ -52,6 +52,24 @@ def test_DataAnalyzerProcess_setup_before_loop__calls_super(four_board_analyzer_
     spied_setup.assert_called_once()
 
 
+@pytest.mark.parametrize("beta_2_mode", [True, False])
+def test_DataAnalyzerProcess_setup_before_loop__inits_streams_correctly(
+    beta_2_mode, four_board_analyzer_process, mocker
+):
+    da_process, *_ = four_board_analyzer_process
+    da_process._beta_2_mode = beta_2_mode
+
+    spied_init_streams = mocker.spy(da_process, "init_streams")
+    spied_set_sampling_period = mocker.spy(da_process, "set_sampling_period")
+
+    invoke_process_run_and_check_errors(da_process, perform_setup_before_loop=True)
+    spied_init_streams.assert_called_once()
+    if beta_2_mode:
+        spied_set_sampling_period.assert_called_once_with(DEFAULT_SAMPLING_PERIOD)
+    else:
+        spied_set_sampling_period.assert_not_called()
+
+
 def test_DataAnalyzerProcess__drain_all_queues__drains_all_queues_except_error_queue_and_returns__all_items(
     four_board_analyzer_process,
 ):
