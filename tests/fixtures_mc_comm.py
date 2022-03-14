@@ -48,7 +48,7 @@ def set_connection_and_register_simulator(
     drain_queue(output_queue)
 
 
-def set_magnetometer_config(  # TODO rename?
+def set_sampling_period(  # TODO rename?
     mc_fixture,
     simulator,
     sampling_period=DEFAULT_SAMPLING_PERIOD,
@@ -71,12 +71,12 @@ def set_magnetometer_config(  # TODO rename?
     to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
 
-def set_magnetometer_config_and_start_streaming(
+def set_sampling_period_and_start_streaming(
     mc_fixture,
     simulator,
     sampling_period=DEFAULT_SAMPLING_PERIOD,
 ):
-    set_magnetometer_config(mc_fixture, simulator, sampling_period)
+    set_sampling_period(mc_fixture, simulator, sampling_period)
     start_data_stream(mc_fixture, simulator)
 
 

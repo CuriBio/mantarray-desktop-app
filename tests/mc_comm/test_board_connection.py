@@ -477,8 +477,6 @@ def test_McCommunicationProcess__requests_metadata_if_setup_before_loop_was_perf
     mocker.patch.object(simulator, "start", autospec=True)
 
     invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
-    # setting this value to False so as to not have unrelated queue messages interfere with this test
-    mc_process._auto_set_magnetometer_config = False  # pylint: disable=protected-access
 
     # have simulator send a status beacon to trigger automatic collection of metadata
     put_object_into_queue_and_raise_error_if_eventually_still_empty(

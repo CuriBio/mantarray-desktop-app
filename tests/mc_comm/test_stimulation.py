@@ -27,8 +27,8 @@ from ..fixtures import fixture_patch_print
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process_no_handshake
 from ..fixtures_mc_comm import set_connection_and_register_simulator
-from ..fixtures_mc_comm import set_magnetometer_config
-from ..fixtures_mc_comm import set_magnetometer_config_and_start_streaming
+from ..fixtures_mc_comm import set_sampling_period
+from ..fixtures_mc_comm import set_sampling_period_and_start_streaming
 from ..fixtures_mc_comm import start_data_stream
 from ..fixtures_mc_comm import stop_data_stream
 from ..fixtures_mc_simulator import create_random_stim_info
@@ -434,7 +434,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
         return_value=0,
     )
     # start data streaming
-    set_magnetometer_config_and_start_streaming(four_board_mc_comm_process_no_handshake, simulator)
+    set_sampling_period_and_start_streaming(four_board_mc_comm_process_no_handshake, simulator)
     # check no status packets sent to file writer
     confirm_queue_is_eventually_empty(to_fw_queue)
 
@@ -449,7 +449,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_magnetometer_config(four_board_mc_comm_process_no_handshake, simulator)
+    set_sampling_period(four_board_mc_comm_process_no_handshake, simulator)
 
     total_active_duration_ms = 76
     test_well_indices = [randint(0, 11), randint(12, 23)]
@@ -621,7 +621,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
         return_value=MICRO_TO_BASE_CONVERSION,
     )
     # start data streaming
-    set_magnetometer_config_and_start_streaming(four_board_mc_comm_process_no_handshake, simulator)
+    set_sampling_period_and_start_streaming(four_board_mc_comm_process_no_handshake, simulator)
     # check no status packets sent to file writer
     confirm_queue_is_eventually_empty(to_fw_queue)
 
@@ -818,7 +818,7 @@ def test_McCommunicationProcess__stim_packets_sent_to_file_writer_after_restarti
     mocked_us_since_subprotocol_start.return_value = 0
 
     # start data streaming
-    set_magnetometer_config_and_start_streaming(four_board_mc_comm_process_no_handshake, simulator)
+    set_sampling_period_and_start_streaming(four_board_mc_comm_process_no_handshake, simulator)
     # confirm most recent packet sent to file writer
     confirm_queue_is_eventually_of_size(to_fw_queue, 1)
     to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)

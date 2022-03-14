@@ -4,14 +4,10 @@ from random import randint
 from zlib import crc32
 
 from freezegun import freeze_time
-from mantarray_desktop_app import convert_bitmask_to_config_dict
-from mantarray_desktop_app import convert_bytes_to_config_dict
 from mantarray_desktop_app import convert_bytes_to_subprotocol_dict
 from mantarray_desktop_app import convert_stim_dict_to_bytes
 from mantarray_desktop_app import convert_subprotocol_dict_to_bytes
 from mantarray_desktop_app import create_data_packet
-from mantarray_desktop_app import create_magnetometer_config_bytes
-from mantarray_desktop_app import create_sensor_axis_bitmask
 from mantarray_desktop_app import get_serial_comm_timestamp
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import parse_metadata_bytes
@@ -114,43 +110,6 @@ def test_get_serial_comm_timestamp__returns_microseconds_since_2021_01_01():
     ) // datetime.timedelta(microseconds=1)
     actual = get_serial_comm_timestamp()
     assert actual == expected_usecs
-
-
-def test_create_sensor_axis_bitmask__returns_correct_value_for_api_definition():
-    actual = create_sensor_axis_bitmask(API_EXAMPLE_MODULE_DICT)
-    assert bin(actual) == bin(API_EXAMPLE_BITMASK)
-
-
-def test_create_magnetometer_config_bytes__matches_api_definition_for_single_well():
-    expected_module_id = API_EXAMPLE_BYTES[0]
-    test_dict = {expected_module_id: API_EXAMPLE_MODULE_DICT}
-    actual = create_magnetometer_config_bytes(test_dict)
-    for byte_idx, byte_value in enumerate(API_EXAMPLE_BYTES):
-        actual_byte = actual[byte_idx : byte_idx + 1]
-        actual_value = int.from_bytes(actual_byte, byteorder="little")
-        assert bin(actual_value) == bin(byte_value), f"Incorrect value at byte {byte_idx}"
-
-
-def test_convert_bitmask_to_config_dict__returns_correct_values_for_api_definition():
-    actual = convert_bitmask_to_config_dict(API_EXAMPLE_BITMASK)
-    assert actual == API_EXAMPLE_MODULE_DICT
-
-
-def test_convert_bytes_to_config_dict__returns_correct_value_for_api_definition():
-    expected_dict = {API_EXAMPLE_BYTES[0]: API_EXAMPLE_MODULE_DICT}
-    actual = convert_bytes_to_config_dict(API_EXAMPLE_BYTES)
-    assert actual == expected_dict
-
-
-def test_convert_bytes_to_config_dict__returns_correct_values_for_every_module_id():
-    test_num_wells = 24
-    expected_config_dict = {
-        module_id: {channel_id: random_bool() for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS)}
-        for module_id in range(1, test_num_wells + 1)
-    }
-    test_bytes = create_magnetometer_config_bytes(expected_config_dict)
-    actual = convert_bytes_to_config_dict(test_bytes)
-    assert actual == expected_config_dict
 
 
 def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__when_voltage_controlled_subprotocol_is_not_a_delay():

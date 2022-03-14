@@ -41,7 +41,7 @@ from ..fixtures import fixture_patch_print
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process_no_handshake
 from ..fixtures_mc_comm import set_connection_and_register_simulator
-from ..fixtures_mc_comm import set_magnetometer_config_and_start_streaming
+from ..fixtures_mc_comm import set_sampling_period_and_start_streaming
 from ..fixtures_mc_comm import start_data_stream
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import random_data_value
@@ -584,7 +584,7 @@ def test_McCommunicationProcess__reads_all_bytes_from_instrument__and_does_not_p
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_magnetometer_config_and_start_streaming(
+    set_sampling_period_and_start_streaming(
         four_board_mc_comm_process_no_handshake, simulator, sampling_period=test_sampling_period_us
     )
 
@@ -634,7 +634,7 @@ def test_McCommunicationProcess__correctly_indicates_which_packet_is_the_first_o
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_magnetometer_config_and_start_streaming(
+    set_sampling_period_and_start_streaming(
         four_board_mc_comm_process_no_handshake, simulator, sampling_period=test_sampling_period_us
     )
 
@@ -737,7 +737,7 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_magnetometer_config_and_start_streaming(
+    set_sampling_period_and_start_streaming(
         four_board_mc_comm_process_no_handshake, simulator, sampling_period=test_sampling_period_us
     )
 
@@ -806,8 +806,7 @@ def test_McCommunicationProcess__handles_one_second_read_with_two_interrupting_p
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-
-    set_magnetometer_config_and_start_streaming(
+    set_sampling_period_and_start_streaming(
         four_board_mc_comm_process_no_handshake, simulator, sampling_period=test_sampling_period_us
     )
 
@@ -910,7 +909,7 @@ def test_McCommunicationProcess__handles_less_than_one_second_read_when_stopping
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_magnetometer_config_and_start_streaming(
+    set_sampling_period_and_start_streaming(
         four_board_mc_comm_process_no_handshake, simulator, sampling_period=test_sampling_period_us
     )
     invoke_process_run_and_check_errors(simulator)
@@ -989,7 +988,7 @@ def test_McCommunicationProcess__does_not_attempt_to_parse_when_stopping_data_st
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_magnetometer_config_and_start_streaming(
+    set_sampling_period_and_start_streaming(
         four_board_mc_comm_process_no_handshake, simulator, sampling_period=test_sampling_period_us
     )
 

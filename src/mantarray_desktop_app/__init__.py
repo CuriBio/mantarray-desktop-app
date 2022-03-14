@@ -279,8 +279,6 @@ from .ok_comm import parse_scripting_log_line
 from .process_manager import MantarrayProcessesManager
 from .process_monitor import MantarrayProcessesMonitor
 from .queue_container import MantarrayQueueContainer
-from .serial_comm_utils import convert_bitmask_to_config_dict
-from .serial_comm_utils import convert_bytes_to_config_dict
 from .serial_comm_utils import convert_bytes_to_subprotocol_dict
 from .serial_comm_utils import convert_module_id_to_well_name
 from .serial_comm_utils import convert_stim_dict_to_bytes
@@ -289,8 +287,6 @@ from .serial_comm_utils import convert_to_status_code_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
 from .serial_comm_utils import convert_well_name_to_module_id
 from .serial_comm_utils import create_data_packet
-from .serial_comm_utils import create_magnetometer_config_bytes
-from .serial_comm_utils import create_sensor_axis_bitmask
 from .serial_comm_utils import get_serial_comm_timestamp
 from .serial_comm_utils import parse_metadata_bytes
 from .serial_comm_utils import validate_checksum
@@ -535,11 +531,7 @@ __all__ = [
     "SerialCommInvalidSamplingPeriodError",
     "InvalidBeta2FlagOptionError",
     "SERIAL_COMM_PLATE_EVENT_PACKET_TYPE",
-    "create_sensor_axis_bitmask",
-    "create_magnetometer_config_bytes",
     "SERIAL_COMM_NUM_DATA_CHANNELS",
-    "convert_bitmask_to_config_dict",
-    "convert_bytes_to_config_dict",
     "SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE",
     "handle_data_packets",
     "SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES",
