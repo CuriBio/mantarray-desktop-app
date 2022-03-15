@@ -9,6 +9,12 @@ Changelog for Mantarray Desktop App
 
   - Removed magnetometer configuration from metadata
 
+- Updated serial communication protocol:
+
+  - Removed module ID from general packet structure.
+  - Removed ability to set magnetometer configuration.
+  - Misc. other minor changes.
+
 - Fixed tooltips for stim start/stop button when calibrating.
 - Fixed issue with folder path getting logged without username redacted.
 
