@@ -441,6 +441,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 if not communication.get("is_calibration_recording", False):
                     self._values_to_share_to_server["system_status"] = CALIBRATED_STATE
                     self._data_dump_buffer_size = 0
+            else:
+                raise NotImplementedError(
+                    f"Unrecognized acquisition_manager command from Instrument Comm: {command}"
+                )
         elif communication_type == "stimulation":
             if command == "start_stimulation":
                 self._values_to_share_to_server["utc_timestamps_of_beginning_of_stimulation"] = [

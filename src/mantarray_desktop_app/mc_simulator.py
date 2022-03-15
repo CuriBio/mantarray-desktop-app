@@ -477,7 +477,6 @@ class MantarrayMcSimulator(InfiniteProcess):
 
     def _process_main_module_command(self, comm_from_pc: bytes) -> None:
         # pylint: disable=too-many-branches  # Tanner (11/15/21): many branches needed here to handle all types of communication. Could try refactoring int smaller methods for similar packet types
-        status_code_update: Optional[int] = None
         send_response = True
 
         response_body = bytes(0)
@@ -588,9 +587,6 @@ class MantarrayMcSimulator(InfiniteProcess):
             raise UnrecognizedSerialCommPacketTypeError(f"Packet Type ID: {packet_type} is not defined")
         if send_response:
             self._send_data_packet(packet_type, response_body)
-        # update status code (if an update is necessary) after sending command response
-        if status_code_update is not None:
-            self._update_status_code(status_code_update)
 
     def _update_sampling_period(self, comm_from_pc: bytes) -> bytes:
         update_status_byte = bytes([self._is_streaming_data])

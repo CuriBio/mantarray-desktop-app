@@ -234,15 +234,6 @@ def _trim_barcode(barcode: str) -> str:
     return barcode[:10]
 
 
-# TODO Tanner (6/2/21): move this to stdlib_utils
-def sort_nested_dict(dict_to_sort: Dict[Any, Any]) -> Dict[Any, Any]:
-    dict_to_sort = dict(sorted(dict_to_sort.items()))
-    for key, value in dict_to_sort.items():
-        if isinstance(value, dict):
-            dict_to_sort[key] = sort_nested_dict(value)
-    return dict_to_sort
-
-
 def _create_start_recording_command(
     shared_values_dict: Dict[str, Any],
     time_index: Optional[Union[str, int]] = 0,
