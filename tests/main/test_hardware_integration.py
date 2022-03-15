@@ -4,9 +4,7 @@ import time
 
 from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
-from mantarray_desktop_app import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
-from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from pulse3D.constants import BOOT_FLAGS_UUID
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
@@ -345,25 +343,8 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
     test_num_wells = 24
     expected_fw_item = {"time_indices": None, "data_type": "magnetometer"}
     for well_idx in range(test_num_wells):
-        module_config_values = list(
-            DEFAULT_MAGNETOMETER_CONFIG[SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]].values()
-        )
-        if not any(module_config_values):
-            continue
-
-        num_channels_for_well = 0
-        for sensor_start_idx in range(0, SERIAL_COMM_NUM_DATA_CHANNELS, SERIAL_COMM_NUM_CHANNELS_PER_SENSOR):
-            num_channels_for_sensor = sum(
-                module_config_values[
-                    sensor_start_idx : sensor_start_idx + SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
-                ]
-            )
-            num_channels_for_well += int(num_channels_for_sensor > 0)
-
         channel_dict = {"time_offsets": None}
         for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS):
-            if not module_config_values[channel_id]:
-                continue
             channel_dict[channel_id] = None
         expected_fw_item[well_idx] = channel_dict
     expected_fw_item["is_first_packet_of_stream"] = None
