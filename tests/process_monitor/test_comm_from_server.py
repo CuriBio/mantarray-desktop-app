@@ -176,10 +176,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raise
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
     expected_command = "bad_command"
-    expected_comm = {
-        "communication_type": "mantarray_naming",
-        "command": expected_command,
-    }
+    expected_comm = {"communication_type": "mantarray_naming", "command": expected_command}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_comm, server_to_main_queue)
     with pytest.raises(UnrecognizedMantarrayNamingCommandError, match=expected_command):
         invoke_process_run_and_check_errors(monitor_thread)
@@ -195,10 +192,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
-    expected_comm = {
-        "communication_type": "xem_scripts",
-        "script_type": "start_calibration",
-    }
+    expected_comm = {"communication_type": "xem_scripts", "script_type": "start_calibration"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_comm, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
@@ -323,10 +317,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raise
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
     expected_command = "bad_command"
-    expected_comm = {
-        "communication_type": test_comm_type,
-        "command": expected_command,
-    }
+    expected_comm = {"communication_type": test_comm_type, "command": expected_command}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_comm, server_to_main_queue)
     with pytest.raises(UnrecognizedCommandFromServerToMainError, match=expected_command):
         invoke_process_run_and_check_errors(monitor_thread)
@@ -517,10 +508,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     # expected_timepoint = 55432
     adc_offsets = dict()
     for well_idx in range(24):
-        adc_offsets[well_idx] = {
-            "construct": 0,
-            "ref": 0,
-        }
+        adc_offsets[well_idx] = {"construct": 0, "ref": 0}
 
     communication = {
         "communication_type": "recording",
@@ -559,16 +547,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raise
     )
     adc_offsets = dict()
     for well_idx in range(24):
-        adc_offsets[well_idx] = {
-            "construct": 0,
-            "ref": 0,
-        }
+        adc_offsets[well_idx] = {"construct": 0, "ref": 0}
 
     expected_command = "bad_command"
-    communication = {
-        "communication_type": "recording",
-        "command": expected_command,
-    }
+    communication = {"communication_type": "recording", "command": expected_command}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
     with pytest.raises(UnrecognizedRecordingCommandError, match=expected_command):
         invoke_process_run_and_check_errors(monitor_thread)
@@ -588,10 +570,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
 
-    communication = {
-        "communication_type": "shutdown",
-        "command": "hard_stop",
-    }
+    communication = {"communication_type": "shutdown", "command": "hard_stop"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
@@ -624,10 +603,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
 
-    communication = {
-        "communication_type": "shutdown",
-        "command": "hard_stop",
-    }
+    communication = {"communication_type": "shutdown", "command": "hard_stop"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
 
     invoke_process_run_and_check_errors(monitor_thread)
@@ -641,7 +617,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     spied_da_join.assert_called_once()
 
 
-def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_shutdown_hard_stop_by_logging_items_in_queues_from_subprocesses(
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_shutdown_hard_stop_by_info_logging_items_in_queues_from_subprocesses(
     test_process_manager_creator, test_monitor, patch_subprocess_joins, mocker
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
@@ -661,10 +637,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     mocker.patch.object(fw_process, "hard_stop", autospec=True, return_value=expected_fw_item)
     mocker.patch.object(da_process, "hard_stop", autospec=True, return_value=expected_da_item)
 
-    communication = {
-        "communication_type": "shutdown",
-        "command": "hard_stop",
-    }
+    communication = {"communication_type": "shutdown", "command": "hard_stop"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
 
     mocker.patch.object(
@@ -674,11 +647,11 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         side_effect=[0, SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS],
     )
 
-    mocked_monitor_logger_error = mocker.patch.object(process_monitor.logger, "error", autospec=True)
+    mocked_monitor_logger_info = mocker.patch.object(process_monitor.logger, "info", autospec=True)
 
     invoke_process_run_and_check_errors(monitor_thread)
 
-    actual_log_message = mocked_monitor_logger_error.call_args[0][0]
+    actual_log_message = mocked_monitor_logger_info.call_args[0][0]
     assert expected_okc_item in actual_log_message
     assert expected_fw_item in actual_log_message
     assert expected_da_item in actual_log_message
@@ -703,10 +676,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
 
-    communication = {
-        "communication_type": "shutdown",
-        "command": "shutdown_server",
-    }
+    communication = {"communication_type": "shutdown", "command": "shutdown_server"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
 
     invoke_process_run_and_check_errors(monitor_thread)
@@ -771,11 +741,7 @@ def test_MantarrayProcessesMonitor__processes_set_stim_status_command(
         "protocol_assignments": {well_name: "A" for well_name in test_well_names},
     }
 
-    test_command = {
-        "communication_type": "stimulation",
-        "command": "set_stim_status",
-        "status": test_status,
-    }
+    test_command = {"communication_type": "stimulation", "command": "set_stim_status", "status": test_status}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, server_to_main_queue)
 
     invoke_process_run_and_check_errors(monitor_thread)
@@ -837,10 +803,7 @@ def test_MantarrayProcessesMonitor__processes_set_latest_software_version_comman
 
     shared_values_dict["latest_software_version"] = None
 
-    test_command = {
-        "communication_type": "set_latest_software_version",
-        "version": new_version,
-    }
+    test_command = {"communication_type": "set_latest_software_version", "version": new_version}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, server_to_main_queue)
 
     # make sure value is stored

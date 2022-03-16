@@ -9,14 +9,21 @@ Changelog for Mantarray Desktop App
 
   - Removed magnetometer configuration from metadata
 
+- Fixed various shutdown issues:
+
+  - Changed shutdown procedure so that the instrument will be instructed to reboot if an error occurs
+    in the desktop app.
+  - Fixed issue with sporadic deadlock causing process responsible for closing H5 files to never terminate
+    which caused file corruption.
+  - Fixed issue with main electron process exiting before logging in other processes completes.
+
+- Fixed tooltips for stim start/stop button when calibrating.
+- Fixed issue with folder path getting logged without username redacted.
 - Updated serial communication protocol:
 
   - Removed module ID from general packet structure.
   - Removed ability to set magnetometer configuration.
   - Misc. other minor changes.
-
-- Fixed tooltips for stim start/stop button when calibrating.
-- Fixed issue with folder path getting logged without username redacted.
 
 
 0.8.0 (2022-02-17)
@@ -116,6 +123,8 @@ Changelog for Mantarray Desktop App
 
   - **Note**: Beta 2 force values/metrics are currently in arbitrary units for Live View and Heat Map.
 
+- Added higher priority of process that communicates with instrument in attempt to fix issue with
+  Live View running for too long.
 - Added stimulation subprotocol markers in Live View.
 - Added stimulation subprotocol start times and stimulation stop time to H5 files.
 - Added following metadata to Beta 2 H5 files:

@@ -72,15 +72,10 @@ def test_McCommunicationProcess_create_connections_to_all_available_boards__popu
     four_board_mc_comm_process, mocker, patch_comports, patch_serial_connection
 ):
     comport, comport_description, mocked_comports = patch_comports
-    dummy_serial_obj, mocked_serial = patch_serial_connection
+    _, mocked_serial = patch_serial_connection
     mc_process = four_board_mc_comm_process["mc_process"]
     board_queues = four_board_mc_comm_process["board_queues"]
-    mocker.patch.object(
-        mc_process,
-        "determine_how_many_boards_are_connected",
-        autospec=True,
-        return_value=1,
-    )
+    mocker.patch.object(mc_process, "determine_how_many_boards_are_connected", autospec=True, return_value=1)
     board_idx = 0
     actual_connections = mc_process.get_board_connections_list()
 
@@ -117,12 +112,7 @@ def test_McCommunicationProcess_create_connections_to_all_available_boards__popu
     _, mocked_serial = patch_serial_connection
     mc_process = four_board_mc_comm_process["mc_process"]
     board_queues = four_board_mc_comm_process["board_queues"]
-    mocker.patch.object(
-        mc_process,
-        "determine_how_many_boards_are_connected",
-        autospec=True,
-        return_value=1,
-    )
+    mocker.patch.object(mc_process, "determine_how_many_boards_are_connected", autospec=True, return_value=1)
     board_idx = 0
     actual_connections = mc_process.get_board_connections_list()
 

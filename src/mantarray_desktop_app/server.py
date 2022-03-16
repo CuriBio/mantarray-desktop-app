@@ -474,11 +474,7 @@ def set_protocols() -> Response:
         return Response(status=f"400 Protocol assignments contain invalid protocol ID: {assigned_ids.pop()}")
 
     queue_command_to_main(
-        {
-            "communication_type": "stimulation",
-            "command": "set_protocols",
-            "stim_info": stim_info,
-        }
+        {"communication_type": "stimulation", "command": "set_protocols", "stim_info": stim_info}
     )
 
     # wait for process monitor to update stim info in shared values dictionary
@@ -514,11 +510,7 @@ def set_stim_status() -> Response:
         return Response(status="304 Status not updated")
 
     response = queue_command_to_main(
-        {
-            "communication_type": "stimulation",
-            "command": "set_stim_status",
-            "status": stim_status,
-        }
+        {"communication_type": "stimulation", "command": "set_stim_status", "status": stim_status}
     )
     return response
 

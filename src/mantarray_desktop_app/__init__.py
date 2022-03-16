@@ -166,6 +166,7 @@ from .constants import STIM_NO_PROTOCOL_ASSIGNED
 from .constants import StimStatuses
 from .constants import STM_VID
 from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
+from .constants import SUBPROCESS_JOIN_TIMEOUT_SECONDS
 from .constants import SUBPROCESS_POLL_DELAY_SECONDS
 from .constants import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from .constants import SYSTEM_STATUS_UUIDS
@@ -611,4 +612,5 @@ __all__ = [
     "UPDATE_ERROR_STATE",
     "SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE",
     "SERIAL_COMM_DATA_SAMPLE_LENGTH_BYTES",
+    "SUBPROCESS_JOIN_TIMEOUT_SECONDS",
 ]

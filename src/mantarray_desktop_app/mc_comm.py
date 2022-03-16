@@ -325,11 +325,12 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._board_queues[board_idx][1],
                 self.get_logging_level(),
             )
-            if (
-                isinstance(board, MantarrayMcSimulator) and board.is_alive()
-            ):  # pragma: no cover  # Tanner (3/19/21): only need to stop and join if the board is a running simulator
-                board.hard_stop()  # hard stop to drain all queues of simulator
-                board.join()
+            if isinstance(board, MantarrayMcSimulator):
+                if board.is_alive():
+                    board.hard_stop()  # hard stop to drain all queues of simulator
+                    board.join()
+            elif self._error:
+                self._send_data_packet(board_idx, SERIAL_COMM_REBOOT_PACKET_TYPE)
         super()._teardown_after_loop()
 
     def _report_fatal_error(self, the_err: Exception) -> None:

@@ -25,6 +25,7 @@ from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import RunningFIFOSimulator
+from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app.constants import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 import numpy as np
@@ -406,3 +407,54 @@ def populate_calibration_folder(fw_process):
         # create and close file
         with open(file_path, "w"):
             pass
+
+
+def create_simple_1d_array(start_timepoint, num_data_points, dtype, step=1):
+    return np.arange(start_timepoint, start_timepoint + (num_data_points * step), step, dtype=dtype)
+
+
+def create_simple_2d_array(*args, n=2, **kwargs):
+    return np.array([create_simple_1d_array(*args, **kwargs) for _ in range(n)])
+
+
+def create_simple_time_offsets(*args, **kwargs):
+    return create_simple_2d_array(*args, n=3, **kwargs)
+
+
+def create_simple_magnetometer_well_dict(start_timepoint, num_data_points):
+    test_value_arr = create_simple_1d_array(start_timepoint, num_data_points, np.uint16)
+    well_dict = {"time_offsets": create_simple_time_offsets(start_timepoint, num_data_points, np.uint16) * 2}
+    well_dict.update(
+        {
+            channel_idx: test_value_arr * (channel_idx + 1)
+            for channel_idx in range(SERIAL_COMM_NUM_DATA_CHANNELS)
+        }
+    )
+    return well_dict
+
+
+def create_simple_beta_2_data_packet(
+    time_index_start, data_start, well_idxs, num_data_points, is_first_packet_of_stream=False
+):
+    if isinstance(well_idxs, int):
+        well_idxs = [well_idxs]
+    data_packet = {
+        "data_type": "magnetometer",
+        "time_indices": create_simple_1d_array(time_index_start, num_data_points, np.uint64),
+        "is_first_packet_of_stream": is_first_packet_of_stream,
+    }
+    for idx in well_idxs:
+        data_packet[idx] = create_simple_magnetometer_well_dict(data_start, num_data_points)
+    return data_packet
+
+
+def create_simple_stim_packet(time_index_start, num_data_points, is_first_packet_of_stream=False, step=1):
+    stim_packet = {
+        "data_type": "stimulation",
+        "well_statuses": {
+            well_idx: create_simple_2d_array(time_index_start, num_data_points, np.int64, step=step)
+            for well_idx in range(24)
+        },
+        "is_first_packet_of_stream": is_first_packet_of_stream,
+    }
+    return stim_packet

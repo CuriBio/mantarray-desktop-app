@@ -19,10 +19,7 @@ from .helpers import confirm_queue_is_eventually_of_size
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 
-def set_connection_and_register_simulator(
-    mc_process_fixture,
-    simulator_fixture,
-):
+def set_connection_and_register_simulator(mc_process_fixture, simulator_fixture):
     """Send a single status beacon in order to register magic word.
 
     Sets connection on board index 0.
@@ -85,10 +82,7 @@ def start_data_stream(mc_fixture, simulator):
     from_main_queue = mc_fixture["board_queues"][0][0]
     to_main_queue = mc_fixture["board_queues"][0][1]
 
-    start_command = {
-        "communication_type": "acquisition_manager",
-        "command": "start_managed_acquisition",
-    }
+    start_command = {"communication_type": "acquisition_manager", "command": "start_managed_acquisition"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
     # send command, process command, process command response
     invoke_process_run_and_check_errors(mc_process)
@@ -103,10 +97,7 @@ def stop_data_stream(mc_fixture, simulator):
     from_main_queue = mc_fixture["board_queues"][0][0]
     to_main_queue = mc_fixture["board_queues"][0][1]
 
-    stop_command = {
-        "communication_type": "acquisition_manager",
-        "command": "stop_managed_acquisition",
-    }
+    stop_command = {"communication_type": "acquisition_manager", "command": "stop_managed_acquisition"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
     # send command, process command, process command response
     invoke_process_run_and_check_errors(mc_process)
@@ -125,11 +116,7 @@ def fixture_four_board_mc_comm_process(mocker):
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4, queue_type=TestingQueue)
     mc_process = McCommunicationProcess(board_queues, error_queue)
 
-    items_dict = {
-        "mc_process": mc_process,
-        "board_queues": board_queues,
-        "error_queue": error_queue,
-    }
+    items_dict = {"mc_process": mc_process, "board_queues": board_queues, "error_queue": error_queue}
     yield items_dict
 
 
@@ -142,11 +129,7 @@ def fixture_runnable_four_board_mc_comm_process(mocker):
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
     mc_process = McCommunicationProcess(board_queues, error_queue)
 
-    items_dict = {
-        "mc_process": mc_process,
-        "board_queues": board_queues,
-        "error_queue": error_queue,
-    }
+    items_dict = {"mc_process": mc_process, "board_queues": board_queues, "error_queue": error_queue}
     yield items_dict
 
 
@@ -167,11 +150,7 @@ def fixture_four_board_mc_comm_process_no_handshake(mocker):
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4, queue_type=TestingQueue)
     mc_process = McCommunicationProcessNoHandshakes(board_queues, error_queue)
 
-    items_dict = {
-        "mc_process": mc_process,
-        "board_queues": board_queues,
-        "error_queue": error_queue,
-    }
+    items_dict = {"mc_process": mc_process, "board_queues": board_queues, "error_queue": error_queue}
     yield items_dict
 
 
@@ -185,10 +164,7 @@ def fixture_patch_comports(mocker):
     dummy_port_info.description = f"Device ({comport})"
 
     mocked_comports = mocker.patch.object(
-        mc_comm.list_ports,
-        "comports",
-        autospec=True,
-        return_value=[dummy_port_info],
+        mc_comm.list_ports, "comports", autospec=True, return_value=[dummy_port_info]
     )
     yield comport, dummy_port_info.description, mocked_comports
 

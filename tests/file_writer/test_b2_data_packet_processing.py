@@ -18,6 +18,8 @@ from stdlib_utils import confirm_parallelism_is_stopped
 from stdlib_utils import invoke_process_run_and_check_errors
 
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from ..fixtures_file_writer import create_simple_beta_2_data_packet
+from ..fixtures_file_writer import create_simple_stim_packet
 from ..fixtures_file_writer import fixture_four_board_file_writer_process
 from ..fixtures_file_writer import fixture_runnable_four_board_file_writer_process
 from ..fixtures_file_writer import fixture_running_four_board_file_writer_process
@@ -39,57 +41,6 @@ __fixtures__ = [
     fixture_running_four_board_file_writer_process,
     fixture_runnable_four_board_file_writer_process,
 ]
-
-
-def create_simple_1d_array(start_timepoint, num_data_points, dtype, step=1):
-    return np.arange(start_timepoint, start_timepoint + (num_data_points * step), step, dtype=dtype)
-
-
-def create_simple_2d_array(*args, n=2, **kwargs):
-    return np.array([create_simple_1d_array(*args, **kwargs) for _ in range(n)])
-
-
-def create_simple_time_offsets(*args, **kwargs):
-    return create_simple_2d_array(*args, n=3, **kwargs)
-
-
-def create_simple_magnetometer_well_dict(start_timepoint, num_data_points):
-    test_value_arr = create_simple_1d_array(start_timepoint, num_data_points, np.uint16)
-    well_dict = {"time_offsets": create_simple_time_offsets(start_timepoint, num_data_points, np.uint16) * 2}
-    well_dict.update(
-        {
-            channel_idx: test_value_arr * (channel_idx + 1)
-            for channel_idx in range(SERIAL_COMM_NUM_DATA_CHANNELS)
-        }
-    )
-    return well_dict
-
-
-def create_simple_data_packet(
-    time_index_start, data_start, well_idxs, num_data_points, is_first_packet_of_stream=False
-):
-    if isinstance(well_idxs, int):
-        well_idxs = [well_idxs]
-    data_packet = {
-        "data_type": "magnetometer",
-        "time_indices": create_simple_1d_array(time_index_start, num_data_points, np.uint64),
-        "is_first_packet_of_stream": is_first_packet_of_stream,
-    }
-    for idx in well_idxs:
-        data_packet[idx] = create_simple_magnetometer_well_dict(data_start, num_data_points)
-    return data_packet
-
-
-def create_simple_stim_packet(time_index_start, num_data_points, is_first_packet_of_stream=False, step=1):
-    stim_packet = {
-        "data_type": "stimulation",
-        "well_statuses": {
-            well_idx: create_simple_2d_array(time_index_start, num_data_points, np.int64, step=step)
-            for well_idx in range(24)
-        },
-        "is_first_packet_of_stream": is_first_packet_of_stream,
-    }
-    return stim_packet
 
 
 @pytest.mark.timeout(15)
@@ -163,7 +114,7 @@ def test_FileWriterProcess__does_not_pass_magnetometer_data_packet_through_to_ou
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
     # send magnetometer data packet
-    test_data_packet = create_simple_data_packet(
+    test_data_packet = create_simple_beta_2_data_packet(
         start_recording_command["timepoint_to_begin_recording_at"],
         0,
         start_recording_command["active_well_indices"],
@@ -191,7 +142,7 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_if_the_
 
     num_data_points = 50
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"]
-    test_data_packet = create_simple_data_packet(
+    test_data_packet = create_simple_beta_2_data_packet(
         start_timepoint,
         0,
         start_recording_command["active_well_indices"],
@@ -240,7 +191,7 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_if_the_
     num_recorded_data_points = 50
     time_index_offset = total_num_data_points - num_recorded_data_points
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"] - time_index_offset
-    test_data_packet = create_simple_data_packet(
+    test_data_packet = create_simple_beta_2_data_packet(
         start_timepoint,
         0,
         start_recording_command["active_well_indices"],
@@ -290,7 +241,7 @@ def test_FileWriterProcess_process_magnetometer_data_packet__does_not_write_data
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     num_data_points = 30
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"] - num_data_points
-    test_data_packet = create_simple_data_packet(
+    test_data_packet = create_simple_beta_2_data_packet(
         start_timepoint,
         0,
         start_recording_command["active_well_indices"],
@@ -330,14 +281,14 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_for_two
     num_recorded_data_points_1 = 31
     time_index_offset = total_num_data_points_1 - num_recorded_data_points_1
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"] - time_index_offset
-    first_data_packet = create_simple_data_packet(
+    first_data_packet = create_simple_beta_2_data_packet(
         start_timepoint,
         0,
         start_recording_command["active_well_indices"],
         total_num_data_points_1,
     )
     num_data_points_2 = 15
-    second_data_packet = create_simple_data_packet(
+    second_data_packet = create_simple_beta_2_data_packet(
         start_timepoint + total_num_data_points_1,
         total_num_data_points_1,
         start_recording_command["active_well_indices"],
@@ -390,7 +341,7 @@ def test_FileWriterProcess_process_magnetometer_data_packet__does_not_add_a_data
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     num_recorded_data_points = 10
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"]
-    recorded_data_packet = create_simple_data_packet(
+    recorded_data_packet = create_simple_beta_2_data_packet(
         start_timepoint,
         0,
         start_recording_command["active_well_indices"],
@@ -417,7 +368,7 @@ def test_FileWriterProcess_process_magnetometer_data_packet__does_not_add_a_data
     stop_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
 
-    ignored_data_packet = create_simple_data_packet(
+    ignored_data_packet = create_simple_beta_2_data_packet(
         stop_command["timepoint_to_stop_recording_at"],
         num_recorded_data_points,
         start_recording_command["active_well_indices"],
@@ -459,7 +410,7 @@ def test_FileWriterProcess_process_magnetometer_data_packet__adds_a_data_packet_
 
     num_data_points_1 = 26
     start_timepoint_1 = start_recording_command["timepoint_to_begin_recording_at"]
-    test_data_packet_1 = create_simple_data_packet(
+    test_data_packet_1 = create_simple_beta_2_data_packet(
         start_timepoint_1,
         0,
         start_recording_command["active_well_indices"],
@@ -486,7 +437,7 @@ def test_FileWriterProcess_process_magnetometer_data_packet__adds_a_data_packet_
 
     num_data_points_2 = 24
     start_timepoint_2 = stop_command["timepoint_to_stop_recording_at"] - num_data_points_2
-    test_data_packet_2 = create_simple_data_packet(
+    test_data_packet_2 = create_simple_beta_2_data_packet(
         start_timepoint_2,
         num_data_points_1,
         start_recording_command["active_well_indices"],
@@ -532,7 +483,7 @@ def test_FileWriterProcess_process_magnetometer_data_packet__updates_dict_of_tim
     invoke_process_run_and_check_errors(fw_process)
 
     expected_latest_timepoint = 100
-    test_data_packet = create_simple_data_packet(
+    test_data_packet = create_simple_beta_2_data_packet(
         expected_latest_timepoint,
         0,
         start_recording_command["active_well_indices"],
@@ -740,7 +691,7 @@ def test_FileWriterProcess_process_stim_data_packet__does_not_add_a_data_packet_
     assert actual_stimulation_data[1, 0] == start_timepoint
 
     # add some magnetometer data to avoid errors when stopping the recording
-    data_packet = create_simple_data_packet(
+    data_packet = create_simple_beta_2_data_packet(
         start_timepoint,
         0,
         start_recording_command["active_well_indices"],
@@ -794,7 +745,7 @@ def test_FileWriterProcess_process_stim_data_packet__adds_a_data_packet_ending_o
     assert actual_stimulation_data[1, 0] == start_timepoint
 
     # add some magnetometer data to avoid errors when stopping the recording
-    data_packet = create_simple_data_packet(
+    data_packet = create_simple_beta_2_data_packet(
         start_timepoint,
         0,
         start_recording_command["active_well_indices"],
