@@ -74,11 +74,13 @@ const getPythonScriptPath = () => {
   return bundled_path;
 };
 
+let wait_for_subprocess_to_complete = null;
+
 const start_python_subprocess = () => {
   console.log("About to generate command line arguments to use when booting up server"); // allow-log
   const command_line_args = generate_flask_command_line_args(store);
   if (process.platform !== "win32") {
-    // presumably running in a linux dev or CI environment
+    // presumably running in a unix dev or CI environment
     if (!ci.isCI) {
       // don't do this in CI environment, only locally
       command_line_args.push("--skip-software-version-verification"); // TODO (Eli 3/12/21): use the `yargs` package to accept this as a command line argument to the Electron app so that it can be passed appropriately and with more control than everytime the python source code is run (which is based on the assumption that anytime source code is tested it's running locally in a dev environment and the bit file isn't available)
@@ -96,7 +98,13 @@ const start_python_subprocess = () => {
       // allow-log
       "Launching compiled Python EXE at path: " + main_utils.redact_username_from_logs(script)
     );
-    require("child_process").execFile(script, command_line_args);
+    const python_subprocess = require("child_process").execFile(script, command_line_args);
+
+    wait_for_subprocess_to_complete = new Promise((resolve) => {
+      python_subprocess.on("close", (code, signal) =>
+        resolve(`Subprocess exit code: ${code}: termination signal ${signal}`)
+      );
+    });
   } else {
     const PythonShell = require("python-shell").PythonShell; // Eli (4/15/20) experienced odd error where the compiled exe was not able to load package python-shell...but since it's only actually required in development, just moving it to here
     if (!store.get("beta_2_mode")) command_line_args.push("--no-load-firmware");
@@ -118,7 +126,11 @@ const start_python_subprocess = () => {
         "' with options: " +
         JSON.stringify(redacted_options)
     );
-    new PythonShell(py_file_name, options);
+    const python_shell = new PythonShell(py_file_name, options);
+
+    wait_for_subprocess_to_complete = new Promise((resolve) => {
+      python_shell.on("close", () => resolve("Python shell closed"));
+    });
   }
 };
 
@@ -243,17 +255,33 @@ app.on("will-quit", function (e) {
   axios
     .get(`http://localhost:${flask_port}/shutdown?called_through_app_will_quit=true`)
     .then((response) => {
-      console.log(`Shutdown response: ${response.status} ${response.statusText}`); // allow-log
-      app.exit();
+      console.log(`Flask shutdown response: ${response.status} ${response.statusText}`); // allow-log
+      exit_app_clean();
     })
     .catch((response) => {
       console.log(
         // allow-log
-        `Error calling shutdown from Electron main process: ${response.status} ${response.statusText}`
+        `Error calling Flask shutdown from Electron main process: ${response.status} ${response.statusText}`
       );
-      app.exit();
+      exit_app_clean();
     });
 });
+
+const exit_app_clean = () => {
+  if (wait_for_subprocess_to_complete === null) {
+    app.exit();
+  }
+
+  const wait_for_subprocess_to_complete_with_timeout = new Promise((resolve) => {
+    wait_for_subprocess_to_complete.then((msg) => resolve(msg));
+    setTimeout(() => resolve("Backend not closed after timeout"), 5000);
+  });
+  wait_for_subprocess_to_complete_with_timeout.then((msg) => {
+    console.log(msg); // allow-log
+    console.log("App exiting"); // allow-log
+    app.exit();
+  });
+};
 
 if (gotTheLock) {
   // Extra check to make sure only one window is opened

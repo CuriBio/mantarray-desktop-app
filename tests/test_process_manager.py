@@ -10,9 +10,11 @@ from mantarray_desktop_app import McCommunicationProcess
 from mantarray_desktop_app import OkCommunicationProcess
 from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import ServerManager
+from mantarray_desktop_app import SUBPROCESS_JOIN_TIMEOUT_SECONDS
 from mantarray_desktop_app import SUBPROCESS_POLL_DELAY_SECONDS
 from mantarray_desktop_app import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 import pytest
+from stdlib_utils import InfiniteProcess
 
 from .fixtures import fixture_patch_subprocess_is_stopped_to_false
 from .fixtures import fixture_patched_firmware_folder
@@ -73,8 +75,27 @@ def test_MantarrayProcessesManager__soft_stop_processes__calls_soft_stop_on_all_
     mocked_shutdown_server.assert_called_once()
 
 
-def test_MantarrayProcessesManager__hard_stop_processes__calls_hard_stop_on_all_processes_and_shuts_down_server__and_returns_process_queue_items(
-    mocker, generic_manager
+def test_MantarrayProcessesManager__hard_stop_processes__logs_info(mocker, generic_manager):
+    mocked_info = mocker.patch.object(process_manager.logger, "info", autospec=True)
+
+    generic_manager.create_processes()
+    mocker.patch.object(generic_manager, "shutdown_server", autospec=True, return_value={})
+    mocker.patch.object(OkCommunicationProcess, "hard_stop", autospec=True)
+    mocker.patch.object(FileWriterProcess, "hard_stop", autospec=True)
+    mocker.patch.object(DataAnalyzerProcess, "hard_stop", autospec=True)
+
+    generic_manager.hard_stop_processes()
+    assert mocked_info.call_args_list == [
+        mocker.call("Hard stopping Instrument Comm Process"),
+        mocker.call("Hard stopping File Writer Process"),
+        mocker.call("Hard stopping Data Analyzer Process"),
+        mocker.call("All subprocesses hard stopped"),
+    ]
+
+
+@pytest.mark.parametrize("shutdown_server", [True, False])
+def test_MantarrayProcessesManager__hard_stop_processes__calls_hard_stop_on_all_processes_and_conditionally_shuts_down_server__and_returns_process_queue_items(
+    shutdown_server, mocker, generic_manager
 ):
     expected_ok_comm_items = {"instrument_comm_queue": ["instrument_item"]}
     expected_file_writer_items = {"file_writer_queue": ["fw_item"]}
@@ -83,29 +104,32 @@ def test_MantarrayProcessesManager__hard_stop_processes__calls_hard_stop_on_all_
 
     generic_manager.create_processes()
     mocked_ok_comm_hard_stop = mocker.patch.object(
-        OkCommunicationProcess, "hard_stop", return_value=expected_ok_comm_items
+        OkCommunicationProcess, "hard_stop", autospec=True, return_value=expected_ok_comm_items
     )
     mocked_file_writer_hard_stop = mocker.patch.object(
-        FileWriterProcess, "hard_stop", return_value=expected_file_writer_items
+        FileWriterProcess, "hard_stop", autospec=True, return_value=expected_file_writer_items
     )
     mocked_data_analyzer_hard_stop = mocker.patch.object(
-        DataAnalyzerProcess, "hard_stop", return_value=expected_da_items
+        DataAnalyzerProcess, "hard_stop", autospec=True, return_value=expected_da_items
     )
     mocked_server_drain_queues = mocker.patch.object(
-        ServerManager, "drain_all_queues", return_value=expected_server_items
+        ServerManager, "drain_all_queues", autospec=True, return_value=expected_server_items
     )
 
-    actual = generic_manager.hard_stop_processes()
+    actual = generic_manager.hard_stop_processes(shutdown_server=shutdown_server)
 
     mocked_ok_comm_hard_stop.assert_called_once()
     mocked_file_writer_hard_stop.assert_called_once()
     mocked_data_analyzer_hard_stop.assert_called_once()
-    mocked_server_drain_queues.assert_called_once()
+    assert mocked_server_drain_queues.call_count == int(shutdown_server)
 
     assert actual["instrument_comm_items"] == expected_ok_comm_items
     assert actual["file_writer_items"] == expected_file_writer_items
     assert actual["data_analyzer_items"] == expected_da_items
-    assert actual["server_items"] == expected_server_items
+    if shutdown_server:
+        assert actual["server_items"] == expected_server_items
+    else:
+        assert "server_items" not in actual
 
 
 @pytest.mark.slow
@@ -120,9 +144,52 @@ def test_MantarrayProcessesManager__join_processes__calls_join_on_all_processes(
     generic_manager.soft_stop_processes()
     generic_manager.join_processes()
 
-    spied_ok_comm_join.assert_called_once()
-    spied_file_writer_join.assert_called_once()
-    spied_data_analyzer_join.assert_called_once()
+    spied_ok_comm_join.assert_called_once_with(mocker.ANY, SUBPROCESS_JOIN_TIMEOUT_SECONDS)
+    spied_file_writer_join.assert_called_once_with(mocker.ANY, SUBPROCESS_JOIN_TIMEOUT_SECONDS)
+    spied_data_analyzer_join.assert_called_once_with(mocker.ANY, SUBPROCESS_JOIN_TIMEOUT_SECONDS)
+
+
+def test_MantarrayProcessesManager__join_processes__logs_info(mocker, generic_manager):
+    generic_manager.create_processes()
+
+    mocker.patch.object(process_manager, "_process_can_be_joined", autospec=True, return_value=True)
+    mocker.patch.object(process_manager, "_process_failed_to_join", autospec=True, return_value=False)
+    mocker.patch.object(InfiniteProcess, "join", autospec=True)
+
+    mocked_info = mocker.patch.object(process_manager.logger, "info", autospec=True)
+    generic_manager.join_processes()
+    assert mocked_info.call_args_list == [
+        mocker.call("Joining Instrument Comm Process"),
+        mocker.call("Joining File Writer Process"),
+        mocker.call("Joining Data Analyzer Process"),
+        mocker.call("All subprocesses joined"),
+    ]
+
+
+def test_MantarrayProcessesManager__join_processes__terminates_process_if_not_successfully_joined__and_logs_error(
+    mocker, generic_manager
+):
+    generic_manager.create_processes()
+
+    mocker.patch.object(process_manager, "_process_can_be_joined", autospec=True, return_value=True)
+    mocker.patch.object(InfiniteProcess, "join", autospec=True)
+
+    mocked_ok_comm_terminate = mocker.patch.object(OkCommunicationProcess, "terminate", autospec=True)
+    mocked_file_writer_terminate = mocker.patch.object(FileWriterProcess, "terminate", autospec=True)
+    mocked_data_analyzer_terminate = mocker.patch.object(DataAnalyzerProcess, "terminate", autospec=True)
+
+    mocked_error = mocker.patch.object(process_manager.logger, "error", autospec=True)
+    generic_manager.join_processes()
+
+    mocked_ok_comm_terminate.assert_called_once()
+    mocked_file_writer_terminate.assert_called_once()
+    mocked_data_analyzer_terminate.assert_called_once()
+
+    assert mocked_error.call_args_list == [
+        mocker.call("Terminating Instrument Comm Process after unsuccessful join"),
+        mocker.call("Terminating File Writer Process after unsuccessful join"),
+        mocker.call("Terminating Data Analyzer Process after unsuccessful join"),
+    ]
 
 
 @pytest.mark.slow
@@ -165,6 +232,7 @@ def test_MantarrayProcessesManager__spawn_processes__stop_and_join_processes__st
     mocked_shutdown_server.assert_called_once()
 
 
+@pytest.mark.slow
 @pytest.mark.timeout(20)
 def test_MantarrayProcessesManager__soft_stop_and_join_processes__soft_stops_and_joins_processes_and_shuts_down_server(
     mocker, generic_manager
@@ -202,31 +270,34 @@ def test_MantarrayProcessesManager__soft_stop_and_join_processes__soft_stops_and
 
 
 @pytest.mark.slow
-@pytest.mark.timeout(25)
+@pytest.mark.timeout(20)
+@pytest.mark.parametrize("shutdown_server", [True, False])
 def test_MantarrayProcessesManager__hard_stop_and_join_processes__hard_stops_processes_and_shuts_down_server__and_returns_queue_items(
-    mocker, generic_manager
+    shutdown_server, mocker, generic_manager
 ):
     expected_ok_comm_item = "ok_comm_item"
     expected_file_writer_item = "file_writer_item"
     expected_da_item = "data_analyzer_item"
     expected_server_item = "server_item"
 
-    spied_ok_comm_start = mocker.spy(OkCommunicationProcess, "start")
-    spied_ok_comm_hard_stop = mocker.spy(OkCommunicationProcess, "hard_stop")
-    spied_ok_comm_join = mocker.spy(OkCommunicationProcess, "join")
+    spied_hard_stop_processes = mocker.spy(generic_manager, "hard_stop_processes")
 
-    spied_file_writer_start = mocker.spy(FileWriterProcess, "start")
-    spied_file_writer_hard_stop = mocker.spy(FileWriterProcess, "hard_stop")
-    spied_file_writer_join = mocker.spy(FileWriterProcess, "join")
+    def se(*args):
+        spied_hard_stop_processes.assert_called_once()
 
-    spied_data_analyzer_start = mocker.spy(DataAnalyzerProcess, "start")
-    spied_data_analyzer_hard_stop = mocker.spy(DataAnalyzerProcess, "hard_stop")
-    spied_data_analyzer_join = mocker.spy(DataAnalyzerProcess, "join")
+    mocked_join_processes = mocker.patch.object(
+        generic_manager, "join_processes", autospec=True, side_effect=se
+    )
 
     mocked_shutdown_server = mocker.patch.object(ServerManager, "shutdown_server")
     spied_server_drain_queues = mocker.spy(ServerManager, "drain_all_queues")
 
+    mocker.patch.object(OkCommunicationProcess, "start", autospec=True)
+    mocker.patch.object(FileWriterProcess, "start", autospec=True)
+    mocker.patch.object(DataAnalyzerProcess, "start", autospec=True)
+
     generic_manager.spawn_processes()
+
     container = generic_manager.queue_container()
     instrument_comm_to_main = container.get_communication_queue_from_instrument_comm_to_main(0)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -242,27 +313,20 @@ def test_MantarrayProcessesManager__hard_stop_and_join_processes__hard_stops_pro
     server_to_main = container.get_communication_queue_from_server_to_main()
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_server_item, server_to_main)
 
-    actual = generic_manager.hard_stop_and_join_processes()
+    actual = generic_manager.hard_stop_and_join_processes(shutdown_server=shutdown_server)
 
-    spied_ok_comm_start.assert_called_once()
-    spied_ok_comm_hard_stop.assert_called_once()
-    spied_ok_comm_join.assert_called_once()
-
-    spied_file_writer_start.assert_called_once()
-    spied_file_writer_hard_stop.assert_called_once()
-    spied_file_writer_join.assert_called_once()
-
-    spied_data_analyzer_start.assert_called_once()
-    spied_data_analyzer_hard_stop.assert_called_once()
-    spied_data_analyzer_join.assert_called_once()
-
-    mocked_shutdown_server.assert_called_once()
-    spied_server_drain_queues.assert_called_once()
+    spied_hard_stop_processes.assert_called_once_with(shutdown_server=False)
+    mocked_join_processes.assert_called_once()
+    assert mocked_shutdown_server.call_count == int(shutdown_server)
+    assert spied_server_drain_queues.call_count == int(shutdown_server)
 
     assert expected_ok_comm_item in actual["instrument_comm_items"]["board_0"]["instrument_comm_to_main"]
     assert expected_file_writer_item in actual["file_writer_items"]["from_file_writer_to_main"]
     assert expected_da_item in actual["data_analyzer_items"]["from_data_analyzer_to_main"]
-    assert expected_server_item in actual["server_items"]["to_main"]
+    if shutdown_server:
+        assert expected_server_item in actual["server_items"]["to_main"]
+    else:
+        assert "server_items" not in actual
 
 
 def test_MantarrayProcessesManager__passes_file_directory_to_FileWriter():
@@ -553,6 +617,14 @@ def test_MantarrayProcessesManager_shutdown_server__shutsdown_server_and_returns
     assert server_items == {"server_items": ["item"]}
     mocked_shutdown.assert_called_once()
     mocked_drain.assert_called_once()
+
+
+def test_MantarrayProcessesManager_shutdown_server__logs_info(generic_manager, mocker):
+    mocked_info = mocker.patch.object(process_manager.logger, "info", autospec=True)
+    generic_manager.create_processes()
+
+    generic_manager.shutdown_server()
+    mocked_info.assert_called_once_with("Shutting down server")
 
 
 def test_MantarrayProcessesManager_get_subprocesses_running_status__returns_correct_values(

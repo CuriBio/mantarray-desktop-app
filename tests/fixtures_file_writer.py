@@ -424,3 +424,52 @@ def populate_calibration_folder(fw_process):
         # create and close file
         with open(file_path, "w"):
             pass
+
+
+def create_simple_1d_array(start_timepoint, num_data_points, dtype):
+    return np.arange(start_timepoint, start_timepoint + num_data_points, dtype=dtype)
+
+
+def create_simple_2d_array(start_timepoint, num_data_points, dtype, step=1):
+    return np.array(
+        [
+            np.arange(start_timepoint, start_timepoint + (num_data_points * step), step, dtype=dtype),
+            np.arange(start_timepoint, start_timepoint + (num_data_points * step), step, dtype=dtype),
+        ]
+    )
+
+
+def create_simple_magnetometer_well_dict(start_timepoint, num_data_points):
+    test_value_arr = create_simple_1d_array(start_timepoint, num_data_points, np.uint16)
+    return {
+        "time_offsets": create_simple_2d_array(start_timepoint, num_data_points, np.uint16) * 2,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: test_value_arr * 3,
+        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: test_value_arr * 4,
+    }
+
+
+def create_simple_beta_2_data_packet(
+    time_index_start, data_start, well_idxs, num_data_points, is_first_packet_of_stream=False
+):
+    if isinstance(well_idxs, int):
+        well_idxs = [well_idxs]
+    data_packet = {
+        "data_type": "magnetometer",
+        "time_indices": create_simple_1d_array(time_index_start, num_data_points, np.uint64),
+        "is_first_packet_of_stream": is_first_packet_of_stream,
+    }
+    for idx in well_idxs:
+        data_packet[idx] = create_simple_magnetometer_well_dict(data_start, num_data_points)
+    return data_packet
+
+
+def create_simple_stim_packet(time_index_start, num_data_points, is_first_packet_of_stream=False, step=1):
+    stim_packet = {
+        "data_type": "stimulation",
+        "well_statuses": {
+            well_idx: create_simple_2d_array(time_index_start, num_data_points, np.int64, step=step)
+            for well_idx in range(24)
+        },
+        "is_first_packet_of_stream": is_first_packet_of_stream,
+    }
+    return stim_packet

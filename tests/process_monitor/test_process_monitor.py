@@ -423,6 +423,10 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
 
+    # mock since processes aren't actually started
+    mocker.patch.object(process_manager, "_process_can_be_joined", autospec=True, return_value=True)
+    mocker.patch.object(process_manager, "_process_failed_to_join", autospec=True, return_value=False)
+
     mocked_logger = mocker.patch.object(process_monitor.logger, "error", autospec=True)
 
     okc_process = test_process_manager.get_instrument_process()
