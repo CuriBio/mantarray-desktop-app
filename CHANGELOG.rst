@@ -15,6 +15,10 @@ Changelog for Mantarray Desktop App
 
 - Fixed tooltips for stim start/stop button when calibrating.
 - Fixed issue with folder path getting logged without username redacted.
+- Fixed issue with stim subprotocols not displaying correctly in live view when:
+
+  - Stopping stimulation
+  - Switching between well quadrants
 
 
 0.8.0 (2022-02-17)
