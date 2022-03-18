@@ -17,7 +17,7 @@ files:
     to: "dist/resources/"
 win:
   target: "nsis"
-  artifactName: "MantarrayController-Setup-unstable-${version}.${ext}"
+  artifactName: "MantarrayController-Setup-unstable-${version}-REPLACEWITHGITHASH.${ext}"
 publish:
   provider: "s3"
   bucket: "downloads.curibio.com"

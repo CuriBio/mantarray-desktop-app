@@ -200,11 +200,13 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_GIT_PUBLISH_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_GIT_PUBLISH_SECRET_KEY }}
-        run: pipenv run node s3_publish.js --file="${{steps.product-name.outputs.prop}}-Setup-${{github.event.inputs.release_channel}}-${{steps.software-version.outputs.prop}}.exe" --buildDir=./dist/ --channel=${{github.event.inputs.release_channel}}
+        run: pipenv run node s3_publish.js --file="${{steps.product-name.outputs.prop}}-Setup-${{github.event.inputs.release_channel}}-${{steps.software-version.outputs.prop}}.exe" --buildDir=./dist --channel=${{github.event.inputs.release_channel}}
 
       - name: S3 Publisher (If unstable)
         if: github.event.inputs.release_channel == 'unstable' && matrix.IS_DEPLOYMENT_CONFIG == true
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_GIT_PUBLISH_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_GIT_PUBLISH_SECRET_KEY }}
-        run: pipenv run node s3_publish.js --file="${{steps.product-name.outputs.prop}}-Setup-${{github.event.inputs.release_channel}}-${{steps.git-hash-short.outputs.HASH}}.exe" --buildDir=./dist/ --channel=${{github.event.inputs.release_channel}}
+        run: |
+          Get-ChildItem .\dist\${{steps.product-name.outputs.prop}}-Setup-${{github.event.inputs.release_channel}}-${{steps.software-version.outputs.prop}}-REPLACEWITHGITHASH.* | Rename-Item -NewName { $_.Name -replace 'REPLACEWITHGITHASH','${{steps.git-hash-short.outputs.HASH}}' }
+          pipenv run node s3_publish.js --file="${{steps.product-name.outputs.prop}}-Setup-${{github.event.inputs.release_channel}}-${{steps.software-version.outputs.prop}}-${{steps.git-hash-short.outputs.HASH}}.exe" --buildDir=./dist --channel=${{github.event.inputs.release_channel}}
