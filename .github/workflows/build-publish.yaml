@@ -15,10 +15,6 @@ on:
           - unstable
           - alpha
           - beta
-      randomlyseed:
-        description: "Pytest Randomly Seed"
-        required: false
-        default: ""
       api_endpoint:
         description: "Cloud API endpoint"
         required: true
@@ -39,8 +35,7 @@ jobs:
         os:
           - "windows-2019"
         python-version:
-          - 3.8
-          # - 3.9 # Eli (12/10/20): Cython package is giving issues with Python 3.9 currently
+          - 3.8 # 3.9 # Eli (12/10/20): Cython package is giving issues with Python 3.9 currently
         node-version:
           - 14
         include:
