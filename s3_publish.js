@@ -14,7 +14,7 @@ const S3Publisher = require("app-builder-lib/out/publish/s3/s3Publisher").defaul
 const argv = require("yargs").argv;
 
 const buildDir = argv.buildDir || "./dist/";
-const channel = argv.channel || "latest";
+const channel = argv.channel || "unstable";
 const bucket = argv.bucket || "downloads.curibio.com//software";
 
 const publisherContext = {
