@@ -18,7 +18,7 @@ on:
       api_endpoint:
         description: "Cloud API endpoint"
         required: true
-        default: "test"
+        default: "prod"
         type: choice
         options:
           - test
