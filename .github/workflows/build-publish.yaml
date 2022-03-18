@@ -27,6 +27,9 @@ on:
           - test
           - modl
           - prod
+  push:
+    branches:
+      - main
 jobs:
   test:
     strategy:
