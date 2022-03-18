@@ -61,8 +61,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Check release tag
+      - name: Store shortened hash of commit
+        id: git-hash-short
+        run: echo "::set-output name=HASH::$(git log --pretty=format:'%h' -n 1)"
+
+      - name: Check release tag (If not unstable)
         id: check-tag
+        if: github.event.inputs.release_channel != 'unstable'
         run: |
           git fetch --tags
           echo "::set-output name=TAG::$(git tag -l ${{ github.event.inputs.release_tag }})"
@@ -72,13 +77,14 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email noreply@github.com
 
-      - name: Create release tag
-        if: steps.check-tag.outputs.TAG == ''
+      - name: Create release tag (If not unstable)
+        if: github.event.inputs.release_channel != 'unstable' && steps.check-tag.outputs.TAG == ''
         run: |
           git tag -a ${{github.event.inputs.release_tag}} -m "release ${{ github.event.inputs.release_tag }}"
           git push origin ${{github.event.inputs.release_tag}}
 
-      - name: Checkout tag
+      - name: Checkout tag (If not unstable)
+        if: github.event.inputs.release_channel != 'unstable'
         run: |
           git fetch --tags
           git checkout tags/${{github.event.inputs.release_tag}}
@@ -119,6 +125,7 @@ jobs:
           key: ${{ matrix.os }}-${{ matrix.python-version }}-build-${{ env.cache-name }}-${{ hashFiles('**/Pipfile.lock') }}
           restore-keys: |
             ${{ matrix.os }}-${{ matrix.python-version }}-build-${{ env.cache-name }}-
+
       - name: Display Chrome version (Windows)
         if: runner.os == 'Windows'
         run: (Get-Item (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe').'(Default)').VersionInfo
@@ -192,9 +199,16 @@ jobs:
       - name: Build Full Electron App
         run: pipenv run npm run build-${{github.event.inputs.release_channel}}
 
-      - name: S3 Publisher
-        if: matrix.IS_DEPLOYMENT_CONFIG == true
+      - name: S3 Publisher (If not unstable)
+        if: github.event.inputs.release_channel != 'unstable' && matrix.IS_DEPLOYMENT_CONFIG == true
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_GIT_PUBLISH_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_GIT_PUBLISH_SECRET_KEY }}
         run: pipenv run node s3_publish.js --file="${{steps.product-name.outputs.prop}}-Setup-${{github.event.inputs.release_channel}}-${{steps.software-version.outputs.prop}}.exe" --buildDir=./dist/ --channel=${{github.event.inputs.release_channel}}
+
+      - name: S3 Publisher (If unstable)
+        if: github.event.inputs.release_channel == 'unstable' && matrix.IS_DEPLOYMENT_CONFIG == true
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_GIT_PUBLISH_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_GIT_PUBLISH_SECRET_KEY }}
+        run: pipenv run node s3_publish.js --file="${{steps.product-name.outputs.prop}}-Setup-${{github.event.inputs.release_channel}}-${{steps.git-hash-short.outputs.HASH}}.exe" --buildDir=./dist/ --channel=${{github.event.inputs.release_channel}}
