@@ -244,11 +244,3 @@ class FirmwareDownloadError(Exception):
 
 class MantarrayInstrumentError(Exception):
     """Errors occurring on the Mantarray instrument itself."""
-
-
-class InstrumentFatalError(MantarrayInstrumentError):
-    pass
-
-
-class InstrumentSoftError(MantarrayInstrumentError):
-    pass

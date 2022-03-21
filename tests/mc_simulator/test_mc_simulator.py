@@ -9,8 +9,8 @@ from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
-from mantarray_desktop_app import SERIAL_COMM_IDLE_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
+from mantarray_desktop_app import SERIAL_COMM_OKAY_CODE
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE
@@ -419,7 +419,7 @@ def test_MantarrayMcSimulator__allows_status_code_to_be_set_through_testing_queu
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
-    expected_status_code = SERIAL_COMM_IDLE_READY_CODE
+    expected_status_code = SERIAL_COMM_OKAY_CODE
     test_command = {
         "command": "set_status_code",
         "status_code": expected_status_code,
@@ -486,7 +486,7 @@ def test_MantarrayMcSimulator__accepts_time_sync_along_with_status_code_update__
     expected_time_usecs = 83924409
     test_command = {
         "command": "set_status_code",
-        "status_code": SERIAL_COMM_IDLE_READY_CODE,
+        "status_code": SERIAL_COMM_OKAY_CODE,
         "baseline_time": expected_time_usecs,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, testing_queue)
@@ -500,7 +500,7 @@ def test_MantarrayMcSimulator__accepts_time_sync_along_with_status_code_update__
     assert_serial_packet_is_expected(
         updated_status_beacon,
         SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
-        additional_bytes=convert_to_status_code_bytes(SERIAL_COMM_IDLE_READY_CODE),
+        additional_bytes=convert_to_status_code_bytes(SERIAL_COMM_OKAY_CODE),
         timestamp=(expected_time_usecs + spied_get_us.spy_return),
     )
 

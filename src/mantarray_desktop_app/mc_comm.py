@@ -45,13 +45,11 @@ from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_DATA_SAMPLE_LENGTH_BYTES
 from .constants import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
-from .constants import SERIAL_COMM_FATAL_ERROR_CODE
 from .constants import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_GET_METADATA_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
-from .constants import SERIAL_COMM_IDLE_READY_CODE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
@@ -62,6 +60,7 @@ from .constants import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
+from .constants import SERIAL_COMM_OKAY_CODE
 from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
@@ -71,7 +70,6 @@ from .constants import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
-from .constants import SERIAL_COMM_SOFT_ERROR_CODE
 from .constants import SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE
 from .constants import SERIAL_COMM_START_STIM_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
@@ -90,9 +88,7 @@ from .exceptions import FirmwareUpdateCommandFailedError
 from .exceptions import FirmwareUpdateTimeoutError
 from .exceptions import InstrumentDataStreamingAlreadyStartedError
 from .exceptions import InstrumentDataStreamingAlreadyStoppedError
-from .exceptions import InstrumentFatalError
 from .exceptions import InstrumentRebootTimeoutError
-from .exceptions import InstrumentSoftError
 from .exceptions import InvalidCommandFromMainError
 from .exceptions import SamplingPeriodUpdateWhileDataStreamingError
 from .exceptions import SerialCommCommandResponseTimeoutError
@@ -886,13 +882,10 @@ class McCommunicationProcess(InstrumentCommProcess):
             )
         status_code = int.from_bytes(packet_body[:SERIAL_COMM_STATUS_CODE_LENGTH_BYTES], byteorder="little")
         self._log_status_code(status_code, "Status Beacon")
-        if status_code == SERIAL_COMM_FATAL_ERROR_CODE:
-            raise InstrumentFatalError()
         if status_code == SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE:
+            # TODO figure out if this branch should be removed
             raise SerialCommHandshakeTimeoutError()
-        if status_code == SERIAL_COMM_SOFT_ERROR_CODE:
-            raise InstrumentSoftError()
-        elif status_code == SERIAL_COMM_IDLE_READY_CODE:
+        elif status_code == SERIAL_COMM_OKAY_CODE:
             if self._auto_get_metadata:
                 self._send_data_packet(
                     board_idx,

@@ -46,14 +46,12 @@ from .constants import SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
-from .constants import SERIAL_COMM_FATAL_ERROR_CODE
 from .constants import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_GET_METADATA_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS
-from .constants import SERIAL_COMM_IDLE_READY_CODE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
@@ -63,6 +61,7 @@ from .constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
 from .constants import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from .constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
+from .constants import SERIAL_COMM_OKAY_CODE
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_REBOOT_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
@@ -299,7 +298,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._time_of_last_comm_from_pc_secs = None
         self._reset_start_time()
         self._reboot_time_secs = None
-        self._status_code = SERIAL_COMM_IDLE_READY_CODE
+        self._status_code = SERIAL_COMM_OKAY_CODE
         self._baseline_time_us = None
         self._timepoint_of_time_sync_us = None
         self._sampling_period_us = DEFAULT_SAMPLING_PERIOD
@@ -308,7 +307,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._firmware_update_idx = None
         self._firmware_update_bytes = None
         if reboot:
-            self._status_code = SERIAL_COMM_IDLE_READY_CODE
+            self._status_code = SERIAL_COMM_OKAY_CODE
             if self._firmware_update_type is not None:
                 packet_type = (
                     SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE
@@ -418,18 +417,15 @@ class MantarrayMcSimulator(InfiniteProcess):
         """Ordered actions to perform each iteration.
 
         1. Handle any test communication. This must be done first since test comm may cause the simulator to enter a certain state or send a data packet. Test communication should also be processed regardless of the internal state of the simulator.
-        2. Check if the simulator is in a fatal error state. If this is the case, the simulator should suspend all other functionality. Currently this state can only be reached through testing commands.
-        3. Check if rebooting. The simulator should not be responsive to any commands from the PC while it is rebooting.
-        4. Handle communication from the PC.
-        5. Send a status beacon if enough time has passed since the previous one was sent.
-        6. If streaming is on, check to see how many data packets are ready to be sent and send them if necessary.
-        7. If stimulating, send any stimulation data packets that need to be sent.
-        8. Check if the handshake from the PC is overdue. This should be done after checking for data sent from the PC since the next packet might be a handshake.
-        9. Check if the barcode is ready to send. This is currently the lowest priority.
+        2. Check if rebooting. The simulator should not be responsive to any commands from the PC while it is rebooting.
+        3. Handle communication from the PC.
+        4. Send a status beacon if enough time has passed since the previous one was sent.
+        5. If streaming is on, check to see how many data packets are ready to be sent and send them if necessary.
+        6. If stimulating, send any stimulation data packets that need to be sent.
+        7. Check if the handshake from the PC is overdue. This should be done after checking for data sent from the PC since the next packet might be a handshake.
+        8. Check if the barcode is ready to send. This is currently the lowest priority.
         """
         self._handle_test_comm()
-        if self._status_code == SERIAL_COMM_FATAL_ERROR_CODE:
-            return
 
         if self.is_rebooting():  # Tanner (1/24/22): currently checks if self._reboot_time_secs is not None
             secs_since_reboot = _get_secs_since_reboot_command(self._reboot_time_secs)  # type: ignore
@@ -684,11 +680,6 @@ class MantarrayMcSimulator(InfiniteProcess):
             if baseline_time is not None:
                 self._baseline_time_us = baseline_time
                 self._timepoint_of_time_sync_us = _perf_counter_us()
-            # Tanner (4/12/21): simulator has no other way of reaching this state since it has no physical components that can break, so this is the only way to reach this state and the status beacon should be sent automatically
-            if status_code == SERIAL_COMM_FATAL_ERROR_CODE:
-                self._send_data_packet(
-                    SERIAL_COMM_STATUS_BEACON_PACKET_TYPE, convert_to_status_code_bytes(self._status_code)
-                )
         elif command == "set_data_streaming_status":
             self._sampling_period_us = test_comm.get("sampling_period", DEFAULT_SAMPLING_PERIOD)
             self._is_streaming_data = test_comm["data_streaming_status"]

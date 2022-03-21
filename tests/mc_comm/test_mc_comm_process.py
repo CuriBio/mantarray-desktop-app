@@ -5,10 +5,8 @@ from multiprocessing import Queue
 
 from freezegun import freeze_time
 from mantarray_desktop_app import create_data_packet
-from mantarray_desktop_app import MantarrayInstrumentError
 from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import McCommunicationProcess
-from mantarray_desktop_app import SERIAL_COMM_FATAL_ERROR_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
@@ -299,53 +297,6 @@ def test_McCommunicationProcess_teardown_after_loop__sends_reboot_command_if_err
     else:
         reboot_command_bytes = create_data_packet(spied_timestamp.spy_return, SERIAL_COMM_REBOOT_PACKET_TYPE)
         spied_write.assert_called_once_with(reboot_command_bytes)
-
-
-def test_McCommunicationProcess_teardown_after_loop__handles_fatal_instrument_error(
-    patch_print, four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
-):
-    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
-    output_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
-    simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
-    set_connection_and_register_simulator(
-        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
-    )
-
-    mocked_write = mocker.patch.object(simulator, "write", autospec=True)
-
-    # put simulator in error state before sending beacon
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "set_status_code", "status_code": SERIAL_COMM_FATAL_ERROR_CODE}, testing_queue
-    )
-    invoke_process_run_and_check_errors(simulator)
-    # add one beacon for mc_process to read normally
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "send_single_beacon"},
-        testing_queue,
-    )
-    invoke_process_run_and_check_errors(simulator)
-    # add read bytes to flush from simulator
-    test_read_bytes = [
-        bytes(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES),
-        bytes(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES),
-        bytes(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES // 2),  # arbitrary final length
-    ]
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "add_read_bytes", "read_bytes": test_read_bytes}, testing_queue
-    )
-    invoke_process_run_and_check_errors(simulator)
-    # read beacon, raise, error, then flush remaining serial data
-    with pytest.raises(MantarrayInstrumentError):
-        invoke_process_run_and_check_errors(
-            mc_process,
-            perform_teardown_after_loop=True,
-        )
-    # check that all data was flushed here
-    assert simulator.in_waiting == 0
-    # check that no commands were sent
-    mocked_write.assert_not_called()
-    drain_queue(output_queue)
 
 
 @pytest.mark.slow

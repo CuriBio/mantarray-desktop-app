@@ -3,7 +3,6 @@ import random
 from random import randint
 from zlib import crc32
 
-from mantarray_desktop_app import convert_to_status_code_bytes
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
@@ -16,19 +15,18 @@ from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_FAILURE_BYTE
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_SUCCESS_BYTE
 from mantarray_desktop_app import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
-from mantarray_desktop_app import SERIAL_COMM_FATAL_ERROR_CODE
 from mantarray_desktop_app import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_GET_METADATA_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS
-from mantarray_desktop_app import SERIAL_COMM_IDLE_READY_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
+from mantarray_desktop_app import SERIAL_COMM_OKAY_CODE
 from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
@@ -243,7 +241,7 @@ def test_MantarrayMcSimulator__discards_commands_from_pc_during_reboot_period__a
     assert_serial_packet_is_expected(
         status_beacon,
         SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
-        SERIAL_COMM_IDLE_READY_CODE.to_bytes(SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little"),
+        SERIAL_COMM_OKAY_CODE.to_bytes(SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little"),
     )
 
     # test that start time was reset
@@ -362,7 +360,7 @@ def test_MantarrayMcSimulator__raises_error_if_too_many_consecutive_handshake_pe
         invoke_process_run_and_check_errors(simulator)
 
 
-def test_MantarrayMcSimulator__switches_from_idle_ready_status_to_magic_word_timeout_status_if_magic_word_not_detected_within_timeout_period(
+def test_MantarrayMcSimulator__switches_from_ok_status_to_magic_word_timeout_status_if_magic_word_not_detected_within_timeout_period(
     mantarray_mc_simulator, mocker
 ):
     simulator = mantarray_mc_simulator["simulator"]
@@ -377,51 +375,15 @@ def test_MantarrayMcSimulator__switches_from_idle_ready_status_to_magic_word_tim
         ],
     )
 
-    test_command = {
-        "command": "set_status_code",
-        "status_code": SERIAL_COMM_IDLE_READY_CODE,
-    }
+    test_command = {"command": "set_status_code", "status_code": SERIAL_COMM_OKAY_CODE}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, testing_queue)
     simulator.write(TEST_HANDSHAKE)
     # confirm idle ready and process handshake
     invoke_process_run_and_check_errors(simulator, num_iterations=2)
-    assert simulator.get_status_code() == SERIAL_COMM_IDLE_READY_CODE
+    assert simulator.get_status_code() == SERIAL_COMM_OKAY_CODE
     # confirm magic word timeout
     invoke_process_run_and_check_errors(simulator)
     assert simulator.get_status_code() == SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
-
-
-def test_MantarrayMcSimulator__when_in_fatal_error_state__does_not_respond_to_commands_or_send_any_packets(
-    mantarray_mc_simulator_no_beacon, mocker
-):
-    simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
-
-    mocker.patch.object(  # patch so simulator will always think it is ready to send status beacon
-        mc_simulator,
-        "_get_secs_since_last_status_beacon",
-        autospec=True,
-        return_value=SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS,
-    )
-
-    # put simulator in fatal error state
-    test_command = {
-        "command": "set_status_code",
-        "status_code": SERIAL_COMM_FATAL_ERROR_CODE,
-    }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, testing_queue)
-    # send a handshake
-    simulator.write(TEST_HANDSHAKE)
-    # run simulator to make sure the only data packet sent back to PC is a status beacon
-    invoke_process_run_and_check_errors(simulator)
-    status_beacon_size = get_full_packet_size_from_packet_body_size(SERIAL_COMM_STATUS_CODE_LENGTH_BYTES)
-    status_beacon = simulator.read(size=status_beacon_size)
-    assert_serial_packet_is_expected(
-        status_beacon,
-        SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
-        additional_bytes=convert_to_status_code_bytes(SERIAL_COMM_FATAL_ERROR_CODE),
-    )
-    assert simulator.in_waiting == 0
 
 
 def test_MantarrayMcSimulator__processes_start_data_streaming_command(
@@ -873,4 +835,4 @@ def test_MantarrayMcSimulator__sends_firmware_update_complete_message_after_rebo
     invoke_process_run_and_check_errors(simulator)
     assert simulator.is_rebooting() is False
     # make sure status code is idle ready
-    assert simulator.get_status_code() == SERIAL_COMM_IDLE_READY_CODE
+    assert simulator.get_status_code() == SERIAL_COMM_OKAY_CODE
