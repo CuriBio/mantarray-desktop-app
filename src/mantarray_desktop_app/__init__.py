@@ -95,7 +95,6 @@ from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE
 from .constants import SERIAL_COMM_BAUD_RATE
 from .constants import SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
-from .constants import SERIAL_COMM_BOOT_UP_CODE
 from .constants import SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
@@ -104,14 +103,12 @@ from .constants import SERIAL_COMM_COMMAND_SUCCESS_BYTE
 from .constants import SERIAL_COMM_DATA_SAMPLE_LENGTH_BYTES
 from .constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from .constants import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
-from .constants import SERIAL_COMM_FATAL_ERROR_CODE
 from .constants import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_GET_METADATA_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS
-from .constants import SERIAL_COMM_IDLE_READY_CODE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
@@ -126,6 +123,7 @@ from .constants import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from .constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
+from .constants import SERIAL_COMM_OKAY_CODE
 from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
@@ -136,7 +134,6 @@ from .constants import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from .constants import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
-from .constants import SERIAL_COMM_SOFT_ERROR_CODE
 from .constants import SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE
 from .constants import SERIAL_COMM_START_STIM_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
@@ -148,7 +145,6 @@ from .constants import SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE
 from .constants import SERIAL_COMM_STOP_STIM_PACKET_TYPE
 from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
-from .constants import SERIAL_COMM_TIME_SYNC_READY_CODE
 from .constants import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from .constants import SERIAL_COMM_TIMESTAMP_EPOCH
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
@@ -197,9 +193,7 @@ from .exceptions import FirstManagedReadLessThanOneRoundRobinError
 from .exceptions import InstrumentCommIncorrectHeaderError
 from .exceptions import InstrumentDataStreamingAlreadyStartedError
 from .exceptions import InstrumentDataStreamingAlreadyStoppedError
-from .exceptions import InstrumentFatalError
 from .exceptions import InstrumentRebootTimeoutError
-from .exceptions import InstrumentSoftError
 from .exceptions import InvalidBeta2FlagOptionError
 from .exceptions import InvalidCommandFromMainError
 from .exceptions import InvalidCustomerAccountIDPasswordError
@@ -504,10 +498,8 @@ __all__ = [
     "SerialCommStatusBeaconTimeoutError",
     "InstrumentRebootTimeoutError",
     "SERIAL_COMM_STATUS_CODE_LENGTH_BYTES",
-    "SERIAL_COMM_IDLE_READY_CODE",
-    "SERIAL_COMM_TIME_SYNC_READY_CODE",
+    "SERIAL_COMM_OKAY_CODE",
     "SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE",
-    "SERIAL_COMM_BOOT_UP_CODE",
     "SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS",
     "SerialCommHandshakeTimeoutError",
     "convert_to_status_code_bytes",
@@ -515,11 +507,7 @@ __all__ = [
     "convert_to_timestamp_bytes",
     "get_serial_comm_timestamp",
     "SERIAL_COMM_TIMESTAMP_EPOCH",
-    "SERIAL_COMM_FATAL_ERROR_CODE",
-    "SERIAL_COMM_SOFT_ERROR_CODE",
     "MantarrayInstrumentError",
-    "InstrumentFatalError",
-    "InstrumentSoftError",
     "SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE",
     "SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE",
     "SERIAL_COMM_COMMAND_SUCCESS_BYTE",
