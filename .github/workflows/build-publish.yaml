@@ -60,7 +60,7 @@ jobs:
       - name: Convert Workflow Inputs to Env Vars
         run: |
           echo "RELEASE_CHANNEL=$(echo ${{github.event.inputs.release_channel || 'unstable'}})" >> $env:GITHUB_ENV
-          echo "API_ENDPOINT=$(echo ${{github.event.inputs.api_endpoint || 'test'}})" >> $env:GITHUB_ENV
+          echo "API_ENDPOINT=$(echo ${{github.event.inputs.api_endpoint || 'prod'}})" >> $env:GITHUB_ENV
 
       - name: Get Short Hash of Commit
         run: echo "GITHUB_SHA_SHORT=$(echo $env:GITHUB_SHA | cut -c 1-6)" >> $env:GITHUB_ENV
