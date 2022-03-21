@@ -276,6 +276,7 @@ from .process_monitor import MantarrayProcessesMonitor
 from .queue_container import MantarrayQueueContainer
 from .serial_comm_utils import convert_bytes_to_subprotocol_dict
 from .serial_comm_utils import convert_module_id_to_well_name
+from .serial_comm_utils import convert_status_code_bytes_to_dict
 from .serial_comm_utils import convert_stim_dict_to_bytes
 from .serial_comm_utils import convert_subprotocol_dict_to_bytes
 from .serial_comm_utils import convert_to_status_code_bytes
@@ -503,6 +504,7 @@ __all__ = [
     "SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS",
     "SerialCommHandshakeTimeoutError",
     "convert_to_status_code_bytes",
+    "convert_status_code_bytes_to_dict",
     "SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES",
     "convert_to_timestamp_bytes",
     "get_serial_comm_timestamp",

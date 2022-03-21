@@ -12,7 +12,6 @@ from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_GET_METADATA_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
-from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
@@ -24,7 +23,6 @@ from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import SerialCommCommandResponseTimeoutError
-from mantarray_desktop_app import SerialCommHandshakeTimeoutError
 from mantarray_desktop_app import SerialCommIncorrectChecksumFromInstrumentError
 from mantarray_desktop_app import SerialCommIncorrectChecksumFromPCError
 from mantarray_desktop_app import SerialCommIncorrectMagicWordFromMantarrayError
@@ -45,7 +43,6 @@ from ..fixtures_mc_simulator import DEFAULT_SIMULATOR_STATUS_CODE
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..helpers import confirm_queue_is_eventually_of_size
-from ..helpers import handle_putting_multiple_objects_into_empty_queue
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 __fixtures__ = [
@@ -412,29 +409,6 @@ def test_McCommunicationProcess__raises_error_if_status_beacon_not_received_in_a
         return_value=SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS,
     )
     with pytest.raises(SerialCommStatusBeaconTimeoutError):
-        invoke_process_run_and_check_errors(mc_process)
-
-
-def test_McCommunicationProcess__raises_error_if_handshake_timeout_status_code_received(
-    four_board_mc_comm_process_no_handshake,
-    mantarray_mc_simulator_no_beacon,
-    patch_print,
-):
-    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
-    simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
-    set_connection_and_register_simulator(
-        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
-    )
-
-    test_commands = [
-        {"command": "set_status_code", "status_code": SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE},
-        {"command": "send_single_beacon"},
-    ]
-    handle_putting_multiple_objects_into_empty_queue(test_commands, testing_queue)
-    invoke_process_run_and_check_errors(simulator, num_iterations=2)
-
-    with pytest.raises(SerialCommHandshakeTimeoutError):
         invoke_process_run_and_check_errors(mc_process)
 
 

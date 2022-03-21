@@ -327,7 +327,7 @@ def test_McCommunicationProcess__logs_status_codes_from_status_beacons(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
 
-    expected_status_code = 1234
+    expected_status_code = 123
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"command": "set_status_code", "status_code": expected_status_code}, testing_queue
     )
@@ -352,7 +352,7 @@ def test_McCommunicationProcess__logs_status_codes_from_handshake_responses(
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
     set_connection_and_register_simulator(four_board_mc_comm_process, mantarray_mc_simulator_no_beacon)
 
-    expected_status_code = 1234
+    expected_status_code = 123
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"command": "set_status_code", "status_code": expected_status_code}, testing_queue
     )
