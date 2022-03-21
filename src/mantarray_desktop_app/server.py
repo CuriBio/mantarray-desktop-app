@@ -566,11 +566,7 @@ def set_protocols() -> Response:
         return Response(status=f"400 Protocol assignments contain invalid protocol ID: {assigned_ids.pop()}")
 
     queue_command_to_main(
-        {
-            "communication_type": "stimulation",
-            "command": "set_protocols",
-            "stim_info": stim_info,
-        }
+        {"communication_type": "stimulation", "command": "set_protocols", "stim_info": stim_info}
     )
 
     # wait for process monitor to update stim info in shared values dictionary
@@ -606,11 +602,7 @@ def set_stim_status() -> Response:
         return Response(status="304 Status not updated")
 
     response = queue_command_to_main(
-        {
-            "communication_type": "stimulation",
-            "command": "set_stim_status",
-            "status": stim_status,
-        }
+        {"communication_type": "stimulation", "command": "set_stim_status", "status": stim_status}
     )
     return response
 
@@ -620,7 +612,7 @@ def start_recording() -> Response:
     """Tell the FileWriter to begin recording data to disk.
 
     Can be invoked by: curl http://localhost:4567/start_recording
-    curl http://localhost:4567/start_recording?active_well_indices=2,5,9&barcode=MA200440001&time_index=9600&is_hardware_test_recording=True
+    curl http://localhost:4567/start_recording?active_well_indices=2,5,9&barcode=ML2022001000&time_index=9600&is_hardware_test_recording=True
 
     Args:
         active_well_indices: [Optional, default=all 24] CSV of well indices to record from

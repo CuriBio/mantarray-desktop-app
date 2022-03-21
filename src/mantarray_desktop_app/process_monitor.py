@@ -107,7 +107,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         super()._report_fatal_error(the_err)
         stack_trace = get_formatted_stack_trace(the_err)
         msg = f"Error raised by Process Monitor\n{stack_trace}\n{the_err}"
-        # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
+        # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
             logger.error(msg)
         if self._process_manager.are_subprocess_start_ups_complete():
@@ -146,14 +146,15 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 main_to_fw_queue.put_nowait(stop_managed_acquisition_comm)
                 main_to_ic_queue.put_nowait(stop_managed_acquisition_comm)
 
-        # Tanner (12/13/21): redact file path after handling comm in case the actual file path is needed
-        if "file_path" in communication:
-            communication["file_path"] = redact_sensitive_info_from_path(communication["file_path"])
-        msg = f"Communication from the File Writer: {communication}".replace(
-            r"\\",
-            "\\",  # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
-        )
-        # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
+        # Tanner (12/13/21): redact file/folder path after handling comm in case the actual file path is needed
+        for sensitive_field in ("file_path", "file_folder"):
+            if sensitive_field in communication:
+                communication[sensitive_field] = redact_sensitive_info_from_path(
+                    communication[sensitive_field]
+                )
+        # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
+        msg = f"Communication from the File Writer: {communication}".replace(r"\\", "\\")
+        # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
             logger.info(msg)
 
@@ -178,7 +179,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             msg = f"Communication from the Server: {comm_copy}"
         else:
             msg = f"Communication from the Server: {communication}"
-        # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
+        # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
             logger.info(msg)
 
@@ -200,7 +201,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         elif communication_type == "shutdown":
             command = communication["command"]
             if command == "hard_stop":
-                self._hard_stop_and_join_processes_and_log_leftovers(shutdown_server=False)
+                self._hard_stop_and_join_processes_and_log_leftovers(shutdown_server=False, error=False)
             elif command == "shutdown_server":
                 self._process_manager.shutdown_server()
             else:
@@ -215,10 +216,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
                 )
                 to_file_writer_queue.put_nowait(
-                    {
-                        "command": "update_directory",
-                        "new_directory": new_recording_directory,
-                    }
+                    {"command": "update_directory", "new_directory": new_recording_directory}
                 )
                 process_manager.set_file_directory(new_recording_directory)
             if "customer_account_id" in new_values["config_settings"]:
@@ -392,7 +390,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         except queue.Empty:
             return
 
-        # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
+        # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         msg = f"Communication from the Data Analyzer: {communication}"
         with self._lock:
             logger.info(msg)
@@ -448,11 +446,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
             comm_copy["mantarray_nickname"] = get_redacted_string(len(comm_copy["mantarray_nickname"]))
             msg = f"Communication from the Instrument Controller: {comm_copy}"
         else:
-            msg = f"Communication from the Instrument Controller: {communication}".replace(
-                r"\\",
-                "\\",  # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
-            )
-        # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
+            # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
+            msg = f"Communication from the Instrument Controller: {communication}".replace(r"\\", "\\")
+        # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
             logger.info(msg)
         communication_type = communication["communication_type"]
@@ -561,10 +557,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             else:
                 barcode_status = BARCODE_INVALID_UUID
 
-            board_barcode_dict = {
-                "plate_barcode": barcode,
-                "barcode_status": barcode_status,
-            }
+            board_barcode_dict = {"plate_barcode": barcode, "barcode_status": barcode_status}
             self._values_to_share_to_server["barcodes"][board_idx] = board_barcode_dict
             # send message to FE
             barcode_dict_copy = copy.deepcopy(board_barcode_dict)
@@ -787,10 +780,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             to_instrument_comm = process_manager.queue_container().get_communication_to_instrument_comm_queue(
                 board_idx
             )
-            barcode_poll_comm = {
-                "communication_type": "barcode_comm",
-                "command": "start_scan",
-            }
+            barcode_poll_comm = {"communication_type": "barcode_comm", "command": "start_scan"}
             to_instrument_comm.put_nowait(barcode_poll_comm)
             self._last_barcode_clear_time = _get_barcode_clear_time()
 
@@ -817,18 +807,12 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
     def _send_user_creds_prompt_message(self) -> None:
         self._queue_websocket_message(
-            {
-                "data_type": "prompt_user_input",
-                "data_json": json.dumps({"input_type": "customer_creds"}),
-            }
+            {"data_type": "prompt_user_input", "data_json": json.dumps({"input_type": "customer_creds"})}
         )
 
     def _send_enable_sw_auto_install_message(self) -> None:
         self._queue_websocket_message(
-            {
-                "data_type": "sw_update",
-                "data_json": json.dumps({"allow_software_update": True}),
-            }
+            {"data_type": "sw_update", "data_json": json.dumps({"allow_software_update": True})}
         )
 
     def _queue_websocket_message(self, message_dict: Dict[str, Any]) -> None:
@@ -842,7 +826,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
     ) -> None:
         this_err, this_stack_trace = error_communication
         msg = f"Error raised by subprocess {process}\n{this_stack_trace}\n{this_err}"
-        # Eli (2/12/20) is not sure how to test that a lock is being acquired...so be careful about refactoring this
+        # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
             logger.error(msg)
         if self._values_to_share_to_server["system_status"] in (
@@ -855,12 +839,17 @@ class MantarrayProcessesMonitor(InfiniteThread):
             shutdown_server = True
         self._hard_stop_and_join_processes_and_log_leftovers(shutdown_server=shutdown_server)
 
-    def _hard_stop_and_join_processes_and_log_leftovers(self, shutdown_server: bool = True) -> None:
+    def _hard_stop_and_join_processes_and_log_leftovers(
+        self, shutdown_server: bool = True, error: bool = True
+    ) -> None:
         process_items = self._process_manager.hard_stop_and_join_processes(shutdown_server=shutdown_server)
         msg = f"Remaining items in process queues: {process_items}"
-        # Tanner (5/21/20): is not sure how to test that a lock is being acquired...so be careful about refactoring this
+        # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
-            logger.error(msg)
+            if error:
+                logger.error(msg)
+            else:
+                logger.info(msg)
 
     def soft_stop(self) -> None:
         self._process_manager.soft_stop_and_join_processes()

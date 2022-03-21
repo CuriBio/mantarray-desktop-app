@@ -8,6 +8,7 @@ from mantarray_desktop_app import CLEARED_BARCODE_VALUE
 from mantarray_desktop_app import FIRMWARE_VERSION_WIRE_OUT_ADDRESS
 from mantarray_desktop_app import MantarrayFrontPanel
 from mantarray_desktop_app import MantarrayFrontPanelMixIn
+from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import START_BARCODE_SCAN_TRIG_BIT
 import pytest
 from xem_wrapper import FrontPanelSimulator
@@ -146,15 +147,15 @@ def test_MantarrayFrontPanel__get_barcode__calls_read_wire_out_correctly__and_re
     dummy_xem = okCFrontPanel()
     mantarray_fp = MantarrayFrontPanel(dummy_xem)
 
-    expected_barcode = "MA1901900000"
+    expected_barcode = RunningFIFOSimulator.default_barcode
 
     def get_wire_out_se(ep_addr):
         if ep_addr == BARCODE_SCANNER_TOP_WIRE_OUT_ADDRESS:
-            return 0x4D413139
+            return 0x4D4C3230
         if ep_addr == BARCODE_SCANNER_MID_WIRE_OUT_ADDRESS:
-            return 0x30313930
+            return 0x32313030
         if ep_addr == BARCODE_SCANNER_BOTTOM_WIRE_OUT_ADDRESS:
-            return 0x30303030
+            return 0x31303030
         return 0
 
     mocked_get_wire = mocker.patch.object(

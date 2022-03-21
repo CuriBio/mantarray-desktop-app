@@ -4,7 +4,6 @@ import json
 import os
 import shutil
 
-from mantarray_desktop_app import file_writer
 from mantarray_desktop_app import worker_thread
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
@@ -58,7 +57,6 @@ def test_FileWriterProcess__does_not_start_upload_thread_after_all_calibration_f
     )
     # mock so the functions don't actually run
     mocked_start_upload = mocker.patch.object(file_writer_process, "_start_new_file_upload", autospec=True)
-    mocker.patch.object(file_writer, "_finalize_file", autospec=True)
 
     file_writer_process._open_files[0][0] = mocker.MagicMock()  # pylint: disable=protected-access
     file_writer_process._customer_settings = {"key": "val"}
@@ -68,10 +66,7 @@ def test_FileWriterProcess__does_not_start_upload_thread_after_all_calibration_f
     mocked_start_upload.assert_not_called()
 
 
-@pytest.mark.parametrize(
-    "move_called, thread_error",
-    [(True, False), (False, True)],
-)
+@pytest.mark.parametrize("move_called, thread_error", [(True, False), (False, True)])
 def test_FileWriterProcess__exits_status_function_correctly_when_previously_failed_files_errors_or_passes(
     four_board_file_writer_process, move_called, thread_error, mocker
 ):
@@ -140,10 +135,7 @@ def test_FileWriterProcess__exits_status_function_correctly_when_newly_failed_fi
     assert len(file_writer_process.get_upload_threads_container()) == 0
 
 
-@pytest.mark.parametrize(
-    "auto_delete",
-    [True, False],
-)
+@pytest.mark.parametrize("auto_delete", [True, False])
 def test_FileWriterProcess__exits_status_function_correctly_when_newly_failed_files_passes_and_auto_delete_is_true_or_false(
     four_board_file_writer_process, auto_delete, mocker
 ):

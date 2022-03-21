@@ -262,8 +262,6 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
 
     print("\n*** BEGIN TEST ***")  # allow-print
 
-    mc_process.start()
-
     for command, response_key in COMMAND_RESPONSE_SEQUENCE:
         if not isinstance(command, str):
             for idx, sub_command in enumerate(command):

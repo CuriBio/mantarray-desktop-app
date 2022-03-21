@@ -1119,8 +1119,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                     assert this_file_attrs[str(UTC_BEGINNING_STIMULATION_UUID)] == str(
                         NOT_APPLICABLE_H5_METADATA
                     ), well_idx
-                # Tanner (1/12/21): The barcode used for testing (which is passed to start_recording route) is different than the simulator's barcode (the one that is 'scanned' in this test), so this should result to False
-                assert bool(this_file_attrs[str(BARCODE_IS_FROM_SCANNER_UUID)]) is False
+                assert bool(this_file_attrs[str(BARCODE_IS_FROM_SCANNER_UUID)]) is True
                 # test recorded magnetometer data
                 actual_time_index_data = get_time_index_dataset_from_file(this_file)
                 assert actual_time_index_data.shape == (num_recorded_data_points_1,)

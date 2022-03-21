@@ -158,6 +158,7 @@ from mantarray_desktop_app import STIM_NO_PROTOCOL_ASSIGNED
 from mantarray_desktop_app import StimStatuses
 from mantarray_desktop_app import STM_VID
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_desktop_app import SUBPROCESS_JOIN_TIMEOUT_SECONDS
 from mantarray_desktop_app import SUBPROCESS_POLL_DELAY_SECONDS
 from mantarray_desktop_app import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
@@ -420,6 +421,7 @@ def test_user_config():
 
 
 def test_shutdown_values():
+    assert SUBPROCESS_JOIN_TIMEOUT_SECONDS == 3
     assert SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS == 1
     assert SUBPROCESS_POLL_DELAY_SECONDS == 0.025
 

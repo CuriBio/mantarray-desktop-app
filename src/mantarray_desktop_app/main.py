@@ -242,10 +242,8 @@ def main(
     # Tanner (1/14/21): parsed_args_dict is only used to log the command line args at the moment, so initial_base64_settings can be deleted and log_file_dir can just be replaced here without affecting anything that actually needs the original value
 
     parsed_args_dict["log_file_dir"] = scrubbed_path_to_log_folder
-    msg = f"Command Line Args: {parsed_args_dict}".replace(
-        r"\\",
-        "\\",
-    )  # Tanner (1/14/21): Unsure why the back slashes are duplicated when converting the dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
+    # Tanner (1/14/21): Unsure why the back slashes are duplicated when converting the dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
+    msg = f"Command Line Args: {parsed_args_dict}".replace(r"\\", "\\")
     logger.info(msg)
     msg = f"Using directory for log files: {scrubbed_path_to_log_folder}"
     logger.info(msg)

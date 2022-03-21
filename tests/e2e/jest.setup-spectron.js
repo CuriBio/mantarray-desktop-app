@@ -4,7 +4,7 @@ const fs = require("fs");
 const yaml = require("js-yaml");
 
 const electron_nuxt_config_path = path.join(__dirname, "..", "..", ".electron-nuxt", "config");
-const electron_builder_config_path = path.join(__dirname, "..", "..", "electron-builder.yaml");
+const electron_builder_config_path = path.join(__dirname, "..", "..", "electron-builder-config", "jest.yaml");
 const package_path = path.join(__dirname, "..", "..", "package");
 
 const { DIST_DIR } = require(electron_nuxt_config_path);

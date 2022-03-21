@@ -9,13 +9,13 @@ from time import sleep
 from typing import Any
 from typing import Dict
 from typing import Optional
-from typing import Tuple
 from typing import Union
 
 from stdlib_utils import InfiniteProcess
 
 from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import INSTRUMENT_INITIALIZING_STATE
+from .constants import SUBPROCESS_JOIN_TIMEOUT_SECONDS
 from .constants import SUBPROCESS_POLL_DELAY_SECONDS
 from .constants import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
 from .data_analyzer import DataAnalyzerProcess
@@ -26,6 +26,16 @@ from .mc_comm import McCommunicationProcess
 from .ok_comm import OkCommunicationProcess
 from .queue_container import MantarrayQueueContainer
 from .server import ServerManager
+
+logger = logging.getLogger(__name__)
+
+
+def _process_can_be_joined(process: InfiniteProcess) -> bool:
+    return process.ident is not None
+
+
+def _process_failed_to_join(process: InfiniteProcess) -> bool:
+    return process.exitcode is None
 
 
 class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
@@ -50,7 +60,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         self._instrument_communication_process: InstrumentCommProcess
         self._file_writer_process: FileWriterProcess
         self._data_analyzer_process: DataAnalyzerProcess
-        self._all_processes: Optional[Tuple[InfiniteProcess, InfiniteProcess, InfiniteProcess]] = None
+        self._all_processes: Optional[Dict[str, InfiniteProcess]] = None
         self._subprocesses_started: bool = False
 
         self._file_directory: str = file_directory
@@ -128,16 +138,16 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             beta_2_mode=beta_2_mode,
         )
 
-        self._all_processes = (
-            self._instrument_communication_process,
-            self._file_writer_process,
-            self._data_analyzer_process,
-        )
+        self._all_processes = {
+            "Instrument Comm": self._instrument_communication_process,
+            "File Writer": self._file_writer_process,
+            "Data Analyzer": self._data_analyzer_process,
+        }
 
     def start_processes(self) -> Dict[str, int]:
         if self._all_processes is None:
             raise NotImplementedError("Processes must be created first.")
-        for iter_process in self._all_processes:
+        for iter_process in self._all_processes.values():
             iter_process.start()
         self._subprocesses_started = True
         return {
@@ -173,10 +183,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         }
         to_instrument_comm_queue.put_nowait(boot_up_dict)
 
-        start_up_dict = {
-            "communication_type": "xem_scripts",
-            "script_type": "start_up",
-        }
+        start_up_dict = {"communication_type": "xem_scripts", "script_type": "start_up"}
         to_instrument_comm_queue.put_nowait(start_up_dict)
 
         response_dict = {
@@ -188,7 +195,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
     def stop_processes(self) -> None:
         if self._all_processes is None:
             raise NotImplementedError("Processes must be created first.")
-        for iter_process in self._all_processes:
+        for iter_process in self._all_processes.values():
             iter_process.stop()
 
         self.get_server_manager().shutdown_server()
@@ -196,48 +203,19 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
     def soft_stop_processes(self) -> None:
         if self._all_processes is None:
             raise NotImplementedError("Processes must be created first.")
-        for iter_process in self._all_processes:
+        for iter_process in self._all_processes.values():
             iter_process.soft_stop()
         self.get_server_manager().shutdown_server()
 
-    def hard_stop_processes(self) -> Dict[str, Any]:
+    def hard_stop_processes(self, shutdown_server: bool = True) -> Dict[str, Any]:
         """Immediately stop subprocesses."""
+        logger.info("Hard stopping Instrument Comm Process")
         instrument_comm_items = self._instrument_communication_process.hard_stop()
+        logger.info("Hard stopping File Writer Process")
         file_writer_items = self._file_writer_process.hard_stop()
+        logger.info("Hard stopping Data Analyzer Process")
         data_analyzer_items = self._data_analyzer_process.hard_stop()
-        process_items = {
-            "instrument_comm_items": instrument_comm_items,
-            "file_writer_items": file_writer_items,
-            "data_analyzer_items": data_analyzer_items,
-        }
-
-        process_items.update(self.shutdown_server())
-
-        return process_items
-
-    def join_processes(self) -> None:
-        if self._all_processes is None:
-            raise NotImplementedError("Processes must be created first.")
-        for iter_process in self._all_processes:
-            if iter_process.ident is not None:
-                iter_process.join()
-
-    def soft_stop_and_join_processes(self) -> None:
-        self.soft_stop_processes()
-        self.join_processes()
-
-    def stop_and_join_processes(self) -> None:
-        self.stop_processes()
-        self.join_processes()
-
-    def hard_stop_and_join_processes(self, shutdown_server: bool = True) -> Dict[str, Any]:
-        """Hard stop all processes and return contents of their queues."""
-        instrument_comm_items = self._instrument_communication_process.hard_stop()
-        self._instrument_communication_process.join()
-        file_writer_items = self._file_writer_process.hard_stop()
-        self._file_writer_process.join()
-        data_analyzer_items = self._data_analyzer_process.hard_stop()
-        self._data_analyzer_process.join()
+        logger.info("All subprocesses hard stopped")
         process_items = {
             "instrument_comm_items": instrument_comm_items,
             "file_writer_items": file_writer_items,
@@ -249,7 +227,38 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
 
         return process_items
 
+    def join_processes(self) -> None:
+        if self._all_processes is None:
+            raise NotImplementedError("Processes must be created first.")
+        for process_name, iter_process in self._all_processes.items():
+            if _process_can_be_joined(iter_process):
+                logger.info(f"Joining {process_name} Process")
+                iter_process.join(SUBPROCESS_JOIN_TIMEOUT_SECONDS)
+                if _process_failed_to_join(iter_process):
+                    logger.error(f"Terminating {process_name} Process after unsuccessful join")
+                    iter_process.terminate()
+        logger.info("All subprocesses joined")
+
+    def soft_stop_and_join_processes(self) -> None:
+        self.soft_stop_processes()
+        self.join_processes()
+
+    def stop_and_join_processes(self) -> None:
+        self.stop_processes()
+        self.join_processes()
+
+    def hard_stop_and_join_processes(self, shutdown_server: bool = True) -> Dict[str, Any]:
+        """Hard stop all processes and return contents of their queues."""
+        process_items = self.hard_stop_processes(shutdown_server=False)
+        self.join_processes()
+
+        if shutdown_server:
+            process_items.update(self.shutdown_server())
+
+        return process_items
+
     def shutdown_server(self) -> Dict[str, Any]:
+        logger.info("Shutting down server")
         server_manager = self.get_server_manager()
         server_manager.shutdown_server()
         return {"server_items": server_manager.drain_all_queues()}
@@ -261,9 +270,9 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
     ) -> bool:
         """Check if processes are stopped."""
         start = perf_counter()
-        processes = self._all_processes
-        if processes is None:
+        if self._all_processes is None:
             raise NotImplementedError("Processes must be created first.")
+        processes = self._all_processes.values()
 
         are_stopped = all(p.is_stopped() for p in processes)
         while not are_stopped:
@@ -283,7 +292,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         """
         if self._all_processes is None:
             return False
-        for iter_process in self._all_processes:
+        for iter_process in self._all_processes.values():
             if not iter_process.is_start_up_complete():
                 return False
 

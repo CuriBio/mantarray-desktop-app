@@ -45,6 +45,7 @@ from mantarray_desktop_app import UPDATES_COMPLETE_STATE
 from mantarray_desktop_app import UPDATES_NEEDED_STATE
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.server import queue_command_to_instrument_comm
+from mantarray_desktop_app.utils import redact_sensitive_info_from_path
 import numpy as np
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
@@ -221,7 +222,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_instrument_comm(
     mocked_logger.assert_called_once_with(f"Communication from the Instrument Controller: {expected_comm}")
 
 
-def test_MantarrayProcessesMonitor__logs_messages_from_file_writer(
+def test_MantarrayProcessesMonitor__logs_messages_from_file_writer__and_redacts_sensitive_info(
     mocker, test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
@@ -233,15 +234,20 @@ def test_MantarrayProcessesMonitor__logs_messages_from_file_writer(
         test_process_manager.queue_container().get_communication_queue_from_file_writer_to_main()
     )
     expected_comm = {
-        "communication_type": "command_receipt",
-        "command": "stop_recording",
-        "timepoint_to_stop_recording_at": 223,
+        "communication_type": "test",
+        "file_path": r"Users\Mantarray\AppData\file_path",
+        "file_folder": r"Users\Mantarray\AppData\file_folder",
     }
-    file_writer_to_main.put_nowait(expected_comm)
+    file_writer_to_main.put_nowait(copy.deepcopy(expected_comm))
     assert is_queue_eventually_not_empty(file_writer_to_main) is True
     invoke_process_run_and_check_errors(monitor_thread)
     assert is_queue_eventually_empty(file_writer_to_main) is True
-    mocked_logger.assert_called_once_with(f"Communication from the File Writer: {expected_comm}")
+
+    expected_comm["file_path"] = redact_sensitive_info_from_path(expected_comm["file_path"])
+    expected_comm["file_folder"] = redact_sensitive_info_from_path(expected_comm["file_folder"])
+    mocked_logger.assert_called_once_with(
+        f"Communication from the File Writer: {expected_comm}".replace(r"\\", "\\")
+    )
 
 
 def test_MantarrayProcessesMonitor__logs_messages_from_data_analyzer(
@@ -416,6 +422,10 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
 
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
+
+    # mock since processes aren't actually started
+    mocker.patch.object(process_manager, "_process_can_be_joined", autospec=True, return_value=True)
+    mocker.patch.object(process_manager, "_process_failed_to_join", autospec=True, return_value=False)
 
     mocked_logger = mocker.patch.object(process_monitor.logger, "error", autospec=True)
 
@@ -1441,7 +1451,7 @@ def test_MantarrayProcessesMonitor__sends_two_barcode_poll_commands_to_OKComm_at
 @pytest.mark.parametrize(
     "expected_barcode,test_valid,expected_status,test_description",
     [
-        ("MA200190000", True, BARCODE_VALID_UUID, "stores new valid barcode"),
+        (RunningFIFOSimulator.default_barcode, True, BARCODE_VALID_UUID, "stores new valid barcode"),
         ("M$200190000", False, BARCODE_INVALID_UUID, "stores new invalid barcode"),
         ("", None, BARCODE_UNREADABLE_UUID, "stores no barcode"),
     ],
@@ -1494,7 +1504,7 @@ def test_MantarrayProcessesMonitor__stores_barcode_sent_from_instrument_comm__an
 @pytest.mark.parametrize(
     "expected_barcode,test_valid,expected_status,test_description",
     [
-        ("MA200190000", True, BARCODE_VALID_UUID, "updates to new valid barcode"),
+        (RunningFIFOSimulator.default_barcode, True, BARCODE_VALID_UUID, "updates to new valid barcode"),
         ("M$200190000", False, BARCODE_INVALID_UUID, "updates to new invalid barcode"),
         ("", None, BARCODE_UNREADABLE_UUID, "updates to no barcode"),
     ],
@@ -1554,7 +1564,7 @@ def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_instrument_
 @pytest.mark.parametrize(
     "expected_barcode,test_valid,test_update,test_description",
     [
-        ("MA200190000", True, False, "does not update to current valid barcode"),
+        (RunningFIFOSimulator.default_barcode, True, False, "does not update to current valid barcode"),
         ("M$200190000", False, True, "does not update to current invalid barcode"),
         ("", None, False, "does not update to current empty barcode"),
     ],

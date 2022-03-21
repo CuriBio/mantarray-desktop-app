@@ -1,12 +1,41 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-0.8.0 (2022-17-22)
+0.8.1 (2022-03-18)
+------------------
+
+Changed:
+^^^^^^^^
+
+- Accepted barcode headers are now ML and MS only.
+
+Fixed:
+^^^^^^
+
+- Various shutdown issues:
+
+  - Sporadic deadlock that caused process responsible for managing H5 files to never terminate
+    which caused file corruption.
+  - Main electron process exiting before logging in other processes completes.
+  - Instrument will now be instructed to reboot if an error occurs in the desktop app.
+
+- Tooltips for stim start/stop button when calibrating.
+- Folder path getting logged without username redacted.
+- Stim subprotocols not displaying correctly in live view when:
+
+  - Stopping stimulation
+  - Switching between well quadrants
+
+
+0.8.0 (2022-02-17)
 ------------------
 
 - Added initial Beta 2 barcode scanning functionality.
 - Changed 30 second recording time limit to 5 minutes.
+- Changed Additional Controls to be disabled until instrument is calibrated.
+- Fixed issue with dropped data samples causing large spikes in Live View.
 - Fixed issue that allowed transition into Live View directly from Calibrated state.
+- Fixed issue that allowed calibration and stimulation to run simultaneously.
 - Fixed performance tracking of process responsible for communications with the instrument.
 - Fixed issue with markers for long subprotocols not being displayed correctly in Live View.
 - Updated HeatMap:
@@ -23,7 +52,6 @@ Changelog for Mantarray Desktop App
 - Updated Stim Studio:
 
   - Added dropdown menu to switch the x-axis units between ms and seconds.
-  - Changed subprotocols by double-clicking the block instead of Shift + Click.
   - Updated the delete protocol modal to match existing modals.
 
 
@@ -95,6 +123,8 @@ Changelog for Mantarray Desktop App
 
   - **Note**: Beta 2 force values/metrics are currently in arbitrary units for Live View and Heat Map.
 
+- Added higher priority of process that communicates with instrument in attempt to fix issue with
+  Live View running for too long.
 - Added stimulation subprotocol markers in Live View.
 - Added stimulation subprotocol start times and stimulation stop time to H5 files.
 - Added following metadata to Beta 2 H5 files:
