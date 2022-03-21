@@ -112,7 +112,17 @@ def convert_semver_str_to_bytes(semver_str: str) -> bytes:
 
 
 def convert_to_status_code_bytes(status_code: int) -> bytes:
-    return status_code.to_bytes(SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little")
+    # simulator will only ever change byte 0 of status code
+    return bytes([status_code, 0, 0, 0])
+
+
+def convert_status_code_bytes_to_dict(status_code_bytes: bytes) -> Dict[str, int]:
+    if len(status_code_bytes) != SERIAL_COMM_STATUS_CODE_LENGTH_BYTES:
+        raise ValueError(
+            f"Status code bytes must have len of {SERIAL_COMM_STATUS_CODE_LENGTH_BYTES}, {len(status_code_bytes)} bytes given: {str(status_code_bytes)}"
+        )
+    status_code_labels = ("main", "channel", "index_of_thread_with_error", "TBD")
+    return {label: status_code_bytes[i] for i, label in enumerate(status_code_labels)}
 
 
 def convert_to_timestamp_bytes(timestamp: int) -> bytes:

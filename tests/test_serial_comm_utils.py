@@ -5,6 +5,7 @@ from zlib import crc32
 
 from freezegun import freeze_time
 from mantarray_desktop_app import convert_bytes_to_subprotocol_dict
+from mantarray_desktop_app import convert_status_code_bytes_to_dict
 from mantarray_desktop_app import convert_stim_dict_to_bytes
 from mantarray_desktop_app import convert_subprotocol_dict_to_bytes
 from mantarray_desktop_app import create_data_packet
@@ -21,11 +22,13 @@ from mantarray_desktop_app import STIM_NO_PROTOCOL_ASSIGNED
 from mantarray_desktop_app import validate_checksum
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
+from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from pulse3D.constants import BOOT_FLAGS_UUID
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
+import pytest
 
 from .fixtures import fixture_patch_print
 from .fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
@@ -108,6 +111,21 @@ def test_get_serial_comm_timestamp__returns_microseconds_since_2021_01_01():
     ) // datetime.timedelta(microseconds=1)
     actual = get_serial_comm_timestamp()
     assert actual == expected_usecs
+
+
+@pytest.mark.parametrize(
+    "test_len", [SERIAL_COMM_STATUS_CODE_LENGTH_BYTES - 1, SERIAL_COMM_STATUS_CODE_LENGTH_BYTES + 1]
+)
+def test_convert_status_code_bytes_to_dict__raises_error_if_given_value_does_not_expected_length_exactly(
+    test_len,
+):
+    test_bytes = bytes([randint(0, 255) for _ in range(test_len)])
+    with pytest.raises(ValueError) as exc_info:
+        convert_status_code_bytes_to_dict(test_bytes)
+    assert (
+        str(exc_info.value)
+        == f"Status code bytes must have len of {SERIAL_COMM_STATUS_CODE_LENGTH_BYTES}, {test_len} bytes given: {test_bytes}"
+    )
 
 
 def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__when_voltage_controlled_subprotocol_is_not_a_delay():

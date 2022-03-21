@@ -49,7 +49,6 @@ from .constants import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_GET_METADATA_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
-from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
 from .constants import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
@@ -92,7 +91,6 @@ from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import InvalidCommandFromMainError
 from .exceptions import SamplingPeriodUpdateWhileDataStreamingError
 from .exceptions import SerialCommCommandResponseTimeoutError
-from .exceptions import SerialCommHandshakeTimeoutError
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
 from .exceptions import SerialCommIncorrectChecksumFromPCError
 from .exceptions import SerialCommIncorrectMagicWordFromMantarrayError
@@ -113,6 +111,7 @@ from .firmware_downloader import get_latest_firmware_versions
 from .instrument_comm import InstrumentCommProcess
 from .mc_simulator import MantarrayMcSimulator
 from .serial_comm_utils import convert_semver_str_to_bytes
+from .serial_comm_utils import convert_status_code_bytes_to_dict
 from .serial_comm_utils import convert_stim_dict_to_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
 from .serial_comm_utils import create_data_packet
@@ -732,8 +731,8 @@ class McCommunicationProcess(InstrumentCommProcess):
                 )
             prev_command = self._commands_awaiting_response.popleft()
             if prev_command["command"] == "handshake":
-                status_code = int.from_bytes(response_data, byteorder="little")
-                self._log_status_code(status_code, "Handshake Response")
+                status_codes_dict = convert_status_code_bytes_to_dict(response_data)
+                self._log_status_codes(status_codes_dict, "Handshake Response")
                 return
             if prev_command["command"] == "get_metadata":
                 prev_command["board_index"] = board_idx
@@ -880,19 +879,17 @@ class McCommunicationProcess(InstrumentCommProcess):
                     "message": "Instrument completed reboot",
                 }
             )
-        status_code = int.from_bytes(packet_body[:SERIAL_COMM_STATUS_CODE_LENGTH_BYTES], byteorder="little")
-        self._log_status_code(status_code, "Status Beacon")
-        if status_code == SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE:
-            # TODO figure out if this branch should be removed
-            raise SerialCommHandshakeTimeoutError()
-        elif status_code == SERIAL_COMM_OKAY_CODE:
-            if self._auto_get_metadata:
-                self._send_data_packet(
-                    board_idx,
-                    SERIAL_COMM_GET_METADATA_PACKET_TYPE,
-                    convert_to_timestamp_bytes(get_serial_comm_timestamp()),
-                )
-                self._add_command_to_track({"communication_type": "metadata_comm", "command": "get_metadata"})
+        status_codes_dict = convert_status_code_bytes_to_dict(
+            packet_body[:SERIAL_COMM_STATUS_CODE_LENGTH_BYTES]
+        )
+        self._log_status_codes(status_codes_dict, "Status Beacon")
+        if status_codes_dict["main"] == SERIAL_COMM_OKAY_CODE and self._auto_get_metadata:
+            self._send_data_packet(
+                board_idx,
+                SERIAL_COMM_GET_METADATA_PACKET_TYPE,
+                convert_to_timestamp_bytes(get_serial_comm_timestamp()),
+            )
+            self._add_command_to_track({"communication_type": "metadata_comm", "command": "get_metadata"})
             self._auto_get_metadata = False
 
     def _register_magic_word(self, board_idx: int) -> None:
@@ -1124,8 +1121,8 @@ class McCommunicationProcess(InstrumentCommProcess):
         if update_dur_secs >= timeout_dur:
             raise FirmwareUpdateTimeoutError(self._firmware_update_type)
 
-    def _log_status_code(self, status_code: int, comm_type: str) -> None:
-        log_msg = f"{comm_type} received from instrument. Status Code: {status_code}"
+    def _log_status_codes(self, status_codes_dict: Dict[str, int], comm_type: str) -> None:
+        log_msg = f"{comm_type} received from instrument. Status Codes: {status_codes_dict}"
         put_log_message_into_queue(
             logging.INFO,
             log_msg,
