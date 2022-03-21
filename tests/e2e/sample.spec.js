@@ -49,8 +49,6 @@ const box_surrounding_version_number = {
   bottom: 910 + 12,
 };
 
-// const { test_with_Spectron } = require('vue-cli-plugin-electron-builder') // may only work with Vue 3 https://nklayman.github.io/vue-cli-plugin-electron-builder/guide/testingAndDebugging.html#testing
-
 let sandbox;
 
 /**

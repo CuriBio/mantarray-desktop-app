@@ -6,27 +6,27 @@ name: Release and Publish to s3
 on:
   workflow_dispatch:
     inputs:
-      release_tag:
-        description: "Release tag"
-        required: true
-        default: ""
       release_channel:
         description: "Release channel"
         required: true
-        default: "alpha"
-      randomlyseed:
-        description: "Pytest Randomly Seed"
-        required: false
-        default: ""
+        default: "unstable"
+        type: choice
+        options:
+          - unstable
+          - alpha
+          - beta
       api_endpoint:
         description: "Cloud API endpoint"
         required: true
-        default: "test"
+        default: "prod"
         type: choice
         options:
           - test
           - modl
           - prod
+  push:
+    branches:
+      - main
 jobs:
   test:
     strategy:
@@ -35,8 +35,7 @@ jobs:
         os:
           - "windows-2019"
         python-version:
-          - 3.8
-          # - 3.9 # Eli (12/10/20): Cython package is giving issues with Python 3.9 currently
+          - 3.8 # 3.9 # Eli (12/10/20): Cython package is giving issues with Python 3.9 currently
         node-version:
           - 14
         include:
@@ -58,27 +57,46 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Check release tag
+      - name: Get short hash of commit
+        run: echo "GITHUB_SHA_SHORT=$(echo $env:GITHUB_SHA | cut -c 1-6)" >> $env:GITHUB_ENV
+
+      - name: Get Version
+        id: software-version
+        uses: notiz-dev/github-action-json-property@v0.1.0
+        with:
+          path: "package.json"
+          prop_path: "version"
+
+      - name: Get Product Name
+        id: product-name
+        uses: notiz-dev/github-action-json-property@v0.1.0
+        with:
+          path: "package.json"
+          prop_path: "name"
+
+      - name: Check release tag (If not unstable)
         id: check-tag
+        if: github.event.inputs.release_channel != 'unstable'
         run: |
           git fetch --tags
-          echo "::set-output name=TAG::$(git tag -l ${{ github.event.inputs.release_tag }})"
+          echo "::set-output name=TAG::$(git tag -l ${{ steps.software-version.outputs.prop }})"
 
       - name: Init git config
         run: |
           git config user.name "GitHub Actions"
           git config user.email noreply@github.com
 
-      - name: Create release tag
-        if: steps.check-tag.outputs.TAG == ''
+      - name: Create release tag (If not unstable)
+        if: github.event.inputs.release_channel != 'unstable' && steps.check-tag.outputs.TAG == ''
         run: |
-          git tag -a ${{github.event.inputs.release_tag}} -m "release ${{ github.event.inputs.release_tag }}"
-          git push origin ${{github.event.inputs.release_tag}}
+          git tag -a ${{steps.software-version.outputs.prop}} -m "release ${{ steps.software-version.outputs.prop }}"
+          git push origin ${{steps.software-version.outputs.prop}}
 
-      - name: Checkout tag
+      - name: Checkout tag (If not unstable)
+        if: github.event.inputs.release_channel != 'unstable'
         run: |
           git fetch --tags
-          git checkout tags/${{github.event.inputs.release_tag}}
+          git checkout tags/${{steps.software-version.outputs.prop}}
 
       - name: Set up Python
         uses: actions/setup-python@v2
@@ -116,23 +134,10 @@ jobs:
           key: ${{ matrix.os }}-${{ matrix.python-version }}-build-${{ env.cache-name }}-${{ hashFiles('**/Pipfile.lock') }}
           restore-keys: |
             ${{ matrix.os }}-${{ matrix.python-version }}-build-${{ env.cache-name }}-
+
       - name: Display Chrome version (Windows)
         if: runner.os == 'Windows'
         run: (Get-Item (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe').'(Default)').VersionInfo
-
-      - name: Get Version
-        id: software-version
-        uses: notiz-dev/github-action-json-property@v0.1.0
-        with:
-          path: "package.json"
-          prop_path: "version"
-
-      - name: Get Product Name
-        id: product-name
-        uses: notiz-dev/github-action-json-property@v0.1.0
-        with:
-          path: "package.json"
-          prop_path: "name"
 
       - name: Display Extracted Software Version and Product Name
         run: |
@@ -173,16 +178,6 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_USER_SECRET_KEY }}
         run: pipenv run python .github/workflows/run_s3_download.py
 
-      # - name: Download the VCN Notarizer and Login
-      #   if: matrix.IS_DEPLOYMENT_CONFIG == true
-      #   env:
-      #     AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_USER_ACCESS_KEY }}
-      #     AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_USER_SECRET_KEY }}
-      #   run: |
-      #     pipenv run python .github/workflows/vcn.py download
-      #     .\vcn --version
-      #     pipenv run python .github/workflows/vcn.py login
-
       - name: Insert the Build Number and Software Version into the code (Windows)
         if: runner.os == 'Windows'
         env:
@@ -196,32 +191,20 @@ jobs:
       - name: Compile the Python Executable
         run: pipenv run pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=dist-python --workpath=build-python
 
-      # - name: Digitally Signing the EXE bundled by pyinstaller before it gets packaged into the built Electron app
-      #   if: matrix.IS_DEPLOYMENT_CONFIG == true
-      #   env:
-      #     AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_USER_ACCESS_KEY }}
-      #     AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_USER_SECRET_KEY }}
-      #   run: |
-      #     pipenv run python .github/workflows/vcn.py notarize "dist-python/mantarray-flask/mantarray-flask.exe"
-      #     pipenv run python .github/workflows/vcn.py authenticate "dist-python/mantarray-flask/mantarray-flask.exe"
-
       - name: Build Full Electron App
         run: pipenv run npm run build-${{github.event.inputs.release_channel}}
 
-      # - name: Digitally Signing the installation and win_unpacked EXE files
-      #   if: matrix.IS_DEPLOYMENT_CONFIG == true
-      #   env:
-      #     AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_USER_ACCESS_KEY }}
-      #     AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_USER_SECRET_KEY }}
-      #   run: |
-      #     pipenv run python .github/workflows/vcn.py notarize "dist/${{steps.product-name.outputs.prop}}-Setup-${{github.event.inputs.release_channel}}-${{steps.software-version.outputs.prop}}.exe"
-      #     pipenv run python .github/workflows/vcn.py notarize "dist/win-unpacked/Mantarray Controller.exe"
-      #     pipenv run python .github/workflows/vcn.py authenticate "dist/${{steps.product-name.outputs.prop}}-Setup-${{github.event.inputs.release_channel}}-${{steps.software-version.outputs.prop}}.exe"
-      #     pipenv run python .github/workflows/vcn.py authenticate "dist/win-unpacked/Mantarray Controller.exe"
-
-      - name: S3 Publisher
-        if: matrix.IS_DEPLOYMENT_CONFIG == true
+      - name: S3 Publisher (If not unstable)
+        if: github.event.inputs.release_channel != 'unstable' && matrix.IS_DEPLOYMENT_CONFIG == true
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_GIT_PUBLISH_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_GIT_PUBLISH_SECRET_KEY }}
-        run: pipenv run node s3_publish.js --file="${{steps.product-name.outputs.prop}}-Setup-${{github.event.inputs.release_channel}}-${{steps.software-version.outputs.prop}}.exe" --buildDir=./dist/ --channel=${{github.event.inputs.release_channel}}
+        run: pipenv run node s3_publish.js --file="${{steps.product-name.outputs.prop}}-Setup-${{github.event.inputs.release_channel}}-${{steps.software-version.outputs.prop}}.exe" --buildDir=./dist --channel=${{github.event.inputs.release_channel}}
+
+      - name: S3 Publisher (If unstable)
+        if: github.event.inputs.release_channel == 'unstable' && matrix.IS_DEPLOYMENT_CONFIG == true
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_GIT_PUBLISH_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_GIT_PUBLISH_SECRET_KEY }}
+        run: |
+          pipenv run node s3_publish.js --file="${{steps.product-name.outputs.prop}}-Setup-${{github.event.inputs.release_channel}}-${{steps.software-version.outputs.prop}}-${{env.GITHUB_SHA_SHORT}}.exe" --buildDir=./dist --channel=${{github.event.inputs.release_channel}}

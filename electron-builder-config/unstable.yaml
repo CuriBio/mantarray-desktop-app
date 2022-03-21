@@ -1,0 +1,26 @@
+# https://www.electron.build/configuration/configuration#configuration
+productName: "Mantarray Controller"
+appId: "CuriBio.Mantarray.Controller"
+asar: true
+directories:
+  buildResources: "electron-build-resources"
+  output: "dist"
+extraFiles:
+  - "dist-python/"
+files:
+  - "package.json"
+  - from: "dist/main/"
+    to: "dist/main/"
+  - from: "dist/renderer/"
+    to: "dist/renderer/"
+  - from: "src/resources/"
+    to: "dist/resources/"
+win:
+  target: "nsis"
+  artifactName: "MantarrayController-Setup-unstable-${version}-${env.GITHUB_SHA_SHORT}.${ext}"
+publish:
+  provider: "s3"
+  bucket: "downloads.curibio.com"
+  path: "software"
+  channel: "unstable"
+  region: "us-east-1"

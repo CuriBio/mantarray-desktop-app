@@ -183,16 +183,6 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_USER_SECRET_KEY }}
         run: pipenv run python .github/workflows/run_s3_download.py
 
-      # - name: Download the VCN Notarizer and Login
-      #   if: matrix.IS_DEPLOYMENT_CONFIG == true
-      #   env:
-      #     AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_USER_ACCESS_KEY }}
-      #     AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_USER_SECRET_KEY }}
-      #   run: |
-      #     pipenv run python .github/workflows/vcn.py download
-      #     .\vcn --version
-      #     pipenv run python .github/workflows/vcn.py login
-
       - name: Run Python Tests with randomly generated seed
         if: github.event.inputs.randomlyseed == ''
         timeout-minutes: 40
@@ -249,15 +239,6 @@ jobs:
         if: github.event.inputs.randomlyseed != ''
         run: pipenv run pytest tests/test_exe.py -xsvv --only-exe --no-cov --randomly-seed=${{ github.event.inputs.randomlyseed }}
 
-      # - name: Digitally Signing the EXE bundled by pyinstaller before it gets packaged into the built Electron app
-      #   if: matrix.IS_DEPLOYMENT_CONFIG == true
-      #   env:
-      #     AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_USER_ACCESS_KEY }}
-      #     AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_USER_SECRET_KEY }}
-      #   run: |
-      #     pipenv run python .github/workflows/vcn.py notarize "dist-python/mantarray-flask/mantarray-flask.exe"
-      #     pipenv run python .github/workflows/vcn.py authenticate "dist-python/mantarray-flask/mantarray-flask.exe"
-
       - name: Build Full Electron App
         run: pipenv run npm run build
 
@@ -274,29 +255,10 @@ jobs:
           name: codecov-umbrella
           fail_ci_if_error: true
 
-      # - name: Run E2E Tests
-      #   uses: GabrielBB/xvfb-action@v1.0 # from https://github.com/hypergraph-xyz/desktop/blob/main/.github/workflows/ci.yml
-      #   # if: runner.os == 'Linux'
-      #   # env:
-      #   #   DISPLAY: ":99.0"
-      #   with:
-      #     run: pipenv run npm run test:e2e-no-prebuild
-
       - name: Run E2E Tests (Windows)
         timeout-minutes: 3
         if: runner.os == 'Windows'
         run: pipenv run npm run test:e2e-ci
-
-      # - name: Digitally Signing the installation and win_unpacked EXE files
-      #   if: matrix.IS_DEPLOYMENT_CONFIG == true
-      #   env:
-      #     AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_USER_ACCESS_KEY }}
-      #     AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_USER_SECRET_KEY }}
-      #   run: |
-      #     pipenv run python .github/workflows/vcn.py notarize "dist/${{steps.product-name.outputs.prop}}-Setup-${{steps.software-version.outputs.prop}}.exe"
-      #     pipenv run python .github/workflows/vcn.py notarize "dist/win-unpacked/Mantarray Controller.exe"
-      #     pipenv run python .github/workflows/vcn.py authenticate "dist/${{steps.product-name.outputs.prop}}-Setup-${{steps.software-version.outputs.prop}}.exe"
-      #     pipenv run python .github/workflows/vcn.py authenticate "dist/win-unpacked/Mantarray Controller.exe"
 
       - name: Archive visual regression
         if: ${{ failure() }}
