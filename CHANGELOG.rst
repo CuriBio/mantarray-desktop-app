@@ -1,6 +1,20 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+
+0.9.0 (unreleased)
+------------------
+
+Changed:
+^^^^^^^^
+
+- Serial communication protocol:
+
+  - Removed module ID from general packet structure.
+  - Removed ability to set magnetometer configuration.
+  - Misc. other minor changes.
+
+
 0.8.1 (2022-03-18)
 ------------------
 
@@ -28,12 +42,6 @@ Fixed:
 
   - Stopping stimulation
   - Switching between well quadrants
-
-- Serial communication protocol:
-
-  - Removed module ID from general packet structure.
-  - Removed ability to set magnetometer configuration.
-  - Misc. other minor changes.
 
 
 0.8.0 (2022-02-17)
