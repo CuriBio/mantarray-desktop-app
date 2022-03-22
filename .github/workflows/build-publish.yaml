@@ -15,6 +15,7 @@ on:
           - unstable
           - alpha
           - beta
+          - tenaya
       api_endpoint:
         description: "Cloud API endpoint"
         required: true
