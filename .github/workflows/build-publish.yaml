@@ -1,8 +1,6 @@
 # Based on https://github.com/prettier/prettier/blob/master/.github/workflows/dev-test.yml
 name: Release and Publish to s3
 
-# TODO (Eli 12/11/20): try and create a separate job for testing the exe that just transfers over the artifacts...somehow...will be hard since exe tests import things from the installed python package...but there were errors where it seemed like it ran in GitHub but then downloading and running locally it couldn't find the Cython imports when opening the EXE
-
 on:
   workflow_dispatch:
     inputs:
@@ -63,8 +61,11 @@ jobs:
           echo "RELEASE_CHANNEL=$(echo ${{github.event.inputs.release_channel || 'unstable'}})" >> $env:GITHUB_ENV
           echo "API_ENDPOINT=$(echo ${{github.event.inputs.api_endpoint || 'prod'}})" >> $env:GITHUB_ENV
 
-      - name: Get Short Hash of Commit
-        run: echo "GITHUB_SHA_SHORT=$(echo $env:GITHUB_SHA | cut -c 1-6)" >> $env:GITHUB_ENV
+      - name: Add prerelease SemVer component (if unstable)
+        if: env.RELEASE_CHANNEL == 'unstable'
+        run: |
+          ((Get-Content -path package.json -Raw) -replace '\n  "version": "(\d+\.\d+\.\d+)"', $("`n" + '  "version": "$1-pre.' + $(Get-Date -Format 'yyyyMMddHHmm') + '"')) | Set-Content -Path package.json
+          ((Get-Content -path package-lock.json -Raw) -replace '\n  "version": "(\d+\.\d+\.\d+)"', $("`n" + '  "version": "$1-pre.' + $(Get-Date -Format 'yyyyMMddHHmm') + '"')) | Set-Content -Path package-lock.json
 
       - name: Get Version
         id: software-version
@@ -200,17 +201,9 @@ jobs:
       - name: Build Full Electron App
         run: pipenv run npm run build-${{env.RELEASE_CHANNEL}}
 
-      - name: S3 Publisher (If not unstable)
+      - name: S3 Publisher
         if: env.RELEASE_CHANNEL != 'unstable' && matrix.IS_DEPLOYMENT_CONFIG == true
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_GIT_PUBLISH_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_GIT_PUBLISH_SECRET_KEY }}
         run: pipenv run node s3_publish.js --file="${{steps.product-name.outputs.prop}}-Setup-${{env.RELEASE_CHANNEL}}-${{steps.software-version.outputs.prop}}.exe" --buildDir=./dist --channel=${{env.RELEASE_CHANNEL}}
-
-      - name: S3 Publisher (If unstable)
-        if: env.RELEASE_CHANNEL == 'unstable' && matrix.IS_DEPLOYMENT_CONFIG == true
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_GIT_PUBLISH_ACCESS_KEY }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_GIT_PUBLISH_SECRET_KEY }}
-        run: |
-          pipenv run node s3_publish.js --file="${{steps.product-name.outputs.prop}}-Setup-${{env.RELEASE_CHANNEL}}-${{steps.software-version.outputs.prop}}-${{env.GITHUB_SHA_SHORT}}.exe" --buildDir=./dist --channel=${{env.RELEASE_CHANNEL}}
