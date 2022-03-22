@@ -11,10 +11,8 @@ from stdlib_utils import configure_logging
 from stdlib_utils import get_current_file_abs_directory
 from mantarray_desktop_app import get_latest_firmware
 
-# import PyInstaller.config # https://stackoverflow.com/questions/37319911/python-how-to-specify-output-folders-in-pyinstaller-spec-file?rq=1
+# https://stackoverflow.com/questions/37319911/python-how-to-specify-output-folders-in-pyinstaller-spec-file?rq=1
 
-# PyInstaller.config.CONF["distpath"] = "python-dist"
-# PyInstaller.config.CONF["workpath"] = "pyinstaller-build"
 use_upx = True
 
 configure_logging()
@@ -25,12 +23,6 @@ sys.modules["FixTk"] = None  # type: ignore
 PATH_OF_CURRENT_FILE = os.path.dirname((inspect.stack()[0][1]))
 LATEST_FIRMWARE_FILE = get_latest_firmware()
 print(f"Latest firmware file: {LATEST_FIRMWARE_FILE}")
-# print("Files in current directory (recursive):")
-# for root, dirs, files in os.walk("."):
-#     for name in files:
-#         print(os.path.join(root, name))
-#     for name in dirs:
-#         print(os.path.join(root, name))
 
 
 a = Analysis(  # type: ignore # noqa: F821     the 'Analysis' object is special to how pyinstaller reads the file

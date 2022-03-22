@@ -1,25 +1,35 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-0.8.1 (unreleased)
+0.8.1 (2022-03-18)
 ------------------
 
-- Changed accepted barcode headers to ML and MS.
-- Changed Beta 2 H5 file format version to 1.0.2. Format Changes:
+Changed:
+^^^^^^^^
+
+- Accepted barcode headers are now ML and MS only.
+- Beta 2 H5 file format version to 1.0.2. Format Changes:
 
   - Removed magnetometer configuration from metadata
 
-- Fixed various shutdown issues:
+Fixed:
+^^^^^^
 
-  - Changed shutdown procedure so that the instrument will be instructed to reboot if an error occurs
-    in the desktop app.
-  - Fixed issue with sporadic deadlock causing process responsible for closing H5 files to never terminate
+- Various shutdown issues:
+
+  - Sporadic deadlock that caused process responsible for managing H5 files to never terminate
     which caused file corruption.
-  - Fixed issue with main electron process exiting before logging in other processes completes.
+  - Main electron process exiting before logging in other processes completes.
+  - Instrument will now be instructed to reboot if an error occurs in the desktop app.
 
-- Fixed tooltips for stim start/stop button when calibrating.
-- Fixed issue with folder path getting logged without username redacted.
-- Updated serial communication protocol:
+- Tooltips for stim start/stop button when calibrating.
+- Folder path getting logged without username redacted.
+- Stim subprotocols not displaying correctly in live view when:
+
+  - Stopping stimulation
+  - Switching between well quadrants
+
+- Serial communication protocol:
 
   - Removed module ID from general packet structure.
   - Removed ability to set magnetometer configuration.
@@ -51,7 +61,6 @@ Changelog for Mantarray Desktop App
 - Updated Stim Studio:
 
   - Added dropdown menu to switch the x-axis units between ms and seconds.
-  - Changed subprotocols by double-clicking the block instead of Shift + Click.
   - Updated the delete protocol modal to match existing modals.
 
 
