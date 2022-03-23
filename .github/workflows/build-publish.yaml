@@ -202,7 +202,7 @@ jobs:
         run: pipenv run npm run build-${{env.RELEASE_CHANNEL}}
 
       - name: S3 Publisher
-        if: env.RELEASE_CHANNEL != 'unstable' && matrix.IS_DEPLOYMENT_CONFIG == true
+        if: matrix.IS_DEPLOYMENT_CONFIG == true
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_GIT_PUBLISH_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_GIT_PUBLISH_SECRET_KEY }}
