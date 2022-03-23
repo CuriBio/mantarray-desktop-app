@@ -363,6 +363,7 @@ def test_MantarrayMcSimulator__raises_error_if_too_many_consecutive_handshake_pe
 def test_MantarrayMcSimulator__switches_from_ok_status_to_magic_word_timeout_status_if_magic_word_not_detected_within_timeout_period(
     mantarray_mc_simulator, mocker
 ):
+    # TODO update this test
     simulator = mantarray_mc_simulator["simulator"]
     testing_queue = mantarray_mc_simulator["testing_queue"]
     mocker.patch.object(
