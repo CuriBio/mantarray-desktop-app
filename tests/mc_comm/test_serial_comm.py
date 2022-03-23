@@ -4,6 +4,7 @@ from random import randint
 from zlib import crc32
 
 from mantarray_desktop_app import create_data_packet
+from mantarray_desktop_app import FirmwareGoingDormantError
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
@@ -31,6 +32,7 @@ from mantarray_desktop_app import SerialCommPacketFromMantarrayTooSmallError
 from mantarray_desktop_app import SerialCommStatusBeaconTimeoutError
 from mantarray_desktop_app import SerialCommUntrackedCommandResponseError
 from mantarray_desktop_app import UnrecognizedSerialCommPacketTypeError
+from mantarray_desktop_app.constants import SERIAL_COMM_GOING_DORMANT_PACKET_TYPE
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
@@ -324,10 +326,40 @@ def test_McCommunicationProcess__sends_handshake_every_5_seconds__and_includes_c
     assert simulator.in_waiting == 0
 
 
-def test_McCommunicationProcess__raises_error_when_receiving_untracked_command_response_from_instrument(
+def test_McCommunicationProcess__raises_error_when_receiving_going_dormant_packet_from_instrument(
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
     mocker,
+    # patch_print,
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+
+    # have simulator send going dormant packet
+    test_reason = randint(0, 255)
+    test_command_response = create_data_packet(
+        randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE),
+        SERIAL_COMM_GOING_DORMANT_PACKET_TYPE,
+        bytes([test_reason]),
+    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "add_read_bytes", "read_bytes": test_command_response},
+        testing_queue,
+    )
+    invoke_process_run_and_check_errors(simulator)
+    # make sure error is raised
+    with pytest.raises(FirmwareGoingDormantError, match=str(test_reason)):
+        invoke_process_run_and_check_errors(mc_process)
+
+
+def test_McCommunicationProcess__raises_error_when_receiving_untracked_command_response_from_instrument(
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
     patch_print,
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]

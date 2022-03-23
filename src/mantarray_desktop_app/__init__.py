@@ -189,6 +189,7 @@ from .exceptions import BarcodeScannerNotRespondingError
 from .exceptions import CalibrationFilesMissingError
 from .exceptions import FirmwareDownloadError
 from .exceptions import FirmwareFileNameDoesNotMatchWireOutVersionError
+from .exceptions import FirmwareGoingDormantError
 from .exceptions import FirmwareUpdateCommandFailedError
 from .exceptions import FirmwareUpdateTimeoutError
 from .exceptions import FirstManagedReadLessThanOneRoundRobinError
@@ -607,4 +608,5 @@ __all__ = [
     "SERIAL_COMM_DATA_SAMPLE_LENGTH_BYTES",
     "SUBPROCESS_JOIN_TIMEOUT_SECONDS",
     "SERIAL_COMM_ERROR_PING_PONG_PACKET_TYPE",
+    "FirmwareGoingDormantError",
 ]

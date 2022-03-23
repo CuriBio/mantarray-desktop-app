@@ -47,6 +47,7 @@ from .constants import SERIAL_COMM_DATA_SAMPLE_LENGTH_BYTES
 from .constants import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_GET_METADATA_PACKET_TYPE
+from .constants import SERIAL_COMM_GOING_DORMANT_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
@@ -83,6 +84,7 @@ from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import STIM_COMPLETE_SUBPROTOCOL_IDX
 from .constants import STM_VID
 from .data_parsing_cy import handle_data_packets
+from .exceptions import FirmwareGoingDormantError
 from .exceptions import FirmwareUpdateCommandFailedError
 from .exceptions import FirmwareUpdateTimeoutError
 from .exceptions import InstrumentDataStreamingAlreadyStartedError
@@ -723,6 +725,9 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise NotImplementedError(
                 "Should never receive magnetometer data packets when not streaming data"
             )
+        elif packet_type == SERIAL_COMM_GOING_DORMANT_PACKET_TYPE:
+            going_dormant_reason = packet_body[0]
+            raise FirmwareGoingDormantError(going_dormant_reason)
         elif packet_type in COMMAND_PACKET_TYPES:
             response_data = packet_body
             if not self._commands_awaiting_response:

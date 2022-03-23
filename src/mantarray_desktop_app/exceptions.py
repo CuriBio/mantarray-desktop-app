@@ -244,3 +244,7 @@ class FirmwareDownloadError(Exception):
 
 class MantarrayInstrumentError(Exception):
     """Errors occurring on the Mantarray instrument itself."""
+
+
+class FirmwareGoingDormantError(Exception):
+    pass
