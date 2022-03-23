@@ -92,6 +92,7 @@ from mantarray_desktop_app import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_ERROR_PING_PONG_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_GET_METADATA_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_GOING_DORMANT_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS
@@ -486,6 +487,7 @@ def test_serial_comm():
     assert SERIAL_COMM_REBOOT_PACKET_TYPE == 2
     assert SERIAL_COMM_HANDSHAKE_PACKET_TYPE == 4
     assert SERIAL_COMM_PLATE_EVENT_PACKET_TYPE == 6
+    assert SERIAL_COMM_GOING_DORMANT_PACKET_TYPE == 10
     assert SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE == 20
     assert SERIAL_COMM_START_STIM_PACKET_TYPE == 21
     assert SERIAL_COMM_STOP_STIM_PACKET_TYPE == 22

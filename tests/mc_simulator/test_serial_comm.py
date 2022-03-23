@@ -4,6 +4,7 @@ from random import randint
 from zlib import crc32
 
 from mantarray_desktop_app import create_data_packet
+from mantarray_desktop_app import GOING_DORMANT_HANDSHAKE_TIMEOUT_CODE
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
@@ -17,9 +18,9 @@ from mantarray_desktop_app import SERIAL_COMM_COMMAND_SUCCESS_BYTE
 from mantarray_desktop_app import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_GET_METADATA_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_GOING_DORMANT_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
-from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
@@ -360,31 +361,35 @@ def test_MantarrayMcSimulator__raises_error_if_too_many_consecutive_handshake_pe
         invoke_process_run_and_check_errors(simulator)
 
 
-def test_MantarrayMcSimulator__switches_from_ok_status_to_magic_word_timeout_status_if_magic_word_not_detected_within_timeout_period(
-    mantarray_mc_simulator, mocker
+def test_MantarrayMcSimulator__sends_going_dormant_packet_if_initial_handshake_received_but_another_not_received_before_timeout(
+    mantarray_mc_simulator_no_beacon, mocker
 ):
-    # TODO update this test
-    simulator = mantarray_mc_simulator["simulator"]
-    testing_queue = mantarray_mc_simulator["testing_queue"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
     mocker.patch.object(
         mc_simulator,
         "_get_secs_since_last_comm_from_pc",
         autospec=True,
-        side_effect=[
-            SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS - 1,
-            SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS,
-        ],
+        return_value=SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS,
     )
 
-    test_command = {"command": "set_status_code", "status_code": SERIAL_COMM_OKAY_CODE}
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, testing_queue)
-    simulator.write(TEST_HANDSHAKE)
-    # confirm idle ready and process handshake
-    invoke_process_run_and_check_errors(simulator, num_iterations=2)
-    assert simulator.get_status_code() == SERIAL_COMM_OKAY_CODE
-    # confirm magic word timeout
+    # make sure timeout not sent before any comm received before PC
     invoke_process_run_and_check_errors(simulator)
-    assert simulator.get_status_code() == SERIAL_COMM_HANDSHAKE_TIMEOUT_CODE
+    assert simulator.in_waiting == 0
+    # process initial handshake, remove response
+    simulator.write(TEST_HANDSHAKE)
+    invoke_process_run_and_check_errors(simulator)
+    simulator.read_all()
+    # trigger timeout
+    invoke_process_run_and_check_errors(simulator)
+    additional_bytes = bytes([GOING_DORMANT_HANDSHAKE_TIMEOUT_CODE])
+    going_dormant_packet_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
+    going_dormant_packet = simulator.read(size=going_dormant_packet_size)
+    assert_serial_packet_is_expected(
+        going_dormant_packet, SERIAL_COMM_GOING_DORMANT_PACKET_TYPE, additional_bytes=additional_bytes
+    )
+    # run one more interation to make sure packet is not sent again
+    invoke_process_run_and_check_errors(simulator)
+    assert simulator.in_waiting == 0
 
 
 def test_MantarrayMcSimulator__processes_start_data_streaming_command(
