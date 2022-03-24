@@ -65,7 +65,7 @@
     "babel-plugin-syntax-jsx": "~6.18.0",
     "babel-preset-env": "~1.7.0",
     "browser-env": "~3.3.0",
-    "electron": "~9.4.1",
+    "electron": "~17.2.0",
     "electron-builder": "~22.9.1",
     "electron-debug": "~3.2.0",
     "electron-devtools-installer": "~3.1.1",
