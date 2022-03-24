@@ -15,9 +15,9 @@ from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
-from mantarray_desktop_app import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
-from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
-from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_PACKET_BASE_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_PACKET_REMAINDER_SIZE_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
@@ -70,7 +70,7 @@ def test_McCommunicationProcess__does_not_read_bytes_from_instrument_if_not_enou
 
     # make bytes available to read, 1 short of required amount
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "add_read_bytes", "read_bytes": bytes(SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES - 1)},
+        {"command": "add_read_bytes", "read_bytes": bytes(SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES - 1)},
         testing_queue,
     )
     invoke_process_run_and_check_errors(simulator)
@@ -194,9 +194,11 @@ def test_McCommunicationProcess__raises_error_if_not_enough_bytes_in_packet_sent
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
     dummy_timestamp_bytes = bytes(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES)
-    bad_packet_length = SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES - 1
+    bad_packet_length = SERIAL_COMM_PACKET_BASE_LENGTH_BYTES + SERIAL_COMM_CHECKSUM_LENGTH_BYTES - 1
     test_packet = SERIAL_COMM_MAGIC_WORD_BYTES
-    test_packet += bad_packet_length.to_bytes(SERIAL_COMM_PACKET_INFO_LENGTH_BYTES, byteorder="little")
+    test_packet += bad_packet_length.to_bytes(
+        SERIAL_COMM_PACKET_REMAINDER_SIZE_LENGTH_BYTES, byteorder="little"
+    )
     test_packet += dummy_timestamp_bytes
     test_packet += crc32(test_packet).to_bytes(SERIAL_COMM_CHECKSUM_LENGTH_BYTES, byteorder="little")
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -245,7 +247,7 @@ def test_McCommunicationProcess__raises_error_if_mantarray_returns_data_packet_t
     handshake_packet_length = 14
     test_handshake = SERIAL_COMM_MAGIC_WORD_BYTES
     test_handshake += handshake_packet_length.to_bytes(
-        SERIAL_COMM_PACKET_INFO_LENGTH_BYTES, byteorder="little"
+        SERIAL_COMM_PACKET_REMAINDER_SIZE_LENGTH_BYTES, byteorder="little"
     )
     test_handshake += dummy_timestamp_bytes
     test_handshake += bytes([SERIAL_COMM_HANDSHAKE_PACKET_TYPE])

@@ -42,7 +42,7 @@ from ..fixtures_mc_simulator import TEST_HANDSHAKE
 from ..helpers import assert_serial_packet_is_expected
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
-from ..helpers import get_full_packet_size_from_packet_body_size
+from ..helpers import get_full_packet_size_from_payload_len
 from ..helpers import handle_putting_multiple_objects_into_empty_queue
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
@@ -457,7 +457,7 @@ def test_MantarrayMcSimulator__processes_testing_commands_during_reboot(
 
     # remove reboot response packet
     invoke_process_run_and_check_errors(simulator)
-    reboot_response_size = get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES)
+    reboot_response_size = get_full_packet_size_from_payload_len(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES)
     reboot_response = simulator.read(size=reboot_response_size)
     assert_serial_packet_is_expected(
         reboot_response, SERIAL_COMM_REBOOT_PACKET_TYPE, timestamp=spied_get_absolute_timer.spy_return
@@ -546,7 +546,7 @@ def test_MantarrayMcSimulator__automatically_sends_plate_barcode_after_first_dat
     simulator.write(stop_data_streaming_command)
     invoke_process_run_and_check_errors(simulator)
     # clear command response
-    expected_response_size = get_full_packet_size_from_packet_body_size(1)
+    expected_response_size = get_full_packet_size_from_payload_len(1)
     assert len(simulator.read(size=expected_response_size)) == expected_response_size
 
     # get barcode packet

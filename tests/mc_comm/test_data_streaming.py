@@ -20,11 +20,11 @@ from mantarray_desktop_app import SamplingPeriodUpdateWhileDataStreamingError
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
-from mantarray_desktop_app import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from mantarray_desktop_app import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_NUM_SENSORS_PER_WELL
+from mantarray_desktop_app import SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
@@ -194,7 +194,7 @@ def test_handle_data_packets__handles_single_data_packet_followed_by_incomplete_
     test_data_packet = create_data_packet(
         random_timestamp(), SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE, data_packet_body
     )
-    test_incomplete_packet = bytes(SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES - 1)
+    test_incomplete_packet = bytes(SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES - 1)
     test_bytes = test_data_packet + test_incomplete_packet
 
     parsed_data_dict = handle_data_packets(bytearray(test_bytes), 0)
@@ -593,14 +593,14 @@ def test_McCommunicationProcess__reads_all_bytes_from_instrument__and_does_not_p
         mc_simulator,
         "create_data_packet",
         autospec=True,
-        return_value=bytes(SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES - 1),
+        return_value=bytes(SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES - 1),
     )
     spied_handle = mocker.spy(mc_comm, "handle_data_packets")
     spied_read_all = mocker.spy(simulator, "read_all")
 
     # send data
     invoke_process_run_and_check_errors(simulator)
-    assert simulator.in_waiting == SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES - 1
+    assert simulator.in_waiting == SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES - 1
     # read data
     invoke_process_run_and_check_errors(mc_process)
     spied_read_all.assert_called_once()

@@ -191,10 +191,7 @@ def test_McCommunicationProcess__processes_commands_from_main_when_process_is_fu
     input_queue = board_queues[0][0]
     output_queue = board_queues[0][1]
 
-    test_command = {
-        "communication_type": "metadata_comm",
-        "command": "get_metadata",
-    }
+    test_command = {"communication_type": "metadata_comm", "command": "get_metadata"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(copy.deepcopy(test_command), input_queue)
     mc_process.start()
 

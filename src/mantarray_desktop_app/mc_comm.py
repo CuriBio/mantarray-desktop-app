@@ -52,16 +52,16 @@ from .constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
-from .constants import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
-from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
+from .constants import SERIAL_COMM_MAX_FULL_PACKET_LENGTH_BYTES
+from .constants import SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES
 from .constants import SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE
-from .constants import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
-from .constants import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from .constants import SERIAL_COMM_OKAY_CODE
-from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
+from .constants import SERIAL_COMM_PACKET_HEADER_LENGTH_BYTES
+from .constants import SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
+from .constants import SERIAL_COMM_PACKET_REMAINDER_SIZE_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from .constants import SERIAL_COMM_REBOOT_PACKET_TYPE
@@ -238,7 +238,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         # data streaming values
         self._base_global_time_of_data_stream = 0
         self._packet_len = (
-            SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
+            SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
             + SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
             + (24 * SERIAL_COMM_NUM_SENSORS_PER_WELL * SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES)
             + (24 * SERIAL_COMM_NUM_DATA_CHANNELS * SERIAL_COMM_DATA_SAMPLE_LENGTH_BYTES)
@@ -631,7 +631,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             packet_type = SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
             bytes_to_send = (
                 bytes([self._firmware_packet_idx])
-                + self._firmware_file_contents[: SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES - 1]
+                + self._firmware_file_contents[: SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES - 1]
             )
             command_dict = {
                 "communication_type": "firmware_update",
@@ -640,7 +640,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 "packet_index": self._firmware_packet_idx,
             }
             self._firmware_file_contents = self._firmware_file_contents[
-                SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES - 1 :
+                SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES - 1 :
             ]
         self._send_data_packet(board_idx, packet_type, bytes_to_send)
         self._add_command_to_track(command_dict)
@@ -668,13 +668,13 @@ class McCommunicationProcess(InstrumentCommProcess):
             return
         if not self._is_registered_with_serial_comm[board_idx]:
             self._register_magic_word(board_idx)
-        elif board.in_waiting >= SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES:
+        elif board.in_waiting >= SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES:
             magic_word_bytes = board.read(size=len(SERIAL_COMM_MAGIC_WORD_BYTES))
             if magic_word_bytes != SERIAL_COMM_MAGIC_WORD_BYTES:
                 raise SerialCommIncorrectMagicWordFromMantarrayError(str(magic_word_bytes))
         else:
             return
-        packet_size_bytes = board.read(size=SERIAL_COMM_PACKET_INFO_LENGTH_BYTES)
+        packet_size_bytes = board.read(size=SERIAL_COMM_PACKET_REMAINDER_SIZE_LENGTH_BYTES)
         packet_size = int.from_bytes(packet_size_bytes, byteorder="little")
         data_packet_bytes = board.read(size=packet_size)
         # check that the expected number of bytes are read. Read function will never return more bytes than requested, but can return less bytes than requested if not enough are present before the read timeout
@@ -699,7 +699,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise SerialCommIncorrectChecksumFromInstrumentError(
                 f"Checksum Received: {received_checksum}, Checksum Calculated: {calculated_checksum}, Full Data Packet: {str(full_data_packet)}, Previous Command: {prev_command}"
             )
-        if packet_size < SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES:
+        if packet_size < SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES - SERIAL_COMM_PACKET_HEADER_LENGTH_BYTES:
             raise SerialCommPacketFromMantarrayTooSmallError(
                 f"Invalid packet length received: {packet_size}, Full Data Packet: {str(full_data_packet)}"
             )
@@ -932,7 +932,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 magic_word_test_bytes = magic_word_test_bytes[1:] + next_byte
                 num_bytes_checked += 1
                 # A magic word should be encountered if this many bytes are read. If not, we can assume there was a problem with the mantarray
-                if num_bytes_checked > SERIAL_COMM_MAX_PACKET_LENGTH_BYTES:
+                if num_bytes_checked > SERIAL_COMM_MAX_FULL_PACKET_LENGTH_BYTES:
                     raise SerialCommPacketRegistrationSearchExhaustedError()
             read_dur_secs = _get_secs_since_read_start(start)
         # if this point is reached and the magic word has not been found, then at some point no additional bytes were being read

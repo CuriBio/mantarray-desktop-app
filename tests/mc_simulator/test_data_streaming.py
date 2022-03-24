@@ -25,7 +25,7 @@ from ..fixtures import fixture_patch_print
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import fixture_runnable_mantarray_mc_simulator
-from ..helpers import get_full_packet_size_from_packet_body_size
+from ..helpers import get_full_packet_size_from_payload_len
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 
@@ -108,7 +108,7 @@ def test_MantarrayMcSimulator__sends_correct_time_index_and_data_points_in_first
         * num_wells
         * SERIAL_COMM_NUM_SENSORS_PER_WELL
     )
-    data_packet_size = get_full_packet_size_from_packet_body_size(magnetometer_data_len)
+    data_packet_size = get_full_packet_size_from_payload_len(magnetometer_data_len)
     data_packets = [simulator.read(size=data_packet_size) for _ in range(3)]
     assert simulator.in_waiting == 0
 

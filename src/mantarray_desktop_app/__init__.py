@@ -113,21 +113,23 @@ from .constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from .constants import SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
-from .constants import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
-from .constants import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
+from .constants import SERIAL_COMM_MAX_FULL_PACKET_LENGTH_BYTES
+from .constants import SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
 from .constants import SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE
-from .constants import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
-from .constants import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from .constants import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from .constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from .constants import SERIAL_COMM_OKAY_CODE
-from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
+from .constants import SERIAL_COMM_PACKET_BASE_LENGTH_BYTES
+from .constants import SERIAL_COMM_PACKET_HEADER_LENGTH_BYTES
+from .constants import SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
+from .constants import SERIAL_COMM_PACKET_REMAINDER_SIZE_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
+from .constants import SERIAL_COMM_PACKET_TYPE_LENGTH_BYTES
 from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from .constants import SERIAL_COMM_REBOOT_PACKET_TYPE
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
@@ -467,10 +469,15 @@ __all__ = [
     "McCommunicationProcess",
     "SERIAL_COMM_CHECKSUM_LENGTH_BYTES",
     "SERIAL_COMM_TIMESTAMP_LENGTH_BYTES",
+    "SERIAL_COMM_PACKET_TYPE_LENGTH_BYTES",
+    "SERIAL_COMM_PACKET_HEADER_LENGTH_BYTES",
+    "SERIAL_COMM_PACKET_BASE_LENGTH_BYTES",
+    "SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES",
+    "SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES",
+    "SERIAL_COMM_MAX_FULL_PACKET_LENGTH_BYTES",
     "SerialCommPacketRegistrationTimeoutError",
     "SerialCommIncorrectMagicWordFromMantarrayError",
     "SerialCommPacketRegistrationReadEmptyError",
-    "SERIAL_COMM_MAX_PACKET_LENGTH_BYTES",
     "SerialCommPacketRegistrationSearchExhaustedError",
     "SERIAL_COMM_REBOOT_PACKET_TYPE",
     "MAX_MC_REBOOT_DURATION_SECONDS",
@@ -487,9 +494,8 @@ __all__ = [
     "parse_metadata_bytes",
     "SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS",
     "UnrecognizedCommandFromMainToMcCommError",
-    "SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES",
     "SerialCommPacketFromMantarrayTooSmallError",
-    "SERIAL_COMM_PACKET_INFO_LENGTH_BYTES",
+    "SERIAL_COMM_PACKET_REMAINDER_SIZE_LENGTH_BYTES",
     "SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS",
     "SERIAL_COMM_TIMESTAMP_BYTES_INDEX",
     "SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES",
@@ -509,7 +515,6 @@ __all__ = [
     "SerialCommHandshakeTimeoutError",
     "convert_to_status_code_bytes",
     "convert_status_code_bytes_to_dict",
-    "SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES",
     "convert_to_timestamp_bytes",
     "get_serial_comm_timestamp",
     "SERIAL_COMM_TIMESTAMP_EPOCH",
@@ -529,7 +534,6 @@ __all__ = [
     "SERIAL_COMM_NUM_DATA_CHANNELS",
     "SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE",
     "handle_data_packets",
-    "SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES",
     "SamplingPeriodUpdateWhileDataStreamingError",
     "CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION",
     "get_time_index_dataset_from_file",

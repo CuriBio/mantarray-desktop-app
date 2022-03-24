@@ -17,9 +17,7 @@ from typing import Union
 
 from mantarray_desktop_app import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
-from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
-from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
-from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_TYPE_INDEX
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
@@ -186,11 +184,5 @@ def assert_serial_packet_is_expected(
         raise e
 
 
-def get_full_packet_size_from_packet_body_size(packet_body_size: int) -> int:
-    full_packet_size: int = (
-        len(SERIAL_COMM_MAGIC_WORD_BYTES)
-        + SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
-        + SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
-        + packet_body_size
-    )
-    return full_packet_size
+def get_full_packet_size_from_payload_len(packet_body_size: int) -> int:
+    return SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES + packet_body_size

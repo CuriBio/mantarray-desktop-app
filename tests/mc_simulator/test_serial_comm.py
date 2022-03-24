@@ -23,12 +23,12 @@ from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
-from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_NUM_ALLOWED_MISSED_HANDSHAKES
 from mantarray_desktop_app import SERIAL_COMM_OKAY_CODE
-from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_PACKET_REMAINDER_SIZE_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE
@@ -55,7 +55,7 @@ from ..fixtures_mc_simulator import HANDSHAKE_RESPONSE_SIZE_BYTES
 from ..fixtures_mc_simulator import STATUS_BEACON_SIZE_BYTES
 from ..fixtures_mc_simulator import TEST_HANDSHAKE
 from ..helpers import assert_serial_packet_is_expected
-from ..helpers import get_full_packet_size_from_packet_body_size
+from ..helpers import get_full_packet_size_from_payload_len
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 
@@ -180,7 +180,7 @@ def test_MantarrayMcSimulator__responds_to_comm_from_pc__when_checksum_is_incorr
     handshake_packet_length = 14
     test_handshake = (
         SERIAL_COMM_MAGIC_WORD_BYTES
-        + handshake_packet_length.to_bytes(SERIAL_COMM_PACKET_INFO_LENGTH_BYTES, byteorder="little")
+        + handshake_packet_length.to_bytes(SERIAL_COMM_PACKET_REMAINDER_SIZE_LENGTH_BYTES, byteorder="little")
         + dummy_timestamp_bytes
         + bytes([SERIAL_COMM_HANDSHAKE_PACKET_TYPE])
         + dummy_checksum_bytes
@@ -189,7 +189,7 @@ def test_MantarrayMcSimulator__responds_to_comm_from_pc__when_checksum_is_incorr
     invoke_process_run_and_check_errors(simulator)
 
     expected_packet_body = test_handshake[len(SERIAL_COMM_MAGIC_WORD_BYTES) :]
-    expected_size = get_full_packet_size_from_packet_body_size(len(expected_packet_body))
+    expected_size = get_full_packet_size_from_payload_len(len(expected_packet_body))
     actual = simulator.read(size=expected_size)
     assert_serial_packet_is_expected(actual, SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE, expected_packet_body)
 
@@ -227,7 +227,7 @@ def test_MantarrayMcSimulator__discards_commands_from_pc_during_reboot_period__a
     invoke_process_run_and_check_errors(simulator)
 
     # test that reboot response packet is sent
-    reboot_response = simulator.read(size=get_full_packet_size_from_packet_body_size(0))
+    reboot_response = simulator.read(size=get_full_packet_size_from_payload_len(0))
     assert_serial_packet_is_expected(reboot_response, SERIAL_COMM_REBOOT_PACKET_TYPE)
 
     # test that handshake is ignored
@@ -270,7 +270,7 @@ def test_MantarrayMcSimulator__does_not_send_status_beacon_while_rebooting(manta
     invoke_process_run_and_check_errors(simulator)
     # remove reboot response packet
     invoke_process_run_and_check_errors(simulator)
-    reboot_response = simulator.read(size=get_full_packet_size_from_packet_body_size(0))
+    reboot_response = simulator.read(size=get_full_packet_size_from_payload_len(0))
     assert_serial_packet_is_expected(reboot_response, SERIAL_COMM_REBOOT_PACKET_TYPE)
 
     # check status beacon was not sent
@@ -307,7 +307,7 @@ def test_MantarrayMcSimulator__allows_mantarray_nickname_to_be_set_by_command_re
     # check that nickname is updated
     assert simulator.get_metadata_dict()[MANTARRAY_NICKNAME_UUID] == expected_nickname
     # check that correct response is sent
-    expected_response_size = get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES)
+    expected_response_size = get_full_packet_size_from_payload_len(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES)
     actual = simulator.read(size=expected_response_size)
     assert_serial_packet_is_expected(actual, SERIAL_COMM_SET_NICKNAME_PACKET_TYPE)
     # make sure simulator is rebooting again again
@@ -326,7 +326,7 @@ def test_MantarrayMcSimulator__processes_get_metadata_command(mantarray_mc_simul
     invoke_process_run_and_check_errors(simulator)
 
     expected_metadata_bytes = convert_metadata_to_bytes(MantarrayMcSimulator.default_metadata_values)
-    expected_size = get_full_packet_size_from_packet_body_size(len(expected_metadata_bytes))
+    expected_size = get_full_packet_size_from_payload_len(len(expected_metadata_bytes))
     actual = simulator.read(size=expected_size)
     assert_serial_packet_is_expected(
         actual, SERIAL_COMM_GET_METADATA_PACKET_TYPE, additional_bytes=expected_metadata_bytes
@@ -382,7 +382,7 @@ def test_MantarrayMcSimulator__sends_going_dormant_packet_if_initial_handshake_r
     # trigger timeout
     invoke_process_run_and_check_errors(simulator)
     additional_bytes = bytes([GOING_DORMANT_HANDSHAKE_TIMEOUT_CODE])
-    going_dormant_packet_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
+    going_dormant_packet_size = get_full_packet_size_from_payload_len(len(additional_bytes))
     going_dormant_packet = simulator.read(size=going_dormant_packet_size)
     assert_serial_packet_is_expected(
         going_dormant_packet, SERIAL_COMM_GOING_DORMANT_PACKET_TYPE, additional_bytes=additional_bytes
@@ -424,7 +424,7 @@ def test_MantarrayMcSimulator__processes_start_data_streaming_command(
         additional_bytes = bytes([response_byte_value])
         if response_byte_value == SERIAL_COMM_COMMAND_SUCCESS_BYTE:
             additional_bytes += spied_global_timer.spy_return.to_bytes(8, byteorder="little")
-        command_response_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
+        command_response_size = get_full_packet_size_from_payload_len(len(additional_bytes))
         command_response = simulator.read(size=command_response_size)
         assert_serial_packet_is_expected(
             command_response, SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE, additional_bytes=additional_bytes
@@ -454,7 +454,7 @@ def test_MantarrayMcSimulator__processes_stop_data_streaming_command(
     invoke_process_run_and_check_errors(simulator)
     # remove start data streaming response
     command_response = simulator.read(
-        size=get_full_packet_size_from_packet_body_size(9)  # 1 for response byte, 8 for global timer bytes
+        size=get_full_packet_size_from_payload_len(9)  # 1 for response byte, 8 for global timer bytes
     )
 
     # need to send command once while data is being streamed and once after it stops to test the response in both cases
@@ -470,7 +470,7 @@ def test_MantarrayMcSimulator__processes_stop_data_streaming_command(
         simulator.write(test_stop_data_streaming_command)
         invoke_process_run_and_check_errors(simulator)
         # assert response is correct
-        command_response_size = get_full_packet_size_from_packet_body_size(1)
+        command_response_size = get_full_packet_size_from_payload_len(1)
         command_response = simulator.read(size=command_response_size)
         assert_serial_packet_is_expected(
             command_response,
@@ -498,7 +498,7 @@ def test_MantarrayMcSimulator__processes_set_sampling_period_command__when_data_
     # process command to update configuration and send response
     invoke_process_run_and_check_errors(simulator)
     # assert command response is correct
-    command_response = simulator.read(size=get_full_packet_size_from_packet_body_size(1))
+    command_response = simulator.read(size=get_full_packet_size_from_payload_len(1))
     assert_serial_packet_is_expected(
         command_response,
         SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE,
@@ -541,7 +541,7 @@ def test_MantarrayMcSimulator__processes_set_sampling_period_command__when_data_
     # process command and return response
     invoke_process_run_and_check_errors(simulator)
     # assert command response is correct
-    command_response = simulator.read(size=get_full_packet_size_from_packet_body_size(1))
+    command_response = simulator.read(size=get_full_packet_size_from_payload_len(1))
     assert_serial_packet_is_expected(
         command_response,
         SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE,
@@ -570,7 +570,7 @@ def test_MantarrayMcSimulator__processes_begin_firmware_update_command__when_not
     # process command and return response
     invoke_process_run_and_check_errors(simulator)
     # assert command response is correct
-    command_response = simulator.read(size=get_full_packet_size_from_packet_body_size(1))
+    command_response = simulator.read(size=get_full_packet_size_from_payload_len(1))
     expected_success_value = int(firmware_type not in (0, 1))
     assert_serial_packet_is_expected(
         command_response,
@@ -597,7 +597,7 @@ def test_MantarrayMcSimulator__processes_begin_firmware_update_command__when_alr
         # process command and return response
         invoke_process_run_and_check_errors(simulator)
         # assert command response is correct
-        command_response = simulator.read(size=get_full_packet_size_from_packet_body_size(1))
+        command_response = simulator.read(size=get_full_packet_size_from_payload_len(1))
         assert_serial_packet_is_expected(
             command_response,
             SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE,
@@ -611,8 +611,8 @@ def test_MantarrayMcSimulator__processes_successful_firmware_update_packet(
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     expected_firmware_len = randint(
-        SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES,
-        int(SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES * 1.5),
+        SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES,
+        int(SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES * 1.5),
     )
     begin_firmware_update_command = create_data_packet(
         randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE),
@@ -626,8 +626,8 @@ def test_MantarrayMcSimulator__processes_successful_firmware_update_packet(
 
     # send two firmware update packets
     packet_body_sizes = (
-        SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES - 1,
-        expected_firmware_len - (SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES - 1),
+        SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES - 1,
+        expected_firmware_len - (SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES - 1),
     )
     for packet_idx, packet_body_size in enumerate(packet_body_sizes):
         expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
@@ -640,7 +640,7 @@ def test_MantarrayMcSimulator__processes_successful_firmware_update_packet(
         simulator.write(firmware_update_packet)
         invoke_process_run_and_check_errors(simulator)
         # assert command response is correct
-        command_response = simulator.read(size=get_full_packet_size_from_packet_body_size(1))
+        command_response = simulator.read(size=get_full_packet_size_from_payload_len(1))
         assert_serial_packet_is_expected(
             command_response,
             SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE,
@@ -654,7 +654,7 @@ def test_MantarrayMcSimulator__processes_firmware_update_packet_with_too_many_fi
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
-    expected_firmware_len = SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
+    expected_firmware_len = SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES
     begin_firmware_update_command = create_data_packet(
         randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE),
         SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE,
@@ -671,14 +671,12 @@ def test_MantarrayMcSimulator__processes_firmware_update_packet_with_too_many_fi
         expected_pc_timestamp,
         SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE,
         bytes([0])
-        + bytes(
-            [randint(0, 255) for _ in range(SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES)]
-        ),  # arbitrary bytes
+        + bytes([randint(0, 255) for _ in range(SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES)]),  # arbitrary bytes
     )
     simulator.write(firmware_update_packet)
     invoke_process_run_and_check_errors(simulator)
     # assert command response is correct
-    command_response = simulator.read(size=get_full_packet_size_from_packet_body_size(1))
+    command_response = simulator.read(size=get_full_packet_size_from_payload_len(1))
     assert_serial_packet_is_expected(
         command_response,
         SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE,
@@ -713,7 +711,7 @@ def test_MantarrayMcSimulator__processes_firmware_update_packet_when_packet_idx_
     simulator.write(firmware_update_packet)
     invoke_process_run_and_check_errors(simulator)
     # assert command response is correct
-    command_response = simulator.read(size=get_full_packet_size_from_packet_body_size(1))
+    command_response = simulator.read(size=get_full_packet_size_from_payload_len(1))
     assert_serial_packet_is_expected(
         command_response,
         SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE,
@@ -728,7 +726,7 @@ def test_MantarrayMcSimulator__processes_end_firmware_update_command(
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
-    expected_firmware_len = SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES - 1
+    expected_firmware_len = SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES - 1
     expected_firmware_bytes = bytes([randint(0, 255) for _ in range(expected_firmware_len)])
 
     # first need to start firmware update
@@ -769,7 +767,7 @@ def test_MantarrayMcSimulator__processes_end_firmware_update_command(
     # make sure simulator is rebooting if checksum is correct
     assert simulator.is_rebooting() is is_checksum_correct
     # assert command response is correct
-    command_response = simulator.read(size=get_full_packet_size_from_packet_body_size(1))
+    command_response = simulator.read(size=get_full_packet_size_from_payload_len(1))
     assert_serial_packet_is_expected(
         command_response,
         SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE,
@@ -786,7 +784,7 @@ def test_MantarrayMcSimulator__sends_firmware_update_complete_message_after_rebo
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
-    expected_firmware_len = SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES - 1
+    expected_firmware_len = SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES - 1
     expected_firmware_bytes = bytes([randint(0, 255) for _ in range(expected_firmware_len)])
 
     # first need to start firmware update
@@ -831,7 +829,7 @@ def test_MantarrayMcSimulator__sends_firmware_update_complete_message_after_rebo
     )
     # complete first reboot and send firmware update complete packet
     invoke_process_run_and_check_errors(simulator)
-    command_response = simulator.read(size=get_full_packet_size_from_packet_body_size(3))
+    command_response = simulator.read(size=get_full_packet_size_from_payload_len(3))
     assert_serial_packet_is_expected(
         command_response, packet_type, additional_bytes=bytes([0, 0, 0])
     )  # simulator currently always returns firmware version 0.0.0

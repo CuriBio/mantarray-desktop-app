@@ -8,8 +8,8 @@ from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import McCommunicationProcess
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
-from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
-from mantarray_desktop_app import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_MAX_FULL_PACKET_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_PACKET_TYPE
 from mantarray_desktop_app import SerialCommIncorrectMagicWordFromMantarrayError
 import pytest
@@ -244,10 +244,10 @@ def test_McCommunicationProcess_teardown_after_loop__flushes_and_logs_remaining_
 
     # add one data packet with bad magic word to raise error and additional bytes to flush from simulator
     test_read_bytes = [
-        bytes(SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES),  # bad packet
-        bytes(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES),  # start of additional bytes
-        bytes(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES),
-        bytes(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES // 2),  # arbitrary final length
+        bytes(SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES),  # bad packet
+        bytes(SERIAL_COMM_MAX_FULL_PACKET_LENGTH_BYTES),  # start of additional bytes
+        bytes(SERIAL_COMM_MAX_FULL_PACKET_LENGTH_BYTES),
+        bytes(SERIAL_COMM_MAX_FULL_PACKET_LENGTH_BYTES // 2),  # arbitrary final length
     ]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"command": "add_read_bytes", "read_bytes": test_read_bytes}, testing_queue

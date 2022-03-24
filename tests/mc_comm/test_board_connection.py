@@ -11,8 +11,8 @@ from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import SERIAL_COMM_BAUD_RATE
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
-from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
-from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_MAX_FULL_PACKET_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_PACKET_REMAINDER_SIZE_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
@@ -207,11 +207,11 @@ def test_McCommunicationProcess_register_magic_word__registers_with_magic_word_i
     )
     packet_length_bytes = test_packet[
         len(SERIAL_COMM_MAGIC_WORD_BYTES) : len(SERIAL_COMM_MAGIC_WORD_BYTES)
-        + SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
+        + SERIAL_COMM_PACKET_REMAINDER_SIZE_LENGTH_BYTES
     ]
     test_read_values.append(packet_length_bytes)
     test_read_values.append(
-        test_packet[len(SERIAL_COMM_MAGIC_WORD_BYTES) + SERIAL_COMM_PACKET_INFO_LENGTH_BYTES :]
+        test_packet[len(SERIAL_COMM_MAGIC_WORD_BYTES) + SERIAL_COMM_PACKET_REMAINDER_SIZE_LENGTH_BYTES :]
     )
     mocked_read = mocker.patch.object(simulator, "read", autospec=True, side_effect=test_read_values)
 
@@ -295,7 +295,7 @@ def test_McCommunicationProcess_register_magic_word__raises_error_if_search_exce
 
     # Add arbitrary first 8 bytes and then enough arbitrary bytes to reach a max size data packet length to raise error
     test_read_values = [bytes(8)]
-    test_read_values.extend([bytes(1) for _ in range(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES + 1)])
+    test_read_values.extend([bytes(1) for _ in range(SERIAL_COMM_MAX_FULL_PACKET_LENGTH_BYTES + 1)])
     # need to mock read here to have better control over the reads going into McComm
     mocker.patch.object(simulator, "read", autospec=True, side_effect=test_read_values)
 

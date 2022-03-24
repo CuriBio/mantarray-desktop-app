@@ -17,7 +17,7 @@ from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
-from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from mantarray_desktop_app.firmware_downloader import call_firmware_route
@@ -371,7 +371,7 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
 
     set_connection_and_register_simulator(four_board_mc_comm_process, mantarray_mc_simulator)
 
-    test_firmware_len = randint(1000, SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES * 3)
+    test_firmware_len = randint(1000, SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES * 3)
     test_firmware_bytes = bytes([randint(0, 255) for _ in range(test_firmware_len)])
     if firmware_type == "main":
         mc_process._main_firmware_update_bytes = test_firmware_bytes
@@ -399,10 +399,7 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
 
     # send another command and make sure it is ignored until firmware update process is complete
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {
-            "communication_type": "metadata_comm",
-            "command": "get_metadata",
-        },
+        {"communication_type": "metadata_comm", "command": "get_metadata"},
         from_main_queue,
     )
     # confirm that only a single item is in queue
@@ -416,7 +413,7 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
 
     # send firmware bytes to instrument
     num_iterations_to_send_firmware = math.ceil(
-        test_firmware_len / (SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES - 1)
+        test_firmware_len / (SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES - 1)
     )
     for packet_idx in range(num_iterations_to_send_firmware):
         # send packet and process response
