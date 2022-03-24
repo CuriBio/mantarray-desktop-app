@@ -3,7 +3,7 @@ import queue
 import time
 
 from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
-from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from pulse3D.constants import BOOT_FLAGS_UUID
@@ -222,8 +222,8 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
     output_queue = board_queues[0][1]
     data_queue = board_queues[0][2]
 
-    mc_process._main_firmware_update_bytes = bytes(int(SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES * 1.5))
-    mc_process._channel_firmware_update_bytes = bytes(int(SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES * 1.5))
+    mc_process._main_firmware_update_bytes = bytes(int(SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES * 1.5))
+    mc_process._channel_firmware_update_bytes = bytes(int(SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES * 1.5))
 
     print("\n*** BEGIN TEST ***")  # allow-print
 

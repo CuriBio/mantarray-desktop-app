@@ -21,7 +21,7 @@ from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import STIM_NO_PROTOCOL_ASSIGNED
 from mantarray_desktop_app import validate_checksum
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
-from mantarray_desktop_app.constants import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
+from mantarray_desktop_app.constants import SERIAL_COMM_PACKET_BASE_LENGTH_BYTES
 from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from pulse3D.constants import BOOT_FLAGS_UUID
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
@@ -56,10 +56,12 @@ def test_create_data_packet__creates_data_packet_bytes_correctly():
     test_timestamp = 100
     test_packet_type = 1
     test_data = bytes([1, 5, 3])
-    test_packet_len = SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES + len(test_data)
+    test_packet_remainder_size = (
+        SERIAL_COMM_PACKET_BASE_LENGTH_BYTES + len(test_data) + SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+    )
 
     expected_data_packet_bytes = SERIAL_COMM_MAGIC_WORD_BYTES
-    expected_data_packet_bytes += test_packet_len.to_bytes(2, byteorder="little")
+    expected_data_packet_bytes += test_packet_remainder_size.to_bytes(2, byteorder="little")
     expected_data_packet_bytes += test_timestamp.to_bytes(
         SERIAL_COMM_TIMESTAMP_LENGTH_BYTES, byteorder="little"
     )
