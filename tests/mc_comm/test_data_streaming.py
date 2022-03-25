@@ -70,7 +70,7 @@ def create_data_stream_body(
     time_index_us,
     num_wells_on_plate=24,
 ):
-    data_packet_body = time_index_us.to_bytes(SERIAL_COMM_TIME_INDEX_LENGTH_BYTES, byteorder="little")
+    data_packet_payload = time_index_us.to_bytes(SERIAL_COMM_TIME_INDEX_LENGTH_BYTES, byteorder="little")
     data_values = []
     offset_values = []
     for _ in range(1, num_wells_on_plate + 1):
@@ -78,15 +78,15 @@ def create_data_stream_body(
             # create and add offset value
             offset = random_time_offset()
             offset_values.append(offset)
-            data_packet_body += offset.to_bytes(SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES, byteorder="little")
+            data_packet_payload += offset.to_bytes(SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES, byteorder="little")
             # create data point
             data_value = random_data_value()
             data_value_bytes = data_value.to_bytes(2, byteorder="little")
             for _ in range(SERIAL_COMM_NUM_CHANNELS_PER_SENSOR):
                 # add data points
                 data_values.append(data_value)
-                data_packet_body += data_value_bytes
-    return data_packet_body, offset_values, data_values
+                data_packet_payload += data_value_bytes
+    return data_packet_payload, offset_values, data_values
 
 
 def test_handle_data_packets__handles_two_full_data_packets_correctly__and_assigns_correct_data_type_to_parsed_values__when_all_channels_enabled():
@@ -99,11 +99,11 @@ def test_handle_data_packets__handles_two_full_data_packets_correctly__and_assig
     expected_data_points = []
     expected_time_offsets = []
     for packet_num in range(test_num_data_packets):
-        data_packet_body, test_offsets, test_data = create_data_stream_body(
+        data_packet_payload, test_offsets, test_data = create_data_stream_body(
             expected_time_indices[packet_num] + base_global_time
         )
         test_data_packet_bytes += create_data_packet(
-            random_timestamp(), SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE, data_packet_body
+            random_timestamp(), SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE, data_packet_payload
         )
         expected_data_points.extend(test_data)
         expected_time_offsets.extend(test_offsets)
@@ -146,11 +146,11 @@ def test_handle_data_packets__handles_single_packet_with_incorrect_packet_type_c
 
 def test_handle_data_packets__handles_interrupting_packet_followed_by_data_packet__when_all_channels_enabled():
     expected_time_index = random_time_index()
-    data_packet_body, expected_time_offsets, expected_data_points = create_data_stream_body(
+    data_packet_payload, expected_time_offsets, expected_data_points = create_data_stream_body(
         expected_time_index
     )
     test_bytes = TEST_OTHER_PACKET + create_data_packet(
-        random_timestamp(), SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE, data_packet_body
+        random_timestamp(), SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE, data_packet_payload
     )
 
     parsed_data_dict = handle_data_packets(bytearray(test_bytes), 0)
@@ -168,9 +168,9 @@ def test_handle_data_packets__handles_interrupting_packet_followed_by_data_packe
 
 def test_handle_data_packets__handles_single_data_packet_followed_by_interrupting_packet__when_all_channels_enabled():
     expected_time_index = random_time_index()
-    data_packet_body, _, _ = create_data_stream_body(expected_time_index)
+    data_packet_payload, _, _ = create_data_stream_body(expected_time_index)
     test_data_packet = create_data_packet(
-        random_timestamp(), SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE, data_packet_body
+        random_timestamp(), SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE, data_packet_payload
     )
     test_bytes = test_data_packet + TEST_OTHER_PACKET
 
@@ -190,9 +190,9 @@ def test_handle_data_packets__handles_single_data_packet_followed_by_interruptin
 
 def test_handle_data_packets__handles_single_data_packet_followed_by_incomplete_packet__when_all_channels_enabled():
     expected_time_index = random_time_index()
-    data_packet_body, _, _ = create_data_stream_body(expected_time_index)
+    data_packet_payload, _, _ = create_data_stream_body(expected_time_index)
     test_data_packet = create_data_packet(
-        random_timestamp(), SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE, data_packet_body
+        random_timestamp(), SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE, data_packet_payload
     )
     test_incomplete_packet = bytes(SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES - 1)
     test_bytes = test_data_packet + test_incomplete_packet
@@ -222,9 +222,9 @@ def test_handle_data_packets__handles_interrupting_packet_in_between_two_data_pa
         time_index = random_time_index()
         expected_time_indices.append(time_index)
 
-        data_packet_body, test_offsets, test_data = create_data_stream_body(time_index)
+        data_packet_payload, test_offsets, test_data = create_data_stream_body(time_index)
         test_data_packet = create_data_packet(
-            random_timestamp(), SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE, data_packet_body
+            random_timestamp(), SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE, data_packet_payload
         )
         test_data_packets.append(test_data_packet)
         expected_time_offsets.extend(test_offsets)
@@ -262,9 +262,9 @@ def test_handle_data_packets__handles_two_interrupting_packets_in_between_two_da
         time_index = random_time_index()
         expected_time_indices.append(time_index)
 
-        data_packet_body, test_offsets, test_data = create_data_stream_body(time_index)
+        data_packet_payload, test_offsets, test_data = create_data_stream_body(time_index)
         test_data_packet = create_data_packet(
-            random_timestamp(), SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE, data_packet_body
+            random_timestamp(), SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE, data_packet_payload
         )
         test_data_packets.append(test_data_packet)
         expected_time_offsets.extend(test_offsets)
@@ -321,11 +321,11 @@ def test_handle_data_packets__does_not_parse_final_packet_if_it_is_not_complete(
 
     base_global_time = randint(0, 100)
 
-    data_packet_body, expected_time_offsets, expected_data_points = create_data_stream_body(
+    data_packet_payload, expected_time_offsets, expected_data_points = create_data_stream_body(
         expected_time_index + base_global_time
     )
     full_packet = create_data_packet(  # add one full packet
-        random_timestamp(), SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE, data_packet_body
+        random_timestamp(), SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE, data_packet_payload
     )
     incomplete_packet = create_data_packet(  # add one incomplete packet with arbitrary data
         random_timestamp(), SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE, bytes(10)
@@ -367,9 +367,11 @@ def test_handle_data_packets__performance_test__magnetometer_data_only():
     expected_data_points = []
     expected_time_offsets = []
     for packet_num in range(test_num_data_packets):
-        data_packet_body, test_offsets, test_data = create_data_stream_body(expected_time_indices[packet_num])
+        data_packet_payload, test_offsets, test_data = create_data_stream_body(
+            expected_time_indices[packet_num]
+        )
         test_data_packet_bytes += create_data_packet(
-            random_timestamp(), SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE, data_packet_body
+            random_timestamp(), SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE, data_packet_payload
         )
         expected_data_points.extend(test_data)
         expected_time_offsets.extend(test_offsets)

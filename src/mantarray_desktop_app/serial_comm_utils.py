@@ -58,17 +58,18 @@ def _get_checksum_bytes(packet: bytes) -> bytes:
 def create_data_packet(
     timestamp: int,
     packet_type: int,
-    packet_data: bytes = bytes(0),
+    packet_payload: bytes = bytes(0),
 ) -> bytes:
     """Create a data packet to send to the PC."""
-    packet_body = convert_to_timestamp_bytes(timestamp)
-    packet_body += bytes([packet_type])
-    packet_body += packet_data
-    packet_length = len(packet_body) + SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+    packet_base = convert_to_timestamp_bytes(timestamp) + bytes([packet_type])
+    packet_remainder_size = len(packet_base) + len(packet_payload) + SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 
     data_packet = SERIAL_COMM_MAGIC_WORD_BYTES
-    data_packet += packet_length.to_bytes(SERIAL_COMM_PACKET_REMAINDER_SIZE_LENGTH_BYTES, byteorder="little")
-    data_packet += packet_body
+    data_packet += packet_remainder_size.to_bytes(
+        SERIAL_COMM_PACKET_REMAINDER_SIZE_LENGTH_BYTES, byteorder="little"
+    )
+    data_packet += packet_base
+    data_packet += packet_payload
     data_packet += _get_checksum_bytes(data_packet)
     return data_packet
 

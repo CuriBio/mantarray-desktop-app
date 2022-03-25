@@ -155,15 +155,15 @@ def assert_serial_packet_is_expected(
 ) -> None:
     try:
         assert full_packet[SERIAL_COMM_PACKET_TYPE_INDEX] == packet_type
-        packet_body = full_packet[SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
-        if packet_body != additional_bytes:
+        packet_payload = full_packet[SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
+        if packet_payload != additional_bytes:
             expected_len = len(additional_bytes)
-            actual_len = len(packet_body)
+            actual_len = len(packet_payload)
             if expected_len != actual_len:
                 error_info = f"Expected len: {expected_len}, Actual len: {actual_len}"
-                assert packet_body == additional_bytes, error_info
+                assert packet_payload == additional_bytes, error_info
             else:
-                assert packet_body == additional_bytes
+                assert packet_payload == additional_bytes
         if timestamp is not None:
             actual_timestamp_bytes = full_packet[
                 SERIAL_COMM_TIMESTAMP_BYTES_INDEX : SERIAL_COMM_TIMESTAMP_BYTES_INDEX
@@ -184,5 +184,5 @@ def assert_serial_packet_is_expected(
         raise e
 
 
-def get_full_packet_size_from_payload_len(packet_body_size: int) -> int:
-    return SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES + packet_body_size
+def get_full_packet_size_from_payload_len(payload_len: int) -> int:
+    return SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES + payload_len

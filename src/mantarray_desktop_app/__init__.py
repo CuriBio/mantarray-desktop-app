@@ -198,6 +198,7 @@ from .exceptions import FirstManagedReadLessThanOneRoundRobinError
 from .exceptions import InstrumentCommIncorrectHeaderError
 from .exceptions import InstrumentDataStreamingAlreadyStartedError
 from .exceptions import InstrumentDataStreamingAlreadyStoppedError
+from .exceptions import InstrumentFirmwareError
 from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import InvalidBeta2FlagOptionError
 from .exceptions import InvalidCommandFromMainError
@@ -206,7 +207,6 @@ from .exceptions import InvalidDataFramePeriodError
 from .exceptions import InvalidScriptCommandError
 from .exceptions import InvalidStopRecordingTimepointError
 from .exceptions import LocalServerPortAlreadyInUseError
-from .exceptions import MantarrayInstrumentError
 from .exceptions import MismatchedScriptTypeError
 from .exceptions import MultiprocessingNotSetToSpawnError
 from .exceptions import RecordingFolderDoesNotExistError
@@ -518,7 +518,7 @@ __all__ = [
     "convert_to_timestamp_bytes",
     "get_serial_comm_timestamp",
     "SERIAL_COMM_TIMESTAMP_EPOCH",
-    "MantarrayInstrumentError",
+    "InstrumentFirmwareError",
     "SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE",
     "SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE",
     "SERIAL_COMM_COMMAND_SUCCESS_BYTE",

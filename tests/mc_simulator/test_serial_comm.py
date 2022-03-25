@@ -142,12 +142,12 @@ def test_MantarrayMcSimulator__makes_status_beacon_available_to_read_every_5_sec
 
 
 def test_MantarrayMcSimulator__raises_error_if_unrecognized_packet_type_sent_from_pc(
-    mantarray_mc_simulator_no_beacon, mocker, patch_print
+    mantarray_mc_simulator_no_beacon, patch_print
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     dummy_timestamp = 0
-    test_packet_type = 254
+    test_packet_type = 253
     test_handshake = create_data_packet(dummy_timestamp, test_packet_type, DEFAULT_SIMULATOR_STATUS_CODE)
 
     simulator.write(test_handshake)
@@ -171,7 +171,7 @@ def test_MantarrayMcSimulator__responds_to_handshake__when_checksum_is_correct(
 
 
 def test_MantarrayMcSimulator__responds_to_comm_from_pc__when_checksum_is_incorrect(
-    mantarray_mc_simulator_no_beacon, mocker
+    mantarray_mc_simulator_no_beacon,
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
@@ -188,10 +188,12 @@ def test_MantarrayMcSimulator__responds_to_comm_from_pc__when_checksum_is_incorr
     simulator.write(test_handshake)
     invoke_process_run_and_check_errors(simulator)
 
-    expected_packet_body = test_handshake[len(SERIAL_COMM_MAGIC_WORD_BYTES) :]
-    expected_size = get_full_packet_size_from_payload_len(len(expected_packet_body))
+    expected_packet_payload = test_handshake[len(SERIAL_COMM_MAGIC_WORD_BYTES) :]
+    expected_size = get_full_packet_size_from_payload_len(len(expected_packet_payload))
     actual = simulator.read(size=expected_size)
-    assert_serial_packet_is_expected(actual, SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE, expected_packet_body)
+    assert_serial_packet_is_expected(
+        actual, SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE, expected_packet_payload
+    )
 
 
 def test_MantarrayMcSimulator__discards_commands_from_pc_during_reboot_period__and_sends_reboot_response_packet_before_reboot__and_sends_status_beacon_after_reboot(
@@ -201,10 +203,7 @@ def test_MantarrayMcSimulator__discards_commands_from_pc_during_reboot_period__a
 
     spied_randint = mocker.spy(random, "randint")
 
-    reboot_times = [
-        AVERAGE_MC_REBOOT_DURATION_SECONDS - 1,
-        AVERAGE_MC_REBOOT_DURATION_SECONDS,
-    ]
+    reboot_times = [AVERAGE_MC_REBOOT_DURATION_SECONDS - 1, AVERAGE_MC_REBOOT_DURATION_SECONDS]
     mocker.patch.object(
         mc_simulator,
         "_get_secs_since_reboot_command",
@@ -625,17 +624,17 @@ def test_MantarrayMcSimulator__processes_successful_firmware_update_packet(
     simulator.read_all()
 
     # send two firmware update packets
-    packet_body_sizes = (
+    packet_payload_sizes = (
         SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES - 1,
         expected_firmware_len - (SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES - 1),
     )
-    for packet_idx, packet_body_size in enumerate(packet_body_sizes):
+    for packet_idx, packet_payload_size in enumerate(packet_payload_sizes):
         expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
         firmware_update_packet = create_data_packet(
             expected_pc_timestamp,
             SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE,
             bytes([packet_idx])
-            + bytes([randint(0, 255) for _ in range(packet_body_size)]),  # arbitrary bytes
+            + bytes([randint(0, 255) for _ in range(packet_payload_size)]),  # arbitrary bytes
         )
         simulator.write(firmware_update_packet)
         invoke_process_run_and_check_errors(simulator)

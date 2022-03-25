@@ -45,7 +45,7 @@ def set_connection_and_register_simulator(mc_process_fixture, simulator_fixture)
     drain_queue(output_queue)
 
 
-def set_sampling_period(  # TODO rename?
+def set_sampling_period(
     mc_fixture,
     simulator,
     sampling_period=DEFAULT_SAMPLING_PERIOD,

@@ -32,7 +32,11 @@ from mantarray_desktop_app import SerialCommPacketFromMantarrayTooSmallError
 from mantarray_desktop_app import SerialCommStatusBeaconTimeoutError
 from mantarray_desktop_app import SerialCommUntrackedCommandResponseError
 from mantarray_desktop_app import UnrecognizedSerialCommPacketTypeError
+from mantarray_desktop_app.constants import SERIAL_COMM_ERROR_PING_PONG_PACKET_TYPE
 from mantarray_desktop_app.constants import SERIAL_COMM_GOING_DORMANT_PACKET_TYPE
+from mantarray_desktop_app.exceptions import InstrumentFirmwareError
+from mantarray_desktop_app.serial_comm_utils import convert_status_code_bytes_to_dict
+from mantarray_desktop_app.serial_comm_utils import convert_to_status_code_bytes
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
@@ -44,6 +48,7 @@ from ..fixtures_mc_comm import set_connection_and_register_simulator
 from ..fixtures_mc_simulator import DEFAULT_SIMULATOR_STATUS_CODE
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
+from ..helpers import assert_serial_packet_is_expected
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
@@ -83,7 +88,6 @@ def test_McCommunicationProcess__does_not_read_bytes_from_instrument_if_not_enou
 def test_McCommunicationProcess__raises_error_if_magic_word_is_incorrect_in_packet_after_previous_magic_word_has_been_registered(
     four_board_mc_comm_process,
     mantarray_mc_simulator_no_beacon,
-    mocker,
     patch_print,
 ):
     mc_process = four_board_mc_comm_process["mc_process"]
@@ -110,7 +114,7 @@ def test_McCommunicationProcess__raises_error_if_magic_word_is_incorrect_in_pack
 
 
 def test_McCommunicationProcess__raises_error_if_length_of_additional_bytes_read_is_smaller_than_size_specified_in_packet_header(
-    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker, patch_print
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, patch_print
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
@@ -145,7 +149,6 @@ def test_McCommunicationProcess__raises_error_if_checksum_in_data_packet_sent_fr
     is_command_awaiting,
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
-    mocker,
     patch_print,
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
@@ -187,7 +190,7 @@ def test_McCommunicationProcess__raises_error_if_checksum_in_data_packet_sent_fr
 
 
 def test_McCommunicationProcess__raises_error_if_not_enough_bytes_in_packet_sent_from_instrument(
-    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker, patch_print
+    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, patch_print
 ):
     mc_process = four_board_mc_comm_process["mc_process"]
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
@@ -215,14 +218,14 @@ def test_McCommunicationProcess__raises_error_if_not_enough_bytes_in_packet_sent
 
 
 def test_McCommunicationProcess__raises_error_if_unrecognized_packet_type_sent_from_instrument(
-    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker, patch_print
+    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, patch_print
 ):
     mc_process = four_board_mc_comm_process["mc_process"]
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
     dummy_timestamp = 0
-    test_packet_type = 254
+    test_packet_type = 253
     test_packet = create_data_packet(dummy_timestamp, test_packet_type, DEFAULT_SIMULATOR_STATUS_CODE)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"command": "add_read_bytes", "read_bytes": test_packet}, testing_queue
@@ -237,7 +240,7 @@ def test_McCommunicationProcess__raises_error_if_unrecognized_packet_type_sent_f
 
 
 def test_McCommunicationProcess__raises_error_if_mantarray_returns_data_packet_that_it_determined_has_an_incorrect_checksum(
-    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker, patch_print
+    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, patch_print
 ):
     mc_process = four_board_mc_comm_process["mc_process"]
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
@@ -541,3 +544,84 @@ def test_McCommunicationProcess__handles_barcode_found(
     }
     actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_barcode_comm
+
+
+def test_McCommunicationProcess__handles_error_ping__before_reboot(
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker, patch_print
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+
+    spied_write = mocker.spy(simulator, "write")
+
+    # set random non-zero status code before sending error ping
+    test_main_status_code = randint(1, 255)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "set_status_code", "status_code": test_main_status_code}, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator)
+    # have simulator send an error ping
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "send_error_ping", "error_before_reboot": True}, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator)
+    # process error ping packet and make sure error pong packet is sent right away
+    invoke_process_run_and_check_errors(mc_process)
+    # make sure error pong message was sent
+    spied_write.assert_called_once()
+    assert_serial_packet_is_expected(spied_write.call_args[0][0], SERIAL_COMM_ERROR_PING_PONG_PACKET_TYPE)
+    # make sure no error is until simulator sends next status beacon which will signal the completion of the post-error reboot
+    invoke_process_run_and_check_errors(mc_process)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "send_single_beacon"}, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator)
+    expected_status_code_dict = convert_status_code_bytes_to_dict(
+        convert_to_status_code_bytes(test_main_status_code)
+    )
+    with pytest.raises(
+        InstrumentFirmwareError,
+        match=f"Instrument reported firmware error. Status codes: {expected_status_code_dict}",
+    ):
+        invoke_process_run_and_check_errors(mc_process)
+
+
+def test_McCommunicationProcess__handles_error_ping__after_reboot(
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker, patch_print
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+
+    spied_write = mocker.spy(simulator, "write")
+
+    # set random non-zero status code before sending error ping
+    test_main_status_code = randint(1, 255)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "set_status_code", "status_code": test_main_status_code}, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator)
+    # have simulator send an error ping
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "send_error_ping", "error_before_reboot": False}, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator)
+    # process error ping packet. Make sure error pong packet is sent right away and mc_comm raises error
+    expected_status_code_dict = convert_status_code_bytes_to_dict(
+        convert_to_status_code_bytes(test_main_status_code)
+    )
+    with pytest.raises(
+        InstrumentFirmwareError,
+        match=f"Instrument reported firmware error. Status codes: {expected_status_code_dict}",
+    ):
+        invoke_process_run_and_check_errors(mc_process)
+    # make sure error pong message was sent
+    spied_write.assert_called_once()
+    assert_serial_packet_is_expected(spied_write.call_args[0][0], SERIAL_COMM_ERROR_PING_PONG_PACKET_TYPE)

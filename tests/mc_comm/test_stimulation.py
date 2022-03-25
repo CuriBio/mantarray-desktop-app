@@ -80,7 +80,7 @@ def test_handle_data_packets__parses_single_stim_data_packet_with_a_single_statu
     test_well_idx = randint(0, 23)
     test_subprotocol_idx = randint(0, 5)
 
-    stim_packet_body = (
+    stim_packet_payload = (
         bytes([1])  # num status updates in packet
         + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
         + bytes([StimStatuses.ACTIVE])
@@ -88,7 +88,7 @@ def test_handle_data_packets__parses_single_stim_data_packet_with_a_single_statu
         + bytes([test_subprotocol_idx])
     )
     test_data_packet = create_data_packet(
-        random_timestamp(), SERIAL_COMM_STIM_STATUS_PACKET_TYPE, stim_packet_body
+        random_timestamp(), SERIAL_COMM_STIM_STATUS_PACKET_TYPE, stim_packet_payload
     )
 
     parsed_data_dict = handle_data_packets(bytearray(test_data_packet), base_global_time)
@@ -110,16 +110,16 @@ def test_handle_data_packets__parses_single_stim_data_packet_with_multiple_statu
     test_subprotocol_indices = [randint(0, 5), randint(0, 5), 0]
     test_statuses = [StimStatuses.ACTIVE, StimStatuses.NULL, StimStatuses.RESTARTING]
 
-    stim_packet_body = bytes([3])  # num status updates in packet
+    stim_packet_payload = bytes([3])  # num status updates in packet
     for packet_idx in range(3):
-        stim_packet_body += (
+        stim_packet_payload += (
             bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
             + bytes([test_statuses[packet_idx]])
             + test_time_indices[packet_idx].to_bytes(8, byteorder="little")
             + bytes([test_subprotocol_indices[packet_idx]])
         )
     test_data_packet = create_data_packet(
-        random_timestamp(), SERIAL_COMM_STIM_STATUS_PACKET_TYPE, stim_packet_body
+        random_timestamp(), SERIAL_COMM_STIM_STATUS_PACKET_TYPE, stim_packet_payload
     )
 
     parsed_data_dict = handle_data_packets(bytearray(test_data_packet), base_global_time)
@@ -148,7 +148,7 @@ def test_handle_data_packets__parses_multiple_stim_data_packet_with_multiple_wel
         [StimStatuses.ACTIVE, StimStatuses.NULL, StimStatuses.FINISHED],
     ]
 
-    stim_packet_body_1 = (
+    stim_packet_payload_1 = (
         bytes([2])  # num status updates in packet
         + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_indices[0]]])
         + bytes([test_statuses[0][0]])
@@ -159,7 +159,7 @@ def test_handle_data_packets__parses_multiple_stim_data_packet_with_multiple_wel
         + test_time_indices[1][0].to_bytes(8, byteorder="little")
         + bytes([test_subprotocol_indices[1][0]])
     )
-    stim_packet_body_2 = (
+    stim_packet_payload_2 = (
         bytes([3])  # num status updates in packet
         + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_indices[1]]])
         + bytes([test_statuses[1][1]])
@@ -175,10 +175,10 @@ def test_handle_data_packets__parses_multiple_stim_data_packet_with_multiple_wel
         + bytes([test_subprotocol_indices[1][2]])
     )
     test_data_packet_1 = create_data_packet(
-        random_timestamp(), SERIAL_COMM_STIM_STATUS_PACKET_TYPE, stim_packet_body_1
+        random_timestamp(), SERIAL_COMM_STIM_STATUS_PACKET_TYPE, stim_packet_payload_1
     )
     test_data_packet_2 = create_data_packet(
-        random_timestamp(), SERIAL_COMM_STIM_STATUS_PACKET_TYPE, stim_packet_body_2
+        random_timestamp(), SERIAL_COMM_STIM_STATUS_PACKET_TYPE, stim_packet_payload_2
     )
 
     parsed_data_dict = handle_data_packets(

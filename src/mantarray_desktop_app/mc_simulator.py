@@ -47,6 +47,7 @@ from .constants import SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
+from .constants import SERIAL_COMM_ERROR_PING_PONG_PACKET_TYPE
 from .constants import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_GET_METADATA_PACKET_TYPE
 from .constants import SERIAL_COMM_GOING_DORMANT_PACKET_TYPE
@@ -197,6 +198,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._reboot_again = False
         self._reboot_time_secs: Optional[float]
         self._boot_up_time_secs: Optional[float] = None
+        # TODO update or remove these next two values
         self._baseline_time_us: Optional[int]
         self._timepoint_of_time_sync_us: Optional[int]
         self._status_code: int
@@ -308,7 +310,6 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._firmware_update_idx = None
         self._firmware_update_bytes = None
         if reboot:
-            self._status_code = SERIAL_COMM_OKAY_CODE
             if self._firmware_update_type is not None:
                 packet_type = (
                     SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE
@@ -584,6 +585,9 @@ class MantarrayMcSimulator(InfiniteProcess):
             if not checksum_failure:
                 self._reboot_time_secs = perf_counter()
                 self._reboot_again = True
+        elif packet_type == SERIAL_COMM_ERROR_PING_PONG_PACKET_TYPE:
+            # Tanner (3/24/22): As of right now, simulator does not need to handle this message at all, so it is the responsibility of tests to prompt simulator to go through the rest of the error handling procedure
+            pass
         else:
             raise UnrecognizedSerialCommPacketTypeError(f"Packet Type ID: {packet_type} is not defined")
         if send_response:
@@ -603,10 +607,6 @@ class MantarrayMcSimulator(InfiniteProcess):
             raise SerialCommInvalidSamplingPeriodError(sampling_period)
         self._sampling_period_us = sampling_period
         return update_status_byte
-
-    def _update_status_code(self, new_code: int) -> None:
-        self._status_code = new_code
-        self._send_status_beacon()
 
     def _handle_status_beacon(self) -> None:
         if self._time_of_last_status_beacon_secs is None:
@@ -659,7 +659,6 @@ class MantarrayMcSimulator(InfiniteProcess):
         )
 
     def _handle_test_comm(self) -> None:
-        # pylint: disable=too-many-nested-blocks  # Tanner (11/10/21): unsure why this error is appearing all of a sudden
         try:
             test_comm = self._testing_queue.get_nowait()
         except queue.Empty:
@@ -697,6 +696,11 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._is_stimulating = test_comm["status"]
         elif command == "set_firmware_update_type":
             self._firmware_update_type = test_comm["firmware_type"]
+        elif command == "send_error_ping":
+            self._send_data_packet(
+                SERIAL_COMM_ERROR_PING_PONG_PACKET_TYPE,
+                bytes([test_comm["error_before_reboot"]]) + convert_to_status_code_bytes(self._status_code),
+            )
         else:
             raise UnrecognizedSimulatorTestCommandError(command)
 
@@ -720,7 +724,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             data_packet_bytes += create_data_packet(
                 self._get_timestamp(),
                 SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE,
-                self._create_data_packet_body(),
+                self._create_magnetometer_data_payload(),
             )
             # increment values
             self._time_index_us += self._sampling_period_us
@@ -729,9 +733,9 @@ class MantarrayMcSimulator(InfiniteProcess):
         # update timepoint
         self._timepoint_of_last_data_packet_us += num_packets_to_send * self._sampling_period_us
 
-    def _create_data_packet_body(self) -> bytes:
+    def _create_magnetometer_data_payload(self) -> bytes:
         # add time index to data packet body
-        data_packet_body = self._time_index_us.to_bytes(
+        magnetometer_data_payload = self._time_index_us.to_bytes(
             SERIAL_COMM_TIME_INDEX_LENGTH_BYTES, byteorder="little"
         )
         for module_id in range(1, self._num_wells + 1):
@@ -744,8 +748,8 @@ class MantarrayMcSimulator(InfiniteProcess):
             # add data points
             well_sensor_data = offset + (data_value.tobytes() * SERIAL_COMM_NUM_CHANNELS_PER_SENSOR)
             well_data = well_sensor_data * SERIAL_COMM_NUM_SENSORS_PER_WELL
-            data_packet_body += well_data
-        return data_packet_body
+            magnetometer_data_payload += well_data
+        return magnetometer_data_payload
 
     def _handle_stimulation_packets(self) -> None:
         num_status_updates = 0

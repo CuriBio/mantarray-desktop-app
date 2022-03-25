@@ -45,6 +45,7 @@ from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_DATA_SAMPLE_LENGTH_BYTES
 from .constants import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
+from .constants import SERIAL_COMM_ERROR_PING_PONG_PACKET_TYPE
 from .constants import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_GET_METADATA_PACKET_TYPE
 from .constants import SERIAL_COMM_GOING_DORMANT_PACKET_TYPE
@@ -89,6 +90,7 @@ from .exceptions import FirmwareUpdateCommandFailedError
 from .exceptions import FirmwareUpdateTimeoutError
 from .exceptions import InstrumentDataStreamingAlreadyStartedError
 from .exceptions import InstrumentDataStreamingAlreadyStoppedError
+from .exceptions import InstrumentFirmwareError
 from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import InvalidCommandFromMainError
 from .exceptions import SamplingPeriodUpdateWhileDataStreamingError
@@ -201,6 +203,7 @@ class McCommunicationProcess(InstrumentCommProcess):
     def __init__(self, *args: Any, hardware_test_mode: bool = False, **kwargs: Any):
         super().__init__(*args, **kwargs)
         self._error: Optional[Exception] = None
+        self._instrument_error_status_codes: Optional[Dict[str, int]] = None
         self._in_simulation_mode = False
         self._simulator_error_queues: List[
             Optional[Queue[Tuple[Exception, str]]]  # pylint: disable=unsubscriptable-object
@@ -333,6 +336,11 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _report_fatal_error(self, the_err: Exception) -> None:
         self._error = the_err
         super()._report_fatal_error(the_err)
+
+    def _report_instrument_firmware_error(self) -> None:
+        raise InstrumentFirmwareError(
+            f"Instrument reported firmware error. Status codes: {self._instrument_error_status_codes}"
+        )
 
     def _reset_stim_status_buffers(self) -> None:
         self._stim_status_buffers = {well_idx: [[], []] for well_idx in range(self._num_wells)}
@@ -711,28 +719,31 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _process_comm_from_instrument(
         self,
         packet_type: int,
-        packet_body: bytes,
+        packet_payload: bytes,
     ) -> None:
         # pylint: disable=too-many-branches, too-many-statements
         if packet_type == SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE:
-            returned_packet = SERIAL_COMM_MAGIC_WORD_BYTES + packet_body
+            returned_packet = SERIAL_COMM_MAGIC_WORD_BYTES + packet_payload
             raise SerialCommIncorrectChecksumFromPCError(returned_packet)
 
         board_idx = 0
         if packet_type == SERIAL_COMM_STATUS_BEACON_PACKET_TYPE:
-            self._process_status_beacon(packet_body)
+            if self._instrument_error_status_codes is not None:
+                # if _instrument_error_status_codes, it means that this beacon is signaling the completion of a automatic instrument reboot that occurred after an error ping was sent
+                self._report_instrument_firmware_error()
+            self._process_status_beacon(packet_payload)
         elif packet_type == SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE:
             raise NotImplementedError(
                 "Should never receive magnetometer data packets when not streaming data"
             )
         elif packet_type == SERIAL_COMM_GOING_DORMANT_PACKET_TYPE:
-            going_dormant_reason = packet_body[0]
+            going_dormant_reason = packet_payload[0]
             raise FirmwareGoingDormantError(going_dormant_reason)
         elif packet_type in COMMAND_PACKET_TYPES:
-            response_data = packet_body
+            response_data = packet_payload
             if not self._commands_awaiting_response:
                 raise SerialCommUntrackedCommandResponseError(
-                    f"Packet Type ID: {packet_type}, Packet Body: {str(packet_body)}"
+                    f"Packet Type ID: {packet_type}, Packet Body: {str(packet_payload)}"
                 )
             prev_command = self._commands_awaiting_response.popleft()
             if prev_command["command"] == "handshake":
@@ -832,8 +843,8 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._board_queues[board_idx][1].put_nowait(prev_command)
         elif packet_type == SERIAL_COMM_PLATE_EVENT_PACKET_TYPE:
             # Tanner (2/4/22): currently unused in favor of SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE, but plan to switch back to this packet type when the instrument is able to detect whether or not a plate was placed or removed
-            plate_was_placed = bool(packet_body[0])
-            barcode = packet_body[1:].decode("ascii") if plate_was_placed else ""
+            plate_was_placed = bool(packet_payload[0])
+            barcode = packet_payload[1:].decode("ascii") if plate_was_placed else ""
             barcode_comm = {"communication_type": "barcode_comm", "board_idx": board_idx, "barcode": barcode}
             if plate_was_placed:
                 barcode_comm["valid"] = check_barcode_is_valid(barcode)
@@ -858,7 +869,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._is_waiting_for_reboot = True
             self._time_of_reboot_start = perf_counter()
         elif packet_type == SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE:
-            barcode = packet_body.decode("ascii")
+            barcode = packet_payload.decode("ascii")
             barcode_comm = {
                 "communication_type": "barcode_comm",
                 "board_idx": board_idx,
@@ -866,10 +877,16 @@ class McCommunicationProcess(InstrumentCommProcess):
                 "valid": check_barcode_is_valid(barcode),
             }
             self._board_queues[board_idx][1].put_nowait(barcode_comm)
+        elif packet_type == SERIAL_COMM_ERROR_PING_PONG_PACKET_TYPE:
+            self._instrument_error_status_codes = convert_status_code_bytes_to_dict(packet_payload[1:])
+            self._send_data_packet(board_idx, SERIAL_COMM_ERROR_PING_PONG_PACKET_TYPE)
+            if not packet_payload[0]:
+                # if this error ping was sent after an automatic reboot of the instrument, report error immediatelys
+                self._report_instrument_firmware_error()
         else:
             raise UnrecognizedSerialCommPacketTypeError(f"Packet Type ID: {packet_type} is not defined")
 
-    def _process_status_beacon(self, packet_body: bytes) -> None:
+    def _process_status_beacon(self, packet_payload: bytes) -> None:
         board_idx = 0
         self._time_of_last_beacon_secs = perf_counter()
         if (
@@ -885,7 +902,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 }
             )
         status_codes_dict = convert_status_code_bytes_to_dict(
-            packet_body[:SERIAL_COMM_STATUS_CODE_LENGTH_BYTES]
+            packet_payload[:SERIAL_COMM_STATUS_CODE_LENGTH_BYTES]
         )
         self._log_status_codes(status_codes_dict, "Status Beacon")
         if status_codes_dict["main"] == SERIAL_COMM_OKAY_CODE and self._auto_get_metadata:

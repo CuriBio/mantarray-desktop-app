@@ -181,7 +181,7 @@ cpdef dict handle_data_packets(
     cdef int num_data_packets = 0
 
     # stim data parsing values
-    cdef int stim_packet_body_len
+    cdef int stim_packet_payload_len
     cdef unsigned char [:] stim_packet_bytes = bytearray(num_bytes)
     cdef int stim_packet_byte_idx = 0
     cdef int num_stim_packets = 0
@@ -242,13 +242,14 @@ cpdef dict handle_data_packets(
             data_packet_byte_idx += data_packet_len
             num_data_packets += 1
         else:
-            stim_packet_body_len = p.packet_len + 6 - SERIAL_COMM_ADDITIONAL_BYTES_INDEX_C_INT
+            # TODO fix all the magic numbers in this file
+            stim_packet_payload_len = p.packet_len + 6 - SERIAL_COMM_ADDITIONAL_BYTES_INDEX_C_INT
             stim_packet_bytes[
-                stim_packet_byte_idx : stim_packet_byte_idx + stim_packet_body_len
+                stim_packet_byte_idx : stim_packet_byte_idx + stim_packet_payload_len
             ] = read_bytes[  # does not include CRC bytes
                 bytes_idx + SERIAL_COMM_ADDITIONAL_BYTES_INDEX_C_INT : bytes_idx + p.packet_len + 6
             ]
-            stim_packet_byte_idx += stim_packet_body_len
+            stim_packet_byte_idx += stim_packet_payload_len
             num_stim_packets += 1
         bytes_idx += MAGIC_WORD_LEN + 2 + p.packet_len
 
