@@ -3,7 +3,6 @@
 
 The following constants are based off the geometry of Mantarray Board Rev 2
 
-* CHANNEL_INDEX_TO_24_WELL_INDEX
 * REF_INDEX_TO_24_WELL_INDEX
 * ADC_CH_TO_24_WELL_INDEX
 * ADC_CH_TO_IS_REF_SENSOR
@@ -153,34 +152,6 @@ ADC_OFFSET_DESCRIPTION_TAG = (
 )
 
 CONSTRUCT_SENSORS_PER_REF_SENSOR = 4
-CHANNEL_INDEX_TO_24_WELL_INDEX = immutabledict(  # may be unnecessary
-    {
-        0: 0,
-        1: 1,
-        2: 4,
-        3: 5,
-        4: 8,
-        5: 9,
-        6: 12,
-        7: 13,
-        8: 16,
-        9: 17,
-        10: 20,
-        11: 21,
-        12: 7,
-        13: 6,
-        14: 3,
-        15: 2,
-        16: 15,
-        17: 14,
-        18: 11,
-        19: 10,
-        20: 23,
-        21: 22,
-        22: 19,
-        23: 18,
-    }
-)
 REF_INDEX_TO_24_WELL_INDEX = immutabledict(
     {
         0: frozenset([0, 1, 4, 5]),
@@ -219,16 +190,10 @@ for adc_num in range(6):
 
 # Communications from Main to Subprocesses
 START_MANAGED_ACQUISITION_COMMUNICATION = immutabledict(
-    {
-        "communication_type": "acquisition_manager",
-        "command": "start_managed_acquisition",
-    }
+    {"communication_type": "acquisition_manager", "command": "start_managed_acquisition"}
 )
 STOP_MANAGED_ACQUISITION_COMMUNICATION = immutabledict(
-    {
-        "communication_type": "acquisition_manager",
-        "command": "stop_managed_acquisition",
-    }
+    {"communication_type": "acquisition_manager", "command": "stop_managed_acquisition"}
 )
 
 # boot up states

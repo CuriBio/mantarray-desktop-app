@@ -441,7 +441,7 @@ def test_McCommunicationProcess__processes_start_managed_acquisition_command__wh
 
 
 def test_McCommunicationProcess__raises_error_when_set_sampling_period_command_received_while_data_is_streaming(
-    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker, patch_print
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, patch_print
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     from_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][0]
@@ -478,7 +478,6 @@ def test_McCommunicationProcess__processes_start_managed_acquisition_command__an
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
     patch_print,
-    mocker,
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     from_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][0]

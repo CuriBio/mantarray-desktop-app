@@ -35,7 +35,6 @@ from .constants import CALIBRATED_STATE
 from .constants import CALIBRATING_STATE
 from .constants import CALIBRATION_NEEDED_STATE
 from .constants import CALIBRATION_RECORDING_DUR_SECONDS
-from .constants import CHANNEL_INDEX_TO_24_WELL_INDEX
 from .constants import CHECKING_FOR_UPDATES_STATE
 from .constants import CLEAR_BARCODE_TRIG_BIT
 from .constants import CLEARED_BARCODE_VALUE
@@ -333,7 +332,6 @@ __all__ = [
     "parse_data_frame",
     "parse_little_endian_int24",
     "parse_sensor_bytes",
-    "CHANNEL_INDEX_TO_24_WELL_INDEX",
     "COMPILED_EXE_BUILD_TIMESTAMP",
     "REF_INDEX_TO_24_WELL_INDEX",
     "ADC_CH_TO_24_WELL_INDEX",

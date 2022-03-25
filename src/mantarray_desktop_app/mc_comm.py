@@ -190,6 +190,10 @@ def _get_dur_of_data_parse_secs(start: float) -> float:
     return perf_counter() - start
 
 
+def _is_simulator(board_connection: Any) -> bool:
+    return isinstance(board_connection, MantarrayMcSimulator)
+
+
 # pylint: disable=too-many-instance-attributes
 class McCommunicationProcess(InstrumentCommProcess):
     """Process that controls communication with the Mantarray Beta 2 Board(s).
@@ -294,10 +298,10 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         board_idx = 0
         board = self._board_connections[board_idx]
-        if isinstance(board, MantarrayMcSimulator):
+        if _is_simulator(board):
             # Tanner (3/16/21): Current assumption is that a live mantarray will be running by the time we connect to it, so starting simulator here and waiting for it to complete start up
-            board.start()
-            while not board.is_start_up_complete():
+            board.start()  # type: ignore
+            while not board.is_start_up_complete():  # type: ignore
                 # sleep so as to not relentlessly ping the simulator
                 sleep(0.1)
         else:
@@ -325,11 +329,11 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._board_queues[board_idx][1],
                 self.get_logging_level(),
             )
-            if isinstance(board, MantarrayMcSimulator):
+            if _is_simulator(board):
                 if board.is_alive():
                     board.hard_stop()  # hard stop to drain all queues of simulator
                     board.join()
-            elif self._error:
+            elif self._error and self._instrument_error_status_codes is None:
                 self._send_data_packet(board_idx, SERIAL_COMM_REBOOT_PACKET_TYPE)
         super()._teardown_after_loop()
 
@@ -337,10 +341,12 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._error = the_err
         super()._report_fatal_error(the_err)
 
-    def _report_instrument_firmware_error(self) -> None:
-        raise InstrumentFirmwareError(
-            f"Instrument reported firmware error. Status codes: {self._instrument_error_status_codes}"
-        )
+    def _report_instrument_firmware_error(self, reboot_timeout: bool = False) -> None:
+        error_msg = "Instrument reported firmware error"
+        if reboot_timeout:
+            error_msg += ", and failed to complete reboot before timeout"
+        error_msg += f". Status codes: {self._instrument_error_status_codes}"
+        raise InstrumentFirmwareError(error_msg)
 
     def _reset_stim_status_buffers(self) -> None:
         self._stim_status_buffers = {well_idx: [[], []] for well_idx in range(self._num_wells)}
@@ -382,13 +388,13 @@ class McCommunicationProcess(InstrumentCommProcess):
                     Queue(), Queue(), Queue(), Queue(), num_wells=self._num_wells
                 )
             self.set_board_connection(i, serial_obj)
-            msg["is_connected"] = not isinstance(serial_obj, MantarrayMcSimulator)
+            msg["is_connected"] = not _is_simulator(serial_obj)
             msg["timestamp"] = _get_formatted_utc_now()
             to_main_queue.put_nowait(msg)
 
     def set_board_connection(self, board_idx: int, board: Union[MantarrayMcSimulator, serial.Serial]) -> None:
         super().set_board_connection(board_idx, board)
-        self._in_simulation_mode = isinstance(board, MantarrayMcSimulator)
+        self._in_simulation_mode = _is_simulator(board)
         if self._in_simulation_mode:
             self._simulator_error_queues[board_idx] = board.get_fatal_error_reporter()
 
@@ -883,6 +889,10 @@ class McCommunicationProcess(InstrumentCommProcess):
             if not packet_payload[0]:
                 # if this error ping was sent after an automatic reboot of the instrument, report error immediatelys
                 self._report_instrument_firmware_error()
+            else:
+                # set up values for reboot
+                self._is_waiting_for_reboot = True
+                self._time_of_reboot_start = perf_counter()
         else:
             raise UnrecognizedSerialCommPacketTypeError(f"Packet Type ID: {packet_type} is not defined")
 
@@ -1121,7 +1131,10 @@ class McCommunicationProcess(InstrumentCommProcess):
             return
         oldest_command = self._commands_awaiting_response[0]
         secs_since_command_sent = _get_secs_since_command_sent(oldest_command["timepoint"])
-        if secs_since_command_sent >= SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS:
+        if (
+            secs_since_command_sent >= SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
+            and self._instrument_error_status_codes is None
+        ):
             raise SerialCommCommandResponseTimeoutError(oldest_command["command"])
 
     def _check_reboot_status(self) -> None:
@@ -1129,7 +1142,10 @@ class McCommunicationProcess(InstrumentCommProcess):
             return
         reboot_dur_secs = _get_secs_since_reboot_start(self._time_of_reboot_start)
         if reboot_dur_secs >= MAX_MC_REBOOT_DURATION_SECONDS:
-            raise InstrumentRebootTimeoutError()
+            if self._instrument_error_status_codes:
+                self._report_instrument_firmware_error(reboot_timeout=True)
+            else:
+                raise InstrumentRebootTimeoutError()
 
     def _check_firmware_update_status(self) -> None:
         if self._time_of_firmware_update_start is None:

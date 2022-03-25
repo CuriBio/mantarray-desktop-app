@@ -23,7 +23,6 @@ from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import CALIBRATION_RECORDING_DUR_SECONDS
-from mantarray_desktop_app import CHANNEL_INDEX_TO_24_WELL_INDEX
 from mantarray_desktop_app import CHECKING_FOR_UPDATES_STATE
 from mantarray_desktop_app import CLEAR_BARCODE_TRIG_BIT
 from mantarray_desktop_app import CLEARED_BARCODE_VALUE
@@ -239,32 +238,6 @@ def test_adc_reading_constants():
 
 def test_sensors_and_mappings():
     assert CONSTRUCT_SENSORS_PER_REF_SENSOR == 4
-    assert CHANNEL_INDEX_TO_24_WELL_INDEX == {
-        0: 0,
-        1: 1,
-        2: 4,
-        3: 5,
-        4: 8,
-        5: 9,
-        6: 12,
-        7: 13,
-        8: 16,
-        9: 17,
-        10: 20,
-        11: 21,
-        12: 7,
-        13: 6,
-        14: 3,
-        15: 2,
-        16: 15,
-        17: 14,
-        18: 11,
-        19: 10,
-        20: 23,
-        21: 22,
-        22: 19,
-        23: 18,
-    }
     assert REF_INDEX_TO_24_WELL_INDEX == {
         0: frozenset([0, 1, 4, 5]),
         1: frozenset([8, 9, 12, 13]),
