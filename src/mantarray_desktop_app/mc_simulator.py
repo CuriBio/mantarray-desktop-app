@@ -40,7 +40,6 @@ from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MICROSECONDS_PER_MILLISECOND
-from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE
 from .constants import SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE
@@ -65,6 +64,7 @@ from .constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from .constants import SERIAL_COMM_OKAY_CODE
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
+from .constants import SERIAL_COMM_PAYLOAD_INDEX
 from .constants import SERIAL_COMM_REBOOT_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_NICKNAME_PACKET_TYPE
 from .constants import SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE
@@ -476,7 +476,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         elif packet_type == SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE:
             # command fails if > 24 unique protocols given, the length of the array of protocol IDs != 24, or if > 50 subprotocols are in a single protocol
             stim_info_dict = convert_stim_bytes_to_dict(
-                comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
+                comm_from_pc[SERIAL_COMM_PAYLOAD_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
             )
             command_failed = (
                 self._is_stimulating
@@ -521,13 +521,13 @@ class MantarrayMcSimulator(InfiniteProcess):
             response_body += convert_metadata_to_bytes(self._metadata_dict)
         elif packet_type == SERIAL_COMM_SET_NICKNAME_PACKET_TYPE:
             send_response = False
-            start_idx = SERIAL_COMM_ADDITIONAL_BYTES_INDEX
+            start_idx = SERIAL_COMM_PAYLOAD_INDEX
             nickname_bytes = comm_from_pc[start_idx : start_idx + SERIAL_COMM_NICKNAME_BYTES_LENGTH]
             self._new_nickname = nickname_bytes.decode("utf-8")
             self._reboot_time_secs = perf_counter()
             self._reboot_again = True
         elif packet_type == SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE:
-            firmware_type = comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX]
+            firmware_type = comm_from_pc[SERIAL_COMM_PAYLOAD_INDEX]
             command_failed = firmware_type not in (0, 1) or self._firmware_update_type is not None
             # TODO store new FW version and number of bytes in FW
             self._firmware_update_idx = 0
@@ -541,9 +541,9 @@ class MantarrayMcSimulator(InfiniteProcess):
             if self._firmware_update_idx is None:
                 # Tanner (11/10/21): currently unsure how real board would handle receiving this packet before the previous two firmware packet types
                 raise NotImplementedError("_firmware_update_idx should never be None here")
-            packet_idx = comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX]
+            packet_idx = comm_from_pc[SERIAL_COMM_PAYLOAD_INDEX]
             new_firmware_bytes = comm_from_pc[
-                SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 1 : -SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+                SERIAL_COMM_PAYLOAD_INDEX + 1 : -SERIAL_COMM_CHECKSUM_LENGTH_BYTES
             ]
             command_failed = (
                 len(new_firmware_bytes) > SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES - 1
@@ -560,7 +560,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                 # Tanner (11/10/21): currently unsure how real board would handle receiving this packet before the previous two firmware packet types
                 raise NotImplementedError("_firmware_update_bytes should never be None here")
             received_checksum = int.from_bytes(
-                comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX : SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 4],
+                comm_from_pc[SERIAL_COMM_PAYLOAD_INDEX : SERIAL_COMM_PAYLOAD_INDEX + 4],
                 byteorder="little",
             )
             calculated_checksum = crc32(self._firmware_update_bytes)
@@ -584,7 +584,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             return update_status_byte
         # check and set sampling period
         sampling_period = int.from_bytes(
-            comm_from_pc[SERIAL_COMM_ADDITIONAL_BYTES_INDEX : SERIAL_COMM_ADDITIONAL_BYTES_INDEX + 2],
+            comm_from_pc[SERIAL_COMM_PAYLOAD_INDEX : SERIAL_COMM_PAYLOAD_INDEX + 2],
             byteorder="little",
         )
         if sampling_period % MICROSECONDS_PER_MILLISECOND != 0:

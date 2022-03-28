@@ -36,7 +36,6 @@ from .constants import MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS
 from .constants import MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import NUM_INITIAL_PACKETS_TO_DROP
-from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE
 from .constants import SERIAL_COMM_BAUD_RATE
 from .constants import SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
@@ -64,6 +63,7 @@ from .constants import SERIAL_COMM_PACKET_HEADER_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_REMAINDER_SIZE_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
+from .constants import SERIAL_COMM_PAYLOAD_INDEX
 from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from .constants import SERIAL_COMM_REBOOT_PACKET_TYPE
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
@@ -719,7 +719,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             )
         self._process_comm_from_instrument(
             full_data_packet[SERIAL_COMM_PACKET_TYPE_INDEX],
-            full_data_packet[SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES],
+            full_data_packet[SERIAL_COMM_PAYLOAD_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES],
         )
 
     def _process_comm_from_instrument(

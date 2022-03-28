@@ -15,10 +15,10 @@ from typing import List
 from typing import Optional
 from typing import Union
 
-from mantarray_desktop_app import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_TYPE_INDEX
+from mantarray_desktop_app import SERIAL_COMM_PAYLOAD_INDEX
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 import stdlib_utils
@@ -155,7 +155,7 @@ def assert_serial_packet_is_expected(
 ) -> None:
     try:
         assert full_packet[SERIAL_COMM_PACKET_TYPE_INDEX] == packet_type
-        packet_payload = full_packet[SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
+        packet_payload = full_packet[SERIAL_COMM_PAYLOAD_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
         if packet_payload != additional_bytes:
             expected_len = len(additional_bytes)
             actual_len = len(packet_payload)

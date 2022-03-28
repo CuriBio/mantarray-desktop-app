@@ -91,7 +91,6 @@ from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from .constants import REFERENCE_VOLTAGE
 from .constants import ROUND_ROBIN_PERIOD
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
-from .constants import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from .constants import SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE
 from .constants import SERIAL_COMM_BAUD_RATE
 from .constants import SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
@@ -129,6 +128,7 @@ from .constants import SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_REMAINDER_SIZE_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
 from .constants import SERIAL_COMM_PACKET_TYPE_LENGTH_BYTES
+from .constants import SERIAL_COMM_PAYLOAD_INDEX
 from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from .constants import SERIAL_COMM_REBOOT_PACKET_TYPE
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
@@ -484,7 +484,7 @@ __all__ = [
     "SerialCommIncorrectChecksumFromInstrumentError",
     "SERIAL_COMM_BAUD_RATE",
     "SerialCommIncorrectChecksumFromPCError",
-    "SERIAL_COMM_ADDITIONAL_BYTES_INDEX",
+    "SERIAL_COMM_PAYLOAD_INDEX",
     "SERIAL_COMM_METADATA_BYTES_LENGTH",
     "SerialCommMetadataValueTooLargeError",
     "SERIAL_COMM_SET_NICKNAME_PACKET_TYPE",

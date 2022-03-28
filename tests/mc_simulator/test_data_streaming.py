@@ -4,7 +4,6 @@ import os
 
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
-from mantarray_desktop_app import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_DATA_SAMPLE_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
@@ -12,6 +11,7 @@ from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from mantarray_desktop_app import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from mantarray_desktop_app import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from mantarray_desktop_app import SERIAL_COMM_PACKET_TYPE_INDEX
+from mantarray_desktop_app import SERIAL_COMM_PAYLOAD_INDEX
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
@@ -118,7 +118,7 @@ def test_MantarrayMcSimulator__sends_correct_time_index_and_data_points_in_first
             data_packet[SERIAL_COMM_PACKET_TYPE_INDEX] == SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
         ), f"Incorrect packet type in packet {packet_num + 1}"
 
-        idx = SERIAL_COMM_ADDITIONAL_BYTES_INDEX
+        idx = SERIAL_COMM_PAYLOAD_INDEX
         time_index = int.from_bytes(
             data_packet[idx : idx + SERIAL_COMM_TIME_INDEX_LENGTH_BYTES], byteorder="little"
         )
