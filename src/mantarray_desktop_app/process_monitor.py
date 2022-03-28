@@ -534,6 +534,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
             self._queue_websocket_message(barcode_update_message)
         elif communication_type == "metadata_comm":
             board_idx = communication["board_index"]
+            # remove keys that aren't UUIDs as these don't need to be stored. They are only included in the comm so that the values are logged
+            for key in list(communication["metadata"].keys()):
+                if not isinstance(key, uuid.UUID):
+                    communication["metadata"].pop(key)
             self._values_to_share_to_server["instrument_metadata"] = {board_idx: communication["metadata"]}
             # TODO Tanner (4/23/21): eventually these three following values won't need their own fields as they will be accessible through the above entry in shared_values_dict. Need to keep these until Beta 1 is phased out though
             self._values_to_share_to_server["main_firmware_version"] = {

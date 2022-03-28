@@ -23,6 +23,7 @@ from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
+from .constants import SERIAL_COMM_OKAY_CODE
 from .constants import SERIAL_COMM_PACKET_REMAINDER_SIZE_LENGTH_BYTES
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIMESTAMP_EPOCH
@@ -83,7 +84,7 @@ def validate_checksum(comm_from_pc: bytes) -> bool:
     return actual_checksum == expected_checksum
 
 
-def parse_metadata_bytes(metadata_bytes: bytes) -> Dict[UUID, Any]:
+def parse_metadata_bytes(metadata_bytes: bytes) -> Dict[Any, Any]:
     """Parse bytes containing metadata and return as Dict."""
     return {
         BOOT_FLAGS_UUID: metadata_bytes[0],
@@ -91,6 +92,7 @@ def parse_metadata_bytes(metadata_bytes: bytes) -> Dict[UUID, Any]:
         MANTARRAY_SERIAL_NUMBER_UUID: metadata_bytes[14:26].decode("ascii"),
         MAIN_FIRMWARE_VERSION_UUID: convert_semver_bytes_to_str(metadata_bytes[26:29]),
         CHANNEL_FIRMWARE_VERSION_UUID: convert_semver_bytes_to_str(metadata_bytes[29:32]),
+        "status_codes_prior_to_reboot": convert_status_code_bytes_to_dict(metadata_bytes[32:36]),
     }
 
 
@@ -101,6 +103,9 @@ def convert_metadata_to_bytes(metadata_dict: Dict[UUID, Any]) -> bytes:
         + bytes(metadata_dict[MANTARRAY_SERIAL_NUMBER_UUID], encoding="ascii")
         + convert_semver_str_to_bytes(metadata_dict[MAIN_FIRMWARE_VERSION_UUID])
         + convert_semver_str_to_bytes(metadata_dict[CHANNEL_FIRMWARE_VERSION_UUID])
+        # this function is only used in the simulator, so always send default status code
+        + convert_to_status_code_bytes(SERIAL_COMM_OKAY_CODE)
+        + bytes(28)
     )
 
 

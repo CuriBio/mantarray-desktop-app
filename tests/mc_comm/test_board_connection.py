@@ -19,7 +19,10 @@ from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from mantarray_desktop_app import SerialCommPacketRegistrationReadEmptyError
 from mantarray_desktop_app import SerialCommPacketRegistrationSearchExhaustedError
 from mantarray_desktop_app import SerialCommPacketRegistrationTimeoutError
+from mantarray_desktop_app.constants import SERIAL_COMM_OKAY_CODE
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
+from mantarray_desktop_app.serial_comm_utils import convert_status_code_bytes_to_dict
+from mantarray_desktop_app.serial_comm_utils import convert_to_status_code_bytes
 import pytest
 import serial
 from serial import Serial
@@ -483,4 +486,8 @@ def test_McCommunicationProcess__requests_metadata_if_setup_before_loop_was_perf
     to_main_items = drain_queue(output_queue)
     metadata_comm = to_main_items[-1]
     assert metadata_comm["communication_type"] == "metadata_comm"
-    assert metadata_comm["metadata"] == MantarrayMcSimulator.default_metadata_values
+    expected_dict = dict(MantarrayMcSimulator.default_metadata_values)
+    expected_dict["status_codes_prior_to_reboot"] = convert_status_code_bytes_to_dict(
+        convert_to_status_code_bytes(SERIAL_COMM_OKAY_CODE)
+    )
+    assert metadata_comm["metadata"] == expected_dict

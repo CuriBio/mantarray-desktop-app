@@ -11,9 +11,12 @@ from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import UnrecognizedCommandFromMainToMcCommError
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import SERIAL_COMM_OKAY_CODE
 from mantarray_desktop_app.firmware_downloader import download_firmware_updates
 from mantarray_desktop_app.firmware_downloader import get_latest_firmware_versions
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
+from mantarray_desktop_app.serial_comm_utils import convert_status_code_bytes_to_dict
+from mantarray_desktop_app.serial_comm_utils import convert_to_status_code_bytes
 from mantarray_desktop_app.worker_thread import ErrorCatchingThread
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 import pytest
@@ -160,10 +163,7 @@ def test_McCommunicationProcess__processes_get_metadata_command(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
 
-    expected_response = {
-        "communication_type": "metadata_comm",
-        "command": "get_metadata",
-    }
+    expected_response = {"communication_type": "metadata_comm", "command": "get_metadata"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(expected_response), input_queue
     )
@@ -174,7 +174,10 @@ def test_McCommunicationProcess__processes_get_metadata_command(
     # run mc_process one iteration to get metadata from simulator and send back to main
     invoke_process_run_and_check_errors(mc_process)
     confirm_queue_is_eventually_of_size(output_queue, 1)
-    expected_response["metadata"] = MantarrayMcSimulator.default_metadata_values
+    expected_response["metadata"] = dict(MantarrayMcSimulator.default_metadata_values)
+    expected_response["metadata"]["status_codes_prior_to_reboot"] = convert_status_code_bytes_to_dict(
+        convert_to_status_code_bytes(SERIAL_COMM_OKAY_CODE)
+    )
     expected_response["board_index"] = 0
     command_response = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert command_response == expected_response

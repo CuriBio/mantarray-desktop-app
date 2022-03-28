@@ -71,12 +71,7 @@ BARCODE_UNREADABLE_UUID = uuid.UUID("87525976-4c98-4783-a6f2-ae34a89dace6")
 CURI_BIO_ACCOUNT_UUID = uuid.UUID("73f52be0-368c-42d8-a1fd-660d49ba5604")
 CURI_BIO_USER_ACCOUNT_ID = uuid.UUID("455b93eb-c78f-4494-9f73-d3291130f126")
 
-DEFAULT_USER_CONFIG = immutabledict(
-    {
-        "customer_account_id": "",
-        "user_account_id": "",
-    }
-)
+DEFAULT_USER_CONFIG = immutabledict({"customer_account_id": "", "user_account_id": ""})
 VALID_CONFIG_SETTINGS = frozenset(
     [
         "customer_account_uuid",
@@ -377,7 +372,7 @@ class StimStatuses(IntEnum):
 
 
 # Metadata
-SERIAL_COMM_METADATA_BYTES_LENGTH = 32
+SERIAL_COMM_METADATA_BYTES_LENGTH = 64
 SERIAL_COMM_NICKNAME_BYTES_LENGTH = 13
 SERIAL_COMM_SERIAL_NUMBER_BYTES_LENGTH = 12
 

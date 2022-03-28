@@ -94,6 +94,8 @@ def test_parse_metadata_bytes__returns_expected_value():
         + bytes(MantarrayMcSimulator.default_mantarray_serial_number, encoding="ascii")
         + bytes([0, 1, 2])  # main FW version
         + bytes([255, 255, 255])  # channel FW version
+        + bytes([1, 2, 3, 4])
+        + bytes(28)
     )
     assert len(metadata_bytes) == SERIAL_COMM_METADATA_BYTES_LENGTH
 
@@ -103,6 +105,7 @@ def test_parse_metadata_bytes__returns_expected_value():
         MANTARRAY_NICKNAME_UUID: "マンタレ1",
         MAIN_FIRMWARE_VERSION_UUID: "0.1.2",
         CHANNEL_FIRMWARE_VERSION_UUID: "255.255.255",
+        "status_codes_prior_to_reboot": convert_status_code_bytes_to_dict(bytes([1, 2, 3, 4])),
     }
 
 

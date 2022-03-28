@@ -788,10 +788,12 @@ def test_MantarrayProcessesMonitor__stores_device_information_from_metadata_comm
         test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(board_idx)
     )
 
+    metadata_dict = dict(MantarrayMcSimulator.default_metadata_values)
+    metadata_dict.update({"status_codes_prior_to_reboot": {"status": "codes"}, "any": "any"})
     metadata_comm_dict = {
         "communication_type": "metadata_comm",
         "command": "get_metadata",
-        "metadata": MantarrayMcSimulator.default_metadata_values,
+        "metadata": metadata_dict,
         "board_index": board_idx,
     }
     instrument_comm_to_main_queue.put_nowait(metadata_comm_dict)

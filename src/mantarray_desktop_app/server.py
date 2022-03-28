@@ -69,7 +69,7 @@ from .constants import LIVE_VIEW_ACTIVE_STATE
 from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import RECORDING_STATE
-from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
+from .constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
 from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
 from .constants import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
@@ -269,7 +269,7 @@ def set_mantarray_nickname() -> Response:
     Can be invoked by: curl http://localhost:4567/set_mantarray_nickname?nickname=My%20Mantarray
     """
     shared_values_dict = _get_values_from_process_monitor()
-    max_num_bytes = SERIAL_COMM_METADATA_BYTES_LENGTH if shared_values_dict["beta_2_mode"] else 23
+    max_num_bytes = SERIAL_COMM_NICKNAME_BYTES_LENGTH if shared_values_dict["beta_2_mode"] else 23
 
     nickname = request.args["nickname"]
     if len(nickname.encode("utf-8")) > max_num_bytes:
