@@ -198,9 +198,6 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._reboot_again = False
         self._reboot_time_secs: Optional[float]
         self._boot_up_time_secs: Optional[float] = None
-        # TODO update or remove these next two values
-        self._baseline_time_us: Optional[int]
-        self._timepoint_of_time_sync_us: Optional[int]
         self._status_code: int
         self._sampling_period_us: int
         self._stim_info: Dict[str, Any]
@@ -302,8 +299,6 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._reset_start_time()
         self._reboot_time_secs = None
         self._status_code = SERIAL_COMM_OKAY_CODE
-        self._baseline_time_us = None
-        self._timepoint_of_time_sync_us = None
         self._sampling_period_us = DEFAULT_SAMPLING_PERIOD
         self._stim_info = {}
         self._is_stimulating = False
@@ -342,13 +337,6 @@ class MantarrayMcSimulator(InfiniteProcess):
             convert_module_id_to_well_name(module_id, use_stim_mapping=True): False
             for module_id in range(1, self._num_wells + 1)
         }
-
-    def _get_us_since_time_sync(self) -> int:
-        return (
-            0
-            if self._timepoint_of_time_sync_us is None
-            else _perf_counter_us() - self._timepoint_of_time_sync_us
-        )
 
     def get_read_timeout(self) -> Union[int, float]:
         """Mainly for use in unit tests."""
@@ -394,11 +382,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         return self._get_absolute_timer() + int(self.global_timer_offset_secs * MICRO_TO_BASE_CONVERSION)
 
     def _get_timestamp(self) -> int:
-        return (
-            self._get_absolute_timer()
-            if self._baseline_time_us is None
-            else (self._baseline_time_us + self._get_us_since_time_sync())
-        )
+        return self._get_absolute_timer()
 
     def _send_data_packet(
         self,
@@ -680,10 +664,6 @@ class MantarrayMcSimulator(InfiniteProcess):
         elif command == "set_status_code":
             status_code = test_comm["status_code"]
             self._status_code = status_code
-            baseline_time = test_comm.get("baseline_time", None)
-            if baseline_time is not None:
-                self._baseline_time_us = baseline_time
-                self._timepoint_of_time_sync_us = _perf_counter_us()
         elif command == "set_data_streaming_status":
             self._sampling_period_us = test_comm.get("sampling_period", DEFAULT_SAMPLING_PERIOD)
             self._is_streaming_data = test_comm["data_streaming_status"]

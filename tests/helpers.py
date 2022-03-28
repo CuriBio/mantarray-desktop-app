@@ -185,4 +185,4 @@ def assert_serial_packet_is_expected(
 
 
 def get_full_packet_size_from_payload_len(payload_len: int) -> int:
-    return SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES + payload_len  # type: ignore
+    return SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES + payload_len
