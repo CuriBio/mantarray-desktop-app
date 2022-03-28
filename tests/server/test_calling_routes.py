@@ -20,6 +20,7 @@ from mantarray_desktop_app import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
 from mantarray_desktop_app import STIM_MAX_PULSE_DURATION_MICROSECONDS
 from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
 import pytest
 
 from ..fixtures import fixture_generic_queue_container
@@ -233,7 +234,7 @@ def test_set_mantarray_nickname__returns_error_code_and_message_if_nickname_is_t
 
     response = test_client.get(f"/set_mantarray_nickname?nickname={test_nickname}")
     assert response.status_code == 400
-    assert response.status.endswith("Nickname exceeds 32 bytes") is True
+    assert response.status.endswith(f"Nickname exceeds {SERIAL_COMM_NICKNAME_BYTES_LENGTH} bytes") is True
 
 
 @pytest.mark.parametrize(
