@@ -14,6 +14,8 @@ Changed:
   - Removed ability to set magnetometer configuration.
   - Misc. other minor changes.
 
+- Instrument error handling procedure.
+
 
 0.8.1 (2022-03-18)
 ------------------
