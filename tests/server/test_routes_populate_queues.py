@@ -1305,6 +1305,29 @@ def test_start_calibration__populates_queue_to_process_monitor_with_correct_comm
     assert communication == test_comm_dict
 
 
+def test_start_stim_checks__populates_queue_to_process_monitor_with_correct_comm(
+    client_and_server_manager_and_shared_values,
+):
+    (
+        test_client,
+        (server_manager, _),
+        shared_values_dict,
+    ) = client_and_server_manager_and_shared_values
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = [False] * 24
+
+    expected_comm_dict = {"communication_type": "stimulation", "command": "start_stim_checks"}
+
+    response = test_client.get("/start_stim_checks")
+    assert response.status_code == 200
+
+    comm_queue = server_manager.get_queue_to_main()
+    confirm_queue_is_eventually_of_size(comm_queue, 1)
+    communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication == expected_comm_dict
+
+
 def test_latest_software_version__returns_ok_when_version_string_is_a_valid_semantic_version(
     client_and_server_manager_and_shared_values,
 ):

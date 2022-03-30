@@ -260,6 +260,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
             elif command == "set_protocols":
                 self._values_to_share_to_server["stimulation_info"] = communication["stim_info"]
                 self._put_communication_into_instrument_comm_queue(communication)
+            elif command == "start_stim_checks":
+                self._put_communication_into_instrument_comm_queue(communication)
             else:
                 # Tanner (8/9/21): could make this a custom error if needed
                 raise NotImplementedError(f"Unrecognized stimulation command from Server: {command}")

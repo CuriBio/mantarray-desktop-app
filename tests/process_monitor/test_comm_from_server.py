@@ -279,6 +279,28 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     assert main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_stop_recording_command
 
 
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__passes_start_stim_checks_command_to_mc_comm(
+    test_process_manager_creator, test_monitor, mocker
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
+
+    start_stim_checks_command = {"communication_type": "stimulation", "command": "start_stim_checks"}
+
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        start_stim_checks_command, server_to_main_queue
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    confirm_queue_is_eventually_empty(server_to_main_queue)
+
+    main_to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+    confirm_queue_is_eventually_of_size(main_to_ic_queue, 1)
+    assert main_to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == start_stim_checks_command
+
+
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_boot_up_by_calling_process_manager_bootup(
     test_process_manager_creator, test_monitor, mocker
 ):

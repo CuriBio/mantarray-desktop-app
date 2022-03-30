@@ -306,16 +306,31 @@ def start_calibration() -> Response:
     return response
 
 
+@flask_app.route("/start_stim_checks", methods=["GET"])
+def start_stim_checks() -> Response:
+    """Start the stimulator impedence checks on the Mantarray.
+
+    Can be invoked by:  curl http://localhost:4567/start_stim_checks
+    """
+    shared_values_dict = _get_values_from_process_monitor()
+    if not shared_values_dict["beta_2_mode"]:
+        return Response(status="403 Route cannot be called in beta 1 mode")
+    if shared_values_dict["system_status"] != CALIBRATED_STATE:
+        return Response(status="403 Route cannot be called unless in calibrated state")
+    if _is_stimulating_on_any_well():
+        return Response(status="403 Cannot perform stimulator checks while stimulation is running")
+
+    response = queue_command_to_main({"communication_type": "stimulation", "command": "start_stim_checks"})
+    return response
+
+
 @flask_app.route("/boot_up", methods=["GET"])
 def boot_up() -> Response:
     """Initialize XEM then run start up script.
 
     Can be invoked by: curl http://localhost:4567/boot_up
     """
-    comm_dict = {
-        "communication_type": "to_instrument",
-        "command": "boot_up",
-    }
+    comm_dict = {"communication_type": "to_instrument", "command": "boot_up"}
 
     response = queue_command_to_main(comm_dict)
 

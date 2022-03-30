@@ -285,6 +285,62 @@ def test_start_calibration__returns_error_code_and_message_if_called_in_beta_2_m
     assert response.status.endswith("Cannot calibrate while stimulation is running") is True
 
 
+def test_start_stim_checks__returns_error_code_and_message_if_called_in_beta_1_mode(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = False
+
+    response = test_client.get("/start_stim_checks")
+    assert response.status_code == 403
+    assert response.status.endswith("Route cannot be called in beta 1 mode") is True
+
+
+@pytest.mark.parametrize(
+    "test_system_status",
+    [
+        SERVER_INITIALIZING_STATE,
+        SERVER_READY_STATE,
+        INSTRUMENT_INITIALIZING_STATE,
+        CALIBRATION_NEEDED_STATE,
+        CALIBRATING_STATE,
+        CALIBRATED_STATE,
+        BUFFERING_STATE,
+        LIVE_VIEW_ACTIVE_STATE,
+        RECORDING_STATE,
+    ],
+)
+def test_start_stim_checks__returns_correct_response(
+    test_system_status,
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = test_system_status
+    shared_values_dict["stimulation_running"] = [False] * 24
+
+    expected_status_code = 200 if test_system_status in (CALIBRATED_STATE) else 403
+
+    response = test_client.get("/start_stim_checks")
+    assert response.status_code == expected_status_code
+    if expected_status_code == 403:
+        assert response.status.endswith("Route cannot be called unless in calibrated state") is True
+
+
+def test_start_stim_checks__returns_error_code_and_message_if_called_while_stimulating(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = [False] * 24
+    shared_values_dict["stimulation_running"][0] = True  # arbitrary well
+
+    response = test_client.get("/start_stim_checks")
+    assert response.status_code == 403
+    assert response.status.endswith("Cannot perform stimulator checks while stimulation is running") is True
+
+
 def test_dev_begin_hardware_script__returns_correct_response(test_client):
     response = test_client.get("/development/begin_hardware_script?script_type=ENUM&version=integer")
     assert response.status_code == 200
